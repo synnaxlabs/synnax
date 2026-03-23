@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -212,7 +213,7 @@ func (p *Plugin) generateFile(
 		repoRoot:              req.RepoRoot,
 		table:                 req.Resolutions,
 		usedEnums:             make(map[string]*resolution.Type),
-		generatedAnyHelpers:   make(map[string]bool),
+		generatedAnyHelpers:   make(set.Set[string]),
 	}
 
 	parentImportPath, err := resolveGoImportPath(parentGoPath, req.RepoRoot)
@@ -1120,10 +1121,10 @@ func (p *Plugin) generateGenericStructConversion(
 
 func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	key := s.QualifiedName
-	if data.generatedAnyHelpers[key] {
+	if data.generatedAnyHelpers.Contains(key) {
 		return
 	}
-	data.generatedAnyHelpers[key] = true
+	data.generatedAnyHelpers.Add(key)
 
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
@@ -1584,7 +1585,7 @@ type templateData struct {
 	usedEnums             map[string]*resolution.Type
 	table                 *resolution.Table
 	imports               *imports.Manager
-	generatedAnyHelpers   map[string]bool
+	generatedAnyHelpers   set.Set[string]
 	ParentGoPath          string
 	Package               string
 	OutputPath            string

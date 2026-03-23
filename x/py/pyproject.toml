@@ -3,7 +3,7 @@ name = "x"
 version = "0.0.0"
 description = "Shared Python utilities for the Synnax monorepo"
 requires-python = ">=3.9,<4"
-dependencies = ["pydantic>=2.12.5"]
+dependencies = []
 classifiers = ["Private :: Do Not Upload"]
 
 [dependency-groups]

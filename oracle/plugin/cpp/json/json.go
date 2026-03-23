@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 var primitiveMapper = cppprimitives.Mapper()
@@ -78,12 +79,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	allPaths := make(map[string]bool)
+	allPaths := make(set.Set[string])
 	for _, path := range structCollector.Paths() {
-		allPaths[path] = true
+		allPaths.Add(path)
 	}
 	for _, path := range distinctCollector.Paths() {
-		allPaths[path] = true
+		allPaths.Add(path)
 	}
 
 	for outputPath := range allPaths {

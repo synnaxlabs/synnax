@@ -124,7 +124,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`class User(BaseModel):`,
 						`key: UUID`,
 						`name: str`,
-						`age: Int32`,
+						`age: int = Field(ge=-2147483648, le=2147483647)`,
 						`active: bool`,
 					)
 			})
@@ -185,7 +185,7 @@ var _ = Describe("Python Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from pydantic import BaseModel, Field`))
 			Expect(content).To(ContainSubstring(`name: str = Field(min_length=1, max_length=255)`))
-			Expect(content).To(ContainSubstring(`age: Int32 = Field(ge=0, le=150)`))
+			Expect(content).To(ContainSubstring(`age: int = Field(ge=0, le=150)`))
 		})
 
 		It("Should generate IntEnum for integer enums", func() {
@@ -299,14 +299,14 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uuid", "uuid", "UUID"),
 				Entry("string", "string", "str"),
 				Entry("bool", "bool", "bool"),
-				Entry("int8", "int8", "Int8"),
-				Entry("int16", "int16", "Int16"),
-				Entry("int32", "int32", "Int32"),
-				Entry("int64", "int64", "Int64"),
-				Entry("uint8", "uint8", "Uint8"),
-				Entry("uint16", "uint16", "Uint16"),
-				Entry("uint32", "uint32", "Uint32"),
-				Entry("uint64", "uint64", "Uint64"),
+				Entry("int8", "int8", "int = Field(ge=-128, le=127)"),
+				Entry("int16", "int16", "int = Field(ge=-32768, le=32767)"),
+				Entry("int32", "int32", "int = Field(ge=-2147483648, le=2147483647)"),
+				Entry("int64", "int64", "int = Field(ge=-9223372036854775808, le=9223372036854775807)"),
+				Entry("uint8", "uint8", "int = Field(ge=0, le=255)"),
+				Entry("uint16", "uint16", "int = Field(ge=0, le=65535)"),
+				Entry("uint32", "uint32", "int = Field(ge=0, le=4294967295)"),
+				Entry("uint64", "uint64", "int = Field(ge=0, le=18446744073709551615)"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
 				Entry("record", "record", "dict[str, Any]"),
@@ -446,7 +446,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
-			Expect(content).To(ContainSubstring(`retries: Int32 = Field(default=3)`))
+			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
 		})
 
 		It("Should wrap int defaults in distinct type constructor", func() {
@@ -461,7 +461,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`timeout: Duration = Field(default=Duration(0))`))
+			Expect(content).To(ContainSubstring(`timeout: Duration = Field(default=Duration(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
 		It("Should wrap int defaults in cross-namespace distinct type constructor", func() {
@@ -483,7 +483,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0))`))
+			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
 		It("Should generate class inheritance for basic struct extension", func() {
@@ -513,7 +513,7 @@ var _ = Describe("Python Types Plugin", func() {
 			// Parent should be a regular class
 			Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
 			Expect(content).To(ContainSubstring(`name: str`))
-			Expect(content).To(ContainSubstring(`age: Int32`))
+			Expect(content).To(ContainSubstring(`age: int = Field(ge=-2147483648, le=2147483647)`))
 
 			// Child should inherit from Parent
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
@@ -548,7 +548,7 @@ var _ = Describe("Python Types Plugin", func() {
 			// a required parent field as optional
 			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
 			Expect(content).To(ContainSubstring(`name: str | None = None`))
-			Expect(content).To(ContainSubstring(`age: Int32`))
+			Expect(content).To(ContainSubstring(`age: int = Field(ge=-2147483648, le=2147483647)`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
 		It("Should inline all parent fields when multiple fields are overridden as optional", func() {
@@ -575,7 +575,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
 			Expect(content).To(ContainSubstring(`key: UUID | None = None`))
 			Expect(content).To(ContainSubstring(`name: str`))
-			Expect(content).To(ContainSubstring(`leaseholder: Uint12 | None = None`))
+			Expect(content).To(ContainSubstring(`leaseholder: int | None = Field(default=None, ge=0, le=4095)`))
 			Expect(content).To(ContainSubstring(`is_index: bool | None = None`))
 			Expect(content).To(ContainSubstring(`extra: str`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
@@ -931,7 +931,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`T = TypeVar("T")`,
 						`class Response(BaseModel, Generic[T]):`,
 						`data: T`,
-						`status: Int32`,
+						`status: int = Field(ge=-2147483648, le=2147483647)`,
 					)
 			})
 
@@ -1320,6 +1320,26 @@ ChannelStatus = status.Status<nil>
 						`T = TypeVar("T", bound=Base)`,
 						`class Collection(BaseModel, Generic[T]):`,
 					)
+			})
+		})
+
+		Context("constrained type param with comparable", func() {
+			It("Should not emit a bound and should not import Any", func() {
+				source := `
+					@py output "out"
+
+					State struct<R extends comparable> {
+						resource R
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`R = TypeVar("R")`,
+						`class State(BaseModel, Generic[R]):`,
+					).
+					ToNotContain(`Any`)
 			})
 		})
 

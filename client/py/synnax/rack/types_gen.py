@@ -14,12 +14,11 @@ from __future__ import annotations
 from typing import TypeAlias
 
 from pydantic import BaseModel, Field
-from x.types import Uint32
 
 from synnax import status as status_
 from synnax.ontology.payload import ID
 
-Key: TypeAlias = Uint32
+Key: TypeAlias = int
 
 
 class StatusDetails(BaseModel):
@@ -29,7 +28,7 @@ class StatusDetails(BaseModel):
         rack: Is the key of the rack this status pertains to.
     """
 
-    rack: Key
+    rack: Key = Field(ge=0, le=4294967295)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -48,9 +47,9 @@ class Base(BaseModel):
         status: Is the current operational status of the rack.
     """
 
-    key: Key
+    key: Key = Field(ge=0, le=4294967295)
     name: str
-    task_counter: Uint32 | None = None
+    task_counter: int | None = Field(default=None, ge=0, le=4294967295)
     embedded: bool | None = None
     status: Status | None = None
 
@@ -65,8 +64,8 @@ class Rack(Base):
         key: Is an optional key for the rack. If 0, one will be automatically assigned.
     """
 
-    key: Uint32 = Field(default=0)
-    task_counter: Uint32 | None = Field(default=None, exclude=True)
+    key: int = Field(default=0, ge=0, le=4294967295)
+    task_counter: int | None = Field(default=None, exclude=True)
     embedded: bool | None = Field(default=None, exclude=True)
 
 

@@ -1658,7 +1658,6 @@ dependencies = [
     { name = "rich" },
     { name = "synnax-freighter" },
     { name = "urllib3" },
-    { name = "x" },
 ]
 
 [package.dev-dependencies]
@@ -1689,7 +1688,6 @@ requires-dist = [
     { name = "rich", specifier = ">=14.3.3,<15" },
     { name = "synnax-freighter", editable = "freighter/py" },
     { name = "urllib3", specifier = ">=2.6.3,<3" },
-    { name = "x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]
@@ -1968,9 +1966,6 @@ wheels = [
 name = "x"
 version = "0.0.0"
 source = { editable = "x/py" }
-dependencies = [
-    { name = "pydantic" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -1980,7 +1975,6 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.12.5" }]
 
 [package.metadata.requires-dev]
 dev = [

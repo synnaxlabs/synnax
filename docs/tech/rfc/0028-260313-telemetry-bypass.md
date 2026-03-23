@@ -1463,9 +1463,9 @@ abort's higher authority at the Core's control gate takes precedence.
 
 ### 8.1.4 - Correctness Properties
 
-**Authority=255 (abort) is guaranteed correct locally.** No gate can outrank it.
-`apply_increase` computes `255 > anything` which is always true. The mirror is correct
-before the next frame.
+**Authority=255 (abort) is guaranteed correct locally.** No gate can outrank it, unless
+another gate already exists holding authority 255. `apply_increase` computes
+`255 > anything` which is always true. The mirror is correct before the next frame.
 
 **Idempotent with relay.** When the Core's relay update arrives 1-5 ms later, `apply()`
 overwrites with the same state. No conflict because the relay carries the authoritative
@@ -1521,14 +1521,3 @@ handles the critical abort scenario with the same correctness guarantee. The syn
 approach would additionally help with authority decreases (the Driver would learn
 immediately who takes over), but this is not required for the safety-critical abort use
 case where the abort always increases authority.
-
-# 9 - Future Extensions
-
-## 9.0 - Existing Ideas
-
-- **Bus-level telemetry**: Instrument the bus to report routing statistics (local vs
-  Core frame counts, latency distribution) for observability.
-- **Priority routing**: Allow subscribers to declare priority levels, enabling the bus
-  to prefer certain consumers when multiple subscribers exist for the same key.
-- **Cross-Driver bus**: Extend the bus to route frames between Drivers on the same
-  machine via shared memory, avoiding the Core even for multi-Driver deployments.

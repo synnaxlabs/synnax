@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Plugin struct{ Options Options }
@@ -774,10 +775,10 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
-	optionalTypeParams := make(map[string]bool)
+	optionalTypeParams := make(set.Set[string])
 	for _, tp := range form.TypeParams {
 		if tp.Optional {
-			optionalTypeParams[tp.Name] = true
+			optionalTypeParams.Add(tp.Name)
 		}
 	}
 
@@ -787,7 +788,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 
 		if sd.ConcreteTypes && field.Type.IsTypeParam() &&
 			field.Type.TypeParam != nil &&
-			optionalTypeParams[field.Type.TypeParam.Name] {
+			optionalTypeParams.Contains(field.Type.TypeParam.Name) {
 			tp := field.Type.TypeParam
 			effectiveRef := tp.Constraint
 			if effectiveRef == nil && tp.Default != nil && !tp.Optional {
@@ -1889,14 +1890,14 @@ func primitiveZeroValue(primitive string) string {
 }
 
 type importSpec struct {
-	Names map[string]bool
+	Names set.Set[string]
 }
 
 func (d *templateData) addNamedImport(path, name string) {
 	if d.Imports[path] == nil {
-		d.Imports[path] = &importSpec{Names: make(map[string]bool)}
+		d.Imports[path] = &importSpec{Names: make(set.Set[string])}
 	}
-	d.Imports[path].Names[name] = true
+	d.Imports[path].Names.Add(name)
 }
 
 func (d *templateData) filterImports(filter func(string) bool) []namedImportData {

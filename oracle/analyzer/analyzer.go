@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 type analysisCtx struct {
@@ -870,25 +871,25 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		}
 	}
 
-	if hasCircularInheritance(typ, c.table, make(map[string]bool)) {
+	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 		d := diagnostics.Errorf(nil, "circular inheritance detected: struct %s", typ.Name)
 		d.File = c.filePath
 		c.diag.Add(d)
 		return
 	}
 
-	allParentFields := make(map[string]bool)
+	allParentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(c.table)
 		if !ok {
 			continue
 		}
 		for _, f := range resolution.UnifiedFields(parent, c.table) {
-			allParentFields[f.Name] = true
+			allParentFields.Add(f.Name)
 		}
 	}
 	for _, omitted := range form.OmittedFields {
-		if !allParentFields[omitted] {
+		if !allParentFields.Contains(omitted) {
 			d := diagnostics.Errorf(nil,
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
@@ -898,15 +899,15 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-func hasCircularInheritance(typ resolution.Type, table *resolution.Table, visited map[string]bool) bool {
-	if visited[typ.QualifiedName] {
+func hasCircularInheritance(typ resolution.Type, table *resolution.Table, visited set.Set[string]) bool {
+	if visited.Contains(typ.QualifiedName) {
 		return true
 	}
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok || len(form.Extends) == 0 {
 		return false
 	}
-	visited[typ.QualifiedName] = true
+	visited.Add(typ.QualifiedName)
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(table)
 		if !ok {

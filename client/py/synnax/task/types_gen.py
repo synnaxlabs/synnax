@@ -13,13 +13,12 @@ from __future__ import annotations
 
 from typing import Any, Generic, TypeAlias, TypeVar
 
-from pydantic import BaseModel
-from x.types import Uint64
+from pydantic import BaseModel, Field
 
 from synnax import status as status_
 from synnax.ontology.payload import ID
 
-Key: TypeAlias = Uint64
+Key: TypeAlias = int
 
 
 class StatusDetails(BaseModel):
@@ -32,7 +31,7 @@ class StatusDetails(BaseModel):
         data: Contains task-specific status data.
     """
 
-    task: Key
+    task: Key = Field(ge=0, le=18446744073709551615)
     running: bool
     cmd: str | None = None
     data: dict[str, Any] | None = None
@@ -48,7 +47,7 @@ class Command(BaseModel):
         args: Contains optional arguments for the command.
     """
 
-    task: Key
+    task: Key = Field(ge=0, le=18446744073709551615)
     type: str
     key: str
     args: dict[str, Any] | None = None
@@ -74,7 +73,7 @@ class Payload(BaseModel):
         status: Is the current execution status of the task.
     """
 
-    key: Key
+    key: Key = Field(ge=0, le=18446744073709551615)
     name: str
     type: str
     config: dict[str, Any]

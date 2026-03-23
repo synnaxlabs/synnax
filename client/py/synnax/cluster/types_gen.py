@@ -13,6 +13,4 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
-from x.types import Uint12
-
-NodeKey: TypeAlias = Uint12
+NodeKey: TypeAlias = int

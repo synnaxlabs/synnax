@@ -12,12 +12,11 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Generic, TypeAlias, TypeVar
+from typing import Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-from x.types import Uint8, Uint32
 
-Authority: TypeAlias = Uint8
+Authority: TypeAlias = int
 
 
 class Concurrency(IntEnum):
@@ -41,7 +40,7 @@ class Subject(BaseModel):
 
     key: str
     name: str
-    group: Uint32 | None = None
+    group: int | None = Field(default=None, ge=0, le=4294967295)
 
 
 class State(BaseModel, Generic[R]):
@@ -56,7 +55,7 @@ class State(BaseModel, Generic[R]):
 
     subject: Subject
     resource: R
-    authority: Authority
+    authority: Authority = Field(ge=0, le=255)
 
 
 class Transfer(BaseModel, Generic[R]):
