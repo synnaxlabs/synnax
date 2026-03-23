@@ -12,6 +12,7 @@ package arc
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ gorp.Entry[uuid.UUID] = Arc{}
@@ -21,3 +22,25 @@ func (s Arc) GorpKey() uuid.UUID { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Arc) SetOptions() []any { return nil }
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
+// Go field name "Running" and new lowercase msgpack tag "running" for backward
+// compatibility.
+func (s *StatusDetails) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias StatusDetails
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(s)); err != nil {
+		return err
+	}
+	if !s.Running {
+		var legacy struct{ Running bool }
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		s.Running = legacy.Running
+	}
+	return nil
+}
