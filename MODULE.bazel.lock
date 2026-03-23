@@ -450,7 +450,7 @@
   "moduleExtensions": {
     "//vendor:esi.bzl%esi": {
       "general": {
-        "bzlTransitiveDigest": "FfgDBOmx73+X/4Nw4Ov46XdwzJKOvU+DNDg+Klvc/yo=",
+        "bzlTransitiveDigest": "+g+7ksVQvUEEQkWh+SWRP3yF9nfxyzDdFufj+IH1pTc=",
         "usagesDigest": "Rrwlqro+M2faiRxeeoz7paIoyyQhHAuwmZDVUQt1cdg=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"
