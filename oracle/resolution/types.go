@@ -23,7 +23,7 @@ const (
 )
 
 // Primitives is the set of built-in primitive type names recognized by Oracle.
-var Primitives = set.New[string](
+var Primitives = set.New(
 	"uuid", "string", "bool",
 	"int8", "int16", "int32", "int64",
 	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
@@ -35,10 +35,10 @@ var Primitives = set.New[string](
 func IsPrimitive(name string) bool { return Primitives.Contains(name) }
 
 // StringPrimitives identifies primitives that map to string-like types.
-var StringPrimitives = set.New[string]("string", "uuid")
+var StringPrimitives = set.New("string", "uuid")
 
 // NumberPrimitives identifies primitives that map to number types.
-var NumberPrimitives = set.New[string](
+var NumberPrimitives = set.New(
 	"int8", "int16", "int32", "int64",
 	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
 	"float32", "float64",
@@ -46,7 +46,7 @@ var NumberPrimitives = set.New[string](
 
 // Constraints is the set of built-in constraint-only type names recognized by Oracle.
 // These are valid as type parameter constraints but cannot be used as field types.
-var Constraints = set.New[string]("comparable")
+var Constraints = set.New("comparable")
 
 // IsConstraint returns true if the name is a built-in constraint-only type.
 func IsConstraint(name string) bool { return Constraints.Contains(name) }

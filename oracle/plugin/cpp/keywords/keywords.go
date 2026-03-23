@@ -12,7 +12,7 @@ package keywords
 import "github.com/synnaxlabs/x/set"
 
 // Reserved contains all C++ reserved keywords.
-var Reserved = set.New[string](
+var Reserved = set.New(
 	"alignas", "alignof", "and", "and_eq", "asm",
 	"auto", "bitand", "bitor", "bool", "break",
 	"case", "catch", "char", "char16_t", "char32_t",
