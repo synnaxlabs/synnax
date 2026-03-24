@@ -156,7 +156,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
-		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
+		RelationshipObserver: relationshipTable.Observe(),
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
 		resourceTable:        resourceTable,
 		relationshipTable:    relationshipTable,
@@ -344,5 +344,5 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return errors.Combine(o.resourceTable.Close(), o.relationshipTable.Close())
+	return errors.Join(o.resourceTable.Close(), o.relationshipTable.Close())
 }

@@ -155,7 +155,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
+			signals.GorpPublisherConfigNumeric[Key, Rack](s.table.Observe(), telem.Uint32T),
 		); err != nil {
 			return nil, err
 		}

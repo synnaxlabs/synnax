@@ -14,6 +14,7 @@ import (
 	"io"
 	"iter"
 
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/types"
@@ -22,16 +23,19 @@ import (
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
 	DB    *DB
-	Codec Codec[E]
+	Codec binary.Codec
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 // It holds an optional Codec for custom encoding/decoding and provides methods for
 // creating query builders that are automatically configured with the codec.
 type Table[K Key, E Entry[K]] struct {
-	codec Codec[E]
+	codec binary.Codec
 	DB    *DB
 }
+
+// Codec returns the table's custom codec, or nil if the table uses the default DB codec.
+func (t *Table[K, E]) Codec() binary.Codec { return t.codec }
 
 func (t *Table[K, E]) Close() error {
 	return nil
@@ -43,7 +47,7 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (*Table[K, E], error) {
-	if err := migrateKeys(ctx, cfg.DB, cfg.Codec); err != nil {
+	if err := migrateKeys[K, E](ctx, cfg.DB, cfg.Codec); err != nil {
 		return nil, err
 	}
 	return &Table[K, E]{codec: cfg.Codec, DB: cfg.DB}, nil
@@ -72,22 +76,22 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // OpenNexter opens a new Nexter over entries in the table using the table's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader(t.DB, t.codec).OpenNexter(ctx)
+	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
 }
 
-func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec Codec[E]) error {
+func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec binary.Codec) error {
 	return db.WithTx(ctx, func(tx Tx) error {
-		if err := migrateOldPrefixKeys(ctx, tx, codec); err != nil {
+		if err := migrateOldPrefixKeys[K, E](ctx, tx, codec); err != nil {
 			return err
 		}
-		return reEncodeKeys(ctx, tx, codec)
+		return reEncodeKeys[K, E](ctx, tx, codec)
 	})
 }
 
 // migrateOldPrefixKeys finds entries stored under the old codec-based prefix
 // (e.g. msgpack-encoded type name) and re-writes them under the new prefix
 // format (__gorp__//TypeName).
-func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec Codec[E]) (err error) {
+func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Codec) (err error) {
 	oldPrefix, err := tx.Encode(ctx, types.Name[E]())
 	if err != nil {
 		return err
@@ -103,11 +107,11 @@ func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec C
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
-	writer := wrapWriter(tx, codec)
+	writer := wrapWriter[K, E](tx, codec)
 	for iter.First(); iter.Valid(); iter.Next() {
 		var entry E
 		if codec != nil {
-			entry, err = codec.Unmarshal(ctx, iter.Value())
+			err = codec.Decode(ctx, iter.Value(), &entry)
 		} else {
 			err = tx.Decode(ctx, iter.Value(), &entry)
 		}
@@ -127,8 +131,8 @@ func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec C
 // reEncodeKeys iterates entries already stored under the current prefix and
 // re-writes them, ensuring the key portion uses the current primitive encoding.
 // This is a no-op when the key encoding hasn't changed.
-func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec Codec[E]) error {
-	reader := wrapReader(tx, codec)
+func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Codec) error {
+	reader := wrapReader[K, E](tx, codec)
 	iter, err := reader.OpenIterator(IterOptions{})
 	if err != nil {
 		return err
@@ -136,7 +140,7 @@ func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec Codec[E])
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
-	writer := wrapWriter(tx, codec)
+	writer := wrapWriter[K, E](tx, codec)
 	for iter.First(); iter.Valid(); iter.Next() {
 		if err = writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
 			return err

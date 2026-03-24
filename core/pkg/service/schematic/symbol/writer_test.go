@@ -129,7 +129,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
 
 			var res symbol.Symbol
-			Expect(gorp.NewRetrieve[uuid.UUID, symbol.Symbol]().
+			Expect(gorp.NewRetrieve[uuid.UUID, symbol.Symbol](nil).
 				WhereKeys(sym.Key).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())

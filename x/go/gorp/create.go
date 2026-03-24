@@ -12,6 +12,7 @@ package gorp
 import (
 	"context"
 
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -20,12 +21,13 @@ import (
 type Create[K Key, E Entry[K]] struct {
 	entries  *Entries[K, E]
 	onUpdate onUpdate[K, E]
-	codec    Codec[E]
+	codec    binary.Codec
 }
 
-// NewCreate opens a new Create query.
-func NewCreate[K Key, E Entry[K]]() Create[K, E] {
-	return Create[K, E]{entries: new(Entries[K, E])}
+// NewCreate opens a new Create query. If codec is non-nil, it overrides the
+// default DB codec for encoding entries.
+func NewCreate[K Key, E Entry[K]](codec binary.Codec) Create[K, E] {
+	return Create[K, E]{entries: new(Entries[K, E]), codec: codec}
 }
 
 // MergeExisting adds a function to the query that can be used to prevent the accidental
@@ -55,11 +57,11 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	w := wrapWriter(tx, c.codec)
+	w := wrapWriter[K, E](tx, c.codec)
 	if len(c.onUpdate) == 0 {
 		return w.Set(ctx, c.entries.All()...)
 	}
-	r := wrapReader(tx, c.codec)
+	r := wrapReader[K, E](tx, c.codec)
 	all := c.entries.All()
 	toWrite := make([]E, 0, len(all))
 	for _, entry := range all {

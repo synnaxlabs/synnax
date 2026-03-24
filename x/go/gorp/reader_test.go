@@ -29,7 +29,7 @@ var _ = Describe("Reader", func() {
 	})
 	Describe("Iterator", func() {
 		It("Should iterate over entries matching a type", func() {
-			Expect(gorp.NewCreate[int32, entry]().
+			Expect(gorp.NewCreate[int32, entry](nil).
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
 			iter := MustSucceed(gorp.WrapReader[int32, entry](tx).OpenIterator(gorp.IterOptions{}))
@@ -43,7 +43,7 @@ var _ = Describe("Reader", func() {
 	})
 	Describe("Nexter", func() {
 		It("Should iterate over entries matching a type", func() {
-			Expect(gorp.NewCreate[int32, entry]().
+			Expect(gorp.NewCreate[int32, entry](nil).
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
 			nexter, closer := MustSucceed2(gorp.WrapReader[int32, entry](tx).OpenNexter(ctx))
@@ -53,7 +53,7 @@ var _ = Describe("Reader", func() {
 			Expect(closer.Close()).To(Succeed())
 		})
 		It("Should correctly iterate over entries with a binary key", func() {
-			Expect(gorp.NewCreate[[]byte, prefixEntry]().
+			Expect(gorp.NewCreate[[]byte, prefixEntry](nil).
 				Entries(&[]prefixEntry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
 			nexter, closer := MustSucceed2(gorp.WrapReader[[]byte, prefixEntry](tx).OpenNexter(ctx))

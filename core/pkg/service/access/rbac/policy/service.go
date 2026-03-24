@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[Policy](cfg.DB),
+			signals.GorpPublisherConfigUUID[Policy](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}

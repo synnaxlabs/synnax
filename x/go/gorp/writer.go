@@ -11,6 +11,8 @@ package gorp
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/x/binary"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
@@ -18,7 +20,7 @@ import (
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
 	keyCodec *keyCodec[K, E]
-	codec    Codec[E]
+	codec    binary.Codec
 }
 
 // WrapWriter wraps the given key-value writer to provide a strongly
@@ -27,7 +29,7 @@ func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
 	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
 }
 
-func wrapWriter[K Key, E Entry[K]](base BaseWriter, codec Codec[E]) *Writer[K, E] {
+func wrapWriter[K Key, E Entry[K]](base BaseWriter, codec binary.Codec) *Writer[K, E] {
 	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
@@ -57,9 +59,9 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		err  error
 	)
 	if w.codec != nil {
-		data, err = w.codec.Marshal(ctx, entry)
+		data, err = w.codec.Encode(ctx, entry)
 	} else {
-		data, err = w.Encode(ctx, entry)
+		data, err = w.BaseWriter.Encode(ctx, entry)
 	}
 	if err != nil {
 		return err

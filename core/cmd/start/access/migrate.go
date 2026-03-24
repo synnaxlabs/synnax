@@ -82,7 +82,7 @@ func MigratePermissions(
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, legacyPolicyTable.Close()) }()
+	defer func() { err = errors.Combine(err, legacyPolicyTable.Close()) }()
 
 	// Query all users
 	var users []user.User

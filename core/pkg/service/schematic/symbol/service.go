@@ -97,7 +97,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](cfg.DB)
+		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"
 		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)

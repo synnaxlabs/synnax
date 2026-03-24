@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -121,6 +122,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *Service) Group() group.Group { return s.group }
+
+// Observe returns an observable that notifies callers of changes to channel entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.table.Observe()
+}
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{

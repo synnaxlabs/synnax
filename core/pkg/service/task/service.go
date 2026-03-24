@@ -99,6 +99,11 @@ type Service struct {
 	commandChannelKey             channel.Key
 }
 
+// Observe returns an observable that notifies callers of changes to task entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
+	return s.table.Observe()
+}
+
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
@@ -141,7 +146,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
+		signals.GorpPublisherConfigPureNumeric[Key, Task](s.table.Observe(), telem.Uint64T),
 	); err != nil {
 		return nil, err
 	}

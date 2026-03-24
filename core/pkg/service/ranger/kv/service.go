@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Pair](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[Pair](s.table.Observe())
 	signalsCfg.SetName = "sy_range_kv_set"
 	signalsCfg.DeleteName = "sy_range_kv_delete"
 	kvSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)

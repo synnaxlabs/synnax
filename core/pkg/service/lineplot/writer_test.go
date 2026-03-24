@@ -34,7 +34,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
 			var res lineplot.LinePlot
-			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot](nil).WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
@@ -44,7 +44,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res lineplot.LinePlot
-			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot](nil).WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})

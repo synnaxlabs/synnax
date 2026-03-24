@@ -29,7 +29,7 @@ import (
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
-	codec    Codec[E]
+	codec    binary.Codec
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
@@ -48,7 +48,7 @@ func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
 }
 
-func wrapReader[K Key, E Entry[K]](base BaseReader, codec Codec[E]) *Reader[K, E] {
+func wrapReader[K Key, E Entry[K]](base BaseReader, codec binary.Codec) *Reader[K, E] {
 	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
@@ -61,9 +61,9 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 		return e, err
 	}
 	if r.codec != nil {
-		e, err = r.codec.Unmarshal(ctx, b)
+		err = r.codec.Decode(ctx, b, &e)
 	} else {
-		err = r.Decode(ctx, b, &e)
+		err = r.BaseReader.Decode(ctx, b, &e)
 	}
 	return e, errors.Combine(err, closer.Close())
 }
@@ -108,7 +108,7 @@ type IterOptions struct {
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
-	return wrapIterator(base, r, r.codec), err
+	return wrapIterator[E](base, r, r.codec), err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over
@@ -133,34 +133,27 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 // the underlying iterator. To create a new Iterator, call OpenIterator.
 type Iterator[E any] struct {
 	kv.Iterator
-	err       error
-	value     *E
-	decoder   binary.Decoder
-	unmarshal func(context.Context, []byte) (E, error)
+	err     error
+	value   *E
+	decoder binary.Decoder
+	codec   binary.Codec
 }
 
-func wrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder, codec Codec[E]) *Iterator[E] {
-	iter := &Iterator[E]{Iterator: wrapped, decoder: decoder}
-	if codec != nil {
-		iter.unmarshal = codec.Unmarshal
-	}
-	return iter
+func wrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder, codec binary.Codec) *Iterator[E] {
+	return &Iterator[E]{Iterator: wrapped, decoder: decoder, codec: codec}
 }
 
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
 // for calls to return a valid value.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	k.value = new(E)
-	if k.unmarshal != nil {
-		v, err := k.unmarshal(ctx, k.Iterator.Value())
-		if err != nil {
-			k.err = err
-			return nil
-		}
-		*k.value = v
-		return k.value
+	var err error
+	if k.codec != nil {
+		err = k.codec.Decode(ctx, k.Iterator.Value(), k.value)
+	} else {
+		err = k.decoder.Decode(ctx, k.Iterator.Value(), k.value)
 	}
-	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
+	if err != nil {
 		k.err = err
 		return nil
 	}

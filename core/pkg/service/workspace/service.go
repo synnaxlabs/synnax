@@ -83,7 +83,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Workspace](cfg.DB),
+		signals.GorpPublisherConfigUUID[Workspace](s.table.Observe()),
 	); err != nil {
 		return nil, err
 	}

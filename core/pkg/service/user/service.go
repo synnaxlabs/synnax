@@ -88,7 +88,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		cdcS, err := signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[User](cfg.DB),
+			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
 		)
 		s.shutdownSignals = cdcS
 		if err != nil {

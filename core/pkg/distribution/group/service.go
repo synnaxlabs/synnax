@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -80,6 +81,11 @@ func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent
 		return w.Create(ctx, groupName, parent)
 	}
 	return w.CreateWithKey(ctx, g.Key, groupName, parent)
+}
+
+// Observe returns an observable that notifies callers of changes to group entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[uuid.UUID, Group]] {
+	return s.table.Observe()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

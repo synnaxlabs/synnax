@@ -113,7 +113,7 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 func (s *Service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return gorp.Observe[Key, Channel](s.db)
+	return s.table.Observe()
 }
 
 // OpenNexter implements ontology.Service.
