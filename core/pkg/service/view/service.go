@@ -83,7 +83,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
 		return nil, err
 	}
-	s.table, err = gorp.OpenTable[uuid.UUID, View](ctx, gorp.TableConfig[View]{DB: s.cfg.DB})
+	s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{DB: s.cfg.DB})
 	if err != nil {
 		return nil, err
 	}

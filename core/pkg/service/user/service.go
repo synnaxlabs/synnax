@@ -77,7 +77,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{DB: cfg.DB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[User]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}

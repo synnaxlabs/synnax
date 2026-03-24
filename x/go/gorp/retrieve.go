@@ -168,7 +168,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		return len(r.entries.All()), nil
 	}
 
-	iter, err := wrapReader[K, E](tx, r.codec).OpenIterator(IterOptions{
+	iter, err := wrapReader(tx, r.codec).OpenIterator(IterOptions{
 		prefix: r.prefix,
 	})
 	if err != nil {
@@ -236,7 +236,7 @@ func newFilter[K Key, E Entry[K]](
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
-		reader             = wrapReader[K, E](tx, r.codec)
+		reader             = wrapReader(tx, r.codec)
 		keysResult, getErr = reader.GetMany(ctx, *r.keys)
 		toReplace          = make([]E, 0, len(keysResult))
 		validCount         int
@@ -270,7 +270,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		validCount int
 		match      bool
 	)
-	iter, err := wrapReader[K, E](tx, r.codec).OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := wrapReader(tx, r.codec).OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
 	}

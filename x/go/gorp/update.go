@@ -56,7 +56,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return wrapWriter[K, E](tx, u.codec).Set(ctx, entries...)
+	return wrapWriter(tx, u.codec).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

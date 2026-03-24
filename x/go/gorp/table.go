@@ -43,7 +43,7 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (*Table[K, E], error) {
-	if err := migrateKeys[K, E](ctx, cfg.DB, cfg.Codec); err != nil {
+	if err := migrateKeys(ctx, cfg.DB, cfg.Codec); err != nil {
 		return nil, err
 	}
 	return &Table[K, E]{codec: cfg.Codec, DB: cfg.DB}, nil
@@ -69,18 +69,18 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	return Delete[K, E]{retrieve: t.NewRetrieve(), codec: t.codec}
 }
 
-// OpenNexter opens a new Nexter over entries in the table using the table's codec
-// for decoding.
+// OpenNexter opens a new Nexter over entries in the table using the table's codec for
+// decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
+	return wrapReader(t.DB, t.codec).OpenNexter(ctx)
 }
 
 func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec Codec[E]) error {
 	return db.WithTx(ctx, func(tx Tx) error {
-		if err := migrateOldPrefixKeys[K, E](ctx, tx, codec); err != nil {
+		if err := migrateOldPrefixKeys(ctx, tx, codec); err != nil {
 			return err
 		}
-		return reEncodeKeys[K, E](ctx, tx, codec)
+		return reEncodeKeys(ctx, tx, codec)
 	})
 }
 
@@ -103,7 +103,7 @@ func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec C
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
-	writer := wrapWriter[K, E](tx, codec)
+	writer := wrapWriter(tx, codec)
 	for iter.First(); iter.Valid(); iter.Next() {
 		var entry E
 		if codec != nil {
@@ -128,7 +128,7 @@ func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec C
 // re-writes them, ensuring the key portion uses the current primitive encoding.
 // This is a no-op when the key encoding hasn't changed.
 func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec Codec[E]) error {
-	reader := wrapReader[K, E](tx, codec)
+	reader := wrapReader(tx, codec)
 	iter, err := reader.OpenIterator(IterOptions{})
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec Codec[E])
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
-	writer := wrapWriter[K, E](tx, codec)
+	writer := wrapWriter(tx, codec)
 	for iter.First(); iter.Valid(); iter.Next() {
 		if err = writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
 			return err

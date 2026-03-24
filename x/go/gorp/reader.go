@@ -108,7 +108,7 @@ type IterOptions struct {
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
-	return wrapIterator[E](base, r, r.codec), err
+	return wrapIterator(base, r, r.codec), err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over

@@ -11,10 +11,10 @@ package gorp
 
 import "context"
 
-// Codec defines a custom encoding/decoding strategy for entries stored in a Table.
-// When a Codec is set on a Table, it takes precedence over the default DB codec
-// for value encoding/decoding.
+// Codec defines a custom encoding/decoding strategy for entries stored in a Table. When
+// a Codec is set on a Table, it takes precedence over the default DB codec for value
+// encoding/decoding.
 type Codec[E any] interface {
-	Marshal(ctx context.Context, entry E) ([]byte, error)
-	Unmarshal(ctx context.Context, data []byte) (E, error)
+	Marshal(context.Context, E) ([]byte, error)
+	Unmarshal(context.Context, []byte) (E, error)
 }

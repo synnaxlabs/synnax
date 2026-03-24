@@ -38,7 +38,7 @@ func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges[K, E](ctx, matched, kCodec, kvo, nil), true
+			return wrapMatchedChanges(ctx, matched, kCodec, kvo, nil), true
 		},
 	}
 }
@@ -60,7 +60,7 @@ func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges[K, E](ctx, matched, kCodec, t.DB, t.codec), true
+			return wrapMatchedChanges(ctx, matched, kCodec, t.DB, t.codec), true
 		},
 	}
 }
