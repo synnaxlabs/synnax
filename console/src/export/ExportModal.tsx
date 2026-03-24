@@ -15,6 +15,7 @@ import {
   Flex,
   Flux,
   Icon,
+  Input,
   List,
   Nav,
   type Ontology,
@@ -24,13 +25,14 @@ import {
   Tree,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { IndeterminateCheckbox } from "@/components/IndeterminateCheckbox";
 import { type BackupExportRequest, downloadBackup } from "@/export/download";
 import { type CheckedState, useCheckedState } from "@/export/useCheckedState";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { type Service } from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";
@@ -41,7 +43,7 @@ export const EXPORT_LAYOUT_TYPE = "exportSynnax";
 export const EXPORT_LAYOUT: Layout.BaseState = {
   key: EXPORT_LAYOUT_TYPE,
   type: EXPORT_LAYOUT_TYPE,
-  name: "Export Synnax",
+  name: "Manage Core.Export Synnax",
   icon: "Export",
   location: "modal",
   window: { resizable: true, size: { height: 600, width: 500 }, navTop: true },
@@ -186,7 +188,9 @@ const CheckboxItem = ({
   );
 };
 
-const TYPE_TO_FIELD: Partial<Record<string, keyof BackupExportRequest>> = {
+type ArrayFields = "workspace_keys" | "user_keys" | "device_keys" | "task_keys" | "range_keys" | "channel_keys";
+
+const TYPE_TO_FIELD: Partial<Record<string, ArrayFields>> = {
   workspace: "workspace_keys",
   user: "user_keys",
   device: "device_keys",
@@ -245,7 +249,14 @@ const fetchTreeRecursive = async (
   return nodes;
 };
 
-export const ExportModal = (_: Layout.RendererProps): ReactElement => {
+type ExportPage = "selection" | "channelSettings";
+
+const PAGE_NAMES: Record<ExportPage, string> = {
+  selection: "Manage Core.Export Synnax",
+  channelSettings: "Manage Core.Channel Export Settings",
+};
+
+export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement => {
   const services = useServices();
   const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
   const client = Synnax.use();
@@ -253,6 +264,20 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const checkedState = useCheckedState();
+  const dispatch = useDispatch();
+  const [page, setPage] = useState<ExportPage>("selection");
+
+  const navigate = useCallback(
+    (p: ExportPage) => {
+      setPage(p);
+      dispatch(Layout.rename({ key: layoutKey, name: PAGE_NAMES[p] }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const [exportData, setExportData] = useState(false);
+  const [startTime, setStartTime] = useState(0);
+  const [endTime, setEndTime] = useState(Date.now() * 1e6);
 
   const [nodes, setNodes] = useState<Tree.Node[]>([]);
   const [channelCount, setChannelCount] = useState(0);
@@ -301,6 +326,20 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
     }
   }, [client]);
 
+  const hasChannelsSelected = useMemo(() => {
+    for (const key of checkedState.checked) {
+      if (
+        key === SELECT_ALL_KEY ||
+        key.startsWith("section:") ||
+        key.startsWith("group:")
+      )
+        continue;
+      const parsed = ontology.idZ.safeParse(key);
+      if (parsed.success && parsed.data.type === "channel") return true;
+    }
+    return false;
+  }, [checkedState.checked]);
+
   const sort = useCallback(
     (a: Tree.Node, b: Tree.Node) => {
       if (isSection(a.key) || isSection(b.key)) return 0;
@@ -344,38 +383,131 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
 
   return (
     <Flex.Box y style={{ height: "100%", overflow: "hidden" }}>
-      <Flex.Box y grow style={{ padding: "1rem", overflow: "auto", minHeight: 0 }}>
-        {loading ? (
-          <Flex.Box y grow justify="center" align="center">
-            <Icon.Loading style={{ fontSize: "2rem" }} />
-            <Text.Text level="p" style={{ marginTop: "0.5rem" }}>
-              Loading resources...
-            </Text.Text>
-          </Flex.Box>
-        ) : (
-          <Tree.Tree<string, ontology.Resource>
-            {...treeProps}
-            showRules
-            subscribe={subscribe}
-            getItem={resourceStore.get.bind(resourceStore)}
+      {page === "selection" && (
+        <Flex.Box y grow style={{ padding: "1rem", overflow: "auto", minHeight: 0 }}>
+          {loading ? (
+            <Flex.Box y grow justify="center" align="center">
+              <Icon.Loading style={{ fontSize: "2rem" }} />
+              <Text.Text level="p" style={{ marginTop: "0.5rem" }}>
+                Loading resources...
+              </Text.Text>
+            </Flex.Box>
+          ) : (
+            <Tree.Tree<string, ontology.Resource>
+              {...treeProps}
+              showRules
+              subscribe={subscribe}
+              getItem={resourceStore.get.bind(resourceStore)}
+            >
+              {renderItem}
+            </Tree.Tree>
+          )}
+        </Flex.Box>
+      )}
+      {page === "channelSettings" && (
+        <Flex.Box y grow style={{ padding: "1.5rem", overflow: "auto", minHeight: 0 }}>
+          <Text.Text level="h4" weight={500}>
+            Channel Export Settings
+          </Text.Text>
+          <Flex.Box
+            x
+            align="center"
+            gap="small"
+            style={{ marginTop: "1.5rem" }}
           >
-            {renderItem}
-          </Tree.Tree>
-        )}
-      </Flex.Box>
+            <Input.Switch value={exportData} onChange={setExportData} />
+            <Text.Text level="p">Export time series data</Text.Text>
+          </Flex.Box>
+          <Flex.Box
+            x
+            align="center"
+            style={{ gap: "1rem", marginTop: "1rem", paddingLeft: "1.5rem" }}
+          >
+            <Flex.Box y style={{ gap: "0.25rem" }}>
+              <Text.Text
+                level="small"
+                style={{
+                  color: exportData
+                    ? "var(--pluto-gray-l9)"
+                    : "var(--pluto-gray-l5)",
+                }}
+              >
+                Start
+              </Text.Text>
+              <Input.DateTime
+                value={startTime}
+                onChange={setStartTime}
+                onlyChangeOnBlur
+                disabled={!exportData}
+                level="small"
+                variant="outlined"
+              />
+            </Flex.Box>
+            <Icon.Arrow.Right
+              style={{
+                marginTop: "1rem",
+                color: exportData
+                  ? "var(--pluto-gray-l9)"
+                  : "var(--pluto-gray-l5)",
+              }}
+            />
+            <Flex.Box y style={{ gap: "0.25rem" }}>
+              <Text.Text
+                level="small"
+                style={{
+                  color: exportData
+                    ? "var(--pluto-gray-l9)"
+                    : "var(--pluto-gray-l5)",
+                }}
+              >
+                End
+              </Text.Text>
+              <Input.DateTime
+                value={endTime}
+                onChange={setEndTime}
+                onlyChangeOnBlur
+                disabled={!exportData}
+                level="small"
+                variant="outlined"
+              />
+            </Flex.Box>
+          </Flex.Box>
+        </Flex.Box>
+      )}
       <Modals.BottomNavBar>
         <Nav.Bar.End>
+          {page === "selection" && hasChannelsSelected && (
+            <Button.Button
+              variant="outlined"
+              onClick={() => navigate("channelSettings")}
+            >
+              Next
+            </Button.Button>
+          )}
+          {page === "channelSettings" && (
+            <Button.Button
+              variant="outlined"
+              onClick={() => navigate("selection")}
+            >
+              Back
+            </Button.Button>
+          )}
           <Button.Button
             variant="filled"
             disabled={
               checkedState.checked.size === 0 ||
               client == null ||
-              cluster == null
+              cluster == null ||
+              (page === "selection" && hasChannelsSelected)
             }
             trigger={Triggers.SAVE}
             onClick={() => {
               if (client == null || cluster == null) return;
               const request = buildExportRequest(checkedState.checked);
+              if (exportData) {
+                request.include_data = true;
+                request.time_range = { start: startTime, end: endTime };
+              }
               handleError(
                 () => downloadBackup({ client, cluster, request, addStatus }),
                 "Failed to export",

@@ -22,6 +22,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Analyze reads a .sy archive and compares each entity against existing data,
@@ -113,6 +116,11 @@ func (s *Service) Import(ctx context.Context, r io.ReaderAt, size int64, req Imp
 	}
 	if lo.Contains(manifest.Sections, "workspaces") {
 		if err := s.importWorkspaces(ctx, zr, req, channelRemap, userRemap, &resp); err != nil {
+			return resp, err
+		}
+	}
+	if lo.Contains(manifest.Sections, "telemetry") {
+		if err := s.importTelemetry(ctx, zr, req, channelRemap, &resp); err != nil {
 			return resp, err
 		}
 	}
@@ -982,8 +990,23 @@ func (s *Service) importWorkspaces(
 			targetKey = newWS.Key
 			resp.Imported++
 		}
-		if err := s.importWorkspaceChildren(ctx, zr, ws, targetKey, req, channelRemap, resp); err != nil {
+		childRemap, err := s.importWorkspaceChildren(ctx, zr, ws, targetKey, req, channelRemap, resp)
+		if err != nil {
 			return err
+		}
+		// Rewrite the workspace layout with remapped child keys so that
+		// references to archived line plots, logs, etc. point to the newly
+		// created entities on this system.
+		if len(childRemap) > 0 {
+			layout := string(ws.Layout)
+			for oldKey, newKey := range childRemap {
+				layout = strings.ReplaceAll(layout, oldKey, newKey)
+			}
+			if err := s.cfg.Service.Workspace.NewWriter(nil).SetLayout(
+				ctx, targetKey, layout,
+			); err != nil {
+				return errors.Wrapf(err, "failed to remap layout for workspace %q", ws.Name)
+			}
 		}
 	}
 	return nil
@@ -997,12 +1020,13 @@ func (s *Service) importWorkspaceChildren(
 	req ImportRequest,
 	channelRemap map[distchannel.Key]distchannel.Key,
 	resp *ImportResponse,
-) error {
+) (map[string]string, error) {
+	childRemap := make(map[string]string)
 	prefix := fmt.Sprintf("workspaces/%s/", ws.Key.String())
 	// Fetch all existing children once — avoids N+1 queries per child.
 	existingChildren, err := s.getWorkspaceChildKeys(ctx, targetWSKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, f := range zr.File {
@@ -1020,51 +1044,51 @@ func (s *Service) importWorkspaceChildren(
 		switch childType {
 		case "lineplot":
 			if err := s.importDataViz(ctx, f, targetWSKey, childType, existingChildren,
-				policy, channelRemap, resp, lineplot.OntologyType,
-				func(name, data string) error {
+				policy, channelRemap, resp, childRemap, lineplot.OntologyType,
+				func(name, data string) (uuid.UUID, error) {
 					lp := lineplot.LinePlot{Name: name, Data: data}
-					return s.cfg.Service.LinePlot.NewWriter(nil).Create(ctx, targetWSKey, &lp)
+					return lp.Key, s.cfg.Service.LinePlot.NewWriter(nil).Create(ctx, targetWSKey, &lp)
 				},
 				func(key uuid.UUID, data string) error {
 					return s.cfg.Service.LinePlot.NewWriter(nil).SetData(ctx, key, data)
 				},
 			); err != nil {
-				return err
+				return nil, err
 			}
 		case "schematic":
 			if err := s.importSchematicViz(ctx, f, targetWSKey, existingChildren,
-				policy, channelRemap, resp); err != nil {
-				return err
+				policy, channelRemap, resp, childRemap); err != nil {
+				return nil, err
 			}
 		case "table":
 			if err := s.importDataViz(ctx, f, targetWSKey, childType, existingChildren,
-				policy, channelRemap, resp, table.OntologyType,
-				func(name, data string) error {
+				policy, channelRemap, resp, childRemap, table.OntologyType,
+				func(name, data string) (uuid.UUID, error) {
 					t := table.Table{Name: name, Data: data}
-					return s.cfg.Service.Table.NewWriter(nil).Create(ctx, targetWSKey, &t)
+					return t.Key, s.cfg.Service.Table.NewWriter(nil).Create(ctx, targetWSKey, &t)
 				},
 				func(key uuid.UUID, data string) error {
 					return s.cfg.Service.Table.NewWriter(nil).SetData(ctx, key, data)
 				},
 			); err != nil {
-				return err
+				return nil, err
 			}
 		case "log":
 			if err := s.importDataViz(ctx, f, targetWSKey, childType, existingChildren,
-				policy, channelRemap, resp, log.OntologyType,
-				func(name, data string) error {
+				policy, channelRemap, resp, childRemap, log.OntologyType,
+				func(name, data string) (uuid.UUID, error) {
 					l := log.Log{Name: name, Data: data}
-					return s.cfg.Service.Log.NewWriter(nil).Create(ctx, targetWSKey, &l)
+					return l.Key, s.cfg.Service.Log.NewWriter(nil).Create(ctx, targetWSKey, &l)
 				},
 				func(key uuid.UUID, data string) error {
 					return s.cfg.Service.Log.NewWriter(nil).SetData(ctx, key, data)
 				},
 			); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	return nil
+	return childRemap, nil
 }
 
 // importDataViz is the shared logic for importing lineplots, tables, and logs
@@ -1078,8 +1102,9 @@ func (s *Service) importDataViz(
 	policy ConflictPolicy,
 	channelRemap map[distchannel.Key]distchannel.Key,
 	resp *ImportResponse,
+	childRemap map[string]string,
 	_ ontology.Type,
-	create func(name, data string) error,
+	create func(name, data string) (uuid.UUID, error),
 	setData func(key uuid.UUID, data string) error,
 ) error {
 	dv, err := readZipFile[DataVisualization](f)
@@ -1092,6 +1117,7 @@ func (s *Service) importDataViz(
 	}
 	mapKey := childMapKey(dv.Name, childType)
 	if existingKey, exists := existingChildren[mapKey]; exists {
+		childRemap[dv.Key.String()] = existingKey.String()
 		if policy == PolicySkip {
 			existingData, _ := s.getChildData(ctx, childType, existingKey)
 			if compactJSON(string(data)) == compactJSON(existingData) {
@@ -1107,9 +1133,11 @@ func (s *Service) importDataViz(
 		resp.Replaced++
 		return nil
 	}
-	if err := create(dv.Name, string(data)); err != nil {
+	newKey, err := create(dv.Name, string(data))
+	if err != nil {
 		return errors.Wrapf(err, "failed to import %s %q", childType, dv.Name)
 	}
+	childRemap[dv.Key.String()] = newKey.String()
 	resp.Imported++
 	return nil
 }
@@ -1124,6 +1152,7 @@ func (s *Service) importSchematicViz(
 	policy ConflictPolicy,
 	channelRemap map[distchannel.Key]distchannel.Key,
 	resp *ImportResponse,
+	childRemap map[string]string,
 ) error {
 	sch, err := readZipFile[Schematic](f)
 	if err != nil {
@@ -1135,6 +1164,7 @@ func (s *Service) importSchematicViz(
 	}
 	mapKey := childMapKey(sch.Name, "schematic")
 	if existingKey, exists := existingChildren[mapKey]; exists {
+		childRemap[sch.Key.String()] = existingKey.String()
 		if policy == PolicySkip {
 			existingData, _ := s.getChildData(ctx, "schematic", existingKey)
 			if compactJSON(string(data)) == compactJSON(existingData) {
@@ -1154,6 +1184,7 @@ func (s *Service) importSchematicViz(
 	if err := s.cfg.Service.Schematic.NewWriter(nil).Create(ctx, wsKey, &newSch); err != nil {
 		return errors.Wrapf(err, "failed to import schematic %q", sch.Name)
 	}
+	childRemap[sch.Key.String()] = newSch.Key.String()
 	resp.Imported++
 	return nil
 }
@@ -1311,4 +1342,123 @@ func readZipFile[T any](f *zip.File) (T, error) {
 		return v, errors.Wrapf(err, "failed to decode %s", f.Name)
 	}
 	return v, nil
+}
+
+func readArchiveBinary(zr *zip.Reader, path string) ([]byte, error) {
+	for _, f := range zr.File {
+		if f.Name == path {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to open %s", path)
+			}
+			defer rc.Close()
+			return io.ReadAll(rc)
+		}
+	}
+	return nil, errors.Newf("file not found in archive: %s", path)
+}
+
+func (s *Service) importTelemetry(
+	ctx context.Context,
+	zr *zip.Reader,
+	req ImportRequest,
+	channelRemap map[distchannel.Key]distchannel.Key,
+	resp *ImportResponse,
+) error {
+	telMeta, err := readArchiveJSON[TelemetryManifest](zr, TelemetryManifestPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read telemetry manifest")
+	}
+
+	// Sort: index channels first so their timestamps exist before data channels.
+	indexChannels := lo.Filter(telMeta.Channels, func(c TelemetryChannelManifest, _ int) bool { return c.IsIndex })
+	dataChannels := lo.Filter(telMeta.Channels, func(c TelemetryChannelManifest, _ int) bool { return !c.IsIndex })
+	orderedChannels := append(indexChannels, dataChannels...)
+
+	// Remap all keys and collect new keys for potential deletion.
+	newKeys := make(distchannel.Keys, 0, len(orderedChannels))
+	for _, archiveCh := range orderedChannels {
+		newKey := distchannel.Key(archiveCh.Key)
+		if remapped, ok := channelRemap[archiveCh.Key]; ok {
+			newKey = remapped
+		}
+		newKeys = append(newKeys, newKey)
+	}
+
+	// Handle data conflict policy.
+	policy := req.DataConflictPolicy
+	if policy == "" {
+		policy = DataPolicyOverwrite
+	}
+	if policy == DataPolicySkip {
+		return nil
+	}
+
+	// Delete existing data in the time range before writing.
+	if len(newKeys) > 0 {
+		deleter := s.cfg.Distribution.Framer.NewDeleter()
+		if err := deleter.DeleteTimeRangeMany(ctx, newKeys, telMeta.TimeRange); err != nil {
+			return errors.Wrap(err, "failed to delete existing data before telemetry import")
+		}
+	}
+
+	// Write each channel's chunks.
+	for _, archiveCh := range orderedChannels {
+		newKey := distchannel.Key(archiveCh.Key)
+		if remapped, ok := channelRemap[archiveCh.Key]; ok {
+			newKey = remapped
+		}
+
+		for chunkIdx := 0; chunkIdx < archiveCh.ChunkCount; chunkIdx++ {
+			metaPath := fmt.Sprintf(TelemetryChunkMetaPath, archiveCh.Key, chunkIdx)
+			chunkMeta, err := readArchiveJSON[TelemetryChunkMeta](zr, metaPath)
+			if err != nil {
+				resp.Errors = append(resp.Errors,
+					fmt.Sprintf("failed to read chunk meta %s: %v", metaPath, err))
+				continue
+			}
+
+			binPath := fmt.Sprintf(TelemetryDataPath, archiveCh.Key, chunkIdx)
+			data, err := readArchiveBinary(zr, binPath)
+			if err != nil {
+				resp.Errors = append(resp.Errors,
+					fmt.Sprintf("failed to read chunk data %s: %v", binPath, err))
+				continue
+			}
+
+			series := telem.Series{
+				DataType:  archiveCh.DataType,
+				Data:      data,
+				TimeRange: chunkMeta.TimeRange,
+			}
+			f := frame.NewUnary(newKey, series)
+
+			writer, err := s.cfg.Distribution.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  distchannel.Keys{newKey},
+				Start: chunkMeta.TimeRange.Start,
+			})
+			if err != nil {
+				resp.Errors = append(resp.Errors,
+					fmt.Sprintf("failed to open writer for channel %d chunk %d: %v", newKey, chunkIdx, err))
+				continue
+			}
+
+			if _, err := writer.Write(f); err != nil {
+				writer.Close()
+				resp.Errors = append(resp.Errors,
+					fmt.Sprintf("failed to write channel %d chunk %d: %v", newKey, chunkIdx, err))
+				continue
+			}
+
+			if _, err := writer.Commit(); err != nil {
+				writer.Close()
+				resp.Errors = append(resp.Errors,
+					fmt.Sprintf("failed to commit channel %d chunk %d: %v", newKey, chunkIdx, err))
+				continue
+			}
+
+			writer.Close()
+		}
+	}
+	return nil
 }

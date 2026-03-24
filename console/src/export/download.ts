@@ -21,6 +21,8 @@ export interface BackupExportRequest {
   task_keys?: number[];
   range_keys?: string[];
   channel_keys?: number[];
+  time_range?: { start: number; end: number };
+  include_data?: boolean;
 }
 
 export interface DownloadBackupParams {

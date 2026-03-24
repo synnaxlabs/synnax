@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -35,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // File path conventions within the .sy archive. Used by both export and import
@@ -47,11 +49,14 @@ const (
 	TaskPath      = "tasks/%d.json"
 	RangePath     = "ranges/%s.json"
 	ChannelPath   = "channels/%d.json"
-	LinePlotPath  = "workspaces/%s/lineplots/%s.json"
-	SchematicPath = "workspaces/%s/schematics/%s.json"
-	TablePath     = "workspaces/%s/tables/%s.json"
-	LogPath       = "workspaces/%s/logs/%s.json"
-	ArcPath       = "workspaces/%s/arcs/%s.json"
+	LinePlotPath           = "workspaces/%s/lineplots/%s.json"
+	SchematicPath          = "workspaces/%s/schematics/%s.json"
+	TablePath              = "workspaces/%s/tables/%s.json"
+	LogPath                = "workspaces/%s/logs/%s.json"
+	ArcPath                = "workspaces/%s/arcs/%s.json"
+	TelemetryManifestPath  = "telemetry/manifest.json"
+	TelemetryDataPath      = "telemetry/%d/%d.bin"
+	TelemetryChunkMetaPath = "telemetry/%d/%d.json"
 )
 
 // ServiceConfig contains the dependencies needed by the backup service.
@@ -75,6 +80,12 @@ type ExportRequest struct {
 	TaskKeys      []task.Key        `json:"task_keys"`
 	RangeKeys     []uuid.UUID       `json:"range_keys"`
 	ChannelKeys   []distchannel.Key `json:"channel_keys"`
+	// TimeRange specifies the time bounds for telemetry data export.
+	// Required when IncludeData is true.
+	TimeRange telem.TimeRange `json:"time_range"`
+	// IncludeData controls whether raw telemetry data is exported alongside
+	// channel metadata.
+	IncludeData bool `json:"include_data"`
 }
 
 // OntologyIDs returns the ontology IDs for all resources referenced in the request.
@@ -146,6 +157,12 @@ func (s *Service) Export(ctx context.Context, req ExportRequest, w io.Writer) er
 			return err
 		}
 		sections = append(sections, "channels")
+	}
+	if len(req.ChannelKeys) > 0 && req.IncludeData {
+		if err := s.exportTelemetry(ctx, req.ChannelKeys, req.TimeRange, zw); err != nil {
+			return err
+		}
+		sections = append(sections, "telemetry")
 	}
 
 	return writeJSON(zw, ManifestPath, Manifest{
@@ -362,6 +379,114 @@ func extractUUIDs(resources []ontology.Resource) ([]uuid.UUID, error) {
 	return keys, nil
 }
 
+func (s *Service) exportTelemetry(
+	ctx context.Context,
+	keys []distchannel.Key,
+	tr telem.TimeRange,
+	zw *zip.Writer,
+) error {
+	var channels []distchannel.Channel
+	if err := s.cfg.Distribution.Channel.NewRetrieve().
+		WhereKeys(keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+		return errors.Wrap(err, "failed to retrieve channels for telemetry export")
+	}
+
+	channelMap := make(map[distchannel.Key]distchannel.Channel, len(channels))
+	keySet := make(map[distchannel.Key]bool, len(keys))
+	allKeys := make(distchannel.Keys, 0, len(keys))
+	for _, k := range keys {
+		keySet[k] = true
+		allKeys = append(allKeys, k)
+	}
+	for _, ch := range channels {
+		channelMap[ch.Key()] = ch
+		// Auto-include index channels so data can be reimported.
+		if !ch.IsIndex && ch.Index() != 0 && !keySet[ch.Index()] {
+			allKeys = append(allKeys, ch.Index())
+			keySet[ch.Index()] = true
+			var idxCh []distchannel.Channel
+			if err := s.cfg.Distribution.Channel.NewRetrieve().
+				WhereKeys(ch.Index()).Entries(&idxCh).Exec(ctx, nil); err == nil && len(idxCh) > 0 {
+				channelMap[ch.Index()] = idxCh[0]
+			}
+		}
+	}
+
+	// Filter out virtual channels — they have no persisted data.
+	nonVirtualKeys := make(distchannel.Keys, 0, len(allKeys))
+	for _, k := range allKeys {
+		if ch, ok := channelMap[k]; ok && !ch.Virtual {
+			nonVirtualKeys = append(nonVirtualKeys, k)
+		}
+	}
+	if len(nonVirtualKeys) == 0 {
+		return nil
+	}
+
+	iter, err := s.cfg.Distribution.Framer.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   nonVirtualKeys,
+		Bounds: tr,
+	})
+	if err != nil {
+		return writeJSON(zw, TelemetryManifestPath, TelemetryManifest{
+			TimeRange: tr,
+			Channels:  []TelemetryChannelManifest{},
+		})
+	}
+	defer iter.Close()
+
+	chunkCounters := make(map[distchannel.Key]int)
+	telemetryChannels := make(map[distchannel.Key]*TelemetryChannelManifest)
+
+	if iter.SeekFirst() {
+		for iter.Next(telem.TimeSpanMax) {
+			f := iter.Value()
+			for key, series := range f.Entries() {
+				chunkIdx := chunkCounters[key]
+
+				binPath := fmt.Sprintf(TelemetryDataPath, key, chunkIdx)
+				if err := writeBinary(zw, binPath, series.Data); err != nil {
+					return err
+				}
+
+				chunkMeta := TelemetryChunkMeta{
+					TimeRange:   series.TimeRange,
+					Size:        int64(len(series.Data)),
+					SampleCount: series.Len(),
+				}
+				metaPath := fmt.Sprintf(TelemetryChunkMetaPath, key, chunkIdx)
+				if err := writeJSON(zw, metaPath, chunkMeta); err != nil {
+					return err
+				}
+
+				chunkCounters[key] = chunkIdx + 1
+
+				if _, ok := telemetryChannels[key]; !ok {
+					ch := channelMap[key]
+					telemetryChannels[key] = &TelemetryChannelManifest{
+						Key:      key,
+						DataType: ch.DataType,
+						IsIndex:  ch.IsIndex,
+					}
+				}
+				telemetryChannels[key].ChunkCount++
+			}
+		}
+	}
+
+	// iter.Error() may report discontinuity errors for channels with no data —
+	// not fatal, we export whatever data was found.
+
+	channelList := make([]TelemetryChannelManifest, 0, len(telemetryChannels))
+	for _, cm := range telemetryChannels {
+		channelList = append(channelList, *cm)
+	}
+	return writeJSON(zw, TelemetryManifestPath, TelemetryManifest{
+		TimeRange: tr,
+		Channels:  channelList,
+	})
+}
+
 func writeJSON(zw *zip.Writer, path string, v any) error {
 	w, err := zw.Create(path)
 	if err != nil {
@@ -370,4 +495,13 @@ func writeJSON(zw *zip.Writer, path string, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
+}
+
+func writeBinary(zw *zip.Writer, path string, data []byte) error {
+	w, err := zw.Create(path)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create %s", path)
+	}
+	_, err = w.Write(data)
+	return errors.Wrapf(err, "failed to write %s", path)
 }

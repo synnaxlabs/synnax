@@ -43,7 +43,7 @@ export const IMPORT_LAYOUT_TYPE = "importSynnax";
 export const IMPORT_LAYOUT: Layout.BaseState = {
   key: IMPORT_LAYOUT_TYPE,
   type: IMPORT_LAYOUT_TYPE,
-  name: "Import Synnax",
+  name: "Manage Core.Import Synnax",
   icon: "Import",
   location: "modal",
   window: { resizable: true, size: { height: 600, width: 700 }, navTop: true },

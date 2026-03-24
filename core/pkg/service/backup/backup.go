@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-const Version = "1.0.0"
+const Version = "1.1.0"
 
 // Manifest describes the contents and metadata of a .sy backup archive.
 type Manifest struct {
@@ -103,6 +103,36 @@ func newChannel(c distchannel.Channel) Channel {
 	}
 }
 
+// TelemetryManifest describes the telemetry data stored in the archive.
+type TelemetryManifest struct {
+	TimeRange telem.TimeRange            `json:"time_range"`
+	Channels  []TelemetryChannelManifest `json:"channels"`
+}
+
+// TelemetryChannelManifest describes a single channel's telemetry data in the archive.
+type TelemetryChannelManifest struct {
+	Key        distchannel.Key `json:"key"`
+	DataType   telem.DataType  `json:"data_type"`
+	IsIndex    bool            `json:"is_index"`
+	ChunkCount int             `json:"chunk_count"`
+}
+
+// TelemetryChunkMeta describes a single chunk of telemetry data for a channel.
+type TelemetryChunkMeta struct {
+	TimeRange   telem.TimeRange `json:"time_range"`
+	Size        int64           `json:"size"`
+	SampleCount int64           `json:"sample_count"`
+}
+
+// DataConflictPolicy determines what to do when imported telemetry data
+// overlaps with existing data in the target time range.
+type DataConflictPolicy string
+
+const (
+	DataPolicySkip      DataConflictPolicy = "skip"
+	DataPolicyOverwrite DataConflictPolicy = "overwrite"
+)
+
 // ConflictStatus describes how an archive item relates to existing data.
 type ConflictStatus string
 
@@ -148,9 +178,10 @@ type AnalyzeResponse struct {
 
 // ImportRequest specifies how to handle conflicts during import.
 type ImportRequest struct {
-	SessionID     string                    `json:"session_id"`
-	DefaultPolicy ConflictPolicy            `json:"default_policy"`
-	Overrides     map[string]ConflictPolicy `json:"overrides"`
+	SessionID          string                    `json:"session_id"`
+	DefaultPolicy      ConflictPolicy            `json:"default_policy"`
+	Overrides          map[string]ConflictPolicy `json:"overrides"`
+	DataConflictPolicy DataConflictPolicy        `json:"data_conflict_policy"`
 }
 
 // PolicyFor returns the conflict policy for the given archive key, falling
