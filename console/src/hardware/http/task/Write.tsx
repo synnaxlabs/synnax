@@ -169,7 +169,7 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
         {channelKey === 0 && (
           <PForm.Field<string>
             path={`${channelPath}.dataType`}
-            label="Data type"
+            label="Synnax data type"
             showHelpText={false}
             className={CSS.B("data-type-select")}
           >
