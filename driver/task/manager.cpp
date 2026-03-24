@@ -22,15 +22,23 @@ namespace driver::task {
 
 x::errors::Error Manager::open_streamer() {
     VLOG(1) << "opening streamer";
-    auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
-        {synnax::task::SET_CHANNEL,
-         synnax::task::DELETE_CHANNEL,
-         synnax::task::CMD_CHANNEL}
-    );
+
+    auto node_key = synnax::rack::rack_key_node(this->rack.key);
+    const auto control_ch_name = "sy_node_" + std::to_string(node_key) + "_control";
+
+    std::vector chan_names{
+        synnax::task::SET_CHANNEL,
+        synnax::task::DELETE_CHANNEL,
+        synnax::task::CMD_CHANNEL,
+        control_ch_name,
+    };
+
+    auto [channels, task_set_err] = this->ctx->client->channels.retrieve(chan_names);
     if (task_set_err) return task_set_err;
-    if (channels.size() != 3)
+    if (channels.size() != chan_names.size())
         return x::errors::Error(
-            "expected 3 channels, got " + std::to_string(channels.size())
+            "expected " + std::to_string(chan_names.size()) + " channels, got " +
+            std::to_string(channels.size())
         );
     for (const auto &channel: channels)
         if (channel.name == synnax::task::SET_CHANNEL)
@@ -39,6 +47,8 @@ x::errors::Error Manager::open_streamer() {
             this->channels.task_delete = channel;
         else if (channel.name == synnax::task::CMD_CHANNEL)
             this->channels.task_cmd = channel;
+        else if (channel.name == control_ch_name)
+            this->channels.control_state = channel;
 
     if (this->exit_early) return x::errors::NIL;
     std::lock_guard<std::mutex> lock{this->mu};
@@ -47,7 +57,8 @@ x::errors::Error Manager::open_streamer() {
             .channels = {
                 this->channels.task_set.key,
                 this->channels.task_delete.key,
-                this->channels.task_cmd.key
+                this->channels.task_cmd.key,
+                this->channels.control_state.key
             }
         }
     );
@@ -141,11 +152,13 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
             const auto &key = frame.channels->at(i);
             const auto &series = frame.series->at(i);
             if (key == this->channels.task_set.key)
-                process_task_set(series);
+                this->process_task_set(series);
             else if (key == this->channels.task_delete.key)
-                process_task_delete(series);
+                this->process_task_delete(series);
             else if (key == this->channels.task_cmd.key)
-                process_task_cmd(series);
+                this->process_task_cmd(series);
+            else if (key == this->channels.control_state.key)
+                this->control_states_->apply(series);
         }
     } while (true);
     this->stop_all_tasks();

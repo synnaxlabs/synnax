@@ -79,6 +79,53 @@ class TestStreamer:
                                 assert frame[idx.name][0] == ts
                                 assert frame[data.name][0] == value
 
+    def test_exclude_groups(self, virtual_channel: sy.Channel, client: sy.Synnax):
+        """Should filter out frames from a writer whose group matches exclude_groups"""
+        group_id = 42
+        with client.open_streamer(virtual_channel.key, exclude_groups=[group_id]) as s:
+            with client.open_writer(
+                sy.TimeStamp.now(),
+                virtual_channel.key,
+                group=group_id,
+            ) as w:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({virtual_channel.key: data}))
+                frame = s.read(timeout=0.5)
+                assert frame is None
+
+    def test_exclude_groups_non_matching(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ):
+        """Should deliver frames from a writer whose group does not match
+        exclude_groups"""
+        with client.open_streamer(virtual_channel.key, exclude_groups=[99]) as s:
+            with client.open_writer(
+                sy.TimeStamp.now(),
+                virtual_channel.key,
+                group=42,
+            ) as w:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({virtual_channel.key: data}))
+                frame = s.read(timeout=1)
+                assert frame is not None
+                assert np.array_equal(frame[virtual_channel.key], data)
+
+    def test_exclude_groups_zero_group_always_delivered(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ):
+        """Should deliver frames from a writer with group=0 even if 0 is in
+        exclude_groups"""
+        with client.open_streamer(virtual_channel.key, exclude_groups=[0]) as s:
+            with client.open_writer(
+                sy.TimeStamp.now(),
+                virtual_channel.key,
+            ) as w:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({virtual_channel.key: data}))
+                frame = s.read(timeout=1)
+                assert frame is not None
+                assert np.array_equal(frame[virtual_channel.key], data)
+
     def test_open_streamer_no_channels(self, client: sy.Synnax):
         """Should not throw an exception when a streamer is opened with no channels"""
         with client.open_streamer([]):

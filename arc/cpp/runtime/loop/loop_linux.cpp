@@ -26,7 +26,11 @@ namespace arc::runtime::loop {
 
 class LinuxLoop final : public Loop {
 public:
-    explicit LinuxLoop(const Config &config): config_(config) {}
+    explicit LinuxLoop(
+        const Config &config,
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+    ):
+        config_(config), rt_handle_(std::move(rt_handle)) {}
 
     ~LinuxLoop() override { this->close_fds(); }
 
@@ -128,9 +132,12 @@ public:
             }
         }
 
-        auto rt_cfg = this->config_.rt();
-        rt_cfg.prefer_deadline_scheduler = true;
-        x::thread::rt::apply_config(rt_cfg);
+        if (!this->rt_handle_) {
+            auto rt_cfg = this->config_.rt();
+            x::thread::rt::apply_config(rt_cfg);
+        } else {
+            this->rt_handle_->apply();
+        }
 
         return x::errors::NIL;
     }
@@ -154,13 +161,13 @@ public:
                 // fd already registered (e.g., from a previous run after restart).
                 // Update the registration instead - this makes watch() idempotent.
                 if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_MOD, fd, &ev) == -1) {
-                    LOG(ERROR) << "[loop] Failed to modify watched fd " << fd << ": "
-                               << strerror(errno);
+                    LOG(ERROR) << "[arc.loop] Failed to modify watched fd " << fd
+                               << ": " << strerror(errno);
                     return false;
                 }
                 return true;
             }
-            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
+            LOG(ERROR) << "[arc.loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
             return false;
         }
@@ -197,7 +204,7 @@ private:
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
             if (n > 0) return this->consume_events(events, n);
             if (n == -1 && errno != EINTR) {
-                LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
+                LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
             // Prevent starvation of breaker-stopping threads. yield() over
@@ -227,7 +234,7 @@ private:
         if (n > 0) return this->consume_events(events, n);
         if (n == 0) return WakeReason::Timeout;
         if (errno != EINTR)
-            LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
+            LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
         return WakeReason::Shutdown;
     }
 
@@ -268,7 +275,7 @@ private:
                 if (events[i].data.fd == this->timer_fd_) {
                     timer_fired = true;
                     if (val > 1)
-                        LOG(WARNING) << "[loop] timer drift detected: " << val
+                        LOG(WARNING) << "[arc.loop] timer drift detected: " << val
                                      << " expirations in single read";
                 } else if (events[i].data.fd != this->event_fd_) {
                     input_fired = true;
@@ -294,6 +301,7 @@ private:
     }
 
     Config config_;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int epoll_fd_ = -1;
     int event_fd_ = -1;
     int timer_fd_ = -1;
@@ -301,8 +309,9 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::unique_ptr<Loop> create(const Config &cfg) {
-    return std::make_unique<LinuxLoop>(cfg);
+std::unique_ptr<Loop>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
+    return std::make_unique<LinuxLoop>(cfg, std::move(rt_handle));
 }
 
 }
