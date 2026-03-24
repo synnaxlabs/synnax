@@ -10,91 +10,71 @@
 import "@/components/form/KeyValueEditor.css";
 
 import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
-import { type FC, useState } from "react";
+import { useEffect } from "react";
 
 import { CSS } from "@/css";
 
-interface Entry {
-  key: string;
-  value: string | number;
-}
+export type Entry<K extends string, V extends string | number> = {
+  [k in K]: string;
+} & { value: V };
 
-export interface KeyValueEditorProps extends Flex.BoxProps {
+export interface KeyValueEditorProps<K extends string, V extends string | number>
+  extends Flex.BoxProps {
   path: string;
   label: string;
+  keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
-  valueType?: "string" | "number";
+  valueType?: V extends number ? "number" : "string";
+  valueFirst?: boolean;
 }
 
-export const KeyValueEditor: FC<KeyValueEditorProps> = ({
+export const KeyValueEditor = <K extends string, V extends string | number>({
   path,
   label,
+  keyField,
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
-  valueType = "string",
+  valueType,
+  valueFirst = false,
   ...rest
-}) => {
-  const defaultValue = valueType === "number" ? 0 : "";
+}: KeyValueEditorProps<K, V>): React.ReactElement => {
+  const vt = valueType ?? "string";
+  const defaultValue: V = (vt === "number" ? 0 : "") as V;
   const { set } = Form.useContext();
-  const value = Form.useFieldValue<Record<string, string | number>>(path, {
-    defaultValue: {},
-  });
-  const [pendingRows, setPendingRows] = useState<Entry[]>([]);
+  const value = Form.useFieldValue<Entry<K, V>[]>(path, { defaultValue: [] });
 
-  const formEntries: Entry[] = Object.entries(value ?? {}).map(([k, v]) => ({
-    key: k,
-    value: v,
-  }));
-  const entries = [...formEntries, ...pendingRows];
-  const formCount = formEntries.length;
+  useEffect(() => {
+    // weird stuff we have to do to deal with migrations where the previous value is an
+    // object, and the task schema configuration was not applied because the task was
+    // set in Flux via a list retrieve that did not run schema.config.parse on the task.
+    // This means the first time the form is rendered with values from retrieveList, we
+    // get the v0 object instead of the array. So we have to do this jank thing where we
+    // set the value to an empty array as the previous values do not work.
+    // https://linear.app/synnax/issue/SY-3943/strongly-type-tasks-and-devices-in-flux
+    if (!Array.isArray(value)) set(path, []);
+  }, []);
+  const entries = Array.isArray(value) ? value : [];
 
-  const syncFormValue = (record: Record<string, string | number>) =>
-    set(path, Object.keys(record).length > 0 ? record : undefined);
+  const setFormValue = (arr: Entry<K, V>[]) =>
+    set(path, arr.length > 0 ? arr : undefined);
 
   const addRow = () =>
-    setPendingRows((prev) => [...prev, { key: "", value: defaultValue }]);
+    setFormValue([...entries, { [keyField]: "", value: defaultValue } as Entry<K, V>]);
 
   const updateRowKey = (i: number, k: string) => {
-    if (i < formCount) {
-      const oldKey = formEntries[i].key;
-      const next = { ...(value ?? {}) };
-      delete next[oldKey];
-      if (k.length > 0) next[k] = formEntries[i].value;
-      syncFormValue(next);
-    } else {
-      const pi = i - formCount;
-      const updated = [...pendingRows];
-      updated[pi] = { ...updated[pi], key: k };
-      if (updated[pi].key.length > 0) {
-        const entry = updated[pi];
-        syncFormValue({ ...(value ?? {}), [entry.key]: entry.value });
-        setPendingRows(updated.filter((_, j) => j !== pi));
-      } else setPendingRows(updated);
-    }
+    const updated = [...entries];
+    updated[i] = { ...updated[i], [keyField]: k };
+    setFormValue(updated);
   };
 
-  const updateRowValue = (i: number, v: string | number) => {
-    if (i < formCount) {
-      const k = formEntries[i].key;
-      syncFormValue({ ...(value ?? {}), [k]: v });
-    } else {
-      const pi = i - formCount;
-      setPendingRows((prev) => {
-        const updated = [...prev];
-        updated[pi] = { ...updated[pi], value: v };
-        return updated;
-      });
-    }
+  const updateRowValue = (i: number, v: V) => {
+    const updated = [...entries];
+    updated[i] = { ...updated[i], value: v };
+    setFormValue(updated);
   };
 
-  const removeRow = (i: number) => {
-    if (i < formCount) {
-      const next = { ...(value ?? {}) };
-      delete next[formEntries[i].key];
-      syncFormValue(next);
-    } else setPendingRows((prev) => prev.filter((_, j) => j !== i - formCount));
-  };
+  const removeRow = (i: number) => setFormValue(entries.filter((_, j) => j !== i));
 
   return (
     <Flex.Box y gap="small" {...rest}>
@@ -111,35 +91,42 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
         </Button.Button>
       </Text.Text>
       <Flex.Box y gap="small">
-        {entries.map((entry, i) => (
-          <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
+        {entries.map((entry, i) => {
+          const keyInput = (
             <Input.Text
               placeholder={keyPlaceholder}
-              value={entry.key}
+              value={entry[keyField]}
               onChange={(v) => updateRowKey(i, v)}
             />
-            {valueType === "number" ? (
+          );
+          const valueInput =
+            vt === "number" ? (
               <Input.Numeric
                 value={entry.value as number}
-                onChange={(v) => updateRowValue(i, v)}
+                onChange={(v) => updateRowValue(i, v as V)}
               />
             ) : (
               <Input.Text
                 placeholder={valuePlaceholder}
                 value={entry.value as string}
-                onChange={(v) => updateRowValue(i, v)}
+                onChange={(v) => updateRowValue(i, v as V)}
               />
-            )}
-            <Button.Button
-              variant="text"
-              ghost
-              size="small"
-              onClick={() => removeRow(i)}
-            >
-              <Icon.Close />
-            </Button.Button>
-          </Flex.Box>
-        ))}
+            );
+          return (
+            <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
+              {valueFirst ? valueInput : keyInput}
+              {valueFirst ? keyInput : valueInput}
+              <Button.Button
+                variant="text"
+                ghost
+                size="small"
+                onClick={() => removeRow(i)}
+              >
+                <Icon.Close />
+              </Button.Button>
+            </Flex.Box>
+          );
+        })}
       </Flex.Box>
     </Flex.Box>
   );

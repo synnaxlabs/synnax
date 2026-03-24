@@ -14,7 +14,7 @@ export const regionZ = z.object({
   key: z.string(),
   size: z.number(),
   order: z.number(),
-  loc: location.outer,
+  loc: location.outerZ,
 });
 
 export const gridZ = z.record(z.string(), regionZ);

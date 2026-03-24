@@ -398,5 +398,53 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 		})
+
+		Context("generic struct field type args", func() {
+			It("Should propagate type args to fields referencing generic structs", func() {
+				source := `
+					@cpp output "x/cpp/control"
+
+					State struct<R> {
+						resource R
+					}
+
+					Transfer struct<R> {
+						from State<R>??
+						to   State<R>??
+					}
+
+					Update struct<R> {
+						transfers Transfer<R>[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`parser.field<std::optional<State<R>>>("from")`,
+						`parser.field<std::optional<State<R>>>("to")`,
+						`parser.field<std::vector<Transfer<R>>>("transfers")`,
+					)
+			})
+
+			It("Should skip defaulted type args for non-generic structs", func() {
+				source := `
+					@cpp output "x/cpp/task"
+
+					Details struct<D? = record> {
+						data D
+					}
+
+					Task struct {
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Details>("details")`).
+					ToNotContain(`Details<`)
+			})
+		})
 	})
 })

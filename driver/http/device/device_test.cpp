@@ -197,7 +197,6 @@ TEST(ConnectionConfigTest, FromJSON) {
         {"timeout_ms", 5000},
         {"verify_ssl", true},
         {"auth", {{"type", "bearer"}, {"token", "abc123"}}},
-        {"headers", {{"X-Custom", "value"}}}
     };
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
@@ -207,7 +206,6 @@ TEST(ConnectionConfigTest, FromJSON) {
     EXPECT_TRUE(config.verify_ssl);
     EXPECT_EQ(config.auth.type, "bearer");
     EXPECT_EQ(config.auth.token, "abc123");
-    EXPECT_EQ(config.headers["X-Custom"], "value");
 }
 
 TEST(ConnectionConfigTest, DefaultsApplied) {
@@ -219,7 +217,6 @@ TEST(ConnectionConfigTest, DefaultsApplied) {
     EXPECT_EQ(config.timeout, 100 * x::telem::MILLISECOND);
     EXPECT_TRUE(config.verify_ssl);
     EXPECT_EQ(config.auth.type, "none");
-    EXPECT_TRUE(config.headers.empty());
 }
 
 TEST(ConnectionConfigTest, VerifySSLFalse) {
@@ -314,10 +311,10 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     ASSERT_NIL(client.racks.create(r));
     synnax::device::Device dev{
         .key = "retrieve-conn-test-secure",
-        .name = "retrieve-conn-test-secure",
         .rack = r.key,
         .location = "192.168.1.100:8080",
         .make = "http",
+        .name = "retrieve-conn-test-secure",
         .properties = {{"timeout_ms", 5000}},
     };
     ASSERT_NIL(client.devices.create(dev));
@@ -333,10 +330,10 @@ TEST(RetrieveConnectionTest, InsecureBaseURL) {
     ASSERT_NIL(client.racks.create(r));
     synnax::device::Device dev{
         .key = "retrieve-conn-test-insecure",
-        .name = "retrieve-conn-test-insecure",
         .rack = r.key,
         .location = "10.0.0.1:9090",
         .make = "http",
+        .name = "retrieve-conn-test-insecure",
         .properties = {{"secure", false}, {"timeout_ms", 2000}},
     };
     ASSERT_NIL(client.devices.create(dev));
@@ -374,14 +371,9 @@ TEST(BuildRequestTest, PreservesDoubleSlashInPath) {
     EXPECT_EQ(r.url, "http://example.com//twoslashes");
 }
 
-TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
+TEST(BuildRequestTest, IncludesRequestHeaders) {
     auto conn = ConnectionConfig(
-        x::json::Parser(
-            json{
-                {"base_url", "http://example.com"},
-                {"headers", {{"X-Global", "g"}}},
-            }
-        )
+        x::json::Parser(json{{"base_url", "http://example.com"}})
     );
     RequestConfig req{
         .method = Method::GET,
@@ -389,18 +381,12 @@ TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
         .headers = {{"X-Request", "r"}},
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(find_header(r.headers, "X-Global"), "X-Global: g");
     EXPECT_EQ(find_header(r.headers, "X-Request"), "X-Request: r");
 }
 
-TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
+TEST(BuildRequestTest, IncludesRequestQueryParams) {
     auto conn = ConnectionConfig(
-        x::json::Parser(
-            json{
-                {"base_url", "http://example.com"},
-                {"query_params", {{"api_key", "secret"}}},
-            }
-        )
+        x::json::Parser(json{{"base_url", "http://example.com"}})
     );
     RequestConfig req{
         .method = Method::GET,
@@ -408,7 +394,7 @@ TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
         .query_params = {{"limit", "10"}},
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.url, "http://example.com/?api_key=secret&limit=10");
+    EXPECT_EQ(r.url, "http://example.com/?limit=10");
 }
 
 TEST(BuildRequestTest, TestQueryParamsEncoding) {

@@ -10,7 +10,7 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
-from xpy import rgb_to_hex
+from x import rgb_to_hex
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -537,16 +537,19 @@ class RangesClient:
     def copy_python_code_from_overview(self) -> None:
         """Click the Python code copy button in the range overview."""
         python_btn = self.layout.page.locator("button:has(svg.pluto-icon--python)")
+        python_btn.wait_for(state="visible", timeout=5000)
         python_btn.click(timeout=5000)
 
     def copy_typescript_code_from_overview(self) -> None:
         """Click the TypeScript code copy button in the range overview."""
         ts_btn = self.layout.page.locator("button:has(svg.pluto-icon--typescript)")
+        ts_btn.wait_for(state="visible", timeout=5000)
         ts_btn.click(timeout=5000)
 
     def copy_link_from_overview(self) -> None:
         """Click the copy link button in the range overview."""
         link_btn = self.layout.page.locator("button:has(svg.pluto-icon--link)")
+        link_btn.wait_for(state="visible", timeout=5000)
         link_btn.click(timeout=5000)
 
     def open_csv_download_modal(self) -> None:

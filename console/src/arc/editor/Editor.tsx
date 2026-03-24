@@ -55,7 +55,13 @@ export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
-    const { name = "Arc Editor", location = "mosaic", tab, mode, ...rest } = initial;
+    const {
+      name = "Arc Editor",
+      location = "mosaic",
+      tab,
+      mode = "graph",
+      ...rest
+    } = initial;
     const key = arc.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key, mode }));
     return {

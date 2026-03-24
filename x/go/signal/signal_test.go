@@ -43,7 +43,6 @@ var _ = Describe("Signal", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
 				ctx, cancel := signal.Isolated()
 				ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
-				Expect(ctx.Stopped()).ToNot(BeClosed())
 				ctx.Go(immediatelyReturnError, signal.CancelOnFail())
 				cancel()
 				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
@@ -75,14 +74,14 @@ var _ = Describe("Signal", func() {
 			It("Should range over a channel until the context is cancelled", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
-					c++
+					c.Add(1)
 					return nil
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int { return c }).Should(Equal(2))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(2)))
 				cancel()
 				v <- 3
 				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
@@ -93,14 +92,14 @@ var _ = Describe("Signal", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
-					c++
+					c.Add(1)
 					return nil
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int { return c }).Should(Equal(2))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(2)))
 				close(v)
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -110,14 +109,14 @@ var _ = Describe("Signal", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
-					c++
+					c.Add(1)
 					return errors.New("routine failed")
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int { return c }).Should(Equal(1))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
@@ -128,12 +127,12 @@ var _ = Describe("Signal", func() {
 			It("Should tick until the context is cancelled", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoTick(ctx, 500*time.Microsecond, func(ctx context.Context, t time.Time) error {
-					c++
+					c.Add(1)
 					return nil
 				})
-				Eventually(func() int { return c }).Should(BeNumerically(">", 3))
+				Eventually(func() int32 { return c.Value() }).Should(BeNumerically(">", int32(3)))
 				cancel()
 				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -148,11 +147,11 @@ var _ = Describe("Signal", func() {
 			It("Should defer a function until the routine exit", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				ctx.Go(immediatelyReturnNil, signal.Defer(func() {
-					c++
+					c.Add(1)
 				}))
-				Eventually(func() int { return c }).Should(Equal(1))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})

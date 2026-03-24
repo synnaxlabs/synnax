@@ -15,16 +15,16 @@ import (
 
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // AtomicInt64Counter implements a simple int64 counter that writes its value to a
 // key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
 // AtomicInt64Counter, call OpenCounter.
 type AtomicInt64Counter struct {
-	ctx    context.Context
-	db     Writer
-	key    []byte
-	buffer []byte
+	ctx context.Context
+	db  Writer
+	key []byte
 	atomicx.Int64Counter
 }
 
@@ -32,12 +32,12 @@ type AtomicInt64Counter struct {
 // the counter value is found in storage, sets its internal state. If the counter
 // value is not found in storage, sets the value to 0.
 func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Counter, error) {
-	c := &AtomicInt64Counter{ctx: ctx, db: db, key: key, buffer: make([]byte, 8)}
+	c := &AtomicInt64Counter{ctx: ctx, db: db, key: key}
 	b, closer, err := db.Get(ctx, key)
 	if err == nil {
 		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
 		err = closer.Close()
-	} else if errors.Is(err, ErrNotFound) {
+	} else if errors.Is(err, query.ErrNotFound) {
 		err = nil
 	}
 	return c, err
@@ -48,13 +48,15 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Co
 // as well as any errors encountered while flushing the counter to storage.
 func (c *AtomicInt64Counter) Add(delta int64) (int64, error) {
 	next := c.Int64Counter.Add(delta)
-	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
-	return next, c.db.Set(c.ctx, c.key, c.buffer)
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], uint64(next))
+	return next, c.db.Set(c.ctx, c.key, buf[:])
 }
 
 // Set sets the counter to the given value.
 func (c *AtomicInt64Counter) Set(value int64) error {
 	c.Int64Counter.Set(value)
-	binary.LittleEndian.PutUint64(c.buffer, uint64(value))
-	return c.db.Set(c.ctx, c.key, c.buffer)
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], uint64(value))
+	return c.db.Set(c.ctx, c.key, buf[:])
 }

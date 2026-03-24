@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -171,6 +174,21 @@ var _ = Describe("txn", func() {
 			})
 		})
 
+		It("Should delete a key written directly to the engine without a digest", func() {
+			engine := memkv.New()
+			kv := MustSucceed(
+				builder.New(ctx, kv.Config{Engine: engine}, cluster.Config{}),
+			)
+			Expect(engine.Set(ctx, []byte("direct-key"), []byte("direct-value"))).
+				To(Succeed())
+			v, closer := MustSucceed2(kv.Get(ctx, []byte("direct-key")))
+			Expect(v).To(Equal([]byte("direct-value")))
+			Expect(closer.Close()).To(Succeed())
+			Expect(kv.Delete(ctx, []byte("direct-key"))).To(Succeed())
+			Expect(kv.Get(ctx, []byte("direct-key"))).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+
 		Describe("Peer Leaseholder", func() {
 			It("Should apply the operation to storage", func() {
 				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
@@ -201,7 +219,7 @@ var _ = Describe("txn", func() {
 			}, cluster.Config{}))
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func() int {
-				return len(builder.OpNet.Entries)
+				return builder.OpNet.EntryCount()
 			}).
 				WithPolling(250 * time.Millisecond).
 				WithTimeout(500 * time.Millisecond).
@@ -213,12 +231,17 @@ var _ = Describe("txn", func() {
 		It("Should allow for a caller to listen to key-value changes", func() {
 			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv).ToNot(BeNil())
+			var mu sync.Mutex
 			var accumulated []xkv.Change
 			kv.OnChange(func(ctx context.Context, r xkv.TxReader) {
+				mu.Lock()
+				defer mu.Unlock()
 				accumulated = slices.Collect(r)
 			})
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func(g Gomega) {
+				mu.Lock()
+				defer mu.Unlock()
 				g.Expect(accumulated).To(HaveLen(1))
 				g.Expect(accumulated[0].Value).To(Equal([]byte("value")))
 			}).Should(Succeed())
@@ -280,6 +303,23 @@ var _ = Describe("txn", func() {
 				g.Expect(v).To(Equal([]byte("value3")))
 				g.Expect(closer.Close()).To(Succeed())
 			})
+		})
+
+		It("Should persist digests during recovery so recovered keys can be deleted", func() {
+			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Eventually(func(g Gomega) {
+				v, closer, err := kv2.Get(ctx, []byte("key"))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(v).To(Equal([]byte("value")))
+				g.Expect(closer.Close()).To(Succeed())
+			}).Should(Succeed())
+			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
+					To(MatchError(query.ErrNotFound))
+			}).Should(Succeed())
 		})
 
 		It("Should correctly recover delete operations", func() {

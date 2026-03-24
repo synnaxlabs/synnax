@@ -20,10 +20,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// Type is the type of a specific Resource. This type should be unique for each service
-// in the ontology.
-type Type string
-
 // String implements fmt.Stringer.
 func (t Type) String() string { return string(t) }
 
@@ -135,20 +131,20 @@ func New(schema zyn.Schema, id ID, name string, data any) Resource {
 // cannot be parsed into the destination type.
 func (r Resource) Parse(dest any) error { return r.schema.Parse(r.Data, dest) }
 
-var _ gorp.Entry[ID] = Resource{}
+var _ gorp.Entry[string] = Resource{}
 
 // BleveType returns the type of the entity for use search indexing,
 // implementing the bleve.bleveClassifier interface.
 func (r Resource) BleveType() string { return r.ID.Type.String() }
 
 // GorpKey implements gorp.Entry.
-func (r Resource) GorpKey() ID { return r.ID }
+func (r Resource) GorpKey() string { return r.ID.String() }
 
 // SetOptions implements gorp.Entry.
 func (r Resource) SetOptions() []any { return nil }
 
 // Change is a change to a Resource.
-type Change = change.Change[ID, Resource]
+type Change = change.Change[string, Resource]
 
 // IDs extracts the IDs from a slice of Resources.
 func IDs(resources []Resource) []ID {

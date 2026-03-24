@@ -12,7 +12,7 @@
 #include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {
-Capabilities get_capabilities() {
+Capabilities capabilities() {
     return {};
 }
 
@@ -24,7 +24,7 @@ bool has_support() {
     return false;
 }
 
-errors::Error apply_config(const Config &cfg) {
+void apply_config(const Config &cfg) {
     if (cfg.enabled)
         LOG(WARNING) << "[xthread] Real-time scheduling not supported on this platform";
     if (cfg.has_timing())
@@ -34,6 +34,5 @@ errors::Error apply_config(const Config &cfg) {
         LOG(WARNING) << "[xthread] CPU affinity not supported on this platform";
     if (cfg.lock_memory)
         LOG(WARNING) << "[xthread] Memory locking not supported on this platform";
-    return errors::NIL;
 }
 }

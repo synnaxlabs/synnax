@@ -39,7 +39,7 @@ const std::string PCAP_LIB_NAME = "libpcap.so";
 #endif
 
 static bool check_pcap_available() {
-    x::lib::SharedLib lib(PCAP_LIB_NAME);
+    x::lib::Shared lib(PCAP_LIB_NAME);
     return lib.load();
 }
 
@@ -61,10 +61,14 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-Factory::Factory(): pool(std::make_shared<engine::Pool>(default_manager())) {}
+Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
+    pool(std::make_shared<engine::Pool>(default_manager(), std::move(rt_manager))) {}
 
-Factory::Factory(std::unique_ptr<master::Manager> manager):
-    pool(std::make_shared<engine::Pool>(std::move(manager))) {}
+Factory::Factory(
+    std::unique_ptr<master::Manager> manager,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
+):
+    pool(std::make_shared<engine::Pool>(std::move(manager), std::move(rt_manager))) {}
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     const std::shared_ptr<task::Context> &ctx,

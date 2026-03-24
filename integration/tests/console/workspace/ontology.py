@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path

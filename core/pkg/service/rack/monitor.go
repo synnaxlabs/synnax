@@ -125,7 +125,7 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(OntologyType)) {
+		if !strings.HasPrefix(ch.Key, string(ontology.TypeRack)) {
 			continue
 		}
 		key, err := parseKeyFromOntologyIDString(ch.Key)

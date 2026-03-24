@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 namespace x::json {
 /// @brief it should parse valid JSON fields successfully.
@@ -321,7 +322,7 @@ TEST(testConfig, testNoError) {
     const json j = {};
     const Parser parser(j);
     const auto err = parser.error();
-    ASSERT_FALSE(err);
+    ASSERT_NIL(err);
 }
 
 /// @brief it should parse config from a valid JSON file.
@@ -1591,11 +1592,9 @@ TEST(testConfig, testHasConditionalParsing) {
     const json j = {{"type", "sensor"}, {"threshold", 3.14}};
     Parser parser(j);
 
-    std::string type;
     float threshold = 0.0f;
     int count = 0;
-
-    type = parser.field<std::string>("type");
+    const auto type = parser.field<std::string>("type");
     if (parser.has("threshold")) { threshold = parser.field<float>("threshold"); }
     if (parser.has("count")) { count = parser.field<int>("count"); }
 
@@ -1603,5 +1602,88 @@ TEST(testConfig, testHasConditionalParsing) {
     EXPECT_EQ(type, "sensor");
     EXPECT_NEAR(threshold, 3.14f, 0.0001f);
     EXPECT_EQ(count, 0); // Not parsed since field doesn't exist
+}
+
+TEST(testConfig, testOptionalFieldPresent) {
+    const json j = {{"name", "test"}, {"value", 42}};
+    Parser parser(j);
+    const auto result = parser.field<std::optional<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 42);
+}
+
+TEST(testConfig, testOptionalFieldMissing) {
+    const json j = {{"name", "test"}};
+    Parser parser(j);
+    const auto result = parser.field<std::optional<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(testConfig, testOptionalFieldNull) {
+    const json j = {{"name", "test"}, {"value", nullptr}};
+    Parser parser(j);
+    const auto result = parser.field<std::optional<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(testConfig, testIndirectFieldPresent) {
+    const json j = {{"name", "test"}, {"value", 99}};
+    Parser parser(j);
+    const auto result = parser.field<x::mem::indirect<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_TRUE(result != nullptr);
+    EXPECT_EQ(*result, 99);
+}
+
+TEST(testConfig, testIndirectFieldMissing) {
+    const json j = {{"name", "test"}};
+    Parser parser(j);
+    const auto result = parser.field<x::mem::indirect<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_TRUE(result == nullptr);
+}
+
+TEST(testConfig, testToArrayWithToJson) {
+    struct Item {
+        std::string name;
+        [[nodiscard]] json to_json() const { return {{"name", this->name}}; }
+    };
+    const std::vector<Item> items = {{"alpha"}, {"beta"}, {"gamma"}};
+    const auto arr = to_array(items);
+    ASSERT_EQ(arr.size(), 3);
+    EXPECT_EQ(arr[0]["name"], "alpha");
+    EXPECT_EQ(arr[1]["name"], "beta");
+    EXPECT_EQ(arr[2]["name"], "gamma");
+}
+
+TEST(testConfig, testToArrayWithPrimitives) {
+    const std::vector<int> items = {1, 2, 3};
+    const auto arr = to_array(items);
+    ASSERT_EQ(arr.size(), 3);
+    EXPECT_EQ(arr[0], 1);
+    EXPECT_EQ(arr[1], 2);
+    EXPECT_EQ(arr[2], 3);
+}
+
+/// @brief it should return the default value when a field is null.
+TEST(testConfig, testFieldWithDefaultReturnsDefaultOnNull) {
+    const json j = {{"name", "test"}, {"args", nullptr}};
+    Parser parser(j);
+    const auto name = parser.field<std::string>("name");
+    const auto args = parser.field<json::object_t>("args", json::object_t{});
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(name, "test");
+    EXPECT_TRUE(args.empty());
+}
+
+TEST(testConfig, testMonostate) {
+    const json j = {{"data", "ignored"}};
+    Parser parser(j);
+    const auto result = parser.field<std::monostate>("data");
+    EXPECT_TRUE(parser.ok());
+    (void) result;
 }
 }

@@ -12,15 +12,17 @@ package calculation
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
@@ -39,13 +41,8 @@ import (
 // status updates before the status service was introduced.
 var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
 
-// StatusDetails contains calculation-specific status information.
-type StatusDetails struct {
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
-
 // Status is an alias for the calculation status type.
-type Status = status.Status[StatusDetails]
+type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
@@ -111,7 +108,7 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	statusWriter status.Writer[StatusDetails]
+	statusWriter status.Writer[types.Nil]
 }
 
 // OpenService opens the service with the provided configuration. The service must be closed
@@ -124,7 +121,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
-		SymbolResolver:  cfg.Arc.SymbolResolver(),
+		SymbolResolver:  cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err
@@ -132,7 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{
 		cfg:          cfg,
-		statusWriter: status.NewWriter[StatusDetails](cfg.Status, nil),
+		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.graph = g
@@ -158,15 +155,15 @@ func (s *Service) setStatus(
 			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
 			continue
 		}
-		statusKey := channel.OntologyID(chKey).String()
-		if err := s.statusWriter.Set(ctx, &Status{
+		s.cfg.L.Warn(st.String())
+		statusKey := calculation.StatusKey(chKey)
+		if err = s.statusWriter.Set(ctx, &Status{
 			Key:         statusKey,
 			Name:        st.Name,
 			Variant:     st.Variant,
 			Message:     st.Message,
 			Description: st.Description,
 			Time:        telem.Now(),
-			Details:     StatusDetails{Channel: chKey},
 		}); err != nil {
 			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
 		}
@@ -194,7 +191,7 @@ func (s *Service) handleChange(
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
 				Variant:     xstatus.VariantError,
-				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
+				Message:     fmt.Sprintf("failed to compile calculation for %s", ch.Name),
 				Description: err.Error(),
 			})
 		}

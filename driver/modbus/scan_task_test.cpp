@@ -43,14 +43,18 @@ TEST(ScanTask, testConnection) {
 
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     auto cmd_args = x::json::json{{"connection", conn_cfg.to_json()}};
-    auto cmd = task::Command(t.key, TEST_CONNECTION_CMD_TYPE, cmd_args);
-    cmd.key = "electric_boogaloo";
+    auto cmd = synnax::task::Command{
+        .task = t.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "electric_boogaloo",
+        .args = cmd_args
+    };
 
     scan_task->exec(cmd);
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first.key, t.status_key());
+    EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connection successful");
@@ -77,7 +81,7 @@ TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
     auto dev_manager = std::make_shared<device::Manager>();
 
     Scanner scanner(ctx, t, dev_manager);
-    task::Command cmd(t.key, "unknown_command", x::json::json{});
+    synnax::task::Command cmd{.task = t.key, .type = "unknown_command"};
     bool handled = scanner.exec(cmd, t, ctx);
     EXPECT_FALSE(handled);
 }
@@ -116,8 +120,8 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status.message, "Device connected");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status->message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -150,7 +154,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(devices[0].status.message, "Failed to reach device");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status->message, "Failed to reach device");
 }
 }

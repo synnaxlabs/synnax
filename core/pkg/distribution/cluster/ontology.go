@@ -28,21 +28,16 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	OntologyTypeNode ontology.Type = "node"
-	OntologyType     ontology.Type = "cluster"
-)
-
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
 func NodeOntologyID(key NodeKey) ontology.ID {
-	return ontology.ID{Type: OntologyTypeNode, Key: strconv.Itoa(int(key))}
+	return ontology.ID{Type: ontology.TypeNode, Key: strconv.Itoa(int(key))}
 }
 
 // OntologyID returns a unique identifier for a Cluster to use with a
 // resource Ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: key.String()}
+	return ontology.ID{Type: ontology.TypeCluster, Key: key.String()}
 }
 
 var (
@@ -64,7 +59,7 @@ type NodeOntologyService struct {
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
 
-func (s *NodeOntologyService) Type() ontology.Type { return OntologyTypeNode }
+func (s *NodeOntologyService) Type() ontology.Type { return ontology.TypeNode }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
@@ -77,7 +72,7 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 func translateNodeChange(ch NodeChange, _ int) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     NodeOntologyID(ch.Key),
+		Key:     NodeOntologyID(ch.Key).String(),
 		Value:   newNodeResource(ch.Value),
 	}
 }
@@ -133,7 +128,7 @@ type OntologyService struct {
 
 var _ ontology.Service = (*OntologyService)(nil)
 
-func (s *OntologyService) Type() ontology.Type { return OntologyType }
+func (s *OntologyService) Type() ontology.Type { return ontology.TypeCluster }
 
 // Schema implements ontology.Service.
 func (s *OntologyService) Schema() zyn.Schema { return schema }

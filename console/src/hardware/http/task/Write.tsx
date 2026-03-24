@@ -25,7 +25,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useState } from "react";
+import { type FC, useCallback, useMemo, useState } from "react";
 
 import { EmptyAction } from "@/components";
 import { KeyValueEditor } from "@/components/form/KeyValueEditor";
@@ -33,7 +33,7 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
 import { ContextMenu } from "@/hardware/http/task/ContextMenu";
-import { endpointListItem } from "@/hardware/http/task/EndpointListItem";
+import { EndpointListItem } from "@/hardware/http/task/EndpointListItem";
 import {
   type GeneratorType,
   type TimeFormat,
@@ -44,6 +44,7 @@ import {
   type WriteMethod,
   type WritePayload,
   type WriteSchemas,
+  ZERO_CHANNEL_FIELD,
   ZERO_WRITE_ENDPOINT,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/http/task/types";
@@ -104,12 +105,43 @@ const renderMethodSelect = Component.renderProp(
   ),
 );
 
-const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
-  epPath,
-  epKey,
-}) => {
+const getEndpointChannelNameID = (epKey: string) => `write-ep-ch-${epKey}`;
+
+const WriteEndpointListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const channel = PForm.useFieldValue<number>(
+    `config.endpoints.${itemKey}.channel.channel`,
+  );
+  const extraNode = useMemo(
+    () => (
+      <Common.Task.ChannelName
+        channel={channel}
+        namePath={`config.endpoints.${itemKey}.channel.name`}
+        id={getEndpointChannelNameID(itemKey)}
+      />
+    ),
+    [channel, itemKey],
+  );
+  return <EndpointListItem {...props} extra={extraNode} />;
+};
+
+const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
+
+const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
+  <KeyValueEditor
+    path={`${channelPath}.enumValues`}
+    label="Enum mappings"
+    keyField="label"
+    keyPlaceholder="String (e.g. ON)"
+    valueType="number"
+    valueFirst
+  />
+);
+
+const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
+  const jsonType = PForm.useFieldValue<string>(`${channelPath}.jsonType`);
 
   return (
     <>
@@ -117,12 +149,6 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
         <Header.Title weight={500} color={9}>
           Channel
         </Header.Title>
-        <Common.Task.ChannelName
-          channel={channelKey}
-          namePath={`${channelPath}.name`}
-          id={Common.Task.getChannelNameID(epKey)}
-          style={{ paddingRight: "2rem" }}
-        />
       </Header.Header>
       <Flex.Box className={CSS.B("channel-field-section")}>
         <Flex.Box x align="end" gap="large">
@@ -150,6 +176,7 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
             {renderSelectDataType}
           </PForm.Field>
         )}
+        {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
       </Flex.Box>
     </>
   );
@@ -202,9 +229,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
   const jsonType = PForm.useFieldValue<json.PrimitiveType | undefined>(
     `${path}.jsonType`,
-    {
-      optional: true,
-    },
+    { optional: true },
   );
   const generator = PForm.useFieldValue<GeneratorType | undefined>(
     `${path}.generator`,
@@ -423,13 +448,23 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
+          keyField="name"
           className={CSS.B("headers-kv-editor")}
           keyPlaceholder="Name"
           valuePlaceholder="Value"
         />
+        <Divider.Divider x />
+        <KeyValueEditor
+          path={`${path}.queryParams`}
+          label="Query parameters"
+          keyField="parameter"
+          className={CSS.B("query-params-kv-editor")}
+          keyPlaceholder="Parameter"
+          valuePlaceholder="Value"
+        />
       </Flex.Box>
       <Divider.Divider x />
-      <ChannelFieldSection epPath={path} epKey={epKey} />
+      <ChannelFieldSection epPath={path} />
       <Divider.Divider x />
       <AdditionalFields key={epKey} epKey={epKey} />
     </Flex.Box>
@@ -447,7 +482,12 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   const isSnapshot = Common.Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
-    const ep: WriteEndpoint = { ...ZERO_WRITE_ENDPOINT, key: id.create() };
+    const ep: WriteEndpoint = {
+      ...ZERO_WRITE_ENDPOINT,
+      key: id.create(),
+      channel: { ...ZERO_CHANNEL_FIELD },
+      fields: [],
+    };
     push(ep);
     setSelectedEndpoints([ep.key]);
   }, [push]);
@@ -477,6 +517,11 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
     [ctx, push],
   );
 
+  const handleRenameChannel = useCallback(
+    (key: string) => Text.edit(getEndpointChannelNameID(key)),
+    [],
+  );
+
   const menuProps = PMenu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: PMenu.ContextMenuMenuProps) => (
@@ -484,9 +529,10 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
         keys={p.keys}
         onDelete={handleDeleteEndpoints}
         onDuplicate={handleDuplicateEndpoints}
+        onRename={handleRenameChannel}
       />
     ),
-    [handleDeleteEndpoints, handleDuplicateEndpoints],
+    [handleDeleteEndpoints, handleDuplicateEndpoints, handleRenameChannel],
   );
 
   return (
@@ -502,7 +548,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
                 onClick={handleAddEndpoint}
                 variant="text"
                 contrast={2}
-                tooltip="Add Endpoint"
+                tooltip="Add endpoint"
                 sharp
               >
                 <Icon.Add />
@@ -532,7 +578,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
                 />
               }
             >
-              {endpointListItem}
+              {writeEndpointListItem}
             </List.Items>
           </Select.Frame>
         </PMenu.ContextMenu>
@@ -551,9 +597,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
           <EndpointDetails epKey={selectedEndpoints[0]} />
         ) : (
           <Flex.Box y grow align="center" justify="center">
-            <Text.Text level="small" status="disabled">
-              Select an endpoint to configure
-            </Text.Text>
+            <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
           </Flex.Box>
         )}
       </Flex.Box>

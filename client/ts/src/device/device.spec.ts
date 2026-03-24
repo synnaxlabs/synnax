@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, unique } from "@synnaxlabs/x";
+import { id, record, TimeStamp, unique } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { type device } from "@/device";
 import { createTestClient } from "@/testutil/client";
@@ -359,6 +360,99 @@ describe("Device", async () => {
             return devices.every((d) => d.status !== undefined);
           })
           .toBe(true);
+      });
+    });
+
+    describe("with schemas", () => {
+      const schemas = {
+        properties: z.object({
+          rate: z.number(),
+          channels: z.array(z.string()),
+        }),
+        make: z.string(),
+        model: z.string(),
+      };
+
+      it("should create and retrieve with typed properties", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "typed-device",
+            make: "ni",
+            model: "pxi-6281",
+            properties: { rate: 1000, channels: ["ai0", "ai1"] },
+          },
+          schemas,
+        );
+        expect(d.properties.rate).toBe(1000);
+        expect(d.properties.channels).toEqual(["ai0", "ai1"]);
+
+        const retrieved = await client.devices.retrieve({
+          key: d.key,
+          schemas,
+        });
+        expect(retrieved.properties.rate).toBe(1000);
+        expect(retrieved.properties.channels).toEqual(["ai0", "ai1"]);
+      });
+
+      it("should create and retrieve with typed make and model", async () => {
+        const makeModelSchemas = {
+          properties: record.unknownZ(),
+          make: z.literal("labjack"),
+          model: z.enum(["t7", "t4", "t8"]),
+        };
+
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "typed-make-model",
+            make: "labjack",
+            model: "t7",
+            properties: {},
+          },
+          makeModelSchemas,
+        );
+        expect(d.make).toBe("labjack");
+        expect(d.model).toBe("t7");
+      });
+
+      it("should retrieve multiple devices with schemas", async () => {
+        const d1 = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "schema-multi-1",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ch1"] },
+          },
+          schemas,
+        );
+        const d2 = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev2",
+            name: "schema-multi-2",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 200, channels: ["ch2", "ch3"] },
+          },
+          schemas,
+        );
+
+        const retrieved = await client.devices.retrieve({
+          keys: [d1.key, d2.key],
+          schemas,
+        });
+        expect(retrieved).toHaveLength(2);
+        expect(retrieved[0].properties.rate).toBe(100);
+        expect(retrieved[1].properties.rate).toBe(200);
       });
     });
   });

@@ -10,7 +10,7 @@
 """Test that Operator role has restricted permissions."""
 
 import synnax as sy
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 

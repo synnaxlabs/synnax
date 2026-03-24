@@ -9,10 +9,8 @@
 
 import { z } from "zod";
 
+import { type Authority, type State, stateZ } from "@/control/types.gen";
 import { type bounds } from "@/spatial";
-
-export const authorityZ = z.int().min(0).max(255);
-export type Authority = z.infer<typeof authorityZ>;
 
 export const ABSOLUTE_AUTHORITY: Authority = 255;
 export const ZERO_AUTHORITY: Authority = 0;
@@ -22,31 +20,8 @@ export const AUTHORITY_BOUNDS: bounds.Bounds<Authority> = {
   upper: ABSOLUTE_AUTHORITY + 1,
 };
 
-export const subjectZ = z.object({
-  name: z.string(),
-  key: z.string(),
-});
-
-export interface Subject {
-  name: string;
-  key: string;
-}
-
-export const stateZ = <R extends z.ZodType>(resource: R) =>
-  z.object({
-    subject: subjectZ,
-    resource,
-    authority: authorityZ,
-  });
-
-export interface State<R> {
-  subject: Subject;
-  resource: R;
-  authority: Authority;
-}
-
 export const filterTransfersByChannelKey =
-  <R>(...resources: R[]) =>
+  <R extends z.ZodType>(...resources: z.infer<R>[]) =>
   (transfers: Transfer<R>[]): Transfer<R>[] =>
     transfers.filter((t) => {
       let ok = false;
@@ -55,7 +30,7 @@ export const filterTransfersByChannelKey =
       return ok;
     });
 
-interface Release<R> {
+interface Release<R extends z.ZodType> {
   from: State<R>;
   to?: null;
 }
@@ -63,21 +38,21 @@ interface Release<R> {
 export const releaseZ = <R extends z.ZodType>(resource: R) =>
   z.object({
     from: stateZ(resource),
-    to: z.null(),
+    to: z.null().optional(),
   });
 
-interface Acquire<R> {
+interface Acquire<R extends z.ZodType> {
   from?: null;
   to: State<R>;
 }
 
 export const acquireZ = <R extends z.ZodType>(resource: R) =>
   z.object({
-    from: z.null(),
+    from: z.null().optional(),
     to: stateZ(resource),
   });
 
-export type Transfer<R> =
+export type Transfer<R extends z.ZodType> =
   | {
       from: State<R>;
       to: State<R>;

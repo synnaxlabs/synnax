@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.table import Table

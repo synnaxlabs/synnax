@@ -47,7 +47,7 @@ var all = []Primitive{
 	{Name: "uint64", Category: CategoryNumber},
 	{Name: "float32", Category: CategoryNumber},
 	{Name: "float64", Category: CategoryNumber},
-	{Name: "json", Category: CategoryOther},
+	{Name: "record", Category: CategoryOther},
 	{Name: "bytes", Category: CategoryBinary},
 	{Name: "any", Category: CategoryOther},
 	{Name: "nil", Category: CategoryOther},

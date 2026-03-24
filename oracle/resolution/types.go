@@ -9,6 +9,8 @@
 
 package resolution
 
+import "github.com/synnaxlabs/x/set"
+
 // ValueKind identifies the type of an expression value.
 type ValueKind int
 
@@ -21,29 +23,36 @@ const (
 )
 
 // Primitives is the set of built-in primitive type names recognized by Oracle.
-var Primitives = map[string]bool{
-	"uuid": true, "string": true, "bool": true,
-	"int8": true, "int16": true, "int32": true, "int64": true,
-	"uint8": true, "uint12": true, "uint16": true, "uint20": true, "uint32": true, "uint64": true,
-	"float32": true, "float64": true,
-	"json": true, "bytes": true, "any": true,
-}
+var Primitives = set.New(
+	"uuid", "string", "bool",
+	"int8", "int16", "int32", "int64",
+	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
+	"float32", "float64",
+	"record", "bytes", "any", "nil",
+)
 
 // IsPrimitive returns true if the name is a built-in primitive type.
-func IsPrimitive(name string) bool { return Primitives[name] }
+func IsPrimitive(name string) bool { return Primitives.Contains(name) }
 
 // StringPrimitives identifies primitives that map to string-like types.
-var StringPrimitives = map[string]bool{"string": true, "uuid": true}
+var StringPrimitives = set.New("string", "uuid")
 
 // NumberPrimitives identifies primitives that map to number types.
-var NumberPrimitives = map[string]bool{
-	"int8": true, "int16": true, "int32": true, "int64": true,
-	"uint8": true, "uint12": true, "uint16": true, "uint20": true, "uint32": true, "uint64": true,
-	"float32": true, "float64": true,
-}
+var NumberPrimitives = set.New(
+	"int8", "int16", "int32", "int64",
+	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
+	"float32", "float64",
+)
+
+// Constraints is the set of built-in constraint-only type names recognized by Oracle.
+// These are valid as type parameter constraints but cannot be used as field types.
+var Constraints = set.New("comparable")
+
+// IsConstraint returns true if the name is a built-in constraint-only type.
+func IsConstraint(name string) bool { return Constraints.Contains(name) }
 
 // IsStringPrimitive checks if the primitive is a string-like type.
-func IsStringPrimitive(name string) bool { return StringPrimitives[name] }
+func IsStringPrimitive(name string) bool { return StringPrimitives.Contains(name) }
 
 // IsNumberPrimitive checks if the primitive is a number type.
-func IsNumberPrimitive(name string) bool { return NumberPrimitives[name] }
+func IsNumberPrimitive(name string) bool { return NumberPrimitives.Contains(name) }

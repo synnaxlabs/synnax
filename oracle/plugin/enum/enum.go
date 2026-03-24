@@ -13,36 +13,44 @@ package enum
 import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
-// CollectReferenced collects unique enums referenced by struct fields.
+// CollectReferenced collects unique enums referenced by struct fields that belong
+// to the same namespace as the referencing structs. Cross-namespace enums are
+// excluded because they should be imported rather than generated locally.
 // Returns a deduplicated slice of enum types based on QualifiedName.
 func CollectReferenced(structs []resolution.Type, table *resolution.Table) []resolution.Type {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var enums []resolution.Type
+	namespaces := make(set.Set[string])
+	for _, s := range structs {
+		namespaces.Add(s.Namespace)
+	}
 	for _, s := range structs {
 		form, ok := s.Form.(resolution.StructForm)
 		if !ok {
 			continue
 		}
 		for _, f := range form.Fields {
-			collectEnumsFromTypeRef(f.Type, table, seen, &enums)
+			collectEnumsFromTypeRef(f.Type, table, seen, &enums, namespaces)
 		}
 	}
 	return enums
 }
 
-// collectEnumsFromTypeRef recursively collects enums from a type reference.
-func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, seen map[string]bool, enums *[]resolution.Type) {
+// collectEnumsFromTypeRef recursively collects enums from a type reference,
+// filtering to only include enums whose namespace is in the allowed set.
+func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, seen set.Set[string], enums *[]resolution.Type, namespaces set.Set[string]) {
 	// Check type args first (for generic types like Array<EnumType>)
 	for _, arg := range ref.TypeArgs {
-		collectEnumsFromTypeRef(arg, table, seen, enums)
+		collectEnumsFromTypeRef(arg, table, seen, enums, namespaces)
 	}
 
 	// Handle type parameters with defaults (e.g., V extends Variant = Variant)
 	// When a field has a type param, check if it has a default and collect from that
 	if ref.IsTypeParam() && ref.TypeParam != nil && ref.TypeParam.HasDefault() {
-		collectEnumsFromTypeRef(*ref.TypeParam.Default, table, seen, enums)
+		collectEnumsFromTypeRef(*ref.TypeParam.Default, table, seen, enums, namespaces)
 		return
 	}
 
@@ -52,8 +60,8 @@ func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, se
 		return
 	}
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		if !seen[resolved.QualifiedName] {
-			seen[resolved.QualifiedName] = true
+		if !seen.Contains(resolved.QualifiedName) && namespaces.Contains(resolved.Namespace) {
+			seen.Add(resolved.QualifiedName)
 			*enums = append(*enums, resolved)
 		}
 	}
@@ -129,7 +137,7 @@ func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table
 		pathFunc = MakePathFunc(domainName)
 	}
 	var result []resolution.Type
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	for _, e := range table.EnumTypes() {
 		if e.Namespace != namespace {
 			continue
@@ -138,8 +146,8 @@ func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table
 			continue
 		}
 		if enumPath := pathFunc(e, table); enumPath == outputPath {
-			if !seen[e.QualifiedName] {
-				seen[e.QualifiedName] = true
+			if !seen.Contains(e.QualifiedName) {
+				seen.Add(e.QualifiedName)
 				result = append(result, e)
 			}
 		}

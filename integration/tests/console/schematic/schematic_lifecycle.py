@@ -11,7 +11,7 @@ import uuid
 from typing import Any
 
 import synnax as sy
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button

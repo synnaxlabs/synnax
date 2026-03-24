@@ -25,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "label"
-
 // LabelsOntologyTraverser is an ontology.Traverser that allows the caller to traverse
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.
@@ -38,14 +36,14 @@ var LabelsOntologyTraverser = ontology.Traverser{
 }
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.
-func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+func OntologyID(k Key) ontology.ID {
+	return ontology.ID{Type: ontology.TypeLabel, Key: k.String()}
 }
 
 // OntologyIDs constructs a slice of unique ontology.IDs for the labels with the given
 // keys.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // OntologyIDsFromLabels constructs a slice of unique ontology.IDs for the given labels.
@@ -54,8 +52,8 @@ func OntologyIDsFromLabels(labels []Label) []ontology.ID {
 }
 
 // KeysFromOntologyIDs extracts the label keys from the given ontology.IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
 		if keys[i], err = uuid.Parse(id.Key); err != nil {
@@ -75,9 +73,9 @@ func newResource(l Label) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
-type change = xchange.Change[uuid.UUID, Label]
+type change = xchange.Change[Key, Label]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeLabel }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -98,22 +96,22 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key),
+		Key:     OntologyID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Label]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Label]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Label](s.cfg.DB).OnChange(handleChange)
+	return gorp.Observe[Key, Label](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, Label](s.cfg.DB).OpenNexter(ctx)
+	n, closer, err := gorp.WrapReader[Key, Label](s.cfg.DB).OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

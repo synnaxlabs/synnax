@@ -3,8 +3,11 @@ load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
     name = "control_proto",
-    srcs = ["control.proto"],
+    srcs = ["pb/control.proto"],
     visibility = ["//visibility:public"],
+    deps = [
+        "@protobuf//:any_proto",
+    ],
 )
 
 cpp_grpc_library(

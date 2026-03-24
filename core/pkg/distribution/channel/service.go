@@ -19,12 +19,9 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
-
-type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataType, error)
 
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating and retrieving channels.
@@ -35,10 +32,7 @@ type Service struct {
 	proxy *leaseProxy
 	otg   *ontology.Ontology
 	group group.Group
-}
-
-func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
-	s.proxy.analyzeCalculation = analyzer
+	table *gorp.Table[Key, Channel]
 }
 
 type IntOverflowChecker = func(types.Uint20) error
@@ -88,8 +82,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultServiceConfig = ServiceConfig{ValidateNames: new(true), ForceMigration: new(false)}
 
-func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	table, err := gorp.OpenTable[Key, Channel](ctx, cfg.ClusterDB)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +107,7 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		proxy: proxy,
 		otg:   cfg.Ontology,
 		group: g,
+		table: table,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -138,6 +137,10 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 	s.proxy.mu.RLock()
 	defer s.proxy.mu.RUnlock()
 	return uint32(s.proxy.mu.externalNonVirtualSet.Size())
+}
+
+func (s *Service) Close() error {
+	return s.table.Close()
 }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {

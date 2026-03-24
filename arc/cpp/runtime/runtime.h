@@ -67,6 +67,9 @@ struct Config {
     /// This allows external code to register custom node types without the
     /// runtime needing a dedicated config field for each one.
     std::vector<std::shared_ptr<node::Factory>> factories;
+    /// @brief Optional RT handle from the Manager. When set, the loop uses this
+    /// handle's allocated core instead of auto-selecting one.
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -111,9 +114,13 @@ public:
     void run() {
         this->start_time_steady_ = std::chrono::steady_clock::now();
         x::thread::set_name("runtime");
-        this->loop->start();
+        if (auto err = this->loop->start(); err) {
+            LOG(ERROR) << "[arc.runtime] failed to start loop: " << err.message();
+            this->error_handler(err);
+            return;
+        }
         if (!this->loop->watch(this->inputs.notifier())) {
-            LOG(ERROR) << "[runtime] failed to watch input notifier";
+            LOG(ERROR) << "[arc.runtime] failed to watch input notifier";
             this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
@@ -139,16 +146,10 @@ public:
                         .count()
                 );
                 this->scheduler->next(elapsed, reason);
-                auto writes = this->state->flush();
-                auto changes = this->state->flush_authority_changes();
-                if (!writes.empty() || !changes.empty()) {
-                    Output out;
-                    out.authority_changes = std::move(changes);
-                    if (!writes.empty()) {
-                        out.frame = x::telem::Frame(writes.size());
-                        for (auto &[key, series]: writes)
-                            out.frame.emplace(key, series->deep_copy());
-                    }
+                Output out;
+                out.authority_changes = this->state->flush_authority_changes();
+                this->state->flush_into(out.frame);
+                if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
@@ -208,11 +209,10 @@ inline std::vector<x::control::Authority> build_authorities(
     const ir::Authorities &auth,
     const std::vector<types::ChannelKey> &write_keys
 ) {
-    if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
+    if (!auth.default_.has_value() && auth.channels.empty()) return {};
     std::vector<x::control::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
-        authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
-                                                            : DEFAULT_AUTHORITY;
+        authorities[i] = auth.default_.has_value() ? *auth.default_ : DEFAULT_AUTHORITY;
     for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
             if (write_keys[i] == key) {
@@ -318,8 +318,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         tolerance,
         error_handler
     );
-    auto [loop, err] = loop::create(loop_cfg);
-    if (err) return {nullptr, err};
+    auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {
         std::make_shared<Runtime>(
             cfg,

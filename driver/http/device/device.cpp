@@ -49,11 +49,7 @@ static std::string build_url(
 }
 
 Request build_request(const ConnectionConfig &conn, const RequestConfig &req) {
-    std::map<std::string, std::string> query_params;
-    for (const auto &[k, v]: conn.query_params)
-        query_params[k] = v;
-    for (const auto &[k, v]: req.query_params)
-        query_params[k] = v;
+    std::map<std::string, std::string> query_params = req.query_params;
     if (conn.auth.type == "api_key" && conn.auth.send_as == "query_param")
         query_params[conn.auth.parameter] = conn.auth.key;
 
@@ -64,30 +60,26 @@ Request build_request(const ConnectionConfig &conn, const RequestConfig &req) {
     r.verify_ssl = conn.verify_ssl;
 
     // Merge headers into a map first to handle deduplication, then format.
-    std::map<std::string, std::string> merged;
-    for (const auto &[k, v]: conn.headers)
-        merged[k] = v;
-    for (const auto &[k, v]: req.headers)
-        merged[k] = v;
+    std::map<std::string, std::string> headers = req.headers;
 
     if (conn.auth.type == "bearer") {
-        merged["Authorization"] = "Bearer " + conn.auth.token;
+        headers["Authorization"] = "Bearer " + conn.auth.token;
     } else if (conn.auth.type == "basic") {
-        merged["Authorization"] = "Basic " +
-                                  x::base64::encode(
-                                      conn.auth.username + ":" + conn.auth.password
-                                  );
+        headers["Authorization"] = "Basic " +
+                                   x::base64::encode(
+                                       conn.auth.username + ":" + conn.auth.password
+                                   );
     } else if (conn.auth.type == "api_key" && conn.auth.send_as != "query_param") {
-        merged[conn.auth.header] = conn.auth.key;
+        headers[conn.auth.header] = conn.auth.key;
     }
 
     if (!req.request_content_type.empty())
-        merged["Content-Type"] = req.request_content_type;
+        headers["Content-Type"] = req.request_content_type;
     else
-        merged.erase("Content-Type");
+        headers.erase("Content-Type");
 
-    r.headers.reserve(merged.size());
-    for (const auto &[k, v]: merged)
+    r.headers.reserve(headers.size());
+    for (const auto &[k, v]: headers)
         r.headers.push_back(k + ": " + v);
 
     return r;

@@ -100,8 +100,8 @@ TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     auto j = x::json::json{
         {"method", "POST"},
         {"path", "/api/status"},
-        {"query_params", {{"key", "val"}}},
-        {"headers", {{"X-Custom", "abc"}}},
+        {"query_params", {{{"parameter", "key"}, {"value", "val"}}}},
+        {"headers", {{{"name", "X-Custom"}, {"value", "abc"}}}},
         {"body", R"({"ping": true})"},
         {"response",
          {
@@ -136,6 +136,86 @@ TEST(HTTPScanTask, HealthCheckConfigDefaults) {
     EXPECT_TRUE(hc.request.headers.empty());
     EXPECT_TRUE(hc.body.empty());
     EXPECT_FALSE(hc.expected_response.has_value());
+}
+
+TEST(HTTPScanTask, HealthCheckConfigHeaderMissingNameErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers", {{{"value", "abc"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("name"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigHeaderMissingValueErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers", {{{"name", "X-Custom"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingParameterErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params", {{{"value", "10"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("parameter"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigDuplicateHeaderErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers",
+         {
+             {{"name", "X-Key"}, {"value", "a"}},
+             {{"name", "X-Key"}, {"value", "b"}},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("duplicate header"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigDuplicateQueryParamErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params",
+         {
+             {{"parameter", "key"}, {"value", "a"}},
+             {{"parameter", "key"}, {"value", "b"}},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("duplicate query parameter"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingValueErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params", {{{"parameter", "limit"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigMissingMethod) {
@@ -280,8 +360,8 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status.message, "Device connected");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->message, "Device connected");
 
     server.stop();
 }
@@ -315,8 +395,8 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status.message, "Device connected");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->message, "Device connected");
 
     server.stop();
 }
@@ -350,9 +430,9 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "HTTP 503");
-    EXPECT_EQ(result[0].status.description, "Service Unavailable");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->message, "HTTP 503");
+    EXPECT_EQ(result[0].status->description, "Service Unavailable");
 
     server.stop();
 }
@@ -384,8 +464,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     for (int i = 0; i < 3; i++) {
         const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(result[0].status.message, "Device connected");
+        EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(result[0].status->message, "Device connected");
     }
 
     // Stop server and verify device becomes unreachable on next scan.
@@ -393,8 +473,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Failed to reach server");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->message, "Failed to reach server");
 }
 
 TEST(HTTPScanTask, ScanUnreachableDevice) {
@@ -414,10 +494,10 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Failed to reach server");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->message, "Failed to reach server");
     EXPECT_NE(
-        result[0].status.description.find("Could not connect to server"),
+        result[0].status->description.find("Could not connect to server"),
         std::string::npos
     );
 }
@@ -464,10 +544,10 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->message, "Health check validation failed");
     EXPECT_EQ(
-        result[0].status.description,
+        result[0].status->description,
         "expected value at '/status' to be \"ok\", got \"degraded\""
     );
 
@@ -516,8 +596,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status.message, "Device connected");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->message, "Device connected");
 
     server.stop();
 }
@@ -567,9 +647,9 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
 
     for (const auto &dev: result) {
         if (dev.key == healthy_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
+            EXPECT_EQ(dev.status->variant, x::status::VARIANT_SUCCESS);
         } else if (dev.key == bad_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_WARNING);
+            EXPECT_EQ(dev.status->variant, x::status::VARIANT_WARNING);
         } else {
             FAIL() << "Unexpected device key: " << dev.key;
         }
@@ -606,9 +686,9 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Invalid device properties");
-    EXPECT_NE(result[0].status.description.find("health_check"), std::string::npos);
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->message, "Invalid device properties");
+    EXPECT_NE(result[0].status->description.find("health_check"), std::string::npos);
 }
 
 TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
@@ -632,9 +712,9 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Invalid device properties");
-    EXPECT_NE(result[0].status.description.find("base_url"), std::string::npos);
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->message, "Invalid device properties");
+    EXPECT_NE(result[0].status->description.find("base_url"), std::string::npos);
 }
 
 TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
@@ -680,7 +760,7 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
 
     auto received = server.received_requests();
     ASSERT_FALSE(received.empty());
@@ -733,10 +813,10 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->message, "Health check validation failed");
     EXPECT_NE(
-        result[0].status.description.find("failed to parse response body as JSON"),
+        result[0].status->description.find("failed to parse response body as JSON"),
         std::string::npos
     );
 
@@ -785,10 +865,10 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->message, "Health check validation failed");
     EXPECT_EQ(
-        result[0].status.description,
+        result[0].status->description,
         "response body does not contain pointer '/status'"
     );
 
@@ -813,7 +893,7 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
@@ -847,7 +927,7 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
@@ -894,7 +974,7 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
@@ -949,7 +1029,7 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
@@ -984,7 +1064,7 @@ TEST(HTTPScanTask, ExecUnknownCommand) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = "unknown_command";
     EXPECT_FALSE(scanner.exec(cmd, task, ctx));
 }
@@ -1030,7 +1110,7 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
 
     ASSERT_EQ(result.size(), NUM_SERVERS);
     for (const auto &dev: result)
-        EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(dev.status->variant, x::status::VARIANT_SUCCESS);
 
     EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
         << "Scan took " << elapsed.milliseconds()
@@ -1049,7 +1129,7 @@ TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = x::json::json::object();

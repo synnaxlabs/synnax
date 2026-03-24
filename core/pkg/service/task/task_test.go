@@ -83,6 +83,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 	AfterAll(func() {
 		Expect(svc.Close()).To(Succeed())
+		Expect(rackService.Close()).To(Succeed())
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})

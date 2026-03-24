@@ -18,9 +18,9 @@
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 
-namespace synnax {
+namespace synnax::details {
 struct Transport {
-    static Transport configure(
+    Transport(
         uint16_t port,
         const std::string &ip,
         const std::string &ca_cert_file,

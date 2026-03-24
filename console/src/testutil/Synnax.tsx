@@ -11,9 +11,10 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { type errors, narrow, status } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type z from "zod";
 
 interface Adder {
-  <Details = never>(spec: status.Crude<Details>): void;
+  <Details extends z.ZodType = z.ZodNever>(spec: status.Crude<Details>): void;
 }
 
 interface ErrorHandler {

@@ -24,9 +24,6 @@ const (
 	TimeStampMax = TimeStamp(^uint64(0) >> 1)
 )
 
-// TimeStamp stores an epoch time in nanoseconds.
-type TimeStamp int64
-
 var (
 	_ json.Marshaler   = TimeStamp(0)
 	_ json.Unmarshaler = (*TimeStamp)(nil)

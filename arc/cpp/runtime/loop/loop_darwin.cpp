@@ -32,9 +32,13 @@ static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
 /// Consolidates all execution modes into a single class following the Linux pattern.
 class DarwinLoop final : public Loop {
 public:
-    explicit DarwinLoop(Config config): config_(std::move(config)) {
+    explicit DarwinLoop(
+        Config config,
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+    ):
+        config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory)
-            LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
+            LOG(WARNING) << "[arc.loop] Memory locking not fully supported on macOS";
     }
 
     ~DarwinLoop() override { this->close_fds(); }
@@ -64,11 +68,8 @@ public:
     x::errors::Error start() override {
         if (this->kqueue_fd_ != -1) return x::errors::NIL;
 
-        // Handle RT_EVENT fallback on macOS
-        if (this->config_.mode == ExecutionMode::RT_EVENT) {
-            LOG(INFO) << "[loop] RT_EVENT mode not supported on macOS, "
-                      << "falling back to HIGH_RATE";
-        }
+        if (this->config_.mode == ExecutionMode::RT_EVENT)
+            VLOG(1) << "[arc.loop] RT_EVENT on macOS uses software timer";
 
         // Create kqueue for event multiplexing
         this->kqueue_fd_ = kqueue();
@@ -106,8 +107,11 @@ public:
             }
         }
 
-        if (auto err = x::thread::rt::apply_config(this->config_.rt()); err)
-            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
+        if (!this->rt_handle_) {
+            x::thread::rt::apply_config(this->config_.rt());
+        } else {
+            this->rt_handle_->apply();
+        }
 
         return x::errors::NIL;
     }
@@ -127,7 +131,7 @@ public:
         EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, nullptr);
 
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
+            LOG(ERROR) << "[arc.loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
             return false;
         }
@@ -150,7 +154,7 @@ private:
     x::errors::Error setup_kqueue_timer() {
         const uint64_t interval_ms = this->config_.interval.milliseconds();
         if (interval_ms == 0)
-            LOG(WARNING) << "[loop] Interval too small for kqueue timer "
+            LOG(WARNING) << "[arc.loop] Interval too small for kqueue timer "
                          << "(<1ms), using 1ms";
 
         struct kevent kev;
@@ -181,7 +185,7 @@ private:
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
             if (n == -1 && errno != EINTR && errno != EBADF) {
-                LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
+                LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
             // Prevent starvation of breaker-stopping threads. yield() over
@@ -234,7 +238,8 @@ private:
 
         if (n > 0) return this->classify_events(events, n);
         if (n == 0) return WakeReason::Timeout;
-        if (errno != EINTR) LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
+        if (errno != EINTR)
+            LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
         return WakeReason::Shutdown;
     }
 
@@ -255,15 +260,15 @@ private:
     }
 
     Config config_;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int kqueue_fd_ = -1;
     bool kqueue_timer_enabled_ = false;
     std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<DarwinLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::unique_ptr<Loop>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
+    return std::make_unique<DarwinLoop>(cfg, std::move(rt_handle));
 }
 
 }

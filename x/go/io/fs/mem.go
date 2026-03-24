@@ -427,14 +427,6 @@ func (f *memFile) Write(p []byte) (int, error) {
 		f.n.mu.data = append(f.n.mu.data[:f.wpos], p...)
 	}
 	f.wpos += len(p)
-
-	if invariants.Enabled {
-		// Mutate the input buffer to flush out bugs in Pebble which expect the input
-		// buffer to be unmodified.
-		for i := range p {
-			p[i] ^= 0xff
-		}
-	}
 	return len(p), nil
 }
 

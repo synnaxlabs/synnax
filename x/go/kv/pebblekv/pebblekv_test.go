@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -53,10 +54,11 @@ var _ = Describe("PebbleKV", func() {
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
-			Expect(db.Get(ctx, []byte("non-existent"))).Error().To(Equal(kv.ErrNotFound))
+			Expect(db.Get(ctx, []byte("non-existent"))).Error().
+				To(MatchError(query.ErrNotFound))
 
 			Expect(db.Delete(ctx, key)).To(Succeed())
-			Expect(db.Get(ctx, key)).Error().To(Equal(kv.ErrNotFound))
+			Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should handle transactions correctly", func() {
@@ -77,7 +79,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Set(ctx, rollbackKey, rollbackValue)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			Expect(db.Get(ctx, rollbackKey)).Error().To(Equal(kv.ErrNotFound))
+			Expect(db.Get(ctx, rollbackKey)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should not return a value if a transaction hasn't been committed", func() {
@@ -85,10 +87,7 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("abc-tx-key")
 			value := []byte("abc-tx-value")
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
-			v, closer, err := db.Get(ctx, key)
-			Expect(err).To(HaveOccurredAs(kv.ErrNotFound))
-			Expect(v).To(BeNil())
-			Expect(closer).To(BeNil())
+			Expect(db.Get(ctx, key)).Error().To(HaveOccurredAs(query.ErrNotFound))
 		})
 
 		It("Should iterate over values correctly", func() {
@@ -220,9 +219,7 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("tx-get-key")
 			value := []byte("tx-get-value")
 
-			_, closer, err := tx.Get(ctx, key)
-			Expect(err).To(Equal(kv.ErrNotFound))
-			Expect(closer).To(BeNil())
+			Expect(tx.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
 			got, closer := MustSucceed2(tx.Get(ctx, key))
@@ -408,9 +405,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(db.Set(ctx, key, value)).To(Succeed())
 				Expect(db.Delete(ctx, key)).To(Succeed())
 
-				_, closer, err := db.Get(ctx, key)
-				Expect(err).To(Equal(kv.ErrNotFound))
-				Expect(closer).To(BeNil())
+				Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should perform basic operations correctly without observers", func() {

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -25,10 +26,11 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Group    *group.Service
+	Signals       *signals.Provider
+	DB            *gorp.DB
+	Ontology      *ontology.Ontology
+	Group         *group.Service
+	ChildDeleters []ChildDeleter
 }
 
 var (
@@ -42,6 +44,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ChildDeleters = override.Slice(c.ChildDeleters, other.ChildDeleters)
 	return c
 }
 
@@ -57,6 +60,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	table           *gorp.Table[uuid.UUID, Workspace]
 	group           group.Group
 }
 
@@ -65,11 +69,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
+	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, "Workspaces", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -84,13 +92,19 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
-func (s *Service) Close() error { return s.shutdownSignals.Close() }
+func (s *Service) Close() error {
+	err := s.shutdownSignals.Close()
+	return errors.Join(err, s.table.Close())
+}
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:            tx,
+		otg:           s.cfg.Ontology.NewWriter(tx),
+		otgR:          s.cfg.Ontology,
+		group:         s.group,
+		childDeleters: s.cfg.ChildDeleters,
 	}
 }
 

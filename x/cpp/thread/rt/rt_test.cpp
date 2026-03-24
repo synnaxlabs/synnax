@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <set>
 #include <sstream>
 
 #include "gtest/gtest.h"
@@ -59,14 +61,14 @@ TEST(RTConfigTest, WithTimingDefaultsPreservesExisting) {
 
 TEST(RTConfigTest, ApplyEmptyConfig) {
     Config cfg;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithRTEnabled) {
     Config cfg;
     cfg.enabled = true;
     cfg.priority = 50;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithTiming) {
@@ -75,7 +77,7 @@ TEST(RTConfigTest, ApplyWithTiming) {
     cfg.period = telem::MILLISECOND;
     cfg.computation = telem::MICROSECOND * 200;
     cfg.deadline = telem::MICROSECOND * 500;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithDeadlineScheduler) {
@@ -85,14 +87,14 @@ TEST(RTConfigTest, ApplyWithDeadlineScheduler) {
     cfg.computation = telem::MICROSECOND * 200;
     cfg.deadline = telem::MICROSECOND * 500;
     cfg.prefer_deadline_scheduler = true;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithMMCSS) {
     Config cfg;
     cfg.enabled = true;
     cfg.use_mmcss = true;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, HasRTSupportReturns) {
@@ -100,7 +102,7 @@ TEST(RTConfigTest, HasRTSupportReturns) {
 }
 
 TEST(RTCapabilitiesTest, GetCapabilities) {
-    auto caps = get_capabilities();
+    auto caps = capabilities();
     (void) caps.priority_scheduling;
     (void) caps.deadline_scheduling;
     (void) caps.time_constraint;
@@ -187,5 +189,122 @@ TEST(RTConfigTest, OstreamOperator) {
     oss << cfg;
     EXPECT_NE(oss.str().find("enabled"), std::string::npos);
     EXPECT_NE(oss.str().find("period"), std::string::npos);
+}
+
+TEST(ManagerTest, AllocateUniqueCores) {
+    auto mgr = std::make_shared<Manager>();
+    const auto total = mgr->total_cores();
+    if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
+    std::vector<Handle> handles;
+    std::set<int> seen;
+    for (size_t i = 0; i < total; i++) {
+        Config cfg;
+        cfg.enabled = true;
+        auto handle = mgr->allocate(cfg);
+        EXPECT_NE(handle.allocated_core(), CPU_AFFINITY_NONE);
+        EXPECT_EQ(seen.count(handle.allocated_core()), 0u);
+        seen.insert(handle.allocated_core());
+        handles.push_back(std::move(handle));
+    }
+    EXPECT_EQ(mgr->available_cores(), 0u);
+}
+
+TEST(ManagerTest, ExhaustedPoolReturnsCpuAffinityNone) {
+    auto mgr = std::make_shared<Manager>();
+    const auto total = mgr->total_cores();
+    std::vector<Handle> handles;
+    for (size_t i = 0; i < total; i++) {
+        Config cfg;
+        cfg.enabled = true;
+        handles.push_back(mgr->allocate(cfg));
+    }
+    Config cfg;
+    cfg.enabled = true;
+    auto handle = mgr->allocate(cfg);
+    EXPECT_EQ(handle.allocated_core(), CPU_AFFINITY_NONE);
+}
+
+TEST(ManagerTest, ReleaseAndReallocate) {
+    auto mgr = std::make_shared<Manager>();
+    const auto total = mgr->total_cores();
+    if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
+    int core;
+    {
+        Config cfg;
+        cfg.enabled = true;
+        auto handle = mgr->allocate(cfg);
+        core = handle.allocated_core();
+        EXPECT_NE(core, CPU_AFFINITY_NONE);
+        EXPECT_EQ(mgr->available_cores(), total - 1);
+    }
+    EXPECT_EQ(mgr->available_cores(), total);
+    Config cfg;
+    cfg.enabled = true;
+    auto handle = mgr->allocate(cfg);
+    EXPECT_EQ(handle.allocated_core(), core);
+}
+
+TEST(ManagerTest, MoveHandleTransfersOwnership) {
+    auto mgr = std::make_shared<Manager>();
+    const auto total = mgr->total_cores();
+    if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
+    Config cfg;
+    cfg.enabled = true;
+    auto handle1 = mgr->allocate(cfg);
+    const int core = handle1.allocated_core();
+    auto handle2 = std::move(handle1);
+    EXPECT_EQ(handle2.allocated_core(), core);
+    EXPECT_EQ(mgr->available_cores(), total - 1);
+}
+
+TEST(ManagerTest, DestroyHandleReturnsCoreToPool) {
+    auto mgr = std::make_shared<Manager>();
+    const auto total = mgr->total_cores();
+    if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
+    {
+        Config cfg;
+        cfg.enabled = true;
+        auto handle = mgr->allocate(cfg);
+        EXPECT_EQ(mgr->available_cores(), total - 1);
+    }
+    EXPECT_EQ(mgr->available_cores(), total);
+}
+
+TEST(ManagerTest, ExplicitReleaseIsIdempotent) {
+    auto mgr = std::make_shared<Manager>();
+    const auto total = mgr->total_cores();
+    if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
+    Config cfg;
+    cfg.enabled = true;
+    auto handle = mgr->allocate(cfg);
+    handle.release();
+    EXPECT_EQ(mgr->available_cores(), total);
+    handle.release();
+    EXPECT_EQ(mgr->available_cores(), total);
+}
+
+TEST(ManagerTest, HandleOutlivesManager) {
+    Handle handle(CPU_AFFINITY_NONE, Config{}, nullptr);
+    {
+        auto mgr = std::make_shared<Manager>();
+        if (mgr->total_cores() == 0) { GTEST_SKIP() << "no RT cores available"; }
+        Config cfg;
+        cfg.enabled = true;
+        handle = mgr->allocate(cfg);
+        EXPECT_NE(handle.allocated_core(), CPU_AFFINITY_NONE);
+    }
+    handle.release();
+}
+
+TEST(DiscoverTest, ReturnsNonNegativeCores) {
+    auto cores = discover_rt_cores();
+    for (const auto core: cores)
+        EXPECT_GE(core, 0);
+}
+
+TEST(DiscoverTest, NoDuplicates) {
+    auto cores = discover_rt_cores();
+    std::set<int> unique(cores.begin(), cores.end());
+    EXPECT_EQ(unique.size(), cores.size());
 }
 }

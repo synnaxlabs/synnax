@@ -15,12 +15,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
-const OntologyType ontology.Type = "framer"
-
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k channel.Key) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeFramer, Key: k.String()}
 }
 
 // OntologyIDs returns the ontology.ID for each key.
