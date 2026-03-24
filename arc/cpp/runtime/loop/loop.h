@@ -47,6 +47,11 @@ inline const x::telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = x::telem::MILLISECOND
 /// Intervals below 1ms require precise software timing.
 inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 
+/// @brief Upper bound for preferring RT_EVENT on RT-capable systems. Intervals
+/// between HIGH_RATE_THRESHOLD and this value use RT_EVENT when RT scheduling
+/// is available, falling through to HYBRID otherwise.
+inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
+
 /// @brief Threshold below which HYBRID mode is beneficial.
 /// Intervals between 1-5ms benefit from spin-then-block approach.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
@@ -126,7 +131,7 @@ select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) 
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
         return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                             : ExecutionMode::HIGH_RATE;
-    if (x::thread::rt::has_support() && timing_interval < 3 * x::telem::MILLISECOND)
+    if (x::thread::rt::has_support() && timing_interval < timing::RT_EVENT_THRESHOLD)
         return ExecutionMode::RT_EVENT;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;

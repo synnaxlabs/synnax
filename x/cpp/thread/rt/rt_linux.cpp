@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstring>
 #include <fstream>
+#include <mutex>
 #include <set>
 #include <string>
 #include <thread>
@@ -171,6 +172,11 @@ std::set<int> &migrated_cores() {
     return cores;
 }
 
+std::mutex &migrated_cores_mu() {
+    static std::mutex mu;
+    return mu;
+}
+
 void apply_sched_fifo(int priority) {
     struct sched_param param;
     param.sched_priority = priority;
@@ -238,9 +244,11 @@ void apply_config(const Config &cfg) {
                          << target_cpu << ": " << strerror(errno);
         else {
             VLOG(1) << "[xthread] Pinned to CPU " << target_cpu;
+            std::unique_lock lock(migrated_cores_mu());
             auto &already = migrated_cores();
             if (already.insert(target_cpu).second) {
                 auto all_rt = already;
+                lock.unlock();
                 migrate_irqs(all_rt);
             }
         }

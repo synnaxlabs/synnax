@@ -39,7 +39,10 @@ func testFrame() frame.Frame {
 }
 
 var _ = Describe("Translator", func() {
-	ctx := context.Background()
+	var ctx context.Context
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
 
 	Describe("WriterRequestTranslator", func() {
 		t := framerpb.WriterRequestTranslator{}

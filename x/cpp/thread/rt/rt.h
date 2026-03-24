@@ -202,7 +202,6 @@ struct Config {
 /// @param cfg The RT configuration to apply.
 void apply_config(const Config &cfg);
 
-/// @brief DEPRECATED: Use get_rt_capabilities().any() instead.
 /// @brief Checks if the platform supports real-time scheduling.
 /// @return true on Linux with appropriate permissions, false on macOS/Windows.
 bool has_support();
