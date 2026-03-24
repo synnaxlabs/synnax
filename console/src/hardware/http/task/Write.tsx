@@ -122,7 +122,7 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
     ),
     [channel, itemKey],
   );
-  return <EndpointListItem {...props} extra={extraNode} />;
+  return <EndpointListItem {...props} extra={extraNode} x={false} y />;
 };
 
 const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
@@ -640,6 +640,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
+  console.log("onConfigure", config);
   const dev = await client.devices.retrieve({
     key: config.device,
     schemas: Device.SCHEMAS,
@@ -697,6 +698,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
       ep.channel.channel = newCmdCh.key;
       dev.properties.write[ep.path] = newCmdCh.key;
       modified = true;
+      console.log("configure", dev);
     }
   } finally {
     if (modified) await client.devices.create(dev, Device.SCHEMAS);

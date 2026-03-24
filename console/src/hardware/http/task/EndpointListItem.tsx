@@ -20,7 +20,7 @@ export const EndpointListItem = ({ extra, ...props }: EndpointListItemProps) => 
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   const shownPath = epPath === "" ? "(no path)" : epPath;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.ListItem justify="between" align="center" x {...props}>
       <Text.Text level="small" weight={500}>
         {method} {shownPath}
       </Text.Text>
