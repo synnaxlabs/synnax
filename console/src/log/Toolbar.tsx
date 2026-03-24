@@ -62,14 +62,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Base.Header>
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ width: 66 }}>
+            <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
               <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(state.key)}
               />
             </Flex.Box>
-            <Tabs.Selector style={{ borderBottom: "none" }} />
+            <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")} />
           </Flex.Box>
         </Base.Header>
         <Tabs.Content />

@@ -8,30 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Log } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
-
-export const { channelConfigZ } = Log;
-export type ChannelConfig = z.infer<typeof Log.channelConfigZ>;
-
-export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
-  color: "",
-  notation: "standard",
-  precision: -1,
-  alias: "",
-};
 
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
   channels: channel.keyZ.array(),
   remoteCreated: z.boolean(),
-  timestampPrecision: z.number().min(0).max(3).default(0),
-  channelConfigs: z.record(z.string(), channelConfigZ).default({}),
-  showChannelNames: z.boolean().default(true),
-  showReceiptTimestamp: z.boolean().default(true),
 });
 
 export type State = z.infer<typeof stateZ>;
@@ -41,10 +26,6 @@ export const ZERO_STATE: State = {
   version: VERSION,
   channels: [],
   remoteCreated: false,
-  timestampPrecision: 0,
-  channelConfigs: {},
-  showChannelNames: true,
-  showReceiptTimestamp: true,
 };
 
 export const sliceStateZ = z.object({

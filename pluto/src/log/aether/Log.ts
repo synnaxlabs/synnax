@@ -38,6 +38,8 @@ export const logState = z.object({
   showChannelNames: z.boolean().default(true),
   showReceiptTimestamp: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
+  // channelNames: server-side display names (fetched fresh, never persisted)
+  // channels: user-defined config per channel (color, precision, alias; persisted)
   channelNames: z.record(z.string(), z.string()).default({}),
   channels: z.array(channelEntryZ).default([]),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
@@ -66,7 +68,7 @@ interface InternalState {
   theme: theming.Theme;
   render: render.Context;
   draw2d: Draw2D;
-  telem: telem.MemoizedSource<telem.LogSource>;
+  telem: telem.MemoizedSource<telem.LogEntry[], telem.LogSource>;
   configs: Record<string, z.infer<typeof channelConfigZ>>;
   textColor: color.Color;
   prefixColors: Record<string, color.Color>;

@@ -11,6 +11,12 @@
 
 .console-log-toolbar {
     height: 100%;
+    .console-log-toolbar__actions {
+        width: 66px;
+    }
+    .console-log-toolbar__tabs {
+        border-bottom: none;
+    }
     .console-log__toolbar-properties {
         padding: 2rem;
         gap: 5rem;
@@ -20,17 +26,17 @@
         padding-bottom: 2rem;
         .console-log__channel-row {
             padding: 0.2rem 3rem 0.2rem 1rem;
-            & > div:nth-child(1) {
+            .console-log__channel-select {
                 flex: 4;
                 min-width: 0;
                 overflow: hidden;
             }
-            & > div:nth-child(2) {
+            .console-log__channel-alias {
                 flex: 1;
                 min-width: 75px;
                 overflow: hidden;
             }
-            & > div:nth-child(4) {
+            .console-log__channel-precision {
                 min-width: 60px;
                 max-width: 65px;
             }

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { Log } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -15,22 +16,35 @@ import * as v0 from "@/log/types/v0";
 
 export const VERSION = "1.0.0";
 
-export const channelEntryZ = v0.channelConfigZ.extend({
+export const { channelConfigZ } = Log;
+export type ChannelConfig = z.infer<typeof Log.channelConfigZ>;
+
+export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
+  color: "",
+  notation: "standard",
+  precision: -1,
+  alias: "",
+};
+
+export const channelEntryZ = channelConfigZ.extend({
   channel: channel.keyZ,
 });
 export type ChannelEntry = z.infer<typeof channelEntryZ>;
 
 export const ZERO_CHANNEL_ENTRY: ChannelEntry = {
-  ...v0.ZERO_CHANNEL_CONFIG,
+  ...ZERO_CHANNEL_CONFIG,
   channel: 0,
 };
 
-export const stateZ = v0.stateZ
-  .omit({ channels: true, channelConfigs: true, version: true })
-  .extend({
-    version: z.literal(VERSION),
-    channels: z.array(channelEntryZ).default([]),
-  });
+export const stateZ = z.object({
+  key: z.string(),
+  version: z.literal(VERSION),
+  channels: z.array(channelEntryZ).default([]),
+  remoteCreated: z.boolean(),
+  timestampPrecision: z.number().min(0).max(3).default(0),
+  showChannelNames: z.boolean().default(true),
+  showReceiptTimestamp: z.boolean().default(true),
+});
 export type State = z.infer<typeof stateZ>;
 
 export const ZERO_STATE: State = {
@@ -43,7 +57,7 @@ export const ZERO_STATE: State = {
   showReceiptTimestamp: true,
 };
 
-export const sliceStateZ = v0.sliceStateZ.omit({ logs: true, version: true }).extend({
+export const sliceStateZ = z.object({
   version: z.literal(VERSION),
   logs: z.record(z.string(), stateZ),
 });
@@ -55,21 +69,18 @@ export const SLICE_MIGRATION_NAME = "log.slice";
 
 export const stateMigration = migrate.createMigration<v0.State, State>({
   name: STATE_MIGRATION_NAME,
-  migrate: (state) => {
-    const channels = state.channels.map((key) => ({
+  migrate: (state) => ({
+    key: state.key,
+    version: VERSION,
+    remoteCreated: state.remoteCreated,
+    timestampPrecision: 0,
+    showChannelNames: true,
+    showReceiptTimestamp: true,
+    channels: state.channels.map((key) => ({
       channel: key,
-      ...(state.channelConfigs[String(key)] ?? v0.ZERO_CHANNEL_CONFIG),
-    }));
-    return {
-      key: state.key,
-      version: VERSION,
-      remoteCreated: state.remoteCreated,
-      timestampPrecision: state.timestampPrecision,
-      showChannelNames: state.showChannelNames,
-      showReceiptTimestamp: state.showReceiptTimestamp,
-      channels,
-    };
-  },
+      ...ZERO_CHANNEL_CONFIG,
+    })),
+  }),
 });
 
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({

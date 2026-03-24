@@ -160,6 +160,7 @@ export const DragButton = ({
       onClick={preventDefault}
       contrast={0}
       textColor={9}
+      disabled={disabled}
       {...rest}
     >
       <Icon.Drag />

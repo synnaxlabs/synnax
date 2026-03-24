@@ -26,6 +26,14 @@ import { Status } from "@/status/base";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
+const escapeHTML = (s: string): string =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const COPY_FLASH_DURATION_MS = 150;
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];
@@ -177,13 +185,6 @@ export const Log = ({
 
   const copyToClipboard = useCallback(() => {
     if (selectedText.length === 0) return;
-    const escapeHTML = (s: string): string =>
-      s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
     const lines = selectedLines.map((l) => {
       const escaped = escapeHTML(l.text);
       if (l.color.length === 0) return escaped;
@@ -282,12 +283,9 @@ export const Log = ({
           e.preventDefault();
           e.clipboardData.setData("text/plain", selectedText);
           const lines = selectedLines.map((l) => {
-            const escaped = l.text
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;");
+            const escaped = escapeHTML(l.text);
             if (l.color.length === 0) return escaped;
-            return `<span style="color: ${l.color}">${escaped}</span>`;
+            return `<span style="color: ${escapeHTML(l.color)}">${escaped}</span>`;
           });
           e.clipboardData.setData(
             "text/html",

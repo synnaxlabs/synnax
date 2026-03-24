@@ -33,7 +33,6 @@ import {
   setChannelConfig,
 } from "@/log/slice";
 
-const IS_DEV = import.meta.env.DEV;
 
 const PRECISION_BOUNDS = { lower: -1, upper: 18 };
 
@@ -69,6 +68,7 @@ const ChannelRow = ({
         onChange={(v: channel.Key) => onChange(index, v)}
         initialQuery={{ internal: IS_DEV ? undefined : false }}
         disabled={disabled}
+        className={CSS.BE("log", "channel-select")}
       />
       <Input.Text
         value={config.alias ?? ""}
@@ -77,6 +77,7 @@ const ChannelRow = ({
         placeholder={data?.name ?? "Alias"}
         variant="shadow"
         shrink={false}
+        className={CSS.BE("log", "channel-alias")}
       />
       <Notation.Select
         value={config.notation ?? "standard"}
@@ -91,6 +92,7 @@ const ChannelRow = ({
         shrink={false}
         variant="shadow"
         tooltip="Precision (-1 = no rounding)"
+        className={CSS.BE("log", "channel-precision")}
       />
       <Color.Swatch
         value={hasCustomColor ? config.color : defaultColor}
@@ -128,6 +130,7 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
       initialQuery={{ internal: IS_DEV ? undefined : false }}
       disabled={disabled}
       triggerProps={{ placeholder: "Add a channel..." }}
+      className={CSS.BE("log", "channel-select")}
     />
     <Input.Text
       value=""
@@ -136,6 +139,7 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
       placeholder="Alias"
       variant="shadow"
       shrink={false}
+      className={CSS.BE("log", "channel-alias")}
     />
     <Notation.Select value={undefined} onChange={() => {}} allowNone />
     <Input.Numeric
@@ -147,6 +151,7 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
       shrink={false}
       variant="shadow"
       tooltip="Precision (-1 = no rounding)"
+      className={CSS.BE("log", "channel-precision")}
     />
     <Color.Swatch value={color.ZERO} onChange={() => {}} size="small" disabled />
     <Button.Button size="small" variant="text" ghost disabled>

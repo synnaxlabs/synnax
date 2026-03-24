@@ -88,8 +88,8 @@ class Memoized<V> {
   }
 }
 
-export class MemoizedSource<S extends Source<any>> extends Memoized<S> {
-  value(): ReturnType<S["value"]> {
+export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized<S> {
+  value(): V {
     return this.wrapped.value();
   }
 
@@ -112,18 +112,18 @@ class MemoizedSink<V> extends Memoized<Sink<V>> {
   }
 }
 
-export const useSource = <S extends Source<any>>(
+export const useSource = <V, S extends Source<V> = Source<V>>(
   ctx: aether.Context,
   spec: Spec,
-  prev: S | MemoizedSource<S>,
+  prev: S | MemoizedSource<V, S>,
   options?: CreateOptions,
-): MemoizedSource<S> => {
+): MemoizedSource<V, S> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
     prev.cleanup?.();
   }
-  return new MemoizedSource<S>(prov.create(spec, options), prov, spec);
+  return new MemoizedSource<V, S>(prov.create(spec, options), prov, spec);
 };
 
 export const useSink = <V>(

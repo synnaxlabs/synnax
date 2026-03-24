@@ -367,6 +367,12 @@ describe("Input", () => {
         expect(input.disabled).toBe(true);
       });
 
+      it("should pass disabled to the drag button", () => {
+        const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        expect(dragButton?.className).toContain("--disabled");
+      });
+
       it("should not call onChange when dragging the drag handle while disabled", () => {
         const onChange = vi.fn();
         // jsdom does not implement pointer capture APIs — define stubs so vi.spyOn

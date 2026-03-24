@@ -69,9 +69,11 @@ export const SelectMultiple = ({
   );
 };
 
+const isChannel = (entry: unknown): entry is channel.Channel =>
+  entry != null && typeof entry === "object" && "payload" in entry;
+
 const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
-  const ch = entry as channel.Channel | undefined;
-  const Resolved = resolveIcon(ch?.payload);
+  const Resolved = resolveIcon(isChannel(entry) ? entry.payload : undefined);
   return <Resolved />;
 };
 
