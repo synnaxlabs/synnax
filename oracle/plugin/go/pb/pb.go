@@ -1335,7 +1335,7 @@ func (p *Plugin) generateEnumTranslator(
 	goAlias := data.parentAlias
 
 	for _, v := range form.Values {
-		valueName := toPascalCase(v.Name)
+		valueName := naming.ToPascalCase(v.Name)
 
 		goValue := fmt.Sprintf("%s.%s%s", goAlias, goName, valueName)
 
