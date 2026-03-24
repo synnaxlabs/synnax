@@ -24,7 +24,7 @@ import { z } from "zod";
 
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
-import { StreamMultiChannelLog } from "@/telem/aether/log";
+import { StreamMultiChannelLog } from "@/log/aether/sources";
 import {
   AbstractSource,
   type NumberSource,

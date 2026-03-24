@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { NoopFactory, noopLogSourceSpec } from "@/telem/aether/noop";
-import { type LogSource } from "@/telem/aether/telem";
+import { type LogSource, noopLogSourceSpec } from "@/log/aether/types";
+import { NoopFactory } from "@/telem/aether/noop";
 
 describe("NoopLogSource", () => {
   it("should return an empty array from value()", () => {

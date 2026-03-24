@@ -12,7 +12,7 @@ import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channelConfigZ, Log, logState } from "@/log/aether/Log";
-import { type LogEntry } from "@/telem/aether/telem";
+import { type LogEntry } from "@/log/aether/types";
 import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
 
 const MockSender = { send: vi.fn() };
@@ -25,8 +25,6 @@ const mockLogSource = (entries: LogEntry[] = []) => ({
   cleanup: vi.fn(),
   onChange: vi.fn((_cb: () => void) => () => {}),
   setChannels: vi.fn(),
-  setChannelNames: vi.fn(),
-  setAliases: vi.fn(),
 });
 
 const mockCanvas2DContext = () => ({
@@ -89,14 +87,8 @@ const createLog = (parentCtx?: Map<string, unknown>) => {
 
 const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
-const makeEntry = (
-  i: number,
-  channelKey: number = 1,
-  channelName: string = "ch1",
-): LogEntry => ({
+const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   channelKey,
-  channelName,
-  channelPadding: "",
   timestamp: BigInt(TimeStamp.milliseconds(i * 1000).valueOf()),
   value: String(i),
 });
@@ -372,99 +364,6 @@ describe("log/aether/Log", () => {
       expect(source.setChannels).toHaveBeenCalledWith([1, 2, 3]);
     });
 
-    it("should call setChannelNames when channelNames change on second update", () => {
-      const entries = [makeEntry(0)];
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
-
-      // First update: no channel names
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
-
-      // Second update: channel names changed
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-          channelNames: { "1": "Temperature", "2": "Pressure" },
-        }),
-        type: "log",
-        create: () => log,
-      });
-
-      expect(source.setChannelNames).toHaveBeenCalledWith({
-        "1": "Temperature",
-        "2": "Pressure",
-      });
-    });
-
-    it("should call setAliases when channelConfigs change on second update", () => {
-      const entries = [makeEntry(0)];
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
-
-      // First update: no configs
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
-
-      // Second update: configs with aliases
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-          channels: [
-            { channel: 1, alias: "Temp" },
-            { channel: 2, alias: "" },
-          ],
-        }),
-        type: "log",
-        create: () => log,
-      });
-
-      expect(source.setAliases).toHaveBeenCalledWith({ "1": "Temp" });
-    });
   });
 
   describe("color handling", () => {
@@ -910,9 +809,11 @@ describe("log/aether/Log", () => {
 
   describe("channel configs and formatting", () => {
     it("should format entries with channel names when showChannelNames is true", () => {
-      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1, "Sensor1"));
+      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setupWithContext(entries, REGION_500, {
         showChannelNames: true,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "Sensor1" },
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -922,7 +823,7 @@ describe("log/aether/Log", () => {
     });
 
     it("should format entries without channel names when showChannelNames is false", () => {
-      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1, "Sensor1"));
+      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setupWithContext(entries, REGION_500, {
         showChannelNames: false,
         selectionStart: 0,
@@ -937,8 +838,6 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         {
           channelKey: 1,
-          channelName: "ch1",
-          channelPadding: "",
           timestamp: BigInt(TimeStamp.milliseconds(1000).valueOf()),
           value: "3.14159265",
         },
@@ -956,8 +855,6 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         {
           channelKey: 1,
-          channelName: "ch1",
-          channelPadding: "",
           timestamp: BigInt(TimeStamp.milliseconds(1000).valueOf()),
           value: "12345",
         },
@@ -1121,13 +1018,15 @@ describe("log/aether/Log", () => {
   describe("multi-channel entries", () => {
     it("should handle entries from multiple channels", () => {
       const entries = [
-        makeEntry(0, 1, "Temperature"),
-        makeEntry(1, 2, "Pressure"),
-        makeEntry(2, 1, "Temperature"),
-        makeEntry(3, 3, "Humidity"),
+        makeEntry(0, 1),
+        makeEntry(1, 2),
+        makeEntry(2, 1),
+        makeEntry(3, 3),
       ];
       const { log } = setupWithContext(entries, REGION_500, {
         showChannelNames: true,
+        channels: [{ channel: 1 }, { channel: 2 }, { channel: 3 }],
+        channelNames: { "1": "Temperature", "2": "Pressure", "3": "Humidity" },
         selectionStart: 0,
         selectionEnd: 3,
       });
@@ -1139,7 +1038,7 @@ describe("log/aether/Log", () => {
     });
 
     it("should apply per-channel colors from channelConfigs", () => {
-      const entries = [makeEntry(0, 1, "ch1"), makeEntry(1, 2, "ch2")];
+      const entries = [makeEntry(0, 1), makeEntry(1, 2)];
       const { log } = setupWithContext(entries, REGION_500, {
         channels: [
           { channel: 1, color: "#ff0000" },

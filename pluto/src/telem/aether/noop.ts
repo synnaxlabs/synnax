@@ -16,6 +16,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
+import { NOOP_LOG_REGISTRY } from "@/log/aether/types";
 import { type Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
@@ -24,9 +25,6 @@ import {
   type BooleanSourceSpec,
   type ColorSource,
   type ColorSourceSpec,
-  type LogEntry,
-  type LogSource,
-  type LogSourceSpec,
   type NumberSink,
   type NumberSinkSpec,
   type NumberSource,
@@ -180,22 +178,6 @@ export const noopSeriesSourceSpec: SeriesSourceSpec = {
   valueType: "series",
 };
 
-class NoopLogSource extends Noop implements LogSource {
-  static readonly TYPE = "noop-log-source";
-  readonly evictedCount = 0;
-
-  value(): LogEntry[] {
-    return [];
-  }
-}
-
-export const noopLogSourceSpec: LogSourceSpec = {
-  type: NoopLogSource.TYPE,
-  props: {},
-  variant: "source",
-  valueType: "log",
-};
-
 const REGISTRY: Record<string, new () => Telem> = {
   [NoopBooleanSink.TYPE]: NoopBooleanSink,
   [NumericSink.TYPE]: NumericSink,
@@ -206,7 +188,7 @@ const REGISTRY: Record<string, new () => Telem> = {
   [NoopColorSource.TYPE]: NoopColorSource,
   [StringSource.TYPE]: StringSource,
   [NoopSeries.TYPE]: NoopSeries,
-  [NoopLogSource.TYPE]: NoopLogSource,
+  ...NOOP_LOG_REGISTRY,
 };
 
 export class NoopFactory implements Factory {

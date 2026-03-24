@@ -11,8 +11,13 @@ import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlab
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import {
+  type LogEntry,
+  type LogSource,
+  logSourceSpecZ,
+  noopLogSourceSpec,
+} from "@/log/aether/types";
 import { telem } from "@/telem/aether";
-import { type LogEntry } from "@/telem/aether/telem";
 import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
@@ -42,7 +47,7 @@ export const logState = z.object({
   // channels: user-defined config per channel (color, precision, alias; persisted)
   channelNames: z.record(z.string(), z.string()).default({}),
   channels: z.array(channelEntryZ).default([]),
-  telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
+  telem: logSourceSpecZ.default(noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   overshoot: xy.xy.default({ x: 0, y: 0 }),
@@ -68,13 +73,17 @@ interface InternalState {
   theme: theming.Theme;
   render: render.Context;
   draw2d: Draw2D;
-  telem: telem.MemoizedSource<telem.LogEntry[], telem.LogSource>;
+  telem: telem.MemoizedSource<LogEntry[], LogSource>;
   configs: Record<string, z.infer<typeof channelConfigZ>>;
   textColor: color.Color;
   prefixColors: Record<string, color.Color>;
   defaultPrefixColor: color.Color;
   // Cached per-channel value colors to avoid repeated lookups in render loop.
   valueColors: Record<string, color.Color>;
+  // Display name per channel (alias if set, otherwise server name).
+  displayNames: Record<string, string>;
+  // Padding to align channel names to the same width in the log.
+  namePadding: Record<string, string>;
   charWidth: number;
   lineHeight: number;
   tsLen: number;
@@ -174,14 +183,23 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     // This handles both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
 
-    if (this.state.channelNames !== this.prevState.channelNames)
-      i.telem.wrapped.setChannelNames?.(this.state.channelNames);
-
-    if (channelsChanged) {
-      const aliases: Record<string, string> = {};
+    // Compute display names (alias takes priority over server name) and padding.
+    const namesChanged =
+      channelsChanged ||
+      this.state.channelNames !== this.prevState.channelNames ||
+      i.displayNames == null;
+    if (namesChanged) {
+      i.displayNames = {};
       for (const [key, cfg] of Object.entries(configs))
-        if (cfg.alias) aliases[key] = cfg.alias;
-      i.telem.wrapped.setAliases?.(aliases);
+        i.displayNames[key] =
+          cfg.alias || this.state.channelNames[key] || String(key);
+      const maxLen = Math.max(
+        0,
+        ...Object.values(i.displayNames).map((n) => n.length),
+      );
+      i.namePadding = {};
+      for (const [key, name] of Object.entries(i.displayNames))
+        i.namePadding[key] = " ".repeat(maxLen - name.length);
     }
 
     const { scrolling, wheelPos } = this.state;
@@ -404,12 +422,15 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         value = notation.stringifyNumber(num, precision, cfg.notation);
       }
     }
+    const { displayNames, namePadding } = this.internal;
+    const chKey = String(entry.channelKey);
+    const name = displayNames[chKey] ?? String(entry.channelKey);
+    const pad = namePadding[chKey] ?? "";
     let prefix: string;
     if (showReceiptTimestamp && showChannelNames)
-      prefix = `${ts} [${entry.channelName}]${entry.channelPadding}  `;
+      prefix = `${ts} [${name}]${pad}  `;
     else if (showReceiptTimestamp) prefix = `${ts}  `;
-    else if (showChannelNames)
-      prefix = `[${entry.channelName}]${entry.channelPadding}  `;
+    else if (showChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
     return {
       prefix,
