@@ -10,10 +10,15 @@
  */
 
 .console-http-endpoint-list-item__text {
-    display: block;
+    display: flex;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+.console-http-endpoint-list-item__path {
     direction: rtl;
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
+    white-space: nowrap;
 }

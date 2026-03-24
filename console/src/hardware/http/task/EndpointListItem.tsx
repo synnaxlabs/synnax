@@ -27,8 +27,7 @@ export const EndpointListItem = ({
   const { itemKey } = props;
   const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
-  const shownText = method + (epPath !== "" ? ` ${epPath}` : "");
-  // Escaping to allow for proper ellipsis handling.
+  const shownMethod = method + (epPath !== "" ? ` ` : "");
   return (
     <Select.ListItem justify="between" align="start" {...props}>
       <Text.Text
@@ -37,7 +36,12 @@ export const EndpointListItem = ({
         className={CSS.BE("http-endpoint-list-item", "text")}
         {...textProps}
       >
-        {`\u2066${shownText}\u2069`}
+        {shownMethod}
+        {epPath !== "" && (
+          <span className={CSS.BE("http-endpoint-list-item", "path")}>
+            {`\u2066${epPath}\u2069`}
+          </span>
+        )}
       </Text.Text>
       {extra}
     </Select.ListItem>
