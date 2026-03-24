@@ -11,7 +11,6 @@
 
 #include <ostream>
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/telem/telem.h"
 
@@ -117,7 +116,7 @@ struct Capabilities {
 };
 
 /// @brief Queries platform RT capabilities (cached after first call).
-Capabilities get_capabilities();
+Capabilities capabilities();
 
 /// @brief Configuration for real-time thread properties.
 struct Config {
@@ -193,14 +192,11 @@ struct Config {
     }
 };
 
-/// @brief Applies real-time configuration to the current thread.
-/// @param cfg The RT configuration to apply.
-/// @return errors::NIL on success, or an error describing what failed.
-/// @note On platforms without RT scheduling support (macOS, Windows),
-/// this function logs warnings but does not return errors.
-errors::Error apply_config(const Config &cfg);
+/// @brief Applies real-time configuration to the calling thread. Failures are
+/// logged as warnings but do not prevent execution, making this best-effort.
+/// Must be called from the thread that needs RT properties.
+void apply_config(const Config &cfg);
 
-/// @brief DEPRECATED: Use get_rt_capabilities().any() instead.
 /// @brief Checks if the platform supports real-time scheduling.
 /// @return true on Linux with appropriate permissions, false on macOS/Windows.
 bool has_support();

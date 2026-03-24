@@ -73,7 +73,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					g.Expect(c).To(HaveLen(1))
 					v := c[0]
 					g.Expect(v.Variant).To(Equal(change.VariantSet))
-					g.Expect(v.Key.Key).To(Equal(ch.Key().String()))
+					g.Expect(v.Key).To(Equal(channel.OntologyID(ch.Key()).String()))
 				}).Should(Succeed())
 			})
 		})

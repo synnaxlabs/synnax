@@ -93,6 +93,7 @@ type Service struct {
 	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
 	disconnectSuspectRackObserver observe.Disconnect
+	table                         *gorp.Table[string, Device]
 	group                         group.Group
 }
 
@@ -104,12 +105,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	table, err := gorp.OpenTable[string, Device](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
-	if err := s.migrateStatusesForExistingDevices(ctx); err != nil {
+	s := &Service{
+		cfg:   cfg,
+		group: g,
+		table: table,
+	}
+	if err = s.migrateStatusesForExistingDevices(ctx); err != nil {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -130,9 +139,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 func (s *Service) Close() error {
 	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals == nil {
-		return nil
+		return s.table.Close()
 	}
-	return s.shutdownSignals.Close()
+	return errors.Combine(s.shutdownSignals.Close(), s.table.Close())
 }
 
 // RootGroup returns the permanent group for devices. Note that racks will be children
