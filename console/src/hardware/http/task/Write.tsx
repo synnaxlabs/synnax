@@ -122,7 +122,7 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
     ),
     [channel, itemKey],
   );
-  return <EndpointListItem {...props} extra={extraNode} x={false} y />;
+  return <EndpointListItem {...props} extra={extraNode} y />;
 };
 
 const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
