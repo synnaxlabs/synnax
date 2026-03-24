@@ -120,27 +120,10 @@ func (w Writer) Delete(
 }
 
 func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
-	var children []ontology.Resource
-	if err := w.otgR.NewRetrieve().
-		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		Exec(ctx, w.tx); err != nil {
+	byType := make(map[ontology.Type][]uuid.UUID)
+	if err := w.collectDescendants(ctx, OntologyID(key), byType); err != nil {
 		return err
 	}
-	if len(children) == 0 {
-		return nil
-	}
-	byType := make(map[ontology.Type][]uuid.UUID)
-	for _, child := range children {
-		k, err := uuid.Parse(child.ID.Key)
-		if err != nil {
-			return err
-		}
-		byType[child.ID.Type] = append(byType[child.ID.Type], k)
-	}
-	// Children with no registered deleter are silently skipped. Ensure a
-	// ChildDeleter is registered for every type that can be a workspace child.
 	for _, deleter := range w.childDeleters {
 		keys := byType[deleter.Type()]
 		if len(keys) == 0 {
@@ -149,6 +132,35 @@ func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
 		if err := deleter.Delete(ctx, w.tx, keys...); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (w Writer) collectDescendants(
+	ctx context.Context,
+	parentID ontology.ID,
+	byType map[ontology.Type][]uuid.UUID,
+) error {
+	var children []ontology.Resource
+	if err := w.otgR.NewRetrieve().
+		WhereIDs(parentID).
+		TraverseTo(ontology.ChildrenTraverser).
+		Entries(&children).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, child := range children {
+		if child.ID.Type == "group" {
+			if err := w.collectDescendants(ctx, child.ID, byType); err != nil {
+				return err
+			}
+			continue
+		}
+		k, err := uuid.Parse(child.ID.Key)
+		if err != nil {
+			return err
+		}
+		byType[child.ID.Type] = append(byType[child.ID.Type], k)
 	}
 	return nil
 }

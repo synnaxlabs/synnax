@@ -15,6 +15,7 @@ import { z } from "zod";
 
 import { Form } from "@/form";
 import { OffPageReferenceForm } from "@/schematic/symbol/Forms";
+import { Theming } from "@/theming";
 
 const offPageRefSchema = z.object({
   label: z.object({
@@ -41,7 +42,11 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
     values: deep.copy(offPageRefValues),
     schema: offPageRefSchema,
   });
-  return <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>;
+  return (
+    <Theming.Provider>
+      <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>
+    </Theming.Provider>
+  );
 };
 
 describe("OffPageReferenceForm", () => {

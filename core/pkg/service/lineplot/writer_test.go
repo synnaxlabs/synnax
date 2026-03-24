@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -35,7 +37,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Delete(ctx, tx, plot.Key)).To(Succeed())
 			var res lineplot.LinePlot
 			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().
-				WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+				WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 	Describe("Update", func() {

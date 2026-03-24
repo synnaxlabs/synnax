@@ -121,7 +121,7 @@ const IndividualProperties = ({
           {...formMethods}
           key={nodeKey}
           actions={actions}
-          layoutKey={layoutKey}
+          schematicKey={layoutKey}
         />
       </Form.Form>
     </Flex.Box>

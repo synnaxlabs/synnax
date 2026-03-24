@@ -43,7 +43,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.ChildDeleters = override.Nil(c.ChildDeleters, other.ChildDeleters)
+	c.ChildDeleters = override.Slice(c.ChildDeleters, other.ChildDeleters)
 	return c
 }
 

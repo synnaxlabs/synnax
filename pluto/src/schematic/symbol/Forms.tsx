@@ -9,7 +9,7 @@
 
 import "@/schematic/symbol/Forms.css";
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type schematic as clientSchematic } from "@synnaxlabs/client";
 import {
   type bounds,
   color,
@@ -44,6 +44,7 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Button as BaseButton } from "@/vis/button";
 import { type Input as BaseInput } from "@/vis/input";
 import { type Setpoint } from "@/vis/setpoint";
@@ -59,7 +60,7 @@ const SelectTextLevel = ({
 );
 
 export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {
-  layoutKey?: string;
+  schematicKey?: clientSchematic.Key;
 }
 
 interface FormWrapperProps extends Flex.BoxProps {}
@@ -1130,8 +1131,51 @@ export const TextBoxForm = (): ReactElement => {
   );
 };
 
-export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactElement => {
-  const pages = usePages(layoutKey);
+const CLICK_MODE_KEYS = ["single", "double"] as const;
+
+const ClickModeSelect = ({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}): ReactElement => {
+  const handleChange = useCallback((v: string) => onChange(v === "double"), [onChange]);
+  return (
+    <Select.Buttons
+      value={value ? "double" : "single"}
+      onChange={handleChange}
+      keys={CLICK_MODE_KEYS}
+    >
+      <Select.Button itemKey="single">Single</Select.Button>
+      <Select.Button itemKey="double">Double</Select.Button>
+    </Select.Buttons>
+  );
+};
+
+const useHandlePageChange = (): ((
+  value: string | undefined,
+  onChange: (v: string) => void,
+  v: string,
+) => void) => {
+  const theme = Theming.use();
+  const ctx = Form.useContext();
+  return useCallback(
+    (value, onChange, v) => {
+      onChange(v);
+      const hadPage = value != null && value.length > 0;
+      const hasPage = v != null && v.length > 0;
+      if (!hadPage && hasPage) ctx.set("color", color.hex(theme.colors.primary.z));
+    },
+    [ctx, theme],
+  );
+};
+
+export const OffPageReferenceForm = ({
+  schematicKey,
+}: SymbolFormProps): ReactElement => {
+  const pages = usePages(schematicKey);
+  const handlePageChange = useHandlePageChange();
   return (
     <FormWrapper x align="stretch">
       <Flex.Box x grow align="stretch">
@@ -1147,7 +1191,7 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
           {({ value, onChange }) => (
             <Select.Static
               value={value}
-              onChange={onChange}
+              onChange={(v: string) => handlePageChange(value, onChange, v)}
               data={pages}
               resourceName="workspace schematic"
               emptyContent="No other schematics in this workspace"
@@ -1162,16 +1206,7 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
           hideIfNull={false}
           defaultValue
         >
-          {({ value, onChange }) => (
-            <Select.Buttons
-              value={value ? "double" : "single"}
-              onChange={(v: string) => onChange(v === "double")}
-              keys={["single", "double"] as const}
-            >
-              <Select.Button itemKey="single">Single</Select.Button>
-              <Select.Button itemKey="double">Double</Select.Button>
-            </Select.Buttons>
-          )}
+          {ClickModeSelect}
         </Form.Field>
         <Form.Field<Text.Level>
           hideIfNull

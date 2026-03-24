@@ -2929,6 +2929,13 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
+  const theme = Theming.use();
+  const resolvedColor = colorVal ?? theme.colors.gray.l11;
+  const textColor = color.pickByContrast(
+    resolvedColor,
+    theme.colors.text,
+    theme.colors.textInverted,
+  );
 
   return (
     <Div
@@ -2937,7 +2944,15 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
       {...rest}
     >
       <div className="wrapper">
-        <div className="outline" style={{ backgroundColor: color.cssString(colorVal) }}>
+        <div
+          className="outline"
+          style={
+            {
+              "--off-page-color": color.cssString(resolvedColor),
+              "--off-page-text-color": color.cssString(textColor),
+            } as React.CSSProperties
+          }
+        >
           <div className="bg">
             <Text.MaybeEditable
               value={label}
@@ -2968,26 +2983,6 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
           id="2"
         />
       </HandleBoundary>
-      <svg
-        style={{ visibility: "hidden", position: "absolute" }}
-        width="0"
-        height="0"
-        xmlns="http://www.w3.org/2000/svg"
-        version="1.1"
-      >
-        <defs>
-          <filter id="goo">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
-            <feColorMatrix
-              in="blur"
-              mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
-              result="goo"
-            />
-            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-          </filter>
-        </defs>
-      </svg>
     </Div>
   );
 };

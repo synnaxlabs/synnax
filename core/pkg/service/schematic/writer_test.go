@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -60,7 +61,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Delete(ctx, tx, s.Key)).To(Succeed())
 			var res schematic.Schematic
 			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().
-				WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+				WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 	Describe("Copy", func() {

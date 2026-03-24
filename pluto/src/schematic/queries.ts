@@ -9,12 +9,9 @@
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
 import { array, type record } from "@synnaxlabs/x";
-import { useState } from "react";
 
 import { Flux } from "@/flux";
-import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { Ontology } from "@/ontology";
-import { Synnax } from "@/synnax";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
@@ -148,31 +145,56 @@ export const { useUpdate: useSnapshot } = Flux.createUpdate<
 
 export type Page = record.KeyedNamed;
 
-export const usePages = (exclude?: string): Page[] => {
-  const client = Synnax.use();
-  const [pages, setPages] = useState<Page[]>([]);
-  useAsyncEffect(
-    async (signal) => {
-      setPages([]);
-      if (client == null || exclude == null) return;
-      const parents = await client.ontology.retrieveParents(
-        schematic.ontologyID(exclude),
-        { types: ["workspace"] },
-      );
-      if (signal.aborted || parents.length === 0) return;
-      const children = await client.ontology.retrieveChildren(parents[0].id, {
-        types: ["schematic"],
-      });
-      if (signal.aborted) return;
-      setPages(
-        children
-          .filter((r) => r.id.key !== exclude)
-          .map((r) => ({ key: r.id.key, name: r.name })),
-      );
-    },
-    [client, exclude],
-  );
+export interface PagesQuery {
+  exclude?: string;
+}
+
+const collectSchematics = async (
+  client: Flux.RetrieveParams<PagesQuery, FluxSubStore>["client"],
+  parentID: ontology.ID,
+  exclude: string,
+): Promise<Page[]> => {
+  const children = await client.ontology.retrieveChildren(parentID, {
+    types: ["schematic", "group"],
+  });
+  const pages: Page[] = [];
+  for (const child of children)
+    if (child.id.type === "schematic" && child.id.key !== exclude)
+      pages.push({ key: child.id.key, name: child.name });
+    else if (child.id.type === "group")
+      pages.push(...(await collectSchematics(client, child.id, exclude)));
+
   return pages;
+};
+
+const retrievePages = async ({
+  client,
+  query: { exclude },
+}: Flux.RetrieveParams<PagesQuery, FluxSubStore>): Promise<Page[]> => {
+  if (exclude == null) return [];
+  const parents = await client.ontology.retrieveParents(schematic.ontologyID(exclude), {
+    types: ["workspace"],
+  });
+  if (parents.length === 0) return [];
+  return await collectSchematics(client, parents[0].id, exclude);
+};
+
+const { useRetrieve: useRetrievePages } = Flux.createRetrieve<
+  PagesQuery,
+  Page[],
+  FluxSubStore
+>({
+  name: "schematic pages",
+  retrieve: retrievePages,
+  mountListeners: ({ store, onChange }) => [
+    store.relationships.onSet(() => onChange(undefined)),
+    store.resources.onSet(() => onChange(undefined)),
+  ],
+});
+
+export const usePages = (exclude?: string): Page[] => {
+  const result = useRetrievePages({ exclude });
+  return result.data ?? [];
 };
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
