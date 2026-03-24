@@ -28,8 +28,7 @@ export const EndpointListItem = ({
   const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   const shownText = method + (epPath !== "" ? ` ${epPath}` : "");
-  // u200E (left-to-right) is used so that the forward slashes appear in the correct
-  // direction but we can still do the left-hand ellipsis.
+  // Escaping to allow for proper ellipsis handling.
   return (
     <Select.ListItem justify="between" align="start" {...props}>
       <Text.Text
@@ -38,7 +37,7 @@ export const EndpointListItem = ({
         className={CSS.BE("http-endpoint-list-item", "text")}
         {...textProps}
       >
-        {`\u200E${shownText}`}
+        {`\u2066${shownText}\u2069`}
       </Text.Text>
       {extra}
     </Select.ListItem>
