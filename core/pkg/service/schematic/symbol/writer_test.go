@@ -16,7 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -129,7 +128,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
 
 			var res symbol.Symbol
-			Expect(gorp.NewRetrieve[uuid.UUID, symbol.Symbol](nil).
+			Expect(svc.NewRetrieve().
 				WhereKeys(sym.Key).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())

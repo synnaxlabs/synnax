@@ -99,7 +99,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 		Instrumentation: s.cfg.Child("lsp"),
 		GlobalResolver:  s.NewSymbolResolver(nil),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
-			Observable: s.cfg.Channel.NewObservable(),
+			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
 				ctx context.Context,
 				r gorp.TxReader[channel.Key, channel.Channel],
