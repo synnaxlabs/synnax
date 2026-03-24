@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package binary
+package types
 
-// MakeCopy returns a copy of the given byte slice.
-func MakeCopy(bytes []byte) []byte {
-	copied := make([]byte, len(bytes))
-	copy(copied, bytes)
-	return copied
+type Primitive interface {
+	Sized | ~string | ~[]byte
 }

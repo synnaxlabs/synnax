@@ -9,12 +9,18 @@
 
 #include <cerrno>
 #include <cstring>
+#include <fstream>
+#include <mutex>
+#include <set>
+#include <string>
 #include <thread>
 
 #include "glog/logging.h"
+#include <dirent.h>
 #include <linux/sched.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -95,6 +101,82 @@ bool apply_deadline_scheduler(const Config &cfg) {
     return false;
 }
 
+/// @brief builds a hex affinity mask string that excludes the given cores. For
+/// example, on an 8-core system excluding core 7: "7f" (bits 0-6 set).
+std::string build_exclusion_mask(const std::set<int> &excluded_cores, int num_cpus) {
+    std::vector<uint8_t> bytes((num_cpus + 7) / 8, 0);
+    for (int i = 0; i < num_cpus; i++) {
+        if (excluded_cores.count(i) == 0) bytes[i / 8] |= (1 << (i % 8));
+    }
+    std::string result;
+    bool leading = true;
+    for (int i = static_cast<int>(bytes.size()) - 1; i >= 0; i--) {
+        if (leading && bytes[i] == 0) continue;
+        leading = false;
+        char buf[3];
+        snprintf(buf, sizeof(buf), "%02x", bytes[i]);
+        result += buf;
+    }
+    return result.empty() ? "0" : result;
+}
+
+/// @brief migrates IRQs off the specified cores by writing to
+/// /proc/irq/*/smp_affinity. Requires root or CAP_SYS_NICE.
+void migrate_irqs(const std::set<int> &cores) {
+    const auto num_cpus = static_cast<int>(std::thread::hardware_concurrency());
+    if (num_cpus <= 1) return;
+    const auto mask = build_exclusion_mask(cores, num_cpus);
+    DIR *dir = opendir("/proc/irq");
+    if (dir == nullptr) return;
+    int migrated = 0;
+    int failed = 0;
+    while (auto *entry = readdir(dir)) {
+        if (entry->d_type != DT_DIR) continue;
+        char *end;
+        strtol(entry->d_name, &end, 10);
+        if (*end != '\0') continue;
+        const std::string path = std::string("/proc/irq/") + entry->d_name +
+                                 "/smp_affinity";
+        std::ofstream file(path);
+        if (!file.is_open()) {
+            failed++;
+            continue;
+        }
+        file << mask;
+        if (file.good())
+            migrated++;
+        else
+            failed++;
+    }
+    closedir(dir);
+    if (migrated > 0)
+        VLOG(1) << "[xthread] migrated " << migrated << " IRQs off cores {" <<
+            [&]() {
+                std::string s;
+                for (auto it = cores.begin(); it != cores.end(); ++it) {
+                    if (it != cores.begin()) s += ",";
+                    s += std::to_string(*it);
+                }
+                return s;
+            }()
+                << "} (mask=" << mask << ")";
+    if (failed > 0)
+        VLOG(1) << "[xthread] failed to migrate " << failed
+                << " IRQs (some are CPU-bound)";
+}
+
+/// @brief tracks which cores have had IRQs migrated off them so we only do it
+/// once per core across multiple apply_config calls.
+std::set<int> &migrated_cores() {
+    static std::set<int> cores;
+    return cores;
+}
+
+std::mutex &migrated_cores_mu() {
+    static std::mutex mu;
+    return mu;
+}
+
 void apply_sched_fifo(int priority) {
     struct sched_param param;
     param.sched_priority = priority;
@@ -106,7 +188,7 @@ void apply_sched_fifo(int priority) {
 }
 }
 
-Capabilities get_capabilities() {
+Capabilities capabilities() {
     static Capabilities caps = [] {
         Capabilities c;
         c.priority_scheduling = {true, test_sched_fifo()};
@@ -141,17 +223,12 @@ std::string Capabilities::permissions_guidance() const {
 }
 
 bool has_support() {
-    return get_capabilities().any();
+    return capabilities().any();
 }
 
-errors::Error apply_config(const Config &cfg) {
-    if (cfg.enabled) {
-        bool used_deadline = false;
-        if (cfg.prefer_deadline_scheduler && cfg.has_timing())
-            used_deadline = apply_deadline_scheduler(cfg);
-        if (!used_deadline) apply_sched_fifo(cfg.priority);
-    }
-
+void apply_config(const Config &cfg) {
+    // Set CPU affinity before scheduler policy. SCHED_DEADLINE rejects affinity
+    // changes after the policy is applied on RT kernels.
     int target_cpu = cfg.cpu_affinity;
     if (target_cpu == CPU_AFFINITY_AUTO) {
         const auto n = std::thread::hardware_concurrency();
@@ -165,10 +242,34 @@ errors::Error apply_config(const Config &cfg) {
         if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1)
             LOG(WARNING) << "[xthread] Failed to set CPU affinity to core "
                          << target_cpu << ": " << strerror(errno);
-        else
+        else {
             VLOG(1) << "[xthread] Pinned to CPU " << target_cpu;
+            std::unique_lock lock(migrated_cores_mu());
+            auto &already = migrated_cores();
+            if (already.insert(target_cpu).second) {
+                auto all_rt = already;
+                lock.unlock();
+                migrate_irqs(all_rt);
+            }
+        }
     }
 
+    if (cfg.enabled) {
+        bool used_deadline = false;
+        if (cfg.prefer_deadline_scheduler && cfg.has_timing())
+            used_deadline = apply_deadline_scheduler(cfg);
+        if (!used_deadline) apply_sched_fifo(cfg.priority);
+        if (prctl(PR_SET_TIMERSLACK, 1) == -1)
+            LOG(WARNING) << "[xthread] failed to set timer slack: " << strerror(errno);
+        else
+            VLOG(1) << "[xthread] set timer slack to 1ns";
+    }
+
+    // mlockall is process-wide: it pins every page (current and future) in
+    // physical RAM so that RT threads never hit page faults. MCL_FUTURE means
+    // all future allocations from any thread also get pinned. This is acceptable
+    // because the driver is a purpose-built process with a bounded memory
+    // footprint.
     if (cfg.lock_memory) {
         if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1)
             LOG(WARNING) << "[xthread] Failed to lock memory: " << strerror(errno)
@@ -176,7 +277,5 @@ errors::Error apply_config(const Config &cfg) {
         else
             VLOG(1) << "[xthread] Locked memory pages";
     }
-
-    return errors::NIL;
 }
 }
