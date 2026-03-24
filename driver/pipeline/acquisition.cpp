@@ -117,6 +117,7 @@ void Acquisition::run() {
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
                        << writer_err.message();
             this->source->stopped_with_err(writer_err);
+            this->breaker.stop();
             return;
         }
         writer = std::move(writer_i);
@@ -183,6 +184,10 @@ void Acquisition::run() {
         // Apply authority changes before writing the frame so the frame
         // is sent at the correct authority level.
         if (!authorities.empty()) {
+            if (auto err = authorities.validate()) {
+                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
+                break;
+            }
             if (writer_opened) {
                 if (auto err = writer->set_authority(authorities)) {
                     LOG(ERROR)
@@ -216,6 +221,7 @@ void Acquisition::run() {
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);
+    this->breaker.stop();
     VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 }

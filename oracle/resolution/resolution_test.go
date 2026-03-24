@@ -651,6 +651,16 @@ var _ = Describe("Primitive Helpers", func() {
 		Entry("Array", "Array", false),
 	)
 
+	DescribeTable("IsConstraint",
+		func(name string, expected bool) {
+			Expect(resolution.IsConstraint(name)).To(Equal(expected))
+		},
+		Entry("comparable", "comparable", true),
+		Entry("string is not a constraint", "string", false),
+		Entry("unknown is not a constraint", "Unknown", false),
+		Entry("empty string", "", false),
+	)
+
 	DescribeTable("IsStringPrimitive",
 		func(name string, expected bool) {
 			Expect(resolution.IsStringPrimitive(name)).To(Equal(expected))

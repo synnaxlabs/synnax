@@ -3,11 +3,11 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "rt",
-    srcs = select({
-        "@platforms//os:linux": ["rt_linux.cpp"],
-        "@platforms//os:macos": ["rt_darwin.cpp"],
-        "@platforms//os:windows": ["rt_windows.cpp"],
-        "//conditions:default": ["rt_default.cpp"],
+    srcs = ["manager.cpp"] + select({
+        "@platforms//os:linux": ["rt_linux.cpp", "discover_linux.cpp"],
+        "@platforms//os:macos": ["rt_darwin.cpp", "discover_default.cpp"],
+        "@platforms//os:windows": ["rt_windows.cpp", "discover_default.cpp"],
+        "//conditions:default": ["rt_default.cpp", "discover_default.cpp"],
     }),
     hdrs = [
         "rt.h",

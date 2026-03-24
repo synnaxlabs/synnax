@@ -29,6 +29,7 @@ import (
 	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -454,10 +455,10 @@ func (p *Plugin) generateNestedArrayWrapper(typeRef resolution.TypeRef, data *te
 	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
 
 	if data.wrapperMessages == nil {
-		data.wrapperMessages = make(map[string]bool)
+		data.wrapperMessages = make(set.Set[string])
 	}
-	if !data.wrapperMessages[wrapperName] {
-		data.wrapperMessages[wrapperName] = true
+	if !data.wrapperMessages.Contains(wrapperName) {
+		data.wrapperMessages.Add(wrapperName)
 		data.Messages = append(data.Messages, messageData{
 			Name: wrapperName,
 			Fields: []fieldData{
@@ -617,7 +618,7 @@ func (m *importManager) add(path string) {
 }
 
 type templateData struct {
-	wrapperMessages map[string]bool
+	wrapperMessages set.Set[string]
 	imports         *importManager
 	table           *resolution.Table
 	Package         string

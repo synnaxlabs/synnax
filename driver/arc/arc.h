@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "driver/common/common.h"
 #include "driver/task/task.h"
@@ -27,6 +28,8 @@ const std::string TASK_TYPE = INTEGRATION_NAME;
 
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {
+    std::shared_ptr<x::thread::rt::Manager> rt_manager;
+
     /// @brief configures an arc runtime task.
     std::pair<common::ConfigureResult, x::errors::Error> configure(
         const std::shared_ptr<task::Context> &ctx,
@@ -34,6 +37,9 @@ class Factory final : public task::Factory {
     );
 
 public:
+    explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr):
+        rt_manager(std::move(rt_manager)) {}
+
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task

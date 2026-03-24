@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 var primitiveMapper = cppprimitives.Mapper()
@@ -78,12 +79,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	allPaths := make(map[string]bool)
+	allPaths := make(set.Set[string])
 	for _, path := range structCollector.Paths() {
-		allPaths[path] = true
+		allPaths.Add(path)
 	}
 	for _, path := range distinctCollector.Paths() {
-		allPaths[path] = true
+		allPaths.Add(path)
 	}
 
 	for outputPath := range allPaths {
@@ -490,13 +491,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		}
 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
-			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+			if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				structType := domain.GetName(elemResolved, "cpp")
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						ns := deriveNamespace(targetOutputPath)
 						structType = fmt.Sprintf("::%s::%s", ns, structType)
+					}
+				}
+				if len(elemType.TypeArgs) > 0 {
+					var args []string
+					for i, arg := range elemType.TypeArgs {
+						if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+							continue
+						}
+						args = append(args, p.typeRefToCpp(arg, data))
+					}
+					if len(args) > 0 {
+						structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
 					}
 				}
 				return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, structType, jsonName)
@@ -531,13 +544,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
 		}
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+		if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			structType := domain.GetName(resolved, "cpp")
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := deriveNamespace(targetOutputPath)
 					structType = fmt.Sprintf("::%s::%s", ns, structType)
+				}
+			}
+			if len(typeRef.TypeArgs) > 0 {
+				var args []string
+				for i, arg := range typeRef.TypeArgs {
+					if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+						continue
+					}
+					args = append(args, p.typeRefToCpp(arg, data))
+				}
+				if len(args) > 0 {
+					structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
 				}
 			}
 			if field.IsHardOptional {

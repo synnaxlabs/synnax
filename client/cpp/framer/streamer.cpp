@@ -16,6 +16,10 @@ void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
     f.set_enable_experimental_codec(enable_experimental_codec);
+    f.mutable_exclude_groups()->Add(
+        this->exclude_groups.begin(),
+        this->exclude_groups.end()
+    );
 }
 
 std::pair<Streamer, x::errors::Error>

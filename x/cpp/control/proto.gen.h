@@ -30,6 +30,7 @@ Subject::to_proto() const {
     ::x::control::pb::Subject pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
+    pb.set_group(this->group);
     return {pb, x::errors::NIL};
 }
 
@@ -38,6 +39,7 @@ Subject::from_proto(const ::x::control::pb::Subject &pb) {
     Subject cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
+    cpp.group = pb.group();
     return {cpp, x::errors::NIL};
 }
 
@@ -91,6 +93,64 @@ State<R>::from_proto(const ::x::control::pb::State &pb) {
         }
     }
     cpp.authority = Authority(pb.authority());
+    return {cpp, x::errors::NIL};
+}
+
+template<typename R>
+inline std::pair<::x::control::pb::Transfer, x::errors::Error>
+Transfer<R>::to_proto() const {
+    ::x::control::pb::Transfer pb;
+    if (this->from.has_value()) {
+        auto [v, err] = this->from->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_from() = v;
+    }
+    if (this->to.has_value()) {
+        auto [v, err] = this->to->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_to() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+template<typename R>
+inline std::pair<Transfer<R>, x::errors::Error>
+Transfer<R>::from_proto(const ::x::control::pb::Transfer &pb) {
+    Transfer<R> cpp;
+    if (pb.has_from()) {
+        auto [v, err] = State<R>::from_proto(pb.from());
+        if (err) return {{}, err};
+        cpp.from = v;
+    }
+    if (pb.has_to()) {
+        auto [v, err] = State<R>::from_proto(pb.to());
+        if (err) return {{}, err};
+        cpp.to = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+template<typename R>
+inline std::pair<::x::control::pb::Update, x::errors::Error>
+Update<R>::to_proto() const {
+    ::x::control::pb::Update pb;
+    for (const auto &item: this->transfers) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_transfers() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+template<typename R>
+inline std::pair<Update<R>, x::errors::Error>
+Update<R>::from_proto(const ::x::control::pb::Update &pb) {
+    Update<R> cpp;
+    if (auto err = x::pb::from_proto_repeated<Transfer<R>>(
+            cpp.transfers,
+            pb.transfers()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

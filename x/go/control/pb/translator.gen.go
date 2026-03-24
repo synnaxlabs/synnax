@@ -20,8 +20,9 @@ import (
 // SubjectToPB converts Subject to Subject.
 func SubjectToPB(r control.Subject) (*Subject, error) {
 	pb := &Subject{
-		Key:  r.Key,
-		Name: r.Name,
+		Key:   r.Key,
+		Name:  r.Name,
+		Group: r.Group,
 	}
 	return pb, nil
 }
@@ -34,6 +35,7 @@ func SubjectFromPB(pb *Subject) (control.Subject, error) {
 	}
 	r.Key = pb.Key
 	r.Name = pb.Name
+	r.Group = pb.Group
 	return r, nil
 }
 
@@ -155,6 +157,151 @@ func StatesFromPB[R any](
 	for i, pb := range pbs {
 		var err error
 		result[i], err = StateFromPB(pb, translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TransferToPB converts Transfer to Transfer using provided type converters.
+func TransferToPB[R comparable](
+	r control.Transfer[R],
+	translateR func(R) (*anypb.Any, error),
+) (*Transfer, error) {
+	pb := &Transfer{}
+	if r.From != nil {
+		var err error
+		pb.From, err = StateToPB[R]((control.State[R])(*r.From), translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.To != nil {
+		var err error
+		pb.To, err = StateToPB[R]((control.State[R])(*r.To), translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// TransferFromPB converts Transfer to Transfer using provided type converters.
+func TransferFromPB[R comparable](
+	pb *Transfer,
+	translateR func(*anypb.Any) (R, error),
+) (control.Transfer[R], error) {
+	var r control.Transfer[R]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.From != nil {
+		val, err := StateFromPB[R](pb.From, translateR)
+		if err != nil {
+			return control.Transfer[R]{}, err
+		}
+		r.From = (*control.State[R])(&val)
+	}
+	if pb.To != nil {
+		val, err := StateFromPB[R](pb.To, translateR)
+		if err != nil {
+			return control.Transfer[R]{}, err
+		}
+		r.To = (*control.State[R])(&val)
+	}
+	return r, nil
+}
+
+// TransfersToPB converts a slice of Transfer to Transfer.
+func TransfersToPB[R comparable](
+	rs []control.Transfer[R],
+	translateR func(R) (*anypb.Any, error),
+) ([]*Transfer, error) {
+	result := make([]*Transfer, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TransferToPB(rs[i], translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TransfersFromPB converts a slice of Transfer to Transfer.
+func TransfersFromPB[R comparable](
+	pbs []*Transfer,
+	translateR func(*anypb.Any) (R, error),
+) ([]control.Transfer[R], error) {
+	result := make([]control.Transfer[R], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TransferFromPB(pb, translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UpdateToPB converts Update to Update using provided type converters.
+func UpdateToPB[R comparable](
+	r control.Update[R],
+	translateR func(R) (*anypb.Any, error),
+) (*Update, error) {
+	transfersVal, err := TransfersToPB[R](r.Transfers, translateR)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Update{
+		Transfers: transfersVal,
+	}
+	return pb, nil
+}
+
+// UpdateFromPB converts Update to Update using provided type converters.
+func UpdateFromPB[R comparable](
+	pb *Update,
+	translateR func(*anypb.Any) (R, error),
+) (control.Update[R], error) {
+	var r control.Update[R]
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Transfers, err = TransfersFromPB[R](pb.Transfers, translateR)
+	if err != nil {
+		return control.Update[R]{}, err
+	}
+	return r, nil
+}
+
+// UpdatesToPB converts a slice of Update to Update.
+func UpdatesToPB[R comparable](
+	rs []control.Update[R],
+	translateR func(R) (*anypb.Any, error),
+) ([]*Update, error) {
+	result := make([]*Update, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UpdateToPB(rs[i], translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UpdatesFromPB converts a slice of Update to Update.
+func UpdatesFromPB[R comparable](
+	pbs []*Update,
+	translateR func(*anypb.Any) (R, error),
+) ([]control.Update[R], error) {
+	result := make([]control.Update[R], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UpdateFromPB(pb, translateR)
 		if err != nil {
 			return nil, err
 		}
