@@ -118,12 +118,16 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
         channel={channel}
         namePath={`config.endpoints.${itemKey}.channel.name`}
         id={getEndpointChannelNameID(itemKey)}
+        weight={600}
+        color={10}
       />
     ),
     [channel, itemKey],
   );
-  return <EndpointListItem {...props} extra={extraNode} y />;
+  return <EndpointListItem {...props} extra={extraNode} y textProps={TEXT_PROPS} />;
 };
+
+const TEXT_PROPS = { weight: 450, color: 9 } as const;
 
 const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
 
