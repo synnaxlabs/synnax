@@ -24,6 +24,30 @@
 #include "core/pkg/api/grpc/framer/framer.pb.h"
 
 namespace synnax::framer {
+/// @brief validates that the authorities vector is compatible with the keys vector.
+/// Authorities must be empty, contain exactly 1 element (broadcast to all keys), or
+/// have the same number of elements as keys. When keys is empty, authorities must be
+/// empty or contain exactly 1 element.
+[[nodiscard]] inline x::errors::Error validate_authorities(
+    const std::vector<channel::Key> &keys,
+    const std::vector<x::control::Authority> &authorities
+) {
+    if (authorities.empty() || authorities.size() == 1) return x::errors::NIL;
+    if (keys.empty())
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "authorities size (" + std::to_string(authorities.size()) +
+                ") must be 1 when keys are empty"
+        );
+    if (authorities.size() != keys.size())
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "authorities size (" + std::to_string(authorities.size()) +
+                ") must be 1 or match keys size (" + std::to_string(keys.size()) + ")"
+        );
+    return x::errors::NIL;
+}
+
 /// @brief type alias for streamer network transport stream.
 using StreamerStream = freighter::
     Stream<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;

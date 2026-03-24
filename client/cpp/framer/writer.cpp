@@ -86,6 +86,7 @@ x::errors::Error Writer::set_authority(
     const bool ack
 ) {
     if (this->close_err) return this->close_err;
+    if (auto err = validate_authorities(keys, authorities)) return err;
     const WriterConfig config{.channels = keys, .authorities = authorities};
     grpc::framer::WriterRequest req;
     req.set_command(SET_AUTHORITY);

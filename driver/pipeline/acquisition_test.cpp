@@ -1029,6 +1029,6 @@ TEST(AuthoritiesValidation, MismatchedSizes) {
 /// @brief validate should return a validation error for many authorities with no keys.
 TEST(AuthoritiesValidation, MultipleAuthoritiesNoKeys) {
     Authorities auth{.authorities = {100, 200}};
-    ASSERT_NIL(auth.validate());
+    ASSERT_OCCURRED_AS(auth.validate(), x::errors::VALIDATION);
 }
 }
