@@ -105,9 +105,13 @@ public:
     void run() {
         this->start_time_steady_ = std::chrono::steady_clock::now();
         x::thread::set_name("runtime");
-        this->loop->start();
+        if (auto err = this->loop->start(); err) {
+            LOG(ERROR) << "[arc.runtime] failed to start loop: " << err.message();
+            this->error_handler(err);
+            return;
+        }
         if (!this->loop->watch(this->inputs.notifier())) {
-            LOG(ERROR) << "[runtime] failed to watch input notifier";
+            LOG(ERROR) << "[arc.runtime] failed to watch input notifier";
             this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
@@ -308,8 +312,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         tolerance,
         error_handler
     );
-    auto [loop, err] = loop::create(loop_cfg);
-    if (err) return {nullptr, err};
+    auto loop = loop::create(loop_cfg);
     return {
         std::make_shared<Runtime>(
             cfg,
