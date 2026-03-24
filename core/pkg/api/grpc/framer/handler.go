@@ -94,7 +94,7 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterRequest,
 ) (*WriterRequest, error) {
-	frm, err := telempb.FrameToPB[channel.Key](msg.Frame.Frame)
+	frm, err := telempb.FrameToPB(msg.Frame.Frame)
 	if err != nil {
 		return nil, err
 	}
@@ -337,9 +337,7 @@ func (t frameDeleteRequestTranslator) Backward(
 
 type writerServer struct{ *framerWriterServerCore }
 
-func (f *writerServer) Exec(
-	server FrameWriterService_ExecServer,
-) error {
+func (f *writerServer) Exec(server FrameWriterService_ExecServer) error {
 	return f.Handler(server.Context(), server)
 }
 
@@ -349,9 +347,7 @@ func (f *writerServer) BindTo(reg grpc.ServiceRegistrar) {
 
 type iteratorServer struct{ *frameIteratorServerCore }
 
-func (f *iteratorServer) Exec(
-	server FrameIteratorService_ExecServer,
-) error {
+func (f *iteratorServer) Exec(server FrameIteratorService_ExecServer) error {
 	return f.Handler(server.Context(), server)
 }
 
@@ -361,9 +357,7 @@ func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
 
 type streamerServer struct{ *frameStreamerServerCore }
 
-func (f *streamerServer) Exec(
-	stream FrameStreamerService_ExecServer,
-) error {
+func (f *streamerServer) Exec(stream FrameStreamerService_ExecServer) error {
 	return f.Handler(stream.Context(), stream)
 }
 
@@ -411,5 +405,5 @@ func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 	a.FrameWriter = ws
 	a.FrameIterator = is
 	a.FrameDelete = ds
-	return fgrpc.CompoundBindableTransport{ws, is, ss}
+	return fgrpc.CompoundBindableTransport{ws, is, ss, ds}
 }
