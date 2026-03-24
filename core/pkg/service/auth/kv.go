@@ -23,14 +23,9 @@ import (
 )
 
 // KVConfig is the configuration for opening the KV backed authenticator.
-type KVConfig struct {
-	DB *gorp.DB
-}
+type KVConfig struct{ DB *gorp.DB }
 
-var (
-	_             config.Config[KVConfig] = KVConfig{}
-	DefaultConfig                         = KVConfig{}
-)
+var _ config.Config[KVConfig] = KVConfig{}
 
 // Override implements config.Config.
 func (c KVConfig) Override(other KVConfig) KVConfig {
@@ -45,9 +40,9 @@ func (c KVConfig) Validate() error {
 	return v.Error()
 }
 
-// KV is a simple key-value backed Authenticator. It saves data to the provided
-// gorp DB. It's important to note that all gorp.tx(s) provided to the Authenticator
-// interface must be spawned from the same gorp DB.
+// KV is a simple key-value backed Authenticator. It saves data to the provided Gorp DB.
+// It's important to note that all gorp.tx(s) provided to the Authenticator interface
+// must be spawned from the same gorp DB.
 type KV struct {
 	cfg   KVConfig
 	table *gorp.Table[string, SecureCredentials]
@@ -55,14 +50,11 @@ type KV struct {
 
 // OpenKV opens a new KV authenticator with the given database.
 func OpenKV(ctx context.Context, cfgs ...KVConfig) (*KV, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(KVConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, SecureCredentials](
-		ctx,
-		gorp.TableConfig[SecureCredentials]{DB: cfg.DB},
-	)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -70,9 +62,7 @@ func OpenKV(ctx context.Context, cfgs ...KVConfig) (*KV, error) {
 }
 
 // Close closes the KV authenticator and releases any resources.
-func (kv *KV) Close() error {
-	return kv.table.Close()
-}
+func (kv *KV) Close() error { return kv.table.Close() }
 
 var _ Authenticator = (*KV)(nil)
 

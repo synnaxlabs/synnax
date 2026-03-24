@@ -30,7 +30,7 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	Codec    gorp.Codec[Workspace]
+	Codec    binary.Codec
 }
 
 var (
@@ -88,12 +88,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigUUID[Workspace](cfg.DB)
-	signalsCfg.Observable = s.table.Observe()
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signalsCfg,
+		signals.GorpPublisherConfigUUID[Workspace](s.table.Observe()),
 	); err != nil {
 		return nil, err
 	}

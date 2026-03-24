@@ -37,6 +37,7 @@ type Config struct {
 	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
 	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
 	ThrottleRate     telem.Rate   `json:"throttle_rate" msgpack:"throttle_rate"`
+	ExcludeGroups    []uint32     `json:"exclude_groups" msgpack:"exclude_groups"`
 }
 
 var (
@@ -58,11 +59,16 @@ func (cfg Config) Override(other Config) Config {
 	cfg.SendOpenAck = other.SendOpenAck
 	cfg.DownsampleFactor = override.Numeric(cfg.DownsampleFactor, other.DownsampleFactor)
 	cfg.ThrottleRate = override.Numeric(cfg.ThrottleRate, other.ThrottleRate)
+	cfg.ExcludeGroups = override.Slice(cfg.ExcludeGroups, other.ExcludeGroups)
 	return cfg
 }
 
 func (cfg Config) distribution() framer.StreamerConfig {
-	return framer.StreamerConfig{Keys: cfg.Keys, SendOpenAck: &cfg.SendOpenAck}
+	return framer.StreamerConfig{
+		Keys:          cfg.Keys,
+		SendOpenAck:   &cfg.SendOpenAck,
+		ExcludeGroups: cfg.ExcludeGroups,
+	}
 }
 
 // ServiceConfig is the configuration for opening a new streamer service.

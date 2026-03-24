@@ -78,11 +78,11 @@ func MigratePermissions(
 		return nil
 	}
 
-	legacyPolicyTable, err := gorp.OpenTable[uuid.UUID, LegacyPolicy](ctx, gorp.TableConfig[LegacyPolicy]{DB: dist.DB})
+	legacyPolicyTable, err := gorp.OpenTable(ctx, gorp.TableConfig[LegacyPolicy]{DB: dist.DB})
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, legacyPolicyTable.Close()) }()
+	defer func() { err = errors.Combine(err, legacyPolicyTable.Close()) }()
 
 	// Query all users
 	var users []user.User

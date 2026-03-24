@@ -10,7 +10,7 @@
 from synnax import channel
 from synnax.control.controller import Controller
 from synnax.framer import Client as FrameClient
-from synnax.telem.control import Authority, CrudeAuthority
+from synnax.x.control import Authority, CrudeAuthority
 
 
 class Client:

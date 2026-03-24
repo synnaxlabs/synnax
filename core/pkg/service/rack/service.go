@@ -56,7 +56,7 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
-	Codec   gorp.Codec[Rack]
+	Codec   binary.Codec
 	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
@@ -165,7 +165,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signalsCfg,
+			signals.GorpPublisherConfigNumeric[Key, Rack](s.table.Observe(), telem.Uint32T),
 		); err != nil {
 			return nil, err
 		}

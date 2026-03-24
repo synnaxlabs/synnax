@@ -56,7 +56,7 @@ type ServiceConfig struct {
 	Rack *rack.Service
 	// Codec is the protobuf-based codec for encoding/decoding devices in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[Device]
+	Codec binary.Codec
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
@@ -139,7 +139,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signalsCfg,
+			signals.GorpPublisherConfigString[Device](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}

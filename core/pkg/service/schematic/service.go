@@ -41,7 +41,7 @@ type ServiceConfig struct {
 	Signals *signals.Provider
 	// Codec is the protobuf-based codec for encoding/decoding schematics in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[Schematic]
+	Codec binary.Codec
 }
 
 var (

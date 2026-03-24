@@ -42,7 +42,7 @@ type ServiceConfig struct {
 	Signals *signals.Provider
 	// Codec is the protobuf-based codec for encoding/decoding labels in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[Label]
+	Codec binary.Codec
 }
 
 var (
@@ -101,9 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID[Label](cfg.DB)
-		signalsCfg.Observable = s.table.Observe()
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
+		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](s.table.Observe()))
 		if err != nil {
 			return nil, err
 		}

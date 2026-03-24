@@ -482,7 +482,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
     if constexpr (std::is_same_v<T, std::monostate>) {
         return std::monostate{};
     } else if constexpr (is_optional_v<T>) {
-        // Parse the inner type and wrap in optional
+        if (j.is_null()) return std::nullopt;
         using U = typename is_optional<T>::value_type;
         return std::make_optional(parse_value<U>(path, j));
     } else if constexpr (is_indirect_v<T>) {

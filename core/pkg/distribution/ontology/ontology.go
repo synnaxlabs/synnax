@@ -114,8 +114,8 @@ type Ontology struct {
 type Config struct {
 	DB                *gorp.DB
 	EnableSearch      *bool
-	RelationshipCodec gorp.Codec[Relationship]
-	ResourceCodec     gorp.Codec[Resource]
+	RelationshipCodec binary.Codec
+	ResourceCodec     binary.Codec
 	alamos.Instrumentation
 }
 
@@ -360,5 +360,5 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return errors.Combine(o.resourceTable.Close(), o.relationshipTable.Close())
+	return errors.Join(o.resourceTable.Close(), o.relationshipTable.Close())
 }

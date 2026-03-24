@@ -17,9 +17,13 @@ import (
 	"encoding/json"
 	"math"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 
 	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+
+	resource "github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 
@@ -62,10 +66,11 @@ const (
 
 type deviceCodec struct{}
 
-func (deviceCodec) Marshal(
-	_ context.Context,
-	s Device,
+func (deviceCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Device)
 	buf := make([]byte, 0, 556)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Key)))
 	buf = append(buf, s.Key...)
@@ -137,11 +142,25 @@ func (deviceCodec) Marshal(
 	return buf, nil
 }
 
-func (deviceCodec) Unmarshal(
-	_ context.Context,
+func (c deviceCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (deviceCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Device, error) {
-	var r Device
+	value any,
+) error {
+	r := value.(*Device)
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
@@ -180,7 +199,7 @@ func (deviceCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Properties); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
@@ -265,7 +284,7 @@ func (deviceCodec) Unmarshal(
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
-			_ov4.Type = ontology.Type(data[:_n])
+			_ov4.Type = resource.Type(data[:_n])
 			data = data[_n:]
 		}
 		{
@@ -278,7 +297,19 @@ func (deviceCodec) Unmarshal(
 	} else {
 		data = data[1:]
 	}
-	return r, nil
+	return nil
 }
 
-var DeviceCodec gorp.Codec[Device] = deviceCodec{}
+func (c deviceCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var DeviceCodec xbinary.Codec = deviceCodec{}

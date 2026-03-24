@@ -31,7 +31,7 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	// Codec is the protobuf-based codec for encoding/decoding line plots in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[LinePlot]
+	Codec binary.Codec
 }
 
 var (

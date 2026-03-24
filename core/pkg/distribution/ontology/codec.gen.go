@@ -16,7 +16,11 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
+
+	resource "github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 )
 
 var _ = binary.BigEndian
@@ -31,10 +35,11 @@ const (
 
 type resourceCodec struct{}
 
-func (resourceCodec) Marshal(
-	_ context.Context,
-	s Resource,
+func (resourceCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Resource)
 	buf := make([]byte, 0, 160)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Type)))
 	buf = append(buf, s.ID.Type...)
@@ -53,15 +58,29 @@ func (resourceCodec) Marshal(
 	return buf, nil
 }
 
-func (resourceCodec) Unmarshal(
-	_ context.Context,
+func (c resourceCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (resourceCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Resource, error) {
-	var r Resource
+	value any,
+) error {
+	r := value.(*Resource)
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
-		r.ID.Type = Type(data[:_n])
+		r.ID.Type = resource.Type(data[:_n])
 		data = data[_n:]
 	}
 	{
@@ -80,14 +99,26 @@ func (resourceCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
-	return r, nil
+	return nil
 }
 
-var ResourceCodec gorp.Codec[Resource] = resourceCodec{}
+func (c resourceCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var ResourceCodec xbinary.Codec = resourceCodec{}
 
 const (
 	RelationshipFieldFromType = 0
@@ -100,10 +131,11 @@ const (
 
 type relationshipCodec struct{}
 
-func (relationshipCodec) Marshal(
-	_ context.Context,
-	s Relationship,
+func (relationshipCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Relationship)
 	buf := make([]byte, 0, 160)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.From.Type)))
 	buf = append(buf, s.From.Type...)
@@ -118,15 +150,29 @@ func (relationshipCodec) Marshal(
 	return buf, nil
 }
 
-func (relationshipCodec) Unmarshal(
-	_ context.Context,
+func (c relationshipCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (relationshipCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Relationship, error) {
-	var r Relationship
+	value any,
+) error {
+	r := value.(*Relationship)
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
-		r.From.Type = Type(data[:_n])
+		r.From.Type = resource.Type(data[:_n])
 		data = data[_n:]
 	}
 	{
@@ -144,7 +190,7 @@ func (relationshipCodec) Unmarshal(
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
-		r.To.Type = Type(data[:_n])
+		r.To.Type = resource.Type(data[:_n])
 		data = data[_n:]
 	}
 	{
@@ -153,7 +199,19 @@ func (relationshipCodec) Unmarshal(
 		r.To.Key = string(data[:_n])
 		data = data[_n:]
 	}
-	return r, nil
+	return nil
 }
 
-var RelationshipCodec gorp.Codec[Relationship] = relationshipCodec{}
+func (c relationshipCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var RelationshipCodec xbinary.Codec = relationshipCodec{}

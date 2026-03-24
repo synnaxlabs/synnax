@@ -17,7 +17,9 @@ import (
 	"encoding/json"
 	"math"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 
 	graph "github.com/synnaxlabs/arc/graph"
 
@@ -294,10 +296,11 @@ const (
 
 type arcCodec struct{}
 
-func (arcCodec) Marshal(
-	_ context.Context,
-	s Arc,
+func (arcCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Arc)
 	buf := make([]byte, 0, 6542)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -1539,11 +1542,25 @@ func (arcCodec) Marshal(
 	return buf, nil
 }
 
-func (arcCodec) Unmarshal(
-	_ context.Context,
+func (c arcCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (arcCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Arc, error) {
-	var r Arc
+	value any,
+) error {
+	r := value.(*Arc)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -1606,7 +1623,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Config[_i4].Type.Inputs[_i6] = _sv
 										data = data[_sLen:]
@@ -1628,7 +1645,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Config[_i4].Type.Outputs[_i8] = _sv
 										data = data[_sLen:]
@@ -1650,7 +1667,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Config[_i4].Type.Config[_i10] = _sv
 										data = data[_sLen:]
@@ -1676,7 +1693,7 @@ func (arcCodec) Unmarshal(
 								data = data[4:]
 								_sv, _se := unmarshaltypesType(data[:_sLen])
 								if _se != nil {
-									return r, _se
+									return _se
 								}
 								_ov11 = _sv
 								data = data[_sLen:]
@@ -1724,7 +1741,7 @@ func (arcCodec) Unmarshal(
 								data = data[4:]
 								_sv, _se := unmarshaltypesType(data[:_sLen])
 								if _se != nil {
-									return r, _se
+									return _se
 								}
 								_ov13 = _sv
 								data = data[_sLen:]
@@ -1739,7 +1756,7 @@ func (arcCodec) Unmarshal(
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Config[_i4].Value); err != nil {
-								return r, err
+								return err
 							}
 							data = data[_n:]
 						}
@@ -1773,7 +1790,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Inputs[_i15].Type.Inputs[_i17] = _sv
 										data = data[_sLen:]
@@ -1795,7 +1812,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Inputs[_i15].Type.Outputs[_i19] = _sv
 										data = data[_sLen:]
@@ -1817,7 +1834,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Inputs[_i15].Type.Config[_i21] = _sv
 										data = data[_sLen:]
@@ -1843,7 +1860,7 @@ func (arcCodec) Unmarshal(
 								data = data[4:]
 								_sv, _se := unmarshaltypesType(data[:_sLen])
 								if _se != nil {
-									return r, _se
+									return _se
 								}
 								_ov22 = _sv
 								data = data[_sLen:]
@@ -1891,7 +1908,7 @@ func (arcCodec) Unmarshal(
 								data = data[4:]
 								_sv, _se := unmarshaltypesType(data[:_sLen])
 								if _se != nil {
-									return r, _se
+									return _se
 								}
 								_ov24 = _sv
 								data = data[_sLen:]
@@ -1906,7 +1923,7 @@ func (arcCodec) Unmarshal(
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Inputs[_i15].Value); err != nil {
-								return r, err
+								return err
 							}
 							data = data[_n:]
 						}
@@ -1940,7 +1957,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Outputs[_i26].Type.Inputs[_i28] = _sv
 										data = data[_sLen:]
@@ -1962,7 +1979,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Outputs[_i26].Type.Outputs[_i30] = _sv
 										data = data[_sLen:]
@@ -1984,7 +2001,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesParam(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										r.Graph.Functions[_i2].Outputs[_i26].Type.Config[_i32] = _sv
 										data = data[_sLen:]
@@ -2010,7 +2027,7 @@ func (arcCodec) Unmarshal(
 								data = data[4:]
 								_sv, _se := unmarshaltypesType(data[:_sLen])
 								if _se != nil {
-									return r, _se
+									return _se
 								}
 								_ov33 = _sv
 								data = data[_sLen:]
@@ -2058,7 +2075,7 @@ func (arcCodec) Unmarshal(
 								data = data[4:]
 								_sv, _se := unmarshaltypesType(data[:_sLen])
 								if _se != nil {
-									return r, _se
+									return _se
 								}
 								_ov35 = _sv
 								data = data[_sLen:]
@@ -2073,7 +2090,7 @@ func (arcCodec) Unmarshal(
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Outputs[_i26].Value); err != nil {
-								return r, err
+								return err
 							}
 							data = data[_n:]
 						}
@@ -2174,7 +2191,7 @@ func (arcCodec) Unmarshal(
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				if err := json.Unmarshal(data[:_n], &r.Graph.Nodes[_i45].Config); err != nil {
-					return r, err
+					return err
 				}
 				data = data[_n:]
 			}
@@ -2237,7 +2254,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Config[_i50].Type.Inputs[_i52] = _sv
 												data = data[_sLen:]
@@ -2259,7 +2276,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Config[_i50].Type.Outputs[_i54] = _sv
 												data = data[_sLen:]
@@ -2281,7 +2298,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Config[_i50].Type.Config[_i56] = _sv
 												data = data[_sLen:]
@@ -2307,7 +2324,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov57 = _sv
 										data = data[_sLen:]
@@ -2355,7 +2372,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov59 = _sv
 										data = data[_sLen:]
@@ -2370,7 +2387,7 @@ func (arcCodec) Unmarshal(
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
 									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Config[_i50].Value); err != nil {
-										return r, err
+										return err
 									}
 									data = data[_n:]
 								}
@@ -2404,7 +2421,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Inputs[_i61].Type.Inputs[_i63] = _sv
 												data = data[_sLen:]
@@ -2426,7 +2443,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Inputs[_i61].Type.Outputs[_i65] = _sv
 												data = data[_sLen:]
@@ -2448,7 +2465,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Inputs[_i61].Type.Config[_i67] = _sv
 												data = data[_sLen:]
@@ -2474,7 +2491,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov68 = _sv
 										data = data[_sLen:]
@@ -2522,7 +2539,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov70 = _sv
 										data = data[_sLen:]
@@ -2537,7 +2554,7 @@ func (arcCodec) Unmarshal(
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
 									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Inputs[_i61].Value); err != nil {
-										return r, err
+										return err
 									}
 									data = data[_n:]
 								}
@@ -2571,7 +2588,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Outputs[_i72].Type.Inputs[_i74] = _sv
 												data = data[_sLen:]
@@ -2593,7 +2610,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Outputs[_i72].Type.Outputs[_i76] = _sv
 												data = data[_sLen:]
@@ -2615,7 +2632,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Functions[_i48].Outputs[_i72].Type.Config[_i78] = _sv
 												data = data[_sLen:]
@@ -2641,7 +2658,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov79 = _sv
 										data = data[_sLen:]
@@ -2689,7 +2706,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov81 = _sv
 										data = data[_sLen:]
@@ -2704,7 +2721,7 @@ func (arcCodec) Unmarshal(
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
 									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Outputs[_i72].Value); err != nil {
-										return r, err
+										return err
 									}
 									data = data[_n:]
 								}
@@ -2798,7 +2815,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Config[_i91].Type.Inputs[_i93] = _sv
 												data = data[_sLen:]
@@ -2820,7 +2837,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Config[_i91].Type.Outputs[_i95] = _sv
 												data = data[_sLen:]
@@ -2842,7 +2859,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Config[_i91].Type.Config[_i97] = _sv
 												data = data[_sLen:]
@@ -2868,7 +2885,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov98 = _sv
 										data = data[_sLen:]
@@ -2916,7 +2933,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov100 = _sv
 										data = data[_sLen:]
@@ -2931,7 +2948,7 @@ func (arcCodec) Unmarshal(
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
 									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Config[_i91].Value); err != nil {
-										return r, err
+										return err
 									}
 									data = data[_n:]
 								}
@@ -2965,7 +2982,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Inputs[_i102].Type.Inputs[_i104] = _sv
 												data = data[_sLen:]
@@ -2987,7 +3004,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Inputs[_i102].Type.Outputs[_i106] = _sv
 												data = data[_sLen:]
@@ -3009,7 +3026,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Inputs[_i102].Type.Config[_i108] = _sv
 												data = data[_sLen:]
@@ -3035,7 +3052,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov109 = _sv
 										data = data[_sLen:]
@@ -3083,7 +3100,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov111 = _sv
 										data = data[_sLen:]
@@ -3098,7 +3115,7 @@ func (arcCodec) Unmarshal(
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
 									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Inputs[_i102].Value); err != nil {
-										return r, err
+										return err
 									}
 									data = data[_n:]
 								}
@@ -3132,7 +3149,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Outputs[_i113].Type.Inputs[_i115] = _sv
 												data = data[_sLen:]
@@ -3154,7 +3171,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Outputs[_i113].Type.Outputs[_i117] = _sv
 												data = data[_sLen:]
@@ -3176,7 +3193,7 @@ func (arcCodec) Unmarshal(
 												data = data[4:]
 												_sv, _se := unmarshaltypesParam(data[:_sLen])
 												if _se != nil {
-													return r, _se
+													return _se
 												}
 												_ov46.Nodes[_i89].Outputs[_i113].Type.Config[_i119] = _sv
 												data = data[_sLen:]
@@ -3202,7 +3219,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov120 = _sv
 										data = data[_sLen:]
@@ -3250,7 +3267,7 @@ func (arcCodec) Unmarshal(
 										data = data[4:]
 										_sv, _se := unmarshaltypesType(data[:_sLen])
 										if _se != nil {
-											return r, _se
+											return _se
 										}
 										_ov122 = _sv
 										data = data[_sLen:]
@@ -3265,7 +3282,7 @@ func (arcCodec) Unmarshal(
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
 									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Outputs[_i113].Value); err != nil {
-										return r, err
+										return err
 									}
 									data = data[_n:]
 								}
@@ -3567,10 +3584,22 @@ func (arcCodec) Unmarshal(
 	} else {
 		data = data[1:]
 	}
-	return r, nil
+	return nil
 }
 
-var ArcCodec gorp.Codec[Arc] = arcCodec{}
+func (c arcCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var ArcCodec xbinary.Codec = arcCodec{}
 
 func marshaltypesParam(s types.Param) ([]byte, error) {
 	buf := make([]byte, 0, 512)
@@ -3701,7 +3730,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesParam(data[:_sLen])
 					if _se != nil {
-						return r, _se
+						return _se
 					}
 					r.Type.Inputs[_i2] = _sv
 					data = data[_sLen:]
@@ -3723,7 +3752,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesParam(data[:_sLen])
 					if _se != nil {
-						return r, _se
+						return _se
 					}
 					r.Type.Outputs[_i4] = _sv
 					data = data[_sLen:]
@@ -3745,7 +3774,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesParam(data[:_sLen])
 					if _se != nil {
-						return r, _se
+						return _se
 					}
 					r.Type.Config[_i6] = _sv
 					data = data[_sLen:]
@@ -3771,7 +3800,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return r, _se
+				return _se
 			}
 			_ov7 = _sv
 			data = data[_sLen:]
@@ -3819,7 +3848,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return r, _se
+				return _se
 			}
 			_ov9 = _sv
 			data = data[_sLen:]
@@ -3834,7 +3863,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Value); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
@@ -3990,7 +4019,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesType(data[:_sLen])
 					if _se != nil {
-						return r, _se
+						return _se
 					}
 					r.Inputs[_i2].Type = _sv
 					data = data[_sLen:]
@@ -3999,7 +4028,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					if err := json.Unmarshal(data[:_n], &r.Inputs[_i2].Value); err != nil {
-						return r, err
+						return err
 					}
 					data = data[_n:]
 				}
@@ -4026,7 +4055,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesType(data[:_sLen])
 					if _se != nil {
-						return r, _se
+						return _se
 					}
 					r.Outputs[_i4].Type = _sv
 					data = data[_sLen:]
@@ -4035,7 +4064,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					if err := json.Unmarshal(data[:_n], &r.Outputs[_i4].Value); err != nil {
-						return r, err
+						return err
 					}
 					data = data[_n:]
 				}
@@ -4062,7 +4091,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesType(data[:_sLen])
 					if _se != nil {
-						return r, _se
+						return _se
 					}
 					r.Config[_i6].Type = _sv
 					data = data[_sLen:]
@@ -4071,7 +4100,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					if err := json.Unmarshal(data[:_n], &r.Config[_i6].Value); err != nil {
-						return r, err
+						return err
 					}
 					data = data[_n:]
 				}
@@ -4096,7 +4125,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return r, _se
+				return _se
 			}
 			_ov7 = _sv
 			data = data[_sLen:]
@@ -4144,7 +4173,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return r, _se
+				return _se
 			}
 			_ov9 = _sv
 			data = data[_sLen:]

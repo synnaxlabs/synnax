@@ -632,7 +632,7 @@ func (b *codeBuilder) processRecursiveStruct(
 	b.unmarshalLines = append(b.unmarshalLines,
 		ind+"{ _sLen := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 		ind+fmt.Sprintf("\t_sv, _se := %s(data[:_sLen])", unmarshalHelper),
-		ind+"\tif _se != nil { return r, _se }",
+		ind+"\tif _se != nil { return _se }",
 		ind+fmt.Sprintf("\t%s = _sv", setPath),
 		ind+"\tdata = data[_sLen:] }",
 	)
@@ -867,7 +867,7 @@ func (b *codeBuilder) processLeaf(
 		)
 		b.unmarshalLines = append(b.unmarshalLines,
 			ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
-			ind+fmt.Sprintf("\tif err := json.Unmarshal(data[:_n], &%s); err != nil { return r, err }", setPath),
+			ind+fmt.Sprintf("\tif err := json.Unmarshal(data[:_n], &%s); err != nil { return err }", setPath),
 			ind+"\tdata = data[_n:] }",
 		)
 
@@ -1065,7 +1065,18 @@ func (b *codeBuilder) resolveLeaf(typ resolution.Type) (primName, goTypeCast str
 		if !ok {
 			return "", "", fmt.Errorf("cannot resolve alias target %s", form.Target.Name)
 		}
-		return b.resolveLeaf(target)
+		basePrim, baseCast, err := b.resolveLeaf(target)
+		if err != nil {
+			return "", "", err
+		}
+		if baseCast != "" {
+			goType, err := b.goTypeName(typ)
+			if err != nil {
+				return "", "", err
+			}
+			return basePrim, goType, nil
+		}
+		return basePrim, "", nil
 	default:
 		return "", "", fmt.Errorf("unsupported type form for leaf: %T (%s)", form, typ.QualifiedName)
 	}
@@ -1210,7 +1221,9 @@ import (
 {{if .NeedsMath}}	"math"
 {{end}}{{if .NeedsJSON}}	"encoding/json"
 {{end}}
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 {{range $path, $alias := .ExtraImports}}
 	{{$alias}} "{{$path}}"
 {{end}})
@@ -1223,24 +1236,51 @@ const (
 
 type {{lowerFirst .GoName}}Codec struct{}
 
-func ({{lowerFirst .GoName}}Codec) Marshal(
-	_ context.Context,
-	s {{.GoName}},
+func ({{lowerFirst .GoName}}Codec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.({{.GoName}})
 	buf := make([]byte, 0, {{.EstSize}})
 {{.MarshalBody}}
 	return buf, nil
 }
 
-func ({{lowerFirst .GoName}}Codec) Unmarshal(
-	_ context.Context,
-	data []byte,
-) ({{.GoName}}, error) {
-	var r {{.GoName}}
-{{.UnmarshalBody}}
-	return r, nil
+func (c {{lowerFirst .GoName}}Codec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
 }
 
-var {{.GoName}}Codec gorp.Codec[{{.GoName}}] = {{lowerFirst .GoName}}Codec{}
+func ({{lowerFirst .GoName}}Codec) Decode(
+	ctx context.Context,
+	data []byte,
+	value any,
+) error {
+	r := value.(*{{.GoName}})
+{{.UnmarshalBody}}
+	return nil
+}
+
+func (c {{lowerFirst .GoName}}Codec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var {{.GoName}}Codec xbinary.Codec = {{lowerFirst .GoName}}Codec{}
 {{if .HelperFuncs}}{{.HelperFuncs}}{{end}}
 {{end}}`

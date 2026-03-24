@@ -58,7 +58,7 @@ type ServiceConfig struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
-	Codec   gorp.Codec[Task]
+	Codec   binary.Codec
 	alamos.Instrumentation
 }
 
@@ -99,6 +99,11 @@ type Service struct {
 	disconnectSuspectRackObserver observe.Disconnect
 	table                         *gorp.Table[Key, Task]
 	commandChannelKey             channel.Key
+}
+
+// Observe returns an observable that notifies callers of changes to task entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
+	return s.table.Observe()
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -151,7 +156,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signalsCfg,
+		signals.GorpPublisherConfigPureNumeric[Key, Task](s.table.Observe(), telem.Uint64T),
 	); err != nil {
 		return nil, err
 	}

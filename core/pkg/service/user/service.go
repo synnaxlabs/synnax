@@ -40,7 +40,7 @@ type ServiceConfig struct {
 	Signals *signals.Provider
 	// Codec is the protobuf-based codec for encoding/decoding users in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[User]
+	Codec binary.Codec
 }
 
 var (
@@ -100,7 +100,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,
-			signalsCfg,
+			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
 		)
 		s.shutdownSignals = cdcS
 		if err != nil {

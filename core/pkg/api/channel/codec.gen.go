@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 
@@ -65,10 +67,11 @@ const (
 
 type channelCodec struct{}
 
-func (channelCodec) Marshal(
-	_ context.Context,
-	s Channel,
+func (channelCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Channel)
 	buf := make([]byte, 0, 420)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(s.Key))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -143,11 +146,25 @@ func (channelCodec) Marshal(
 	return buf, nil
 }
 
-func (channelCodec) Unmarshal(
-	_ context.Context,
+func (c channelCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (channelCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Channel, error) {
-	var r Channel
+	value any,
+) error {
+	r := value.(*Channel)
 	r.Key = distributionchannel.Key(binary.BigEndian.Uint32(data[:4]))
 	data = data[4:]
 	{
@@ -275,7 +292,19 @@ func (channelCodec) Unmarshal(
 	} else {
 		data = data[1:]
 	}
-	return r, nil
+	return nil
 }
 
-var ChannelCodec gorp.Codec[Channel] = channelCodec{}
+func (c channelCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var ChannelCodec xbinary.Codec = channelCodec{}

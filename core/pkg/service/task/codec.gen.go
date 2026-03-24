@@ -17,7 +17,9 @@ import (
 	"encoding/json"
 	"math"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 
 	label "github.com/synnaxlabs/x/label"
 
@@ -56,10 +58,11 @@ const (
 
 type taskCodec struct{}
 
-func (taskCodec) Marshal(
-	_ context.Context,
-	s Task,
+func (taskCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Task)
 	buf := make([]byte, 0, 470)
 	buf = binary.BigEndian.AppendUint64(buf, uint64(s.Key))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -139,11 +142,25 @@ func (taskCodec) Marshal(
 	return buf, nil
 }
 
-func (taskCodec) Unmarshal(
-	_ context.Context,
+func (c taskCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (taskCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Task, error) {
-	var r Task
+	value any,
+) error {
+	r := value.(*Task)
 	r.Key = Key(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
 	{
@@ -162,7 +179,7 @@ func (taskCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Config); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
@@ -221,7 +238,7 @@ func (taskCodec) Unmarshal(
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				if err := json.Unmarshal(data[:_n], &_ov1.Details.Data); err != nil {
-					return r, err
+					return err
 				}
 				data = data[_n:]
 			}
@@ -260,7 +277,19 @@ func (taskCodec) Unmarshal(
 	} else {
 		data = data[1:]
 	}
-	return r, nil
+	return nil
 }
 
-var TaskCodec gorp.Codec[Task] = taskCodec{}
+func (c taskCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var TaskCodec xbinary.Codec = taskCodec{}

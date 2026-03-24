@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 var _ = binary.BigEndian
@@ -30,10 +32,11 @@ const (
 
 type linePlotCodec struct{}
 
-func (linePlotCodec) Marshal(
-	_ context.Context,
-	s LinePlot,
+func (linePlotCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(LinePlot)
 	buf := make([]byte, 0, 112)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -49,11 +52,25 @@ func (linePlotCodec) Marshal(
 	return buf, nil
 }
 
-func (linePlotCodec) Unmarshal(
-	_ context.Context,
+func (c linePlotCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (linePlotCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (LinePlot, error) {
-	var r LinePlot
+	value any,
+) error {
+	r := value.(*LinePlot)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -66,11 +83,23 @@ func (linePlotCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
-	return r, nil
+	return nil
 }
 
-var LinePlotCodec gorp.Codec[LinePlot] = linePlotCodec{}
+func (c linePlotCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var LinePlotCodec xbinary.Codec = linePlotCodec{}

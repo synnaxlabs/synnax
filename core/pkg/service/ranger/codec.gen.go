@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 
 	telem "github.com/synnaxlabs/x/telem"
 )
@@ -37,10 +39,11 @@ const (
 
 type rangeCodec struct{}
 
-func (rangeCodec) Marshal(
-	_ context.Context,
-	s Range,
+func (rangeCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Range)
 	buf := make([]byte, 0, 75)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -54,11 +57,25 @@ func (rangeCodec) Marshal(
 	return buf, nil
 }
 
-func (rangeCodec) Unmarshal(
-	_ context.Context,
+func (c rangeCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (rangeCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Range, error) {
-	var r Range
+	value any,
+) error {
+	r := value.(*Range)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -79,7 +96,19 @@ func (rangeCodec) Unmarshal(
 	data = data[1:]
 	r.Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 	data = data[8:]
-	return r, nil
+	return nil
 }
 
-var RangeCodec gorp.Codec[Range] = rangeCodec{}
+func (c rangeCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var RangeCodec xbinary.Codec = rangeCodec{}

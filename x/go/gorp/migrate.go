@@ -186,12 +186,12 @@ func (m *typedMigration[I, O]) Run(
 
 type codecTransitionMigration[K Key, E Entry[K]] struct {
 	name  string
-	codec Codec[E]
+	codec binary.Codec
 }
 
 // NewCodecTransition creates a Migration that re-encodes all entries from the DB's
 // default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
-func NewCodecTransition[K Key, E Entry[K]](name string, codec Codec[E]) Migration {
+func NewCodecTransition[K Key, E Entry[K]](name string, codec binary.Codec) Migration {
 	return &codecTransitionMigration[K, E]{name: name, codec: codec}
 }
 
@@ -215,7 +215,7 @@ func (m *codecTransitionMigration[K, E]) Run(
 			return err
 		}
 		var data []byte
-		if data, err = m.codec.Marshal(ctx, entry); err != nil {
+		if data, err = m.codec.Encode(ctx, entry); err != nil {
 			return err
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {

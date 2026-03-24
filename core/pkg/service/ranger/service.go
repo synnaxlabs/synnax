@@ -45,7 +45,7 @@ type ServiceConfig struct {
 	Label *label.Service
 	// Codec is the protobuf-based codec for encoding/decoding ranges in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[Range]
+	Codec binary.Codec
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -115,7 +115,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	rangeSignals, err := signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signalsCfg,
+		signals.GorpPublisherConfigUUID[Range](s.table.Observe()),
 	)
 	if err != nil {
 		return nil, err

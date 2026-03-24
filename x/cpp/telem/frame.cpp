@@ -78,6 +78,20 @@ Frame Frame::deep_copy() const {
     return Frame(*this);
 }
 
+Frame Frame::shallow_copy() const {
+    Frame f;
+    if (this->channels != nullptr) {
+        f.channels = std::make_unique<std::vector<std::uint32_t>>(*this->channels);
+    }
+    if (this->series != nullptr) {
+        f.series = std::make_unique<std::vector<Series>>();
+        f.series->reserve(this->series->size());
+        for (const auto &ser: *this->series)
+            f.series->emplace_back(ser.shallow_copy());
+    }
+    return f;
+}
+
 Frame::Frame(const Frame &other):
     channels(std::make_unique<std::vector<std::uint32_t>>()),
     series(std::make_unique<std::vector<Series>>()) {

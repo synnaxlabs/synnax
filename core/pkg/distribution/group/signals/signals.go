@@ -13,9 +13,11 @@ import (
 	"context"
 	"io"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 )
 
 // Publish publishes group changes to the signals provider.

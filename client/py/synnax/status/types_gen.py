@@ -58,7 +58,11 @@ class Status(BaseModel, Generic[Details]):
     variant: Variant
     message: str
     description: str | None = None
-    time: telem.TimeStamp = Field(default_factory=telem.TimeStamp.now)
+    time: telem.TimeStamp = Field(
+        default_factory=telem.TimeStamp.now,
+        ge=-9223372036854775808,
+        le=9223372036854775807,
+    )
     details: Details | None = None
     labels: list[label.Label] | None = None
 

@@ -12,9 +12,11 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -39,6 +41,9 @@ struct Subject {
     std::string key;
     /// @brief name is a human-readable name for the subject.
     std::string name;
+    /// @brief group optional identifier shared by subjects from the same logical group
+    /// (e.g.) all writers from the same Driver rack.
+    std::uint32_t group = 0;
 
     static Subject parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -69,5 +74,48 @@ struct State {
     [[nodiscard]] std::pair<::x::control::pb::State, x::errors::Error> to_proto() const;
     static std::pair<State, x::errors::Error>
     from_proto(const ::x::control::pb::State &pb);
+};
+
+/// @brief Transfer represents a transfer of control over a resource. It is represented
+/// as a transition from one state to another over the same resource. A transfer between
+/// resources that are different will result in a panic when any transfer methods are
+/// called.
+///
+/// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
+/// resource is uncontrolled after the transfer.
+///
+/// If both From and To are nil, no transfer occurred. If both From and To are not nil,
+/// and From.Subject != To.Subject, a transfer occurred.
+template<typename R>
+struct Transfer {
+    /// @brief from the previous authority holder. Null on initial acquire.
+    std::optional<State<R>> from;
+    /// @brief to the new authority holder. Null on release.
+    std::optional<State<R>> to;
+
+    static Transfer parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::control::pb::Transfer;
+    [[nodiscard]] std::pair<::x::control::pb::Transfer, x::errors::Error>
+    to_proto() const;
+    static std::pair<Transfer, x::errors::Error>
+    from_proto(const ::x::control::pb::Transfer &pb);
+};
+
+/// @brief Update represents a batch of control transfers that occurred atomically.
+template<typename R>
+struct Update {
+    /// @brief transfers is the list of control transfers that occurred in this update.
+    std::vector<Transfer<R>> transfers;
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::control::pb::Update;
+    [[nodiscard]] std::pair<::x::control::pb::Update, x::errors::Error>
+    to_proto() const;
+    static std::pair<Update, x::errors::Error>
+    from_proto(const ::x::control::pb::Update &pb);
 };
 }

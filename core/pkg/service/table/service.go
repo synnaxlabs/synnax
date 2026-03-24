@@ -30,7 +30,7 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	// Codec is the protobuf-based codec for encoding/decoding tables in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[Table]
+	Codec binary.Codec
 }
 
 var (

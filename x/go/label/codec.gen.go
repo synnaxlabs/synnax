@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 var _ = binary.BigEndian
@@ -33,10 +35,11 @@ const (
 
 type labelCodec struct{}
 
-func (labelCodec) Marshal(
-	_ context.Context,
-	s Label,
+func (labelCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Label)
 	buf := make([]byte, 0, 59)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -48,11 +51,25 @@ func (labelCodec) Marshal(
 	return buf, nil
 }
 
-func (labelCodec) Unmarshal(
-	_ context.Context,
+func (c labelCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (labelCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Label, error) {
-	var r Label
+	value any,
+) error {
+	r := value.(*Label)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -69,7 +86,19 @@ func (labelCodec) Unmarshal(
 	data = data[1:]
 	r.Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 	data = data[8:]
-	return r, nil
+	return nil
 }
 
-var LabelCodec gorp.Codec[Label] = labelCodec{}
+func (c labelCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var LabelCodec xbinary.Codec = labelCodec{}

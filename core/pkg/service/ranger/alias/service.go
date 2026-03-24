@@ -82,7 +82,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Alias](ctx, gorp.TableConfig[Alias]{DB: cfg.DB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Alias]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Alias](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
 	signalsCfg.SetName = "sy_range_alias_set"
 	signalsCfg.DeleteName = "sy_range_alias_delete"
 	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
@@ -176,7 +176,7 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Alias]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[string, Alias](s.cfg.DB).OnChange(handleChange)
+	return s.table.Observe().OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.

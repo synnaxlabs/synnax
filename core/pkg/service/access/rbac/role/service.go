@@ -74,7 +74,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Role](ctx, gorp.TableConfig[Role]{DB: cfg.DB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Role]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[Role](cfg.DB),
+			signals.GorpPublisherConfigUUID[Role](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}

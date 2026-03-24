@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 var _ = binary.BigEndian
@@ -31,10 +33,11 @@ const (
 
 type workspaceCodec struct{}
 
-func (workspaceCodec) Marshal(
-	_ context.Context,
-	s Workspace,
+func (workspaceCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Workspace)
 	buf := make([]byte, 0, 128)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -51,11 +54,25 @@ func (workspaceCodec) Marshal(
 	return buf, nil
 }
 
-func (workspaceCodec) Unmarshal(
-	_ context.Context,
+func (c workspaceCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (workspaceCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Workspace, error) {
-	var r Workspace
+	value any,
+) error {
+	r := value.(*Workspace)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -70,11 +87,23 @@ func (workspaceCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Layout); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
-	return r, nil
+	return nil
 }
 
-var WorkspaceCodec gorp.Codec[Workspace] = workspaceCodec{}
+func (c workspaceCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var WorkspaceCodec xbinary.Codec = workspaceCodec{}

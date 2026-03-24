@@ -54,7 +54,7 @@ type ServiceConfig struct {
 	Signals *signals.Provider
 	// Codec is the protobuf-based codec for encoding/decoding arcs in gorp.
 	// [OPTIONAL]
-	Codec gorp.Codec[Arc]
+	Codec binary.Codec
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -103,7 +103,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 		Instrumentation: s.cfg.Child("lsp"),
 		GlobalResolver:  s.NewSymbolResolver(nil),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
-			Observable: s.cfg.Channel.NewObservable(),
+			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
 				ctx context.Context,
 				r gorp.TxReader[channel.Key, channel.Channel],
@@ -164,9 +164,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID[Arc](cfg.DB)
-		signalsCfg.Observable = s.table.Observe()
-		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signalsCfg)
+		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](s.table.Observe()))
 		if err != nil {
 			return nil, err
 		}

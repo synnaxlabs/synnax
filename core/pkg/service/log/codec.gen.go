@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 var _ = binary.BigEndian
@@ -30,10 +32,11 @@ const (
 
 type logCodec struct{}
 
-func (logCodec) Marshal(
-	_ context.Context,
-	s Log,
+func (logCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Log)
 	buf := make([]byte, 0, 112)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -49,11 +52,25 @@ func (logCodec) Marshal(
 	return buf, nil
 }
 
-func (logCodec) Unmarshal(
-	_ context.Context,
+func (c logCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (logCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Log, error) {
-	var r Log
+	value any,
+) error {
+	r := value.(*Log)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -66,11 +83,23 @@ func (logCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
-	return r, nil
+	return nil
 }
 
-var LogCodec gorp.Codec[Log] = logCodec{}
+func (c logCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var LogCodec xbinary.Codec = logCodec{}

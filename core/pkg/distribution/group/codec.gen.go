@@ -15,7 +15,9 @@ import (
 	"context"
 	"encoding/binary"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 var _ = binary.BigEndian
@@ -28,10 +30,11 @@ const (
 
 type groupCodec struct{}
 
-func (groupCodec) Marshal(
-	_ context.Context,
-	s Group,
+func (groupCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Group)
 	buf := make([]byte, 0, 48)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -39,11 +42,25 @@ func (groupCodec) Marshal(
 	return buf, nil
 }
 
-func (groupCodec) Unmarshal(
-	_ context.Context,
+func (c groupCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (groupCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Group, error) {
-	var r Group
+	value any,
+) error {
+	r := value.(*Group)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -52,7 +69,19 @@ func (groupCodec) Unmarshal(
 		r.Name = string(data[:_n])
 		data = data[_n:]
 	}
-	return r, nil
+	return nil
 }
 
-var GroupCodec gorp.Codec[Group] = groupCodec{}
+func (c groupCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var GroupCodec xbinary.Codec = groupCodec{}

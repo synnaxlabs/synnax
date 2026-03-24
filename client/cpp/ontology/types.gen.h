@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace synnax::ontology {
 
 constexpr const char *RESOURCE_TYPE_ARC = "arc";
@@ -37,4 +39,6 @@ constexpr const char *RESOURCE_TYPE_TASK = "task";
 constexpr const char *RESOURCE_TYPE_USER = "user";
 constexpr const char *RESOURCE_TYPE_VIEW = "view";
 constexpr const char *RESOURCE_TYPE_WORKSPACE = "workspace";
+
+using RelationshipType = std::string;
 }

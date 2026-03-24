@@ -28,7 +28,7 @@ import (
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Codec    gorp.Codec[Group]
+	Codec    binary.Codec
 }
 
 var (
@@ -89,6 +89,11 @@ func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent
 		return w.Create(ctx, groupName, parent)
 	}
 	return w.CreateWithKey(ctx, g.Key, groupName, parent)
+}
+
+// Observe returns an observable that notifies callers of changes to group entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[uuid.UUID, Group]] {
+	return s.table.Observe()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

@@ -16,7 +16,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/gorp"
+	_io "io"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 var _ = binary.BigEndian
@@ -31,10 +33,11 @@ const (
 
 type schematicCodec struct{}
 
-func (schematicCodec) Marshal(
-	_ context.Context,
-	s Schematic,
+func (schematicCodec) Encode(
+	ctx context.Context,
+	value any,
 ) ([]byte, error) {
+	s := value.(Schematic)
 	buf := make([]byte, 0, 113)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
@@ -55,11 +58,25 @@ func (schematicCodec) Marshal(
 	return buf, nil
 }
 
-func (schematicCodec) Unmarshal(
-	_ context.Context,
+func (c schematicCodec) EncodeStream(
+	ctx context.Context,
+	w _io.Writer,
+	value any,
+) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (schematicCodec) Decode(
+	ctx context.Context,
 	data []byte,
-) (Schematic, error) {
-	var r Schematic
+	value any,
+) error {
+	r := value.(*Schematic)
 	copy(r.Key[:], data[:16])
 	data = data[16:]
 	{
@@ -72,13 +89,25 @@ func (schematicCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
-			return r, err
+			return err
 		}
 		data = data[_n:]
 	}
 	r.Snapshot = data[0] != 0
 	data = data[1:]
-	return r, nil
+	return nil
 }
 
-var SchematicCodec gorp.Codec[Schematic] = schematicCodec{}
+func (c schematicCodec) DecodeStream(
+	ctx context.Context,
+	r _io.Reader,
+	value any,
+) error {
+	data, err := _io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+var SchematicCodec xbinary.Codec = schematicCodec{}

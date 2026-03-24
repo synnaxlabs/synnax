@@ -28,7 +28,7 @@ import (
 type rangeGroupsMigration struct {
 	otg   *ontology.Ontology
 	group *group.Service
-	codec gorp.Codec[Range]
+	codec binary.Codec
 	l     *alamos.Logger
 }
 

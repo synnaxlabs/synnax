@@ -133,7 +133,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		Arc:               cfg.Arc,
-		ChannelObservable: cfg.Channel.NewObservable(),
+		ChannelObservable: cfg.Channel.Observe(),
 		Status:            cfg.Status,
 	})
 	if err != nil {
