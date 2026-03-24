@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { schematic, type Synnax as Client } from "@synnaxlabs/client";
+import { schematic, type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -80,8 +80,12 @@ import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
 
+type SchematicRetriever = {
+  schematics: Pick<SynnaxClient["schematics"], "retrieve">;
+};
+
 export const navigateToLinkedSchematic = async (
-  client: Client,
+  client: SchematicRetriever,
   page: string,
   placeLayout: Layout.Placer,
 ): Promise<void> => {
@@ -91,7 +95,7 @@ export const navigateToLinkedSchematic = async (
 
 export interface HandleNodeClickArgs {
   editable: boolean;
-  client: Client | null;
+  client: SchematicRetriever | null;
   storeState: StoreState;
   layoutKey: string;
   nodeId: string;
