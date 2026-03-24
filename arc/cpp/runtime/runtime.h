@@ -67,6 +67,9 @@ struct Config {
     /// This allows external code to register custom node types without the
     /// runtime needing a dedicated config field for each one.
     std::vector<std::shared_ptr<node::Factory>> factories;
+    /// @brief Optional RT handle from the Manager. When set, the loop uses this
+    /// handle's allocated core instead of auto-selecting one.
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -143,16 +146,10 @@ public:
                         .count()
                 );
                 this->scheduler->next(elapsed, reason);
-                auto writes = this->state->flush();
-                auto changes = this->state->flush_authority_changes();
-                if (!writes.empty() || !changes.empty()) {
-                    Output out;
-                    out.authority_changes = std::move(changes);
-                    if (!writes.empty()) {
-                        out.frame = x::telem::Frame(writes.size());
-                        for (auto &[key, series]: writes)
-                            out.frame.emplace(key, series->deep_copy());
-                    }
+                Output out;
+                out.authority_changes = this->state->flush_authority_changes();
+                this->state->flush_into(out.frame);
+                if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
@@ -321,7 +318,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         tolerance,
         error_handler
     );
-    auto loop = loop::create(loop_cfg);
+    auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {
         std::make_shared<Runtime>(
             cfg,

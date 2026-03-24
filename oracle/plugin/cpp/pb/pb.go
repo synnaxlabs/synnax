@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Plugin struct{ Options Options }
@@ -215,8 +216,8 @@ func (p *Plugin) generateProto(
 		includes:         newIncludeManager(),
 		table:            req.Resolutions,
 		rawNs:            namespace,
-		processedEnums:   make(map[string]bool),
-		processedStructs: make(map[string]bool),
+		processedEnums:   make(set.Set[string]),
+		processedStructs: make(set.Set[string]),
 	}
 
 	data.includes.addSystem("utility")
@@ -225,11 +226,11 @@ func (p *Plugin) generateProto(
 	data.includes.addInternal("x/cpp/errors/errors.h")
 	data.includes.addInternal("x/cpp/pb/pb.h")
 
-	pbOutputPaths := make(map[string]bool)
+	pbOutputPaths := make(set.Set[string])
 	for _, s := range structs {
 		pbPath := output.GetPBPath(s)
-		if pbPath != "" && !pbOutputPaths[pbPath] {
-			pbOutputPaths[pbPath] = true
+		if pbPath != "" && !pbOutputPaths.Contains(pbPath) {
+			pbOutputPaths.Add(pbPath)
 			protoInclude := deriveProtoInclude(pbPath, s.Namespace)
 			if protoInclude != "" {
 				data.includes.addInternal(protoInclude)
@@ -270,10 +271,10 @@ func (p *Plugin) generateProto(
 		if e.Namespace != namespace {
 			continue
 		}
-		if data.processedEnums[e.QualifiedName] {
+		if data.processedEnums.Contains(e.QualifiedName) {
 			continue
 		}
-		data.processedEnums[e.QualifiedName] = true
+		data.processedEnums.Add(e.QualifiedName)
 
 		enumTranslator := p.processEnumForTranslation(e, data)
 		if enumTranslator != nil {
@@ -1309,8 +1310,8 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	processedEnums   map[string]bool
-	processedStructs map[string]bool
+	processedEnums   set.Set[string]
+	processedStructs set.Set[string]
 	includes         *includeManager
 	table            *resolution.Table
 	OutputPath       string

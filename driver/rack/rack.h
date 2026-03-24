@@ -20,6 +20,7 @@
 
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/labjack/labjack.h"
@@ -104,7 +105,8 @@ struct Config {
 
     /// @brief returns a new task factory to use for creating tasks in the task
     /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory> new_factory() const;
+    [[nodiscard]] std::unique_ptr<task::Factory>
+    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {

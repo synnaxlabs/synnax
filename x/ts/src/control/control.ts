@@ -38,7 +38,7 @@ interface Release<R extends z.ZodType> {
 export const releaseZ = <R extends z.ZodType>(resource: R) =>
   z.object({
     from: stateZ(resource),
-    to: z.null(),
+    to: z.null().optional(),
   });
 
 interface Acquire<R extends z.ZodType> {
@@ -48,7 +48,7 @@ interface Acquire<R extends z.ZodType> {
 
 export const acquireZ = <R extends z.ZodType>(resource: R) =>
   z.object({
-    from: z.null(),
+    from: z.null().optional(),
     to: stateZ(resource),
   });
 

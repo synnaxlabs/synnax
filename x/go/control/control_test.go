@@ -28,6 +28,39 @@ var _ = Describe("State", func() {
 				Expect(s.String()).To(Equal("<cat>"))
 			})
 		})
+		Describe("Validate", func() {
+			It("Should return no error when key is set", func() {
+				s := control.Subject{Key: "mykey", Name: "myname"}
+				Expect(s.Validate()).To(Succeed())
+			})
+			It("Should return an error when key is empty", func() {
+				s := control.Subject{Name: "myname"}
+				Expect(s.Validate()).To(HaveOccurred())
+			})
+		})
+		Describe("Override", func() {
+			It("Should override zero-valued fields from other", func() {
+				s := control.Subject{Key: "mykey"}
+				other := control.Subject{Name: "myname", Group: 42}
+				result := s.Override(other)
+				Expect(result.Key).To(Equal("mykey"))
+				Expect(result.Name).To(Equal("myname"))
+				Expect(result.Group).To(Equal(uint32(42)))
+			})
+			It("Should override with non-zero values from other", func() {
+				s := control.Subject{Key: "original", Name: "original", Group: 1}
+				other := control.Subject{Key: "other", Name: "other", Group: 2}
+				result := s.Override(other)
+				Expect(result.Key).To(Equal("other"))
+				Expect(result.Name).To(Equal("other"))
+				Expect(result.Group).To(Equal(uint32(2)))
+			})
+			It("Should return the base subject when other is zero-valued", func() {
+				s := control.Subject{Key: "mykey", Name: "myname", Group: 5}
+				result := s.Override(control.Subject{})
+				Expect(result).To(Equal(s))
+			})
+		})
 	})
 
 	Describe("State", func() {

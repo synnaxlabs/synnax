@@ -535,4 +535,164 @@ TEST(FrameTests, testMoveAssignmentToEmpty) {
     ASSERT_EQ(f2.series->at(0).at<float>(1), 2.0f);
     ASSERT_EQ(f2.series->at(0).at<float>(2), 3.0f);
 }
+
+/// @brief shallow_copy should produce a frame with identical channel keys and data.
+TEST(FrameShallowCopy, ReadsMatchOriginal) {
+    auto f = Frame(2);
+    f.emplace(1, Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    f.emplace(2, Series(std::vector<double>{4.0, 5.0}));
+    auto copy = f.shallow_copy();
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.channels->at(0), 1);
+    ASSERT_EQ(copy.channels->at(1), 2);
+    ASSERT_EQ(copy.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(copy.series->at(0).at<float>(1), 2.0f);
+    ASSERT_EQ(copy.series->at(0).at<float>(2), 3.0f);
+    ASSERT_EQ(copy.series->at(1).at<double>(0), 4.0);
+    ASSERT_EQ(copy.series->at(1).at<double>(1), 5.0);
+}
+
+/// @brief each series in a shallow-copied frame should share its data buffer.
+TEST(FrameShallowCopy, SeriesShareBuffers) {
+    auto f = Frame(3);
+    f.emplace(1, Series(std::vector<float>{1.0f}));
+    f.emplace(2, Series(std::vector<int32_t>{2}));
+    f.emplace(3, Series(std::vector<double>{3.0}));
+    auto copy = f.shallow_copy();
+    for (size_t i = 0; i < 3; i++)
+        ASSERT_EQ(f.series->at(i).data(), copy.series->at(i).data());
+}
+
+/// @brief shallow_copy should deep-copy the channel keys vector.
+TEST(FrameShallowCopy, ChannelKeysAreIndependent) {
+    auto f = Frame(2);
+    f.emplace(1, Series(std::vector<float>{1.0f}));
+    f.emplace(2, Series(std::vector<float>{2.0f}));
+    auto copy = f.shallow_copy();
+    ASSERT_NE(f.channels.get(), copy.channels.get());
+    f.emplace(3, Series(std::vector<float>{3.0f}));
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(f.size(), 3);
+}
+
+/// @brief mutating a series in the copy should not affect the original frame.
+TEST(FrameShallowCopy, MutateCopySeriesDoesNotAffectOriginal) {
+    auto f = Frame(1);
+    f.emplace(1, Series(std::vector<float>{10.0f, 20.0f, 30.0f}));
+    auto copy = f.shallow_copy();
+    copy.series->at(0).set<float>(0, 999.0f);
+    ASSERT_EQ(f.series->at(0).at<float>(0), 10.0f);
+    ASSERT_EQ(copy.series->at(0).at<float>(0), 999.0f);
+}
+
+/// @brief the shallow copy should survive after the original is destroyed.
+TEST(FrameShallowCopy, CopySurvivesOriginalDestruction) {
+    Frame copy;
+    {
+        auto f = Frame(2);
+        f.emplace(1, Series(std::vector<float>{1.0f, 2.0f}));
+        f.emplace(2, Series(std::vector<int32_t>{3, 4}));
+        copy = f.shallow_copy();
+    }
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(copy.series->at(0).at<float>(1), 2.0f);
+    ASSERT_EQ(copy.series->at(1).at<int32_t>(0), 3);
+    ASSERT_EQ(copy.series->at(1).at<int32_t>(1), 4);
+}
+
+/// @brief shallow_copy of an empty frame should produce an empty frame.
+TEST(FrameShallowCopy, EmptyFrame) {
+    auto f = Frame(0);
+    auto copy = f.shallow_copy();
+    ASSERT_TRUE(copy.empty());
+    ASSERT_EQ(copy.size(), 0);
+}
+
+/// @brief shallow_copy of a default-constructed frame should produce an empty frame.
+TEST(FrameShallowCopy, DefaultConstructedFrame) {
+    Frame f;
+    auto copy = f.shallow_copy();
+    ASSERT_TRUE(copy.empty());
+    ASSERT_EQ(copy.size(), 0);
+}
+
+/// @brief multiple shallow copies from the same frame should all share buffers.
+TEST(FrameShallowCopy, MultipleShallowCopies) {
+    auto f = Frame(1);
+    f.emplace(1, Series(std::vector<float>{1.0f, 2.0f}));
+    auto c1 = f.shallow_copy();
+    auto c2 = f.shallow_copy();
+    auto c3 = f.shallow_copy();
+    ASSERT_EQ(f.series->at(0).data(), c1.series->at(0).data());
+    ASSERT_EQ(f.series->at(0).data(), c2.series->at(0).data());
+    ASSERT_EQ(f.series->at(0).data(), c3.series->at(0).data());
+}
+
+/// @brief mutating one shallow copy should not affect sibling copies.
+TEST(FrameShallowCopy, MutateOneCopyDoesNotAffectSiblings) {
+    auto f = Frame(1);
+    f.emplace(1, Series(std::vector<float>{1.0f}));
+    auto c1 = f.shallow_copy();
+    auto c2 = f.shallow_copy();
+    c1.series->at(0).set<float>(0, 999.0f);
+    ASSERT_EQ(f.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(c2.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(c1.series->at(0).at<float>(0), 999.0f);
+}
+
+/// @brief shallow_copy should work with mixed data types.
+TEST(FrameShallowCopy, MixedDataTypes) {
+    auto f = Frame(4);
+    f.emplace(1, Series(std::vector<float>{1.0f}));
+    f.emplace(2, Series(std::vector<int64_t>{2}));
+    f.emplace(3, Series(std::vector<uint8_t>{3}));
+    f.emplace(4, Series(std::vector<std::string>{"hello"}));
+    auto copy = f.shallow_copy();
+    ASSERT_EQ(copy.size(), 4);
+    ASSERT_EQ(copy.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(copy.series->at(1).at<int64_t>(0), 2);
+    ASSERT_EQ(copy.series->at(2).at<uint8_t>(0), 3);
+    ASSERT_EQ(copy.series->at(3).at<std::string>(0), "hello");
+    for (size_t i = 0; i < 4; i++)
+        ASSERT_EQ(f.series->at(i).data(), copy.series->at(i).data());
+}
+
+/// @brief iterating a shallow copy should yield the same data as the original.
+TEST(FrameShallowCopy, IterationMatchesOriginal) {
+    auto f = Frame(3);
+    f.emplace(10, Series(std::vector<float>{1.0f}));
+    f.emplace(20, Series(std::vector<float>{2.0f}));
+    f.emplace(30, Series(std::vector<float>{3.0f}));
+    auto copy = f.shallow_copy();
+    size_t count = 0;
+    for (auto [key, series]: copy) {
+        ASSERT_EQ(series.at<float>(0), static_cast<float>(key) / 10.0f);
+        count++;
+    }
+    ASSERT_EQ(count, 3);
+}
+
+/// @brief simulates the bus broadcast pattern: one frame, N shallow copies.
+TEST(FrameShallowCopy, BusBroadcastPattern) {
+    auto source = Frame(2);
+    source.emplace(1, Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    source.emplace(2, Series(std::vector<double>{4.0, 5.0}));
+
+    std::vector<Frame> subscribers;
+    for (int i = 0; i < 10; i++)
+        subscribers.push_back(source.shallow_copy());
+
+    for (size_t i = 0; i < 2; i++)
+        ASSERT_EQ(source.series->at(i).data(), subscribers[0].series->at(i).data());
+
+    for (auto &sub: subscribers) {
+        ASSERT_EQ(sub.size(), 2);
+        ASSERT_EQ(sub.series->at(0).at<float>(0), 1.0f);
+        ASSERT_EQ(sub.series->at(0).at<float>(1), 2.0f);
+        ASSERT_EQ(sub.series->at(0).at<float>(2), 3.0f);
+        ASSERT_EQ(sub.series->at(1).at<double>(0), 4.0);
+        ASSERT_EQ(sub.series->at(1).at<double>(1), 5.0);
+    }
+}
 }
