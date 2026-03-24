@@ -363,7 +363,6 @@ describe("log/aether/Log", () => {
       });
       expect(source.setChannels).toHaveBeenCalledWith([1, 2, 3]);
     });
-
   });
 
   describe("color handling", () => {

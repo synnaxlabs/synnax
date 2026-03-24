@@ -12,7 +12,7 @@ import { Log } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v0 from "@/log/types/v0";
+import type * as v0 from "@/log/types/v0";
 
 export const VERSION = "1.0.0";
 

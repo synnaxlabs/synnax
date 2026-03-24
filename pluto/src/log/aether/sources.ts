@@ -121,7 +121,7 @@ export class StreamMultiChannelLog
 
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
-      for (const ch of channels) {
+      for (const ch of channels)
         this.channelMeta.set(ch.key, {
           key: ch.key,
           indexKey: ch.index,
@@ -131,7 +131,6 @@ export class StreamMultiChannelLog
           virtual: ch.virtual,
           skipSeed: isRestart,
         });
-      }
 
       const streamKeys = channels.map((ch) => ch.key);
       this.stopStreaming = await this.client.stream((res) => {

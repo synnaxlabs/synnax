@@ -191,12 +191,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (namesChanged) {
       i.displayNames = {};
       for (const [key, cfg] of Object.entries(configs))
-        i.displayNames[key] =
-          cfg.alias || this.state.channelNames[key] || String(key);
-      const maxLen = Math.max(
-        0,
-        ...Object.values(i.displayNames).map((n) => n.length),
-      );
+        i.displayNames[key] = cfg.alias || this.state.channelNames[key] || String(key);
+      const maxLen = Math.max(0, ...Object.values(i.displayNames).map((n) => n.length));
       i.namePadding = {};
       for (const [key, name] of Object.entries(i.displayNames))
         i.namePadding[key] = " ".repeat(maxLen - name.length);
@@ -427,8 +423,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const name = displayNames[chKey] ?? String(entry.channelKey);
     const pad = namePadding[chKey] ?? "";
     let prefix: string;
-    if (showReceiptTimestamp && showChannelNames)
-      prefix = `${ts} [${name}]${pad}  `;
+    if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
     else if (showReceiptTimestamp) prefix = `${ts}  `;
     else if (showChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";

@@ -130,7 +130,8 @@ describe("StreamMultiChannelLog", () => {
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
     const entries = log.value();
     expect(entries).toHaveLength(1);
-    expect(entries[0].channelKey).toBe(c.channelA.key);    expect(entries[0].value).toBe("42");
+    expect(entries[0].channelKey).toBe(c.channelA.key);
+    expect(entries[0].value).toBe("42");
   });
 
   it("should maintain arrival order and not sort across multiple channels", async () => {
@@ -574,5 +575,4 @@ describe("StreamMultiChannelLog", () => {
       expect(entries[1].value).toBe("20");
     });
   });
-
 });

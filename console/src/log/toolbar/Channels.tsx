@@ -33,7 +33,6 @@ import {
   setChannelConfig,
 } from "@/log/slice";
 
-
 const PRECISION_BOUNDS = { lower: -1, upper: 18 };
 
 interface ChannelRowProps {

@@ -19,11 +19,11 @@ import { renderWithConsole } from "@/testUtils";
 // Access.useUpdateGranted returns false with null client.
 // Mock only this authorization boundary.
 const mockUseUpdateGranted = vi.hoisted(() => vi.fn(() => true));
-vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@synnaxlabs/pluto")>();
+vi.mock("@synnaxlabs/pluto", async () => {
+  const pluto = await vi.importActual<Record<string, unknown>>("@synnaxlabs/pluto");
   return {
-    ...actual,
-    Access: { ...actual.Access, useUpdateGranted: mockUseUpdateGranted },
+    ...pluto,
+    Access: { ...(pluto.Access ?? {}), useUpdateGranted: mockUseUpdateGranted },
   };
 });
 

@@ -13,11 +13,7 @@ import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
 import { createMockWorkers } from "@synnaxlabs/x";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -60,9 +56,7 @@ const AETHER_REGISTRY: aether.ComponentRegistry = {
   ...flux.createRegistry({ storeConfig: {} }),
 };
 
-const AetherTestProvider = ({
-  children,
-}: PropsWithChildren): ReactElement => {
+const AetherTestProvider = ({ children }: PropsWithChildren): ReactElement => {
   const worker = useMemo(() => {
     const [w, main] = createMockWorkers();
     aether.render({ comms: w.route("test"), registry: AETHER_REGISTRY });

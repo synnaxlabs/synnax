@@ -19,11 +19,11 @@ import { renderWithConsole } from "@/testUtils";
 // Access.useUpdateGranted returns false with null client.
 // Mock only this authorization boundary so controls are enabled for tests.
 const mockUseUpdateGranted = vi.hoisted(() => vi.fn(() => true));
-vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@synnaxlabs/pluto")>();
+vi.mock("@synnaxlabs/pluto", async () => {
+  const pluto = await vi.importActual<Record<string, unknown>>("@synnaxlabs/pluto");
   return {
-    ...actual,
-    Access: { ...actual.Access, useUpdateGranted: mockUseUpdateGranted },
+    ...pluto,
+    Access: { ...(pluto.Access ?? {}), useUpdateGranted: mockUseUpdateGranted },
   };
 });
 
@@ -126,8 +126,7 @@ describe("log/toolbar/Channels", () => {
     });
     // Checkboxes (Input.Switch) and inputs should be disabled
     const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-    for (const cb of checkboxes)
-      expect((cb as HTMLInputElement).disabled).toBe(true);
+    for (const cb of checkboxes) expect((cb as HTMLInputElement).disabled).toBe(true);
     mockUseUpdateGranted.mockReturnValue(true);
   });
 });

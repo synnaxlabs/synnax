@@ -28,7 +28,9 @@ const mockUseRetrieveMultiple = vi.hoisted(() =>
   ),
 );
 vi.mock("@/channel", () => ({
-  Channel: { useRetrieveMultiple: (...args: unknown[]) => mockUseRetrieveMultiple(...args) },
+  Channel: {
+    useRetrieveMultiple: (...args: unknown[]) => mockUseRetrieveMultiple(...args),
+  },
 }));
 vi.mock("@/vis/canvas", () => ({
   Canvas: { useRegion: () => vi.fn() },
