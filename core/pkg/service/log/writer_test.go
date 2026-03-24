@@ -32,9 +32,9 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Service Delete", func() {
 		It("Should delete a Log via the service", func() {
-			l := log.Log{Name: "test", Data: "data"}
+			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			Expect(svc.Delete(ctx, tx, l.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
 			var res log.Log
 			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().
 				WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))

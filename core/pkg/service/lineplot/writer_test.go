@@ -32,9 +32,9 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Service Delete", func() {
 		It("Should delete a LinePlot via the service", func() {
-			plot := lineplot.LinePlot{Name: "test", Data: "data"}
+			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			Expect(svc.Delete(ctx, tx, plot.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, plot.Key)).To(Succeed())
 			var res lineplot.LinePlot
 			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().
 				WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
