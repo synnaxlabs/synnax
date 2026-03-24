@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func newObservable[K Key, E Entry[K]](kvo BaseObservable, codec binary.Codec) observe.Observable[iter.Seq[change.Change[K, E]]] {
+func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec binary.Codec) observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := newKeyCodec[K, E]()
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: kvo,
@@ -35,14 +35,13 @@ func newObservable[K Key, E Entry[K]](kvo BaseObservable, codec binary.Codec) ob
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges(ctx, matched, kCodec, kvo, codec), true
+			return wrapMatchedChanges(ctx, matched, kCodec, codec), true
 		},
 	}
 }
 
 // Observe returns an observable that notifies its caller whenever a change is made
-// to entries in this table. If the table has a custom codec, it will be used to
-// decode values.
+// to entries in this table.
 func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
 	return newObservable[K, E](t.DB, t.codec)
 }
@@ -51,7 +50,6 @@ func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
 	kCodec *keyCodec[K, E],
-	tools Tools,
 	codec binary.Codec,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
@@ -59,16 +57,9 @@ func wrapMatchedChanges[K Key, E Entry[K]](
 			var op change.Change[K, E]
 			op.Variant = kvChange.Variant
 			if op.Variant == change.VariantSet {
-				if codec != nil {
-					if err := codec.Decode(ctx, kvChange.Value, &op.Value); err != nil {
-						zap.S().DPanic("failed to decode value", zap.Error(err))
-						continue
-					}
-				} else {
-					if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
-						zap.S().DPanic("failed to decode value", zap.Error(err))
-						continue
-					}
+				if err := codec.Decode(ctx, kvChange.Value, &op.Value); err != nil {
+					zap.S().DPanic("failed to decode value", zap.Error(err))
+					continue
 				}
 				op.Key = op.Value.GorpKey()
 			} else {

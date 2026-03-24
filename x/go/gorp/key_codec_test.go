@@ -331,7 +331,7 @@ var _ = Describe("KeyCodec", func() {
 			Expect(gorp.NewCreate[uint32, uint32Entry](nil).
 				Entries(&entries).Exec(ctx, tx)).To(Succeed())
 
-			reader := gorp.WrapReader[uint32, uint32Entry](tx)
+			reader := gorp.WrapReader[uint32, uint32Entry](tx, tx)
 			iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
 			defer func() { Expect(iter.Close()).To(Succeed()) }()
 
@@ -352,7 +352,7 @@ var _ = Describe("KeyCodec", func() {
 			Expect(gorp.NewCreate[int16, int16Entry](nil).
 				Entries(&entries).Exec(ctx, tx)).To(Succeed())
 
-			reader := gorp.WrapReader[int16, int16Entry](tx)
+			reader := gorp.WrapReader[int16, int16Entry](tx, tx)
 			iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
 			defer func() { Expect(iter.Close()).To(Succeed()) }()
 

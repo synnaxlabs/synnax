@@ -27,14 +27,14 @@ type TableConfig[E any] struct {
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
-// It holds an optional Codec for custom encoding/decoding and provides methods for
-// creating query builders that are automatically configured with the codec.
+// It holds a resolved Codec (either custom or the DB's default) and provides methods
+// for creating query builders that are automatically configured with the codec.
 type Table[K Key, E Entry[K]] struct {
 	codec binary.Codec
 	DB    *DB
 }
 
-// Codec returns the table's custom codec, or nil if the table uses the default DB codec.
+// Codec returns the table's codec.
 func (t *Table[K, E]) Codec() binary.Codec { return t.codec }
 
 func (t *Table[K, E]) Close() error {
@@ -47,10 +47,20 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (*Table[K, E], error) {
-	if err := migrateKeys[K, E](ctx, cfg.DB, cfg.Codec); err != nil {
+	codec := resolveCodec(cfg.Codec, cfg.DB)
+	if err := migrateKeys[K, E](ctx, cfg.DB, codec); err != nil {
 		return nil, err
 	}
-	return &Table[K, E]{codec: cfg.Codec, DB: cfg.DB}, nil
+	return &Table[K, E]{codec: codec, DB: cfg.DB}, nil
+}
+
+// resolveCodec returns the override codec if non-nil, otherwise falls back to the
+// fallback codec.
+func resolveCodec(override binary.Codec, fallback binary.Codec) binary.Codec {
+	if override != nil {
+		return override
+	}
+	return fallback
 }
 
 // NewCreate returns a Create query builder configured with this table's codec.
@@ -110,12 +120,7 @@ func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec b
 	writer := wrapWriter[K, E](tx, codec)
 	for iter.First(); iter.Valid(); iter.Next() {
 		var entry E
-		if codec != nil {
-			err = codec.Decode(ctx, iter.Value(), &entry)
-		} else {
-			err = tx.Decode(ctx, iter.Value(), &entry)
-		}
-		if err != nil {
+		if err = codec.Decode(ctx, iter.Value(), &entry); err != nil {
 			return err
 		}
 		if err = tx.Delete(ctx, iter.Key()); err != nil {
@@ -142,7 +147,7 @@ func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Co
 	}()
 	writer := wrapWriter[K, E](tx, codec)
 	for iter.First(); iter.Valid(); iter.Next() {
-		if err = writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
+		if err = writer.writer.Delete(ctx, iter.Key()); err != nil {
 			return err
 		}
 		if err = writer.Set(ctx, *iter.Value(ctx)); err != nil {

@@ -13,24 +13,25 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/kv"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
 // entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
-	BaseWriter
+	writer   kv.Writer
 	keyCodec *keyCodec[K, E]
 	codec    binary.Codec
 }
 
-// WrapWriter wraps the given key-value writer to provide a strongly
+// WrapWriter wraps the given key-value writer and codec to provide a strongly
 // typed interface for writing entries to the DB.
-func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
-	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
+func WrapWriter[K Key, E Entry[K]](base kv.Writer, codec binary.Codec) *Writer[K, E] {
+	return &Writer[K, E]{writer: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
-func wrapWriter[K Key, E Entry[K]](base BaseWriter, codec binary.Codec) *Writer[K, E] {
-	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E](), codec: codec}
+func wrapWriter[K Key, E Entry[K]](base kv.Writer, codec binary.Codec) *Writer[K, E] {
+	return &Writer[K, E]{writer: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
 // Set writes the provided entries to the DB.
@@ -54,22 +55,14 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	var (
-		data []byte
-		err  error
-	)
-	if w.codec != nil {
-		data, err = w.codec.Encode(ctx, entry)
-	} else {
-		data, err = w.BaseWriter.Encode(ctx, entry)
-	}
+	data, err := w.codec.Encode(ctx, entry)
 	if err != nil {
 		return err
 	}
 	v := w.keyCodec.encode(entry.GorpKey())
-	return w.BaseWriter.Set(ctx, v, data, entry.SetOptions()...)
+	return w.writer.Set(ctx, v, data, entry.SetOptions()...)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	return w.BaseWriter.Delete(ctx, w.keyCodec.encode(key))
+	return w.writer.Delete(ctx, w.keyCodec.encode(key))
 }

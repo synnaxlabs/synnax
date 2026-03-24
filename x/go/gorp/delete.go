@@ -75,7 +75,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return wrapWriter[K, E](tx, d.codec).Delete(ctx, keys...)
+	return wrapWriter[K, E](tx, resolveCodec(d.codec, tx)).Delete(ctx, keys...)
 }
 
 type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
