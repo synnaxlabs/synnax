@@ -430,6 +430,9 @@ importers:
       '@codingame/esbuild-import-meta-url-plugin':
         specifier: ^1.0.3
         version: 1.0.3
+      '@juggle/resize-observer':
+        specifier: ^3.4.0
+        version: 3.4.0
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
         version: link:../configs/eslint

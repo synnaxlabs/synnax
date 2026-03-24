@@ -9,22 +9,35 @@
 
 import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
+import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
+import { createMockWorkers } from "@synnaxlabs/x";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useMemo,
+} from "react";
 import { Provider } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Log } from "@/log";
+import { Workspace } from "@/workspace";
 
 const consoleReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Cluster.SLICE_NAME]: Cluster.reducer,
 });
 
 type ConsolePreloadedState = {
   [Layout.SLICE_NAME]?: Layout.SliceState;
   [Log.SLICE_NAME]?: Log.SliceState;
+  [Workspace.SLICE_NAME]?: Workspace.SliceState;
+  [Cluster.SLICE_NAME]?: Cluster.SliceState;
 };
 
 export interface ConsoleTestProviderOptions {
@@ -41,11 +54,47 @@ export const createTestStore = (
   });
 };
 
+const AETHER_REGISTRY: aether.ComponentRegistry = {
+  ...synnax.REGISTRY,
+  ...status.REGISTRY,
+  ...flux.createRegistry({ storeConfig: {} }),
+};
+
+const AetherTestProvider = ({
+  children,
+}: PropsWithChildren): ReactElement => {
+  const worker = useMemo(() => {
+    const [w, main] = createMockWorkers();
+    aether.render({ comms: w.route("test"), registry: AETHER_REGISTRY });
+    return main.route("test") as Aether.ProviderProps["worker"];
+  }, []);
+  return (
+    <Aether.Provider worker={worker} workerKey="test">
+      {children}
+    </Aether.Provider>
+  );
+};
+
+const fluxClient = new Flux.Client({
+  client: null,
+  storeConfig: { ...Pluto.FLUX_STORE_CONFIG },
+  handleError: status.createErrorHandler(console.error),
+  handleAsyncError: status.createAsyncErrorHandler(console.error),
+});
+
 export const ConsoleTestProvider = ({
   store,
   children,
 }: PropsWithChildren<{ store: EnhancedStore }>): ReactElement => (
-  <Provider store={store}>{children}</Provider>
+  <AetherTestProvider>
+    <Status.Aggregator>
+      <Synnax.TestProvider client={null}>
+        <Flux.Provider client={fluxClient}>
+          <Provider store={store}>{children}</Provider>
+        </Flux.Provider>
+      </Synnax.TestProvider>
+    </Status.Aggregator>
+  </AetherTestProvider>
 );
 
 export interface RenderWithConsoleOptions extends RenderOptions {

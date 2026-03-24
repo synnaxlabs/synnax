@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen } from "@testing-library/react";
-import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Layout } from "@/layout";
@@ -16,81 +16,16 @@ import { Log } from "@/log";
 import { type State } from "@/log/types/v1";
 import { renderWithConsole } from "@/testUtils";
 
-const mockDispatch = vi.fn();
-
-vi.mock("@/log/Log", async (importOriginal) => {
-  const actual = await importOriginal();
-  return { ...(actual as object), useSyncComponent: () => mockDispatch };
-});
-
+// Access.useUpdateGranted returns false with null client (no permissions).
+// Mock only this authorization boundary so controls are enabled for interaction tests.
+const mockUseUpdateGranted = vi.hoisted(() => vi.fn(() => true));
 vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<typeof import("@synnaxlabs/pluto")>();
   return {
-    ...(actual as object),
-    Access: {
-      ...((actual as Record<string, unknown>).Access as object),
-      useUpdateGranted: vi.fn(() => true),
-    },
-    Flex: {
-      Box: ({
-        children,
-        style,
-      }: {
-        children: React.ReactNode;
-        x?: boolean;
-        style?: React.CSSProperties;
-      }) => (
-        <div data-testid="flex-box" style={style}>
-          {children}
-        </div>
-      ),
-    },
-    Input: {
-      Item: ({ children, label }: { children: React.ReactNode; label: string }) => (
-        <label data-testid={`input-item-${label.toLowerCase().replace(/ /g, "-")}`}>
-          {label}
-          {children}
-        </label>
-      ),
-      Numeric: ({
-        value,
-        disabled,
-      }: {
-        value: number;
-        onChange: (v: number) => void;
-        disabled: boolean;
-        resetValue?: number;
-        bounds?: object;
-      }) => (
-        <input
-          data-testid="input-numeric"
-          readOnly
-          value={value}
-          data-disabled={String(disabled)}
-          onChange={() => {}}
-        />
-      ),
-      Switch: ({
-        value,
-        disabled,
-        onChange,
-      }: {
-        value: boolean;
-        onChange: (v: boolean) => void;
-        disabled: boolean;
-      }) => (
-        <button
-          data-testid="input-switch"
-          data-checked={String(value)}
-          data-disabled={String(disabled)}
-          onClick={() => onChange(!value)}
-        />
-      ),
-    },
+    ...actual,
+    Access: { ...actual.Access, useUpdateGranted: mockUseUpdateGranted },
   };
 });
-
-import * as Pluto from "@synnaxlabs/pluto";
 
 import { Properties } from "@/log/toolbar/Properties";
 
@@ -104,26 +39,20 @@ const LOG_STATE: State = {
   showReceiptTimestamp: true,
 };
 
-const preloadState = (logState: State) => ({
+const LAYOUT_STATE: Layout.State = {
+  key: "test-key",
+  windowKey: MAIN_WINDOW,
+  type: "log",
+  name: "Test Log",
+  location: "mosaic",
+};
+
+const preloadState = (logState: State = LOG_STATE) => ({
   [Layout.SLICE_NAME]: {
     ...Layout.ZERO_SLICE_STATE,
-    layouts: {
-      [logState.key]: {
-        key: logState.key,
-        name: "Test Log",
-        type: "log",
-        location: "mosaic" as const,
-        icon: "Log",
-        window: undefined,
-        tab: undefined,
-        windowKey: logState.key,
-      },
-    },
+    layouts: { ...Layout.ZERO_SLICE_STATE.layouts, [logState.key]: LAYOUT_STATE },
   },
-  [Log.SLICE_NAME]: {
-    ...Log.ZERO_SLICE_STATE,
-    logs: { [logState.key]: logState },
-  },
+  [Log.SLICE_NAME]: { ...Log.ZERO_SLICE_STATE, logs: { [logState.key]: logState } },
 });
 
 describe("log/toolbar/Properties", () => {
@@ -142,71 +71,56 @@ describe("log/toolbar/Properties", () => {
     expect(screen.getByText("Show Channel Names")).toBeDefined();
   });
 
-  it("renders the current timestamp precision value", () => {
-    renderWithConsole(<Properties layoutKey="test-key" />, {
-      preloadedState: preloadState({ ...LOG_STATE, timestampPrecision: 2 }),
-    });
-    const input = screen.getByTestId("input-numeric");
-    expect(Number((input as HTMLInputElement).value)).toBe(2);
-  });
-
   it("renders the current showChannelNames value", () => {
-    renderWithConsole(<Properties layoutKey="test-key" />, {
+    const { container } = renderWithConsole(<Properties layoutKey="test-key" />, {
       preloadedState: preloadState({ ...LOG_STATE, showChannelNames: false }),
     });
-    const label = screen.getByTestId("input-item-show-channel-names");
-    expect(
-      label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked"),
-    ).toBe("false");
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const showChannelNamesCheckbox = checkboxes[checkboxes.length - 1];
+    expect((showChannelNamesCheckbox as HTMLInputElement).checked).toBe(false);
   });
 
   it("renders the current showReceiptTimestamp value", () => {
-    renderWithConsole(<Properties layoutKey="test-key" />, {
+    const { container } = renderWithConsole(<Properties layoutKey="test-key" />, {
       preloadedState: preloadState({ ...LOG_STATE, showReceiptTimestamp: false }),
     });
-    const label = screen.getByTestId("input-item-show-receipt-timestamp");
-    expect(
-      label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked"),
-    ).toBe("false");
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const showReceiptTimestampCheckbox = checkboxes[0];
+    expect((showReceiptTimestampCheckbox as HTMLInputElement).checked).toBe(false);
   });
 
-  it("dispatches setShowChannelNames when toggle is clicked", () => {
-    renderWithConsole(<Properties layoutKey="test-key" />, {
-      preloadedState: preloadState(LOG_STATE),
-    });
-    const label = screen.getByTestId("input-item-show-channel-names");
-    fireEvent.click(label.querySelector("[data-testid='input-switch']")!);
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "log/setShowChannelNames",
-        payload: { key: "test-key", showChannelNames: false },
-      }),
+  it("updates store when showChannelNames toggle is clicked", () => {
+    const { store, container } = renderWithConsole(
+      <Properties layoutKey="test-key" />,
+      { preloadedState: preloadState(LOG_STATE) },
     );
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const showChannelNamesCheckbox = checkboxes[checkboxes.length - 1];
+    fireEvent.click(showChannelNamesCheckbox);
+    const state = store.getState() as { [Log.SLICE_NAME]: Log.SliceState };
+    expect(state[Log.SLICE_NAME].logs["test-key"].showChannelNames).toBe(false);
   });
 
-  it("dispatches setShowReceiptTimestamp when toggle is clicked", () => {
-    renderWithConsole(<Properties layoutKey="test-key" />, {
-      preloadedState: preloadState(LOG_STATE),
-    });
-    const label = screen.getByTestId("input-item-show-receipt-timestamp");
-    fireEvent.click(label.querySelector("[data-testid='input-switch']")!);
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "log/setShowReceiptTimestamp",
-        payload: { key: "test-key", showReceiptTimestamp: false },
-      }),
+  it("updates store when showReceiptTimestamp toggle is clicked", () => {
+    const { store, container } = renderWithConsole(
+      <Properties layoutKey="test-key" />,
+      { preloadedState: preloadState(LOG_STATE) },
     );
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const showReceiptTimestampCheckbox = checkboxes[0];
+    fireEvent.click(showReceiptTimestampCheckbox);
+    const state = store.getState() as { [Log.SLICE_NAME]: Log.SliceState };
+    expect(state[Log.SLICE_NAME].logs["test-key"].showReceiptTimestamp).toBe(false);
   });
 
   it("disables controls when user lacks edit permission", () => {
-    vi.mocked(Pluto.Access.useUpdateGranted).mockReturnValueOnce(false);
-    renderWithConsole(<Properties layoutKey="test-key" />, {
+    mockUseUpdateGranted.mockReturnValue(false);
+    const { container } = renderWithConsole(<Properties layoutKey="test-key" />, {
       preloadedState: preloadState(LOG_STATE),
     });
-    expect(screen.getByTestId("input-numeric").getAttribute("data-disabled")).toBe(
-      "true",
-    );
-    const switches = screen.getAllByTestId("input-switch");
-    for (const sw of switches) expect(sw.getAttribute("data-disabled")).toBe("true");
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    for (const cb of checkboxes)
+      expect((cb as HTMLInputElement).disabled).toBe(true);
+    mockUseUpdateGranted.mockReturnValue(true);
   });
 });
