@@ -10,8 +10,6 @@
 package lineplot
 
 import (
-	"context"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -67,11 +65,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{ServiceConfig: cfg}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
-}
-
-// Delete implements workspace.ChildDeleter.
-func (s *Service) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-	return s.NewWriter(tx).Delete(ctx, keys...)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If

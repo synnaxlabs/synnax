@@ -92,11 +92,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// Delete implements workspace.ChildDeleter.
-func (s *Service) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-	return s.NewWriter(tx).Delete(ctx, keys...)
-}
-
 // Close closes the schematic service and releases any resources that it may have
 // acquired.
 func (s *Service) Close() error { return s.Symbol.Close() }

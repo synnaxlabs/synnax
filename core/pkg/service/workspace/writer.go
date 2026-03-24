@@ -19,24 +19,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// ChildDeleter deletes child resources of a specific type from a workspace.
-// Each deleter is associated with an ontology type, and only receives keys
-// that match that type during cascade deletion. Services like schematic.Service,
-// lineplot.Service, etc. should implement this interface.
-type ChildDeleter interface {
-	// Type returns the ontology type this deleter handles.
-	Type() ontology.Type
-	// Delete removes the resources with the given keys within the
-	// provided transaction.
-	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
-}
-
 type Writer struct {
-	tx            gorp.Tx
-	otg           ontology.Writer
-	otgR          *ontology.Ontology
-	group         group.Group
-	childDeleters []ChildDeleter
+	tx    gorp.Tx
+	otg   ontology.Writer
+	group group.Group
 }
 
 func (w Writer) Create(
@@ -102,65 +88,13 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	for _, key := range keys {
-		if err := w.deleteChildren(ctx, key); err != nil {
-			return err
-		}
-	}
-	if err := gorp.NewDelete[uuid.UUID, Workspace]().
-		WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err := gorp.NewDelete[uuid.UUID, Workspace]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
-	byType := make(map[ontology.Type][]uuid.UUID)
-	if err := w.collectDescendants(ctx, OntologyID(key), byType); err != nil {
-		return err
-	}
-	for _, deleter := range w.childDeleters {
-		keys := byType[deleter.Type()]
-		if len(keys) == 0 {
-			continue
-		}
-		if err := deleter.Delete(ctx, w.tx, keys...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (w Writer) collectDescendants(
-	ctx context.Context,
-	parentID ontology.ID,
-	byType map[ontology.Type][]uuid.UUID,
-) error {
-	var children []ontology.Resource
-	if err := w.otgR.NewRetrieve().
-		WhereIDs(parentID).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, child := range children {
-		if child.ID.Type == "group" {
-			if err := w.collectDescendants(ctx, child.ID, byType); err != nil {
-				return err
-			}
-			continue
-		}
-		k, err := uuid.Parse(child.ID.Key)
-		if err != nil {
-			return err
-		}
-		byType[child.ID.Type] = append(byType[child.ID.Type], k)
 	}
 	return nil
 }

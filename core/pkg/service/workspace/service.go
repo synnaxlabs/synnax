@@ -25,11 +25,10 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	Signals       *signals.Provider
-	DB            *gorp.DB
-	Ontology      *ontology.Ontology
-	Group         *group.Service
-	ChildDeleters []ChildDeleter
+	Signals  *signals.Provider
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
+	Group    *group.Service
 }
 
 var (
@@ -43,7 +42,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.ChildDeleters = override.Slice(c.ChildDeleters, other.ChildDeleters)
 	return c
 }
 
@@ -89,13 +87,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 func (s *Service) Close() error { return s.shutdownSignals.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:            tx,
-		otg:           s.cfg.Ontology.NewWriter(tx),
-		otgR:          s.cfg.Ontology,
-		group:         s.group,
-		childDeleters: s.cfg.ChildDeleters,
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		group: s.group,
 	}
 }
 
