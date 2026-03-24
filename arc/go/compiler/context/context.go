@@ -59,9 +59,9 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,
 		OutputMemoryBase: ctx.OutputMemoryBase,
-		WriterID:   ctx.WriterID,
-		blockDepth: ctx.blockDepth,
-		loopStack:  ctx.loopStack,
+		WriterID:         ctx.WriterID,
+		blockDepth:       ctx.blockDepth,
+		loopStack:        ctx.loopStack,
 	}
 }
 
