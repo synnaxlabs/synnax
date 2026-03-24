@@ -20,8 +20,8 @@ import { type z } from "zod";
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
-import { WriterCommand } from "@/framer/payload";
 import { type StreamerResponse } from "@/framer/streamer";
+import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
 const seriesPldLength = (series: SeriesPayload): number =>

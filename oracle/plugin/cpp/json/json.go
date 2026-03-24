@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 var primitiveMapper = cppprimitives.Mapper()
@@ -77,12 +79,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	allPaths := make(map[string]bool)
+	allPaths := make(set.Set[string])
 	for _, path := range structCollector.Paths() {
-		allPaths[path] = true
+		allPaths.Add(path)
 	}
 	for _, path := range distinctCollector.Paths() {
-		allPaths[path] = true
+		allPaths.Add(path)
 	}
 
 	for outputPath := range allPaths {
@@ -328,6 +330,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
 	}
+	cppFieldName = keywords.Escape(cppFieldName)
 
 	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil && !field.Type.TypeParam.HasDefault()
 	typeParamName := ""
@@ -488,13 +491,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		}
 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
-			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+			if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				structType := domain.GetName(elemResolved, "cpp")
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						ns := deriveNamespace(targetOutputPath)
 						structType = fmt.Sprintf("::%s::%s", ns, structType)
+					}
+				}
+				if len(elemType.TypeArgs) > 0 {
+					var args []string
+					for i, arg := range elemType.TypeArgs {
+						if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+							continue
+						}
+						args = append(args, p.typeRefToCpp(arg, data))
+					}
+					if len(args) > 0 {
+						structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
 					}
 				}
 				return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, structType, jsonName)
@@ -529,13 +544,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
 		}
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+		if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			structType := domain.GetName(resolved, "cpp")
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := deriveNamespace(targetOutputPath)
 					structType = fmt.Sprintf("::%s::%s", ns, structType)
+				}
+			}
+			if len(typeRef.TypeArgs) > 0 {
+				var args []string
+				for i, arg := range typeRef.TypeArgs {
+					if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+						continue
+					}
+					args = append(args, p.typeRefToCpp(arg, data))
+				}
+				if len(args) > 0 {
+					structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
 				}
 			}
 			if field.IsHardOptional {
@@ -591,10 +618,10 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 	typeParamName := field.Type.TypeParam.Name
 
 	if field.IsHardOptional {
-		jsonParseExpr = fmt.Sprintf(`parser.field<std::optional<x::json::json>>("%s")`, jsonName)
+		jsonParseExpr = fmt.Sprintf(`parser.field<std::optional<x::json::json::object_t>>("%s")`, jsonName)
 		structParseExpr = fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, typeParamName, jsonName)
 	} else {
-		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s")`, jsonName)
+		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json::object_t>("%s")`, jsonName)
 		structParseExpr = fmt.Sprintf(`parser.field<%s>("%s")`, typeParamName, jsonName)
 	}
 
@@ -609,10 +636,11 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 	if fieldName == field.Name {
 		fieldName = toSnakeCase(field.Name)
 	}
+	fieldName = keywords.Escape(fieldName)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		typeName := typeRef.TypeParam.Name
-		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json>)
+		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json::object_t>)
         j["%s"] = this->%s;
     else if constexpr (std::is_same_v<%s, std::monostate>)
         j["%s"] = nullptr;
@@ -634,7 +662,7 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			return fmt.Sprintf(`{
         auto arr = x::json::json::array();
         for (const auto& item : this->%s)
-            if constexpr (std::is_same_v<%s, x::json::json>)
+            if constexpr (std::is_same_v<%s, x::json::json::object_t>)
                 arr.push_back(item);
             else if constexpr (std::is_same_v<%s, std::monostate>)
                 arr.push_back(nullptr);
@@ -709,8 +737,8 @@ func defaultValueForPrimitive(primitive string) string {
 		return "x::telem::TimeSpan(0)"
 	case "time_range", "time_range_bounded":
 		return "x::telem::TimeRange{}"
-	case "json":
-		return "x::json::json{}"
+	case "record":
+		return "x::json::json::object_t{}"
 	case "bytes":
 		return "{}"
 	default:

@@ -9,7 +9,10 @@
 
 package resolver
 
-import "github.com/synnaxlabs/oracle/resolution"
+import (
+	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
+)
 
 // HasFieldConflicts returns true if multiple parents have overlapping field names.
 // This is used to determine if language inheritance/embedding can be used safely.
@@ -19,17 +22,17 @@ func HasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bo
 	if len(extends) < 2 {
 		return false
 	}
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	for _, ext := range extends {
 		parent, ok := ext.Resolve(table)
 		if !ok {
 			continue
 		}
 		for _, f := range resolution.UnifiedFields(parent, table) {
-			if seen[f.Name] {
+			if seen.Contains(f.Name) {
 				return true
 			}
-			seen[f.Name] = true
+			seen.Add(f.Name)
 		}
 	}
 	return false

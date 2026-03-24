@@ -118,11 +118,13 @@ TEST(NiDeviceTests, testToSynnaxPreservesStatus) {
     dev.location = "Slot1";
     dev.make = "NI";
     dev.model = "9205";
-    dev.status.variant = x::status::VARIANT_SUCCESS;
-    dev.status.message = "Device present";
+    dev.status = synnax::device::Status{};
+    dev.status->variant = x::status::VARIANT_SUCCESS;
+    dev.status->message = "Device present";
 
     auto synnax_dev = dev.to_synnax();
-    EXPECT_EQ(synnax_dev.status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(synnax_dev.status.message, "Device present");
+    ASSERT_TRUE(synnax_dev.status.has_value());
+    EXPECT_EQ(synnax_dev.status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(synnax_dev.status->message, "Device present");
 }
 }

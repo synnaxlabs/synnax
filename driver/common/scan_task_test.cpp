@@ -161,7 +161,7 @@ public:
     create_devices(std::vector<synnax::device::Device> &devs) override {
         for (auto &dev: devs) {
             created->push_back(dev);
-            created_parents->push_back(dev.parent);
+            created_parents->push_back(dev.parent.value_or(synnax::ontology::ID{}));
         }
         return x::errors::NIL;
     }
@@ -188,7 +188,7 @@ public:
 class MockScannerWithSignals final : public Scanner {
 public:
     ScannerConfig scanner_config;
-    std::vector<task::Command> exec_commands;
+    std::vector<synnax::task::Command> exec_commands;
     bool exec_return_value = false;
     std::mutex mu;
 
@@ -222,7 +222,7 @@ public:
     }
 
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &,
         const std::shared_ptr<task::Context> &
     ) override {
@@ -710,17 +710,19 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.status.key = dev1.status_key();
-    dev1.status.variant = x::status::VARIANT_SUCCESS;
-    dev1.status.details.rack = 1;
+    dev1.status = synnax::device::Status{};
+    dev1.status->key = synnax::device::status_key(dev1);
+    dev1.status->variant = x::status::VARIANT_SUCCESS;
+    dev1.status->details.rack = 1;
 
     synnax::device::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.status.key = dev2.status_key();
-    dev2.status.variant = x::status::VARIANT_WARNING;
-    dev2.status.details.rack = 2;
+    dev2.status = synnax::device::Status{};
+    dev2.status->key = synnax::device::status_key(dev2);
+    dev2.status->variant = x::status::VARIANT_WARNING;
+    dev2.status->details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -828,8 +830,12 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     );
 
     // Execute a custom command that should be delegated to the scanner
-    task::Command cmd(task.key, "custom_command", nlohmann::json{{"arg", "value"}});
-    cmd.key = "test_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = "custom_command",
+        .key = "test_cmd",
+        .args = x::json::json{{"arg", "value"}}
+    };
     scan_task.exec(cmd);
 
     // Verify the scanner received the command

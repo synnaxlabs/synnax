@@ -12,7 +12,7 @@ package grpc
 import (
 	"go/types"
 
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	fnoop "github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
@@ -46,9 +46,9 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func NewTransport(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransport) {
+func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.BindableTransport) {
 	var a api.Transport
-	transports := fgrpc.CompoundBindableTransport{
+	transports := grpc.CompoundBindableTransport{
 		channelgrpc.New(&a),
 		framergrpc.New(&a, channelSvc),
 		connectivitygrpc.New(&a),

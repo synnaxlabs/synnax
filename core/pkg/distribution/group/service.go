@@ -52,6 +52,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
+	table   *gorp.Table[uuid.UUID, Group]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -59,7 +60,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
@@ -87,9 +92,9 @@ func (s *Service) NewRetrieve() Retrieve {
 
 func (s *Service) Close() error {
 	if s.signals != nil {
-		return s.signals.Close()
+		return errors.Combine(s.signals.Close(), s.table.Close())
 	}
-	return nil
+	return s.table.Close()
 }
 
 type Writer struct {

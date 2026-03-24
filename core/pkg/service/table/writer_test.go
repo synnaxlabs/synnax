@@ -20,17 +20,17 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a Table", func() {
-			table := table.Table{
+			t := table.Table{
 				Name: "test",
-				Data: "data",
+				Data: map[string]any{"key": "data"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &table)).To(Succeed())
-			Expect(table.Key).ToNot(Equal(uuid.Nil))
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
+			Expect(t.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
 	Describe("Update", func() {
 		It("Should rename a Table", func() {
-			s := table.Table{Name: "test", Data: "data"}
+			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
 			var res table.Table
@@ -40,12 +40,12 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("SetData", func() {
 		It("Should set the data of a Table", func() {
-			s := table.Table{Name: "test", Data: "data"}
+			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, "data2")).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res table.Table
 			Expect(gorp.NewRetrieve[uuid.UUID, table.Table]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Data).To(Equal("data2"))
+			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})
 })

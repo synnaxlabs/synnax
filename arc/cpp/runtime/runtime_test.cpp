@@ -288,6 +288,54 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
     EXPECT_FALSE(runtime->stop()) << "Second stop should return false";
 }
 
+TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
+    auto mock = std::make_unique<testutil::MockLoop>();
+    mock->start_error = x::errors::Error("epoll_create failed");
+    auto *loop_ptr = mock.get();
+
+    state::Config state_cfg{.ir = arc::ir::IR{}, .channels = {}};
+    auto state = std::make_shared<state::State>(state_cfg);
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
+    auto scheduler = std::make_unique<scheduler::Scheduler>(
+        arc::ir::IR{},
+        node_impls,
+        x::telem::TimeSpan(0)
+    );
+
+    std::atomic<bool> error_called{false};
+    x::errors::Error captured_error;
+
+    Config cfg{
+        .program = {},
+        .breaker = x::breaker::Config{},
+        .retrieve_channels = nullptr,
+        .input_queue_capacity = 256,
+        .output_queue_capacity = 256,
+        .loop = {},
+    };
+
+    auto runtime = std::make_shared<Runtime>(
+        cfg,
+        nullptr,
+        state,
+        std::move(scheduler),
+        std::move(mock),
+        std::vector<arc::types::ChannelKey>{},
+        std::vector<arc::types::ChannelKey>{},
+        [&](const x::errors::Error &err) {
+            captured_error = err;
+            error_called = true;
+        }
+    );
+
+    ASSERT_TRUE(runtime->start());
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_TRUE(error_called.load());
+    EXPECT_TRUE(captured_error.matches(x::errors::Error("epoll_create failed")));
+    EXPECT_EQ(loop_ptr->watch_count.load(), 0);
+    runtime->stop();
+}
+
 TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
     arc::ir::Authorities auth;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
@@ -297,7 +345,7 @@ TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
 
 TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
     arc::ir::Authorities auth;
-    auth.default_authority = 100;
+    auth.default_ = 100;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
     auto result = build_authorities(auth, write_keys);
     ASSERT_EQ(result.size(), 3);
@@ -307,7 +355,7 @@ TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
 
 TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
     arc::ir::Authorities auth;
-    auth.default_authority = 100;
+    auth.default_ = 100;
     auth.channels[2] = 200;
 
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};

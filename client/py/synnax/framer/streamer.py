@@ -34,6 +34,7 @@ class _Request(BaseModel):
     keys: list[channel.Key]
     downsample_factor: int
     throttle_rate_hz: float | None = None
+    exclude_groups: list[int] = []
 
 
 class _Response(BaseModel):
@@ -83,6 +84,7 @@ class Streamer:
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         use_experimental_codec: bool = True,
+        exclude_groups: list[int] | None = None,
     ) -> None:
         self._adapter = adapter
         if use_experimental_codec:
@@ -91,11 +93,13 @@ class Streamer:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
+        self._exclude_groups = exclude_groups or []
         self._stream.send(
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
                 throttle_rate_hz=self._throttle_rate,
+                exclude_groups=self._exclude_groups,
             )
         )
         _, exc = self._stream.receive()
@@ -161,6 +165,7 @@ class Streamer:
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
                 throttle_rate_hz=self._throttle_rate,
+                exclude_groups=self._exclude_groups,
             )
         )
 
@@ -235,11 +240,13 @@ class AsyncStreamer:
         adapter: ReadFrameAdapter,
         downsample_factor: int,
         throttle_rate: float = 0,
+        exclude_groups: list[int] | None = None,
     ) -> None:
         self._client = client
         self._adapter = adapter
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
+        self._exclude_groups = exclude_groups or []
 
     async def _open(self) -> None:
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
@@ -248,6 +255,7 @@ class AsyncStreamer:
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
                 throttle_rate_hz=self._throttle_rate,
+                exclude_groups=self._exclude_groups,
             )
         )
         _, exc = await self._stream.receive()

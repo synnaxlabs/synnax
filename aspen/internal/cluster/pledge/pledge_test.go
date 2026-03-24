@@ -102,10 +102,11 @@ var _ = Describe("PledgeServer", func() {
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
 				Expect(res.Key).To(Equal(node.Key(0)))
-				for i, entry := range net.Entries {
+				entries := net.Entries()
+				for i, entry := range entries {
 					Expect(entry.Target).To(Equal(peers[i%4]))
 				}
-				Expect(net.Entries).ToNot(HaveLen(0))
+				Expect(entries).ToNot(HaveLen(0))
 			})
 		})
 	})
@@ -258,6 +259,9 @@ var _ = Describe("PledgeServer", func() {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
+						mu.Lock()
+						addrs := nodes.Addresses()
+						mu.Unlock()
 						cfg, addr := baseConfigWithAddr(net)
 						res := MustSucceed(pledge.Pledge(
 							ctx,
@@ -265,7 +269,7 @@ var _ = Describe("PledgeServer", func() {
 							pledge.Config{
 								Instrumentation: ins.Child("concurrent-pledges"),
 								Candidates:      candidates(0),
-								Peers:           nodes.Addresses(),
+								Peers:           addrs,
 							},
 							pledge.BlazingFastConfig,
 						))

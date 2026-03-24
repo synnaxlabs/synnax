@@ -77,10 +77,6 @@ func (w Writer) CreateWithParent(
 				ontology.RelationshipTypeParentOf,
 				otgID,
 			); relAlreadyExists || err != nil {
-				if err == nil {
-					r.tx = w.tx
-					r.otg = w.otg
-				}
 				return err
 			}
 			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
@@ -100,8 +96,6 @@ func (w Writer) CreateWithParent(
 			return err
 		}
 	}
-	r.tx = w.tx
-	r.otg = w.otg
 	return nil
 }
 
@@ -169,14 +163,14 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
 		ExcludeFieldData(true).
-		// The check for query.NotFound is necessary because the child may have already
-		// been deleted, and delete is idempotent.
+		// The check for query.ErrNotFound is necessary because the child may have
+		// already been deleted, and delete is idempotent.
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {
 		// Don't delete anything that's not a child range
-		if r.ID.Type != OntologyType {
+		if r.ID.Type != ontology.TypeRange {
 			return "", false
 		}
 		return r.ID.Key, true

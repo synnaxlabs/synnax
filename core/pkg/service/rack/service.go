@@ -109,14 +109,19 @@ type Service struct {
 	shutdownSignals io.Closer
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
+	group           group.Group
 	monitor         *monitor
+	table           *gorp.Table[Key, Rack]
 	ServiceConfig
-	group       group.Group
 	EmbeddedKey Key
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	table, err := gorp.OpenTable[Key, Rack](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +134,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
+	s := &Service{
+		ServiceConfig:   cfg,
+		localKeyCounter: c,
+		group:           g,
+		keyMu:           &sync.Mutex{},
+		table:           table,
+	}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
@@ -202,7 +213,7 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 	for i, r := range racks {
 		statusKeys[i] = OntologyID(r.Key).String()
 	}
-	var existingStatuses []Status
+	var existingStatuses []status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
@@ -213,11 +224,11 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 	for _, stat := range existingStatuses {
 		existingKeys[stat.Key] = true
 	}
-	var missingStatuses []Status
+	var missingStatuses []status.Status[StatusDetails]
 	for _, r := range racks {
 		key := OntologyID(r.Key).String()
 		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
+			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 				Key:     key,
 				Name:    r.Name,
 				Time:    telem.Now(),
@@ -239,16 +250,17 @@ func (s *Service) Close() error {
 	if s.shutdownSignals == nil {
 		return err
 	}
+	err = errors.Join(err, s.table.Close())
 	return errors.Join(err, s.shutdownSignals.Close())
 }
 
-func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
-	var stat Status
+func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
+	var stat status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		WhereKeys(OntologyID(key).String()).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
-		return Status{}, err
+		return status.Status[StatusDetails]{}, err
 	}
 	return stat, nil
 }

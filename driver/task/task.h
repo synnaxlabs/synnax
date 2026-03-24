@@ -25,42 +25,10 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
+#include "driver/bypass/bypass.h"
+#include "driver/control/state.h"
+
 namespace driver::task {
-/// @brief A command that can be executed on a task in order to change its state.
-struct Command {
-    /// @brief the key of the task to be commanded.
-    synnax::task::Key task = 0;
-    /// @brief the type of the command to execute.
-    std::string type;
-    /// @brief an optional key to assign to the command. This is useful for tracking
-    /// state updates related to the command.
-    std::string key;
-    /// @brief json arguments to the command.
-    x::json::json args = {};
-
-    Command() = default;
-
-    /// @brief constructs the command from the provided configuration parser.
-    explicit Command(x::json::Parser parser):
-        task(parser.field<synnax::task::Key>("task")),
-        type(parser.field<std::string>("type")),
-        key(parser.field<std::string>("key", "")),
-        args(parser.field<x::json::json>("args", x::json::json{})) {}
-
-    /// @brief Construct a new Task Command object
-    Command(const synnax::task::Key task, std::string type, x::json::json args):
-        task(task), type(std::move(type)), args(std::move(args)) {}
-
-    [[nodiscard]] x::json::json to_json() const {
-        return {{"task", task}, {"type", type}, {"key", key}, {"args", args}};
-    }
-
-    friend std::ostream &operator<<(std::ostream &os, const Command &cmd) {
-        os << cmd.type << " (key=" << cmd.key << ",task=" << cmd.task << ")";
-        return os;
-    }
-};
-
 /// @brief interface for a task that can be executed by the driver. Tasks should be
 /// constructed by an @see Factory.
 class Task {
@@ -72,7 +40,7 @@ public:
 
     /// @brief executes the command on the task. The task is responsible for
     /// updating its state.
-    virtual void exec(Command &cmd) {}
+    virtual void exec(synnax::task::Command &cmd) {}
 
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
@@ -97,6 +65,16 @@ public:
     explicit Context(std::shared_ptr<synnax::Synnax> client):
         client(std::move(client)) {}
 
+    /// @brief returns the local telemetry bus, or nullptr if not available.
+    virtual std::shared_ptr<bypass::Bus> bus() { return nullptr; }
+
+    /// @brief returns the shared control authority states.
+    virtual std::shared_ptr<control::States> control_states() { return nullptr; }
+
+    /// @brief returns the rack key for this driver, used as the group identity for
+    /// Core-side deduplication filtering.
+    virtual synnax::rack::Key rack_key() { return 0; }
+
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -119,9 +97,29 @@ public:
 };
 
 class SynnaxContext final : public Context {
+    std::shared_ptr<bypass::Bus> bus_;
+    std::shared_ptr<control::States> control_states_;
+    synnax::rack::Key rack_key_;
+
 public:
-    explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
-        Context(client) {}
+    explicit SynnaxContext(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const std::shared_ptr<bypass::Bus> &bus = nullptr,
+        const std::shared_ptr<control::States> &control_states = nullptr,
+        const synnax::rack::Key rack_key = 0
+    ):
+        Context(client),
+        bus_(bus),
+        control_states_(control_states),
+        rack_key_(rack_key) {}
+
+    std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
+
+    std::shared_ptr<control::States> control_states() override {
+        return this->control_states_;
+    }
+
+    synnax::rack::Key rack_key() override { return this->rack_key_; }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
@@ -250,11 +248,17 @@ public:
     Manager(
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
-        std::unique_ptr<task::Factory> factory,
+        std::unique_ptr<Factory> factory,
         const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
-        ctx(std::make_shared<SynnaxContext>(client)),
+        control_states_(std::make_shared<control::States>()),
+        ctx(std::make_shared<SynnaxContext>(
+            client,
+            std::make_shared<bypass::Bus>(),
+            this->control_states_,
+            this->rack.key
+        )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),
@@ -271,6 +275,8 @@ public:
 private:
     /// @brief the rack this manager belongs to.
     synnax::rack::Rack rack;
+    /// @brief shared control authority states, fed by the manager's streamer.
+    std::shared_ptr<control::States> control_states_;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
@@ -291,7 +297,7 @@ private:
         Type type;
         synnax::task::Key task_key;
         synnax::task::Task task;
-        Command cmd;
+        synnax::task::Command cmd;
     };
 
     /// @brief per-task state tracked by the manager.
@@ -333,6 +339,7 @@ private:
         synnax::channel::Channel task_set;
         synnax::channel::Channel task_delete;
         synnax::channel::Channel task_cmd;
+        synnax::channel::Channel control_state;
     } channels;
 
     /// @brief returns true if the task belongs to a different rack.

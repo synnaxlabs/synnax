@@ -50,7 +50,7 @@ export const logState = z.object({
   telem: logSourceSpecZ.default(noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  overshoot: xy.xy.default({ x: 0, y: 0 }),
+  overshoot: xy.xyZ.default({ x: 0, y: 0 }),
   selectionStart: z.number().default(-1),
   selectionEnd: z.number().default(-1),
   visibleStart: z.number().default(0),

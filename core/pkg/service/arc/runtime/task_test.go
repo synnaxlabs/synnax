@@ -99,7 +99,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Program: module}, nil
+			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Program: &module}, nil
 		})
 	}
 
@@ -110,7 +110,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Program: module}, nil
+			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Program: &module}, nil
 		})
 	}
 
@@ -243,7 +243,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).ToNot(BeNil())
 		})
 
-		It("Should return error for invalid config JSON", func() {
+		It("Should return error for invalid config", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
@@ -279,7 +279,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).To(BeNil())
 		})
 
-		It("Should set error status when config JSON is invalid", func() {
+		It("Should set error status when config is invalid", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,

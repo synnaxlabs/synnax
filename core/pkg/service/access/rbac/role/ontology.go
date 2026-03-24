@@ -23,11 +23,9 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "role"
-
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeRole, Key: k.String()}
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -42,7 +40,7 @@ func newResource(r Role) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Role]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeRole }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -67,7 +65,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key),
+		Key:     OntologyID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }

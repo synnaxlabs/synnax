@@ -109,7 +109,7 @@ var _ = Describe("Signals", Ordered, func() {
 				return slices.Values([]ontology.Change{
 					{
 						Variant: change.VariantSet,
-						Key:     newChangeID(key),
+						Key:     newChangeID(key).String(),
 						Value: ontology.NewResource(
 							svc.Schema(),
 							newChangeID(key),
@@ -148,7 +148,7 @@ var _ = Describe("Signals", Ordered, func() {
 				return slices.Values([]ontology.Change{
 					{
 						Variant: change.VariantDelete,
-						Key:     newChangeID(key),
+						Key:     newChangeID(key).String(),
 					},
 				})
 			})

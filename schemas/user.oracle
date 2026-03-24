@@ -1,0 +1,73 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/user"
+@py output "client/py/synnax/user"
+@go output "core/pkg/service/user"
+
+Key = uuid {
+    @doc value "is a unique identifier for a user, represented as a UUID."
+}
+
+User struct {
+    key        Key    {
+        @doc value "is the unique identifier for this user."
+        @key
+    }
+    username   string {
+        @doc value         "is the unique login name for the user."
+        @validate required
+    }
+    first_name string {
+        @doc value "is the user's first name."
+    }
+    last_name  string {
+        @doc value "is the user's last name."
+    }
+    root_user  bool   {
+        @doc value        """
+            is true if this is a root/admin user with full system access. Root
+            users cannot be deleted.
+        """
+        @validate default false
+    }
+
+    @doc value     """
+        is an account entity representing a person accessing the Synnax system.
+        Users can have roles assigned for permission management.
+    """
+    @ontology type "user"
+    @pb
+}
+
+New struct extends User {
+    -root_user
+    key        Key?    {
+        @doc value """
+            is an optional key for the user. If not provided, one will be
+            automatically assigned.
+        """
+    }
+    password   string  {
+        @doc value           "is the password for the new user account."
+        @validate min_length 1
+    }
+    first_name string? {
+        @doc value "is an optional first name."
+    }
+    last_name  string? {
+        @doc value "is an optional last name."
+    }
+
+    @doc value    "contains parameters for creating a new user."
+    @ts use_input
+    @go omit
+    @py omit
+    @cpp omit
+}

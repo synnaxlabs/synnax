@@ -12,7 +12,7 @@
 from abc import abstractmethod
 
 import synnax as sy
-from examples.http import HTTPSim
+from examples.http_sim import HTTPSim
 
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase, assert_sample_counts_in_range

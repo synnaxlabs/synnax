@@ -34,7 +34,7 @@ func (d Deleter) DeleteTimeRange(
 
 // DeleteTimeRangeByName deletes a time range in the specified channel. It is idempotent:
 // if no data is found in the range, nil is returned. However, if the channel
-// does not exist, a query.NotFound is returned.
+// does not exist, a query.ErrNotFound is returned.
 // All channels with the provided name are affected.
 func (d Deleter) DeleteTimeRangeByName(
 	ctx context.Context,

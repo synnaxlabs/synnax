@@ -47,35 +47,33 @@ struct TestSetup {
 
 private:
     static ir::IR build_ir() {
-        // Upstream source node with u8 output and timestamp output.
-        ir::Param source_output;
+        types::Param source_output;
         source_output.name = ir::default_output_param;
-        source_output.type = types::Type(types::Kind::U8);
+        source_output.type = types::Type{.kind = types::Kind::U8};
 
         ir::Node source_node;
         source_node.key = "source";
         source_node.type = "producer";
-        source_node.outputs.params.push_back(source_output);
+        source_node.outputs.push_back(source_output);
 
-        // Select node: 1 input, 2 outputs (true, false).
-        ir::Param select_input;
+        types::Param select_input;
         select_input.name = ir::default_input_param;
-        select_input.type = types::Type(types::Kind::U8);
+        select_input.type = types::Type{.kind = types::Kind::U8};
 
-        ir::Param true_output;
+        types::Param true_output;
         true_output.name = "true";
-        true_output.type = types::Type(types::Kind::U8);
+        true_output.type = types::Type{.kind = types::Kind::U8};
 
-        ir::Param false_output;
+        types::Param false_output;
         false_output.name = "false";
-        false_output.type = types::Type(types::Kind::U8);
+        false_output.type = types::Type{.kind = types::Kind::U8};
 
         ir::Node select_node;
         select_node.key = "select";
         select_node.type = "select";
-        select_node.inputs.params.push_back(select_input);
-        select_node.outputs.params.push_back(true_output);
-        select_node.outputs.params.push_back(false_output);
+        select_node.inputs.push_back(select_input);
+        select_node.outputs.push_back(true_output);
+        select_node.outputs.push_back(false_output);
 
         // Edge from source output to select input.
         ir::Edge edge;

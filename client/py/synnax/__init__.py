@@ -169,6 +169,8 @@ __all__ = [
     "modbus",
     "ni",
     "opcua",
+    "ontology",
     "status",
     "Status",
+    "group",
 ]

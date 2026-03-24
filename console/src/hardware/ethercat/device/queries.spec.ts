@@ -414,12 +414,12 @@ describe("EtherCAT Device queries", () => {
       });
 
       const updated1 = await client.devices.retrieve({
-        schemas: SLAVE_SCHEMAS,
         key: dev1.key,
+        schemas: SLAVE_SCHEMAS,
       });
       const updated2 = await client.devices.retrieve({
-        schemas: SLAVE_SCHEMAS,
         key: dev2.key,
+        schemas: SLAVE_SCHEMAS,
       });
       expect(updated1.properties.enabled).toBe(false);
       expect(updated2.properties.enabled).toBe(false);
@@ -453,12 +453,12 @@ describe("EtherCAT Device queries", () => {
       });
 
       const updated1 = await client.devices.retrieve({
-        schemas: SLAVE_SCHEMAS,
         key: dev1.key,
+        schemas: SLAVE_SCHEMAS,
       });
       const updated2 = await client.devices.retrieve({
-        schemas: SLAVE_SCHEMAS,
         key: dev2.key,
+        schemas: SLAVE_SCHEMAS,
       });
       expect(updated1.properties.enabled).toBe(true);
       expect(updated2.properties.enabled).toBe(true);

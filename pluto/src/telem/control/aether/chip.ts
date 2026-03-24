@@ -22,7 +22,7 @@ export const chipStatusDetailsZ = z
 
 export const chipStateZ = z.object({
   triggered: z.boolean(),
-  status: status.statusZ(chipStatusDetailsZ),
+  status: status.statusZ({ details: chipStatusDetailsZ }),
   sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
   source: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
 });

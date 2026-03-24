@@ -119,7 +119,7 @@ func (c WriterConfig) Validate() error {
 	validate.NotEmptySlice(v, "channels", c.Channels)
 	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorized)
 	validate.NotNil(v, "sync", c.Sync)
-	validate.NotEmptyString(v, "control_subject.key", c.ControlSubject.Key)
+	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
 		"authorities",
 		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
@@ -133,8 +133,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Channels = override.Slice(c.Channels, other.Channels)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
-	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
-	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
+	c.ControlSubject = c.ControlSubject.Override(other.ControlSubject)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.Sync = override.Nil(c.Sync, other.Sync)
