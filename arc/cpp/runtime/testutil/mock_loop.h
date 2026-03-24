@@ -36,9 +36,13 @@ public:
     std::atomic<int> watch_count{0};
     /// @brief Configurable return value for wait().
     std::atomic<loop::WakeReason> wake_reason{loop::WakeReason::Timer};
+    /// @brief Configurable error returned by start(). Set before calling
+    /// runtime->start() to simulate loop initialization failure.
+    x::errors::Error start_error = x::errors::NIL;
 
     x::errors::Error start() override {
         start_count++;
+        if (this->start_error) return this->start_error;
         std::lock_guard lock(mu);
         should_block = true;
         return x::errors::NIL;
