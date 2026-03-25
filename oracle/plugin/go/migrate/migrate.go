@@ -152,27 +152,31 @@ func (p *Plugin) generateSchemaChangeMigrations(
 		version := req.SnapshotVersion + 1
 		parentPkg := naming.DerivePackageName(goPath)
 
-		if changeType == changeAdditive {
-			// Additive change: bounds-safe decoder handles old data.
-			// Use current type + codec for both input and output.
-			// Generate a simple transform template in the parent package.
-			templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, version)
-			templateFullPath := filepath.Join(req.RepoRoot, templateFile)
-			if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-				content, err := renderAdditiveTransformTemplate(parentPkg, goName, version)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to generate transform template for %s", goName)
-				}
-				files = append(files, plugin.File{Path: templateFile, Content: content})
+		// Generate transform template in the parent package.
+		templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, version)
+		templateFullPath := filepath.Join(req.RepoRoot, templateFile)
+		if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
+			content, err := renderTransformTemplate(parentPkg, goName, version, "")
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to generate transform template for %s", goName)
 			}
-		} else {
-			// Breaking change: need frozen types. Not yet implemented.
-			_ = parentPkg
-			return nil, fmt.Errorf(
-				"breaking schema change detected for %s (field removal or type change). "+
-					"Frozen type migrations are not yet implemented. Only additive changes "+
-					"(fields added at end) are supported", goName)
+			files = append(files, plugin.File{Path: templateFile, Content: content})
 		}
+
+		// Build field layouts from old and new schemas for the schema resolver.
+		oldLayout, err := BuildLayout(oldType, req.OldResolutions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build old layout for %s", goName)
+		}
+		newLayout, err := BuildLayout(newType, req.Resolutions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build new layout for %s", goName)
+		}
+		_ = oldLayout
+		_ = newLayout
+		_ = changeType
+		// TODO: Wire oldLayout + newLayout into migrate.gen.go registration
+		// using gorp.NewSchemaResolution(name, oldLayout, newLayout)
 	}
 
 	return files, nil
