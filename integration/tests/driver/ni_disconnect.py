@@ -38,7 +38,6 @@ from tests.driver.task import ReadTaskCase, WriteTaskCase, send_and_verify_comma
 _STATUS_TIMEOUT = 30 * sy.TimeSpan.SECOND
 
 
-
 def _export_ni_config() -> str:
     """Export the full NI MAX config to a temp file, return the path."""
     fd, path = tempfile.mkstemp(suffix=".ini")
@@ -82,7 +81,6 @@ def _delete_ni_device(device_name: str) -> None:
                 )
                 return
     raise RuntimeError(f"Simulated device '{device_name}' not found in NI MAX")
-
 
 
 @dataclass
@@ -163,10 +161,11 @@ def _log_statuses(
     final = statuses[-1]
     n = len(statuses)
     if n > 1:
-        log(f"  [{label}] {n - 1} intermediate, final: {final.variant}: {final.message}")
+        log(
+            f"  [{label}] {n - 1} intermediate, final: {final.variant}: {final.message}"
+        )
     else:
         log(f"  [{label}] {final.variant}: {final.message}")
-
 
 
 def _remove_device_and_wait(
@@ -204,7 +203,6 @@ def _restore_device_and_wait(
             log(f"Warning: could not confirm device re-add: {e}")
 
 
-
 class _NIReadDisconnectMixin(ReadTaskCase):
     """Reset + remove/re-add disconnect test logic for read tasks.
 
@@ -239,12 +237,18 @@ class _NIReadDisconnectMixin(ReadTaskCase):
         saved_config = _export_ni_config()
         try:
             _remove_device_and_wait(
-                self.client, self.log, dev, device.key,
+                self.client,
+                self.log,
+                dev,
+                device.key,
             )
             self._assert_no_samples_after_removal(tsk)
         finally:
             _restore_device_and_wait(
-                self.client, self.log, saved_config, device.name,
+                self.client,
+                self.log,
+                saved_config,
+                device.name,
             )
 
         # Phase 3: Verify task recovers after re-add
@@ -286,7 +290,6 @@ class NIDigitalReadDisconnect(_NIReadDisconnectMixin, NIDigitalRead):
 
     task_name = "NI Digital Read Disconnect"
     disconnect_device = "E102Mod3"
-
 
 
 class _NIWriteDisconnectMixin(WriteTaskCase):
@@ -339,11 +342,17 @@ class _NIWriteDisconnectMixin(WriteTaskCase):
         saved_config = _export_ni_config()
         try:
             _remove_device_and_wait(
-                self.client, self.log, dev, device.key,
+                self.client,
+                self.log,
+                dev,
+                device.key,
             )
         finally:
             _restore_device_and_wait(
-                self.client, self.log, saved_config, device.name,
+                self.client,
+                self.log,
+                saved_config,
+                device.name,
             )
 
         # Phase 3: Verify task recovers after re-add
