@@ -37,6 +37,7 @@ import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
+import { Manage } from "@/manage";
 import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -66,6 +67,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Export.LAYOUTS,
   ...Hardware.LAYOUTS,
   ...Import.LAYOUTS,
+  ...Manage.LAYOUTS,
   ...Label.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...LinePlot.LAYOUTS,

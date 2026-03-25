@@ -19,6 +19,7 @@ import {
   List,
   Nav,
   type Ontology,
+  Select,
   Status,
   Synnax,
   Text,
@@ -26,13 +27,16 @@ import {
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { IndeterminateCheckbox } from "@/components/IndeterminateCheckbox";
-import { type BackupExportRequest, downloadBackup } from "@/export/download";
+import {
+  type BackupExportRequest,
+  downloadBackup,
+  saveBackupToPath,
+} from "@/export/download";
 import { type CheckedState, useCheckedState } from "@/export/useCheckedState";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { type Service } from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";
@@ -251,12 +255,15 @@ const fetchTreeRecursive = async (
 
 type ExportPage = "selection" | "channelSettings";
 
-const PAGE_NAMES: Record<ExportPage, string> = {
-  selection: "Manage Core.Export Synnax",
-  channelSettings: "Manage Core.Channel Export Settings",
-};
+type ExportDestination = "download" | "core" | "network";
 
-export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement => {
+const DESTINATION_DATA: { key: ExportDestination; name: string }[] = [
+  { key: "download", name: "Download to Console" },
+  { key: "core", name: "Save to Core" },
+  { key: "network", name: "Save to Network Drive" },
+];
+
+export const ExportContent = (): ReactElement => {
   const services = useServices();
   const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
   const client = Synnax.use();
@@ -264,16 +271,9 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const checkedState = useCheckedState();
-  const dispatch = useDispatch();
   const [page, setPage] = useState<ExportPage>("selection");
-
-  const navigate = useCallback(
-    (p: ExportPage) => {
-      setPage(p);
-      dispatch(Layout.rename({ key: layoutKey, name: PAGE_NAMES[p] }));
-    },
-    [dispatch, layoutKey],
-  );
+  const [destination, setDestination] = useState<ExportDestination>("download");
+  const [exportPath, setExportPath] = useState("");
 
   const [exportData, setExportData] = useState(false);
   const [startTime, setStartTime] = useState(0);
@@ -384,8 +384,48 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
   return (
     <Flex.Box y style={{ height: "100%", overflow: "hidden" }}>
       {page === "selection" && (
-        <Flex.Box y grow style={{ padding: "1rem", overflow: "auto", minHeight: 0 }}>
-          {loading ? (
+        <>
+          <Flex.Box
+            y
+            style={{
+              padding: "0.75rem 1rem",
+              borderBottom: "var(--pluto-border)",
+              gap: "0.75rem",
+            }}
+          >
+            <Flex.Box x align="center" gap="small">
+              <Text.Text level="small" style={{ minWidth: "5.5rem" }}>
+                Destination
+              </Text.Text>
+              <Select.Static<ExportDestination, (typeof DESTINATION_DATA)[number]>
+                value={destination}
+                onChange={setDestination}
+                data={DESTINATION_DATA}
+                resourceName="destination"
+                allowNone={false}
+                triggerProps={{ style: { minWidth: "22ch" } }}
+              />
+            </Flex.Box>
+            {destination !== "download" && (
+              <Flex.Box x align="center" gap="small">
+                <Text.Text level="small" style={{ minWidth: "5.5rem" }}>
+                  File Path
+                </Text.Text>
+                <Input.Text
+                  value={exportPath}
+                  onChange={setExportPath}
+                  placeholder={
+                    destination === "core"
+                      ? "/var/backups/synnax.sy"
+                      : "//server/share/synnax.sy"
+                  }
+                  style={{ flexGrow: 1 }}
+                />
+              </Flex.Box>
+            )}
+          </Flex.Box>
+          <Flex.Box y grow style={{ padding: "1rem", overflow: "auto", minHeight: 0 }}>
+            {loading ? (
             <Flex.Box y grow justify="center" align="center">
               <Icon.Loading style={{ fontSize: "2rem" }} />
               <Text.Text level="p" style={{ marginTop: "0.5rem" }}>
@@ -403,6 +443,7 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
             </Tree.Tree>
           )}
         </Flex.Box>
+        </>
       )}
       {page === "channelSettings" && (
         <Flex.Box y grow style={{ padding: "1.5rem", overflow: "auto", minHeight: 0 }}>
@@ -479,7 +520,7 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
           {page === "selection" && hasChannelsSelected && (
             <Button.Button
               variant="outlined"
-              onClick={() => navigate("channelSettings")}
+              onClick={() => setPage("channelSettings")}
             >
               Next
             </Button.Button>
@@ -487,7 +528,7 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
           {page === "channelSettings" && (
             <Button.Button
               variant="outlined"
-              onClick={() => navigate("selection")}
+              onClick={() => setPage("selection")}
             >
               Back
             </Button.Button>
@@ -508,8 +549,12 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
                 request.include_data = true;
                 request.time_range = { start: startTime, end: endTime };
               }
+              if (destination !== "download") request.path = exportPath;
               handleError(
-                () => downloadBackup({ client, cluster, request, addStatus }),
+                () =>
+                  destination === "download"
+                    ? downloadBackup({ client, cluster, request, addStatus })
+                    : saveBackupToPath({ client, cluster, request, addStatus }),
                 "Failed to export",
               );
             }}
@@ -521,3 +566,7 @@ export const ExportModal = ({ layoutKey }: Layout.RendererProps): ReactElement =
     </Flex.Box>
   );
 };
+
+export const ExportModal = (_: Layout.RendererProps): ReactElement => (
+  <ExportContent />
+);

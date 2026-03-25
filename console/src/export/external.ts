@@ -13,7 +13,12 @@ import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
 export * from "@/export/download";
-export { EXPORT_LAYOUT, EXPORT_LAYOUT_TYPE, ExportModal } from "@/export/ExportModal";
+export {
+  EXPORT_LAYOUT,
+  EXPORT_LAYOUT_TYPE,
+  ExportContent,
+  ExportModal,
+} from "@/export/ExportModal";
 export * from "@/export/extractor";
 export * from "@/export/ExtractorsProvider";
 export * from "@/export/MenuItem";

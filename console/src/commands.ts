@@ -14,6 +14,7 @@ import { Docs } from "@/docs";
 import { Export } from "@/export";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
+import { Manage } from "@/manage";
 import { LabelServices } from "@/label/services";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
@@ -34,6 +35,7 @@ export const COMMANDS: Palette.Command[] = [
   ...Export.COMMANDS,
   ...Hardware.COMMANDS,
   ...Import.COMMANDS,
+  ...Manage.COMMANDS,
   ...LabelServices.COMMANDS,
   ...LinePlotServices.COMMANDS,
   ...LogServices.COMMANDS,

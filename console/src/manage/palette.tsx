@@ -11,25 +11,22 @@ import { Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Layout } from "@/layout";
-import { createManageCoreLayout } from "@/manage/ManageCoreModal";
+import { MANAGE_CORE_LAYOUT } from "@/manage/ManageCoreModal";
 import { Palette } from "@/palette";
 
-export const ExportSynnaxCommand: Palette.Command = (listProps) => {
+export const ManageCoreCommand: Palette.Command = (listProps) => {
   const placer = Layout.usePlacer();
-  const handleSelect = useCallback(
-    () => placer(createManageCoreLayout("export")),
-    [placer],
-  );
+  const handleSelect = useCallback(() => placer(MANAGE_CORE_LAYOUT), [placer]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Export Synnax"
-      icon={<Icon.Export />}
+      name="Manage Core and Data"
+      icon={<Icon.Settings />}
       onSelect={handleSelect}
     />
   );
 };
-ExportSynnaxCommand.key = "export-synnax";
-ExportSynnaxCommand.commandName = "Export Synnax";
+ManageCoreCommand.key = "manage-core";
+ManageCoreCommand.commandName = "Manage Core and Data";
 
-export const COMMANDS = [ExportSynnaxCommand];
+export const COMMANDS = [ManageCoreCommand];

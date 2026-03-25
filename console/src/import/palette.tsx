@@ -11,8 +11,8 @@ import { Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useImport } from "@/import/import";
-import { IMPORT_LAYOUT } from "@/import/ImportModal";
 import { Layout } from "@/layout";
+import { createManageCoreLayout } from "@/manage/ManageCoreModal";
 import { Palette } from "@/palette";
 
 export const ImportCommand: Palette.Command = (listProps) => {
@@ -32,7 +32,10 @@ ImportCommand.sortOrder = -1;
 
 export const ImportSynnaxCommand: Palette.Command = (listProps) => {
   const placer = Layout.usePlacer();
-  const handleSelect = useCallback(() => placer(IMPORT_LAYOUT), [placer]);
+  const handleSelect = useCallback(
+    () => placer(createManageCoreLayout("import")),
+    [placer],
+  );
   return (
     <Palette.CommandListItem
       {...listProps}

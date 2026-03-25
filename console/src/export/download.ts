@@ -23,6 +23,7 @@ export interface BackupExportRequest {
   channel_keys?: number[];
   time_range?: { start: number; end: number };
   include_data?: boolean;
+  path?: string;
 }
 
 export interface DownloadBackupParams {
@@ -73,5 +74,49 @@ export const downloadBackup = async ({
     extension: "sy",
     addStatus,
     onDownloadStart,
+  });
+};
+
+export interface SaveBackupToPathParams {
+  client: Client;
+  cluster: Cluster;
+  request: BackupExportRequest;
+  addStatus: Status.Adder;
+}
+
+export const saveBackupToPath = async ({
+  client,
+  cluster,
+  request,
+  addStatus,
+}: SaveBackupToPathParams): Promise<void> => {
+  if (!client.auth.authenticated)
+    throw new Error("Client is not authenticated");
+
+  const url = new URL({
+    host: cluster.host,
+    port: Number(cluster.port),
+    protocol: cluster.secure ? "https" : "http",
+    pathPrefix: "api/v1",
+  });
+
+  const response = await fetch(url.child("export").toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${client.auth.token}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Export failed (${response.status}): ${body}`);
+  }
+
+  const data = (await response.json()) as { path: string };
+  addStatus({
+    variant: "success",
+    message: `Backup saved to ${data.path}`,
   });
 };

@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { IMPORT_LAYOUT_TYPE, ImportModal } from "@/import/ImportModal";
 import { type Layout } from "@/layout";
+import {
+  MANAGE_CORE_LAYOUT_TYPE,
+  ManageCoreModal,
+} from "@/manage/ManageCoreModal";
+import { COMMANDS as PALETTE_COMMANDS } from "@/manage/palette";
+import { type Palette } from "@/palette";
 
-export * from "@/import/dataTransferItem";
-export * from "@/import/FileIngestersProvider";
-export * from "@/import/import";
 export {
-  IMPORT_LAYOUT,
-  IMPORT_LAYOUT_TYPE,
-  ImportContent,
-  ImportModal,
-} from "@/import/ImportModal";
-export * from "@/import/ingester";
-export * from "@/import/palette";
-export * from "@/import/trimFileName";
-export * from "@/import/upload";
+  MANAGE_CORE_LAYOUT,
+  MANAGE_CORE_LAYOUT_TYPE,
+  ManageCoreModal,
+} from "@/manage/ManageCoreModal";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [IMPORT_LAYOUT_TYPE]: ImportModal,
+  [MANAGE_CORE_LAYOUT_TYPE]: ManageCoreModal,
 };
+
+export const COMMANDS: Palette.Command[] = [...PALETTE_COMMANDS];

@@ -637,9 +637,9 @@ const ResultsStep = ({ results }: ResultsStepProps): ReactElement => (
   </Flex.Box>
 );
 
-// --- Main Modal ---
+// --- Content (embeddable) ---
 
-export const ImportModal = (_: Layout.RendererProps): ReactElement => {
+export const ImportContent = (): ReactElement => {
   const client = Synnax.use();
   const cluster = Cluster.useSelect();
   const handleError = Status.useErrorHandler();
@@ -718,3 +718,7 @@ export const ImportModal = (_: Layout.RendererProps): ReactElement => {
     </Flex.Box>
   );
 };
+
+export const ImportModal = (_: Layout.RendererProps): ReactElement => (
+  <ImportContent />
+);
