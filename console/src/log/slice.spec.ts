@@ -20,7 +20,7 @@ import {
   ZERO_STATE,
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
-import { channelConfigZ } from "@/log/types/v0";
+import { channelConfigZ } from "@/log/types/v1";
 
 const ch = (channel: number) => ({ ...ZERO_CHANNEL_CONFIG, channel });
 
