@@ -38,6 +38,7 @@ Log struct {
     """
     @ontology type "log"
     @go marshal
+    @go migrate
 }
 
 New struct extends Log {

@@ -119,29 +119,33 @@ type MigrationConfig struct {
 	DBCodec binary.Codec
 }
 
-// AutoMigrateFunc transforms an old entry into a new entry.
-type AutoMigrateFunc[I, O any] func(ctx context.Context, old I) (O, error)
-
-// PostMigrateFunc is called after the auto-migration to allow additional
-// modifications to the new entry using data from the old entry.
-type PostMigrateFunc[I, O any] func(ctx context.Context, new *O, old I) error
+// TransformFunc transforms an old entry of type I into a new entry of type O.
+type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
 type typedMigration[I, O any] struct {
-	name string
-	auto AutoMigrateFunc[I, O]
-	post PostMigrateFunc[I, O]
+	name       string
+	inputCodec binary.Codec
+	outputCodec binary.Codec
+	transform  TransformFunc[I, O]
 }
 
 // NewTypedMigration creates a Migration that iterates over all entries with the
-// configured prefix, decodes each as type I, transforms it to type O via auto
-// (and optionally post), and writes it back. Either auto or post may be nil but
-// not both.
+// configured prefix, decodes each as type I using inputCodec, transforms it to
+// type O via the transform function, and encodes the result using outputCodec.
+// If inputCodec is nil, MigrationConfig.DBCodec is used for decoding.
+// If outputCodec is nil, MigrationConfig.DBCodec is used for encoding.
 func NewTypedMigration[I, O any](
 	name string,
-	auto AutoMigrateFunc[I, O],
-	post PostMigrateFunc[I, O],
+	inputCodec binary.Codec,
+	outputCodec binary.Codec,
+	transform TransformFunc[I, O],
 ) Migration {
-	return &typedMigration[I, O]{name: name, auto: auto, post: post}
+	return &typedMigration[I, O]{
+		name:        name,
+		inputCodec:  inputCodec,
+		outputCodec: outputCodec,
+		transform:   transform,
+	}
 }
 
 func (m *typedMigration[I, O]) Name() string { return m.name }
@@ -151,6 +155,14 @@ func (m *typedMigration[I, O]) Run(
 	kvTx kv.Tx,
 	cfg MigrationConfig,
 ) error {
+	inCodec := m.inputCodec
+	if inCodec == nil {
+		inCodec = cfg.DBCodec
+	}
+	outCodec := m.outputCodec
+	if outCodec == nil {
+		outCodec = cfg.DBCodec
+	}
 	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
 	if err != nil {
 		return err
@@ -160,23 +172,15 @@ func (m *typedMigration[I, O]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		var old I
-		if err = cfg.DBCodec.Decode(ctx, iter.Value(), &old); err != nil {
+		if err = inCodec.Decode(ctx, iter.Value(), &old); err != nil {
 			return err
 		}
-		var newEntry O
-		if m.auto != nil {
-			newEntry, err = m.auto(ctx, old)
-			if err != nil {
-				return err
-			}
-		}
-		if m.post != nil {
-			if err = m.post(ctx, &newEntry, old); err != nil {
-				return err
-			}
+		newEntry, err := m.transform(ctx, old)
+		if err != nil {
+			return err
 		}
 		var data []byte
-		if data, err = cfg.DBCodec.Encode(ctx, newEntry); err != nil {
+		if data, err = outCodec.Encode(ctx, newEntry); err != nil {
 			return err
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {

@@ -43,6 +43,7 @@ Workspace struct {
     """
     @ontology type "workspace"
     @go marshal
+    @go migrate
 }
 
 New struct extends Workspace {

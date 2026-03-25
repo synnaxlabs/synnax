@@ -90,11 +90,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
-		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[uuid.UUID, Schematic]("msgpack_to_binary", cfg.Codec),
-		},
+		DB:         cfg.DB,
+		Codec:      cfg.Codec,
+		Migrations: SchematicMigrations(cfg.Codec),
 	})
 	if err != nil {
 		return nil, err

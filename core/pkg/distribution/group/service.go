@@ -70,9 +70,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, gorp.TableConfig[Group]{
 		DB:    cfg.DB,
 		Codec: cfg.Codec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[uuid.UUID, Group]("msgpack_to_binary", cfg.Codec),
-		},
+		Migrations: GroupMigrations(cfg.Codec),
 	})
 	if err != nil {
 		return nil, err

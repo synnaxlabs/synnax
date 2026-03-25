@@ -49,6 +49,7 @@ Range struct {
     """
     @go output  "core/pkg/service/ranger"
     @go marshal
+    @go migrate
     @pb
     @cpp name   "Base"
     @ts name    "Base"

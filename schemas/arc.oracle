@@ -81,6 +81,7 @@ Arc struct {
     """
     @ontology type "arc"
     @go marshal
+    @go migrate
 }
 
 New struct {

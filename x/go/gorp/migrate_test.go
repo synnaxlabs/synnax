@@ -635,10 +635,10 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
 				migration := gorp.NewTypedMigration[entryV1, entryV1](
 					"add_suffix",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_migrated"}, nil
 					},
-					nil,
 				)
 				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
 					DB:         testDB,
@@ -656,12 +656,9 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
 				migration := gorp.NewTypedMigration[entryV1, entryV1](
 					"post_transform",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
-						return old, nil
-					},
-					func(_ context.Context, new *entryV1, old entryV1) error {
-						new.Data = "post:" + old.Data
-						return nil
+						return entryV1{ID: old.ID, Data: "post:" + old.Data}, nil
 					},
 				)
 				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
@@ -686,6 +683,7 @@ var _ = Describe("Gorp", func() {
 				}
 				migration := gorp.NewTypedMigration[entryV1, entryV2](
 					"v1_to_v2",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV2, error) {
 						return entryV2{
 							ID:          old.ID,
@@ -693,7 +691,6 @@ var _ = Describe("Gorp", func() {
 							Description: "migrated:" + old.Data,
 						}, nil
 					},
-					nil,
 				)
 				MustSucceed(gorp.OpenTable[int32, entryV2](ctx, gorp.TableConfig[entryV2]{
 					DB:         testDB,
@@ -803,17 +800,17 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "chain"})).To(Succeed())
 				m1 := gorp.NewTypedMigration[entryV1, entryV1](
 					"add_suffix",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_v2"}, nil
 					},
-					nil,
 				)
 				m2 := gorp.NewTypedMigration[entryV1, entryV1](
 					"add_suffix_2",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_v3"}, nil
 					},
-					nil,
 				)
 				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
 					DB:         testDB,
@@ -830,10 +827,10 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "mixed"})).To(Succeed())
 				m1 := gorp.NewTypedMigration[entryV1, entryV1](
 					"typed_transform",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_typed"}, nil
 					},
-					nil,
 				)
 				m2 := gorp.NewRawMigration("raw_update", func(ctx context.Context, tx gorp.Tx) error {
 					r := gorp.WrapReader[int32, entryV1](tx, tx)
