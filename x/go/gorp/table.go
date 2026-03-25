@@ -80,11 +80,15 @@ func OpenTable[K Key, E Entry[K]](
 			}
 		}
 	}
-	gorpTx := WrapTx(kvTx, codec)
-	if err := migrateOldPrefixKeys[K, E](ctx, gorpTx, codec); err != nil {
+	// migrateOldPrefixKeys uses the DB's default codec to compute the old prefix
+	// (the type name was originally encoded with msgpack). reEncodeKeys uses the
+	// table's codec for reading/writing entry values.
+	dbTx := WrapTx(kvTx, cfg.DB)
+	if err := migrateOldPrefixKeys[K, E](ctx, dbTx, codec); err != nil {
 		return nil, err
 	}
-	if err := reEncodeKeys[K, E](ctx, gorpTx, codec); err != nil {
+	tableTx := WrapTx(kvTx, codec)
+	if err := reEncodeKeys[K, E](ctx, tableTx, codec); err != nil {
 		return nil, err
 	}
 	if err := kvTx.Commit(ctx); err != nil {
