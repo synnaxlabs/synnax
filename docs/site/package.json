@@ -34,7 +34,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "catalog:",
-    "shiki": "^1.29.2",
+    "shiki": "^4.0.2",
     "zod": "catalog:"
   },
   "devDependencies": {
