@@ -98,10 +98,9 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		Authority:             cfg.Authority,
 		Subject:               cfg.Subject,
 		OpenResource: func() (*controlResource, error) {
-			return &controlResource{
-				ck:        db.cfg.Channel.Key,
-				alignment: telem.NewAlignment(db.leadingAlignment.Add(1), 0),
-			}, nil
+			cr := &controlResource{ck: db.cfg.Channel.Key}
+			cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+			return cr, nil
 		},
 	}); err != nil {
 		return nil, transfer, db.wrapError(err)
@@ -126,8 +125,8 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	}
 	// copy the alignment here because we want to return the alignment of the FIRST
 	// sample, not the last.
-	a := e.alignment
-	e.alignment = e.alignment.AddSamples(uint32(series.Len()))
+	a := e.loadAlignment()
+	e.storeAlignment(a.AddSamples(uint32(series.Len())))
 	return a, nil
 }
 
