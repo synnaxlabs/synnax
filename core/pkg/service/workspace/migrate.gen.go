@@ -12,6 +12,8 @@
 package workspace
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -32,6 +34,13 @@ func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
 				{Name: "author", Encoding: gorp.EncodingUUID, Optional: true},
 				{Name: "layout", Encoding: gorp.EncodingJSON},
 				{Name: "description", Encoding: gorp.EncodingString, Optional: true},
+			},
+		),
+		gorp.NewTypedMigration[Workspace, Workspace](
+			"v2_defaults",
+			codec, codec,
+			func(ctx context.Context, old Workspace) (Workspace, error) {
+				return MigrateWorkspaceV2(ctx, old)
 			},
 		),
 	}

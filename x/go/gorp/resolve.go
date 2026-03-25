@@ -119,19 +119,135 @@ func writeFields(
 	for _, nf := range newLayout {
 		old, exists := extracted[nf.Name]
 		if !exists {
-			z := zeroValue(nf)
-			buf = append(buf, z...)
+			buf = append(buf, zeroValue(nf)...)
 			continue
 		}
-		if nf.Encoding == EncodingStruct && !layoutsEqual(old.layout, nf) {
-			resolved, err := resolveStructField(old.bytes, old.layout, nf)
+		if LayoutsEqual(old.layout, nf) {
+			buf = append(buf, old.bytes...)
+			continue
+		}
+		resolved, err := resolveField(old.bytes, old.layout, nf)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to resolve field %s", nf.Name)
+		}
+		buf = append(buf, resolved...)
+	}
+	return buf, nil
+}
+
+// resolveField resolves a single field whose layout changed between old and new.
+func resolveField(data []byte, oldField, newField FieldLayout) ([]byte, error) {
+	switch newField.Encoding {
+	case EncodingStruct:
+		return resolveStructField(data, oldField, newField)
+	case EncodingArray:
+		return resolveArrayField(data, oldField, newField)
+	case EncodingMap:
+		return resolveMapField(data, oldField, newField)
+	default:
+		// Primitive type changed or optional flag changed. Copy raw bytes.
+		// The bounds-safe decoder handles any size differences.
+		return data, nil
+	}
+}
+
+// resolveArrayField resolves an array where the element layout changed.
+func resolveArrayField(data []byte, oldField, newField FieldLayout) ([]byte, error) {
+	if oldField.Optional || oldField.HardOptional {
+		if len(data) < 1 {
+			return zeroValue(newField), nil
+		}
+		if data[0] == 0 {
+			return []byte{0}, nil
+		}
+		inner, err := resolveArrayInner(data[1:], oldField, newField)
+		if err != nil {
+			return nil, err
+		}
+		return append([]byte{1}, inner...), nil
+	}
+	return resolveArrayInner(data, oldField, newField)
+}
+
+func resolveArrayInner(data []byte, oldField, newField FieldLayout) ([]byte, error) {
+	if len(data) < 4 || oldField.Element == nil || newField.Element == nil {
+		return data, nil
+	}
+	count := int(binary.BigEndian.Uint32(data[:4]))
+	var buf []byte
+	buf = binary.BigEndian.AppendUint32(buf, uint32(count))
+	offset := 4
+	for range count {
+		elemSize, err := fieldSize(data[offset:], *oldField.Element)
+		if err != nil {
+			return nil, err
+		}
+		elemData := data[offset : offset+elemSize]
+		if LayoutsEqual(*oldField.Element, *newField.Element) {
+			buf = append(buf, elemData...)
+		} else {
+			resolved, err := resolveField(elemData, *oldField.Element, *newField.Element)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to resolve nested struct %s", nf.Name)
+				return nil, err
 			}
 			buf = append(buf, resolved...)
-		} else {
-			buf = append(buf, old.bytes...)
 		}
+		offset += elemSize
+	}
+	return buf, nil
+}
+
+// resolveMapField resolves a map where key or value layouts changed.
+func resolveMapField(data []byte, oldField, newField FieldLayout) ([]byte, error) {
+	if oldField.Optional || oldField.HardOptional {
+		if len(data) < 1 {
+			return zeroValue(newField), nil
+		}
+		if data[0] == 0 {
+			return []byte{0}, nil
+		}
+		inner, err := resolveMapInner(data[1:], oldField, newField)
+		if err != nil {
+			return nil, err
+		}
+		return append([]byte{1}, inner...), nil
+	}
+	return resolveMapInner(data, oldField, newField)
+}
+
+func resolveMapInner(data []byte, oldField, newField FieldLayout) ([]byte, error) {
+	if len(data) < 4 || oldField.Key == nil || oldField.Value == nil ||
+		newField.Key == nil || newField.Value == nil {
+		return data, nil
+	}
+	count := int(binary.BigEndian.Uint32(data[:4]))
+	var buf []byte
+	buf = binary.BigEndian.AppendUint32(buf, uint32(count))
+	offset := 4
+	for range count {
+		// Resolve key
+		kSize, err := fieldValueSize(data[offset:], *oldField.Key)
+		if err != nil {
+			return nil, err
+		}
+		buf = append(buf, data[offset:offset+kSize]...) // keys are always copied raw
+		offset += kSize
+		// Resolve value
+		vSize, err := fieldValueSize(data[offset:], *oldField.Value)
+		if err != nil {
+			return nil, err
+		}
+		vData := data[offset : offset+vSize]
+		if LayoutsEqual(*oldField.Value, *newField.Value) {
+			buf = append(buf, vData...)
+		} else {
+			resolved, err := resolveField(vData, *oldField.Value, *newField.Value)
+			if err != nil {
+				return nil, err
+			}
+			buf = append(buf, resolved...)
+		}
+		offset += vSize
 	}
 	return buf, nil
 }
@@ -298,7 +414,7 @@ func zeroValue(f FieldLayout) []byte {
 }
 
 // layoutsEqual returns true if two field layouts describe the same encoding.
-func layoutsEqual(a, b FieldLayout) bool {
+func LayoutsEqual(a, b FieldLayout) bool {
 	if a.Encoding != b.Encoding || a.Optional != b.Optional || a.HardOptional != b.HardOptional {
 		return false
 	}
@@ -306,7 +422,7 @@ func layoutsEqual(a, b FieldLayout) bool {
 		return false
 	}
 	for i := range a.Fields {
-		if a.Fields[i].Name != b.Fields[i].Name || !layoutsEqual(a.Fields[i], b.Fields[i]) {
+		if a.Fields[i].Name != b.Fields[i].Name || !LayoutsEqual(a.Fields[i], b.Fields[i]) {
 			return false
 		}
 	}

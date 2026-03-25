@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Plugin struct{}
@@ -105,16 +106,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		entries := outputEntries[goPath]
 		pkg := naming.DerivePackageName(goPath)
 
-		needsGorp := true
-		needsBinary := true
-		for _, e := range entries {
-			if e.SchemaChange != nil {
-				needsGorp = true
-			}
-			_ = needsBinary
-		}
-
-		content, err := renderMigrateFile(pkg, entries, needsGorp, needsBinary)
+		content, err := renderMigrateFile(pkg, entries)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate migrate.gen.go for %s", goPath)
 		}
@@ -152,13 +144,6 @@ func detectSchemaChange(
 		return nil, nil
 	}
 
-	oldFields := resolution.UnifiedFields(oldType, req.OldResolutions)
-	newFields := resolution.UnifiedFields(newType, req.Resolutions)
-
-	if fieldsEqual(oldFields, newFields) {
-		return nil, nil
-	}
-
 	oldLayout, err := BuildLayout(oldType, req.OldResolutions)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build old layout")
@@ -168,6 +153,12 @@ func detectSchemaChange(
 		return nil, errors.Wrap(err, "failed to build new layout")
 	}
 
+	// Deep comparison using the full layout tree. This catches changes at
+	// ANY nesting depth (e.g., types.Param adding a field inside Arc).
+	if layoutsDeepEqual(oldLayout, newLayout) {
+		return nil, nil
+	}
+
 	return &schemaChange{
 		Version:     req.SnapshotVersion + 1,
 		OldLayoutGo: layoutToGo(oldLayout, "\t\t\t"),
@@ -175,13 +166,14 @@ func detectSchemaChange(
 	}, nil
 }
 
-func fieldsEqual(a, b []resolution.Field) bool {
+// layoutsDeepEqual compares two layout trees for structural equality at all
+// nesting depths. Uses gorp.FieldLayout's layoutsEqual which is recursive.
+func layoutsDeepEqual(a, b []gorp.FieldLayout) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i].Name != b[i].Name || a[i].Type.Name != b[i].Type.Name ||
-			a[i].IsOptional != b[i].IsOptional || a[i].IsHardOptional != b[i].IsHardOptional {
+		if !gorp.LayoutsEqual(a[i], b[i]) {
 			return false
 		}
 	}
@@ -230,17 +222,27 @@ var migrateTmpl = template.Must(template.New("migrate").Parse(
 package {{.Package}}
 
 import (
+{{- if .HasSchemaChanges}}
+	"context"
+{{end}}
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
-{{range .Entries}}
-func {{.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
+{{range $entry := .Entries}}
+func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, {{.GoName}}]("msgpack_to_binary", codec),
-{{- range .SchemaChanges}}
+		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", codec),
+{{- range $entry.SchemaChanges}}
 		gorp.NewSchemaResolution("v{{.Version}}_schema_change",
 			{{.OldLayoutGo}},
 			{{.NewLayoutGo}},
+		),
+		gorp.NewTypedMigration[{{$entry.GoName}}, {{$entry.GoName}}](
+			"v{{.Version}}_defaults",
+			codec, codec,
+			func(ctx context.Context, old {{$entry.GoName}}) ({{$entry.GoName}}, error) {
+				return Migrate{{$entry.GoName}}V{{.Version}}(ctx, old)
+			},
 		),
 {{- end}}
 	}
@@ -248,8 +250,9 @@ func {{.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 {{end}}`))
 
 type migrateTemplateData struct {
-	Package string
-	Entries []migrateTemplateEntry
+	Package          string
+	Entries          []migrateTemplateEntry
+	HasSchemaChanges bool
 }
 
 type migrateTemplateEntry struct {
@@ -257,19 +260,22 @@ type migrateTemplateEntry struct {
 	SchemaChanges []schemaChange
 }
 
-func renderMigrateFile(pkg string, entries []migrationEntry, _, _ bool) ([]byte, error) {
+func renderMigrateFile(pkg string, entries []migrationEntry) ([]byte, error) {
 	var tmplEntries []migrateTemplateEntry
+	hasSchemaChanges := false
 	for _, e := range entries {
 		te := migrateTemplateEntry{GoName: e.GoName}
 		if e.SchemaChange != nil {
 			te.SchemaChanges = []schemaChange{*e.SchemaChange}
+			hasSchemaChanges = true
 		}
 		tmplEntries = append(tmplEntries, te)
 	}
 	var buf bytes.Buffer
 	if err := migrateTmpl.Execute(&buf, migrateTemplateData{
-		Package: pkg,
-		Entries: tmplEntries,
+		Package:          pkg,
+		Entries:          tmplEntries,
+		HasSchemaChanges: hasSchemaChanges,
 	}); err != nil {
 		return nil, err
 	}
