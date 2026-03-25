@@ -136,17 +136,26 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "migration generation failed")
 	}
 
-	// Write generated files.
+	// Write generated files and track what was generated.
 	written := 0
+	var templates []string
 	for _, f := range resp.Files {
 		fullPath := filepath.Join(repoRoot, f.Path)
 		if err := writeFileIfChanged(fullPath, f.Content); err != nil {
 			return errors.Wrapf(err, "failed to write %s", f.Path)
 		}
+		if strings.Contains(f.Path, "_migrate.go") && !strings.HasSuffix(f.Path, "migrate.gen.go") {
+			templates = append(templates, f.Path)
+		}
 		if verbose {
 			printFileWritten("go/migrate", f.Path)
 		}
 		written++
+	}
+	if len(templates) > 0 {
+		for _, t := range templates {
+			printDim(fmt.Sprintf("  ✏️  %s ← edit this", t))
+		}
 	}
 
 	// Run post-write hooks (gofmt).
