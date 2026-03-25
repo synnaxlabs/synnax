@@ -31,6 +31,7 @@ import (
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -125,10 +126,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			sc := e.SchemaChange
 			versionedName := e.GoName + sc.VersionName // e.g., "WorkspaceV2"
 
-			// Generate frozen type.
-			typeContent, err := renderFrozenType(pkg, versionedName, sc.OldType, req)
+			// Build name overrides: map every Oracle-defined type reachable from
+			// the entry to a versioned local name. This flattens nested types
+			// into the parent package so the frozen codec is self-contained.
+			overrides := buildNameOverrides(sc.OldType, req.OldResolutions, sc.VersionName)
+
+			// Generate frozen types for the entry AND all nested Oracle-defined types.
+			typeContent, err := renderFrozenTypes(pkg, sc.OldType, req, overrides)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate frozen type for %s", versionedName)
+				return nil, errors.Wrapf(err, "failed to generate frozen types for %s", versionedName)
 			}
 			resp.Files = append(resp.Files, plugin.File{
 				Path:    fmt.Sprintf("%s/v%d_types.gen.go", goPath, sc.Version),
@@ -141,6 +147,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				[]gomarshal.CodecEntry{{GoName: versionedName, Type: sc.OldType}},
 				req.OldResolutions,
 				req.RepoRoot,
+				overrides,
 			)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to generate frozen codec for %s", versionedName)
@@ -211,6 +218,70 @@ func layoutsDeepEqual(a, b []gorp.FieldLayout) bool {
 	return true
 }
 
+// buildNameOverrides walks the entry type's dependency tree and creates a
+// name override map that maps every Oracle-defined struct type to a versioned
+// local name. This flattens nested types into the parent package.
+func buildNameOverrides(
+	entryType resolution.Type,
+	table *resolution.Table,
+	versionSuffix string,
+) gomarshal.NameOverrides {
+	overrides := make(gomarshal.NameOverrides)
+	visited := make(map[string]bool)
+	walkTypeTree(entryType, table, versionSuffix, overrides, visited)
+	return overrides
+}
+
+func walkTypeTree(
+	typ resolution.Type,
+	table *resolution.Table,
+	suffix string,
+	overrides gomarshal.NameOverrides,
+	visited map[string]bool,
+) {
+	if visited[typ.QualifiedName] {
+		return
+	}
+	visited[typ.QualifiedName] = true
+
+	// Only override struct types (not primitives, enums, aliases to primitives).
+	if _, ok := typ.Form.(resolution.StructForm); ok {
+		goName := getGoName(typ)
+		overrides[typ.QualifiedName] = goName + suffix
+	}
+
+	// Walk fields to find nested Oracle-defined types.
+	fields := resolution.UnifiedFields(typ, table)
+	for _, f := range fields {
+		walkFieldType(f.Type, table, suffix, overrides, visited)
+	}
+}
+
+func walkFieldType(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	suffix string,
+	overrides gomarshal.NameOverrides,
+	visited map[string]bool,
+) {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		walkTypeTree(resolved, table, suffix, overrides, visited)
+	case resolution.AliasForm:
+		walkFieldType(form.Target, table, suffix, overrides, visited)
+	case resolution.DistinctForm:
+		walkFieldType(form.Base, table, suffix, overrides, visited)
+	case resolution.BuiltinGenericForm:
+		for _, arg := range ref.TypeArgs {
+			walkFieldType(arg, table, suffix, overrides, visited)
+		}
+	}
+}
+
 func hasMigrateAnnotation(typ resolution.Type) bool {
 	domain, ok := typ.Domains["go"]
 	if !ok {
@@ -247,6 +318,187 @@ func findKeyFieldGoName(typ resolution.Type, table *resolution.Table) string {
 
 // --- Frozen Type Template ---
 
+// renderFrozenTypes generates frozen Go type definitions for the entry type
+// AND all Oracle-defined nested types reachable from it. Each type gets a
+// versioned name from the overrides map.
+func renderFrozenTypes(
+	pkg string,
+	entryType resolution.Type,
+	req *plugin.Request,
+	overrides gomarshal.NameOverrides,
+) ([]byte, error) {
+	// Collect all types that need frozen definitions.
+	var allTypes []frozenTypeData
+	imps := imports.NewManager()
+	goPath := output.GetPath(entryType, "go")
+	ctx := &resolver.Context{
+		Table:                         req.OldResolutions,
+		OutputPath:                    goPath,
+		Namespace:                     entryType.Namespace,
+		RepoRoot:                      req.RepoRoot,
+		DomainName:                    "go",
+		SubstituteDefaultedTypeParams: true,
+	}
+	r := &resolver.Resolver{
+		Formatter:       gotypes.GoFormatter(),
+		ImportResolver:  &gotypes.GoImportResolver{RepoRoot: req.RepoRoot, CurrentPackage: pkg},
+		ImportAdder:     imps,
+		PrimitiveMapper: primitiveMapper,
+	}
+
+	visited := make(map[string]bool)
+	collectFrozenTypes(entryType, req.OldResolutions, overrides, r, ctx, &allTypes, visited)
+
+	data := frozenTypesFileData{
+		Package:         pkg,
+		Types:           allTypes,
+		ExternalImports: imps.ExternalImports(),
+		InternalImports: filterParentImports(imps.InternalImports(), goPath, req.RepoRoot),
+	}
+	var buf bytes.Buffer
+	if err := frozenTypesFileTmpl.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func collectFrozenTypes(
+	typ resolution.Type,
+	table *resolution.Table,
+	overrides gomarshal.NameOverrides,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+	result *[]frozenTypeData,
+	visited map[string]bool,
+) {
+	if visited[typ.QualifiedName] {
+		return
+	}
+	visited[typ.QualifiedName] = true
+
+	versionedName, isOverridden := overrides[typ.QualifiedName]
+	if !isOverridden {
+		return // not an Oracle-defined struct, skip
+	}
+
+	fields := resolution.UnifiedFields(typ, table)
+	var keyGoType, keyFieldName string
+	var frozenFields []frozenField
+	for _, f := range fields {
+		fGoName := naming.GetFieldName(f)
+		fGoType := r.ResolveTypeRef(f.Type, ctx)
+		// Replace any type references that have overrides with the versioned name.
+		for qname, override := range overrides {
+			resolved, ok := f.Type.Resolve(table)
+			if ok && resolved.QualifiedName == qname {
+				fGoType = override
+				break
+			}
+		}
+		if f.IsHardOptional && !strings.HasPrefix(fGoType, "[]") &&
+			!strings.HasPrefix(fGoType, "map[") &&
+			!strings.HasPrefix(fGoType, "binary.MsgpackEncodedJSON") {
+			fGoType = "*" + fGoType
+		}
+		tags := fmt.Sprintf("`json:\"%s\" msgpack:\"%s\"`", lo.SnakeCase(f.Name), lo.SnakeCase(f.Name))
+		frozenFields = append(frozenFields, frozenField{GoName: fGoName, GoType: fGoType, Tags: tags})
+		if _, hasKey := f.Domains["key"]; hasKey {
+			keyGoType = fGoType
+			keyFieldName = fGoName
+		}
+	}
+	if keyGoType == "" {
+		keyGoType = "any"
+		if len(frozenFields) > 0 {
+			keyFieldName = frozenFields[0].GoName
+		}
+	}
+	*result = append(*result, frozenTypeData{
+		GoName:       versionedName,
+		KeyGoType:    keyGoType,
+		KeyFieldName: keyFieldName,
+		Fields:       frozenFields,
+	})
+
+	// Recurse into nested types.
+	for _, f := range fields {
+		resolved, ok := f.Type.Resolve(table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+			collectFrozenTypes(resolved, table, overrides, r, ctx, result, visited)
+		}
+		// Handle array/map elements.
+		if bg, ok := resolved.Form.(resolution.BuiltinGenericForm); ok {
+			for _, arg := range f.Type.TypeArgs {
+				elemType, ok := arg.Resolve(table)
+				if ok {
+					if _, isStruct := elemType.Form.(resolution.StructForm); isStruct {
+						collectFrozenTypes(elemType, table, overrides, r, ctx, result, visited)
+					}
+				}
+			}
+			_ = bg
+		}
+	}
+}
+
+// filterParentImports removes imports that reference the parent package to
+// avoid circular dependencies.
+func filterParentImports(
+	imps []imports.InternalImportData,
+	goPath, repoRoot string,
+) []imports.InternalImportData {
+	// For types in the parent package, the override map handles them as local.
+	// But the resolver might have added imports before the override was applied.
+	// Filter any that match the parent package.
+	parentImport := gomod.ResolveImportPath(goPath, repoRoot, "github.com/synnaxlabs/synnax/")
+	var filtered []imports.InternalImportData
+	for _, imp := range imps {
+		if imp.Path != parentImport {
+			filtered = append(filtered, imp)
+		}
+	}
+	return filtered
+}
+
+type frozenTypesFileData struct {
+	Package         string
+	Types           []frozenTypeData
+	ExternalImports []string
+	InternalImports []imports.InternalImportData
+}
+
+var frozenTypesFileTmpl = template.Must(template.New("frozenTypes").Parse(
+	`// Code generated by oracle. DO NOT EDIT.
+
+package {{.Package}}
+
+import (
+{{- range .ExternalImports}}
+	"{{.}}"
+{{- end}}
+{{- range .InternalImports}}
+{{- if .NeedsAlias}}
+	{{.Alias}} "{{.Path}}"
+{{- else}}
+	"{{.Path}}"
+{{- end}}
+{{- end}}
+)
+{{range .Types}}
+type {{.GoName}} struct {
+{{- range .Fields}}
+	{{.GoName}} {{.GoType}} {{.Tags}}
+{{- end}}
+}
+
+func (e {{.GoName}}) GorpKey() {{.KeyGoType}} { return e.{{.KeyFieldName}} }
+func (e {{.GoName}}) SetOptions() []any { return nil }
+{{end}}`))
+
+// DEPRECATED: renderFrozenType generates a single frozen type. Use renderFrozenTypes instead.
 func renderFrozenType(
 	pkg, versionedName string,
 	typ resolution.Type,
