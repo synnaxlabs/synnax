@@ -77,13 +77,22 @@ func (schematicCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Schematic)
+	if len(data) < 16 {
+		return nil
+	}
 	copy(r.Key[:], data[:16])
 	data = data[16:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -92,6 +101,9 @@ func (schematicCodec) Decode(
 			return err
 		}
 		data = data[_n:]
+	}
+	if len(data) < 1 {
+		return nil
 	}
 	r.Snapshot = data[0] != 0
 	data = data[1:]

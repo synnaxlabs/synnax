@@ -165,36 +165,66 @@ func (channelCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Channel)
+	if len(data) < 4 {
+		return nil
+	}
 	r.Key = distributionchannel.Key(binary.BigEndian.Uint32(data[:4]))
 	data = data[4:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 2 {
+		return nil
+	}
 	r.Leaseholder = cluster.NodeKey(binary.BigEndian.Uint16(data[:2]))
 	data = data[2:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.DataType = telem.DataType(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 1 {
+		return nil
+	}
 	r.IsIndex = data[0] != 0
 	data = data[1:]
+	if len(data) < 4 {
+		return nil
+	}
 	r.Index = distributionchannel.Key(binary.BigEndian.Uint32(data[:4]))
 	data = data[4:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Alias = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 1 {
+		return nil
+	}
 	r.Virtual = data[0] != 0
 	data = data[1:]
+	if len(data) < 1 {
+		return nil
+	}
 	r.Internal = data[0] != 0
 	data = data[1:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
@@ -203,19 +233,31 @@ func (channelCodec) Decode(
 	}
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Operations = make([]distributionchannel.Operation, _n)
 			for _i2 := range r.Operations {
+				if len(data) < 4 {
+					return nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Operations[_i2].Type = distributionchannel.OperationType(data[:_n])
 					data = data[_n:]
 				}
+				if len(data) < 4 {
+					return nil
+				}
 				r.Operations[_i2].ResetChannel = distributionchannel.Key(binary.BigEndian.Uint32(data[:4]))
 				data = data[4:]
+				if len(data) < 8 {
+					return nil
+				}
 				r.Operations[_i2].Duration = telem.TimeSpan(binary.BigEndian.Uint64(data[:8]))
 				data = data[8:]
 			}
@@ -223,16 +265,25 @@ func (channelCodec) Decode(
 	} else {
 		data = data[1:]
 	}
+	if len(data) < 8 {
+		return nil
+	}
 	r.Concurrency = control.Concurrency(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov3 Status
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov3.Key = string(data[:_n])
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -240,11 +291,17 @@ func (channelCodec) Decode(
 			_ov3.Name = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov3.Variant = status.Variant(data[:_n])
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -252,35 +309,62 @@ func (channelCodec) Decode(
 			_ov3.Message = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov3.Description = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 8 {
+			return nil
+		}
 		_ov3.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
 		data = data[8:]
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov3.Labels = make([]label.Label, _n)
 				for _i5 := range _ov3.Labels {
+					if len(data) < 16 {
+						return nil
+					}
 					copy(_ov3.Labels[_i5].Key[:], data[:16])
 					data = data[16:]
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov3.Labels[_i5].Name = string(data[:_n])
 						data = data[_n:]
 					}
+					if len(data) < 1 {
+						return nil
+					}
 					_ov3.Labels[_i5].Color.R = uint8(data[0])
 					data = data[1:]
+					if len(data) < 1 {
+						return nil
+					}
 					_ov3.Labels[_i5].Color.G = uint8(data[0])
 					data = data[1:]
+					if len(data) < 1 {
+						return nil
+					}
 					_ov3.Labels[_i5].Color.B = uint8(data[0])
 					data = data[1:]
+					if len(data) < 8 {
+						return nil
+					}
 					_ov3.Labels[_i5].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 					data = data[8:]
 				}

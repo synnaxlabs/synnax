@@ -1561,13 +1561,22 @@ func (arcCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Arc)
+	if len(data) < 16 {
+		return nil
+	}
 	copy(r.Key[:], data[:16])
 	data = data[16:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -1575,22 +1584,40 @@ func (arcCodec) Decode(
 		r.Mode = Mode(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 8 {
+		return nil
+	}
 	r.Graph.Viewport.Position.X = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 	data = data[8:]
+	if len(data) < 8 {
+		return nil
+	}
 	r.Graph.Viewport.Position.Y = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 	data = data[8:]
+	if len(data) < 8 {
+		return nil
+	}
 	r.Graph.Viewport.Zoom = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 	data = data[8:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Graph.Functions = make([]ir.Function, _n)
 		for _i2 := range r.Graph.Functions {
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				r.Graph.Functions[_i2].Key = string(data[:_n])
 				data = data[_n:]
+			}
+			if len(data) < 4 {
+				return nil
 			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
@@ -1600,11 +1627,17 @@ func (arcCodec) Decode(
 			}
 			if data[0] == 1 {
 				data = data[1:]
+				if len(data) < 4 {
+					return nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Graph.Functions[_i2].Config = make([]types.Param, _n)
 					for _i4 := range r.Graph.Functions[_i2].Config {
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1613,11 +1646,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Config[_i4].Type.Inputs = make([]types.Param, _n)
 								for _i6 := range r.Graph.Functions[_i2].Config[_i4].Type.Inputs {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1635,11 +1674,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Config[_i4].Type.Outputs = make([]types.Param, _n)
 								for _i8 := range r.Graph.Functions[_i2].Config[_i4].Type.Outputs {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1657,11 +1702,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Config[_i4].Type.Config = make([]types.Param, _n)
 								for _i10 := range r.Graph.Functions[_i2].Config[_i4].Type.Config {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1677,8 +1728,14 @@ func (arcCodec) Decode(
 						} else {
 							data = data[1:]
 						}
+						if len(data) < 8 {
+							return nil
+						}
 						r.Graph.Functions[_i2].Config[_i4].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 						data = data[8:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1688,6 +1745,9 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov11 types.Type
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_sLen := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -1705,24 +1765,54 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov12 types.Unit
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Length = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Mass = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Time = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Current = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Temperature = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Angle = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Count = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov12.Dimensions.Data = int8(data[0])
 							data = data[1:]
+							if len(data) < 8 {
+								return nil
+							}
 							_ov12.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 							data = data[8:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -1736,6 +1826,9 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov13 types.Type
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_sLen := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -1750,8 +1843,14 @@ func (arcCodec) Decode(
 						} else {
 							data = data[1:]
 						}
+						if len(data) < 8 {
+							return nil
+						}
 						r.Graph.Functions[_i2].Config[_i4].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 						data = data[8:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1767,11 +1866,17 @@ func (arcCodec) Decode(
 			}
 			if data[0] == 1 {
 				data = data[1:]
+				if len(data) < 4 {
+					return nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Graph.Functions[_i2].Inputs = make([]types.Param, _n)
 					for _i15 := range r.Graph.Functions[_i2].Inputs {
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1780,11 +1885,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Inputs[_i15].Type.Inputs = make([]types.Param, _n)
 								for _i17 := range r.Graph.Functions[_i2].Inputs[_i15].Type.Inputs {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1802,11 +1913,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Inputs[_i15].Type.Outputs = make([]types.Param, _n)
 								for _i19 := range r.Graph.Functions[_i2].Inputs[_i15].Type.Outputs {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1824,11 +1941,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Inputs[_i15].Type.Config = make([]types.Param, _n)
 								for _i21 := range r.Graph.Functions[_i2].Inputs[_i15].Type.Config {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1844,8 +1967,14 @@ func (arcCodec) Decode(
 						} else {
 							data = data[1:]
 						}
+						if len(data) < 8 {
+							return nil
+						}
 						r.Graph.Functions[_i2].Inputs[_i15].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 						data = data[8:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1855,6 +1984,9 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov22 types.Type
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_sLen := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -1872,24 +2004,54 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov23 types.Unit
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Length = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Mass = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Time = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Current = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Temperature = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Angle = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Count = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov23.Dimensions.Data = int8(data[0])
 							data = data[1:]
+							if len(data) < 8 {
+								return nil
+							}
 							_ov23.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 							data = data[8:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -1903,6 +2065,9 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov24 types.Type
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_sLen := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -1917,8 +2082,14 @@ func (arcCodec) Decode(
 						} else {
 							data = data[1:]
 						}
+						if len(data) < 8 {
+							return nil
+						}
 						r.Graph.Functions[_i2].Inputs[_i15].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 						data = data[8:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1934,11 +2105,17 @@ func (arcCodec) Decode(
 			}
 			if data[0] == 1 {
 				data = data[1:]
+				if len(data) < 4 {
+					return nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Graph.Functions[_i2].Outputs = make([]types.Param, _n)
 					for _i26 := range r.Graph.Functions[_i2].Outputs {
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -1947,11 +2124,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Outputs[_i26].Type.Inputs = make([]types.Param, _n)
 								for _i28 := range r.Graph.Functions[_i2].Outputs[_i26].Type.Inputs {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1969,11 +2152,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Outputs[_i26].Type.Outputs = make([]types.Param, _n)
 								for _i30 := range r.Graph.Functions[_i2].Outputs[_i26].Type.Outputs {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -1991,11 +2180,17 @@ func (arcCodec) Decode(
 						}
 						if data[0] == 1 {
 							data = data[1:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								r.Graph.Functions[_i2].Outputs[_i26].Type.Config = make([]types.Param, _n)
 								for _i32 := range r.Graph.Functions[_i2].Outputs[_i26].Type.Config {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2011,8 +2206,14 @@ func (arcCodec) Decode(
 						} else {
 							data = data[1:]
 						}
+						if len(data) < 8 {
+							return nil
+						}
 						r.Graph.Functions[_i2].Outputs[_i26].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 						data = data[8:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -2022,6 +2223,9 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov33 types.Type
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_sLen := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -2039,24 +2243,54 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov34 types.Unit
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Length = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Mass = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Time = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Current = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Temperature = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Angle = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Count = int8(data[0])
 							data = data[1:]
+							if len(data) < 1 {
+								return nil
+							}
 							_ov34.Dimensions.Data = int8(data[0])
 							data = data[1:]
+							if len(data) < 8 {
+								return nil
+							}
 							_ov34.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 							data = data[8:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -2070,6 +2304,9 @@ func (arcCodec) Decode(
 						if data[0] == 1 {
 							data = data[1:]
 							var _ov35 types.Type
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_sLen := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -2084,8 +2321,14 @@ func (arcCodec) Decode(
 						} else {
 							data = data[1:]
 						}
+						if len(data) < 8 {
+							return nil
+						}
 						r.Graph.Functions[_i2].Outputs[_i26].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 						data = data[8:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
@@ -2099,6 +2342,9 @@ func (arcCodec) Decode(
 			} else {
 				data = data[1:]
 			}
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
@@ -2106,8 +2352,14 @@ func (arcCodec) Decode(
 				for _mi38 := uint32(0); _mi38 < _n; _mi38++ {
 					var _mk36 uint32
 					var _mv37 string
+					if len(data) < 4 {
+						return nil
+					}
 					_mk36 = uint32(binary.BigEndian.Uint32(data[:4]))
 					data = data[4:]
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
@@ -2117,6 +2369,9 @@ func (arcCodec) Decode(
 					r.Graph.Functions[_i2].Channels.Read[_mk36] = _mv37
 				}
 			}
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
@@ -2124,8 +2379,14 @@ func (arcCodec) Decode(
 				for _mi41 := uint32(0); _mi41 < _n; _mi41++ {
 					var _mk39 uint32
 					var _mv40 string
+					if len(data) < 4 {
+						return nil
+					}
 					_mk39 = uint32(binary.BigEndian.Uint32(data[:4]))
 					data = data[4:]
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
@@ -2137,16 +2398,25 @@ func (arcCodec) Decode(
 			}
 		}
 	}
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Graph.Edges = make([]ir.Edge, _n)
 		for _i43 := range r.Graph.Edges {
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				r.Graph.Edges[_i43].Source.Node = string(data[:_n])
 				data = data[_n:]
+			}
+			if len(data) < 4 {
+				return nil
 			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
@@ -2154,11 +2424,17 @@ func (arcCodec) Decode(
 				r.Graph.Edges[_i43].Source.Param = string(data[:_n])
 				data = data[_n:]
 			}
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				r.Graph.Edges[_i43].Target.Node = string(data[:_n])
 				data = data[_n:]
+			}
+			if len(data) < 4 {
+				return nil
 			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
@@ -2166,26 +2442,41 @@ func (arcCodec) Decode(
 				r.Graph.Edges[_i43].Target.Param = string(data[:_n])
 				data = data[_n:]
 			}
+			if len(data) < 8 {
+				return nil
+			}
 			r.Graph.Edges[_i43].Kind = ir.EdgeKind(binary.BigEndian.Uint64(data[:8]))
 			data = data[8:]
 		}
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Graph.Nodes = make([]graph.Node, _n)
 		for _i45 := range r.Graph.Nodes {
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				r.Graph.Nodes[_i45].Key = string(data[:_n])
 				data = data[_n:]
 			}
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				r.Graph.Nodes[_i45].Type = string(data[:_n])
 				data = data[_n:]
+			}
+			if len(data) < 4 {
+				return nil
 			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
@@ -2195,11 +2486,20 @@ func (arcCodec) Decode(
 				}
 				data = data[_n:]
 			}
+			if len(data) < 8 {
+				return nil
+			}
 			r.Graph.Nodes[_i45].Position.X = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 			data = data[8:]
+			if len(data) < 8 {
+				return nil
+			}
 			r.Graph.Nodes[_i45].Position.Y = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 			data = data[8:]
 		}
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -2212,16 +2512,25 @@ func (arcCodec) Decode(
 		var _ov46 program.Program
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov46.Functions = make([]ir.Function, _n)
 				for _i48 := range _ov46.Functions {
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Functions[_i48].Key = string(data[:_n])
 						data = data[_n:]
+					}
+					if len(data) < 4 {
+						return nil
 					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
@@ -2231,11 +2540,17 @@ func (arcCodec) Decode(
 					}
 					if data[0] == 1 {
 						data = data[1:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							_ov46.Functions[_i48].Config = make([]types.Param, _n)
 							for _i50 := range _ov46.Functions[_i48].Config {
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2244,11 +2559,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Config[_i50].Type.Inputs = make([]types.Param, _n)
 										for _i52 := range _ov46.Functions[_i48].Config[_i50].Type.Inputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2266,11 +2587,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Config[_i50].Type.Outputs = make([]types.Param, _n)
 										for _i54 := range _ov46.Functions[_i48].Config[_i50].Type.Outputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2288,11 +2615,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Config[_i50].Type.Config = make([]types.Param, _n)
 										for _i56 := range _ov46.Functions[_i48].Config[_i50].Type.Config {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2308,8 +2641,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Functions[_i48].Config[_i50].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2319,6 +2658,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov57 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2336,24 +2678,54 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov58 types.Unit
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Length = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Mass = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Time = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Current = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Temperature = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Angle = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Count = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov58.Dimensions.Data = int8(data[0])
 									data = data[1:]
+									if len(data) < 8 {
+										return nil
+									}
 									_ov58.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 									data = data[8:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2367,6 +2739,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov59 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2381,8 +2756,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Functions[_i48].Config[_i50].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2398,11 +2779,17 @@ func (arcCodec) Decode(
 					}
 					if data[0] == 1 {
 						data = data[1:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							_ov46.Functions[_i48].Inputs = make([]types.Param, _n)
 							for _i61 := range _ov46.Functions[_i48].Inputs {
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2411,11 +2798,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Inputs[_i61].Type.Inputs = make([]types.Param, _n)
 										for _i63 := range _ov46.Functions[_i48].Inputs[_i61].Type.Inputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2433,11 +2826,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Inputs[_i61].Type.Outputs = make([]types.Param, _n)
 										for _i65 := range _ov46.Functions[_i48].Inputs[_i61].Type.Outputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2455,11 +2854,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Inputs[_i61].Type.Config = make([]types.Param, _n)
 										for _i67 := range _ov46.Functions[_i48].Inputs[_i61].Type.Config {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2475,8 +2880,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Functions[_i48].Inputs[_i61].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2486,6 +2897,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov68 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2503,24 +2917,54 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov69 types.Unit
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Length = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Mass = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Time = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Current = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Temperature = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Angle = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Count = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov69.Dimensions.Data = int8(data[0])
 									data = data[1:]
+									if len(data) < 8 {
+										return nil
+									}
 									_ov69.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 									data = data[8:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2534,6 +2978,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov70 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2548,8 +2995,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Functions[_i48].Inputs[_i61].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2565,11 +3018,17 @@ func (arcCodec) Decode(
 					}
 					if data[0] == 1 {
 						data = data[1:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							_ov46.Functions[_i48].Outputs = make([]types.Param, _n)
 							for _i72 := range _ov46.Functions[_i48].Outputs {
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2578,11 +3037,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Outputs[_i72].Type.Inputs = make([]types.Param, _n)
 										for _i74 := range _ov46.Functions[_i48].Outputs[_i72].Type.Inputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2600,11 +3065,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Outputs[_i72].Type.Outputs = make([]types.Param, _n)
 										for _i76 := range _ov46.Functions[_i48].Outputs[_i72].Type.Outputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2622,11 +3093,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Functions[_i48].Outputs[_i72].Type.Config = make([]types.Param, _n)
 										for _i78 := range _ov46.Functions[_i48].Outputs[_i72].Type.Config {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2642,8 +3119,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Functions[_i48].Outputs[_i72].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2653,6 +3136,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov79 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2670,24 +3156,54 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov80 types.Unit
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Length = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Mass = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Time = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Current = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Temperature = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Angle = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Count = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov80.Dimensions.Data = int8(data[0])
 									data = data[1:]
+									if len(data) < 8 {
+										return nil
+									}
 									_ov80.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 									data = data[8:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2701,6 +3217,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov81 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2715,8 +3234,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Functions[_i48].Outputs[_i72].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2730,6 +3255,9 @@ func (arcCodec) Decode(
 					} else {
 						data = data[1:]
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
@@ -2737,8 +3265,14 @@ func (arcCodec) Decode(
 						for _mi84 := uint32(0); _mi84 < _n; _mi84++ {
 							var _mk82 uint32
 							var _mv83 string
+							if len(data) < 4 {
+								return nil
+							}
 							_mk82 = uint32(binary.BigEndian.Uint32(data[:4]))
 							data = data[4:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -2748,6 +3282,9 @@ func (arcCodec) Decode(
 							_ov46.Functions[_i48].Channels.Read[_mk82] = _mv83
 						}
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
@@ -2755,8 +3292,14 @@ func (arcCodec) Decode(
 						for _mi87 := uint32(0); _mi87 < _n; _mi87++ {
 							var _mk85 uint32
 							var _mv86 string
+							if len(data) < 4 {
+								return nil
+							}
 							_mk85 = uint32(binary.BigEndian.Uint32(data[:4]))
 							data = data[4:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -2773,16 +3316,25 @@ func (arcCodec) Decode(
 		}
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov46.Nodes = make([]ir.Node, _n)
 				for _i89 := range _ov46.Nodes {
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Nodes[_i89].Key = string(data[:_n])
 						data = data[_n:]
+					}
+					if len(data) < 4 {
+						return nil
 					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
@@ -2792,11 +3344,17 @@ func (arcCodec) Decode(
 					}
 					if data[0] == 1 {
 						data = data[1:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							_ov46.Nodes[_i89].Config = make([]types.Param, _n)
 							for _i91 := range _ov46.Nodes[_i89].Config {
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2805,11 +3363,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Config[_i91].Type.Inputs = make([]types.Param, _n)
 										for _i93 := range _ov46.Nodes[_i89].Config[_i91].Type.Inputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2827,11 +3391,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Config[_i91].Type.Outputs = make([]types.Param, _n)
 										for _i95 := range _ov46.Nodes[_i89].Config[_i91].Type.Outputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2849,11 +3419,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Config[_i91].Type.Config = make([]types.Param, _n)
 										for _i97 := range _ov46.Nodes[_i89].Config[_i91].Type.Config {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2869,8 +3445,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Nodes[_i89].Config[_i91].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2880,6 +3462,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov98 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2897,24 +3482,54 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov99 types.Unit
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Length = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Mass = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Time = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Current = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Temperature = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Angle = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Count = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov99.Dimensions.Data = int8(data[0])
 									data = data[1:]
+									if len(data) < 8 {
+										return nil
+									}
 									_ov99.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 									data = data[8:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2928,6 +3543,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov100 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -2942,8 +3560,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Nodes[_i89].Config[_i91].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2959,11 +3583,17 @@ func (arcCodec) Decode(
 					}
 					if data[0] == 1 {
 						data = data[1:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							_ov46.Nodes[_i89].Inputs = make([]types.Param, _n)
 							for _i102 := range _ov46.Nodes[_i89].Inputs {
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -2972,11 +3602,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Inputs[_i102].Type.Inputs = make([]types.Param, _n)
 										for _i104 := range _ov46.Nodes[_i89].Inputs[_i102].Type.Inputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -2994,11 +3630,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Inputs[_i102].Type.Outputs = make([]types.Param, _n)
 										for _i106 := range _ov46.Nodes[_i89].Inputs[_i102].Type.Outputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -3016,11 +3658,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Inputs[_i102].Type.Config = make([]types.Param, _n)
 										for _i108 := range _ov46.Nodes[_i89].Inputs[_i102].Type.Config {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -3036,8 +3684,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Nodes[_i89].Inputs[_i102].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -3047,6 +3701,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov109 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3064,24 +3721,54 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov110 types.Unit
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Length = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Mass = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Time = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Current = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Temperature = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Angle = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Count = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov110.Dimensions.Data = int8(data[0])
 									data = data[1:]
+									if len(data) < 8 {
+										return nil
+									}
 									_ov110.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 									data = data[8:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3095,6 +3782,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov111 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3109,8 +3799,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Nodes[_i89].Inputs[_i102].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -3126,11 +3822,17 @@ func (arcCodec) Decode(
 					}
 					if data[0] == 1 {
 						data = data[1:]
+						if len(data) < 4 {
+							return nil
+						}
 						{
 							_n := binary.BigEndian.Uint32(data[:4])
 							data = data[4:]
 							_ov46.Nodes[_i89].Outputs = make([]types.Param, _n)
 							for _i113 := range _ov46.Nodes[_i89].Outputs {
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -3139,11 +3841,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Outputs[_i113].Type.Inputs = make([]types.Param, _n)
 										for _i115 := range _ov46.Nodes[_i89].Outputs[_i113].Type.Inputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -3161,11 +3869,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Outputs[_i113].Type.Outputs = make([]types.Param, _n)
 										for _i117 := range _ov46.Nodes[_i89].Outputs[_i113].Type.Outputs {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -3183,11 +3897,17 @@ func (arcCodec) Decode(
 								}
 								if data[0] == 1 {
 									data = data[1:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Nodes[_i89].Outputs[_i113].Type.Config = make([]types.Param, _n)
 										for _i119 := range _ov46.Nodes[_i89].Outputs[_i113].Type.Config {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_sLen := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -3203,8 +3923,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Nodes[_i89].Outputs[_i113].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -3214,6 +3940,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov120 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3231,24 +3960,54 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov121 types.Unit
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Length = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Mass = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Time = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Current = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Temperature = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Angle = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Count = int8(data[0])
 									data = data[1:]
+									if len(data) < 1 {
+										return nil
+									}
 									_ov121.Dimensions.Data = int8(data[0])
 									data = data[1:]
+									if len(data) < 8 {
+										return nil
+									}
 									_ov121.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 									data = data[8:]
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3262,6 +4021,9 @@ func (arcCodec) Decode(
 								if data[0] == 1 {
 									data = data[1:]
 									var _ov122 types.Type
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_sLen := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3276,8 +4038,14 @@ func (arcCodec) Decode(
 								} else {
 									data = data[1:]
 								}
+								if len(data) < 8 {
+									return nil
+								}
 								_ov46.Nodes[_i89].Outputs[_i113].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 								data = data[8:]
+								if len(data) < 4 {
+									return nil
+								}
 								{
 									_n := binary.BigEndian.Uint32(data[:4])
 									data = data[4:]
@@ -3291,6 +4059,9 @@ func (arcCodec) Decode(
 					} else {
 						data = data[1:]
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
@@ -3298,8 +4069,14 @@ func (arcCodec) Decode(
 						for _mi125 := uint32(0); _mi125 < _n; _mi125++ {
 							var _mk123 uint32
 							var _mv124 string
+							if len(data) < 4 {
+								return nil
+							}
 							_mk123 = uint32(binary.BigEndian.Uint32(data[:4]))
 							data = data[4:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -3309,6 +4086,9 @@ func (arcCodec) Decode(
 							_ov46.Nodes[_i89].Channels.Read[_mk123] = _mv124
 						}
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
@@ -3316,8 +4096,14 @@ func (arcCodec) Decode(
 						for _mi128 := uint32(0); _mi128 < _n; _mi128++ {
 							var _mk126 uint32
 							var _mv127 string
+							if len(data) < 4 {
+								return nil
+							}
 							_mk126 = uint32(binary.BigEndian.Uint32(data[:4]))
 							data = data[4:]
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -3334,16 +4120,25 @@ func (arcCodec) Decode(
 		}
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov46.Edges = make([]ir.Edge, _n)
 				for _i130 := range _ov46.Edges {
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Edges[_i130].Source.Node = string(data[:_n])
 						data = data[_n:]
+					}
+					if len(data) < 4 {
+						return nil
 					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
@@ -3351,17 +4146,26 @@ func (arcCodec) Decode(
 						_ov46.Edges[_i130].Source.Param = string(data[:_n])
 						data = data[_n:]
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Edges[_i130].Target.Node = string(data[:_n])
 						data = data[_n:]
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Edges[_i130].Target.Param = string(data[:_n])
 						data = data[_n:]
+					}
+					if len(data) < 8 {
+						return nil
 					}
 					_ov46.Edges[_i130].Kind = ir.EdgeKind(binary.BigEndian.Uint64(data[:8]))
 					data = data[8:]
@@ -3372,16 +4176,25 @@ func (arcCodec) Decode(
 		}
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov46.Strata = make([][]string, _n)
 				for _i132 := range _ov46.Strata {
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Strata[_i132] = make([]string, _n)
 						for _i134 := range _ov46.Strata[_i132] {
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
@@ -3397,33 +4210,51 @@ func (arcCodec) Decode(
 		}
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov46.Sequences = make([]ir.Sequence, _n)
 				for _i136 := range _ov46.Sequences {
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Sequences[_i136].Key = string(data[:_n])
 						data = data[_n:]
 					}
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov46.Sequences[_i136].Stages = make([]ir.Stage, _n)
 						for _i138 := range _ov46.Sequences[_i136].Stages {
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								_ov46.Sequences[_i136].Stages[_i138].Key = string(data[:_n])
 								data = data[_n:]
 							}
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								_ov46.Sequences[_i136].Stages[_i138].Nodes = make([]string, _n)
 								for _i140 := range _ov46.Sequences[_i136].Stages[_i138].Nodes {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
@@ -3432,16 +4263,25 @@ func (arcCodec) Decode(
 									}
 								}
 							}
+							if len(data) < 4 {
+								return nil
+							}
 							{
 								_n := binary.BigEndian.Uint32(data[:4])
 								data = data[4:]
 								_ov46.Sequences[_i136].Stages[_i138].Strata = make([][]string, _n)
 								for _i142 := range _ov46.Sequences[_i136].Stages[_i138].Strata {
+									if len(data) < 4 {
+										return nil
+									}
 									{
 										_n := binary.BigEndian.Uint32(data[:4])
 										data = data[4:]
 										_ov46.Sequences[_i136].Stages[_i138].Strata[_i142] = make([]string, _n)
 										for _i144 := range _ov46.Sequences[_i136].Stages[_i138].Strata[_i142] {
+											if len(data) < 4 {
+												return nil
+											}
 											{
 												_n := binary.BigEndian.Uint32(data[:4])
 												data = data[4:]
@@ -3462,6 +4302,9 @@ func (arcCodec) Decode(
 		if data[0] == 1 {
 			data = data[1:]
 			var _ov145 uint8
+			if len(data) < 1 {
+				return nil
+			}
 			_ov145 = uint8(data[0])
 			data = data[1:]
 			_ov46.Authorities.Default = &_ov145
@@ -3470,6 +4313,9 @@ func (arcCodec) Decode(
 		}
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
@@ -3477,8 +4323,14 @@ func (arcCodec) Decode(
 				for _mi148 := uint32(0); _mi148 < _n; _mi148++ {
 					var _mk146 uint32
 					var _mv147 uint8
+					if len(data) < 4 {
+						return nil
+					}
 					_mk146 = uint32(binary.BigEndian.Uint32(data[:4]))
 					data = data[4:]
+					if len(data) < 1 {
+						return nil
+					}
 					_mv147 = uint8(data[0])
 					data = data[1:]
 					_ov46.Authorities.Channels[_mk146] = _mv147
@@ -3487,11 +4339,17 @@ func (arcCodec) Decode(
 		} else {
 			data = data[1:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov46.WASM = append([]byte(nil), data[:_n]...)
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -3500,11 +4358,17 @@ func (arcCodec) Decode(
 			for _mi151 := uint32(0); _mi151 < _n; _mi151++ {
 				var _mk149 string
 				var _mv150 uint32
+				if len(data) < 4 {
+					return nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					_mk149 = string(data[:_n])
 					data = data[_n:]
+				}
+				if len(data) < 4 {
+					return nil
 				}
 				_mv150 = uint32(binary.BigEndian.Uint32(data[:4]))
 				data = data[4:]
@@ -3518,11 +4382,17 @@ func (arcCodec) Decode(
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov152 Status
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov152.Key = string(data[:_n])
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -3530,11 +4400,17 @@ func (arcCodec) Decode(
 			_ov152.Name = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov152.Variant = status.Variant(data[:_n])
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -3542,37 +4418,67 @@ func (arcCodec) Decode(
 			_ov152.Message = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov152.Description = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 8 {
+			return nil
+		}
 		_ov152.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
 		data = data[8:]
+		if len(data) < 1 {
+			return nil
+		}
 		_ov152.Details.Running = data[0] != 0
 		data = data[1:]
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov152.Labels = make([]label.Label, _n)
 				for _i154 := range _ov152.Labels {
+					if len(data) < 16 {
+						return nil
+					}
 					copy(_ov152.Labels[_i154].Key[:], data[:16])
 					data = data[16:]
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov152.Labels[_i154].Name = string(data[:_n])
 						data = data[_n:]
 					}
+					if len(data) < 1 {
+						return nil
+					}
 					_ov152.Labels[_i154].Color.R = uint8(data[0])
 					data = data[1:]
+					if len(data) < 1 {
+						return nil
+					}
 					_ov152.Labels[_i154].Color.G = uint8(data[0])
 					data = data[1:]
+					if len(data) < 1 {
+						return nil
+					}
 					_ov152.Labels[_i154].Color.B = uint8(data[0])
 					data = data[1:]
+					if len(data) < 8 {
+						return nil
+					}
 					_ov152.Labels[_i154].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 					data = data[8:]
 				}
@@ -3712,6 +4618,9 @@ func marshaltypesParam(s types.Param) ([]byte, error) {
 
 func unmarshaltypesParam(data []byte) (types.Param, error) {
 	var r types.Param
+	if len(data) < 4 {
+		return r, nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
@@ -3720,11 +4629,17 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	}
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Type.Inputs = make([]types.Param, _n)
 			for _i2 := range r.Type.Inputs {
+				if len(data) < 4 {
+					return r, nil
+				}
 				{
 					_sLen := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
@@ -3742,11 +4657,17 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	}
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Type.Outputs = make([]types.Param, _n)
 			for _i4 := range r.Type.Outputs {
+				if len(data) < 4 {
+					return r, nil
+				}
 				{
 					_sLen := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
@@ -3764,11 +4685,17 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	}
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Type.Config = make([]types.Param, _n)
 			for _i6 := range r.Type.Config {
+				if len(data) < 4 {
+					return r, nil
+				}
 				{
 					_sLen := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
@@ -3784,8 +4711,14 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	} else {
 		data = data[1:]
 	}
+	if len(data) < 8 {
+		return r, nil
+	}
 	r.Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
+	if len(data) < 4 {
+		return r, nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
@@ -3795,6 +4728,9 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov7 types.Type
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_sLen := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
@@ -3812,24 +4748,54 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov8 types.Unit
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Length = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Mass = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Time = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Current = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Temperature = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Angle = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Count = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Data = int8(data[0])
 		data = data[1:]
+		if len(data) < 8 {
+			return r, nil
+		}
 		_ov8.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 		data = data[8:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
@@ -3843,6 +4809,9 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov9 types.Type
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_sLen := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
@@ -3857,8 +4826,14 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 	} else {
 		data = data[1:]
 	}
+	if len(data) < 8 {
+		return r, nil
+	}
 	r.Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
+	if len(data) < 4 {
+		return r, nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
@@ -4003,16 +4978,25 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	var r types.Type
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Inputs = make([]types.Param, _n)
 			for _i2 := range r.Inputs {
+				if len(data) < 4 {
+					return r, nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Inputs[_i2].Name = string(data[:_n])
 					data = data[_n:]
+				}
+				if len(data) < 4 {
+					return r, nil
 				}
 				{
 					_sLen := binary.BigEndian.Uint32(data[:4])
@@ -4023,6 +5007,9 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					}
 					r.Inputs[_i2].Type = _sv
 					data = data[_sLen:]
+				}
+				if len(data) < 4 {
+					return r, nil
 				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
@@ -4039,16 +5026,25 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	}
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Outputs = make([]types.Param, _n)
 			for _i4 := range r.Outputs {
+				if len(data) < 4 {
+					return r, nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Outputs[_i4].Name = string(data[:_n])
 					data = data[_n:]
+				}
+				if len(data) < 4 {
+					return r, nil
 				}
 				{
 					_sLen := binary.BigEndian.Uint32(data[:4])
@@ -4059,6 +5055,9 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					}
 					r.Outputs[_i4].Type = _sv
 					data = data[_sLen:]
+				}
+				if len(data) < 4 {
+					return r, nil
 				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
@@ -4075,16 +5074,25 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	}
 	if data[0] == 1 {
 		data = data[1:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			r.Config = make([]types.Param, _n)
 			for _i6 := range r.Config {
+				if len(data) < 4 {
+					return r, nil
+				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					r.Config[_i6].Name = string(data[:_n])
 					data = data[_n:]
+				}
+				if len(data) < 4 {
+					return r, nil
 				}
 				{
 					_sLen := binary.BigEndian.Uint32(data[:4])
@@ -4095,6 +5103,9 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					}
 					r.Config[_i6].Type = _sv
 					data = data[_sLen:]
+				}
+				if len(data) < 4 {
+					return r, nil
 				}
 				{
 					_n := binary.BigEndian.Uint32(data[:4])
@@ -4109,8 +5120,14 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	} else {
 		data = data[1:]
 	}
+	if len(data) < 8 {
+		return r, nil
+	}
 	r.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
+	if len(data) < 4 {
+		return r, nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
@@ -4120,6 +5137,9 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov7 types.Type
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_sLen := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
@@ -4137,24 +5157,54 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov8 types.Unit
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Length = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Mass = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Time = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Current = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Temperature = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Angle = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Count = int8(data[0])
 		data = data[1:]
+		if len(data) < 1 {
+			return r, nil
+		}
 		_ov8.Dimensions.Data = int8(data[0])
 		data = data[1:]
+		if len(data) < 8 {
+			return r, nil
+		}
 		_ov8.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 		data = data[8:]
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
@@ -4168,6 +5218,9 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov9 types.Type
+		if len(data) < 4 {
+			return r, nil
+		}
 		{
 			_sLen := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
@@ -4181,6 +5234,9 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 		r.Constraint = &_ov9
 	} else {
 		data = data[1:]
+	}
+	if len(data) < 8 {
+		return r, nil
 	}
 	r.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]

@@ -71,13 +71,22 @@ func (logCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Log)
+	if len(data) < 16 {
+		return nil
+	}
 	copy(r.Key[:], data[:16])
 	data = data[16:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])

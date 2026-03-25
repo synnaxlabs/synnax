@@ -76,24 +76,48 @@ func (rangeCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Range)
+	if len(data) < 16 {
+		return nil
+	}
 	copy(r.Key[:], data[:16])
 	data = data[16:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 8 {
+		return nil
+	}
 	r.TimeRange.Start = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
+	if len(data) < 8 {
+		return nil
+	}
 	r.TimeRange.End = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
 	data = data[8:]
+	if len(data) < 1 {
+		return nil
+	}
 	r.Color.R = uint8(data[0])
 	data = data[1:]
+	if len(data) < 1 {
+		return nil
+	}
 	r.Color.G = uint8(data[0])
 	data = data[1:]
+	if len(data) < 1 {
+		return nil
+	}
 	r.Color.B = uint8(data[0])
 	data = data[1:]
+	if len(data) < 8 {
+		return nil
+	}
 	r.Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 	data = data[8:]
 	return nil

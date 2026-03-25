@@ -75,11 +75,17 @@ func (resourceCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Resource)
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.ID.Type = ResourceType(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -87,11 +93,17 @@ func (resourceCodec) Decode(
 		r.ID.Key = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -167,11 +179,17 @@ func (relationshipCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Relationship)
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.From.Type = ResourceType(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -179,17 +197,26 @@ func (relationshipCodec) Decode(
 		r.From.Key = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Type = RelationshipType(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.To.Type = ResourceType(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])

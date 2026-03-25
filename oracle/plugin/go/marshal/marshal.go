@@ -265,6 +265,18 @@ type codeBuilder struct {
 	generatedHelpers map[string]bool
 }
 
+// boundsCheck generates a bounds check that returns early (with zero values)
+// when data is shorter than expected. This makes decoders backward-compatible
+// with older binary data that has fewer fields.
+func (b *codeBuilder) boundsCheck(size int) string {
+	ind := b.indent()
+	earlyReturn := "return nil"
+	if b.isHelper {
+		earlyReturn = "return r, nil"
+	}
+	return fmt.Sprintf("%sif len(data) < %d { %s }", ind, size, earlyReturn)
+}
+
 func (b *codeBuilder) nextVar(prefix string) string {
 	b.varCounter++
 	return fmt.Sprintf("%s%d", prefix, b.varCounter)
@@ -367,6 +379,7 @@ func (b *codeBuilder) processHardOptional(
 			ind+"\tbuf = append(buf, 1)",
 		)
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(1),
 			ind+"if data[0] == 1 {",
 			ind+"\tdata = data[1:]",
 		)
@@ -389,6 +402,7 @@ func (b *codeBuilder) processHardOptional(
 			ind+"\tbuf = append(buf, 1)",
 		)
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(1),
 			ind+"if data[0] == 1 {",
 			ind+"\tdata = data[1:]",
 		)
@@ -635,6 +649,7 @@ func (b *codeBuilder) processRecursiveStruct(
 		unmarshalErrReturn = "return r, _se"
 	}
 	b.unmarshalLines = append(b.unmarshalLines,
+		b.boundsCheck(4),
 		ind+"{ _sLen := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 		ind+fmt.Sprintf("\t_sv, _se := %s(data[:_sLen])", unmarshalHelper),
 		ind+fmt.Sprintf("\tif _se != nil { %s }", unmarshalErrReturn),
@@ -714,6 +729,7 @@ func (b *codeBuilder) processArray(
 		ind+fmt.Sprintf("for _, %s := range %s {", ev, getPath),
 	)
 	b.unmarshalLines = append(b.unmarshalLines,
+		b.boundsCheck(4),
 		ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 		ind+fmt.Sprintf("\t%s = make([]%s, _n)", setPath, goType),
 		ind+fmt.Sprintf("\tfor %s := range %s {", iv, setPath),
@@ -765,6 +781,7 @@ func (b *codeBuilder) processMap(
 		ind+fmt.Sprintf("for %s, %s := range %s {", mk, mv, getPath),
 	)
 	b.unmarshalLines = append(b.unmarshalLines,
+		b.boundsCheck(4),
 		ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, _n)", setPath, goKeyType, goValType),
 		ind+fmt.Sprintf("\tfor %s := uint32(0); %s < _n; %s++ {", mi, mi, mi),
@@ -843,11 +860,13 @@ func (b *codeBuilder) processLeaf(
 		)
 		if goTypeCast != "" {
 			b.unmarshalLines = append(b.unmarshalLines,
+				b.boundsCheck(4),
 				ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 				ind+fmt.Sprintf("\t%s = %s(data[:_n]); data = data[_n:] }", setPath, goTypeCast),
 			)
 		} else {
 			b.unmarshalLines = append(b.unmarshalLines,
+				b.boundsCheck(4),
 				ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 				ind+fmt.Sprintf("\t%s = string(data[:_n]); data = data[_n:] }", setPath),
 			)
@@ -858,6 +877,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = append(buf, %s[:]...)", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(16),
 			ind+fmt.Sprintf("copy(%s[:], data[:16])", setPath),
 			ind+"data = data[16:]",
 		)
@@ -876,6 +896,7 @@ func (b *codeBuilder) processLeaf(
 			jsonErrReturn = "return r, err"
 		}
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(4),
 			ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 			ind+fmt.Sprintf("\tif err := json.Unmarshal(data[:_n], &%s); err != nil { %s }", setPath, jsonErrReturn),
 			ind+"\tdata = data[_n:] }",
@@ -888,6 +909,7 @@ func (b *codeBuilder) processLeaf(
 			ind+fmt.Sprintf("buf = append(buf, %s...)", getPath),
 		)
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(4),
 			ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 			ind+fmt.Sprintf("\t%s = append([]byte(nil), data[:_n]...); data = data[_n:] }", setPath),
 		)
@@ -897,6 +919,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("if %s { buf = append(buf, 1) } else { buf = append(buf, 0) }", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(1),
 			ind+fmt.Sprintf("%s = data[0] != 0", setPath),
 			ind+"data = data[1:]",
 		)
@@ -910,6 +933,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = append(buf, byte(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(1),
 			ind+fmt.Sprintf("%s = %s(data[0])", setPath, cast),
 			ind+"data = data[1:]",
 		)
@@ -923,6 +947,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint16(buf, uint16(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(2),
 			ind+fmt.Sprintf("%s = %s(binary.BigEndian.Uint16(data[:2]))", setPath, cast),
 			ind+"data = data[2:]",
 		)
@@ -936,6 +961,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint32(buf, uint32(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(4),
 			ind+fmt.Sprintf("%s = %s(binary.BigEndian.Uint32(data[:4]))", setPath, cast),
 			ind+"data = data[4:]",
 		)
@@ -949,6 +975,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint64(buf, uint64(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(8),
 			ind+fmt.Sprintf("%s = %s(binary.BigEndian.Uint64(data[:8]))", setPath, cast),
 			ind+"data = data[8:]",
 		)
@@ -962,6 +989,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = append(buf, byte(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(1),
 			ind+fmt.Sprintf("%s = %s(data[0])", setPath, cast),
 			ind+"data = data[1:]",
 		)
@@ -975,6 +1003,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint16(buf, uint16(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(2),
 			ind+fmt.Sprintf("%s = %s(binary.BigEndian.Uint16(data[:2]))", setPath, cast),
 			ind+"data = data[2:]",
 		)
@@ -988,6 +1017,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint32(buf, uint32(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(4),
 			ind+fmt.Sprintf("%s = %s(binary.BigEndian.Uint32(data[:4]))", setPath, cast),
 			ind+"data = data[4:]",
 		)
@@ -1001,6 +1031,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint64(buf, uint64(%s))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(8),
 			ind+fmt.Sprintf("%s = %s(binary.BigEndian.Uint64(data[:8]))", setPath, cast),
 			ind+"data = data[8:]",
 		)
@@ -1015,6 +1046,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(float32(%s)))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(4),
 			ind+fmt.Sprintf("%s = %s(math.Float32frombits(binary.BigEndian.Uint32(data[:4])))", setPath, cast),
 			ind+"data = data[4:]",
 		)
@@ -1029,6 +1061,7 @@ func (b *codeBuilder) processLeaf(
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(%s)))", getPath))
 		b.unmarshalLines = append(b.unmarshalLines,
+			b.boundsCheck(8),
 			ind+fmt.Sprintf("%s = %s(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))", setPath, cast),
 			ind+"data = data[8:]",
 		)

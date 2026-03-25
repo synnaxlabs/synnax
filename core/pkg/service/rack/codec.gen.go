@@ -121,26 +121,44 @@ func (rackCodec) Decode(
 	value any,
 ) error {
 	r := value.(*Rack)
+	if len(data) < 4 {
+		return nil
+	}
 	r.Key = Key(binary.BigEndian.Uint32(data[:4]))
 	data = data[4:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 4 {
+		return nil
+	}
 	r.TaskCounter = uint32(binary.BigEndian.Uint32(data[:4]))
 	data = data[4:]
+	if len(data) < 1 {
+		return nil
+	}
 	r.Embedded = data[0] != 0
 	data = data[1:]
 	if data[0] == 1 {
 		data = data[1:]
 		var _ov1 Status
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov1.Key = string(data[:_n])
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -148,11 +166,17 @@ func (rackCodec) Decode(
 			_ov1.Name = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov1.Variant = status.Variant(data[:_n])
 			data = data[_n:]
+		}
+		if len(data) < 4 {
+			return nil
 		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
@@ -160,37 +184,67 @@ func (rackCodec) Decode(
 			_ov1.Message = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 4 {
+			return nil
+		}
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
 			_ov1.Description = string(data[:_n])
 			data = data[_n:]
 		}
+		if len(data) < 8 {
+			return nil
+		}
 		_ov1.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
 		data = data[8:]
+		if len(data) < 4 {
+			return nil
+		}
 		_ov1.Details.Rack = Key(binary.BigEndian.Uint32(data[:4]))
 		data = data[4:]
 		if data[0] == 1 {
 			data = data[1:]
+			if len(data) < 4 {
+				return nil
+			}
 			{
 				_n := binary.BigEndian.Uint32(data[:4])
 				data = data[4:]
 				_ov1.Labels = make([]label.Label, _n)
 				for _i3 := range _ov1.Labels {
+					if len(data) < 16 {
+						return nil
+					}
 					copy(_ov1.Labels[_i3].Key[:], data[:16])
 					data = data[16:]
+					if len(data) < 4 {
+						return nil
+					}
 					{
 						_n := binary.BigEndian.Uint32(data[:4])
 						data = data[4:]
 						_ov1.Labels[_i3].Name = string(data[:_n])
 						data = data[_n:]
 					}
+					if len(data) < 1 {
+						return nil
+					}
 					_ov1.Labels[_i3].Color.R = uint8(data[0])
 					data = data[1:]
+					if len(data) < 1 {
+						return nil
+					}
 					_ov1.Labels[_i3].Color.G = uint8(data[0])
 					data = data[1:]
+					if len(data) < 1 {
+						return nil
+					}
 					_ov1.Labels[_i3].Color.B = uint8(data[0])
 					data = data[1:]
+					if len(data) < 8 {
+						return nil
+					}
 					_ov1.Labels[_i3].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
 					data = data[8:]
 				}

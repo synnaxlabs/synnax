@@ -73,13 +73,22 @@ func (userCodec) Decode(
 	value any,
 ) error {
 	r := value.(*User)
+	if len(data) < 16 {
+		return nil
+	}
 	copy(r.Key[:], data[:16])
 	data = data[16:]
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Username = string(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 4 {
+		return nil
 	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
@@ -87,11 +96,17 @@ func (userCodec) Decode(
 		r.FirstName = string(data[:_n])
 		data = data[_n:]
 	}
+	if len(data) < 4 {
+		return nil
+	}
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.LastName = string(data[:_n])
 		data = data[_n:]
+	}
+	if len(data) < 1 {
+		return nil
 	}
 	r.RootUser = data[0] != 0
 	data = data[1:]
