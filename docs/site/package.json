@@ -46,7 +46,7 @@
     "@types/offscreencanvas": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "algoliasearch": "^4.27.0",
+    "algoliasearch": "^5.20.0",
     "dotenv": "^17.3.1",
     "eslint": "catalog:",
     "gray-matter": "^4.0.3",
