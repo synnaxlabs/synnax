@@ -50,9 +50,7 @@ func buildFieldLayout(
 	visiting map[string]bool,
 ) (gorp.FieldLayout, error) {
 	layout := gorp.FieldLayout{
-		Name:         f.Name,
-		Optional:     f.IsOptional,
-		HardOptional: f.IsHardOptional,
+		Name: f.Name,
 	}
 
 	resolved, ok := f.Type.Resolve(table)
@@ -75,6 +73,19 @@ func buildFieldLayout(
 		layout.Key = nested.Key
 		layout.Value = nested.Value
 	}
+
+	// Match the marshal plugin's optionality logic:
+	// HardOptional (??) always gets a presence flag.
+	// Soft optional (?) only gets a presence flag if the Go type is nilable
+	// (arrays, maps, slices, interface/any/record).
+	if f.IsHardOptional {
+		layout.HardOptional = true
+	} else if f.IsOptional && isNilableEncoding(enc) {
+		layout.Optional = true
+	}
+	// Otherwise: IsOptional on a non-nilable type (like uuid?) has no
+	// presence flag in the binary encoding.
+
 	return layout, nil
 }
 
@@ -178,6 +189,12 @@ func resolveEncoding(
 	default:
 		return gorp.EncodingJSON, nil, nil
 	}
+}
+
+// isNilableEncoding returns true for encoding types that map to Go nilable types
+// (slices, maps, interfaces). These get a presence flag when marked optional (?).
+func isNilableEncoding(e gorp.Encoding) bool {
+	return e == gorp.EncodingArray || e == gorp.EncodingMap || e == gorp.EncodingJSON
 }
 
 func primitiveEncoding(name string) (gorp.Encoding, *nestedInfo, error) {

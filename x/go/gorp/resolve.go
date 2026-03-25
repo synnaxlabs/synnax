@@ -426,5 +426,23 @@ func LayoutsEqual(a, b FieldLayout) bool {
 			return false
 		}
 	}
+	if (a.Element == nil) != (b.Element == nil) {
+		return false
+	}
+	if a.Element != nil && !LayoutsEqual(*a.Element, *b.Element) {
+		return false
+	}
+	if (a.Key == nil) != (b.Key == nil) {
+		return false
+	}
+	if a.Key != nil && !LayoutsEqual(*a.Key, *b.Key) {
+		return false
+	}
+	if (a.Value == nil) != (b.Value == nil) {
+		return false
+	}
+	if a.Value != nil && !LayoutsEqual(*a.Value, *b.Value) {
+		return false
+	}
 	return true
 }

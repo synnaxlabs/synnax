@@ -234,5 +234,91 @@ var _ = Describe("Schema Resolution", func() {
 			expected = binary.BigEndian.AppendUint32(expected, 0) // count=0
 			Expect(result).To(Equal(expected))
 		})
+
+		It("Should handle nested struct change inside an array", func() {
+			// Old: {Items []struct{X int32}}
+			// New: {Items []struct{X int32, Y int32}}
+			oldElem := gorp.FieldLayout{
+				Encoding: gorp.EncodingStruct,
+				Fields: []gorp.FieldLayout{
+					{Name: "x", Encoding: gorp.EncodingInt32},
+				},
+			}
+			newElem := gorp.FieldLayout{
+				Encoding: gorp.EncodingStruct,
+				Fields: []gorp.FieldLayout{
+					{Name: "x", Encoding: gorp.EncodingInt32},
+					{Name: "y", Encoding: gorp.EncodingInt32},
+				},
+			}
+			oldLayout := []gorp.FieldLayout{
+				{Name: "items", Encoding: gorp.EncodingArray, Element: &oldElem},
+			}
+			newLayout := []gorp.FieldLayout{
+				{Name: "items", Encoding: gorp.EncodingArray, Element: &newElem},
+			}
+
+			// Encode: 2 elements, each struct is length-prefixed [4-byte len][x int32]
+			var elem1, elem2 []byte
+			elem1 = binary.BigEndian.AppendUint32(elem1, 42) // x=42
+			elem2 = binary.BigEndian.AppendUint32(elem2, 99) // x=99
+
+			var data []byte
+			data = binary.BigEndian.AppendUint32(data, 2) // count=2
+			data = binary.BigEndian.AppendUint32(data, uint32(len(elem1)))
+			data = append(data, elem1...)
+			data = binary.BigEndian.AppendUint32(data, uint32(len(elem2)))
+			data = append(data, elem2...)
+
+			result, err := gorp.Resolve(data, oldLayout, newLayout)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Each element should now have x + y=0
+			var newElem1, newElem2 []byte
+			newElem1 = binary.BigEndian.AppendUint32(newElem1, 42)
+			newElem1 = binary.BigEndian.AppendUint32(newElem1, 0) // y=0
+			newElem2 = binary.BigEndian.AppendUint32(newElem2, 99)
+			newElem2 = binary.BigEndian.AppendUint32(newElem2, 0) // y=0
+
+			var expected []byte
+			expected = binary.BigEndian.AppendUint32(expected, 2)
+			expected = binary.BigEndian.AppendUint32(expected, uint32(len(newElem1)))
+			expected = append(expected, newElem1...)
+			expected = binary.BigEndian.AppendUint32(expected, uint32(len(newElem2)))
+			expected = append(expected, newElem2...)
+			Expect(result).To(Equal(expected))
+		})
+
+		It("Should handle field removal", func() {
+			// Old: {Name string, Age int32, Email string}
+			// New: {Name string, Email string}
+			// (Age removed)
+			oldLayout := []gorp.FieldLayout{
+				{Name: "name", Encoding: gorp.EncodingString},
+				{Name: "age", Encoding: gorp.EncodingInt32},
+				{Name: "email", Encoding: gorp.EncodingString},
+			}
+			newLayout := []gorp.FieldLayout{
+				{Name: "name", Encoding: gorp.EncodingString},
+				{Name: "email", Encoding: gorp.EncodingString},
+			}
+
+			var data []byte
+			data = binary.BigEndian.AppendUint32(data, 5)
+			data = append(data, "alice"...)
+			data = binary.BigEndian.AppendUint32(data, 30) // age
+			data = binary.BigEndian.AppendUint32(data, 13)
+			data = append(data, "alice@foo.com"...)
+
+			result, err := gorp.Resolve(data, oldLayout, newLayout)
+			Expect(err).ToNot(HaveOccurred())
+
+			var expected []byte
+			expected = binary.BigEndian.AppendUint32(expected, 5)
+			expected = append(expected, "alice"...)
+			expected = binary.BigEndian.AppendUint32(expected, 13)
+			expected = append(expected, "alice@foo.com"...)
+			Expect(result).To(Equal(expected))
+		})
 	})
 })

@@ -25,15 +25,15 @@ func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
 			[]gorp.FieldLayout{
 				{Name: "key", Encoding: gorp.EncodingUUID},
 				{Name: "name", Encoding: gorp.EncodingString},
-				{Name: "author", Encoding: gorp.EncodingUUID, Optional: true},
+				{Name: "author", Encoding: gorp.EncodingUUID},
 				{Name: "layout", Encoding: gorp.EncodingJSON},
 			},
 			[]gorp.FieldLayout{
 				{Name: "key", Encoding: gorp.EncodingUUID},
 				{Name: "name", Encoding: gorp.EncodingString},
-				{Name: "author", Encoding: gorp.EncodingUUID, Optional: true},
+				{Name: "author", Encoding: gorp.EncodingUUID},
 				{Name: "layout", Encoding: gorp.EncodingJSON},
-				{Name: "description", Encoding: gorp.EncodingString, Optional: true},
+				{Name: "description", Encoding: gorp.EncodingString},
 			},
 		),
 		gorp.NewTypedMigration[Workspace, Workspace](
