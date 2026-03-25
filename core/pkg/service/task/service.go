@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -157,8 +158,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T)
-	signalsCfg.Observable = s.table.Observe()
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
@@ -187,10 +186,6 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	if err := s.cfg.Ontology.NewWriter(nil).DeleteManyResources(ctx, ids); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
 	}
-}
-
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
-	return s.table.Observe()
 }
 
 func (s *Service) Close() error {

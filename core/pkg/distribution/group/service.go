@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -106,10 +107,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return newRetrieve(s.cfg.DB, s.table)
-}
-
-func (s *Service) Observe() observe.Observable[gorp.TxReader[uuid.UUID, Group]] {
-	return s.table.Observe()
 }
 
 func (s *Service) Close() error {

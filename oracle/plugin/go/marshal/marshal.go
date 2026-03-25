@@ -253,6 +253,7 @@ type codeBuilder struct {
 	consts           []wireConst
 	marshalLines     []string
 	unmarshalLines   []string
+	isHelper         bool
 	estSize          int
 	needsMath        bool
 	needsJSON        bool
@@ -629,10 +630,14 @@ func (b *codeBuilder) processRecursiveStruct(
 		ind+"\tbuf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))",
 		ind+"\tbuf = append(buf, _sub...) }",
 	)
+	unmarshalErrReturn := "return _se"
+	if b.isHelper {
+		unmarshalErrReturn = "return r, _se"
+	}
 	b.unmarshalLines = append(b.unmarshalLines,
 		ind+"{ _sLen := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
 		ind+fmt.Sprintf("\t_sv, _se := %s(data[:_sLen])", unmarshalHelper),
-		ind+"\tif _se != nil { return _se }",
+		ind+fmt.Sprintf("\tif _se != nil { %s }", unmarshalErrReturn),
 		ind+fmt.Sprintf("\t%s = _sv", setPath),
 		ind+"\tdata = data[_sLen:] }",
 	)
@@ -654,6 +659,7 @@ func (b *codeBuilder) processRecursiveStruct(
 		packageName:      b.packageName,
 		parentPath:       b.parentPath,
 		imports:          b.imports,
+		isHelper:         true,
 		processingTypes:  map[string]bool{helperKey: true},
 		generatedHelpers: b.generatedHelpers,
 	}
@@ -865,9 +871,13 @@ func (b *codeBuilder) processLeaf(
 			ind+"\tbuf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))",
 			ind+"\tbuf = append(buf, _jb...) }",
 		)
+		jsonErrReturn := "return err"
+		if b.isHelper {
+			jsonErrReturn = "return r, err"
+		}
 		b.unmarshalLines = append(b.unmarshalLines,
 			ind+"{ _n := binary.BigEndian.Uint32(data[:4]); data = data[4:]",
-			ind+fmt.Sprintf("\tif err := json.Unmarshal(data[:_n], &%s); err != nil { return err }", setPath),
+			ind+fmt.Sprintf("\tif err := json.Unmarshal(data[:_n], &%s); err != nil { %s }", setPath, jsonErrReturn),
 			ind+"\tdata = data[_n:] }",
 		)
 

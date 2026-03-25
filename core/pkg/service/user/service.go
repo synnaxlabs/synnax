@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -101,8 +102,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	cfg.Search.RegisterService(s)
 
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID[User](cfg.DB)
-		signalsCfg.Observable = s.table.Observe()
 		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,

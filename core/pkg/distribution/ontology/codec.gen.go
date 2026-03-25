@@ -19,8 +19,6 @@ import (
 	_io "io"
 
 	xbinary "github.com/synnaxlabs/x/binary"
-
-	resource "github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 )
 
 var _ = binary.BigEndian
@@ -80,7 +78,7 @@ func (resourceCodec) Decode(
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
-		r.ID.Type = resource.Type(data[:_n])
+		r.ID.Type = ResourceType(data[:_n])
 		data = data[_n:]
 	}
 	{
@@ -172,7 +170,7 @@ func (relationshipCodec) Decode(
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
-		r.From.Type = resource.Type(data[:_n])
+		r.From.Type = ResourceType(data[:_n])
 		data = data[_n:]
 	}
 	{
@@ -190,7 +188,7 @@ func (relationshipCodec) Decode(
 	{
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
-		r.To.Type = resource.Type(data[:_n])
+		r.To.Type = ResourceType(data[:_n])
 		data = data[_n:]
 	}
 	{

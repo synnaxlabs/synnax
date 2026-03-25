@@ -111,10 +111,12 @@ type Migration interface {
 }
 
 // MigrationConfig provides the configuration needed by Migration implementations
-// to locate and encode/decode entries.
+// to locate and encode/decode entries. DBCodec is always the DB's default codec
+// (typically msgpack), used for decoding pre-transition legacy data. Individual
+// migrations carry their own codecs for version-specific encoding/decoding.
 type MigrationConfig struct {
-	Prefix []byte
-	Codec  binary.Codec
+	Prefix  []byte
+	DBCodec binary.Codec
 }
 
 // AutoMigrateFunc transforms an old entry into a new entry.
@@ -158,7 +160,7 @@ func (m *typedMigration[I, O]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		var old I
-		if err = cfg.Codec.Decode(ctx, iter.Value(), &old); err != nil {
+		if err = cfg.DBCodec.Decode(ctx, iter.Value(), &old); err != nil {
 			return err
 		}
 		var newEntry O
@@ -174,7 +176,7 @@ func (m *typedMigration[I, O]) Run(
 			}
 		}
 		var data []byte
-		if data, err = cfg.Codec.Encode(ctx, newEntry); err != nil {
+		if data, err = cfg.DBCodec.Encode(ctx, newEntry); err != nil {
 			return err
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
@@ -211,7 +213,7 @@ func (m *codecTransitionMigration[K, E]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		var entry E
-		if err = cfg.Codec.Decode(ctx, iter.Value(), &entry); err != nil {
+		if err = cfg.DBCodec.Decode(ctx, iter.Value(), &entry); err != nil {
 			return err
 		}
 		var data []byte
@@ -246,5 +248,5 @@ func (m *rawMigration) Run(
 	kvTx kv.Tx,
 	cfg MigrationConfig,
 ) error {
-	return m.fn(ctx, WrapTx(kvTx, cfg.Codec))
+	return m.fn(ctx, WrapTx(kvTx, cfg.DBCodec))
 }

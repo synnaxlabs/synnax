@@ -24,12 +24,7 @@ import (
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
-	db *gorp.DB,
-	groupSvc *group.Service,
+	obs observe.Observable[gorp.TxReader[uuid.UUID, group.Group]],
 ) (io.Closer, error) {
-	cfg := signals.GorpPublisherConfigUUID[group.Group](db)
-	if groupSvc != nil {
-		cfg.Observable = groupSvc.Observe()
-	}
-	return signals.PublishFromGorp(ctx, prov, cfg)
+	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigUUID[group.Group](obs))
 }

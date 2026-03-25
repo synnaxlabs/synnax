@@ -11,12 +11,12 @@ The migration system has two layers:
 
 **Layer 1 - gorp (general-purpose infrastructure)**: A migration framework in `x/go/gorp`
 that any gorp user can use. Provides the `Migration` interface, `OpenTable` with version
-tracking, `TypedMigration`, `RawMigration`, `CodecTransition`, and transactional
+tracking, `TypedMigration`, `CodecTransition`, `RawMigration`, and transactional
 execution. Knows nothing about Oracle. Cesium, pebblekv, and hand-written migrations all
 use this layer directly.
 
 **Layer 2 - Oracle (code generation)**: Built on top of the gorp layer. Oracle owns
-schemas, generates frozen type snapshots, generates codecs, and generates migration
+schemas, generates frozen type snapshots, generates frozen codecs, and generates migration
 functions that implement `gorp.Migration`. The `oracle migrate` CLI produces files that
 plug into gorp's infrastructure. When Oracle schemas change, migrations are generated
 that transform stored data from the old schema to the new one. The developer's only
@@ -41,6 +41,13 @@ func (Schematic) GorpCodec() binary.Codec { return schematicCodec{} }
 DB's default codec (msgpack). This applies ONLY to top-level gorp entry types, not
 nested types.
 
+**Tradeoff acknowledged**: This makes the codec dependency less visible than explicit DI.
+With `ServiceConfig.Codec`, you see exactly what codec each service gets in `layer.go`.
+With `GorpCodec()`, the codec is derived from the type. The tradeoff is accepted because:
+(a) the codec IS intrinsic to the type, not a configurable choice, (b) `TableConfig.Codec`
+override still exists for testing/special cases, and (c) the 12-service codec wiring in
+`layer.go` is pure boilerplate that adds no information.
+
 ## 2 - Nested Types Are Not Independent
 
 Nested types (like `types.Param`, `graph.Node`, `ir.Edge`) have no independent storage.
@@ -52,40 +59,39 @@ handles it. The parent's codec owns the nested type's encoding.
 
 A migration carries its own input codec (how to decode what's in the store) and output
 codec (how to encode what it writes back). It does not rely on ambient state. The DB's
-default codec (msgpack) is available for pre-transition steps. Frozen binary codecs are
-available for post-transition steps.
+default codec (msgpack) is available as a fallback for pre-transition steps. Frozen binary
+codecs are available for post-transition steps.
 
 ## 4 - Migrations Are Per-Entry Transforms (With Escape Hatch)
 
-The primary migration model is a pure function on a single entry: decode one, transform
-it, write it back. This covers the vast majority of cases (field additions, removals,
-type changes, codec transitions). For complex cases that need cross-type context (e.g.,
-ontology restructuring), a raw `gorp.Tx` escape hatch is available.
+The primary migration model is a function on a single entry: decode one, transform it,
+write it back. This covers the vast majority of cases (field additions, removals, type
+changes, codec transitions). For complex cases that need cross-type context (e.g.,
+ontology restructuring), the developer implements the `Migration` interface directly and
+gets raw `kv.Tx` + `MigrationConfig` access.
 
 ## 5 - The Developer Writes Only What Requires Human Judgment
 
 Oracle generates everything mechanical: frozen type snapshots, frozen codecs,
-auto-migrate functions (field copying), tree walkers for nested types, migration
-registration. The developer writes only the post-migrate function, which sets default
-values for new fields or applies custom transform logic.
+auto-migrate helper functions (field copying), migration registration. The developer
+writes only the transform function, which calls the generated auto-migrate helper and
+sets default values for new fields.
 
 ## 6 - Safety Comes from Tests, Not Manual Review
 
-The auto-migrate function is generated code that the developer does not manually review.
-Instead, Oracle generates golden tests alongside each migration: seed known old data, run
-the migration, assert the output matches expected values. The developer reviews the test
-expectations (compact, understandable) rather than the generated field-copy code (verbose,
-mechanical). If the auto-migrate has a bug, the golden test catches it.
-
-This is the same model as database migration tools. The safety mechanism is automated
-verification, not human code review of generated transforms.
+The auto-migrate helper is generated code. Oracle generates golden tests alongside each
+migration: seed known old data, run the migration, assert the output matches expected
+values. The developer reviews test expectations (compact, understandable) rather than
+generated field-copy code (verbose, mechanical). If the auto-migrate has a bug, the golden
+test catches it.
 
 ## 7 - Frozen Snapshots Are Complete and Self-Contained
 
 Each migration version duplicates the complete type tree as frozen copies within the
 migrations package. The migrations package never imports the parent service package,
 eliminating circular dependencies. Frozen types for `ArcV1` include all nested types
-(`ParamV1`, `FunctionV1`, etc.) at their v1 definitions.
+(`ParamV1`, `FunctionV1`, etc.) at their v1 definitions. Each frozen version has its own
+codec that type-asserts on the correct frozen type.
 
 # 2 - Codec Architecture
 
@@ -107,19 +113,17 @@ type Codec interface {
 
 `GorpCodec()` is a gorp-layer concept. Any `Entry` type can optionally implement it to
 carry its own codec. Oracle generates this method for every entry type annotated with
-`@go marshal`, but non-Oracle types can implement it manually too. This eliminates all
-codec dependency injection.
+`@go marshal`, but non-Oracle types can implement it manually too.
 
 ```go
-// Generated in codec.gen.go
 func (Schematic) GorpCodec() binary.Codec { return schematicCodec{} }
 ```
 
-`OpenTable` auto-detects:
+`OpenTable` auto-detects with explicit override taking priority:
 
 ```go
 func OpenTable[K Key, E Entry[K]](ctx context.Context, cfg TableConfig[E]) (*Table[K, E], error) {
-    codec := cfg.Codec  // explicit override (rare)
+    codec := cfg.Codec  // explicit override takes priority (for tests, special cases)
     if codec == nil {
         var zero E
         if hc, ok := any(&zero).(interface{ GorpCodec() binary.Codec }); ok {
@@ -131,134 +135,137 @@ func OpenTable[K Key, E Entry[K]](ctx context.Context, cfg TableConfig[E]) (*Tab
 }
 ```
 
-**No circular dependencies**: `GorpCodec()` is on the entry type in the service
-package. The codec struct is in the same package (codec.gen.go). Nested type packages
-(arc/graph, arc/types, etc.) are imported by the codec but never import the service
-package back. Dependency direction: service -> library, never library -> service.
-
 ## 3 - Migration Codecs Are Separate from Runtime Codecs
 
 The table's runtime codec (from `GorpCodec()`) is used for all post-startup reads and
 writes. Migration codecs are carried by each migration step independently.
 
 `MigrationConfig` provides the DB's default codec (msgpack) as infrastructure for
-pre-transition decoding. Individual migrations carry their specific frozen codecs.
+pre-transition decoding:
 
 ```go
 type MigrationConfig struct {
     Prefix  []byte
-    DBCodec binary.Codec  // DB's default (msgpack), for legacy data
+    DBCodec binary.Codec  // Always the DB's default codec (msgpack)
 }
 ```
 
 **Critical bug in current implementation**: `table.go:54-61` passes the table's resolved
-codec (binary) as `MigrationConfig.Codec`. This means codec transition migrations try to
-decode old msgpack data with a binary decoder. The fix: `MigrationConfig` must always
-provide the DB's default codec, not the table override.
+codec (binary) as `MigrationConfig.Codec`. CodecTransition uses this for decoding, which
+means it tries to binary-decode old msgpack data. Crashes on upgrades with existing data.
+Works on new installs only because the iterator is empty.
+
+Fix: `MigrationConfig` must always provide the DB's default codec:
+```go
+migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB}
+```
+
+## 4 - Type Assertions in Generated Codecs
+
+Generated codecs use Go type assertions: `value.(Schematic)`. This means a codec
+generated for `schematic.Schematic` WILL NOT work for `v1.Schematic` from a different
+package, even if the binary layout is identical.
+
+**Consequence**: Each frozen type version MUST have its own generated codec. Oracle
+generates `v1.SchematicCodec` that asserts `value.(v1.Schematic)`, separate from the
+current `SchematicCodec` that asserts `value.(Schematic)`.
+
+The codec transition (msgpack to binary) does NOT need frozen types because it uses the
+current type for both input and output. MsgPack decodes by struct tags (name-based).
+Binary encodes by field position. Both work with the current type.
 
 # 3 - Migration Model
 
-## 1 - Per-Entry Transform (Primary)
+## 1 - Three Migration Types at the gorp Layer
 
-`TypedMigration[I, O]` is a gorp-layer primitive. It iterates all entries, decodes each
-as type `I`, calls a single transform function to produce type `O`, and writes back.
+### TypedMigration[I, O]
+
+Iterates all entries, decodes each as type `I`, calls a transform function to produce
+type `O`, writes back. Carries its own input/output codecs.
 
 ```go
-// gorp layer — knows nothing about Oracle or auto/post split
 func NewTypedMigration[I, O any](
     name string,
     inputCodec binary.Codec,    // nil -> use MigrationConfig.DBCodec
     outputCodec binary.Codec,   // nil -> use MigrationConfig.DBCodec
-    transform func(old I) (O, error),
+    transform func(ctx context.Context, old I) (O, error),
 ) Migration
 ```
 
-The transform is a pure data function. No context parameter. If a migration needs
-external dependencies (context, other services), use `RawMigration` instead.
+The transform receives `context.Context` for cancellation, tracing, and logging during
+long migrations. This is an operational necessity, not an aesthetic choice.
 
-At the Oracle layer, the auto-migrate is a generated **helper function** that copies all
-matching fields. The developer's migration function calls it explicitly, then adjusts the
-result. Stack-based (value in, value out):
+At the Oracle layer, the auto-migrate is a generated **helper function** that the
+developer calls explicitly:
 
 ```go
-// auto.gen.go — generated helper, copies all matching fields
+// auto.gen.go -- generated helper, copies all matching fields
 func AutoMigrate(old SchematicV1) SchematicV2 {
     return SchematicV2{Key: old.Key, Name: old.Name, Data: old.Data, Snapshot: old.Snapshot}
 }
 
-// v2_migrate.go — developer writes this, calls AutoMigrate as convenience
-func Migrate(old SchematicV1) (SchematicV2, error) {
+// v2_migrate.go -- developer writes this
+func Migrate(ctx context.Context, old SchematicV1) (SchematicV2, error) {
     new := AutoMigrate(old)
     new.Description = ""
     return new, nil
 }
 ```
 
-`Migrate` is the single transform function passed to `gorp.NewTypedMigration`. The
-auto/post composition happens in the developer's code, not in the framework.
+### CodecTransition[K, E]
 
-## 2 - Raw Transaction (Escape Hatch)
-
-`RawMigration` receives a full `gorp.Tx` for arbitrary read/write operations. Used for
-cross-type migrations like ontology restructuring.
-
-## 3 - Codec Transition
-
-Not a separate type. Just a `TypedMigration` with identity transform and different
-codecs:
+Re-encodes all entries from one codec to another. No schema change. Separate from
+TypedMigration because the semantics are different (re-encoding vs transforming) and
+the implementation is more efficient (no transform function call per entry).
 
 ```go
-// Oracle layer convenience
-gorp.NewTypedMigration[SchematicV1, SchematicV1](
-    "msgpack_to_binary",
-    nil,          // decode with DB default (msgpack)
-    binaryCodec,  // encode with binary
-    func(old SchematicV1) (SchematicV1, error) { return old, nil },
-)
+func NewCodecTransition[K Key, E Entry[K]](name string, targetCodec binary.Codec) Migration
 ```
 
-The gorp layer has exactly two migration types: `TypedMigration` and `RawMigration`.
+Decodes with `MigrationConfig.DBCodec` (msgpack). Encodes with `targetCodec` (binary).
 
-## 4 - Migration Execution
+### RawMigration
+
+The developer implements the `Migration` interface directly. Receives `kv.Tx` +
+`MigrationConfig`. Full control. Used for cross-type migrations like ranger's group
+restructuring.
+
+The `NewRawMigration` convenience wrapper wraps kv.Tx with `MigrationConfig.DBCodec`:
+
+```go
+func NewRawMigration(name string, fn func(ctx context.Context, tx Tx) error) Migration
+```
+
+For post-transition raw migrations that need a different codec (like ranger), implement
+the `Migration` interface directly and call `WrapTx(kvTx, yourCodec)` yourself.
+
+## 2 - Migration Execution
 
 On server startup, `OpenTable` runs pending migrations in a single KV transaction:
 
 1. Read version counter from `__gorp_migration__//<Type>` (uint16)
 2. For each pending migration:
-   a. Execute `Migration.Run(ctx, kvTx, migCfg)`
+   a. Execute `Migration.Run(ctx, kvTx, migCfg)` where migCfg.DBCodec = DB default
    b. Increment version counter
-3. Commit transaction atomically
-4. If any step fails, entire transaction rolls back
+3. Run `migrateOldPrefixKeys` and `reEncodeKeys` (implicit, always-run, cheap no-ops)
+4. Commit transaction atomically
+5. If any step fails, entire transaction rolls back. Retry on next startup.
 
-Key prefix migration (`migrateOldPrefixKeys`) and key re-encoding (`reEncodeKeys`) are
-explicit versioned migrations in the chain, not implicit always-run steps. Everything is
-a versioned migration. No hidden work on startup.
+Key prefix migration and key re-encoding remain implicit steps, not versioned migrations.
+They need type parameters `[K, E]` that don't fit the non-generic `Migration` interface,
+and they're cheap no-ops on subsequent startups. Forcing them into the versioned chain
+adds complexity without benefit.
 
-## 5 - Nested Type Migration
+## 3 - Nested Type Migration
 
 When a nested type changes (e.g., `types.Param` gains a field), Oracle detects all
 parent gorp entries that contain the nested type (via dependency graph). For each affected
-entry:
+entry, Oracle generates a migration that includes frozen types for the ENTIRE type tree
+at the old version.
 
-1. Frozen type snapshot includes all nested types at their old definitions
-2. Auto-migrate copies the full type tree field by field, mapping old nested types to new
-3. Oracle generates a tree walker (e.g., `ForEachParam`) that visits every instance of
-   the changed nested type in the parent entry
-4. Post-migrate template uses the walker, so the developer writes one line
-
-Developer's post-migrate for a nested `Param` change in `Arc`:
-
-```go
-func PostMigrate(arc *ArcV2, old ArcV1) error {
-    ForEachParam(arc, func(p *ParamV2) {
-        p.Description = ""  // TODO: set default
-    })
-    return nil
-}
-```
-
-`ForEachParam` is generated by Oracle. It walks every location where `Param` appears in
-the Arc type tree.
+The developer's transform handles nested changes. In Phase 1 (manual transforms), the
+developer writes the nested field iteration. In Phase 2 (auto-generation), Oracle
+generates tree walkers (e.g., `ForEachParam`) as convenience helpers.
 
 # 4 - Migrations Package Structure
 
@@ -269,29 +276,37 @@ package. This eliminates circular dependencies.
 
 ```
 core/pkg/service/schematic/
-    schematic.go          # current types (oracle sync)
-    codec.go              # current codec (oracle sync)
+    types.gen.go          # current types (oracle sync)
+    codec.gen.go          # current codec (oracle sync)
+    helpers.go            # GorpKey(), SetOptions(), GorpCodec()
     service.go            # service logic
     migrations/
         migrations.go     # All() -> []gorp.Migration (generated)
-        v1.go             # frozen type snapshot + codec for v1
-        v1_migrate.go     # codec transition (fully generated)
-        v2.go             # frozen type snapshot + codec for v2
-        v2_auto.go        # auto-migrate v1->v2 (generated)
-        v2_migrate.go     # post-migrate v1->v2 (DEVELOPER EDITS THIS)
+        v1.go             # frozen type snapshot + frozen codec for v1
+        v1_migrate.go     # codec transition (fully generated, identity transform)
+        v2.go             # frozen type snapshot + frozen codec for v2
+        v2_auto.go        # auto-migrate helper v1->v2 (generated)
+        v2_migrate.go     # transform v1->v2 (DEVELOPER EDITS THIS)
 ```
 
 ## 2 - No Circular Dependencies
 
-The last migration's output type is a frozen type in the migrations package (e.g.,
-`SchematicV2`), NOT `schematic.Schematic` from the parent. `SchematicV2` is structurally
-identical to `Schematic` because Oracle generates both from the same schema. Binary
-encoding is structural, so the bytes are compatible.
+The migrations package uses ONLY frozen types defined locally. The last migration's
+output type is `SchematicV2` (frozen, in migrations package), NOT `schematic.Schematic`
+(parent package). These are structurally identical because Oracle generates both from the
+same schema. Binary encoding is positional, so the bytes are identical regardless of Go
+type name or package.
+
+`TypedMigration.Run` uses `cfg.Prefix` (derived from `OpenTable[K, Schematic]`), not
+`types.Name[I]()`. No prefix mismatch.
+
+Each frozen type has its own codec with type assertions matching the frozen type
+(`value.(v1.Schematic)` not `value.(schematic.Schematic)`).
 
 ## 3 - Service Integration
 
 ```go
-// service.go -- clean, no codec wiring
+// service.go -- no codec wiring
 import "core/pkg/service/schematic/migrations"
 
 table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
@@ -300,72 +315,74 @@ table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schemat
 })
 ```
 
-Two fields: DB and Migrations. No Codec. No ServiceConfig.Codec. No layer.go wiring.
+Two fields: DB and Migrations. Codec auto-detected from `Schematic.GorpCodec()`.
 
 # 5 - Build Strategy
 
-## 1 - MVP Then Grow
+## Phase 1: Full Working Migration System
 
-The auto-migrate generator (schema diff, dependency graph, field-copy codegen, tree
-walkers) is the most complex and highest-risk piece of the system. Build incrementally:
+Oracle generates frozen types, frozen codecs, and migration registration. Developer
+writes transform functions manually (calling generated auto-migrate helpers as
+convenience). The gorp runtime handles execution with correct codec separation.
 
-**Phase 1**: Full working migration system. Codec transitions + schema change migrations
-for all types. Oracle generates frozen types, frozen codecs, test scaffolding, and
-migration registration. Developer writes transform functions manually (pre-filled
-templates). The gorp runtime handles execution with correct codec separation.
+Includes: codec transitions, schema change migrations, nested type migrations (manual
+transforms). Auto-migrate helper generation. Snapshot mechanism.
 
-**Phase 2**: Incrementally add auto-migrate generation, schema diffing, dependency
-tracking, and tree walkers. Each addition is validated by the existing test
-infrastructure before being trusted. Developers write less, tooling does more.
+## Phase 2: Incremental Tooling Improvements
+
+Schema diffing, dependency tracking, tree walkers, golden test generation. Each addition
+validated by existing test infrastructure. Developers write less, tooling does more.
 
 # 6 - Schema Snapshots
 
 ## 1 - Why Snapshots Are Needed
 
-Frozen migration types are NOT direct copies of generated files. `types.gen.go` lacks
-`GorpKey()`/`SetOptions()` methods (defined in `helpers.go`). `codec.gen.go` needs
-package renaming and type reference changes. Oracle's migrate plugin generates frozen
-types as purpose-built artifacts from the `.oracle` schema definition.
+Frozen migration types are purpose-built artifacts generated from `.oracle` schema
+definitions. They include `GorpKey()`/`SetOptions()` methods, correct package
+declarations, and version-specific type assertions in their codecs. They cannot be derived
+from the generated Go files alone.
 
-This means Oracle needs access to the old `.oracle` schema to generate frozen types for
-a new migration. The old schema cannot be recovered from the generated Go files alone.
+Oracle needs access to the old `.oracle` schema to generate frozen types for a new
+migration.
 
 ## 2 - Snapshot Mechanism
 
-**Decision: TBD** — The snapshot mechanism needs further design work.
+sy-3824 already implements this: `schemas/.snapshots/vN/` with full `.oracle` file
+copies. The `oracle migrate` command:
 
-Options under consideration:
-- Global snapshot directory (`schemas/.snapshots/vN/`) with full `.oracle` file copies
-- Embedding schema metadata alongside frozen types in the migrations package
-- Capturing old schema via `oracle migrate` before sync overwrites (requires Oracle to
-  work from .oracle files, not generated Go)
+1. Loads current `.oracle` files (new schema)
+2. Loads latest snapshot from `schemas/.snapshots/vN/` (old schema)
+3. Generates frozen types + codecs from the snapshot
+4. Generates migration artifacts
+5. Creates new snapshot `schemas/.snapshots/v(N+1)/`
 
-Key constraints:
-- Must capture the full dependency tree (nested type references)
-- Must be complete enough for Oracle to re-parse and generate frozen types
-- Should not require the developer to manage snapshot timing manually
+Full `.oracle` file copies per snapshot. Storage is cheap (<200KB per snapshot). Must
+capture the full dependency tree since types reference each other across files.
+
+For the first migration (codec transition): no previous snapshot needed. The old schema
+IS the current schema (same fields, different encoding). The snapshot is created after
+the first migration generation, establishing the baseline.
 
 # 7 - CLI Workflow
 
 ## 1 - Commands
 
-**`oracle migrate`**: The primary command for schema changes. Generates migration
-artifacts, then runs `oracle sync` internally to update types/codecs. One command for the
-developer.
+**`oracle migrate`**: Primary command for schema changes. Generates migration artifacts,
+then runs `oracle sync` internally to update types/codecs. One command.
 
-**`oracle sync`**: Available standalone for non-migration tasks (initial setup, Oracle
-version upgrades, regenerating after toolchain changes). Does not generate migrations.
+**`oracle sync`**: Standalone for non-migration tasks (initial setup, Oracle upgrades,
+regenerating after toolchain changes). Does not generate migrations.
 
-**`oracle migrate check`**: CI enforcement. Diffs current schemas against last snapshot.
-Fails if schemas changed without a corresponding migration.
+**`oracle migrate check`**: CI enforcement. Diffs current schemas against latest
+snapshot. Fails if schemas changed without corresponding migration.
 
 ## 2 - Developer Workflow
 
 ```bash
-# 1. Developer edits .oracle schema
+# 1. Edit .oracle schema
 # 2. Run oracle migrate (generates migrations + runs sync)
 oracle migrate
-# 3. Developer edits the post-migrate file (sets defaults)
+# 3. Edit the transform file (set defaults for new fields)
 # 4. Run tests, commit
 ```
 
@@ -373,74 +390,69 @@ oracle migrate
 
 ## 1 - GorpCodec() Feasibility: CONFIRMED
 
-- All 14 production `OpenTable` calls pass `Codec` from `ServiceConfig` (DI pattern).
-  Adding optional `GorpCodec()` check is non-breaking.
-- No circular dependencies: codec struct is in same package as type, nested type packages
-  don't import back.
-- Resolution priority: `TableConfig.Codec` (explicit override) > `GorpCodec()` (type
-  intrinsic) > `DB default` (msgpack fallback).
+- All 14 production `OpenTable` calls pass `Codec` from `ServiceConfig`. Adding optional
+  `GorpCodec()` check is non-breaking.
+- No circular dependencies.
+- Resolution priority: `TableConfig.Codec` > `GorpCodec()` > DB default.
 
 ## 2 - TypedMigration Changes: CONFIRMED
 
-- Zero production callers of `NewTypedMigration` (only 6 test callers). Safe to change.
-- Zero production transforms use `context.Context`. Safe to drop.
-- Adding `inputCodec`/`outputCodec` breaks only tests (add `nil, nil`).
+- Zero production callers of `NewTypedMigration` (only 6 test callers).
+- Adding `inputCodec`/`outputCodec` breaks only tests.
 
-## 3 - Self-Contained Migrations Sub-Package: CONFIRMED WITH NUANCE
+## 3 - Self-Contained Migrations Sub-Package: CONFIRMED
 
-- On sy-3824, the registration function lives in the PARENT package (not sub-package)
-  because it references current types.
-- Our proposal puts `All()` in the sub-package. This works because `All()` uses ONLY
-  frozen types (SchematicV1, SchematicV2) which are local to the sub-package.
-- Prefix is always derived from `OpenTable[K, Schematic]` (current type), not from
-  migration type parameters. `TypedMigration.Run` uses `cfg.Prefix`, never `types.Name`.
-  No prefix mismatch even though frozen types have different Go names.
+- Frozen types import only external packages, never the parent service package.
+- `All()` uses only frozen types. No circular deps.
+- Prefix derived from `OpenTable[K, E]` current type, not migration type parameters.
 
 ## 4 - MigrationConfig.Codec Bug: CONFIRMED
 
-Exact trace:
-1. `service.go:93` — `Codec: cfg.Codec` where cfg.Codec = SchematicCodec (binary)
-2. `table.go:54` — `resolveCodec()` returns binary codec (non-nil override)
-3. `table.go:61` — `MigrationConfig{Codec: codec}` — Codec is binary
-4. `migrate.go:214` — `cfg.Codec.Decode()` decodes old msgpack data with binary codec
+Exact trace: service passes binary codec -> resolveCodec returns binary ->
+MigrationConfig carries binary -> CodecTransition decodes msgpack with binary -> crash.
 
-New installs: no entries, no crash. Upgrades with existing msgpack data: crash.
-Fix: `MigrationConfig` must provide DB default codec, not table override.
+## 5 - Type Assertion Constraint: CONFIRMED
 
-## 5 - Key Migrations as Explicit Steps: FEASIBLE
+Generated codecs use `value.(Schematic)`. Frozen types in different packages need their
+own codecs with matching type assertions. Each version = own type + own codec.
 
-`migrateOldPrefixKeys` and `reEncodeKeys` are plain functions, not Migration interface
-implementations. Converting them to explicit versioned migrations requires making them
-generic (they already are: `[K Key, E Entry[K]]`) and wrapping them as TypedMigration
-with identity transform. No architectural issues.
+## 6 - Binary Layout Determinism: CONFIRMED
+
+Oracle's marshal plugin uses field declaration order from `.oracle` files. Field
+constants are numbered sequentially. Same field order = same binary layout regardless of
+Go package or type name.
+
+## 7 - Current Branch State
+
+`core/` does not compile. `ontology/codec.gen.go` has broken import to non-existent
+`internal/resource` package. Must be fixed before any work proceeds.
 
 # 9 - Decisions Log
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | GorpCodec() on entry types, gorp layer | Type carries its own codec. No DI. |
+| 1 | GorpCodec() on entry types, gorp layer | Codec is intrinsic to type. Explicit override still available. |
 | 2 | Nested types don't carry codecs | No independent storage. Parent owns encoding. |
-| 3 | Per-entry transform primary, raw escape hatch | Covers 95% of cases. Raw for complex. |
+| 3 | Per-entry transform primary, raw escape hatch | Covers 95% of cases. Raw for complex cross-type ops. |
 | 4 | Two-file split (auto.gen + developer migrate) | Safety from golden tests, not manual review. |
 | 5 | Two-layer architecture (gorp + Oracle) | gorp is general-purpose. Oracle builds on it. |
-| 6 | Single transform function at gorp layer | No auto/post split at gorp level. Oracle composes. |
-| 7 | Auto-migrate as helper function, not black box | Developer calls AutoMigrate() explicitly. Stack-based. |
-| 8 | No context in transform signature | Pure data transforms. RawMigration for anything else. |
-| 9 | CodecTransition is just TypedMigration | Identity transform, different codecs. Two types total. |
-| 10 | Key migrations are explicit versioned steps | No implicit always-run steps. Everything tracked. |
+| 6 | Single transform at gorp layer | Oracle composes auto+post via helper function pattern. |
+| 7 | Auto-migrate as helper function | Developer calls explicitly. Stack-based (value in, value out). |
+| 8 | Transform keeps context.Context | Operational need: cancellation, tracing, logging for long migrations. |
+| 9 | CodecTransition stays separate | Different semantics (re-encode vs transform). More efficient. |
+| 10 | Key migrations stay implicit | Need type params that don't fit Migration interface. Cheap no-ops. |
 | 11 | Retry on failure, nothing more | Server refuses to start. Fix and restart. |
 | 12 | oracle migrate runs sync internally | One command. Correct ordering guaranteed. |
-| 13 | Implicit cross-type ordering via service startup | No explicit mechanism needed. |
+| 13 | Implicit cross-type ordering via service startup | Service dependency order handles it. |
 | 14 | Single transaction, no batching | Metadata volumes are small. Simple and correct. |
-| 15 | Migrations package is self-contained sub-package | Never imports parent. Eliminates circular deps. |
-| 16 | Deprecated Migrator: leave, port later | Not blocking. Separate cleanup effort. |
-| 17 | Full snapshot of .oracle files per migration | Simple, complete, cheap. Developer ensures clean state. |
+| 15 | Migrations sub-package, self-contained | Never imports parent. Each version has own codec. |
+| 16 | Deprecated Migrator: leave, port later | Separate cleanup effort. |
+| 17 | Snapshot: full .oracle file copy per migration | sy-3824 already implements this pattern. |
+| 18 | RawMigration wraps with DBCodec | Convenience for pre-transition. Post-transition: implement Migration directly. |
 
-# 9 - Open Questions
+# 10 - Open Questions
 
-- Snapshot mechanism implementation details (Section 6.2)
-- CI enforcement details for `oracle migrate check`
-- Testing strategy for migrations (deferred to after system works)
-- Initial codec transition for all existing types (first migration for each)
-- Transition plan from current codebase to new system
-- Nested type migration: exact auto-migrate + walker generation strategy (Phase 2)
+- Exact reconciliation plan for sy-3824 branch vs new design
+- Whether to keep or discard sy-3824's `gorp.Codec[E]` generic interface
+- Testing strategy for migrations (deferred until system works)
+- How to handle the transition from current half-wired state to clean starting point

@@ -3730,7 +3730,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesParam(data[:_sLen])
 					if _se != nil {
-						return _se
+						return r, _se
 					}
 					r.Type.Inputs[_i2] = _sv
 					data = data[_sLen:]
@@ -3752,7 +3752,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesParam(data[:_sLen])
 					if _se != nil {
-						return _se
+						return r, _se
 					}
 					r.Type.Outputs[_i4] = _sv
 					data = data[_sLen:]
@@ -3774,7 +3774,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesParam(data[:_sLen])
 					if _se != nil {
-						return _se
+						return r, _se
 					}
 					r.Type.Config[_i6] = _sv
 					data = data[_sLen:]
@@ -3800,7 +3800,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return _se
+				return r, _se
 			}
 			_ov7 = _sv
 			data = data[_sLen:]
@@ -3848,7 +3848,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return _se
+				return r, _se
 			}
 			_ov9 = _sv
 			data = data[_sLen:]
@@ -3863,7 +3863,7 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		if err := json.Unmarshal(data[:_n], &r.Value); err != nil {
-			return err
+			return r, err
 		}
 		data = data[_n:]
 	}
@@ -4019,7 +4019,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesType(data[:_sLen])
 					if _se != nil {
-						return _se
+						return r, _se
 					}
 					r.Inputs[_i2].Type = _sv
 					data = data[_sLen:]
@@ -4028,7 +4028,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					if err := json.Unmarshal(data[:_n], &r.Inputs[_i2].Value); err != nil {
-						return err
+						return r, err
 					}
 					data = data[_n:]
 				}
@@ -4055,7 +4055,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesType(data[:_sLen])
 					if _se != nil {
-						return _se
+						return r, _se
 					}
 					r.Outputs[_i4].Type = _sv
 					data = data[_sLen:]
@@ -4064,7 +4064,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					if err := json.Unmarshal(data[:_n], &r.Outputs[_i4].Value); err != nil {
-						return err
+						return r, err
 					}
 					data = data[_n:]
 				}
@@ -4091,7 +4091,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					data = data[4:]
 					_sv, _se := unmarshaltypesType(data[:_sLen])
 					if _se != nil {
-						return _se
+						return r, _se
 					}
 					r.Config[_i6].Type = _sv
 					data = data[_sLen:]
@@ -4100,7 +4100,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					_n := binary.BigEndian.Uint32(data[:4])
 					data = data[4:]
 					if err := json.Unmarshal(data[:_n], &r.Config[_i6].Value); err != nil {
-						return err
+						return r, err
 					}
 					data = data[_n:]
 				}
@@ -4125,7 +4125,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return _se
+				return r, _se
 			}
 			_ov7 = _sv
 			data = data[_sLen:]
@@ -4173,7 +4173,7 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 			data = data[4:]
 			_sv, _se := unmarshaltypesType(data[:_sLen])
 			if _se != nil {
-				return _se
+				return r, _se
 			}
 			_ov9 = _sv
 			data = data[_sLen:]

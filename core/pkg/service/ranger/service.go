@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -117,14 +118,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if err := s.migrate(ctx); err != nil {
-		return nil, err
-	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigUUID[Range](cfg.DB)
-	signalsCfg.Observable = s.table.Observe()
 	rangeSignals, err := signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,

@@ -31,6 +31,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -113,7 +114,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: relationshipTable.Observe(),
-		registrar:            serviceRegistrar{ResourceTypeBuiltIn: &builtinService{}},
+		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		resourceTable:        resourceTable,
 		relationshipTable:    relationshipTable,
 	}

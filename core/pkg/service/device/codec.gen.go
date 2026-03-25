@@ -23,8 +23,6 @@ import (
 
 	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 
-	resource "github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
-
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 
 	label "github.com/synnaxlabs/x/label"
@@ -284,7 +282,7 @@ func (deviceCodec) Decode(
 		{
 			_n := binary.BigEndian.Uint32(data[:4])
 			data = data[4:]
-			_ov4.Type = resource.Type(data[:_n])
+			_ov4.Type = ontology.ResourceType(data[:_n])
 			data = data[_n:]
 		}
 		{

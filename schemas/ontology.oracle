@@ -73,7 +73,6 @@ ID struct {
        unique for a particular resource (e.g. channel), it might not be unique across all
        resources. We need something universally unique across the entire Synnax Core.
     """
-    @go omit
     @ts omit
     @cpp omit
     @py omit

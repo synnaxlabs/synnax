@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -39,7 +40,7 @@ func (m *rangeGroupsMigration) Run(
 	kvTx kv.Tx,
 	migCfg gorp.MigrationConfig,
 ) error {
-	gorpTx := gorp.WrapTx(kvTx, migCfg.Codec)
+	gorpTx := gorp.WrapTx(kvTx, m.codec)
 
 	m.l.Info("Swapping ranges to make sure the time range is valid.")
 	if err := m.swapRanges(ctx, kvTx, migCfg.Prefix); err != nil {
@@ -179,12 +180,12 @@ func (m *rangeGroupsMigration) swapRanges(
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		r, decErr := m.codec.Unmarshal(ctx, iter.Value())
-		if decErr != nil {
-			return decErr
+		var r Range
+		if err = m.codec.Decode(ctx, iter.Value(), &r); err != nil {
+			return err
 		}
 		r.TimeRange = r.TimeRange.MakeValid()
-		data, encErr := m.codec.Marshal(ctx, r)
+		data, encErr := m.codec.Encode(ctx, r)
 		if encErr != nil {
 			return encErr
 		}
@@ -209,10 +210,8 @@ func (m *rangeGroupsMigration) loadAllRanges(
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		r, decErr := iter.Value(), error(nil)
 		var rng Range
-		rng, decErr = m.codec.Unmarshal(ctx, r)
-		if decErr != nil {
+		if decErr := m.codec.Decode(ctx, iter.Value(), &rng); decErr != nil {
 			return nil, decErr
 		}
 		result[rng.Key] = rng
@@ -226,7 +225,7 @@ func (m *rangeGroupsMigration) writeRange(
 	prefix []byte,
 	r Range,
 ) error {
-	data, err := m.codec.Marshal(ctx, r)
+	data, err := m.codec.Encode(ctx, r)
 	if err != nil {
 		return err
 	}

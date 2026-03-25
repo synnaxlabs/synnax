@@ -58,7 +58,7 @@ func OpenTable[K Key, E Entry[K]](
 	defer func() {
 		_ = kvTx.Close()
 	}()
-	migCfg := MigrationConfig{Prefix: prefix, Codec: codec}
+	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB}
 	if len(cfg.Migrations) > 0 {
 		currentVersion, err := readMigrationVersion(ctx, kvTx, versionKey)
 		if err != nil {

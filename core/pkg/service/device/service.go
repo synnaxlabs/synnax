@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -140,8 +141,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Search.RegisterService(s)
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString[Device](cfg.DB)
-		signalsCfg.Observable = s.table.Observe()
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
