@@ -61,7 +61,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "jsdom": "^27.4.0",
+    "jsdom": "catalog:",
     "madge": "catalog:",
     "react-dom": "catalog:",
     "stylelint": "catalog:",

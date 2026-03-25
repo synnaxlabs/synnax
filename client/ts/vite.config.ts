@@ -18,5 +18,5 @@ export default defineConfig({
   define: { __VERSION__: JSON.stringify(packageJSON.version) },
   plugins: [lib({ name: "client" })],
   build: { rollupOptions: { external: ["zod"] } },
-  test: { globals: true, environment: "jsdom" },
+  test: { globals: true },
 });
