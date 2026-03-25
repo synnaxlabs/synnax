@@ -1,0 +1,127 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output  "client/ts/src/ontology"
+@py output  "client/py/synnax/ontology"
+@go output  "core/pkg/distribution/ontology"
+@cpp output "client/cpp/ontology"
+@pb
+
+ResourceType enum {
+    arc              = "arc"
+    builtin          = "builtin"
+    channel          = "channel"
+    cluster          = "cluster"
+    device           = "device"
+    framer           = "framer"
+    group            = "group"
+    label            = "label"
+    lineplot         = "lineplot"
+    log              = "log"
+    node             = "node"
+    policy           = "policy"
+    rack             = "rack"
+    range            = "range"
+    range_alias      = "range-alias"
+    role             = "role"
+    schematic        = "schematic"
+    schematic_symbol = "schematic_symbol"
+    status           = "status"
+    table            = "table"
+    task             = "task"
+    user             = "user"
+    view             = "view"
+    workspace        = "workspace"
+
+    @doc value "is the type of the resource."
+    @go output "core/pkg/distribution/ontology"
+}
+
+RelationshipType string {
+    @go omit
+    @ts omit
+}
+
+ID struct {
+    type ResourceType {
+        @doc value """
+            defines the type of resource the key refers to. For example,
+            a channel is a resource of type "channel". A user is a resource of type
+            "user".
+        """
+    }
+    key  string       {
+        @doc value "is the unique key identifying the resource within its type."
+    }
+
+    @doc value """
+       ID is a unique identifier for a Resource. An example:
+
+       userID := ID{
+            Key:  "748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
+            Type: "user",
+       }
+
+       The ID has two elements for several reasons. First, by storing the Type we know which
+       service to query for additional info on the Resource. Second, while a Key may be
+       unique for a particular resource (e.g. channel), it might not be unique across all
+       resources. We need something universally unique across the entire Synnax Core.
+    """
+    @ts omit
+    @cpp omit
+    @py omit
+}
+
+Resource struct {
+    id   ID      {
+        @doc value "is the unique identifier for this resource."
+    }
+    name string  {
+        @doc value "is a human-readable name for the resource."
+    }
+    data record? {
+        @doc value "is optional metadata associated with the resource."
+    }
+
+    @doc value  """
+        is a resource in the ontology system with its identifier, name, and
+        optional metadata.
+    """
+    @go omit
+    @go marshal
+    @ts omit
+    @go omit
+    @cpp omit
+    @py omit
+    @pb omit
+}
+
+Relationship struct {
+    from ID               {
+        @doc value "is the source resource of the relationship."
+    }
+    type RelationshipType {
+        @doc value "is the type of relationship (e.g., 'parent_of', 'owns')."
+    }
+    to   ID               {
+        @doc value "is the target resource of the relationship."
+    }
+
+    @doc value  """
+        is a directional relationship between two resources in the ontology
+        system.
+    """
+    @go omit
+    @go marshal
+    @ts omit
+    @go omit
+    @cpp omit
+    @py omit
+    @pb omit
+}

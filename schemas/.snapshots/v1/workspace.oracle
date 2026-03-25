@@ -35,10 +35,6 @@ Workspace struct {
         """
         @ts preserve_case
     }
-    description string? {
-        @doc value "is an optional human-readable description of the workspace."
-    }
-
     @doc value     """
         is a named, persistable container that stores the layout and organization
         of the Console application. Workspaces allow users to save and restore

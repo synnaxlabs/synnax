@@ -24,11 +24,12 @@ import (
 var _ = binary.BigEndian
 
 const (
-	WorkspaceFieldKey    = 0
-	WorkspaceFieldName   = 1
-	WorkspaceFieldAuthor = 2
-	WorkspaceFieldLayout = 3
-	WorkspaceFieldCount  = 4
+	WorkspaceFieldKey         = 0
+	WorkspaceFieldName        = 1
+	WorkspaceFieldAuthor      = 2
+	WorkspaceFieldLayout      = 3
+	WorkspaceFieldDescription = 4
+	WorkspaceFieldCount       = 5
 )
 
 type workspaceCodec struct{}
@@ -38,7 +39,7 @@ func (workspaceCodec) Encode(
 	value any,
 ) ([]byte, error) {
 	s := value.(Workspace)
-	buf := make([]byte, 0, 128)
+	buf := make([]byte, 0, 160)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
 	buf = append(buf, s.Name...)
@@ -51,6 +52,8 @@ func (workspaceCodec) Encode(
 		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 		buf = append(buf, _jb...)
 	}
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Description)))
+	buf = append(buf, s.Description...)
 	return buf, nil
 }
 
@@ -89,6 +92,12 @@ func (workspaceCodec) Decode(
 		if err := json.Unmarshal(data[:_n], &r.Layout); err != nil {
 			return err
 		}
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Description = string(data[:_n])
 		data = data[_n:]
 	}
 	return nil

@@ -28,6 +28,12 @@ type Plugin interface {
 type Request struct {
 	// Resolutions holds the resolved type table from Oracle schema files.
 	Resolutions *resolution.Table
+	// OldResolutions holds the type table from the previous schema snapshot, used
+	// by migration plugins to diff against the current schema. Nil when no previous
+	// snapshot exists.
+	OldResolutions *resolution.Table
+	// SnapshotVersion is the version number of the latest schema snapshot.
+	SnapshotVersion int
 	// RepoRoot is the absolute path to the repository root directory.
 	RepoRoot string
 }
