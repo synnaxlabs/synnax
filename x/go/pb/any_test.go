@@ -89,8 +89,7 @@ var _ = Describe("Any", func() {
 				"nested": map[string]any{"inner": "data"},
 			}
 			packed := MustSucceed(pb.AnyToPBAny(original))
-			result := MustSucceed(pb.AnyFromPBAny(packed))
-			m, ok := result.(map[string]any)
+			m, ok := MustSucceed(pb.AnyFromPBAny(packed)).(map[string]any)
 			Expect(ok).To(BeTrue())
 			Expect(m["name"]).To(Equal("test"))
 			Expect(m["count"]).To(BeNumerically("==", 10))

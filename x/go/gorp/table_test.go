@@ -273,8 +273,7 @@ var _ = Describe("Table", func() {
 					{ID: 71, Data: "seventy-one"},
 				}
 				Expect(table.NewCreate().Entries(&entries).Exec(ctx, db)).To(Succeed())
-				seq, closer, err := table.OpenNexter(ctx)
-				Expect(err).ToNot(HaveOccurred())
+				seq, closer := MustSucceed2(table.OpenNexter(ctx))
 				var result []entry
 				for e := range seq {
 					result = append(result, e)

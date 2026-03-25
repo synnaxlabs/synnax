@@ -23,7 +23,7 @@ describe("HTTP Task Types", () => {
     channel: 1,
     enabled: true,
     key: "f1",
-    dataType: DataType.FLOAT64,
+    dataType: DataType.FLOAT64.toString(),
   };
 
   describe("READ_SCHEMAS", () => {
@@ -138,7 +138,7 @@ describe("HTTP Task Types", () => {
                 channel: 1,
                 enabled: true,
                 key: "f1",
-                dataType: DataType.FLOAT64,
+                dataType: DataType.FLOAT64.toString(),
               },
             ],
           },
