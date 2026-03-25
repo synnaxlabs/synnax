@@ -266,6 +266,7 @@ type RelayResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Frame         *pb.Frame              `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Group         uint32                 `protobuf:"varint,3,opt,name=group,proto3" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -312,6 +313,13 @@ func (x *RelayResponse) GetError() *errors.PBPayload {
 		return x.Error
 	}
 	return nil
+}
+
+func (x *RelayResponse) GetGroup() uint32 {
+	if x != nil {
+		return x.Group
+	}
+	return 0
 }
 
 type WriterRequest struct {
@@ -633,10 +641,11 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\"\n" +
 	"\fRelayRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys\"a\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\"w\n" +
 	"\rRelayResponse\x12'\n" +
 	"\x05frame\x18\x01 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12'\n" +
-	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\"\x94\x01\n" +
+	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x14\n" +
+	"\x05group\x18\x03 \x01(\rR\x05group\"\x94\x01\n" +
 	"\rWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12@\n" +
 	"\x06config\x18\x02 \x01(\v2(.synnax.distribution.framer.WriterConfigR\x06config\x12'\n" +

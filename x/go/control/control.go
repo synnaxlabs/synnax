@@ -12,8 +12,26 @@ package control
 import (
 	"fmt"
 
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
+
+// Override implements config.Config, setting any zero-valued fields on s to the
+// corresponding values from other.
+func (s Subject) Override(other Subject) Subject {
+	s.Name = override.String(s.Name, other.Name)
+	s.Key = override.String(s.Key, other.Key)
+	s.Group = override.Numeric(s.Group, other.Group)
+	return s
+}
+
+// Validate validates the Subject, ensuring that the Key is non-empty.
+func (s Subject) Validate() error {
+	v := validate.New("control.subject")
+	validate.NotEmptyString(v, "key", s.Key)
+	return v.Error()
+}
 
 // String implements fmt.Stringer to nicely print out information about the subject.
 func (s Subject) String() string {
@@ -32,25 +50,6 @@ func (s State[R]) String() string {
 		s.Authority,
 		s.Resource,
 	)
-}
-
-// Transfer represents a transfer of control over a resource. It is represented as a
-// transition from one state to another over the same resource. A transfer between
-// resources that are different ill result in a panic when any transfer methods
-// are called.
-//
-// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
-// resource is uncontrolled after the transfer.
-//
-// If both From and To are nil, no transfer occurred. If both From and To are not nil,
-// and From.Subject != To.Subject, a transfer occurred.
-type Transfer[R comparable] struct {
-	// From is the control state before the transfer. If From is nil, the entity
-	// was uncontrolled before the transfer.
-	From *State[R]
-	// To is the control state after the transfer. If To is nil, the entity is
-	// uncontrolled after the transfer.
-	To *State[R]
 }
 
 func (t Transfer[R]) assertValid() {

@@ -65,7 +65,7 @@ inline std::vector<ontology::ID> rack_ontology_ids(const std::vector<Key> &keys)
 /// @param key The rack key.
 /// @returns The node ID portion of the rack key.
 inline std::uint16_t rack_key_node(const Key key) {
-    return key >> 12;
+    return key >> 16;
 }
 
 /// @brief Client for managing racks in a Synnax cluster.

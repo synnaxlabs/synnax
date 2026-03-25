@@ -266,6 +266,7 @@ func (t frameStreamerRequestTranslator) Forward(
 		Keys:             translateChannelKeysForward(msg.Keys),
 		DownsampleFactor: int32(msg.DownsampleFactor),
 		ThrottleRateHz:   float64(msg.ThrottleRate),
+		ExcludeGroups:    msg.ExcludeGroups,
 	}, nil
 }
 
@@ -277,6 +278,7 @@ func (t frameStreamerRequestTranslator) Backward(
 		Keys:             translateChannelKeysBackward(msg.Keys),
 		DownsampleFactor: int(msg.DownsampleFactor),
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
+		ExcludeGroups:    msg.ExcludeGroups,
 	}
 	if msg.EnableExperimentalCodec {
 		return rq, t.codec.Update(ctx, rq.Keys)

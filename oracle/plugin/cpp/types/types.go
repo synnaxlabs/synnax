@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // primitiveMapper is the C++-specific primitive type mapper.
@@ -219,7 +220,7 @@ func (p *Plugin) generateFile(
 		rawNs:       namespace,
 	}
 
-	declaredNames := make(map[string]bool)
+	declaredNames := make(set.Set[string])
 
 	for _, e := range enums {
 		if e.Namespace == namespace && !omit.IsType(e, "cpp") {
@@ -236,12 +237,12 @@ func (p *Plugin) generateFile(
 
 	if namespace != "" {
 		allNamespaceTypes := table.TypesInNamespace(namespace)
-		existingQNames := make(map[string]bool)
+		existingQNames := make(set.Set[string])
 		for _, t := range combinedTypes {
-			existingQNames[t.QualifiedName] = true
+			existingQNames.Add(t.QualifiedName)
 		}
 		for _, t := range allNamespaceTypes {
-			if !existingQNames[t.QualifiedName] {
+			if !existingQNames.Contains(t.QualifiedName) {
 				combinedTypes = append(combinedTypes, t)
 			}
 		}
@@ -267,8 +268,8 @@ func (p *Plugin) generateFile(
 		switch typ.Form.(type) {
 		case resolution.DistinctForm:
 			tdd := p.processTypeDef(typ, data)
-			if !declaredNames[tdd.Name] {
-				declaredNames[tdd.Name] = true
+			if !declaredNames.Contains(tdd.Name) {
+				declaredNames.Add(tdd.Name)
 				data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 					IsTypeDef: true,
 					TypeDef:   tdd,

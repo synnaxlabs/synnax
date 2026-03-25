@@ -1176,6 +1176,22 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.TypeParams[0].Constraint.Name).To(Equal("int32"))
 		})
 
+		It("Should resolve comparable constraint without warnings", func() {
+			source := `
+				State struct<R extends comparable> {
+					resource R
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			stateType := table.MustGet("test.State")
+			form := stateType.Form.(resolution.StructForm)
+			Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
+			Expect(form.TypeParams[0].Constraint.Name).To(Equal("comparable"))
+		})
+
 		It("Should parse generic struct with default type parameter", func() {
 			source := `
 				Container struct<T = string> {

@@ -173,6 +173,7 @@
       "Linspace",
       "memkv",
       "Migratable",
+      "Modbus",
       "msgpack",
       "msgpackr",
       "mult",

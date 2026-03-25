@@ -1621,6 +1621,14 @@ TEST(testConfig, testOptionalFieldMissing) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST(testConfig, testOptionalFieldNull) {
+    const json j = {{"name", "test"}, {"value", nullptr}};
+    Parser parser(j);
+    const auto result = parser.field<std::optional<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_FALSE(result.has_value());
+}
+
 TEST(testConfig, testIndirectFieldPresent) {
     const json j = {{"name", "test"}, {"value", 99}};
     Parser parser(j);
