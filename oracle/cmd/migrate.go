@@ -168,12 +168,14 @@ func runMigrate(cmd *cobra.Command) error {
 
 	printSyncedCount(written, len(resp.Files)-written)
 
-	// Take a new snapshot.
-	nextVersion := latestVersion + 1
-	if err := snapshot.Create(schemasDir, snapshotsDir, nextVersion); err != nil {
-		return errors.Wrap(err, "failed to create schema snapshot")
+	// Take a new snapshot on first run or when files were written.
+	if latestVersion == 0 || written > 0 {
+		nextVersion := latestVersion + 1
+		if err := snapshot.Create(schemasDir, snapshotsDir, nextVersion); err != nil {
+			return errors.Wrap(err, "failed to create schema snapshot")
+		}
+		printDim(fmt.Sprintf("snapshot v%d created", nextVersion))
 	}
-	printDim(fmt.Sprintf("snapshot v%d created", nextVersion))
 
 	// Run oracle sync to update types/codecs.
 	printDim("running sync...")
