@@ -24,7 +24,6 @@ import (
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
-	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
@@ -180,6 +179,5 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
 	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
 	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
-	_ = registry.Register(gomigrate.New())
 	return registry
 }

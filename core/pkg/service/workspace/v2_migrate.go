@@ -11,20 +11,12 @@
 
 package workspace
 
-import (
-	"context"
+import "context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/migrations"
-)
-
-// MigrateWorkspaceV2 transforms a frozen WorkspaceV2 into the
-// current Workspace. Set defaults for new/changed fields.
-func MigrateWorkspaceV2(_ context.Context, old migrations.WorkspaceV2) (Workspace, error) {
-	return Workspace{
-		Key:         old.Key,
-		Name:        old.Name,
-		Author:      old.Author,
-		Layout:      old.Layout,
-		Description: "",
-	}, nil
+// MigrateWorkspaceV2 sets defaults for new fields after schema resolution.
+// The schema resolver has already transformed the binary layout. This function
+// operates on the current Go type with new fields at zero values.
+func MigrateWorkspaceV2(_ context.Context, old Workspace) (Workspace, error) {
+	// TODO: Set defaults for new/changed fields.
+	return old, nil
 }

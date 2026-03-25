@@ -19,5 +19,20 @@ import (
 func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Workspace]("msgpack_to_binary", codec),
+		gorp.NewSchemaResolution("v2_schema_change",
+			[]gorp.FieldLayout{
+				{Name: "key", Encoding: gorp.EncodingUUID},
+				{Name: "name", Encoding: gorp.EncodingString},
+				{Name: "author", Encoding: gorp.EncodingUUID, Optional: true},
+				{Name: "layout", Encoding: gorp.EncodingJSON},
+			},
+			[]gorp.FieldLayout{
+				{Name: "key", Encoding: gorp.EncodingUUID},
+				{Name: "name", Encoding: gorp.EncodingString},
+				{Name: "author", Encoding: gorp.EncodingUUID, Optional: true},
+				{Name: "layout", Encoding: gorp.EncodingJSON},
+				{Name: "description", Encoding: gorp.EncodingString, Optional: true},
+			},
+		),
 	}
 }

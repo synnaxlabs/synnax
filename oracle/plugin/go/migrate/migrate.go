@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package migrate provides an Oracle plugin that generates gorp migration registration
-// files. For the initial generation (codec transition), it produces a migrate.gen.go
-// file in the parent service package containing a function that returns the codec
-// transition migration. No sub-package or frozen types are needed for codec transitions.
+// files. It generates migrate.gen.go in the parent service package containing migration
+// chains: codec transitions and schema resolution migrations.
 package migrate
 
 import (
@@ -18,25 +17,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
-
-	"github.com/samber/lo"
 
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
-	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
-	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
-
-var primitiveMapper = goprimitives.Mapper()
 
 type Plugin struct{}
 
@@ -55,14 +44,26 @@ func (p *Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 
-type migrateEntry struct {
+// migrationEntry describes a gorp entry type that needs migration support.
+type migrationEntry struct {
 	GoName  string
 	KeyName string
+	GoPath  string
+	// SchemaChange is non-nil when the schema changed between snapshots.
+	SchemaChange *schemaChange
+}
+
+type schemaChange struct {
+	Version      int
+	OldLayoutGo  string // Go source literal for []gorp.FieldLayout
+	NewLayoutGo  string
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputEntries := make(map[string][]migrateEntry)
+
+	// Group entries by output path.
+	outputEntries := make(map[string][]migrationEntry)
 	var outputOrder []string
 
 	for _, entry := range req.Resolutions.StructTypes() {
@@ -77,239 +78,114 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		goName := getGoName(entry)
-		keyName := findKeyFieldGoName(entry, req.Resolutions)
+
+		me := migrationEntry{
+			GoName:  getGoName(entry),
+			KeyName: findKeyFieldGoName(entry, req.Resolutions),
+			GoPath:  goPath,
+		}
+
+		// Check for schema change if we have a previous snapshot.
+		if req.OldResolutions != nil {
+			sc, err := detectSchemaChange(entry, req)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to detect schema change for %s", me.GoName)
+			}
+			me.SchemaChange = sc
+		}
+
 		if _, exists := outputEntries[goPath]; !exists {
 			outputOrder = append(outputOrder, goPath)
 		}
-		outputEntries[goPath] = append(outputEntries[goPath], migrateEntry{
-			GoName:  goName,
-			KeyName: keyName,
-		})
+		outputEntries[goPath] = append(outputEntries[goPath], me)
 	}
 
+	// Generate migrate.gen.go for each output path.
 	for _, goPath := range outputOrder {
 		entries := outputEntries[goPath]
 		pkg := naming.DerivePackageName(goPath)
-		content, err := renderMigrateFile(pkg, entries)
+
+		needsGorp := true
+		needsBinary := true
+		for _, e := range entries {
+			if e.SchemaChange != nil {
+				needsGorp = true
+			}
+			_ = needsBinary
+		}
+
+		content, err := renderMigrateFile(pkg, entries, needsGorp, needsBinary)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate migrate for %s", goPath)
+			return nil, errors.Wrapf(err, "failed to generate migrate.gen.go for %s", goPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    goPath + "/migrate.gen.go",
 			Content: content,
 		})
-	}
 
-	// If we have old resolutions, check for schema changes and generate
-	// frozen types + migration templates for changed types.
-	if req.OldResolutions != nil {
-		changedFiles, err := p.generateSchemaChangeMigrations(req, outputEntries)
-		if err != nil {
-			return nil, err
+		// Generate transform templates for schema changes.
+		for _, e := range entries {
+			if e.SchemaChange == nil {
+				continue
+			}
+			templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, e.SchemaChange.Version)
+			templateFullPath := filepath.Join(req.RepoRoot, templateFile)
+			if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
+				tc, err := renderTransformTemplate(pkg, e.GoName, e.SchemaChange.Version)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to generate transform template for %s", e.GoName)
+				}
+				resp.Files = append(resp.Files, plugin.File{Path: templateFile, Content: tc})
+			}
 		}
-		resp.Files = append(resp.Files, changedFiles...)
 	}
 
 	return resp, nil
 }
 
-func (p *Plugin) generateSchemaChangeMigrations(
+func detectSchemaChange(
+	newType resolution.Type,
 	req *plugin.Request,
-	outputEntries map[string][]migrateEntry,
-) ([]plugin.File, error) {
-	var files []plugin.File
-
-	for _, newType := range req.Resolutions.StructTypes() {
-		if !hasMigrateAnnotation(newType) {
-			continue
-		}
-		form, ok := newType.Form.(resolution.StructForm)
-		if !ok || !form.HasKeyDomain {
-			continue
-		}
-
-		// Find the old version of this type.
-		oldType, found := req.OldResolutions.Get(newType.QualifiedName)
-		if !found {
-			continue // New type, no migration needed.
-		}
-
-		// Compare fields.
-		oldFields := resolution.UnifiedFields(oldType, req.OldResolutions)
-		newFields := resolution.UnifiedFields(newType, req.Resolutions)
-
-		changeType := classifyChange(oldFields, newFields)
-		if changeType == changeNone {
-			continue
-		}
-
-		goPath := output.GetPath(newType, "go")
-		if goPath == "" {
-			continue
-		}
-		goName := getGoName(newType)
-		version := req.SnapshotVersion + 1
-		parentPkg := naming.DerivePackageName(goPath)
-
-		// Generate transform template in the parent package.
-		templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, version)
-		templateFullPath := filepath.Join(req.RepoRoot, templateFile)
-		if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-			content, err := renderTransformTemplate(parentPkg, goName, version, "")
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate transform template for %s", goName)
-			}
-			files = append(files, plugin.File{Path: templateFile, Content: content})
-		}
-
-		// Build field layouts from old and new schemas for the schema resolver.
-		oldLayout, err := BuildLayout(oldType, req.OldResolutions)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to build old layout for %s", goName)
-		}
-		newLayout, err := BuildLayout(newType, req.Resolutions)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to build new layout for %s", goName)
-		}
-		_ = oldLayout
-		_ = newLayout
-		_ = changeType
-		// TODO: Wire oldLayout + newLayout into migrate.gen.go registration
-		// using gorp.NewSchemaResolution(name, oldLayout, newLayout)
+) (*schemaChange, error) {
+	oldType, found := req.OldResolutions.Get(newType.QualifiedName)
+	if !found {
+		return nil, nil
 	}
 
-	return files, nil
+	oldFields := resolution.UnifiedFields(oldType, req.OldResolutions)
+	newFields := resolution.UnifiedFields(newType, req.Resolutions)
+
+	if fieldsEqual(oldFields, newFields) {
+		return nil, nil
+	}
+
+	oldLayout, err := BuildLayout(oldType, req.OldResolutions)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build old layout")
+	}
+	newLayout, err := BuildLayout(newType, req.Resolutions)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build new layout")
+	}
+
+	return &schemaChange{
+		Version:     req.SnapshotVersion + 1,
+		OldLayoutGo: layoutToGo(oldLayout, "\t\t\t"),
+		NewLayoutGo: layoutToGo(newLayout, "\t\t\t"),
+	}, nil
 }
 
-type changeKind int
-
-const (
-	changeNone     changeKind = iota
-	changeAdditive            // fields only added at end
-	changeBreaking            // removal, reorder, or type change
-)
-
-func classifyChange(oldFields, newFields []resolution.Field) changeKind {
-	if len(oldFields) == len(newFields) {
-		allMatch := true
-		for i := range oldFields {
-			if oldFields[i].Name != newFields[i].Name ||
-				oldFields[i].Type.Name != newFields[i].Type.Name ||
-				oldFields[i].IsOptional != newFields[i].IsOptional ||
-				oldFields[i].IsHardOptional != newFields[i].IsHardOptional {
-				allMatch = false
-				break
-			}
-		}
-		if allMatch {
-			return changeNone
-		}
-		return changeBreaking
+func fieldsEqual(a, b []resolution.Field) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	if len(newFields) < len(oldFields) {
-		return changeBreaking // fields removed
-	}
-	// newFields is longer. Check that old fields are a prefix.
-	for i := range oldFields {
-		if oldFields[i].Name != newFields[i].Name ||
-			oldFields[i].Type.Name != newFields[i].Type.Name {
-			return changeBreaking // reorder or type change
+	for i := range a {
+		if a[i].Name != b[i].Name || a[i].Type.Name != b[i].Type.Name ||
+			a[i].IsOptional != b[i].IsOptional || a[i].IsHardOptional != b[i].IsHardOptional {
+			return false
 		}
 	}
-	return changeAdditive // fields only added at end
-}
-
-func (p *Plugin) generateFrozenType(
-	oldType resolution.Type,
-	goPath string,
-	goName string,
-	req *plugin.Request,
-) ([]plugin.File, error) {
-	version := req.SnapshotVersion + 1
-	migrationsPath := goPath + "/migrations"
-	pkg := naming.DerivePackageName(migrationsPath)
-
-	imps := imports.NewManager()
-	ctx := &resolver.Context{
-		Table:                         req.OldResolutions,
-		OutputPath:                    migrationsPath,
-		Namespace:                     oldType.Namespace,
-		RepoRoot:                      req.RepoRoot,
-		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true,
-	}
-	r := &resolver.Resolver{
-		Formatter:       gotypes.GoFormatter(),
-		ImportResolver:  &gotypes.GoImportResolver{RepoRoot: req.RepoRoot, CurrentPackage: pkg},
-		ImportAdder:     imps,
-		PrimitiveMapper: primitiveMapper,
-	}
-
-	parentPkg := naming.DerivePackageName(goPath)
-
-	fields := resolution.UnifiedFields(oldType, req.OldResolutions)
-	var keyGoType, keyFieldName string
-	var frozenFields []frozenField
-	for _, f := range fields {
-		fGoName := naming.GetFieldName(f)
-		fGoType := r.ResolveTypeRef(f.Type, ctx)
-		// If the resolved type references the parent package (circular dep),
-		// unwrap the alias/distinct type to the underlying primitive.
-		if strings.HasPrefix(fGoType, parentPkg+".") {
-			fGoType = unwrapToBase(f.Type, req.OldResolutions)
-		}
-		if f.IsHardOptional && !strings.HasPrefix(fGoType, "[]") &&
-			!strings.HasPrefix(fGoType, "map[") &&
-			!strings.HasPrefix(fGoType, "binary.MsgpackEncodedJSON") {
-			fGoType = "*" + fGoType
-		}
-		tags := fmt.Sprintf("`json:\"%s\" msgpack:\"%s\"`", lo.SnakeCase(f.Name), lo.SnakeCase(f.Name))
-		frozenFields = append(frozenFields, frozenField{
-			GoName: fGoName,
-			GoType: fGoType,
-			Tags:   tags,
-		})
-		if _, hasKey := f.Domains["key"]; hasKey {
-			keyGoType = fGoType
-			keyFieldName = fGoName
-		}
-	}
-	if keyGoType == "" {
-		keyGoType = "string"
-		keyFieldName = frozenFields[0].GoName
-	}
-
-	// Filter out imports that reference the parent package (circular dep).
-	parentImportPath := gomod.ResolveImportPath(goPath, req.RepoRoot, "github.com/synnaxlabs/synnax/")
-	var filteredInternal []imports.InternalImportData
-	for _, imp := range imps.InternalImports() {
-		if imp.Path != parentImportPath {
-			filteredInternal = append(filteredInternal, imp)
-		}
-	}
-
-	data := frozenTypeData{
-		Package:         "migrations",
-		Version:         fmt.Sprintf("V%d", version),
-		GoName:          goName,
-		KeyGoType:       keyGoType,
-		KeyFieldName:    keyFieldName,
-		Fields:          frozenFields,
-		ExternalImports: imps.ExternalImports(),
-		InternalImports: filteredInternal,
-	}
-
-	var buf bytes.Buffer
-	if err := frozenTypeTmpl.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-
-	fileName := fmt.Sprintf("v%d.gen.go", version)
-	return []plugin.File{{
-		Path:    migrationsPath + "/" + fileName,
-		Content: buf.Bytes(),
-	}}, nil
+	return true
 }
 
 func hasMigrateAnnotation(typ resolution.Type) bool {
@@ -346,6 +222,8 @@ func findKeyFieldGoName(typ resolution.Type, table *resolution.Table) string {
 	return "Key"
 }
 
+// --- Migration Registration Template ---
+
 var migrateTmpl = template.Must(template.New("migrate").Parse(
 	`// Code generated by oracle. DO NOT EDIT.
 
@@ -359,82 +237,43 @@ import (
 func {{.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, {{.GoName}}]("msgpack_to_binary", codec),
+{{- range .SchemaChanges}}
+		gorp.NewSchemaResolution("v{{.Version}}_schema_change",
+			{{.OldLayoutGo}},
+			{{.NewLayoutGo}},
+		),
+{{- end}}
 	}
 }
 {{end}}`))
 
 type migrateTemplateData struct {
 	Package string
-	Entries []migrateEntry
+	Entries []migrateTemplateEntry
 }
 
-func renderMigrateFile(pkg string, entries []migrateEntry) ([]byte, error) {
+type migrateTemplateEntry struct {
+	GoName        string
+	SchemaChanges []schemaChange
+}
+
+func renderMigrateFile(pkg string, entries []migrationEntry, _, _ bool) ([]byte, error) {
+	var tmplEntries []migrateTemplateEntry
+	for _, e := range entries {
+		te := migrateTemplateEntry{GoName: e.GoName}
+		if e.SchemaChange != nil {
+			te.SchemaChanges = []schemaChange{*e.SchemaChange}
+		}
+		tmplEntries = append(tmplEntries, te)
+	}
 	var buf bytes.Buffer
 	if err := migrateTmpl.Execute(&buf, migrateTemplateData{
 		Package: pkg,
-		Entries: entries,
+		Entries: tmplEntries,
 	}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-// unwrapToBase resolves a type reference to its underlying primitive Go type,
-// following alias and distinct type chains. Used when the resolved type would
-// reference the parent package (creating a circular dependency).
-func unwrapToBase(ref resolution.TypeRef, table *resolution.Table) string {
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		return "any"
-	}
-	return unwrapResolved(resolved, table)
-}
-
-func unwrapResolved(resolved resolution.Type, table *resolution.Table) string {
-	switch form := resolved.Form.(type) {
-	case resolution.PrimitiveForm:
-		m := primitiveMapper.Map(form.Name)
-		if m.TargetType == "" {
-			return "any"
-		}
-		if form.Name == "record" {
-			return "binary.MsgpackEncodedJSON"
-		}
-		return m.TargetType
-	case resolution.AliasForm:
-		inner, ok := form.Target.Resolve(table)
-		if !ok {
-			return "any"
-		}
-		return unwrapResolved(inner, table)
-	case resolution.DistinctForm:
-		inner, ok := form.Base.Resolve(table)
-		if !ok {
-			return "any"
-		}
-		return unwrapResolved(inner, table)
-	default:
-		return "any"
-	}
-}
-
-// --- Frozen Type for Schema Change Migrations ---
-
-type frozenField struct {
-	GoName string
-	GoType string
-	Tags   string
-}
-
-type frozenTypeData struct {
-	Package         string
-	Version         string
-	GoName          string
-	KeyGoType       string
-	KeyFieldName    string
-	Fields          []frozenField
-	ExternalImports []string
-	InternalImports []imports.InternalImportData
 }
 
 // --- Developer Transform Template ---
@@ -444,67 +283,31 @@ var transformTmpl = template.Must(template.New("transform").Parse(
 
 package {{.Package}}
 
-import (
-	"context"
+import "context"
 
-	"{{.MigrationsImport}}"
-)
-
-// Migrate{{.GoName}}V{{.Version}} transforms a frozen {{.GoName}}V{{.Version}} into the
-// current {{.GoName}}. Set defaults for new/changed fields.
-func Migrate{{.GoName}}V{{.Version}}(ctx context.Context, old migrations.{{.GoName}}V{{.Version}}) ({{.GoName}}, error) {
-	return {{.GoName}}{
-		// TODO: Copy fields from old and set defaults for new fields.
-	}, nil
+// Migrate{{.GoName}}V{{.Version}} sets defaults for new fields after schema resolution.
+// The schema resolver has already transformed the binary layout. This function
+// operates on the current Go type with new fields at zero values.
+func Migrate{{.GoName}}V{{.Version}}(_ context.Context, old {{.GoName}}) ({{.GoName}}, error) {
+	// TODO: Set defaults for new/changed fields.
+	return old, nil
 }
 `))
 
 type transformTemplateData struct {
-	Package          string
-	GoName           string
-	Version          int
-	MigrationsImport string
+	Package string
+	GoName  string
+	Version int
 }
 
-func renderTransformTemplate(pkg, goName string, version int, migrationsImport string) ([]byte, error) {
+func renderTransformTemplate(pkg, goName string, version int) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := transformTmpl.Execute(&buf, transformTemplateData{
-		Package:          pkg,
-		GoName:           goName,
-		Version:          version,
-		MigrationsImport: migrationsImport,
+		Package: pkg,
+		GoName:  goName,
+		Version: version,
 	}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
-
-var frozenTypeTmpl = template.Must(template.New("frozen").Parse(
-	`// Code generated by oracle. DO NOT EDIT.
-
-package {{.Package}}
-
-import (
-{{- range .ExternalImports}}
-	"{{.}}"
-{{- end}}
-{{- range .InternalImports}}
-{{- if .NeedsAlias}}
-	{{.Alias}} "{{.Path}}"
-{{- else}}
-	"{{.Path}}"
-{{- end}}
-{{- end}}
-)
-
-type {{.GoName}}{{.Version}} struct {
-{{- range .Fields}}
-	{{.GoName}} {{.GoType}} {{.Tags}}
-{{- end}}
-}
-
-type {{.GoName}}{{.Version}}Key = {{.KeyGoType}}
-
-func (e {{.GoName}}{{.Version}}) GorpKey() {{.GoName}}{{.Version}}Key { return e.{{.KeyFieldName}} }
-func (e {{.GoName}}{{.Version}}) SetOptions() []any { return nil }
-`))
