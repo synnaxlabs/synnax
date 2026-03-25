@@ -183,6 +183,138 @@ var _ = Describe("Schema Resolution Integration", func() {
 		})
 	})
 
+	Describe("Nested struct change in array", func() {
+		It("Should resolve nested struct changes inside arrays through the full pipeline", func() {
+			// Simulate: Entry has Items []Item. Item gains a new field.
+			// Old Item: {X int32, Y int32}
+			// New Item: {X int32, Y int32, Z int32}
+			oldItemLayout := gorp.FieldLayout{
+				Encoding: gorp.EncodingStruct,
+				Fields: []gorp.FieldLayout{
+					{Name: "x", Encoding: gorp.EncodingInt32},
+					{Name: "y", Encoding: gorp.EncodingInt32},
+				},
+			}
+			newItemLayout := gorp.FieldLayout{
+				Encoding: gorp.EncodingStruct,
+				Fields: []gorp.FieldLayout{
+					{Name: "x", Encoding: gorp.EncodingInt32},
+					{Name: "y", Encoding: gorp.EncodingInt32},
+					{Name: "z", Encoding: gorp.EncodingInt32},
+				},
+			}
+			oldEntryLayout := []gorp.FieldLayout{
+				{Name: "id", Encoding: gorp.EncodingInt32},
+				{Name: "items", Encoding: gorp.EncodingArray, Element: &oldItemLayout},
+			}
+			newEntryLayout := []gorp.FieldLayout{
+				{Name: "id", Encoding: gorp.EncodingInt32},
+				{Name: "items", Encoding: gorp.EncodingArray, Element: &newItemLayout},
+			}
+
+			// Encode old entry: id=1, items=[{x=10,y=20}, {x=30,y=40}]
+			var item1, item2 []byte
+			item1 = binary.BigEndian.AppendUint32(item1, 10)
+			item1 = binary.BigEndian.AppendUint32(item1, 20)
+			item2 = binary.BigEndian.AppendUint32(item2, 30)
+			item2 = binary.BigEndian.AppendUint32(item2, 40)
+
+			var data []byte
+			data = binary.BigEndian.AppendUint32(data, 1) // id=1
+			data = binary.BigEndian.AppendUint32(data, 2) // count=2
+			data = binary.BigEndian.AppendUint32(data, uint32(len(item1)))
+			data = append(data, item1...)
+			data = binary.BigEndian.AppendUint32(data, uint32(len(item2)))
+			data = append(data, item2...)
+
+			// Resolve
+			resolved := MustSucceed(gorp.Resolve(data, oldEntryLayout, newEntryLayout))
+
+			// Expected: id=1, items=[{x=10,y=20,z=0}, {x=30,y=40,z=0}]
+			var newItem1, newItem2 []byte
+			newItem1 = binary.BigEndian.AppendUint32(newItem1, 10)
+			newItem1 = binary.BigEndian.AppendUint32(newItem1, 20)
+			newItem1 = binary.BigEndian.AppendUint32(newItem1, 0)
+			newItem2 = binary.BigEndian.AppendUint32(newItem2, 30)
+			newItem2 = binary.BigEndian.AppendUint32(newItem2, 40)
+			newItem2 = binary.BigEndian.AppendUint32(newItem2, 0)
+
+			var expected []byte
+			expected = binary.BigEndian.AppendUint32(expected, 1)
+			expected = binary.BigEndian.AppendUint32(expected, 2)
+			expected = binary.BigEndian.AppendUint32(expected, uint32(len(newItem1)))
+			expected = append(expected, newItem1...)
+			expected = binary.BigEndian.AppendUint32(expected, uint32(len(newItem2)))
+			expected = append(expected, newItem2...)
+
+			Expect(resolved).To(Equal(expected))
+		})
+	})
+
+	Describe("Multiple sequential migrations", func() {
+		It("Should chain two schema evolutions", func() {
+			testDB := gorp.Wrap(memkv.New())
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+
+			// v1 layout: {id int32, name string}
+			// v2 layout: {id int32, name string, email string}
+			// v3 layout: {id int32, name string, email string, age int32}
+			v1 := []gorp.FieldLayout{
+				{Name: "id", Encoding: gorp.EncodingInt32},
+				{Name: "name", Encoding: gorp.EncodingString},
+			}
+			v2 := []gorp.FieldLayout{
+				{Name: "id", Encoding: gorp.EncodingInt32},
+				{Name: "name", Encoding: gorp.EncodingString},
+				{Name: "email", Encoding: gorp.EncodingString},
+			}
+			v3 := []gorp.FieldLayout{
+				{Name: "id", Encoding: gorp.EncodingInt32},
+				{Name: "name", Encoding: gorp.EncodingString},
+				{Name: "email", Encoding: gorp.EncodingString},
+				{Name: "age", Encoding: gorp.EncodingInt32},
+			}
+
+			// Seed v1 binary data directly
+			prefix := "__gorp__//simpleEntryV2"
+			v1Codec := simpleCodecV1{}
+			for _, e := range []simpleEntry{{ID: 1, Name: "alice"}, {ID: 2, Name: "bob"}} {
+				data := MustSucceed(v1Codec.Encode(ctx, e))
+				key := make([]byte, len(prefix)+4)
+				copy(key, prefix)
+				binary.BigEndian.PutUint32(key[len(prefix):], uint32(e.ID))
+				Expect(testDB.Set(ctx, key, data)).To(Succeed())
+			}
+
+			// Open with v3 codec and TWO schema evolution migrations
+			v2Codec := simpleCodecV2{}
+			MustSucceed(gorp.OpenTable[int32, simpleEntryV2](ctx, gorp.TableConfig[simpleEntryV2]{
+				DB:    testDB,
+				Codec: v2Codec,
+				Migrations: []gorp.Migration{
+					gorp.NewSchemaEvolution[simpleEntryV2](
+						"v2_add_email",
+						v1, v2, v2Codec,
+						func(_ context.Context, old simpleEntryV2) (simpleEntryV2, error) {
+							old.Description = "no-email@example.com"
+							return old, nil
+						},
+					),
+					gorp.NewSchemaEvolution[simpleEntryV2](
+						"v3_add_age",
+						v2, v3, v2Codec,
+						nil, // zero default for age is fine
+					),
+				},
+			}))
+
+			r := gorp.WrapReader[int32, simpleEntryV2](testDB, v2Codec)
+			alice := MustSucceed(r.Get(ctx, 1))
+			Expect(alice.Name).To(Equal("alice"))
+			Expect(alice.Description).To(Equal("no-email@example.com"))
+		})
+	})
+
 	Describe("SchemaEvolution migration end-to-end", func() {
 		It("Should migrate entries through OpenTable", func() {
 			testDB := gorp.Wrap(memkv.New())
