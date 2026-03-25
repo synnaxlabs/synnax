@@ -236,6 +236,72 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
+// CodecEntry describes a type for which a codec should be generated.
+type CodecEntry struct {
+	GoName string
+	Type   resolution.Type
+}
+
+// GenerateCodecFile generates a complete codec file for the given entries using the
+// specified package name and output path context. This is used by the migrate plugin
+// to generate frozen codecs for old schema versions.
+func GenerateCodecFile(
+	packageName string,
+	parentPath string,
+	entries []CodecEntry,
+	table *resolution.Table,
+	repoRoot string,
+) ([]byte, error) {
+	fo := fileOutput{
+		Package:      packageName,
+		ExtraImports: make(map[string]string),
+	}
+	for _, e := range entries {
+		b := &codeBuilder{
+			table:       table,
+			repoRoot:    repoRoot,
+			packageName: packageName,
+			parentPath:  parentPath,
+			imports:     fo.ExtraImports,
+		}
+		if err := b.processType(e.Type); err != nil {
+			return nil, errors.Wrapf(err, "failed to generate codec for %s", e.GoName)
+		}
+		if b.needsMath {
+			fo.NeedsMath = true
+		}
+		if b.needsJSON {
+			fo.NeedsJSON = true
+		}
+		constName := naming.ToPascalCase(e.GoName)
+		var constBuf bytes.Buffer
+		for _, c := range b.consts {
+			fmt.Fprintf(&constBuf, "\t%s%s = %d\n", constName, c.name, c.index)
+		}
+		fmt.Fprintf(&constBuf, "\t%sFieldCount = %d", constName, len(b.consts))
+		fo.Codecs = append(fo.Codecs, codecOutput{
+			GoName:        e.GoName,
+			Constants:     constBuf.String(),
+			FieldCount:    len(b.consts),
+			EstSize:       b.estSize,
+			MarshalBody:   strings.Join(b.marshalLines, "\n"),
+			UnmarshalBody: strings.Join(b.unmarshalLines, "\n"),
+			HelperFuncs:   strings.Join(b.helperFuncs, "\n"),
+		})
+	}
+	tmpl, err := template.New("codec").Funcs(template.FuncMap{
+		"lowerFirst": lowerFirst,
+	}).Parse(codecTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse template")
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, fo); err != nil {
+		return nil, errors.Wrap(err, "failed to execute template")
+	}
+	return buf.Bytes(), nil
+}
+
 func lowerFirst(s string) string {
 	if s == "" {
 		return s

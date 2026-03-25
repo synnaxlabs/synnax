@@ -12,18 +12,16 @@
 package workspace
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/gorp"
 )
 
-func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Workspace]("msgpack_to_binary", codec),
-		gorp.NewTypedMigration[WorkspaceV2, Workspace](
-			"v2_schema_migration",
-			WorkspaceV2Codec,
-			codec,
-			MigrateWorkspaceV2,
-		),
-	}
+type WorkspaceV2 struct {
+	Key    Key                       `json:"key" msgpack:"key"`
+	Name   string                    `json:"name" msgpack:"name"`
+	Author uuid.UUID                 `json:"author" msgpack:"author"`
+	Layout binary.MsgpackEncodedJSON `json:"layout" msgpack:"layout"`
 }
+
+func (e WorkspaceV2) GorpKey() Key      { return e.Key }
+func (e WorkspaceV2) SetOptions() []any { return nil }
