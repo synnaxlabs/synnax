@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { Form } from "@/form";
 import { OffPageReferenceForm } from "@/schematic/symbol/Forms";
-import { Theming } from "@/theming";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const offPageRefSchema = z.object({
   label: z.object({
@@ -37,15 +37,17 @@ const offPageRefValues: z.infer<typeof offPageRefSchema> = {
   orientation: "left",
 };
 
+const SynnaxWrapper = createSynnaxWrapper({ client: null });
+
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use<typeof offPageRefSchema>({
     values: deep.copy(offPageRefValues),
     schema: offPageRefSchema,
   });
   return (
-    <Theming.Provider>
+    <SynnaxWrapper>
       <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>
-    </Theming.Provider>
+    </SynnaxWrapper>
   );
 };
 
