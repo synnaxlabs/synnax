@@ -5,4 +5,4 @@
 # also including openssl, so we need to override the boringssl reference to openssl.
 module(name = "boringssl")
 
-bazel_dep(name = "openssl", version = "3.5.5.bcr.0")
+bazel_dep(name = "openssl", version = "3.5.5.bcr.1")

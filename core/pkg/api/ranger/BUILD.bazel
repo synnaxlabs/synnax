@@ -1,4 +1,4 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
@@ -6,9 +6,9 @@ proto_library(
     srcs = ["pb/ranger.proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/go/color:color_proto",
         "//x/go/label:label_proto",
         "//x/go/telem:telem_proto",
-        "//x/go/color:color_proto"
     ],
 )
 
@@ -18,8 +18,8 @@ cpp_grpc_library(
     protos = [":ranger_proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/go/color:color_grpc",
         "//x/go/label:label_grpc",
         "//x/go/telem:telem_grpc",
-        "//x/go/color:color_grpc"
     ],
 )
