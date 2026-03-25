@@ -213,6 +213,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 		Signals:         cfg.Distribution.Signals,
 		ParentRetriever: l.Ranger,
 	}); !ok(err, l.Alias) {
@@ -270,6 +271,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
+			Search:          cfg.Distribution.Search,
 			Group:           cfg.Distribution.Group,
 			Label:           l.Label,
 		},
@@ -280,6 +282,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		HostProvider:    cfg.Distribution.Cluster,
 		Signals:         cfg.Distribution.Signals,
@@ -302,6 +305,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		Signals:         cfg.Distribution.Signals,
 		Channel:         cfg.Distribution.Channel,
@@ -316,6 +320,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
+			Search:          cfg.Distribution.Search,
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Task:            l.Task,
@@ -339,6 +344,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
+			Search:          cfg.Distribution.Search,
 			Group:           cfg.Distribution.Group,
 		},
 	); !ok(err, l.View) {
