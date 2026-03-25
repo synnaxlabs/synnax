@@ -255,23 +255,42 @@ func (m *rawMigration) Run(
 	return m.fn(ctx, WrapTx(kvTx, cfg.DBCodec))
 }
 
-type schemaResolutionMigration struct {
+type schemaEvolutionMigration[E any] struct {
 	name      string
 	oldLayout []FieldLayout
 	newLayout []FieldLayout
+	codec     binary.Codec
+	transform func(ctx context.Context, old E) (E, error)
 }
 
-// NewSchemaResolution creates a Migration that transforms all entries from one
-// binary field layout to another using schema-driven resolution. Fields are
-// matched by name. New fields get zero values. Removed fields are dropped.
-// Nested structs with changed layouts are resolved recursively.
-func NewSchemaResolution(name string, oldLayout, newLayout []FieldLayout) Migration {
-	return &schemaResolutionMigration{name: name, oldLayout: oldLayout, newLayout: newLayout}
+// NewSchemaEvolution creates a Migration that transforms all entries from one
+// binary field layout to another using schema-driven resolution, then optionally
+// runs a developer-provided transform to set defaults for new fields.
+//
+// The resolution matches fields by name between old and new layouts. New fields
+// get zero values. Removed fields are dropped. Nested structs with changed
+// layouts are resolved recursively.
+//
+// If transform is nil, zero values are used for new fields (no transform step).
+// If transform is non-nil, it is called after resolution to set non-zero defaults.
+func NewSchemaEvolution[E any](
+	name string,
+	oldLayout, newLayout []FieldLayout,
+	codec binary.Codec,
+	transform func(ctx context.Context, old E) (E, error),
+) Migration {
+	return &schemaEvolutionMigration[E]{
+		name:      name,
+		oldLayout: oldLayout,
+		newLayout: newLayout,
+		codec:     codec,
+		transform: transform,
+	}
 }
 
-func (m *schemaResolutionMigration) Name() string { return m.name }
+func (m *schemaEvolutionMigration[E]) Name() string { return m.name }
 
-func (m *schemaResolutionMigration) Run(
+func (m *schemaEvolutionMigration[E]) Run(
 	ctx context.Context,
 	kvTx kv.Tx,
 	cfg MigrationConfig,
@@ -287,6 +306,19 @@ func (m *schemaResolutionMigration) Run(
 		resolved, err := Resolve(iter.Value(), m.oldLayout, m.newLayout)
 		if err != nil {
 			return err
+		}
+		if m.transform != nil {
+			var entry E
+			if err = m.codec.Decode(ctx, resolved, &entry); err != nil {
+				return err
+			}
+			entry, err = m.transform(ctx, entry)
+			if err != nil {
+				return err
+			}
+			if resolved, err = m.codec.Encode(ctx, entry); err != nil {
+				return err
+			}
 		}
 		if err = kvTx.Set(ctx, iter.Key(), resolved); err != nil {
 			return err

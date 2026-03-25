@@ -12,8 +12,6 @@
 package workspace
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -21,7 +19,8 @@ import (
 func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Workspace]("msgpack_to_binary", codec),
-		gorp.NewSchemaResolution("v2_schema_change",
+		gorp.NewSchemaEvolution[Workspace](
+			"v2_schema_evolution",
 			[]gorp.FieldLayout{
 				{Name: "key", Encoding: gorp.EncodingUUID},
 				{Name: "name", Encoding: gorp.EncodingString},
@@ -35,13 +34,8 @@ func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
 				{Name: "layout", Encoding: gorp.EncodingJSON},
 				{Name: "description", Encoding: gorp.EncodingString},
 			},
-		),
-		gorp.NewTypedMigration[Workspace, Workspace](
-			"v2_defaults",
-			codec, codec,
-			func(ctx context.Context, old Workspace) (Workspace, error) {
-				return MigrateWorkspaceV2(ctx, old)
-			},
+			codec,
+			MigrateWorkspaceV2,
 		),
 	}
 }

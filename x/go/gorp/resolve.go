@@ -282,6 +282,12 @@ func resolveStructInner(data []byte, oldField, newField FieldLayout) ([]byte, er
 	if len(innerData) > innerLen {
 		innerData = innerData[:innerLen]
 	}
+	// If both layouts have empty Fields, this is a recursive type cycle.
+	// Copy raw bytes as-is. The bounds-safe decoder handles additive changes
+	// at read time. Breaking changes to recursive types are not supported.
+	if len(oldField.Fields) == 0 && len(newField.Fields) == 0 {
+		return data[:4+innerLen], nil
+	}
 	resolved, err := Resolve(innerData, oldField.Fields, newField.Fields)
 	if err != nil {
 		return nil, err
