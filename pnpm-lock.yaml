@@ -775,9 +775,6 @@ importers:
       pluralize:
         specifier: 'catalog:'
         version: 8.0.0
-      proxy-memoize:
-        specifier: 'catalog:'
-        version: 2.0.3
       react:
         specifier: 'catalog:'
         version: 19.2.4
