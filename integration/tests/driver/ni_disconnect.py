@@ -190,17 +190,21 @@ def _restore_device_and_wait(
     saved_config: str,
     device_name: str,
 ) -> None:
-    """Re-import the NI MAX config and wait for the driver to see the device."""
-    with client.open_streamer(["sy_status_set"]) as streamer:
-        log(f"Restore {device_name} to NI MAX")
-        _import_ni_config(saved_config)
-        try:
+    """Re-import the NI MAX config and wait for the driver to see the device.
+
+    This runs inside ``finally`` blocks, so it must never raise — an exception
+    here would suppress the original test failure.
+    """
+    try:
+        with client.open_streamer(["sy_status_set"]) as streamer:
+            log(f"Restore {device_name} to NI MAX")
+            _import_ni_config(saved_config)
             statuses = _wait_for_device_status(
                 streamer, "Device present", device_name=device_name
             )
             _log_statuses(log, statuses, "re-add")
-        except Exception as e:
-            log(f"Warning: could not confirm device re-add: {e}")
+    except Exception as e:
+        log(f"Warning: restore failed: {e}")
 
 
 class _NIReadDisconnectMixin(ReadTaskCase):
@@ -250,6 +254,7 @@ class _NIReadDisconnectMixin(ReadTaskCase):
                 saved_config,
                 device.name,
             )
+            os.unlink(saved_config)
 
         # Phase 3: Verify task recovers after re-add
         self.log("Test 4 - Reconfigure and assert samples resume")
@@ -354,6 +359,7 @@ class _NIWriteDisconnectMixin(WriteTaskCase):
                 saved_config,
                 device.name,
             )
+            os.unlink(saved_config)
 
         # Phase 3: Verify task recovers after re-add
         self.log("Test 4 - Reconfigure and send commands after re-add")
