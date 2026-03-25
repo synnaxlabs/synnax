@@ -1,4 +1,4 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
@@ -10,8 +10,8 @@ proto_library(
         "connectivity/connectivity.proto",
         "device/device.proto",
         "framer/framer.proto",
-        "ranger/kv/kv.proto",
         "rack/rack.proto",
+        "ranger/kv/kv.proto",
         "ranger/ranger.proto",
         "status/status.proto",
         "task/task.proto",
@@ -24,8 +24,8 @@ proto_library(
         "//arc/go/text:text_proto",
         "//core/pkg/api/channel:channel_proto",
         "//core/pkg/api/ranger:ranger_proto",
-        "//core/pkg/service/arc:arc_proto",
         "//core/pkg/distribution/ontology:ontology_proto",
+        "//core/pkg/service/arc:arc_proto",
         "//core/pkg/service/device:device_proto",
         "//core/pkg/service/rack:rack_proto",
         "//core/pkg/service/ranger/kv:kv_proto",
@@ -51,8 +51,8 @@ cpp_grpc_library(
         "//arc/go/text:text_grpc",
         "//core/pkg/api/channel:channel_grpc",
         "//core/pkg/api/ranger:ranger_grpc",
-        "//core/pkg/service/arc:arc_grpc",
         "//core/pkg/distribution/ontology:ontology_grpc",
+        "//core/pkg/service/arc:arc_grpc",
         "//core/pkg/service/device:device_grpc",
         "//core/pkg/service/rack:rack_grpc",
         "//core/pkg/service/ranger/kv:kv_grpc",

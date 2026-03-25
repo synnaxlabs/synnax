@@ -2,7 +2,7 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
-def _esi_impl(ctx):
+def _esi_impl(_):
     http_file(
         name = "esi_registry_blob",
         urls = [
