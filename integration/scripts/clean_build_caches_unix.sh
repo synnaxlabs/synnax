@@ -10,7 +10,7 @@
 # included in the file licenses/APL.txt.
 
 # Cleans stale build caches on self-hosted Linux runners to prevent unbounded disk
-# growth. Deletes files older than MAX_AGE_HOURS (default 6) from Bazel output base,
+# growth. Deletes files older than MAX_AGE_HOURS (default 2) from Bazel output base,
 # Go build/module caches, and old core binaries. Safe to run — Bazel rebuilds from
 # S3 remote cache on miss, Go rebuilds on cache miss.
 
@@ -18,49 +18,74 @@ set -euo pipefail
 
 MAX_AGE_HOURS="${1:-2}"
 MAX_AGE_MINUTES=$((MAX_AGE_HOURS * 60))
+TOTAL_FREED=0
 
-echo "Cleaning build caches older than ${MAX_AGE_HOURS}h..."
+disk_used_mb() {
+    df -BM / --output=used 2> /dev/null | tail -1 | tr -d ' M'
+}
 
 clean_dir() {
     local dir="$1"
     local label="$2"
-    if [ -d "$dir" ]; then
-        local before
-        before=$(du -sm "$dir" 2> /dev/null | cut -f1)
-        find "$dir" -type f -mmin +"$MAX_AGE_MINUTES" -delete 2> /dev/null || true
-        find "$dir" -type d -empty -delete 2> /dev/null || true
-        local after
-        after=$(du -sm "$dir" 2> /dev/null | cut -f1)
-        echo "  ${label}: ${before}MB -> ${after}MB (freed $((before - after))MB)"
+    local real_dir
+    real_dir=$(realpath "$dir" 2> /dev/null || echo "$dir")
+    if [ -d "$real_dir" ]; then
+        local before after freed
+        before=$(du -sm "$real_dir" 2> /dev/null | cut -f1)
+        find "$real_dir" -type f -mmin +"$MAX_AGE_MINUTES" -delete 2> /dev/null || true
+        find "$real_dir" -type d -empty -delete 2> /dev/null || true
+        after=$(du -sm "$real_dir" 2> /dev/null | cut -f1)
+        freed=$((before - after))
+        TOTAL_FREED=$((TOTAL_FREED + freed))
+        printf "  %-30s %6dMB -> %6dMB  (freed %dMB)\n" "$label" "$before" "$after" "$freed"
     else
-        echo "  ${label}: not found, skipping"
+        printf "  %-30s skipped (not found)\n" "$label"
     fi
 }
 
-echo "--- Bazel output base ---"
-clean_dir "$HOME/.bazel" "~/.bazel"
+DISK_BEFORE=$(disk_used_mb)
+echo "=== Build Cache Cleanup (max age: ${MAX_AGE_HOURS}h) ==="
+echo ""
+
+echo "Bazel output base:"
 clean_dir "/root/.bazel" "/root/.bazel"
+if [ "$HOME" != "/root" ] && [ -d "$HOME/.bazel" ]; then
+    clean_dir "$HOME/.bazel" "$HOME/.bazel"
+fi
+echo ""
 
-echo "--- Go build cache ---"
-clean_dir "$HOME/.cache/go-build" "~/.cache/go-build"
+echo "Go build cache:"
 clean_dir "/root/.cache/go-build" "/root/.cache/go-build"
+if [ "$HOME" != "/root" ] && [ -d "$HOME/.cache/go-build" ]; then
+    clean_dir "$HOME/.cache/go-build" "$HOME/.cache/go-build"
+fi
+echo ""
 
-echo "--- Go module cache ---"
-clean_dir "$HOME/go/pkg/mod/cache" "~/go/pkg/mod/cache"
+echo "Go module cache:"
 clean_dir "/root/go/pkg/mod/cache" "/root/go/pkg/mod/cache"
+if [ "$HOME" != "/root" ] && [ -d "$HOME/go/pkg/mod/cache" ]; then
+    clean_dir "$HOME/go/pkg/mod/cache" "$HOME/go/pkg/mod/cache"
+fi
+echo ""
 
-echo "--- Old core binaries ---"
+echo "Old core binaries:"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CORE_DIR="${REPO_ROOT}/core"
 if [ -d "$CORE_DIR" ]; then
     count=$(find "$CORE_DIR" -maxdepth 1 -name "synnax-v*" -mmin +"$MAX_AGE_MINUTES" 2> /dev/null | wc -l)
     find "$CORE_DIR" -maxdepth 1 -name "synnax-v*" -mmin +"$MAX_AGE_MINUTES" -delete 2> /dev/null || true
-    echo "  core/synnax-v*: deleted $count old binaries"
+    printf "  %-30s deleted %d old binaries\n" "core/synnax-v*" "$count"
 else
-    echo "  core/: not found, skipping"
+    printf "  %-30s skipped (not found)\n" "core/"
 fi
+echo ""
 
-echo "--- Disk usage ---"
+DISK_AFTER=$(disk_used_mb)
+DISK_FREED=$((DISK_BEFORE - DISK_AFTER))
+
+echo "=== Summary ==="
+echo "  Cache freed:  ${TOTAL_FREED}MB"
+echo "  Disk before:  ${DISK_BEFORE}MB"
+echo "  Disk after:   ${DISK_AFTER}MB"
+echo "  Disk freed:   ${DISK_FREED}MB"
 df -h / --output=source,size,used,avail,pcent 2> /dev/null || df -h /
-
-echo "✅ Build cache cleanup complete"

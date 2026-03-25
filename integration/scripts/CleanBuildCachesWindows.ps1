@@ -8,7 +8,7 @@
 # included in the file licenses/APL.txt.
 
 # Cleans stale build caches on self-hosted Windows runners to prevent unbounded disk
-# growth. Deletes files older than MaxAgeHours (default 6) from Bazel directories,
+# growth. Deletes files older than MaxAgeHours (default 2) from Bazel directories,
 # Go build/module caches, and old core binaries. Safe to run - Bazel rebuilds from
 # S3 remote cache on miss, Go rebuilds on cache miss.
 
@@ -17,7 +17,12 @@ param(
 )
 
 $cutoff = (Get-Date).AddHours(-$MaxAgeHours)
-Write-Output "Cleaning build caches older than ${MaxAgeHours}h..."
+$totalFreed = 0
+
+function Get-DiskUsedMB {
+    $d = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3"
+    return [math]::Round(($d.Size - $d.FreeSpace) / 1MB, 0)
+}
 
 function Clean-StaleFiles {
     param(
@@ -31,34 +36,41 @@ function Clean-StaleFiles {
         Get-ChildItem -Recurse -File $Path -ErrorAction SilentlyContinue |
             Where-Object { $_.LastWriteTime -lt $cutoff } |
             Remove-Item -Force -ErrorAction SilentlyContinue
-        # Remove empty directories
         Get-ChildItem -Recurse -Directory $Path -ErrorAction SilentlyContinue |
-            Where-Object { @(Get-ChildItem $_.FullName -Force).Count -eq 0 } |
+            Where-Object { @(Get-ChildItem $_.FullName -Force -ErrorAction SilentlyContinue).Count -eq 0 } |
             Remove-Item -Force -ErrorAction SilentlyContinue
         $afterSize = [math]::Round(
             ((Get-ChildItem -Recurse -File $Path -ErrorAction SilentlyContinue |
                 Measure-Object -Property Length -Sum).Sum / 1MB), 0)
         $freed = $beforeSize - $afterSize
-        Write-Output "  ${Label}: ${beforeSize}MB -> ${afterSize}MB (freed ${freed}MB)"
+        $script:totalFreed += $freed
+        Write-Output ("  {0,-30} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f $Label, $beforeSize, $afterSize, $freed)
     } else {
-        Write-Output "  ${Label}: not found, skipping"
+        Write-Output ("  {0,-30} skipped (not found)" -f $Label)
     }
 }
 
-Write-Output "--- Bazel caches ---"
+$diskBefore = Get-DiskUsedMB
+Write-Output "=== Build Cache Cleanup (max age: ${MaxAgeHours}h) ==="
+Write-Output ""
+
+Write-Output "Bazel caches:"
 Clean-StaleFiles "C:\_bazel" "C:\_bazel"
 Clean-StaleFiles "C:\_bazel-disk" "C:\_bazel-disk"
 Clean-StaleFiles "C:\_bazel-repo" "C:\_bazel-repo"
 Clean-StaleFiles "C:\Users\Administrator\_bazel_Administrator" "_bazel_Administrator"
+Write-Output ""
 
-Write-Output "--- Go build cache ---"
+Write-Output "Go build cache:"
 Clean-StaleFiles "C:\Users\Administrator\AppData\Local\go-build" "go-build"
 Clean-StaleFiles "C:\Windows\SystemTemp\go-build*" "SystemTemp\go-build"
+Write-Output ""
 
-Write-Output "--- Go module cache ---"
+Write-Output "Go module cache:"
 Clean-StaleFiles "C:\Users\Administrator\go\pkg\mod\cache" "go\pkg\mod\cache"
+Write-Output ""
 
-Write-Output "--- Old core binaries ---"
+Write-Output "Old core binaries:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $coreDir = Join-Path $repoRoot "core"
 if (Test-Path $coreDir) {
@@ -66,18 +78,23 @@ if (Test-Path $coreDir) {
         Where-Object { $_.LastWriteTime -lt $cutoff }
     $count = ($oldBinaries | Measure-Object).Count
     $oldBinaries | Remove-Item -Force -ErrorAction SilentlyContinue
-    Write-Output "  core\synnax-v*: deleted $count old binaries"
+    Write-Output ("  {0,-30} deleted {1} old binaries" -f "core\synnax-v*", $count)
 } else {
-    Write-Output "  core\: not found, skipping"
+    Write-Output ("  {0,-30} skipped (not found)" -f "core\")
 }
+Write-Output ""
 
-Write-Output "--- Disk usage ---"
+$diskAfter = Get-DiskUsedMB
+$diskFreed = $diskBefore - $diskAfter
 $disk = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3"
-$usage = "SizeGB={0} UsedGB={1} FreeGB={2} Used={3}%" -f `
+
+Write-Output "=== Summary ==="
+Write-Output "  Cache freed:  ${totalFreed}MB"
+Write-Output "  Disk before:  ${diskBefore}MB"
+Write-Output "  Disk after:   ${diskAfter}MB"
+Write-Output "  Disk freed:   ${diskFreed}MB"
+Write-Output ("  Disk total:   {0}GB / Used: {1}GB / Free: {2}GB ({3}%)" -f `
     [math]::Round($disk.Size/1GB, 1),
     [math]::Round(($disk.Size - $disk.FreeSpace)/1GB, 1),
     [math]::Round($disk.FreeSpace/1GB, 1),
-    [math]::Round(($disk.Size - $disk.FreeSpace)/$disk.Size * 100, 1)
-Write-Output "  $usage"
-
-Write-Output "Done: Build cache cleanup complete"
+    [math]::Round(($disk.Size - $disk.FreeSpace)/$disk.Size * 100, 1))
