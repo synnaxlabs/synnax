@@ -130,7 +130,7 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects: []ontology.ID{
-						{Type: ontology.TypeUser},
+						{Type: ontology.ResourceTypeUser},
 						{Type: "policy"},
 					},
 					Actions: []svcAccess.Action{"all"},
@@ -274,7 +274,7 @@ func userHasSpecificRole(
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeRole).
+		WhereTypes(ontology.ResourceTypeRole).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {
 		return false

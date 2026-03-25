@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -52,6 +53,9 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
 	// is nil.
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching arcs.
+	// [REQUIRED]
+	Search *search.Index
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -68,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
 	return c
@@ -153,6 +158,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
 		if err != nil {
@@ -178,6 +184,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, Arc](),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 	}
 }

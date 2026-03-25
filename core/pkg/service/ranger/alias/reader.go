@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -24,7 +25,7 @@ import (
 // Reader is used to retrieve aliases.
 type Reader struct {
 	tx              gorp.Tx
-	otg             *ontology.Ontology
+	search          *search.Index
 	parentRetriever ParentRetriever
 }
 
@@ -149,9 +150,9 @@ func (r Reader) Search(
 	rng uuid.UUID,
 	term string,
 ) ([]channel.Key, error) {
-	ids, err := r.otg.SearchIDs(
+	ids, err := r.search.Search(
 		ctx,
-		ontology.SearchRequest{Term: term, Type: ontology.TypeRangeAlias},
+		search.Request{Term: term, Type: ontology.ResourceTypeRangeAlias},
 	)
 	if err != nil {
 		return nil, err

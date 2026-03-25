@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -61,6 +62,9 @@ type ServiceConfig struct {
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
 	HealthCheckInterval telem.TimeSpan
+	// Search is the search index for fuzzy searching racks.
+	// [REQUIRED]
+	Search *search.Index
 	// AlertEveryNChecks controls dampening for dead rack alerts. After the initial
 	// alert when a rack goes down, subsequent alerts are only fired every N consecutive
 	// dead checks. Set to 1 to alert on every check (no dampening).
@@ -88,6 +92,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
 	return c
@@ -148,6 +153,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if s.monitor, err = openMonitor(s.Child("monitor"), s); err != nil {
 		return nil, err
 	}
@@ -294,7 +300,7 @@ func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:          s.Ontology,
+		search:       s.Search,
 		baseTX:       s.DB,
 		gorp:         gorp.NewRetrieve[Key, Rack](),
 		hostProvider: s.HostProvider,

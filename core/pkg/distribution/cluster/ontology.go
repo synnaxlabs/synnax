@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -31,13 +32,13 @@ import (
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
 func NodeOntologyID(key NodeKey) ontology.ID {
-	return ontology.ID{Type: ontology.TypeNode, Key: strconv.Itoa(int(key))}
+	return ontology.ID{Type: ontology.ResourceTypeNode, Key: strconv.Itoa(int(key))}
 }
 
 // OntologyID returns a unique identifier for a Cluster to use with a
 // resource Ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontology.TypeCluster, Key: key.String()}
+	return ontology.ID{Type: ontology.ResourceTypeCluster, Key: key.String()}
 }
 
 var (
@@ -57,9 +58,12 @@ type NodeOntologyService struct {
 	alamos.Instrumentation
 }
 
-var _ ontology.Service = (*NodeOntologyService)(nil)
+var (
+	_ ontology.Service = (*NodeOntologyService)(nil)
+	_ search.Service   = (*NodeOntologyService)(nil)
+)
 
-func (s *NodeOntologyService) Type() ontology.Type { return ontology.TypeNode }
+func (s *NodeOntologyService) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
@@ -126,9 +130,12 @@ type OntologyService struct {
 	Cluster Cluster
 }
 
-var _ ontology.Service = (*OntologyService)(nil)
+var (
+	_ ontology.Service = (*OntologyService)(nil)
+	_ search.Service   = (*OntologyService)(nil)
+)
 
-func (s *OntologyService) Type() ontology.Type { return ontology.TypeCluster }
+func (s *OntologyService) Type() ontology.ResourceType { return ontology.ResourceTypeCluster }
 
 // Schema implements ontology.Service.
 func (s *OntologyService) Schema() zyn.Schema { return schema }

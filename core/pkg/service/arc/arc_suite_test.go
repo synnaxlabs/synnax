@@ -52,8 +52,7 @@ var (
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		EnableSearch: new(false),
-		DB:           db,
+		DB: db,
 	}))
 
 	// Use mock distribution for simplified testing

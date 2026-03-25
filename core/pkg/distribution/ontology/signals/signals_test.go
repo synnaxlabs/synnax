@@ -38,7 +38,7 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
-const changeOntologyType ontology.Type = "change"
+const changeOntologyType ontology.ResourceType = "change"
 
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: changeOntologyType}
@@ -46,7 +46,7 @@ func newChangeID(key string) ontology.ID {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.Type { return changeOntologyType }
+func (s *changeService) Type() ontology.ResourceType { return changeOntologyType }
 
 func (s *changeService) Schema() zyn.Schema {
 	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
