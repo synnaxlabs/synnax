@@ -139,8 +139,9 @@ func (p *Plugin) generateSchemaChangeMigrations(
 		oldFields := resolution.UnifiedFields(oldType, req.OldResolutions)
 		newFields := resolution.UnifiedFields(newType, req.Resolutions)
 
-		if fieldsMatch(oldFields, newFields) {
-			continue // No change.
+		changeType := classifyChange(oldFields, newFields)
+		if changeType == changeNone {
+			continue
 		}
 
 		goPath := output.GetPath(newType, "go")
@@ -148,59 +149,71 @@ func (p *Plugin) generateSchemaChangeMigrations(
 			continue
 		}
 		goName := getGoName(newType)
-
-		// Generate frozen type for old version in migrations sub-package.
-		frozenFiles, err := p.generateFrozenType(
-			oldType, goPath, goName, req,
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate frozen type for %s", goName)
-		}
-		files = append(files, frozenFiles...)
-
 		version := req.SnapshotVersion + 1
-
-		// Generate developer transform template in the PARENT package
-		// so it can reference both frozen types (via import) and current types.
 		parentPkg := naming.DerivePackageName(goPath)
-		templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, version)
-		migrationsImport := gomod.ResolveImportPath(goPath+"/migrations", req.RepoRoot, "github.com/synnaxlabs/synnax/")
-		templateContent, err := renderTransformTemplate(parentPkg, goName, version, migrationsImport)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate transform template for %s", goName)
-		}
-		// Check if file already exists (don't overwrite developer code).
-		templateFullPath := filepath.Join(req.RepoRoot, templateFile)
-		if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-			files = append(files, plugin.File{
-				Path:    templateFile,
-				Content: templateContent,
-			})
+
+		if changeType == changeAdditive {
+			// Additive change: bounds-safe decoder handles old data.
+			// Use current type + codec for both input and output.
+			// Generate a simple transform template in the parent package.
+			templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, version)
+			templateFullPath := filepath.Join(req.RepoRoot, templateFile)
+			if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
+				content, err := renderAdditiveTransformTemplate(parentPkg, goName, version)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to generate transform template for %s", goName)
+				}
+				files = append(files, plugin.File{Path: templateFile, Content: content})
+			}
+		} else {
+			// Breaking change: need frozen types. Not yet implemented.
+			_ = parentPkg
+			return nil, fmt.Errorf(
+				"breaking schema change detected for %s (field removal or type change). "+
+					"Frozen type migrations are not yet implemented. Only additive changes "+
+					"(fields added at end) are supported", goName)
 		}
 	}
 
 	return files, nil
 }
 
-func fieldsMatch(a, b []resolution.Field) bool {
-	if len(a) != len(b) {
-		return false
+type changeKind int
+
+const (
+	changeNone     changeKind = iota
+	changeAdditive            // fields only added at end
+	changeBreaking            // removal, reorder, or type change
+)
+
+func classifyChange(oldFields, newFields []resolution.Field) changeKind {
+	if len(oldFields) == len(newFields) {
+		allMatch := true
+		for i := range oldFields {
+			if oldFields[i].Name != newFields[i].Name ||
+				oldFields[i].Type.Name != newFields[i].Type.Name ||
+				oldFields[i].IsOptional != newFields[i].IsOptional ||
+				oldFields[i].IsHardOptional != newFields[i].IsHardOptional {
+				allMatch = false
+				break
+			}
+		}
+		if allMatch {
+			return changeNone
+		}
+		return changeBreaking
 	}
-	for i := range a {
-		if a[i].Name != b[i].Name {
-			return false
-		}
-		if a[i].Type.Name != b[i].Type.Name {
-			return false
-		}
-		if a[i].IsOptional != b[i].IsOptional {
-			return false
-		}
-		if a[i].IsHardOptional != b[i].IsHardOptional {
-			return false
+	if len(newFields) < len(oldFields) {
+		return changeBreaking // fields removed
+	}
+	// newFields is longer. Check that old fields are a prefix.
+	for i := range oldFields {
+		if oldFields[i].Name != newFields[i].Name ||
+			oldFields[i].Type.Name != newFields[i].Type.Name {
+			return changeBreaking // reorder or type change
 		}
 	}
-	return true
+	return changeAdditive // fields only added at end
 }
 
 func (p *Plugin) generateFrozenType(
