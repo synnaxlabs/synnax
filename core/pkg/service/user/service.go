@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -34,6 +35,9 @@ type ServiceConfig struct {
 	// Group is used to create the top level "Users" group that will be the default
 	// parent of all users.
 	Group *group.Service
+	// Search is the search index for fuzzy searching users.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]
@@ -53,6 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
@@ -93,6 +98,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigUUID[User](cfg.DB)

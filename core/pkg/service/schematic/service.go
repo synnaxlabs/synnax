@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
@@ -42,6 +43,9 @@ type ServiceConfig struct {
 	// Codec is the protobuf-based codec for encoding/decoding schematics in gorp.
 	// [OPTIONAL]
 	Codec binary.Codec
+	// Search is the search index for fuzzy searching schematics.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -56,6 +60,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
@@ -95,12 +100,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
 		Signals:  cfg.Signals,
+		Search:   cfg.Search,
 	}); err != nil {
 		return nil, err
 	}

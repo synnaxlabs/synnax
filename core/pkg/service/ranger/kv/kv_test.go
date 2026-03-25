@@ -41,8 +41,7 @@ var _ = Describe("KV", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+			DB: db,
 		}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))

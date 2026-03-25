@@ -27,8 +27,7 @@ var _ = Describe("Service", func() {
 		It("Should create a service with minimal configuration", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: new(false),
-				DB:           testDB,
+				DB: testDB,
 			}))
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
@@ -45,8 +44,7 @@ var _ = Describe("Service", func() {
 		It("Should create a service with group configuration", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: new(false),
-				DB:           testDB,
+				DB: testDB,
 			}))
 			testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
@@ -85,12 +83,10 @@ var _ = Describe("Service", func() {
 			testDB1 := gorp.Wrap(memkv.New())
 			testDB2 := gorp.Wrap(memkv.New())
 			testOtg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: new(false),
-				DB:           testDB1,
+				DB: testDB1,
 			}))
 			testOtg2 := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: new(false),
-				DB:           testDB2,
+				DB: testDB2,
 			}))
 
 			cfg1 := symbol.ServiceConfig{
@@ -138,8 +134,7 @@ var _ = Describe("Service", func() {
 		It("Should close the service cleanly", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: new(false),
-				DB:           testDB,
+				DB: testDB,
 			}))
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{

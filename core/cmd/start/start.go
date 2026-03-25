@@ -365,7 +365,7 @@ func runStartupSearchIndexing(
 	// resources that it depends on (notably storage KV).
 	searchIndexCtx, cancelIndexing := xsignal.WithCancel(ctx)
 	searchIndexCtx.Go(
-		dist.Ontology.InitializeSearchIndex,
+		dist.Search.InitializeIndex,
 		xsignal.WithKey("startup_search_indexing"),
 	)
 	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)

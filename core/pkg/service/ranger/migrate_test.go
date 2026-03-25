@@ -41,8 +41,7 @@ var _ = Describe("Migrate", func() {
 		db = gorp.Wrap(memkv.New())
 		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+			DB: db,
 		}))
 		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
@@ -142,7 +141,7 @@ var _ = Describe("Migrate", func() {
 		Expect(otg.NewRetrieve().
 			WhereIDs(parentRange.OntologyID()).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.TypeRange).
+			WhereTypes(ontology.ResourceTypeRange).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())
 		var childNames []string

@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -37,6 +38,9 @@ type ServiceConfig struct {
 	// Group is used to create and manage a root group for holding all labels.
 	// [REQUIRED]
 	Group *group.Service
+	// Search is the search index for fuzzy searching labels.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -67,6 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
@@ -100,6 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](s.table.Observe()))
 		if err != nil {
@@ -123,7 +129,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 	}
 }
 

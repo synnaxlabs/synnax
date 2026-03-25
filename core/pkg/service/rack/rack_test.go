@@ -286,7 +286,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-			Expect(s.Key).To(ContainSubstring(string(ontology.TypeRack)))
+			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 			Expect(s.Details.Rack).To(Equal(r.Key))
 		})
 
@@ -331,7 +331,7 @@ var _ = Describe("Rack", Ordered, func() {
 				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
 				g.Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-				g.Expect(s.Key).To(ContainSubstring(string(ontology.TypeRack)))
+				g.Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 				g.Expect(s.Details.Rack).To(Equal(r.Key))
 				g.Expect(s.Description).To(ContainSubstring("Driver was last alive"))
 			}).Should(Succeed())

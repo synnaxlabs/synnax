@@ -66,7 +66,7 @@ func (m *rangeGroupsMigration) Run(
 		NewRetrieve().
 		WhereIDs(topLevelGroup.OntologyID()).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.TypeGroup).
+		WhereTypes(ontology.ResourceTypeGroup).
 		Entries(&groups).
 		Exec(ctx, gorpTx); err != nil {
 		return err
@@ -95,7 +95,7 @@ func (m *rangeGroupsMigration) Run(
 			NewRetrieve().
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.TypeRange).
+			WhereTypes(ontology.ResourceTypeRange).
 			Entries(&childRanges).
 			Exec(ctx, gorpTx); err != nil {
 			return err

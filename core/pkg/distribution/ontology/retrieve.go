@@ -14,14 +14,13 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
 type clause struct {
-	gorp.Retrieve[string, resource.Resource]
+	gorp.Retrieve[string, Resource]
 	traverser        Traverser
 	excludeFieldData bool
 }
@@ -86,7 +85,7 @@ func (r Retrieve) Where(filter gorp.FilterFunc[string, Resource]) Retrieve {
 	return r.setCurrentClause(c)
 }
 
-func (r Retrieve) WhereTypes(types ...Type) Retrieve {
+func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	c := r.currentClause()
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
@@ -259,7 +258,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
-			nextIDs = lo.Must(resource.ParseIDs(cls.GetWhereKeys()))
+			nextIDs = lo.Must(ParseIDs(cls.GetWhereKeys()))
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,
@@ -336,7 +335,7 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (r Retrieve) extractIDs(clause gorp.Retrieve[string, resource.Resource]) []ID {
+func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
 	entries := clause.GetEntries()
 	resources := entries.All()
 	ids := make([]ID, 0, len(resources))

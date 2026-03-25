@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -36,6 +37,9 @@ type ServiceConfig struct {
 	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching views.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -49,6 +53,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -89,6 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s.cfg.Ontology.RegisterService(s)
+	s.cfg.Search.RegisterService(s)
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
@@ -131,6 +137,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 	}
 }

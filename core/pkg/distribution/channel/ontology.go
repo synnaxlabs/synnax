@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -29,7 +30,7 @@ func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.TypeChannel, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: k.String()}
 }
 
 // OntologyIDs returns the ontology.ID for each key.
@@ -74,11 +75,14 @@ func newResource(c Channel) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
 }
 
-var _ ontology.Service = (*Service)(nil)
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
 
 type change = xchange.Change[Key, Channel]
 
-func (s *Service) Type() ontology.Type { return ontology.TypeChannel }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

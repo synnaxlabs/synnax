@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -26,7 +27,7 @@ import (
 
 // OntologyID returns unique identifier for the symbol within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontology.TypeSchematicSymbol, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the symbols within the ontology.
@@ -63,7 +64,12 @@ func newResource(s Symbol) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Symbol]
 
-func (s *Service) Type() ontology.Type { return ontology.TypeSchematicSymbol }
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
+
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeSchematicSymbol }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
