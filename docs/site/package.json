@@ -30,7 +30,7 @@
     "astro": "^5.18.1",
     "astro-seo": "^1.1.0",
     "clsx": "catalog:",
-    "posthog-js": "^1.363.1",
+    "posthog-js": "^1.363.5",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "catalog:",

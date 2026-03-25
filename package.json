@@ -105,7 +105,7 @@
   },
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
-    "knip": "^5.88.1",
+    "knip": "^6.0.5",
     "prettier": "^3.8.1",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.18.0",
