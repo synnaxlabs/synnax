@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "synnax",
     srcs = [
@@ -20,11 +22,11 @@ cc_library(
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
-        "//x/cpp/telem",
         "//x/cpp/json",
         "//x/cpp/log",
         "//x/cpp/path",
-        "@glog//:glog",
+        "//x/cpp/telem",
+        "@glog",
         "@grpc//:grpc++",
         "@nlohmann_json//:json",
     ],

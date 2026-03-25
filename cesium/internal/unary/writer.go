@@ -11,6 +11,7 @@ package unary
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -122,18 +123,32 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 // controlledWriter is used for exchanging control between multiple unary writers. When
 // control is transferred, ownership of the domain writer is moved to the new unary
-// writer. Additional state is included to ensure that write positions and channel.
+// writer. Additional state is included to ensure that write positions and channel
 // information are consistent.
 type controlledWriter struct {
 	*domain.Writer
 	channelKey channel.Key
-	alignment  telem.Alignment
+	// alignment tracks the current write position as a packed domain index (upper 32
+	// bits) and sample index (lower 32 bits). This field is accessed atomically because
+	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
+	// the region's RWMutex is released before the caller accesses the field. This means
+	// one goroutine may write alignment through Authorize while another reads it through
+	// PeekResource concurrently.
+	alignment atomic.Uint64
 }
 
-var _ control.Resource = controlledWriter{}
+var _ control.Resource = &controlledWriter{}
 
 // ChannelKey implements controller.Resource.
-func (w controlledWriter) ChannelKey() channel.Key { return w.channelKey }
+func (w *controlledWriter) ChannelKey() channel.Key { return w.channelKey }
+
+func (w *controlledWriter) loadAlignment() telem.Alignment {
+	return telem.Alignment(w.alignment.Load())
+}
+
+func (w *controlledWriter) storeAlignment(a telem.Alignment) {
+	w.alignment.Store(uint64(a))
+}
 
 type Writer struct {
 	// control stores the gate held by the writer in the controller of the unaryDB.
@@ -185,11 +200,12 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 			cw := &controlledWriter{
 				Writer:     dw,
 				channelKey: db.cfg.Channel.Key,
-				alignment:  telem.NewAlignment(cfg.AlignmentDomainIndex, 0),
 			}
+			a := telem.NewAlignment(cfg.AlignmentDomainIndex, 0)
 			if cfg.AlignmentDomainIndex == 0 {
-				cw.alignment = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+				a = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
 			}
+			cw.storeAlignment(a)
 			return cw, err
 		},
 	}); err != nil {
@@ -243,16 +259,17 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		dw.alignment = telem.NewAlignment(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
+		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.len(dw.Writer)))
+		dw.storeAlignment(a)
 		_, err = dw.Write(series.Data)
 	} else {
-		dw.alignment = dw.alignment.AddSamples(uint32(series.Len()))
+		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))
 	}
-	return dw.alignment, w.wrapError(err)
+	return dw.loadAlignment(), w.wrapError(err)
 }
 
 func (w *Writer) DomainIndex() uint32 {
-	return w.control.PeekResource().alignment.DomainIndex()
+	return w.control.PeekResource().loadAlignment().DomainIndex()
 }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
