@@ -47,11 +47,21 @@ DISK_BEFORE=$(disk_used_mb)
 echo "=== Build Cache Cleanup (max age: ${MAX_AGE_HOURS}h) ==="
 echo ""
 
-echo "Bazel output base:"
-clean_dir "/root/.bazel" "/root/.bazel"
-if [ "$HOME" != "/root" ] && [ -d "$HOME/.bazel" ]; then
-    clean_dir "$HOME/.bazel" "$HOME/.bazel"
-fi
+echo "Bazel build outputs (preserving external/):"
+for bazel_base in /root/.bazel "$HOME/.bazel"; do
+    real_base=$(realpath "$bazel_base" 2> /dev/null || echo "$bazel_base")
+    [ "$bazel_base" = "$HOME/.bazel" ] && [ "$HOME" = "/root" ] && continue
+    if [ -d "$real_base" ]; then
+        # Only clean bazel-out/ dirs, skip external/ (fetched deps break if deleted)
+        found_outputs=false
+        for output_dir in "$real_base"/_bazel_*/*/bazel-out; do
+            [ -d "$output_dir" ] && { clean_dir "$output_dir" "$output_dir"; found_outputs=true; }
+        done
+        $found_outputs || printf "  %-30s no bazel-out dirs found\n" "$bazel_base"
+    else
+        printf "  %-30s skipped (not found)\n" "$bazel_base"
+    fi
+done
 echo ""
 
 echo "Go build cache:"

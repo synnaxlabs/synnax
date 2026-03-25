@@ -54,11 +54,26 @@ $diskBefore = Get-DiskUsedMB
 Write-Output "=== Build Cache Cleanup (max age: ${MaxAgeHours}h) ==="
 Write-Output ""
 
-Write-Output "Bazel caches:"
-Clean-StaleFiles "C:\_bazel" "C:\_bazel"
+Write-Output "Bazel build outputs (preserving external/):"
+# Only clean bazel-out/ dirs, skip external/ (fetched deps break if deleted)
+foreach ($bazelBase in @("C:\_bazel", "C:\Users\Administrator\_bazel_Administrator")) {
+    if (Test-Path $bazelBase) {
+        $outputDirs = Get-ChildItem -Path $bazelBase -Recurse -Directory -Filter "bazel-out" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Parent.Parent.Name -ne "external" }
+        if ($outputDirs) {
+            foreach ($dir in $outputDirs) {
+                Clean-StaleFiles $dir.FullName $dir.FullName
+            }
+        } else {
+            Write-Output ("  {0,-30} no bazel-out dirs found" -f $bazelBase)
+        }
+    } else {
+        Write-Output ("  {0,-30} skipped (not found)" -f $bazelBase)
+    }
+}
+# Disk cache and repo cache are safe to clean entirely (no external/ deps)
 Clean-StaleFiles "C:\_bazel-disk" "C:\_bazel-disk"
 Clean-StaleFiles "C:\_bazel-repo" "C:\_bazel-repo"
-Clean-StaleFiles "C:\Users\Administrator\_bazel_Administrator" "_bazel_Administrator"
 Write-Output ""
 
 Write-Output "Go build cache:"
