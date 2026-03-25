@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
 #include "driver/common/status.h"
@@ -203,7 +204,7 @@ public:
             ctx,
             breaker_cfg,
             std::move(source),
-            std::make_shared<driver::pipeline::SynnaxWriterFactory>(ctx->client)
+            bypass::pipeline::create_writer_factory(ctx)
         ) {}
 
     /// @brief executes the given command on the task.

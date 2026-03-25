@@ -14,7 +14,7 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Generic, TypeAlias, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 Authority: TypeAlias = int
 
@@ -34,10 +34,13 @@ class Subject(BaseModel):
     Attributes:
         key: Is a unique identifier for the subject.
         name: Is a human-readable name for the subject.
+        group: Optional identifier shared by subjects from the same logical group
+            (e.g.) all writers from the same Driver rack.
     """
 
     key: str
     name: str
+    group: int | None = Field(default=None, ge=0, le=4294967295)
 
 
 class State(BaseModel, Generic[R]):
@@ -52,4 +55,37 @@ class State(BaseModel, Generic[R]):
 
     subject: Subject
     resource: R
-    authority: Authority
+    authority: Authority = Field(ge=0, le=255)
+
+
+class Transfer(BaseModel, Generic[R]):
+    """Represents a transfer of control over a resource. It is represented as a
+    transition from one state to another over the same resource. A transfer between
+    resources that are different will result in a panic when any transfer methods
+    are called.
+
+    If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
+    resource is uncontrolled after the transfer.
+
+    If both From and To are nil, no transfer occurred. If both From and To are not nil,
+    and From.Subject != To.Subject, a transfer occurred.
+
+    Attributes:
+        from_: The previous authority holder. Null on initial acquire.
+        to: The new authority holder. Null on release.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: State[R] | None = Field(default=None, alias="from")
+    to: State[R] | None = None
+
+
+class Update(BaseModel, Generic[R]):
+    """Represents a batch of control transfers that occurred atomically.
+
+    Attributes:
+        transfers: Is the list of control transfers that occurred in this update.
+    """
+
+    transfers: list[Transfer[R]]

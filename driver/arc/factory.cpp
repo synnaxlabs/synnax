@@ -29,7 +29,14 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(
     auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
     if (cfg_err) return {std::move(result), cfg_err};
 
-    auto [arc_task, task_err] = Task::create(task, ctx, cfg);
+    auto [arc_task, task_err] = Task::create(
+        task,
+        ctx,
+        cfg,
+        nullptr,
+        nullptr,
+        this->rt_manager
+    );
     if (task_err) return {std::move(result), task_err};
 
     result.task = std::move(arc_task);

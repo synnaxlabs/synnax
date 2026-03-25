@@ -9,31 +9,33 @@
 
 package keywords
 
+import "github.com/synnaxlabs/x/set"
+
 // Reserved contains all C++ reserved keywords.
-var Reserved = map[string]bool{
-	"alignas": true, "alignof": true, "and": true, "and_eq": true, "asm": true,
-	"auto": true, "bitand": true, "bitor": true, "bool": true, "break": true,
-	"case": true, "catch": true, "char": true, "char16_t": true, "char32_t": true,
-	"class": true, "compl": true, "const": true, "constexpr": true, "const_cast": true,
-	"continue": true, "decltype": true, "default": true, "delete": true, "do": true,
-	"double": true, "dynamic_cast": true, "else": true, "enum": true, "explicit": true,
-	"export": true, "extern": true, "false": true, "float": true, "for": true,
-	"friend": true, "goto": true, "if": true, "inline": true, "int": true,
-	"long": true, "mutable": true, "namespace": true, "new": true, "noexcept": true,
-	"not": true, "not_eq": true, "nullptr": true, "operator": true, "or": true,
-	"or_eq": true, "private": true, "protected": true, "public": true, "register": true,
-	"reinterpret_cast": true, "return": true, "short": true, "signed": true,
-	"sizeof": true, "static": true, "static_assert": true, "static_cast": true,
-	"struct": true, "switch": true, "template": true, "this": true, "thread_local": true,
-	"throw": true, "true": true, "try": true, "typedef": true, "typeid": true,
-	"typename": true, "union": true, "unsigned": true, "using": true, "virtual": true,
-	"void": true, "volatile": true, "wchar_t": true, "while": true, "xor": true,
-	"xor_eq": true,
-}
+var Reserved = set.New(
+	"alignas", "alignof", "and", "and_eq", "asm",
+	"auto", "bitand", "bitor", "bool", "break",
+	"case", "catch", "char", "char16_t", "char32_t",
+	"class", "compl", "const", "constexpr", "const_cast",
+	"continue", "decltype", "default", "delete", "do",
+	"double", "dynamic_cast", "else", "enum", "explicit",
+	"export", "extern", "false", "float", "for",
+	"friend", "goto", "if", "inline", "int",
+	"long", "mutable", "namespace", "new", "noexcept",
+	"not", "not_eq", "nullptr", "operator", "or",
+	"or_eq", "private", "protected", "public", "register",
+	"reinterpret_cast", "return", "short", "signed",
+	"sizeof", "static", "static_assert", "static_cast",
+	"struct", "switch", "template", "this", "thread_local",
+	"throw", "true", "try", "typedef", "typeid",
+	"typename", "union", "unsigned", "using", "virtual",
+	"void", "volatile", "wchar_t", "while", "xor",
+	"xor_eq",
+)
 
 // Escape appends an underscore suffix to names that collide with C++ reserved keywords.
 func Escape(name string) string {
-	if Reserved[name] {
+	if Reserved.Contains(name) {
 		return name + "_"
 	}
 	return name

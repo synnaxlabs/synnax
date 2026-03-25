@@ -121,6 +121,10 @@ public:
     /// avoid unintentional deep copies.
     [[nodiscard]] Frame deep_copy() const;
 
+    /// @brief returns a shallow copy where each Series shares the underlying data
+    /// buffer via copy-on-write. Much cheaper than deep_copy() for read-only use.
+    [[nodiscard]] Frame shallow_copy() const;
+
     /// @brief implements iterator support for the frame, allowing the caller to
     /// traverse the channel keys and series in the frame.
     struct Iterator {

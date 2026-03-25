@@ -67,16 +67,27 @@ void configure_modbus(const Config &config, FactoryList &factories) {
 }
 #endif
 
-void configure_arc(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, arc::INTEGRATION_NAME, []() {
-        return std::make_unique<arc::Factory>();
+void configure_arc(
+    const Config &config,
+    FactoryList &factories,
+    const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+) {
+    configure_integration(config, factories, arc::INTEGRATION_NAME, [&rt_manager]() {
+        return std::make_unique<arc::Factory>(rt_manager);
     });
 }
 
-void configure_ethercat(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, ethercat::INTEGRATION_NAME, []() {
-        return std::make_unique<ethercat::Factory>();
-    });
+void configure_ethercat(
+    const Config &config,
+    FactoryList &factories,
+    const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+) {
+    configure_integration(
+        config,
+        factories,
+        ethercat::INTEGRATION_NAME,
+        [&rt_manager]() { return std::make_unique<ethercat::Factory>(rt_manager); }
+    );
 }
 
 void configure_http(const Config &config, FactoryList &factories) {
@@ -85,14 +96,15 @@ void configure_http(const Config &config, FactoryList &factories) {
     });
 }
 
-std::unique_ptr<task::Factory> Config::new_factory() const {
+std::unique_ptr<task::Factory>
+Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
     FactoryList factories;
     configure_state(factories);
     configure_opc(*this, factories);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);
-    configure_arc(*this, factories);
-    configure_ethercat(*this, factories);
+    configure_arc(*this, factories, rt_manager);
+    configure_ethercat(*this, factories, rt_manager);
     configure_http(*this, factories);
 #ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);

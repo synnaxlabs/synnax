@@ -16,4 +16,12 @@
 
 namespace x::control {
 constexpr Authority AUTHORITY_ABSOLUTE = 255;
+
+inline bool operator==(const Subject &a, const Subject &b) {
+    return a.key == b.key;
+}
+
+inline bool operator!=(const Subject &a, const Subject &b) {
+    return !(a == b);
+}
 }

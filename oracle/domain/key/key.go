@@ -10,7 +10,10 @@
 // Package key provides utilities for extracting key fields from Oracle schemas.
 package key
 
-import "github.com/synnaxlabs/oracle/resolution"
+import (
+	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
+)
 
 // Field represents a key field extracted from a struct.
 type Field struct {
@@ -24,7 +27,7 @@ type SkipFunc func(resolution.Type) bool
 
 // Collect gathers all unique key fields from the given struct types.
 func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []Field {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var result []Field
 	for _, typ := range types {
 		if skip != nil && skip(typ) {
@@ -36,8 +39,8 @@ func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []
 		}
 		for _, f := range form.Fields {
 			if _, hasKey := f.Domains["key"]; hasKey {
-				if !seen[f.Name] {
-					seen[f.Name] = true
+				if !seen.Contains(f.Name) {
+					seen.Add(f.Name)
 					result = append(result, Field{
 						Name:      f.Name,
 						Primitive: ResolvePrimitive(f.Type, table),

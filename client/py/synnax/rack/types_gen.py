@@ -28,7 +28,7 @@ class StatusDetails(BaseModel):
         rack: Is the key of the rack this status pertains to.
     """
 
-    rack: Key
+    rack: Key = Field(ge=0, le=4294967295)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -47,9 +47,9 @@ class Base(BaseModel):
         status: Is the current operational status of the rack.
     """
 
-    key: Key
+    key: Key = Field(ge=0, le=4294967295)
     name: str
-    task_counter: int | None = None
+    task_counter: int | None = Field(default=None, ge=0, le=4294967295)
     embedded: bool | None = None
     status: Status | None = None
 
@@ -64,7 +64,7 @@ class Rack(Base):
         key: Is an optional key for the rack. If 0, one will be automatically assigned.
     """
 
-    key: int = Field(default=0)
+    key: int = Field(default=0, ge=0, le=4294967295)
     task_counter: int | None = Field(default=None, exclude=True)
     embedded: bool | None = Field(default=None, exclude=True)
 

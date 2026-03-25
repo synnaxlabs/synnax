@@ -119,15 +119,14 @@ State::read_series(const types::ChannelKey key) {
     auto [data, ok] = this->read_value(key);
     if (!ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
     const auto index_it = this->indexes.find(key);
-    if (index_it == this->indexes.end() || index_it->second == 0)
-        return {std::move(data), x::telem::MultiSeries{}, !data.series.empty()};
+    if (index_it == this->indexes.end() || index_it->second == 0) {
+        const bool has_data = !data.series.empty();
+        return {std::move(data), x::telem::MultiSeries{}, has_data};
+    }
     auto [time, time_ok] = this->read_value(index_it->second);
     if (!time_ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    return {
-        std::move(data),
-        std::move(time),
-        !data.series.empty() && !time.series.empty()
-    };
+    const bool has_data = !data.series.empty() && !time.series.empty();
+    return {std::move(data), std::move(time), has_data};
 }
 
 void State::write_series(
@@ -138,29 +137,23 @@ void State::write_series(
     this->write_value(key, data, time);
 }
 
-std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
+void State::flush_into(x::telem::Frame &out) {
     for (auto &series_vec: this->reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
-
-    std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(this->active_write_keys.size());
     for (const auto key: this->active_write_keys) {
-        const auto it = this->writes.find(key);
+        auto it = this->writes.find(key);
         if (it == this->writes.end() || it->second == nullptr || it->second->empty())
             continue;
-        result.push_back(
-            {key, x::mem::make_local_shared<x::telem::Series>(it->second->deep_copy())}
-        );
-        it->second->clear();
+        out.emplace(key, it->second->shallow_copy());
+        it->second->detach_buffer();
         it->second->time_range = x::telem::TimeRange();
         it->second->alignment = x::telem::Alignment();
     }
     this->active_write_keys.clear();
-    return result;
 }
 
 void State::reset() {

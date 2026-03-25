@@ -25,6 +25,7 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/status/status.h"
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -130,9 +131,21 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
-        std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
+        std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
+
+        std::shared_ptr<x::thread::rt::Handle> rt_handle;
+        if (rt_manager != nullptr) {
+            x::thread::rt::Config base_rt;
+            base_rt.enabled = true;
+            base_rt.lock_memory = cfg.loop.lock_memory;
+            base_rt.priority = cfg.loop.rt_priority;
+            rt_handle = std::make_shared<x::thread::rt::Handle>(
+                rt_manager->allocate(base_rt)
+            );
+        }
 
         const ::arc::runtime::Config runtime_cfg{
             .program = cfg.program,
@@ -151,9 +164,11 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
-            .factories = {
-                std::make_shared<::driver::arc::status::Factory>(ctx->client),
-            },
+            .factories =
+                {
+                    std::make_shared<::driver::arc::status::Factory>(ctx->client),
+                },
+            .rt_handle = rt_handle,
         };
 
         auto [rt, err] = ::arc::runtime::load(
@@ -174,12 +189,11 @@ public:
         auto source = std::make_unique<Source>(*task);
         auto sink = std::make_unique<Sink>(*task);
         if (!writer_factory)
-            writer_factory = std::make_shared<driver::pipeline::SynnaxWriterFactory>(
-                ctx->client
-            );
+            writer_factory = bypass::pipeline::create_writer_factory(ctx);
         if (!streamer_factory)
-            streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
-                ctx->client
+            streamer_factory = bypass::pipeline::create_streamer_factory(
+                ctx,
+                {task_meta.name, task_meta.name}
             );
         auto initial_authorities = ::arc::runtime::build_authorities(
             cfg.program.authorities,

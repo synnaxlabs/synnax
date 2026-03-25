@@ -1043,4 +1043,72 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
     f->release_all();
     std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
 }
+
+class ContextCaptureFactory final : public Factory {
+public:
+    std::shared_ptr<Context> captured_ctx;
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task
+    ) override {
+        if (task.type != "capture") return {nullptr, false};
+        this->captured_ctx = ctx;
+        return {std::make_unique<MockEchoTask>(ctx, task), true};
+    }
+};
+
+TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
+    auto f = std::make_unique<ContextCaptureFactory>();
+    auto *factory_ptr = f.get();
+    start_manager(std::move(f));
+
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "capture_task",
+        .type = "capture",
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.variant == x::status::VARIANT_SUCCESS && s.message == "configured";
+    });
+
+    auto states = factory_ptr->captured_ctx->control_states();
+    ASSERT_NE(states, nullptr);
+
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ctrl_test_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ctrl_test_data"),
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
+
+    const x::control::Subject writer_sub{"test_writer", "tw-1"};
+    const x::control::Subject other_sub{"other", "other-1"};
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = {index_ch.key, data_ch.key},
+            .start = x::telem::TimeStamp::now(),
+            .authorities = {200},
+            .subject = writer_sub,
+        }
+    ));
+
+    EVENTUALLY(
+        [&]() { return !states->is_authorized(data_ch.key, other_sub); },
+        [&]() {
+            return "control state did not propagate: expected test_writer "
+                   "to hold authority on channel";
+        }
+    );
+    ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
+
+    ASSERT_NIL(writer.close());
+}
 }
