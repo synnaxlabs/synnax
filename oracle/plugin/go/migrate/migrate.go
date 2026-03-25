@@ -65,9 +65,10 @@ type migrationEntry struct {
 }
 
 type schemaChange struct {
-	Version     int
-	VersionName string           // e.g., "V2"
-	OldType     resolution.Type  // old type from snapshot
+	Version       int
+	VersionName   string           // e.g., "V2"
+	VersionedName string           // e.g., "ArcArcV3" (namespace-prefixed)
+	OldType       resolution.Type  // old type from snapshot
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -124,12 +125,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				continue
 			}
 			sc := e.SchemaChange
-			versionedName := e.GoName + sc.VersionName // e.g., "WorkspaceV2"
 
 			// Build name overrides: map every Oracle-defined type reachable from
 			// the entry to a versioned local name. This flattens nested types
 			// into the parent package so the frozen codec is self-contained.
 			overrides := buildNameOverrides(sc.OldType, req.OldResolutions, sc.VersionName)
+
+			// Get the entry's versioned name from the overrides (uses namespace-prefixed naming).
+			versionedName := overrides[sc.OldType.QualifiedName]
+			if versionedName == "" {
+				versionedName = e.GoName + sc.VersionName
+			}
 
 			// Generate frozen types for the entry AND all nested Oracle-defined types.
 			typeContent, err := renderFrozenTypes(pkg, sc.OldType, req, overrides)
@@ -199,9 +205,19 @@ func detectSchemaChange(
 	}
 
 	version := req.SnapshotVersion + 1
+	versionSuffix := fmt.Sprintf("V%d", version)
+	// Compute the namespace-prefixed versioned name for the entry type.
+	parts := strings.Split(oldType.QualifiedName, ".")
+	var entryVersionedName string
+	for _, p := range parts {
+		entryVersionedName += naming.ToPascalCase(p)
+	}
+	entryVersionedName += versionSuffix
+
 	return &schemaChange{
-		Version:     version,
-		VersionName: fmt.Sprintf("V%d", version),
+		Version:       version,
+		VersionName:   versionSuffix,
+		VersionedName: entryVersionedName,
 		OldType:     oldType,
 	}, nil
 }
@@ -229,6 +245,29 @@ func buildNameOverrides(
 	overrides := make(gomarshal.NameOverrides)
 	visited := make(map[string]bool)
 	walkTypeTree(entryType, table, versionSuffix, overrides, visited)
+	// Second pass: propagate overrides to alias/distinct types that resolve
+	// to overridden structs. Must run after all structs are discovered.
+	for _, typ := range table.Types {
+		if _, alreadyOverridden := overrides[typ.QualifiedName]; alreadyOverridden {
+			continue
+		}
+		switch form := typ.Form.(type) {
+		case resolution.AliasForm:
+			target, ok := form.Target.Resolve(table)
+			if ok {
+				if override, exists := overrides[target.QualifiedName]; exists {
+					overrides[typ.QualifiedName] = override
+				}
+			}
+		case resolution.DistinctForm:
+			target, ok := form.Base.Resolve(table)
+			if ok {
+				if override, exists := overrides[target.QualifiedName]; exists {
+					overrides[typ.QualifiedName] = override
+				}
+			}
+		}
+	}
 	return overrides
 }
 
@@ -244,10 +283,8 @@ func walkTypeTree(
 	}
 	visited[typ.QualifiedName] = true
 
-	// Only override struct types (not primitives, enums, aliases to primitives).
+	// Override struct types with versioned names.
 	if _, ok := typ.Form.(resolution.StructForm); ok {
-		// Use qualified name to avoid collisions (graph.Node and ir.Node
-		// become GraphNodeV3 and IrNodeV3).
 		parts := strings.Split(typ.QualifiedName, ".")
 		var name string
 		for _, p := range parts {
@@ -255,6 +292,8 @@ func walkTypeTree(
 		}
 		overrides[typ.QualifiedName] = name + suffix
 	}
+	// Alias/distinct override propagation is handled in the second pass
+	// of buildNameOverrides, after all structs are discovered.
 
 	// Walk fields to find nested Oracle-defined types.
 	fields := resolution.UnifiedFields(typ, table)
@@ -292,6 +331,117 @@ func walkFieldType(
 	for _, arg := range ref.TypeArgs {
 		walkFieldType(arg, table, suffix, overrides, visited)
 	}
+}
+
+// resolveFieldTypeWithOverrides resolves a field's Go type, replacing any
+// Oracle-defined struct types with their versioned names from the overrides map.
+// Follows through aliases and generic types to find nested structs.
+func resolveFieldTypeWithOverrides(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	overrides gomarshal.NameOverrides,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) string {
+	// Try to resolve the type. TypeRefs may have unqualified names, so
+	// try both the direct lookup and a namespace-qualified lookup.
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		// Try qualified with namespace from context.
+		qualifiedRef := resolution.TypeRef{
+			Name:      ctx.Namespace + "." + ref.Name,
+			TypeArgs:  ref.TypeArgs,
+			ArraySize: ref.ArraySize,
+		}
+		resolved, ok = qualifiedRef.Resolve(table)
+		if !ok {
+			return r.ResolveTypeRef(ref, ctx)
+		}
+	}
+	// Direct struct match.
+	if override, ok := overrides[resolved.QualifiedName]; ok {
+		if ref.ArraySize != nil {
+			return "[]" + override
+		}
+		return override
+	}
+	// Unwrap aliases to find arrays/maps of overridden types.
+	result := resolveTypeWithOverrides(resolved, ref, table, overrides, r, ctx)
+	if ref.ArraySize != nil && !strings.HasPrefix(result, "[]") {
+		return "[]" + result
+	}
+	return result
+}
+
+func resolveTypeWithOverrides(
+	resolved resolution.Type,
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	overrides gomarshal.NameOverrides,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) string {
+	var targetRef resolution.TypeRef
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		targetRef = form.Target
+	case resolution.DistinctForm:
+		targetRef = form.Base
+	case resolution.BuiltinGenericForm:
+		if form.Name == "Array" && len(ref.TypeArgs) > 0 {
+			elemType, ok := ref.TypeArgs[0].Resolve(table)
+			if ok {
+				if override, ok := overrides[elemType.QualifiedName]; ok {
+					return "[]" + override
+				}
+			}
+		}
+		return r.ResolveTypeRef(ref, ctx)
+	default:
+		return r.ResolveTypeRef(ref, ctx)
+	}
+
+	// Resolve the alias/distinct target.
+	target, ok := targetRef.Resolve(table)
+	if !ok {
+		return r.ResolveTypeRef(ref, ctx)
+	}
+	isArray := targetRef.ArraySize != nil
+
+	if override, ok := overrides[target.QualifiedName]; ok {
+		if isArray {
+			return "[]" + override
+		}
+		return override
+	}
+
+	// Check if target is Array/Map of overridden types.
+	if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok {
+		if bg.Name == "Array" && len(targetRef.TypeArgs) > 0 {
+			elemType, ok := targetRef.TypeArgs[0].Resolve(table)
+			if ok {
+				if override, ok := overrides[elemType.QualifiedName]; ok {
+					return "[]" + override
+				}
+			}
+		}
+		if bg.Name == "Map" && len(targetRef.TypeArgs) >= 2 {
+			keyType := r.ResolveTypeRef(targetRef.TypeArgs[0], ctx)
+			valType, ok := targetRef.TypeArgs[1].Resolve(table)
+			if ok {
+				if override, ok := overrides[valType.QualifiedName]; ok {
+					return "map[" + keyType + "]" + override
+				}
+			}
+		}
+	}
+
+	// Recurse.
+	inner := resolveTypeWithOverrides(target, targetRef, table, overrides, r, ctx)
+	if isArray && !strings.HasPrefix(inner, "[]") {
+		return "[]" + inner
+	}
+	return inner
 }
 
 func hasMigrateAnnotation(typ resolution.Type) bool {
@@ -379,7 +529,7 @@ func collectFrozenTypes(
 	table *resolution.Table,
 	overrides gomarshal.NameOverrides,
 	r *resolver.Resolver,
-	ctx *resolver.Context,
+	baseCtx *resolver.Context,
 	result *[]frozenTypeData,
 	visited map[string]bool,
 ) {
@@ -393,20 +543,16 @@ func collectFrozenTypes(
 		return // not an Oracle-defined struct, skip
 	}
 
+	// Create a context for this type's namespace so field TypeRefs resolve correctly.
+	ctx := *baseCtx
+	ctx.Namespace = typ.Namespace
+
 	fields := resolution.UnifiedFields(typ, table)
 	var keyGoType, keyFieldName string
 	var frozenFields []frozenField
 	for _, f := range fields {
 		fGoName := naming.GetFieldName(f)
-		fGoType := r.ResolveTypeRef(f.Type, ctx)
-		// Replace any type references that have overrides with the versioned name.
-		for qname, override := range overrides {
-			resolved, ok := f.Type.Resolve(table)
-			if ok && resolved.QualifiedName == qname {
-				fGoType = override
-				break
-			}
-		}
+		fGoType := resolveFieldTypeWithOverrides(f.Type, table, overrides, r, &ctx)
 		if f.IsHardOptional && !strings.HasPrefix(fGoType, "[]") &&
 			!strings.HasPrefix(fGoType, "map[") &&
 			!strings.HasPrefix(fGoType, "binary.MsgpackEncodedJSON") {
@@ -434,7 +580,7 @@ func collectFrozenTypes(
 
 	// Recurse into nested types, following through aliases and generics.
 	for _, f := range fields {
-		collectNestedTypes(f.Type, table, overrides, r, ctx, result, visited)
+		collectNestedTypes(f.Type, table, overrides, r, baseCtx, result, visited)
 	}
 }
 
@@ -681,7 +827,7 @@ func renderMigrateFile(pkg string, entries []migrationEntry) ([]byte, error) {
 		if e.SchemaChange != nil {
 			te.SchemaChanges = []migrateSchemaChange{{
 				Version:       e.SchemaChange.Version,
-				VersionedName: e.GoName + e.SchemaChange.VersionName,
+				VersionedName: e.SchemaChange.VersionedName,
 			}}
 		}
 		tmplEntries = append(tmplEntries, te)
