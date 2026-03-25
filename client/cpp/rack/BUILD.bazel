@@ -11,7 +11,6 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/pb",
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/task",
@@ -19,6 +18,7 @@ cc_library(
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/pb",
         "//x/cpp/status",
     ],
 )
@@ -27,10 +27,10 @@ cc_test(
     name = "rack_test",
     srcs = ["rack_test.cpp"],
     deps = [
-        "//x/cpp/pb",
         ":rack",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//x/cpp/pb",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
