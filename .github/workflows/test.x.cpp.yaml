@@ -56,8 +56,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.18.0

@@ -50,6 +50,12 @@ WIN32_PLATFORM_HDRS = [
     "SOEM/osal/win32/osal_defs.h",
     "SOEM/oshw/win32/nicdrv.h",
     "SOEM/oshw/win32/oshw.h",
+    # Explicitly declare IP6_misc.h with the uppercase case used in pcap-stdinc.h's
+    # #include directive. The file on disk is "ip6_misc.h" (lowercase), which the glob
+    # also picks up. On Windows' case-insensitive FS both resolve to the same file, but
+    # Bazel's include scanner is case-sensitive and reports the name as "IP6_misc.h"
+    # from the #include.
+    "SOEM/oshw/win32/wpcap/Include/IP6_misc.h",
 ] + glob(["SOEM/oshw/win32/wpcap/Include/**/*.h"])
 
 # macOS OSAL + OSHW (custom platform files using pcap)
