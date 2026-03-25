@@ -623,9 +623,6 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
-      proxy-memoize:
-        specifier: 'catalog:'
-        version: 2.0.3
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -648,6 +645,9 @@ importers:
       '@synnaxlabs/vite-plugin':
         specifier: workspace:^
         version: link:../configs/vite
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 16.3.2(@testing-library/dom@10.4.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/node':
         specifier: 'catalog:'
         version: 25.5.0
@@ -659,10 +659,13 @@ importers:
         version: 5.2.0(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3))
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 3.2.4(vitest@3.2.4(@types/debug@4.1.13)(@types/node@25.5.0)(jiti@2.6.1)(jsdom@29.0.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3))
+        version: 3.2.4(vitest@3.2.4(@types/debug@4.1.13)(@types/node@25.5.0)(jiti@2.6.1)(jsdom@27.4.0)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3))
       eslint:
         specifier: 'catalog:'
         version: 10.1.0(jiti@2.6.1)
+      jsdom:
+        specifier: 'catalog:'
+        version: 27.4.0
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -674,7 +677,7 @@ importers:
         version: 7.3.1(@types/node@25.5.0)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)
       vitest:
         specifier: 'catalog:'
-        version: 3.2.4(@types/debug@4.1.13)(@types/node@25.5.0)(jiti@2.6.1)(jsdom@29.0.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@25.5.0)(jiti@2.6.1)(jsdom@27.4.0)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)
 
   freighter/ts:
     dependencies:

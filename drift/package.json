@@ -27,13 +27,13 @@
     "@synnaxlabs/x": "workspace:^",
     "@tauri-apps/api": "catalog:",
     "async-mutex": "catalog:",
-    "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-redux": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/react": "catalog:",
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
@@ -41,6 +41,7 @@
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
     "eslint": "catalog:",
     "madge": "catalog:",
     "react": "catalog:",

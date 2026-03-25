@@ -30,7 +30,6 @@ export default defineConfig({
         "react-dom",
         "react-redux",
         "@reduxjs/toolkit",
-        "proxy-memoize",
         "@tauri-apps/api",
       ],
       output: {
@@ -38,5 +37,5 @@ export default defineConfig({
       },
     },
   },
-  test: { globals: true },
+  test: { globals: true, environment: "jsdom" },
 });
