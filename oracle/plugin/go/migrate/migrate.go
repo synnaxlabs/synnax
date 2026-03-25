@@ -246,8 +246,14 @@ func walkTypeTree(
 
 	// Only override struct types (not primitives, enums, aliases to primitives).
 	if _, ok := typ.Form.(resolution.StructForm); ok {
-		goName := getGoName(typ)
-		overrides[typ.QualifiedName] = goName + suffix
+		// Use qualified name to avoid collisions (graph.Node and ir.Node
+		// become GraphNodeV3 and IrNodeV3).
+		parts := strings.Split(typ.QualifiedName, ".")
+		var name string
+		for _, p := range parts {
+			name += naming.ToPascalCase(p)
+		}
+		overrides[typ.QualifiedName] = name + suffix
 	}
 
 	// Walk fields to find nested Oracle-defined types.
@@ -279,6 +285,12 @@ func walkFieldType(
 		for _, arg := range ref.TypeArgs {
 			walkFieldType(arg, table, suffix, overrides, visited)
 		}
+	}
+	// Also walk ALL type args on the ref, regardless of resolved form.
+	// This catches cases like aliases to Array<Function> where the type
+	// args are on the original ref, not the resolved form.
+	for _, arg := range ref.TypeArgs {
+		walkFieldType(arg, table, suffix, overrides, visited)
 	}
 }
 
@@ -420,26 +432,36 @@ func collectFrozenTypes(
 		Fields:       frozenFields,
 	})
 
-	// Recurse into nested types.
+	// Recurse into nested types, following through aliases and generics.
 	for _, f := range fields {
-		resolved, ok := f.Type.Resolve(table)
-		if !ok {
-			continue
-		}
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			collectFrozenTypes(resolved, table, overrides, r, ctx, result, visited)
-		}
-		// Handle array/map elements.
-		if bg, ok := resolved.Form.(resolution.BuiltinGenericForm); ok {
-			for _, arg := range f.Type.TypeArgs {
-				elemType, ok := arg.Resolve(table)
-				if ok {
-					if _, isStruct := elemType.Form.(resolution.StructForm); isStruct {
-						collectFrozenTypes(elemType, table, overrides, r, ctx, result, visited)
-					}
-				}
-			}
-			_ = bg
+		collectNestedTypes(f.Type, table, overrides, r, ctx, result, visited)
+	}
+}
+
+func collectNestedTypes(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	overrides gomarshal.NameOverrides,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+	result *[]frozenTypeData,
+	visited map[string]bool,
+) {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		collectFrozenTypes(resolved, table, overrides, r, ctx, result, visited)
+	case resolution.AliasForm:
+		collectNestedTypes(form.Target, table, overrides, r, ctx, result, visited)
+	case resolution.DistinctForm:
+		collectNestedTypes(form.Base, table, overrides, r, ctx, result, visited)
+	case resolution.BuiltinGenericForm:
+		_ = form
+		for _, arg := range ref.TypeArgs {
+			collectNestedTypes(arg, table, overrides, r, ctx, result, visited)
 		}
 	}
 }

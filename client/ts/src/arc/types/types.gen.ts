@@ -125,6 +125,8 @@ export const paramZ = z.object({
   type: typeZ,
   /** value is an optional default value. */
   value: z.unknown().optional(),
+  /** description is an optional description of the parameter. */
+  description: z.string().optional(),
 });
 export interface Param extends z.infer<typeof paramZ> {}
 

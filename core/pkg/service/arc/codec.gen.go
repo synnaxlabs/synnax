@@ -67,231 +67,240 @@ const (
 	ArcFieldGraphFunctionsElemConfigElemTypeConstraint                   = 25
 	ArcFieldGraphFunctionsElemConfigElemTypeChanDirection                = 26
 	ArcFieldGraphFunctionsElemConfigElemValue                            = 27
-	ArcFieldGraphFunctionsElemInputsElemName                             = 28
-	ArcFieldGraphFunctionsElemInputsElemTypeInputsElem                   = 29
-	ArcFieldGraphFunctionsElemInputsElemTypeOutputsElem                  = 30
-	ArcFieldGraphFunctionsElemInputsElemTypeConfigElem                   = 31
-	ArcFieldGraphFunctionsElemInputsElemTypeKind                         = 32
-	ArcFieldGraphFunctionsElemInputsElemTypeName                         = 33
-	ArcFieldGraphFunctionsElemInputsElemTypeElem                         = 34
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsLength         = 35
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsMass           = 36
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsTime           = 37
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsCurrent        = 38
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsTemperature    = 39
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsAngle          = 40
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsCount          = 41
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsData           = 42
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitScale                    = 43
-	ArcFieldGraphFunctionsElemInputsElemTypeUnitName                     = 44
-	ArcFieldGraphFunctionsElemInputsElemTypeConstraint                   = 45
-	ArcFieldGraphFunctionsElemInputsElemTypeChanDirection                = 46
-	ArcFieldGraphFunctionsElemInputsElemValue                            = 47
-	ArcFieldGraphFunctionsElemOutputsElemName                            = 48
-	ArcFieldGraphFunctionsElemOutputsElemTypeInputsElem                  = 49
-	ArcFieldGraphFunctionsElemOutputsElemTypeOutputsElem                 = 50
-	ArcFieldGraphFunctionsElemOutputsElemTypeConfigElem                  = 51
-	ArcFieldGraphFunctionsElemOutputsElemTypeKind                        = 52
-	ArcFieldGraphFunctionsElemOutputsElemTypeName                        = 53
-	ArcFieldGraphFunctionsElemOutputsElemTypeElem                        = 54
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsLength        = 55
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsMass          = 56
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsTime          = 57
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsCurrent       = 58
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsTemperature   = 59
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsAngle         = 60
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsCount         = 61
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsData          = 62
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitScale                   = 63
-	ArcFieldGraphFunctionsElemOutputsElemTypeUnitName                    = 64
-	ArcFieldGraphFunctionsElemOutputsElemTypeConstraint                  = 65
-	ArcFieldGraphFunctionsElemOutputsElemTypeChanDirection               = 66
-	ArcFieldGraphFunctionsElemOutputsElemValue                           = 67
-	ArcFieldGraphFunctionsElemChannelsRead                               = 68
-	ArcFieldGraphFunctionsElemChannelsReadKey                            = 69
-	ArcFieldGraphFunctionsElemChannelsReadVal                            = 70
-	ArcFieldGraphFunctionsElemChannelsWrite                              = 71
-	ArcFieldGraphFunctionsElemChannelsWriteKey                           = 72
-	ArcFieldGraphFunctionsElemChannelsWriteVal                           = 73
-	ArcFieldGraphEdgesElemSourceNode                                     = 74
-	ArcFieldGraphEdgesElemSourceParam                                    = 75
-	ArcFieldGraphEdgesElemTargetNode                                     = 76
-	ArcFieldGraphEdgesElemTargetParam                                    = 77
-	ArcFieldGraphEdgesElemKind                                           = 78
-	ArcFieldGraphNodesElemKey                                            = 79
-	ArcFieldGraphNodesElemType                                           = 80
-	ArcFieldGraphNodesElemConfig                                         = 81
-	ArcFieldGraphNodesElemPositionX                                      = 82
-	ArcFieldGraphNodesElemPositionY                                      = 83
-	ArcFieldTextRaw                                                      = 84
-	ArcFieldProgramFunctionsElemKey                                      = 85
-	ArcFieldProgramFunctionsElemBodyRaw                                  = 86
-	ArcFieldProgramFunctionsElemConfigElemName                           = 87
-	ArcFieldProgramFunctionsElemConfigElemTypeInputsElem                 = 88
-	ArcFieldProgramFunctionsElemConfigElemTypeOutputsElem                = 89
-	ArcFieldProgramFunctionsElemConfigElemTypeConfigElem                 = 90
-	ArcFieldProgramFunctionsElemConfigElemTypeKind                       = 91
-	ArcFieldProgramFunctionsElemConfigElemTypeName                       = 92
-	ArcFieldProgramFunctionsElemConfigElemTypeElem                       = 93
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsLength       = 94
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsMass         = 95
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsTime         = 96
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsCurrent      = 97
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsTemperature  = 98
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsAngle        = 99
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsCount        = 100
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsData         = 101
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitScale                  = 102
-	ArcFieldProgramFunctionsElemConfigElemTypeUnitName                   = 103
-	ArcFieldProgramFunctionsElemConfigElemTypeConstraint                 = 104
-	ArcFieldProgramFunctionsElemConfigElemTypeChanDirection              = 105
-	ArcFieldProgramFunctionsElemConfigElemValue                          = 106
-	ArcFieldProgramFunctionsElemInputsElemName                           = 107
-	ArcFieldProgramFunctionsElemInputsElemTypeInputsElem                 = 108
-	ArcFieldProgramFunctionsElemInputsElemTypeOutputsElem                = 109
-	ArcFieldProgramFunctionsElemInputsElemTypeConfigElem                 = 110
-	ArcFieldProgramFunctionsElemInputsElemTypeKind                       = 111
-	ArcFieldProgramFunctionsElemInputsElemTypeName                       = 112
-	ArcFieldProgramFunctionsElemInputsElemTypeElem                       = 113
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsLength       = 114
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsMass         = 115
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsTime         = 116
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsCurrent      = 117
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsTemperature  = 118
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsAngle        = 119
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsCount        = 120
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsData         = 121
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitScale                  = 122
-	ArcFieldProgramFunctionsElemInputsElemTypeUnitName                   = 123
-	ArcFieldProgramFunctionsElemInputsElemTypeConstraint                 = 124
-	ArcFieldProgramFunctionsElemInputsElemTypeChanDirection              = 125
-	ArcFieldProgramFunctionsElemInputsElemValue                          = 126
-	ArcFieldProgramFunctionsElemOutputsElemName                          = 127
-	ArcFieldProgramFunctionsElemOutputsElemTypeInputsElem                = 128
-	ArcFieldProgramFunctionsElemOutputsElemTypeOutputsElem               = 129
-	ArcFieldProgramFunctionsElemOutputsElemTypeConfigElem                = 130
-	ArcFieldProgramFunctionsElemOutputsElemTypeKind                      = 131
-	ArcFieldProgramFunctionsElemOutputsElemTypeName                      = 132
-	ArcFieldProgramFunctionsElemOutputsElemTypeElem                      = 133
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsLength      = 134
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsMass        = 135
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsTime        = 136
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsCurrent     = 137
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsTemperature = 138
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsAngle       = 139
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsCount       = 140
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsData        = 141
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitScale                 = 142
-	ArcFieldProgramFunctionsElemOutputsElemTypeUnitName                  = 143
-	ArcFieldProgramFunctionsElemOutputsElemTypeConstraint                = 144
-	ArcFieldProgramFunctionsElemOutputsElemTypeChanDirection             = 145
-	ArcFieldProgramFunctionsElemOutputsElemValue                         = 146
-	ArcFieldProgramFunctionsElemChannelsRead                             = 147
-	ArcFieldProgramFunctionsElemChannelsReadKey                          = 148
-	ArcFieldProgramFunctionsElemChannelsReadVal                          = 149
-	ArcFieldProgramFunctionsElemChannelsWrite                            = 150
-	ArcFieldProgramFunctionsElemChannelsWriteKey                         = 151
-	ArcFieldProgramFunctionsElemChannelsWriteVal                         = 152
-	ArcFieldProgramNodesElemKey                                          = 153
-	ArcFieldProgramNodesElemType                                         = 154
-	ArcFieldProgramNodesElemConfigElemName                               = 155
-	ArcFieldProgramNodesElemConfigElemTypeInputsElem                     = 156
-	ArcFieldProgramNodesElemConfigElemTypeOutputsElem                    = 157
-	ArcFieldProgramNodesElemConfigElemTypeConfigElem                     = 158
-	ArcFieldProgramNodesElemConfigElemTypeKind                           = 159
-	ArcFieldProgramNodesElemConfigElemTypeName                           = 160
-	ArcFieldProgramNodesElemConfigElemTypeElem                           = 161
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsLength           = 162
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsMass             = 163
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsTime             = 164
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsCurrent          = 165
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsTemperature      = 166
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsAngle            = 167
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsCount            = 168
-	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsData             = 169
-	ArcFieldProgramNodesElemConfigElemTypeUnitScale                      = 170
-	ArcFieldProgramNodesElemConfigElemTypeUnitName                       = 171
-	ArcFieldProgramNodesElemConfigElemTypeConstraint                     = 172
-	ArcFieldProgramNodesElemConfigElemTypeChanDirection                  = 173
-	ArcFieldProgramNodesElemConfigElemValue                              = 174
-	ArcFieldProgramNodesElemInputsElemName                               = 175
-	ArcFieldProgramNodesElemInputsElemTypeInputsElem                     = 176
-	ArcFieldProgramNodesElemInputsElemTypeOutputsElem                    = 177
-	ArcFieldProgramNodesElemInputsElemTypeConfigElem                     = 178
-	ArcFieldProgramNodesElemInputsElemTypeKind                           = 179
-	ArcFieldProgramNodesElemInputsElemTypeName                           = 180
-	ArcFieldProgramNodesElemInputsElemTypeElem                           = 181
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsLength           = 182
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsMass             = 183
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsTime             = 184
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsCurrent          = 185
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsTemperature      = 186
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsAngle            = 187
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsCount            = 188
-	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsData             = 189
-	ArcFieldProgramNodesElemInputsElemTypeUnitScale                      = 190
-	ArcFieldProgramNodesElemInputsElemTypeUnitName                       = 191
-	ArcFieldProgramNodesElemInputsElemTypeConstraint                     = 192
-	ArcFieldProgramNodesElemInputsElemTypeChanDirection                  = 193
-	ArcFieldProgramNodesElemInputsElemValue                              = 194
-	ArcFieldProgramNodesElemOutputsElemName                              = 195
-	ArcFieldProgramNodesElemOutputsElemTypeInputsElem                    = 196
-	ArcFieldProgramNodesElemOutputsElemTypeOutputsElem                   = 197
-	ArcFieldProgramNodesElemOutputsElemTypeConfigElem                    = 198
-	ArcFieldProgramNodesElemOutputsElemTypeKind                          = 199
-	ArcFieldProgramNodesElemOutputsElemTypeName                          = 200
-	ArcFieldProgramNodesElemOutputsElemTypeElem                          = 201
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsLength          = 202
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsMass            = 203
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsTime            = 204
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsCurrent         = 205
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsTemperature     = 206
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsAngle           = 207
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsCount           = 208
-	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsData            = 209
-	ArcFieldProgramNodesElemOutputsElemTypeUnitScale                     = 210
-	ArcFieldProgramNodesElemOutputsElemTypeUnitName                      = 211
-	ArcFieldProgramNodesElemOutputsElemTypeConstraint                    = 212
-	ArcFieldProgramNodesElemOutputsElemTypeChanDirection                 = 213
-	ArcFieldProgramNodesElemOutputsElemValue                             = 214
-	ArcFieldProgramNodesElemChannelsRead                                 = 215
-	ArcFieldProgramNodesElemChannelsReadKey                              = 216
-	ArcFieldProgramNodesElemChannelsReadVal                              = 217
-	ArcFieldProgramNodesElemChannelsWrite                                = 218
-	ArcFieldProgramNodesElemChannelsWriteKey                             = 219
-	ArcFieldProgramNodesElemChannelsWriteVal                             = 220
-	ArcFieldProgramEdgesElemSourceNode                                   = 221
-	ArcFieldProgramEdgesElemSourceParam                                  = 222
-	ArcFieldProgramEdgesElemTargetNode                                   = 223
-	ArcFieldProgramEdgesElemTargetParam                                  = 224
-	ArcFieldProgramEdgesElemKind                                         = 225
-	ArcFieldProgramStrataElemElem                                        = 226
-	ArcFieldProgramSequencesElemKey                                      = 227
-	ArcFieldProgramSequencesElemStagesElemKey                            = 228
-	ArcFieldProgramSequencesElemStagesElemNodesElem                      = 229
-	ArcFieldProgramSequencesElemStagesElemStrataElemElem                 = 230
-	ArcFieldProgramAuthoritiesDefault                                    = 231
-	ArcFieldProgramAuthoritiesChannels                                   = 232
-	ArcFieldProgramAuthoritiesChannelsKey                                = 233
-	ArcFieldProgramAuthoritiesChannelsVal                                = 234
-	ArcFieldProgramWASM                                                  = 235
-	ArcFieldProgramOutputMemoryBases                                     = 236
-	ArcFieldProgramOutputMemoryBasesKey                                  = 237
-	ArcFieldProgramOutputMemoryBasesVal                                  = 238
-	ArcFieldStatusKey                                                    = 239
-	ArcFieldStatusName                                                   = 240
-	ArcFieldStatusVariant                                                = 241
-	ArcFieldStatusMessage                                                = 242
-	ArcFieldStatusDescription                                            = 243
-	ArcFieldStatusTime                                                   = 244
-	ArcFieldStatusDetailsRunning                                         = 245
-	ArcFieldStatusLabelsElemKey                                          = 246
-	ArcFieldStatusLabelsElemName                                         = 247
-	ArcFieldStatusLabelsElemColorR                                       = 248
-	ArcFieldStatusLabelsElemColorG                                       = 249
-	ArcFieldStatusLabelsElemColorB                                       = 250
-	ArcFieldStatusLabelsElemColorA                                       = 251
-	ArcFieldCount                                                        = 252
+	ArcFieldGraphFunctionsElemConfigElemDescription                      = 28
+	ArcFieldGraphFunctionsElemInputsElemName                             = 29
+	ArcFieldGraphFunctionsElemInputsElemTypeInputsElem                   = 30
+	ArcFieldGraphFunctionsElemInputsElemTypeOutputsElem                  = 31
+	ArcFieldGraphFunctionsElemInputsElemTypeConfigElem                   = 32
+	ArcFieldGraphFunctionsElemInputsElemTypeKind                         = 33
+	ArcFieldGraphFunctionsElemInputsElemTypeName                         = 34
+	ArcFieldGraphFunctionsElemInputsElemTypeElem                         = 35
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsLength         = 36
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsMass           = 37
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsTime           = 38
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsCurrent        = 39
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsTemperature    = 40
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsAngle          = 41
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsCount          = 42
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsData           = 43
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitScale                    = 44
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitName                     = 45
+	ArcFieldGraphFunctionsElemInputsElemTypeConstraint                   = 46
+	ArcFieldGraphFunctionsElemInputsElemTypeChanDirection                = 47
+	ArcFieldGraphFunctionsElemInputsElemValue                            = 48
+	ArcFieldGraphFunctionsElemInputsElemDescription                      = 49
+	ArcFieldGraphFunctionsElemOutputsElemName                            = 50
+	ArcFieldGraphFunctionsElemOutputsElemTypeInputsElem                  = 51
+	ArcFieldGraphFunctionsElemOutputsElemTypeOutputsElem                 = 52
+	ArcFieldGraphFunctionsElemOutputsElemTypeConfigElem                  = 53
+	ArcFieldGraphFunctionsElemOutputsElemTypeKind                        = 54
+	ArcFieldGraphFunctionsElemOutputsElemTypeName                        = 55
+	ArcFieldGraphFunctionsElemOutputsElemTypeElem                        = 56
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsLength        = 57
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsMass          = 58
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsTime          = 59
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsCurrent       = 60
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsTemperature   = 61
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsAngle         = 62
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsCount         = 63
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsData          = 64
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitScale                   = 65
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitName                    = 66
+	ArcFieldGraphFunctionsElemOutputsElemTypeConstraint                  = 67
+	ArcFieldGraphFunctionsElemOutputsElemTypeChanDirection               = 68
+	ArcFieldGraphFunctionsElemOutputsElemValue                           = 69
+	ArcFieldGraphFunctionsElemOutputsElemDescription                     = 70
+	ArcFieldGraphFunctionsElemChannelsRead                               = 71
+	ArcFieldGraphFunctionsElemChannelsReadKey                            = 72
+	ArcFieldGraphFunctionsElemChannelsReadVal                            = 73
+	ArcFieldGraphFunctionsElemChannelsWrite                              = 74
+	ArcFieldGraphFunctionsElemChannelsWriteKey                           = 75
+	ArcFieldGraphFunctionsElemChannelsWriteVal                           = 76
+	ArcFieldGraphEdgesElemSourceNode                                     = 77
+	ArcFieldGraphEdgesElemSourceParam                                    = 78
+	ArcFieldGraphEdgesElemTargetNode                                     = 79
+	ArcFieldGraphEdgesElemTargetParam                                    = 80
+	ArcFieldGraphEdgesElemKind                                           = 81
+	ArcFieldGraphNodesElemKey                                            = 82
+	ArcFieldGraphNodesElemType                                           = 83
+	ArcFieldGraphNodesElemConfig                                         = 84
+	ArcFieldGraphNodesElemPositionX                                      = 85
+	ArcFieldGraphNodesElemPositionY                                      = 86
+	ArcFieldTextRaw                                                      = 87
+	ArcFieldProgramFunctionsElemKey                                      = 88
+	ArcFieldProgramFunctionsElemBodyRaw                                  = 89
+	ArcFieldProgramFunctionsElemConfigElemName                           = 90
+	ArcFieldProgramFunctionsElemConfigElemTypeInputsElem                 = 91
+	ArcFieldProgramFunctionsElemConfigElemTypeOutputsElem                = 92
+	ArcFieldProgramFunctionsElemConfigElemTypeConfigElem                 = 93
+	ArcFieldProgramFunctionsElemConfigElemTypeKind                       = 94
+	ArcFieldProgramFunctionsElemConfigElemTypeName                       = 95
+	ArcFieldProgramFunctionsElemConfigElemTypeElem                       = 96
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsLength       = 97
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsMass         = 98
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsTime         = 99
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsCurrent      = 100
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsTemperature  = 101
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsAngle        = 102
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsCount        = 103
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitDimensionsData         = 104
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitScale                  = 105
+	ArcFieldProgramFunctionsElemConfigElemTypeUnitName                   = 106
+	ArcFieldProgramFunctionsElemConfigElemTypeConstraint                 = 107
+	ArcFieldProgramFunctionsElemConfigElemTypeChanDirection              = 108
+	ArcFieldProgramFunctionsElemConfigElemValue                          = 109
+	ArcFieldProgramFunctionsElemConfigElemDescription                    = 110
+	ArcFieldProgramFunctionsElemInputsElemName                           = 111
+	ArcFieldProgramFunctionsElemInputsElemTypeInputsElem                 = 112
+	ArcFieldProgramFunctionsElemInputsElemTypeOutputsElem                = 113
+	ArcFieldProgramFunctionsElemInputsElemTypeConfigElem                 = 114
+	ArcFieldProgramFunctionsElemInputsElemTypeKind                       = 115
+	ArcFieldProgramFunctionsElemInputsElemTypeName                       = 116
+	ArcFieldProgramFunctionsElemInputsElemTypeElem                       = 117
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsLength       = 118
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsMass         = 119
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsTime         = 120
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsCurrent      = 121
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsTemperature  = 122
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsAngle        = 123
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsCount        = 124
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitDimensionsData         = 125
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitScale                  = 126
+	ArcFieldProgramFunctionsElemInputsElemTypeUnitName                   = 127
+	ArcFieldProgramFunctionsElemInputsElemTypeConstraint                 = 128
+	ArcFieldProgramFunctionsElemInputsElemTypeChanDirection              = 129
+	ArcFieldProgramFunctionsElemInputsElemValue                          = 130
+	ArcFieldProgramFunctionsElemInputsElemDescription                    = 131
+	ArcFieldProgramFunctionsElemOutputsElemName                          = 132
+	ArcFieldProgramFunctionsElemOutputsElemTypeInputsElem                = 133
+	ArcFieldProgramFunctionsElemOutputsElemTypeOutputsElem               = 134
+	ArcFieldProgramFunctionsElemOutputsElemTypeConfigElem                = 135
+	ArcFieldProgramFunctionsElemOutputsElemTypeKind                      = 136
+	ArcFieldProgramFunctionsElemOutputsElemTypeName                      = 137
+	ArcFieldProgramFunctionsElemOutputsElemTypeElem                      = 138
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsLength      = 139
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsMass        = 140
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsTime        = 141
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsCurrent     = 142
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsTemperature = 143
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsAngle       = 144
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsCount       = 145
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitDimensionsData        = 146
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitScale                 = 147
+	ArcFieldProgramFunctionsElemOutputsElemTypeUnitName                  = 148
+	ArcFieldProgramFunctionsElemOutputsElemTypeConstraint                = 149
+	ArcFieldProgramFunctionsElemOutputsElemTypeChanDirection             = 150
+	ArcFieldProgramFunctionsElemOutputsElemValue                         = 151
+	ArcFieldProgramFunctionsElemOutputsElemDescription                   = 152
+	ArcFieldProgramFunctionsElemChannelsRead                             = 153
+	ArcFieldProgramFunctionsElemChannelsReadKey                          = 154
+	ArcFieldProgramFunctionsElemChannelsReadVal                          = 155
+	ArcFieldProgramFunctionsElemChannelsWrite                            = 156
+	ArcFieldProgramFunctionsElemChannelsWriteKey                         = 157
+	ArcFieldProgramFunctionsElemChannelsWriteVal                         = 158
+	ArcFieldProgramNodesElemKey                                          = 159
+	ArcFieldProgramNodesElemType                                         = 160
+	ArcFieldProgramNodesElemConfigElemName                               = 161
+	ArcFieldProgramNodesElemConfigElemTypeInputsElem                     = 162
+	ArcFieldProgramNodesElemConfigElemTypeOutputsElem                    = 163
+	ArcFieldProgramNodesElemConfigElemTypeConfigElem                     = 164
+	ArcFieldProgramNodesElemConfigElemTypeKind                           = 165
+	ArcFieldProgramNodesElemConfigElemTypeName                           = 166
+	ArcFieldProgramNodesElemConfigElemTypeElem                           = 167
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsLength           = 168
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsMass             = 169
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsTime             = 170
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsCurrent          = 171
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsTemperature      = 172
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsAngle            = 173
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsCount            = 174
+	ArcFieldProgramNodesElemConfigElemTypeUnitDimensionsData             = 175
+	ArcFieldProgramNodesElemConfigElemTypeUnitScale                      = 176
+	ArcFieldProgramNodesElemConfigElemTypeUnitName                       = 177
+	ArcFieldProgramNodesElemConfigElemTypeConstraint                     = 178
+	ArcFieldProgramNodesElemConfigElemTypeChanDirection                  = 179
+	ArcFieldProgramNodesElemConfigElemValue                              = 180
+	ArcFieldProgramNodesElemConfigElemDescription                        = 181
+	ArcFieldProgramNodesElemInputsElemName                               = 182
+	ArcFieldProgramNodesElemInputsElemTypeInputsElem                     = 183
+	ArcFieldProgramNodesElemInputsElemTypeOutputsElem                    = 184
+	ArcFieldProgramNodesElemInputsElemTypeConfigElem                     = 185
+	ArcFieldProgramNodesElemInputsElemTypeKind                           = 186
+	ArcFieldProgramNodesElemInputsElemTypeName                           = 187
+	ArcFieldProgramNodesElemInputsElemTypeElem                           = 188
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsLength           = 189
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsMass             = 190
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsTime             = 191
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsCurrent          = 192
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsTemperature      = 193
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsAngle            = 194
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsCount            = 195
+	ArcFieldProgramNodesElemInputsElemTypeUnitDimensionsData             = 196
+	ArcFieldProgramNodesElemInputsElemTypeUnitScale                      = 197
+	ArcFieldProgramNodesElemInputsElemTypeUnitName                       = 198
+	ArcFieldProgramNodesElemInputsElemTypeConstraint                     = 199
+	ArcFieldProgramNodesElemInputsElemTypeChanDirection                  = 200
+	ArcFieldProgramNodesElemInputsElemValue                              = 201
+	ArcFieldProgramNodesElemInputsElemDescription                        = 202
+	ArcFieldProgramNodesElemOutputsElemName                              = 203
+	ArcFieldProgramNodesElemOutputsElemTypeInputsElem                    = 204
+	ArcFieldProgramNodesElemOutputsElemTypeOutputsElem                   = 205
+	ArcFieldProgramNodesElemOutputsElemTypeConfigElem                    = 206
+	ArcFieldProgramNodesElemOutputsElemTypeKind                          = 207
+	ArcFieldProgramNodesElemOutputsElemTypeName                          = 208
+	ArcFieldProgramNodesElemOutputsElemTypeElem                          = 209
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsLength          = 210
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsMass            = 211
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsTime            = 212
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsCurrent         = 213
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsTemperature     = 214
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsAngle           = 215
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsCount           = 216
+	ArcFieldProgramNodesElemOutputsElemTypeUnitDimensionsData            = 217
+	ArcFieldProgramNodesElemOutputsElemTypeUnitScale                     = 218
+	ArcFieldProgramNodesElemOutputsElemTypeUnitName                      = 219
+	ArcFieldProgramNodesElemOutputsElemTypeConstraint                    = 220
+	ArcFieldProgramNodesElemOutputsElemTypeChanDirection                 = 221
+	ArcFieldProgramNodesElemOutputsElemValue                             = 222
+	ArcFieldProgramNodesElemOutputsElemDescription                       = 223
+	ArcFieldProgramNodesElemChannelsRead                                 = 224
+	ArcFieldProgramNodesElemChannelsReadKey                              = 225
+	ArcFieldProgramNodesElemChannelsReadVal                              = 226
+	ArcFieldProgramNodesElemChannelsWrite                                = 227
+	ArcFieldProgramNodesElemChannelsWriteKey                             = 228
+	ArcFieldProgramNodesElemChannelsWriteVal                             = 229
+	ArcFieldProgramEdgesElemSourceNode                                   = 230
+	ArcFieldProgramEdgesElemSourceParam                                  = 231
+	ArcFieldProgramEdgesElemTargetNode                                   = 232
+	ArcFieldProgramEdgesElemTargetParam                                  = 233
+	ArcFieldProgramEdgesElemKind                                         = 234
+	ArcFieldProgramStrataElemElem                                        = 235
+	ArcFieldProgramSequencesElemKey                                      = 236
+	ArcFieldProgramSequencesElemStagesElemKey                            = 237
+	ArcFieldProgramSequencesElemStagesElemNodesElem                      = 238
+	ArcFieldProgramSequencesElemStagesElemStrataElemElem                 = 239
+	ArcFieldProgramAuthoritiesDefault                                    = 240
+	ArcFieldProgramAuthoritiesChannels                                   = 241
+	ArcFieldProgramAuthoritiesChannelsKey                                = 242
+	ArcFieldProgramAuthoritiesChannelsVal                                = 243
+	ArcFieldProgramWASM                                                  = 244
+	ArcFieldProgramOutputMemoryBases                                     = 245
+	ArcFieldProgramOutputMemoryBasesKey                                  = 246
+	ArcFieldProgramOutputMemoryBasesVal                                  = 247
+	ArcFieldStatusKey                                                    = 248
+	ArcFieldStatusName                                                   = 249
+	ArcFieldStatusVariant                                                = 250
+	ArcFieldStatusMessage                                                = 251
+	ArcFieldStatusDescription                                            = 252
+	ArcFieldStatusTime                                                   = 253
+	ArcFieldStatusDetailsRunning                                         = 254
+	ArcFieldStatusLabelsElemKey                                          = 255
+	ArcFieldStatusLabelsElemName                                         = 256
+	ArcFieldStatusLabelsElemColorR                                       = 257
+	ArcFieldStatusLabelsElemColorG                                       = 258
+	ArcFieldStatusLabelsElemColorB                                       = 259
+	ArcFieldStatusLabelsElemColorA                                       = 260
+	ArcFieldCount                                                        = 261
 )
 
 type arcCodec struct{}
@@ -301,7 +310,7 @@ func (arcCodec) Encode(
 	value any,
 ) ([]byte, error) {
 	s := value.(Arc)
-	buf := make([]byte, 0, 6542)
+	buf := make([]byte, 0, 6830)
 	buf = append(buf, s.Key[:]...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
 	buf = append(buf, s.Name...)
@@ -424,6 +433,8 @@ func (arcCodec) Encode(
 					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 					buf = append(buf, _jb...)
 				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Description)))
+				buf = append(buf, _e3.Description...)
 			}
 		} else {
 			buf = append(buf, 0)
@@ -536,6 +547,8 @@ func (arcCodec) Encode(
 					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 					buf = append(buf, _jb...)
 				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e14.Description)))
+				buf = append(buf, _e14.Description...)
 			}
 		} else {
 			buf = append(buf, 0)
@@ -648,6 +661,8 @@ func (arcCodec) Encode(
 					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 					buf = append(buf, _jb...)
 				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e25.Description)))
+				buf = append(buf, _e25.Description...)
 			}
 		} else {
 			buf = append(buf, 0)
@@ -814,6 +829,8 @@ func (arcCodec) Encode(
 							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 							buf = append(buf, _jb...)
 						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e49.Description)))
+						buf = append(buf, _e49.Description...)
 					}
 				} else {
 					buf = append(buf, 0)
@@ -926,6 +943,8 @@ func (arcCodec) Encode(
 							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 							buf = append(buf, _jb...)
 						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e60.Description)))
+						buf = append(buf, _e60.Description...)
 					}
 				} else {
 					buf = append(buf, 0)
@@ -1038,6 +1057,8 @@ func (arcCodec) Encode(
 							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 							buf = append(buf, _jb...)
 						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e71.Description)))
+						buf = append(buf, _e71.Description...)
 					}
 				} else {
 					buf = append(buf, 0)
@@ -1174,6 +1195,8 @@ func (arcCodec) Encode(
 							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 							buf = append(buf, _jb...)
 						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e90.Description)))
+						buf = append(buf, _e90.Description...)
 					}
 				} else {
 					buf = append(buf, 0)
@@ -1286,6 +1309,8 @@ func (arcCodec) Encode(
 							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 							buf = append(buf, _jb...)
 						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e101.Description)))
+						buf = append(buf, _e101.Description...)
 					}
 				} else {
 					buf = append(buf, 0)
@@ -1398,6 +1423,8 @@ func (arcCodec) Encode(
 							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 							buf = append(buf, _jb...)
 						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e112.Description)))
+						buf = append(buf, _e112.Description...)
 					}
 				} else {
 					buf = append(buf, 0)
@@ -1859,6 +1886,15 @@ func (arcCodec) Decode(
 							}
 							data = data[_n:]
 						}
+						if len(data) < 4 {
+							return nil
+						}
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Config[_i4].Description = string(data[:_n])
+							data = data[_n:]
+						}
 					}
 				}
 			} else {
@@ -2098,6 +2134,15 @@ func (arcCodec) Decode(
 							}
 							data = data[_n:]
 						}
+						if len(data) < 4 {
+							return nil
+						}
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Inputs[_i15].Description = string(data[:_n])
+							data = data[_n:]
+						}
 					}
 				}
 			} else {
@@ -2335,6 +2380,15 @@ func (arcCodec) Decode(
 							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Outputs[_i26].Value); err != nil {
 								return err
 							}
+							data = data[_n:]
+						}
+						if len(data) < 4 {
+							return nil
+						}
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Outputs[_i26].Description = string(data[:_n])
 							data = data[_n:]
 						}
 					}
@@ -2772,6 +2826,15 @@ func (arcCodec) Decode(
 									}
 									data = data[_n:]
 								}
+								if len(data) < 4 {
+									return nil
+								}
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Config[_i50].Description = string(data[:_n])
+									data = data[_n:]
+								}
 							}
 						}
 					} else {
@@ -3011,6 +3074,15 @@ func (arcCodec) Decode(
 									}
 									data = data[_n:]
 								}
+								if len(data) < 4 {
+									return nil
+								}
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Inputs[_i61].Description = string(data[:_n])
+									data = data[_n:]
+								}
 							}
 						}
 					} else {
@@ -3248,6 +3320,15 @@ func (arcCodec) Decode(
 									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Outputs[_i72].Value); err != nil {
 										return err
 									}
+									data = data[_n:]
+								}
+								if len(data) < 4 {
+									return nil
+								}
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Outputs[_i72].Description = string(data[:_n])
 									data = data[_n:]
 								}
 							}
@@ -3576,6 +3657,15 @@ func (arcCodec) Decode(
 									}
 									data = data[_n:]
 								}
+								if len(data) < 4 {
+									return nil
+								}
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Config[_i91].Description = string(data[:_n])
+									data = data[_n:]
+								}
 							}
 						}
 					} else {
@@ -3815,6 +3905,15 @@ func (arcCodec) Decode(
 									}
 									data = data[_n:]
 								}
+								if len(data) < 4 {
+									return nil
+								}
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Inputs[_i102].Description = string(data[:_n])
+									data = data[_n:]
+								}
 							}
 						}
 					} else {
@@ -4052,6 +4151,15 @@ func (arcCodec) Decode(
 									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Outputs[_i113].Value); err != nil {
 										return err
 									}
+									data = data[_n:]
+								}
+								if len(data) < 4 {
+									return nil
+								}
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Outputs[_i113].Description = string(data[:_n])
 									data = data[_n:]
 								}
 							}
@@ -4508,7 +4616,7 @@ func (c arcCodec) DecodeStream(
 var ArcCodec xbinary.Codec = arcCodec{}
 
 func marshaltypesParam(s types.Param) ([]byte, error) {
-	buf := make([]byte, 0, 512)
+	buf := make([]byte, 0, 544)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
 	buf = append(buf, s.Name...)
 	if s.Type.Inputs != nil {
@@ -4613,6 +4721,8 @@ func marshaltypesParam(s types.Param) ([]byte, error) {
 		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 		buf = append(buf, _jb...)
 	}
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Description)))
+	buf = append(buf, s.Description...)
 	return buf, nil
 }
 
@@ -4842,11 +4952,20 @@ func unmarshaltypesParam(data []byte) (types.Param, error) {
 		}
 		data = data[_n:]
 	}
+	if len(data) < 4 {
+		return r, nil
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Description = string(data[:_n])
+		data = data[_n:]
+	}
 	return r, nil
 }
 
 func marshaltypesType(s types.Type) ([]byte, error) {
-	buf := make([]byte, 0, 704)
+	buf := make([]byte, 0, 800)
 	if s.Inputs != nil {
 		buf = append(buf, 1)
 		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Inputs)))
@@ -4869,6 +4988,8 @@ func marshaltypesType(s types.Type) ([]byte, error) {
 				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 				buf = append(buf, _jb...)
 			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Description)))
+			buf = append(buf, _e1.Description...)
 		}
 	} else {
 		buf = append(buf, 0)
@@ -4895,6 +5016,8 @@ func marshaltypesType(s types.Type) ([]byte, error) {
 				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 				buf = append(buf, _jb...)
 			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Description)))
+			buf = append(buf, _e3.Description...)
 		}
 	} else {
 		buf = append(buf, 0)
@@ -4921,6 +5044,8 @@ func marshaltypesType(s types.Type) ([]byte, error) {
 				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
 				buf = append(buf, _jb...)
 			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e5.Description)))
+			buf = append(buf, _e5.Description...)
 		}
 	} else {
 		buf = append(buf, 0)
@@ -5019,6 +5144,15 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					}
 					data = data[_n:]
 				}
+				if len(data) < 4 {
+					return r, nil
+				}
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Inputs[_i2].Description = string(data[:_n])
+					data = data[_n:]
+				}
 			}
 		}
 	} else {
@@ -5067,6 +5201,15 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					}
 					data = data[_n:]
 				}
+				if len(data) < 4 {
+					return r, nil
+				}
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Outputs[_i4].Description = string(data[:_n])
+					data = data[_n:]
+				}
 			}
 		}
 	} else {
@@ -5113,6 +5256,15 @@ func unmarshaltypesType(data []byte) (types.Type, error) {
 					if err := json.Unmarshal(data[:_n], &r.Config[_i6].Value); err != nil {
 						return r, err
 					}
+					data = data[_n:]
+				}
+				if len(data) < 4 {
+					return r, nil
+				}
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Config[_i6].Description = string(data[:_n])
 					data = data[_n:]
 				}
 			}

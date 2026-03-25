@@ -135,6 +135,7 @@ inline std::pair<::arc::types::pb::Param, x::errors::Error> Param::to_proto() co
         *pb.mutable_type() = v;
     }
     pb.set_value(this->value.dump());
+    pb.set_description(this->description);
     return {pb, x::errors::NIL};
 }
 
@@ -148,6 +149,7 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
         cpp.type = v;
     }
     cpp.value = x::json::json::parse(pb.value(), nullptr, false);
+    cpp.description = pb.description();
     return {cpp, x::errors::NIL};
 }
 

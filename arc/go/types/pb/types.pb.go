@@ -381,7 +381,9 @@ type Param struct {
 	// type is the parameter type.
 	Type *Type `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// value is an optional default value.
-	Value         []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Value []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	// description is an optional description of the parameter.
+	Description   string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -435,6 +437,13 @@ func (x *Param) GetValue() []byte {
 		return x.Value
 	}
 	return nil
+}
+
+func (x *Param) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
 }
 
 // Channels contains channel declarations for reading from and writing to Synnax
@@ -690,11 +699,12 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\x0echan_direction\x18\t \x01(\x0e2\x1b.arc.types.pb.ChanDirectionR\rchanDirectionB\a\n" +
 	"\x05_elemB\a\n" +
 	"\x05_unitB\r\n" +
-	"\v_constraint\"Y\n" +
+	"\v_constraint\"{\n" +
 	"\x05Param\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12&\n" +
 	"\x04type\x18\x02 \x01(\v2\x12.arc.types.pb.TypeR\x04type\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\fR\x05value\"\xec\x01\n" +
+	"\x05value\x18\x03 \x01(\fR\x05value\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\"\xec\x01\n" +
 	"\bChannels\x124\n" +
 	"\x04read\x18\x01 \x03(\v2 .arc.types.pb.Channels.ReadEntryR\x04read\x127\n" +
 	"\x05write\x18\x02 \x03(\v2!.arc.types.pb.Channels.WriteEntryR\x05write\x1a7\n" +

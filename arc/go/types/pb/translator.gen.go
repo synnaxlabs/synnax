@@ -230,9 +230,10 @@ func ParamToPB(r types.Param) (*Param, error) {
 		return nil, err
 	}
 	pb := &Param{
-		Name:  r.Name,
-		Type:  typeVal,
-		Value: valueVal,
+		Name:        r.Name,
+		Description: r.Description,
+		Type:        typeVal,
+		Value:       valueVal,
 	}
 	return pb, nil
 }
@@ -250,6 +251,7 @@ func ParamFromPB(pb *Param) (types.Param, error) {
 	}
 	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v); return v }()
 	r.Name = pb.Name
+	r.Description = pb.Description
 	return r, nil
 }
 

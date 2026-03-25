@@ -93,6 +93,8 @@ type Param struct {
 	Type Type `json:"type" msgpack:"type"`
 	// Value is an optional default value.
 	Value any `json:"value" msgpack:"value"`
+	// Description is an optional description of the parameter.
+	Description string `json:"description" msgpack:"description"`
 }
 
 // Channels contains channel declarations for reading from and writing to Synnax

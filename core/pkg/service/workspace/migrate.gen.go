@@ -19,11 +19,5 @@ import (
 func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Workspace]("msgpack_to_binary", codec),
-		gorp.NewTypedMigration[WorkspaceV2, Workspace](
-			"v2_schema_migration",
-			WorkspaceV2Codec,
-			codec,
-			MigrateWorkspaceV2,
-		),
 	}
 }

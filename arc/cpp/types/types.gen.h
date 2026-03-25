@@ -253,6 +253,8 @@ struct Param {
     Type type;
     /// @brief value is an optional default value.
     x::json::json value;
+    /// @brief description is an optional description of the parameter.
+    std::string description;
 
     static Param parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
