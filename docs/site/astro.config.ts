@@ -23,6 +23,7 @@ const shikiResourcePaths = Object.keys(
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
+  security: { csp: true },
   output: "server",
   adapter: vercel({ includeFiles: shikiResourcePaths }),
   markdown: {
