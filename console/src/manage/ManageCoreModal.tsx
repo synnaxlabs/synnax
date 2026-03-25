@@ -14,6 +14,7 @@ import { type ReactElement, type ReactNode, useState } from "react";
 import { ExportContent } from "@/export/ExportModal";
 import { ImportContent } from "@/import/ImportModal";
 import { Layout } from "@/layout";
+import { BackupsTab } from "@/manage/BackupsTab";
 import { CoresTab } from "@/manage/CoresTab";
 import { Ontology } from "@/ontology";
 import { REGISTER_LAYOUT } from "@/user/Register";
@@ -49,7 +50,7 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: "export", label: "Export" },
   { key: "import", label: "Import" },
-  { key: "backups", label: "Configure Backups" },
+  { key: "backups", label: "Archive Policies" },
   { key: "delete", label: "Delete Data" },
   { key: "users", label: "Users" },
   { key: "cores", label: "Manage Cores" },
@@ -103,7 +104,7 @@ const renderContent = (key: string): ReactNode => {
     case "import":
       return <ImportContent />;
     case "backups":
-      return <Placeholder label="Configure Backups" />;
+      return <BackupsTab />;
     case "cores":
       return <CoresTab />;
     case "delete":

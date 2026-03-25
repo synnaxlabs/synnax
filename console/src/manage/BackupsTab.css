@@ -1,0 +1,100 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-backups__description {
+    display: flex;
+    justify-content: center;
+    color: var(--pluto-gray-l6);
+    padding: 0.75rem 2.5rem;
+}
+
+.console-backups__grid-row {
+    display: grid;
+    grid-template-columns: 3fr 1fr 4fr 2rem;
+    align-items: center;
+    padding: 0.75rem 4rem 0.75rem 2.5rem;
+    gap: 0.5rem;
+}
+
+.console-backups__header {
+    border-bottom: var(--pluto-border);
+}
+
+.console-backups__header-text {
+    color: var(--pluto-gray-l7);
+}
+
+.console-backups__row {
+    cursor: pointer;
+}
+
+.console-backups__row--collapsed {
+    border-bottom: var(--pluto-border);
+}
+
+.console-backups__row-name {
+    color: var(--pluto-gray-l11);
+}
+
+.console-backups__detail-panel {
+    margin: 0 4rem 0.75rem 2.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--pluto-gray-l1);
+    border-radius: 0.5rem;
+    border: var(--pluto-border);
+    gap: 0.4rem;
+}
+
+.console-backups__detail-label {
+    color: var(--pluto-gray-l7);
+    min-width: 6rem;
+    flex-shrink: 0;
+}
+
+.console-backups__detail-value {
+    color: var(--pluto-gray-l9);
+}
+
+.console-backups__icon-btn {
+    padding: 0;
+    min-width: 0;
+    color: var(--pluto-gray-l7);
+}
+
+.console-backups__add-btn {
+    padding: 0.75rem 0;
+}
+
+.console-backups__tab-bar {
+    padding: 1.25rem 2rem;
+    gap: 0.5rem;
+    border-bottom: var(--pluto-border);
+}
+
+.console-backups__tab {
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    justify-content: center;
+}
+
+.console-backups__tab--active {
+    background: var(--pluto-gray-l2);
+    border: var(--pluto-border);
+    color: var(--pluto-gray-l11);
+    font-weight: 500;
+}
+
+.console-backups__tab--inactive {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--pluto-gray-l7);
+    font-weight: 400;
+}

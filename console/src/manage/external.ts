@@ -13,6 +13,10 @@ import {
   ManageCoreModal,
 } from "@/manage/ManageCoreModal";
 import { COMMANDS as PALETTE_COMMANDS } from "@/manage/palette";
+import {
+  SNAPSHOTS_LAYOUT_TYPE,
+  SnapshotsModal,
+} from "@/manage/SnapshotsModal";
 import { type Palette } from "@/palette";
 
 export {
@@ -23,6 +27,7 @@ export {
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [MANAGE_CORE_LAYOUT_TYPE]: ManageCoreModal,
+  [SNAPSHOTS_LAYOUT_TYPE]: SnapshotsModal,
 };
 
 export const COMMANDS: Palette.Command[] = [...PALETTE_COMMANDS];
