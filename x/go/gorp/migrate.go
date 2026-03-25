@@ -254,3 +254,43 @@ func (m *rawMigration) Run(
 ) error {
 	return m.fn(ctx, WrapTx(kvTx, cfg.DBCodec))
 }
+
+type schemaResolutionMigration struct {
+	name      string
+	oldLayout []FieldLayout
+	newLayout []FieldLayout
+}
+
+// NewSchemaResolution creates a Migration that transforms all entries from one
+// binary field layout to another using schema-driven resolution. Fields are
+// matched by name. New fields get zero values. Removed fields are dropped.
+// Nested structs with changed layouts are resolved recursively.
+func NewSchemaResolution(name string, oldLayout, newLayout []FieldLayout) Migration {
+	return &schemaResolutionMigration{name: name, oldLayout: oldLayout, newLayout: newLayout}
+}
+
+func (m *schemaResolutionMigration) Name() string { return m.name }
+
+func (m *schemaResolutionMigration) Run(
+	ctx context.Context,
+	kvTx kv.Tx,
+	cfg MigrationConfig,
+) error {
+	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Combine(err, iter.Close())
+	}()
+	for iter.First(); iter.Valid(); iter.Next() {
+		resolved, err := Resolve(iter.Value(), m.oldLayout, m.newLayout)
+		if err != nil {
+			return err
+		}
+		if err = kvTx.Set(ctx, iter.Key(), resolved); err != nil {
+			return err
+		}
+	}
+	return err
+}
