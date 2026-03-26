@@ -374,7 +374,7 @@ const registerArcLanguage = async (): Promise<destructor.Async> => {
 
 const applySemanticTokenColors = async (): Promise<destructor.Async> => {
   try {
-    const vscode = await import("vscode");
+    const vscode = await import("@codingame/monaco-vscode-extension-api");
     const config = vscode.workspace.getConfiguration("editor");
 
     await config.update(
