@@ -65,4 +65,20 @@ var _ = Describe("DerivePackageAlias", func() {
 	It("should handle single segment paths without conflict", func() {
 		Expect(naming.DerivePackageAlias("user", "channel")).To(Equal("user"))
 	})
+
+	It("should use grandparent for migration version packages", func() {
+		Expect(naming.DerivePackageAlias("arc/go/graph/migrations/v53", "v53")).To(Equal("graphv53"))
+	})
+
+	It("should disambiguate migration packages from different source packages", func() {
+		Expect(naming.DerivePackageAlias("arc/go/graph/migrations/v53", "other")).To(Equal("graphv53"))
+		Expect(naming.DerivePackageAlias("arc/go/ir/migrations/v53", "other")).To(Equal("irv53"))
+		Expect(naming.DerivePackageAlias("core/pkg/service/arc/migrations/v53", "other")).To(Equal("arcv53"))
+	})
+
+	It("should handle full import paths with migrations pattern", func() {
+		Expect(naming.DerivePackageAlias(
+			"github.com/synnaxlabs/synnax/arc/go/graph/migrations/v53", "v53",
+		)).To(Equal("graphv53"))
+	})
 })

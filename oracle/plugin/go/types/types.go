@@ -94,20 +94,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type goFileGenerator struct{}
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
+	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
 	if err != nil {
 		return "", err
 	}
 	return string(content), nil
 }
 
-func generateGoFile(
+// GenerateGoFile generates a Go types file for the given structs, enums, and
+// type definitions at the specified output path. Exported for use by the
+// migrate plugin to generate frozen type definitions. ImportOverrides maps
+// original import paths to replacements (nil for normal operation).
+func GenerateGoFile(
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
+	importOverrides ...map[string]string,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -144,11 +149,11 @@ func generateGoFile(
 		Structs:    make([]structData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
 		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
-		imports:    imports,
-		table:      table,
-		repoRoot:   repoRoot,
-		resolver:   r,
-		ctx:        ctx,
+		imports:  imports,
+		table:    table,
+		repoRoot: repoRoot,
+		resolver: r,
+		ctx:      ctx,
 	}
 
 	for _, td := range typeDefs {

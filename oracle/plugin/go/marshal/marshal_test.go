@@ -55,9 +55,9 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"package pb",
+						"package test",
 						"binary.BigEndian.AppendUint32",
-						"TestCodec gorp.Codec",
+						"TestCodec xbinary.Codec",
 					)
 			})
 		})
@@ -143,7 +143,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec gorp.Codec")
+					ToContain("TestCodec xbinary.Codec")
 			})
 		})
 
@@ -171,7 +171,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("GraphCodec gorp.Codec")
+					ToContain("GraphCodec xbinary.Codec")
 			})
 		})
 
@@ -195,7 +195,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec gorp.Codec")
+					ToContain("TestCodec xbinary.Codec")
 			})
 		})
 
@@ -228,7 +228,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec gorp.Codec")
+					ToContain("TestCodec xbinary.Codec")
 			})
 		})
 		Context("recursive struct (self-referencing optional fields)", func() {
@@ -252,8 +252,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("ContainerCodec gorp.Codec").
-					ToContain("marshaltest")
+					ToContain("ContainerCodec xbinary.Codec").
+					ToContain("marshalType")
 			})
 		})
 	})

@@ -24,11 +24,11 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
+	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 type Plugin struct{}
@@ -110,38 +110,56 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			sc := e.SchemaChange
 			vDir := fmt.Sprintf("v%d", sc.Version)
-			subPkg := fmt.Sprintf("%s/migrations/%s", goPath, vDir)
 
-			// Generate frozen types in the sub-package. Types keep their
-			// original names. The package boundary provides namespacing.
-			// Use the marshal plugin's GenerateCodecFile which generates
-			// codecs with correct local type references.
+			// Discover all packages in the dependency tree that need mirroring.
+			pkgTypes := collectPackageTypes(sc.OldType, req.OldResolutions)
+
+			// Build a path mapping: original output path → mirrored path.
+			pathMap := make(map[string]string, len(pkgTypes))
+			for origPath := range pkgTypes {
+				pathMap[origPath] = origPath + "/migrations/" + vDir
+			}
+
+			// Rewrite the resolution table so types appear to belong to
+			// their mirrored packages. This makes all existing import
+			// resolution work without any special override logic.
+			rewrittenTable := rewriteOutputPaths(req.OldResolutions, pathMap)
+
+			// Generate frozen types in each source package's migrations/vN/ directory.
+			for origPath, types := range pkgTypes {
+				mirroredPath := pathMap[origPath]
+				typeContent, err := generateFrozenTypesFile(types, rewrittenTable, mirroredPath, req.RepoRoot)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to generate frozen types for %s", origPath)
+				}
+				resp.Files = append(resp.Files, plugin.File{
+					Path:    mirroredPath + "/types.gen.go",
+					Content: typeContent,
+				})
+			}
+
+			// Generate frozen codec for the entry type in its own migrations/vN/ directory.
+			entryMirrorPath := goPath + "/migrations/" + vDir
 			codecContent, err := gomarshal.GenerateCodecFile(
-				vDir, subPkg,
+				vDir, entryMirrorPath,
 				[]gomarshal.CodecEntry{{GoName: e.GoName, Type: sc.OldType}},
-				req.OldResolutions,
+				rewrittenTable,
 				req.RepoRoot,
-				nil, // no name overrides needed
 			)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to generate frozen codec for %s", e.GoName)
 			}
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    subPkg + "/codec.gen.go",
+				Path:    entryMirrorPath + "/codec.gen.go",
 				Content: codecContent,
 			})
-
-			// Generate frozen types using the go/types plugin's type generation.
-			// For now, generate the entry type's struct definition. The codec
-			// helpers reference nested types from their original packages.
-			// TODO: Generate all nested types in the sub-package for full isolation.
 
 			// Generate developer transform template in the parent package.
 			templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, sc.Version)
 			templateFullPath := filepath.Join(req.RepoRoot, templateFile)
 			if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-				migrationsImport := gomod.ResolveImportPath(subPkg, req.RepoRoot, "github.com/synnaxlabs/synnax/")
-				tc, err := renderTransformTemplate(pkg, e.GoName, sc.Version, vDir, migrationsImport)
+				entryMirrorImport, _ := resolveImportPath(entryMirrorPath, req.RepoRoot)
+				tc, err := renderTransformTemplate(pkg, e.GoName, sc.Version, vDir, entryMirrorImport)
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to generate transform template")
 				}
@@ -161,33 +179,182 @@ func detectSchemaChange(
 	if !found {
 		return nil, nil
 	}
-	oldLayout, err := BuildLayout(oldType, req.OldResolutions)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to build old layout")
-	}
-	newLayout, err := BuildLayout(newType, req.Resolutions)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to build new layout")
-	}
-	if layoutsDeepEqual(oldLayout, newLayout) {
+	if schemasEqual(oldType, newType, req.OldResolutions, req.Resolutions) {
 		return nil, nil
 	}
 	return &schemaChange{
-		Version: req.SnapshotVersion, // frozen types represent this version
+		Version: req.SnapshotVersion,
 		OldType: oldType,
 	}, nil
 }
 
-func layoutsDeepEqual(a, b []gorp.FieldLayout) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !gorp.LayoutsEqual(a[i], b[i]) {
-			return false
+// collectPackageTypes walks the entry type's dependency tree and groups all
+// Oracle-defined struct types by their @go output path. Returns a map from
+// output path → list of types in that package.
+func collectPackageTypes(
+	entryType resolution.Type,
+	table *resolution.Table,
+) map[string][]resolution.Type {
+	result := make(map[string][]resolution.Type)
+	visited := make(map[string]bool)
+	collectPkgTypesWalk(entryType, table, result, visited)
+	// Expand each collected package: if any type from a package is needed,
+	// include ALL types from that package. This handles cases where types are
+	// referenced through type parameters, constraints, or defaults that the
+	// walker can't follow directly.
+	for goPath := range result {
+		expanded := make(map[string]bool)
+		for _, t := range result[goPath] {
+			expanded[t.QualifiedName] = true
+		}
+		for _, t := range table.TypesWithDomain("go") {
+			if expanded[t.QualifiedName] {
+				continue
+			}
+			if output.GetPath(t, "go") == goPath {
+				switch t.Form.(type) {
+				case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm, resolution.EnumForm:
+					result[goPath] = append(result[goPath], t)
+				}
+			}
 		}
 	}
-	return true
+	return result
+}
+
+func collectPkgTypesWalk(
+	typ resolution.Type,
+	table *resolution.Table,
+	result map[string][]resolution.Type,
+	visited map[string]bool,
+) {
+	if visited[typ.QualifiedName] {
+		return
+	}
+	visited[typ.QualifiedName] = true
+
+	goPath := output.GetPath(typ, "go")
+	if goPath != "" {
+		switch typ.Form.(type) {
+		case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm, resolution.EnumForm:
+			result[goPath] = append(result[goPath], typ)
+		}
+	}
+
+	// Walk parent types from struct extensions (embedding).
+	if sf, ok := typ.Form.(resolution.StructForm); ok {
+		for _, ext := range sf.Extends {
+			walkRefForPkgTypes(ext, table, result, visited)
+		}
+	}
+
+	// Walk fields to find nested types.
+	fields := resolution.UnifiedFields(typ, table)
+	for _, f := range fields {
+		walkRefForPkgTypes(f.Type, table, result, visited)
+	}
+}
+
+func walkRefForPkgTypes(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	result map[string][]resolution.Type,
+	visited map[string]bool,
+) {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		collectPkgTypesWalk(resolved, table, result, visited)
+	case resolution.AliasForm:
+		collectPkgTypesWalk(resolved, table, result, visited)
+		walkRefForPkgTypes(form.Target, table, result, visited)
+	case resolution.DistinctForm:
+		collectPkgTypesWalk(resolved, table, result, visited)
+		walkRefForPkgTypes(form.Base, table, result, visited)
+	case resolution.EnumForm:
+		collectPkgTypesWalk(resolved, table, result, visited)
+	case resolution.BuiltinGenericForm:
+		// Walk the generic type's fields by looking up the struct definition.
+		// BuiltinGenericForm marks the type as generic, but the underlying struct
+		// may have fields that reference other types (e.g., Status has a Variant field).
+		collectPkgTypesWalk(resolved, table, result, visited)
+		for _, arg := range ref.TypeArgs {
+			walkRefForPkgTypes(arg, table, result, visited)
+		}
+	}
+}
+
+func resolveImportPath(outputPath, repoRoot string) (string, error) {
+	return gomod.ResolveImportPath(outputPath, repoRoot, "github.com/synnaxlabs/synnax/"), nil
+}
+
+// rewriteOutputPaths creates a shallow copy of the resolution table where
+// each type's @go output path is rewritten according to the path map.
+// This allows the standard type/codec generators to produce correct imports
+// for mirrored migration packages without any special override logic.
+func rewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *resolution.Table {
+	clone := &resolution.Table{
+		Imports:    table.Imports,
+		Namespaces: table.Namespaces,
+		Types:      make([]resolution.Type, 0, len(table.Types)),
+	}
+	for _, typ := range table.Types {
+		goPath := output.GetPath(typ, "go")
+		mirroredPath, needsRewrite := pathMap[goPath]
+		if !needsRewrite {
+			clone.Types = append(clone.Types, typ)
+			continue
+		}
+		// Clone the type with rewritten @go output.
+		newDomains := make(map[string]resolution.Domain, len(typ.Domains))
+		for k, v := range typ.Domains {
+			if k == "go" {
+				newExprs := make(resolution.Expressions, len(v.Expressions))
+				for i, expr := range v.Expressions {
+					if expr.Name == "output" && len(expr.Values) > 0 {
+						newVals := make([]resolution.ExpressionValue, len(expr.Values))
+						copy(newVals, expr.Values)
+						newVals[0] = resolution.ExpressionValue{StringValue: mirroredPath}
+						newExprs[i] = resolution.Expression{AST: expr.AST, Name: expr.Name, Values: newVals}
+					} else {
+						newExprs[i] = expr
+					}
+				}
+				newDomains[k] = resolution.Domain{AST: v.AST, Name: v.Name, Expressions: newExprs}
+			} else {
+				newDomains[k] = v
+			}
+		}
+		rewritten := typ
+		rewritten.Domains = newDomains
+		clone.Types = append(clone.Types, rewritten)
+	}
+	return clone
+}
+
+// generateFrozenTypesFile generates a Go source file with type definitions
+// using the types plugin's full type generation. Import overrides redirect
+// cross-package references to the mirrored package structure.
+func generateFrozenTypesFile(
+	types []resolution.Type,
+	table *resolution.Table,
+	outputPath, repoRoot string,
+) ([]byte, error) {
+	var structs, enums, typeDefs []resolution.Type
+	for _, typ := range types {
+		switch typ.Form.(type) {
+		case resolution.StructForm:
+			structs = append(structs, typ)
+		case resolution.EnumForm:
+			enums = append(enums, typ)
+		default:
+			typeDefs = append(typeDefs, typ)
+		}
+	}
+	return gotypes.GenerateGoFile(outputPath, structs, enums, typeDefs, table, repoRoot)
 }
 
 func hasMigrateAnnotation(typ resolution.Type) bool {
@@ -341,17 +508,3 @@ func renderTransformTemplate(pkg, goName string, version int, vDir, migrationsIm
 	return buf.Bytes(), nil
 }
 
-// filterImports removes the given paths from a list of import strings.
-func filterImports(imports []string, exclude ...string) []string {
-	excludeSet := make(map[string]bool, len(exclude))
-	for _, e := range exclude {
-		excludeSet[e] = true
-	}
-	var result []string
-	for _, imp := range imports {
-		if !excludeSet[imp] {
-			result = append(result, imp)
-		}
-	}
-	return result
-}

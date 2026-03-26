@@ -242,12 +242,6 @@ type CodecEntry struct {
 	Type   resolution.Type
 }
 
-// NameOverrides maps qualified type names to local names. When set on
-// GenerateCodecFile, the codeBuilder uses the override instead of resolving
-// the type's package and generating an import. This is used for frozen codecs
-// where nested types are flattened into the parent package with versioned names.
-type NameOverrides map[string]string
-
 // GenerateCodecFile generates a complete codec file for the given entries using the
 // specified package name and output path context. This is used by the migrate plugin
 // to generate frozen codecs for old schema versions.
@@ -257,7 +251,6 @@ func GenerateCodecFile(
 	entries []CodecEntry,
 	table *resolution.Table,
 	repoRoot string,
-	overrides NameOverrides,
 ) ([]byte, error) {
 	fo := fileOutput{
 		Package:      packageName,
@@ -265,12 +258,11 @@ func GenerateCodecFile(
 	}
 	for _, e := range entries {
 		b := &codeBuilder{
-			table:          table,
-			repoRoot:       repoRoot,
-			packageName:    packageName,
-			parentPath:     parentPath,
-			imports:        fo.ExtraImports,
-			nameOverrides:  overrides,
+			table:       table,
+			repoRoot:    repoRoot,
+			packageName: packageName,
+			parentPath:  parentPath,
+			imports:     fo.ExtraImports,
 		}
 		if err := b.processType(e.Type); err != nil {
 			return nil, errors.Wrapf(err, "failed to generate codec for %s", e.GoName)
@@ -322,9 +314,8 @@ type codeBuilder struct {
 	table            *resolution.Table
 	repoRoot         string
 	packageName      string
-	parentPath       string
-	imports          map[string]string
-	nameOverrides    NameOverrides
+	parentPath  string
+	imports     map[string]string
 	consts           []wireConst
 	marshalLines     []string
 	unmarshalLines   []string
@@ -744,12 +735,11 @@ func (b *codeBuilder) processRecursiveStruct(
 	b.generatedHelpers[helperKey] = true
 
 	sub := &codeBuilder{
-		table:            b.table,
-		repoRoot:         b.repoRoot,
-		packageName:      b.packageName,
-		parentPath:       b.parentPath,
-		imports:          b.imports,
-		nameOverrides:    b.nameOverrides,
+		table:       b.table,
+		repoRoot:    b.repoRoot,
+		packageName: b.packageName,
+		parentPath:  b.parentPath,
+		imports:     b.imports,
 		isHelper:         true,
 		processingTypes:  map[string]bool{helperKey: true},
 		generatedHelpers: b.generatedHelpers,
@@ -1202,12 +1192,6 @@ func (b *codeBuilder) resolveLeaf(typ resolution.Type) (primName, goTypeCast str
 }
 
 func (b *codeBuilder) goTypeName(typ resolution.Type) (string, error) {
-	// Check name overrides first (used for frozen versioned codecs).
-	if b.nameOverrides != nil {
-		if override, ok := b.nameOverrides[typ.QualifiedName]; ok {
-			return override, nil
-		}
-	}
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
 		switch prim.Name {
 		case "string":

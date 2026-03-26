@@ -66,12 +66,18 @@ func GetFieldName(f resolution.Field) string {
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // DerivePackageAlias creates a unique alias for an imported package to avoid
-// conflicts. If the base name conflicts with the current package, it prepends
-// the parent directory.
+// conflicts. For migration version packages (e.g., "graph/migrations/v53"), the
+// grandparent directory name is prepended to distinguish between packages at the
+// same version across different source packages. Otherwise, if the base name
+// conflicts with the current package, it prepends the parent directory.
 func DerivePackageAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
+	parent := filepath.Base(filepath.Dir(outputPath))
+	if parent == "migrations" {
+		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
+		return grandparent + base
+	}
 	if base == currentPackage {
-		parent := filepath.Base(filepath.Dir(outputPath))
 		return parent + base
 	}
 	return base
