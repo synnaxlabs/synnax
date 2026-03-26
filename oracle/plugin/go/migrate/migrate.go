@@ -8,11 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package migrate provides an Oracle plugin that generates migration files.
-// For each gorp entry type with @go migrate, it generates:
-//   - migrate.gen.go: migration chain registration (codec transition + schema migrations)
-//   - v{N}_types.gen.go: frozen Go types for old schema versions
-//   - v{N}_codec.gen.go: frozen codecs for old schema versions (reuses marshal plugin)
-//   - v{N}_migrate.go: developer transform template
+// For each schema change, it generates frozen types + codecs in a versioned
+// sub-package (migrations/vN/) where types keep their original names. The
+// package boundary provides namespacing, eliminating the need for renaming.
 package migrate
 
 import (
@@ -20,26 +18,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
-	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
-	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
-
-var primitiveMapper = goprimitives.Mapper()
 
 type Plugin struct{}
 
@@ -65,10 +55,8 @@ type migrationEntry struct {
 }
 
 type schemaChange struct {
-	Version       int
-	VersionName   string           // e.g., "V2"
-	VersionedName string           // e.g., "ArcArcV3" (namespace-prefixed)
-	OldType       resolution.Type  // old type from snapshot
+	Version int              // major*1000+minor from core VERSION (e.g., 53 for 0.53.x)
+	OldType resolution.Type
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -88,10 +76,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		me := migrationEntry{
-			GoName: getGoName(entry),
-			GoPath: goPath,
-		}
+		me := migrationEntry{GoName: getGoName(entry), GoPath: goPath}
 		if req.OldResolutions != nil {
 			sc, err := detectSchemaChange(entry, req)
 			if err != nil {
@@ -109,8 +94,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		entries := outputEntries[goPath]
 		pkg := naming.DerivePackageName(goPath)
 
-		// Generate migrate.gen.go (migration chain registration).
-		regContent, err := renderMigrateFile(pkg, entries)
+		// Generate migrate.gen.go in the parent package.
+		regContent, err := renderMigrateFile(pkg, goPath, entries, req.RepoRoot)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate migrate.gen.go for %s", goPath)
 		}
@@ -119,62 +104,48 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Content: regContent,
 		})
 
-		// For each schema change, generate frozen types + codecs + transform template.
 		for _, e := range entries {
 			if e.SchemaChange == nil {
 				continue
 			}
 			sc := e.SchemaChange
+			vDir := fmt.Sprintf("v%d", sc.Version)
+			subPkg := fmt.Sprintf("%s/migrations/%s", goPath, vDir)
 
-			// Build name overrides: map every Oracle-defined type reachable from
-			// the entry to a versioned local name. This flattens nested types
-			// into the parent package so the frozen codec is self-contained.
-			overrides := buildNameOverrides(sc.OldType, req.OldResolutions, sc.VersionName)
-
-			// Get the entry's versioned name from the overrides (uses namespace-prefixed naming).
-			versionedName := overrides[sc.OldType.QualifiedName]
-			if versionedName == "" {
-				versionedName = e.GoName + sc.VersionName
-			}
-
-			// Generate frozen types for the entry AND all nested Oracle-defined types.
-			typeContent, err := renderFrozenTypes(pkg, sc.OldType, req, overrides)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate frozen types for %s", versionedName)
-			}
-			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/v%d_types.gen.go", goPath, sc.Version),
-				Content: typeContent,
-			})
-
-			// Generate frozen codec using the marshal plugin's code generation.
+			// Generate frozen types in the sub-package. Types keep their
+			// original names. The package boundary provides namespacing.
+			// Use the marshal plugin's GenerateCodecFile which generates
+			// codecs with correct local type references.
 			codecContent, err := gomarshal.GenerateCodecFile(
-				pkg, goPath,
-				[]gomarshal.CodecEntry{{GoName: versionedName, Type: sc.OldType}},
+				vDir, subPkg,
+				[]gomarshal.CodecEntry{{GoName: e.GoName, Type: sc.OldType}},
 				req.OldResolutions,
 				req.RepoRoot,
-				overrides,
+				nil, // no name overrides needed
 			)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate frozen codec for %s", versionedName)
+				return nil, errors.Wrapf(err, "failed to generate frozen codec for %s", e.GoName)
 			}
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/v%d_codec.gen.go", goPath, sc.Version),
+				Path:    subPkg + "/codec.gen.go",
 				Content: codecContent,
 			})
 
-			// Generate developer transform template.
+			// Generate frozen types using the go/types plugin's type generation.
+			// For now, generate the entry type's struct definition. The codec
+			// helpers reference nested types from their original packages.
+			// TODO: Generate all nested types in the sub-package for full isolation.
+
+			// Generate developer transform template in the parent package.
 			templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, sc.Version)
 			templateFullPath := filepath.Join(req.RepoRoot, templateFile)
 			if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-				tc, err := renderTransformTemplate(pkg, e.GoName, versionedName, sc.Version)
+				migrationsImport := gomod.ResolveImportPath(subPkg, req.RepoRoot, "github.com/synnaxlabs/synnax/")
+				tc, err := renderTransformTemplate(pkg, e.GoName, sc.Version, vDir, migrationsImport)
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to generate transform template")
 				}
-				resp.Files = append(resp.Files, plugin.File{
-					Path:    templateFile,
-					Content: tc,
-				})
+				resp.Files = append(resp.Files, plugin.File{Path: templateFile, Content: tc})
 			}
 		}
 	}
@@ -190,8 +161,6 @@ func detectSchemaChange(
 	if !found {
 		return nil, nil
 	}
-
-	// Deep comparison using layout trees.
 	oldLayout, err := BuildLayout(oldType, req.OldResolutions)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build old layout")
@@ -203,22 +172,9 @@ func detectSchemaChange(
 	if layoutsDeepEqual(oldLayout, newLayout) {
 		return nil, nil
 	}
-
-	version := req.SnapshotVersion + 1
-	versionSuffix := fmt.Sprintf("V%d", version)
-	// Compute the namespace-prefixed versioned name for the entry type.
-	parts := strings.Split(oldType.QualifiedName, ".")
-	var entryVersionedName string
-	for _, p := range parts {
-		entryVersionedName += naming.ToPascalCase(p)
-	}
-	entryVersionedName += versionSuffix
-
 	return &schemaChange{
-		Version:       version,
-		VersionName:   versionSuffix,
-		VersionedName: entryVersionedName,
-		OldType:     oldType,
+		Version: req.SnapshotVersion, // frozen types represent this version
+		OldType: oldType,
 	}, nil
 }
 
@@ -232,216 +188,6 @@ func layoutsDeepEqual(a, b []gorp.FieldLayout) bool {
 		}
 	}
 	return true
-}
-
-// buildNameOverrides walks the entry type's dependency tree and creates a
-// name override map that maps every Oracle-defined struct type to a versioned
-// local name. This flattens nested types into the parent package.
-func buildNameOverrides(
-	entryType resolution.Type,
-	table *resolution.Table,
-	versionSuffix string,
-) gomarshal.NameOverrides {
-	overrides := make(gomarshal.NameOverrides)
-	visited := make(map[string]bool)
-	walkTypeTree(entryType, table, versionSuffix, overrides, visited)
-	// Second pass: propagate overrides to alias/distinct types that resolve
-	// to overridden structs. Must run after all structs are discovered.
-	for _, typ := range table.Types {
-		if _, alreadyOverridden := overrides[typ.QualifiedName]; alreadyOverridden {
-			continue
-		}
-		switch form := typ.Form.(type) {
-		case resolution.AliasForm:
-			target, ok := form.Target.Resolve(table)
-			if ok {
-				if override, exists := overrides[target.QualifiedName]; exists {
-					overrides[typ.QualifiedName] = override
-				}
-			}
-		case resolution.DistinctForm:
-			target, ok := form.Base.Resolve(table)
-			if ok {
-				if override, exists := overrides[target.QualifiedName]; exists {
-					overrides[typ.QualifiedName] = override
-				}
-			}
-		}
-	}
-	return overrides
-}
-
-func walkTypeTree(
-	typ resolution.Type,
-	table *resolution.Table,
-	suffix string,
-	overrides gomarshal.NameOverrides,
-	visited map[string]bool,
-) {
-	if visited[typ.QualifiedName] {
-		return
-	}
-	visited[typ.QualifiedName] = true
-
-	// Override struct types with versioned names.
-	if _, ok := typ.Form.(resolution.StructForm); ok {
-		parts := strings.Split(typ.QualifiedName, ".")
-		var name string
-		for _, p := range parts {
-			name += naming.ToPascalCase(p)
-		}
-		overrides[typ.QualifiedName] = name + suffix
-	}
-	// Alias/distinct override propagation is handled in the second pass
-	// of buildNameOverrides, after all structs are discovered.
-
-	// Walk fields to find nested Oracle-defined types.
-	fields := resolution.UnifiedFields(typ, table)
-	for _, f := range fields {
-		walkFieldType(f.Type, table, suffix, overrides, visited)
-	}
-}
-
-func walkFieldType(
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	suffix string,
-	overrides gomarshal.NameOverrides,
-	visited map[string]bool,
-) {
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		return
-	}
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		walkTypeTree(resolved, table, suffix, overrides, visited)
-	case resolution.AliasForm:
-		walkFieldType(form.Target, table, suffix, overrides, visited)
-	case resolution.DistinctForm:
-		walkFieldType(form.Base, table, suffix, overrides, visited)
-	case resolution.BuiltinGenericForm:
-		for _, arg := range ref.TypeArgs {
-			walkFieldType(arg, table, suffix, overrides, visited)
-		}
-	}
-	// Also walk ALL type args on the ref, regardless of resolved form.
-	// This catches cases like aliases to Array<Function> where the type
-	// args are on the original ref, not the resolved form.
-	for _, arg := range ref.TypeArgs {
-		walkFieldType(arg, table, suffix, overrides, visited)
-	}
-}
-
-// resolveFieldTypeWithOverrides resolves a field's Go type, replacing any
-// Oracle-defined struct types with their versioned names from the overrides map.
-// Follows through aliases and generic types to find nested structs.
-func resolveFieldTypeWithOverrides(
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	overrides gomarshal.NameOverrides,
-	r *resolver.Resolver,
-	ctx *resolver.Context,
-) string {
-	// Try to resolve the type. TypeRefs may have unqualified names, so
-	// try both the direct lookup and a namespace-qualified lookup.
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		// Try qualified with namespace from context.
-		qualifiedRef := resolution.TypeRef{
-			Name:      ctx.Namespace + "." + ref.Name,
-			TypeArgs:  ref.TypeArgs,
-			ArraySize: ref.ArraySize,
-		}
-		resolved, ok = qualifiedRef.Resolve(table)
-		if !ok {
-			return r.ResolveTypeRef(ref, ctx)
-		}
-	}
-	// Direct struct match.
-	if override, ok := overrides[resolved.QualifiedName]; ok {
-		if ref.ArraySize != nil {
-			return "[]" + override
-		}
-		return override
-	}
-	// Unwrap aliases to find arrays/maps of overridden types.
-	result := resolveTypeWithOverrides(resolved, ref, table, overrides, r, ctx)
-	if ref.ArraySize != nil && !strings.HasPrefix(result, "[]") {
-		return "[]" + result
-	}
-	return result
-}
-
-func resolveTypeWithOverrides(
-	resolved resolution.Type,
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	overrides gomarshal.NameOverrides,
-	r *resolver.Resolver,
-	ctx *resolver.Context,
-) string {
-	var targetRef resolution.TypeRef
-	switch form := resolved.Form.(type) {
-	case resolution.AliasForm:
-		targetRef = form.Target
-	case resolution.DistinctForm:
-		targetRef = form.Base
-	case resolution.BuiltinGenericForm:
-		if form.Name == "Array" && len(ref.TypeArgs) > 0 {
-			elemType, ok := ref.TypeArgs[0].Resolve(table)
-			if ok {
-				if override, ok := overrides[elemType.QualifiedName]; ok {
-					return "[]" + override
-				}
-			}
-		}
-		return r.ResolveTypeRef(ref, ctx)
-	default:
-		return r.ResolveTypeRef(ref, ctx)
-	}
-
-	// Resolve the alias/distinct target.
-	target, ok := targetRef.Resolve(table)
-	if !ok {
-		return r.ResolveTypeRef(ref, ctx)
-	}
-	isArray := targetRef.ArraySize != nil
-
-	if override, ok := overrides[target.QualifiedName]; ok {
-		if isArray {
-			return "[]" + override
-		}
-		return override
-	}
-
-	// Check if target is Array/Map of overridden types.
-	if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok {
-		if bg.Name == "Array" && len(targetRef.TypeArgs) > 0 {
-			elemType, ok := targetRef.TypeArgs[0].Resolve(table)
-			if ok {
-				if override, ok := overrides[elemType.QualifiedName]; ok {
-					return "[]" + override
-				}
-			}
-		}
-		if bg.Name == "Map" && len(targetRef.TypeArgs) >= 2 {
-			keyType := r.ResolveTypeRef(targetRef.TypeArgs[0], ctx)
-			valType, ok := targetRef.TypeArgs[1].Resolve(table)
-			if ok {
-				if override, ok := overrides[valType.QualifiedName]; ok {
-					return "map[" + keyType + "]" + override
-				}
-			}
-		}
-	}
-
-	// Recurse.
-	inner := resolveTypeWithOverrides(target, targetRef, table, overrides, r, ctx)
-	if isArray && !strings.HasPrefix(inner, "[]") {
-		return "[]" + inner
-	}
-	return inner
 }
 
 func hasMigrateAnnotation(typ resolution.Type) bool {
@@ -468,316 +214,6 @@ func getGoName(t resolution.Type) string {
 	return t.Name
 }
 
-func findKeyFieldGoName(typ resolution.Type, table *resolution.Table) string {
-	fields := resolution.UnifiedFields(typ, table)
-	for _, f := range fields {
-		if _, hasKey := f.Domains["key"]; hasKey {
-			return naming.GetFieldName(f)
-		}
-	}
-	return "Key"
-}
-
-// --- Frozen Type Template ---
-
-// renderFrozenTypes generates frozen Go type definitions for the entry type
-// AND all Oracle-defined nested types reachable from it. Each type gets a
-// versioned name from the overrides map.
-func renderFrozenTypes(
-	pkg string,
-	entryType resolution.Type,
-	req *plugin.Request,
-	overrides gomarshal.NameOverrides,
-) ([]byte, error) {
-	// Collect all types that need frozen definitions.
-	var allTypes []frozenTypeData
-	imps := imports.NewManager()
-	goPath := output.GetPath(entryType, "go")
-	ctx := &resolver.Context{
-		Table:                         req.OldResolutions,
-		OutputPath:                    goPath,
-		Namespace:                     entryType.Namespace,
-		RepoRoot:                      req.RepoRoot,
-		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true,
-	}
-	r := &resolver.Resolver{
-		Formatter:       gotypes.GoFormatter(),
-		ImportResolver:  &gotypes.GoImportResolver{RepoRoot: req.RepoRoot, CurrentPackage: pkg},
-		ImportAdder:     imps,
-		PrimitiveMapper: primitiveMapper,
-	}
-
-	visited := make(map[string]bool)
-	collectFrozenTypes(entryType, req.OldResolutions, overrides, r, ctx, &allTypes, visited)
-
-	data := frozenTypesFileData{
-		Package:         pkg,
-		Types:           allTypes,
-		ExternalImports: imps.ExternalImports(),
-		InternalImports: filterParentImports(imps.InternalImports(), goPath, req.RepoRoot),
-	}
-	var buf bytes.Buffer
-	if err := frozenTypesFileTmpl.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func collectFrozenTypes(
-	typ resolution.Type,
-	table *resolution.Table,
-	overrides gomarshal.NameOverrides,
-	r *resolver.Resolver,
-	baseCtx *resolver.Context,
-	result *[]frozenTypeData,
-	visited map[string]bool,
-) {
-	if visited[typ.QualifiedName] {
-		return
-	}
-	visited[typ.QualifiedName] = true
-
-	versionedName, isOverridden := overrides[typ.QualifiedName]
-	if !isOverridden {
-		return // not an Oracle-defined struct, skip
-	}
-
-	// Create a context for this type's namespace so field TypeRefs resolve correctly.
-	ctx := *baseCtx
-	ctx.Namespace = typ.Namespace
-
-	fields := resolution.UnifiedFields(typ, table)
-	var keyGoType, keyFieldName string
-	var frozenFields []frozenField
-	for _, f := range fields {
-		fGoName := naming.GetFieldName(f)
-		fGoType := resolveFieldTypeWithOverrides(f.Type, table, overrides, r, &ctx)
-		if f.IsHardOptional && !strings.HasPrefix(fGoType, "[]") &&
-			!strings.HasPrefix(fGoType, "map[") &&
-			!strings.HasPrefix(fGoType, "binary.MsgpackEncodedJSON") {
-			fGoType = "*" + fGoType
-		}
-		tags := fmt.Sprintf("`json:\"%s\" msgpack:\"%s\"`", lo.SnakeCase(f.Name), lo.SnakeCase(f.Name))
-		frozenFields = append(frozenFields, frozenField{GoName: fGoName, GoType: fGoType, Tags: tags})
-		if _, hasKey := f.Domains["key"]; hasKey {
-			keyGoType = fGoType
-			keyFieldName = fGoName
-		}
-	}
-	if keyGoType == "" {
-		keyGoType = "any"
-		if len(frozenFields) > 0 {
-			keyFieldName = frozenFields[0].GoName
-		}
-	}
-	*result = append(*result, frozenTypeData{
-		GoName:       versionedName,
-		KeyGoType:    keyGoType,
-		KeyFieldName: keyFieldName,
-		Fields:       frozenFields,
-	})
-
-	// Recurse into nested types, following through aliases and generics.
-	for _, f := range fields {
-		collectNestedTypes(f.Type, table, overrides, r, baseCtx, result, visited)
-	}
-}
-
-func collectNestedTypes(
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	overrides gomarshal.NameOverrides,
-	r *resolver.Resolver,
-	ctx *resolver.Context,
-	result *[]frozenTypeData,
-	visited map[string]bool,
-) {
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		return
-	}
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		collectFrozenTypes(resolved, table, overrides, r, ctx, result, visited)
-	case resolution.AliasForm:
-		collectNestedTypes(form.Target, table, overrides, r, ctx, result, visited)
-	case resolution.DistinctForm:
-		collectNestedTypes(form.Base, table, overrides, r, ctx, result, visited)
-	case resolution.BuiltinGenericForm:
-		_ = form
-		for _, arg := range ref.TypeArgs {
-			collectNestedTypes(arg, table, overrides, r, ctx, result, visited)
-		}
-	}
-}
-
-// filterParentImports removes imports that reference the parent package to
-// avoid circular dependencies.
-func filterParentImports(
-	imps []imports.InternalImportData,
-	goPath, repoRoot string,
-) []imports.InternalImportData {
-	// For types in the parent package, the override map handles them as local.
-	// But the resolver might have added imports before the override was applied.
-	// Filter any that match the parent package.
-	parentImport := gomod.ResolveImportPath(goPath, repoRoot, "github.com/synnaxlabs/synnax/")
-	var filtered []imports.InternalImportData
-	for _, imp := range imps {
-		if imp.Path != parentImport {
-			filtered = append(filtered, imp)
-		}
-	}
-	return filtered
-}
-
-type frozenTypesFileData struct {
-	Package         string
-	Types           []frozenTypeData
-	ExternalImports []string
-	InternalImports []imports.InternalImportData
-}
-
-var frozenTypesFileTmpl = template.Must(template.New("frozenTypes").Parse(
-	`// Code generated by oracle. DO NOT EDIT.
-
-package {{.Package}}
-
-import (
-{{- range .ExternalImports}}
-	"{{.}}"
-{{- end}}
-{{- range .InternalImports}}
-{{- if .NeedsAlias}}
-	{{.Alias}} "{{.Path}}"
-{{- else}}
-	"{{.Path}}"
-{{- end}}
-{{- end}}
-)
-{{range .Types}}
-type {{.GoName}} struct {
-{{- range .Fields}}
-	{{.GoName}} {{.GoType}} {{.Tags}}
-{{- end}}
-}
-
-func (e {{.GoName}}) GorpKey() {{.KeyGoType}} { return e.{{.KeyFieldName}} }
-func (e {{.GoName}}) SetOptions() []any { return nil }
-{{end}}`))
-
-// DEPRECATED: renderFrozenType generates a single frozen type. Use renderFrozenTypes instead.
-func renderFrozenType(
-	pkg, versionedName string,
-	typ resolution.Type,
-	req *plugin.Request,
-) ([]byte, error) {
-	goPath := output.GetPath(typ, "go")
-	imps := imports.NewManager()
-	ctx := &resolver.Context{
-		Table:                         req.OldResolutions,
-		OutputPath:                    goPath,
-		Namespace:                     typ.Namespace,
-		RepoRoot:                      req.RepoRoot,
-		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true,
-	}
-	r := &resolver.Resolver{
-		Formatter:       gotypes.GoFormatter(),
-		ImportResolver:  &gotypes.GoImportResolver{RepoRoot: req.RepoRoot, CurrentPackage: pkg},
-		ImportAdder:     imps,
-		PrimitiveMapper: primitiveMapper,
-	}
-
-	fields := resolution.UnifiedFields(typ, req.OldResolutions)
-	var keyGoType, keyFieldName string
-	var frozenFields []frozenField
-	for _, f := range fields {
-		fGoName := naming.GetFieldName(f)
-		fGoType := r.ResolveTypeRef(f.Type, ctx)
-		if f.IsHardOptional && !strings.HasPrefix(fGoType, "[]") &&
-			!strings.HasPrefix(fGoType, "map[") &&
-			!strings.HasPrefix(fGoType, "binary.MsgpackEncodedJSON") {
-			fGoType = "*" + fGoType
-		}
-		tags := fmt.Sprintf("`json:\"%s\" msgpack:\"%s\"`", lo.SnakeCase(f.Name), lo.SnakeCase(f.Name))
-		frozenFields = append(frozenFields, frozenField{
-			GoName: fGoName,
-			GoType: fGoType,
-			Tags:   tags,
-		})
-		if _, hasKey := f.Domains["key"]; hasKey {
-			keyGoType = fGoType
-			keyFieldName = fGoName
-		}
-	}
-	if keyGoType == "" {
-		keyGoType = "string"
-		if len(frozenFields) > 0 {
-			keyFieldName = frozenFields[0].GoName
-		}
-	}
-
-	data := frozenTypeData{
-		Package:         pkg,
-		GoName:          versionedName,
-		KeyGoType:       keyGoType,
-		KeyFieldName:    keyFieldName,
-		Fields:          frozenFields,
-		ExternalImports: imps.ExternalImports(),
-		InternalImports: imps.InternalImports(),
-	}
-	var buf bytes.Buffer
-	if err := frozenTypeTmpl.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-type frozenField struct {
-	GoName string
-	GoType string
-	Tags   string
-}
-
-type frozenTypeData struct {
-	Package         string
-	GoName          string
-	KeyGoType       string
-	KeyFieldName    string
-	Fields          []frozenField
-	ExternalImports []string
-	InternalImports []imports.InternalImportData
-}
-
-var frozenTypeTmpl = template.Must(template.New("frozenType").Parse(
-	`// Code generated by oracle. DO NOT EDIT.
-
-package {{.Package}}
-
-import (
-{{- range .ExternalImports}}
-	"{{.}}"
-{{- end}}
-{{- range .InternalImports}}
-{{- if .NeedsAlias}}
-	{{.Alias}} "{{.Path}}"
-{{- else}}
-	"{{.Path}}"
-{{- end}}
-{{- end}}
-)
-
-type {{.GoName}} struct {
-{{- range .Fields}}
-	{{.GoName}} {{.GoType}} {{.Tags}}
-{{- end}}
-}
-
-func (e {{.GoName}}) GorpKey() {{.KeyGoType}} { return e.{{.KeyFieldName}} }
-func (e {{.GoName}}) SetOptions() []any { return nil }
-`))
-
 // --- Migration Registration Template ---
 
 var migrateTmpl = template.Must(template.New("migrate").Parse(
@@ -788,15 +224,18 @@ package {{.Package}}
 import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
+{{- range .VersionImports}}
+	{{.Alias}} "{{.Path}}"
+{{- end}}
 )
 {{range $entry := .Entries}}
 func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", codec),
 {{- range $entry.SchemaChanges}}
-		gorp.NewTypedMigration[{{.VersionedName}}, {{$entry.GoName}}](
+		gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
-			{{.VersionedName}}Codec,
+			{{.ImportAlias}}.{{$entry.GoName}}Codec,
 			codec,
 			Migrate{{$entry.GoName}}V{{.Version}},
 		),
@@ -806,8 +245,14 @@ func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 {{end}}`))
 
 type migrateTemplateData struct {
-	Package string
-	Entries []migrateTemplateEntry
+	Package        string
+	Entries        []migrateTemplateEntry
+	VersionImports []versionImport
+}
+
+type versionImport struct {
+	Alias string
+	Path  string
 }
 
 type migrateTemplateEntry struct {
@@ -816,26 +261,37 @@ type migrateTemplateEntry struct {
 }
 
 type migrateSchemaChange struct {
-	Version       int
-	VersionedName string
+	Version     int
+	ImportAlias string
 }
 
-func renderMigrateFile(pkg string, entries []migrationEntry) ([]byte, error) {
+func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot string) ([]byte, error) {
 	var tmplEntries []migrateTemplateEntry
+	importSet := make(map[string]versionImport)
 	for _, e := range entries {
 		te := migrateTemplateEntry{GoName: e.GoName}
 		if e.SchemaChange != nil {
+			sc := e.SchemaChange
+			vDir := fmt.Sprintf("v%d", sc.Version)
+			subPkg := fmt.Sprintf("%s/migrations/%s", goPath, vDir)
+			importPath := gomod.ResolveImportPath(subPkg, repoRoot, "github.com/synnaxlabs/synnax/")
+			importSet[vDir] = versionImport{Alias: vDir, Path: importPath}
 			te.SchemaChanges = []migrateSchemaChange{{
-				Version:       e.SchemaChange.Version,
-				VersionedName: e.SchemaChange.VersionedName,
+				Version:     sc.Version,
+				ImportAlias: vDir,
 			}}
 		}
 		tmplEntries = append(tmplEntries, te)
 	}
+	var imports []versionImport
+	for _, v := range importSet {
+		imports = append(imports, v)
+	}
 	var buf bytes.Buffer
 	if err := migrateTmpl.Execute(&buf, migrateTemplateData{
-		Package: pkg,
-		Entries: tmplEntries,
+		Package:        pkg,
+		Entries:        tmplEntries,
+		VersionImports: imports,
 	}); err != nil {
 		return nil, err
 	}
@@ -847,37 +303,55 @@ func renderMigrateFile(pkg string, entries []migrationEntry) ([]byte, error) {
 var transformTmpl = template.Must(template.New("transform").Parse(
 	`// Generated by oracle as a template. Edit this file.
 //
-// This function transforms a frozen {{.VersionedName}} (old schema) into the
+// This function transforms a frozen {{.GoName}} (from {{.VersionDir}}) into the
 // current {{.GoName}}. Copy fields from old and set defaults for new fields.
-//
-// If zero defaults are acceptable, replace the panic with:
-//   return {{.GoName}}{Key: old.Key, Name: old.Name, ...}, nil
 
 package {{.Package}}
 
-import "context"
+import (
+	"context"
 
-func Migrate{{.GoName}}V{{.Version}}(_ context.Context, old {{.VersionedName}}) ({{.GoName}}, error) {
+	{{.VersionDir}} "{{.MigrationsImport}}"
+)
+
+func Migrate{{.GoName}}V{{.Version}}(_ context.Context, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
 	panic("migration Migrate{{.GoName}}V{{.Version}} not implemented - edit this function")
 }
 `))
 
 type transformTemplateData struct {
-	Package       string
-	GoName        string
-	VersionedName string
-	Version       int
+	Package          string
+	GoName           string
+	Version          int
+	VersionDir       string
+	MigrationsImport string
 }
 
-func renderTransformTemplate(pkg, goName, versionedName string, version int) ([]byte, error) {
+func renderTransformTemplate(pkg, goName string, version int, vDir, migrationsImport string) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := transformTmpl.Execute(&buf, transformTemplateData{
-		Package:       pkg,
-		GoName:        goName,
-		VersionedName: versionedName,
-		Version:       version,
+		Package:          pkg,
+		GoName:           goName,
+		Version:          version,
+		VersionDir:       vDir,
+		MigrationsImport: migrationsImport,
 	}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// filterImports removes the given paths from a list of import strings.
+func filterImports(imports []string, exclude ...string) []string {
+	excludeSet := make(map[string]bool, len(exclude))
+	for _, e := range exclude {
+		excludeSet[e] = true
+	}
+	var result []string
+	for _, imp := range imports {
+		if !excludeSet[imp] {
+			result = append(result, imp)
+		}
+	}
+	return result
 }

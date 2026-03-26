@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -91,10 +92,17 @@ func runMigrate(cmd *cobra.Command) error {
 		}
 	}
 
+	// Read core version for migration numbering.
+	coreVersion, err := readCoreVersion(repoRoot)
+	if err != nil {
+		return errors.Wrap(err, "failed to read core version")
+	}
+
 	// Build the plugin request.
 	req := &plugin.Request{
-		Resolutions: table,
-		RepoRoot:    repoRoot,
+		Resolutions:     table,
+		RepoRoot:        repoRoot,
+		SnapshotVersion: coreVersion,
 	}
 
 	// If we have a previous snapshot, load it for diffing.
@@ -177,14 +185,11 @@ func runMigrate(cmd *cobra.Command) error {
 
 	printSyncedCount(written, len(resp.Files)-written)
 
-	// Take a new snapshot on first run or when files were written.
-	if latestVersion == 0 || written > 0 {
-		nextVersion := latestVersion + 1
-		if err := snapshot.Create(schemasDir, snapshotsDir, nextVersion); err != nil {
-			return errors.Wrap(err, "failed to create schema snapshot")
-		}
-		printDim(fmt.Sprintf("snapshot v%d created", nextVersion))
+	// Take a snapshot at the current core version.
+	if err := snapshot.Create(schemasDir, snapshotsDir, coreVersion); err != nil {
+		return errors.Wrap(err, "failed to create schema snapshot")
 	}
+	printDim(fmt.Sprintf("snapshot v%d created", coreVersion))
 
 	// Run oracle sync to update types/codecs.
 	printDim("running sync...")
@@ -193,6 +198,29 @@ func runMigrate(cmd *cobra.Command) error {
 	}
 
 	return nil
+}
+
+// readCoreVersion reads core/pkg/version/VERSION and returns the migration
+// version number (major*1000 + minor). For "0.53.4" this returns 53.
+func readCoreVersion(repoRoot string) (int, error) {
+	data, err := os.ReadFile(filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"))
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to read core VERSION file")
+	}
+	version := strings.TrimSpace(string(data))
+	parts := strings.Split(version, ".")
+	if len(parts) < 2 {
+		return 0, errors.Newf("invalid version format: %s", version)
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, errors.Wrapf(err, "invalid major version: %s", parts[0])
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, errors.Wrapf(err, "invalid minor version: %s", parts[1])
+	}
+	return major*1000 + minor, nil
 }
 
 func writeFileIfChanged(path string, content []byte) error {
