@@ -671,6 +671,15 @@ jobs:
             core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{
             matrix.executable }}
 
+      - name: Clean Stale Build Caches (Ubuntu)
+        if: always() && matrix.os == 'ubuntu-build-bot'
+        run: integration/scripts/clean_build_caches_unix.sh 2
+
+      - name: Clean Stale Build Caches (Windows)
+        if: always() && matrix.os == 'windows-build-bot'
+        shell: powershell
+        run: integration/scripts/CleanBuildCachesWindows.ps1 -MaxAgeHours 2
+
   docker:
     name: Build Docker Image
     needs: [setup, build]
