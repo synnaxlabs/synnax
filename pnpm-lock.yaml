@@ -79,8 +79,8 @@ catalogs:
       specifier: ^9.2.0
       version: 9.2.0
     stylelint:
-      specifier: ^17.5.0
-      version: 17.5.0
+      specifier: ^17.6.0
+      version: 17.6.0
     stylelint-config-standard:
       specifier: ^40.0.0
       version: 40.0.0
@@ -105,8 +105,8 @@ importers:
         specifier: ^3.4.2
         version: 3.4.2(prettier@3.8.1)
       knip:
-        specifier: ^6.0.5
-        version: 6.0.5
+        specifier: ^6.0.6
+        version: 6.0.6
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
@@ -121,7 +121,7 @@ importers:
         version: 2.0.6(prettier@3.8.1)
       stylelint-config-standard:
         specifier: 'catalog:'
-        version: 40.0.0(stylelint@17.5.0(typescript@5.9.3))
+        version: 40.0.0(stylelint@17.6.0(typescript@5.9.3))
       turbo:
         specifier: ^2.8.20
         version: 2.8.20
@@ -268,7 +268,7 @@ importers:
     dependencies:
       stylelint-config-standard:
         specifier: 'catalog:'
-        version: 40.0.0(stylelint@17.5.0(typescript@5.9.3))
+        version: 40.0.0(stylelint@17.6.0(typescript@5.9.3))
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
@@ -281,7 +281,7 @@ importers:
         version: 10.1.0(jiti@2.6.1)
       stylelint:
         specifier: 'catalog:'
-        version: 17.5.0(typescript@5.9.3)
+        version: 17.6.0(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -471,7 +471,7 @@ importers:
         version: 8.0.0(typescript@5.9.3)
       stylelint:
         specifier: 'catalog:'
-        version: 17.5.0(typescript@5.9.3)
+        version: 17.6.0(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -488,14 +488,14 @@ importers:
   docs/site:
     dependencies:
       '@astrojs/mdx':
-        specifier: ^5.0.2
-        version: 5.0.2(astro@6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))
+        specifier: ^5.0.3
+        version: 5.0.3(astro@6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))
       '@astrojs/react':
-        specifier: ^5.0.1
-        version: 5.0.1(@types/node@25.5.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@25.5.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)
       '@astrojs/vercel':
-        specifier: ^10.0.2
-        version: 10.0.2(astro@6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))(react@19.2.4)(rollup@4.60.0)
+        specifier: ^10.0.3
+        version: 10.0.3(astro@6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))(react@19.2.4)(rollup@4.60.0)
       '@fontsource/geist-mono':
         specifier: 'catalog:'
         version: 5.2.7
@@ -515,8 +515,8 @@ importers:
         specifier: workspace:^
         version: link:../../x/ts
       astro:
-        specifier: ^6.0.8
-        version: 6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
+        specifier: ^6.1.1
+        version: 6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
       astro-seo:
         specifier: ^1.1.0
         version: 1.1.0(prettier-plugin-astro@0.14.1)(prettier@3.8.1)(typescript@5.9.3)
@@ -524,8 +524,8 @@ importers:
         specifier: 'catalog:'
         version: 2.1.1
       posthog-js:
-        specifier: ^1.363.5
-        version: 1.363.5
+        specifier: ^1.363.6
+        version: 1.363.6
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -567,7 +567,7 @@ importers:
         specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
       algoliasearch:
-        specifier: ^5.20.0
+        specifier: ^5.50.0
         version: 5.50.0
       dotenv:
         specifier: ^17.3.1
@@ -595,7 +595,7 @@ importers:
         version: 6.0.0
       stylelint:
         specifier: 'catalog:'
-        version: 17.5.0(typescript@5.9.3)
+        version: 17.6.0(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -847,7 +847,7 @@ importers:
         version: 19.2.4(react@19.2.4)
       stylelint:
         specifier: 'catalog:'
-        version: 17.5.0(typescript@5.9.3)
+        version: 17.6.0(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -899,7 +899,7 @@ importers:
         version: 8.0.0(typescript@5.9.3)
       stylelint:
         specifier: 'catalog:'
-        version: 17.5.0(typescript@5.9.3)
+        version: 17.6.0(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1062,11 +1062,11 @@ packages:
       prettier-plugin-astro:
         optional: true
 
-  '@astrojs/markdown-remark@7.0.1':
-    resolution: {integrity: sha512-zAfLJmn07u9SlDNNHTpjv0RT4F8D4k54NR7ReRas8CO4OeGoqSvOuKwqCFg2/cqN3wHwdWlK/7Yv/lMXlhVIaw==}
+  '@astrojs/markdown-remark@7.1.0':
+    resolution: {integrity: sha512-P+HnCsu2js3BoTc8kFmu+E9gOcFeMdPris75g+Zl4sY8+bBRbSQV6xzcBDbZ27eE7yBGEGQoqjpChx+KJYIPYQ==}
 
-  '@astrojs/mdx@5.0.2':
-    resolution: {integrity: sha512-0as6odPH9ZQhS3pdH9dWmVOwgXuDtytJiE4VvYgR0lSFBvF4PSTyE0HdODHm/d7dBghvWTPc2bQaBm4y4nTBNw==}
+  '@astrojs/mdx@5.0.3':
+    resolution: {integrity: sha512-zv/OlM5sZZvyjHqJjR3FjJvoCgbxdqj3t4jO/gSEUNcck3BjdtMgNQw8UgPfAGe4yySdG4vjZ3OC5wUxhu7ckg==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       astro: ^6.0.0
@@ -1075,8 +1075,8 @@ packages:
     resolution: {integrity: sha512-nksZQVjlferuWzhPsBpQ1JE5XuKAf1id1/9Hj4a9KG4+ofrlzxUUwX4YGQF/SuDiuiGKEnzopGOt38F3AnVWsQ==}
     engines: {node: '>=22.12.0'}
 
-  '@astrojs/react@5.0.1':
-    resolution: {integrity: sha512-gJgQfDUxyePk+UIzwCEtAq04SGbziwRNwOMYvkxLHEtZScSMvRnvQhDWAEMCjLwwEomoT92Tfm34xpD7XAAzOg==}
+  '@astrojs/react@5.0.2':
+    resolution: {integrity: sha512-BDpPrapV3Wgp9sD7aTMvP+ORH0jFEue9OmkBu98KcBbTlsQCnvisDW3m7PQrMptXwEDlX5HGfP/CHmkEVY2tZA==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       '@types/react': ^17.0.50 || ^18.0.21 || ^19.0.0
@@ -1088,8 +1088,8 @@ packages:
     resolution: {integrity: sha512-UFBgfeldP06qu6khs/yY+q1cDAaArM2/7AEIqQ9Cuvf7B1hNLq0xDrZkct+QoIGyjq56y8IaE2I3CTvG99mlhQ==}
     engines: {node: 18.20.8 || ^20.3.0 || >=22.0.0}
 
-  '@astrojs/vercel@10.0.2':
-    resolution: {integrity: sha512-l3TzsOnlEr9j0lMy/KhXnWaZh199tqIs3dd7FoQIm8HxMbbcmfMd5nUWCSU2+pXdfIUnsCmrlP0txDvlV5Vqxw==}
+  '@astrojs/vercel@10.0.3':
+    resolution: {integrity: sha512-4eJDFhTBnu6X19iKD1GOmhbGEkrws29aWt9eEtJjwMqNbbXoX95c0s115FXBYq5wLcERt19rLfimkU1vjgIdBw==}
     peerDependencies:
       astro: ^6.0.0
 
@@ -2330,8 +2330,8 @@ packages:
   '@posthog/core@1.24.1':
     resolution: {integrity: sha512-e8AciAnc6MRFws89ux8lJKFAaI03yEon0ASDoUO7yS91FVqbUGXYekObUUR3LHplcg+pmyiJBI0jolY0SFbGRA==}
 
-  '@posthog/types@1.363.5':
-    resolution: {integrity: sha512-Eu/aVOZRZE3f09ZGG8qyyo8WiBb0+TRhLAsckPpTaertmD1PSQWxmJQ6gY0je4ibotlJqhX26p2wDPhZTOWqyw==}
+  '@posthog/types@1.363.6':
+    resolution: {integrity: sha512-SPU8psjrpK8prfFyYwvb25F1AgqSM32zdU1XPVIhUa107Cyw+VGw38Gv+AeqkEoAYQE2TFlWJT8DWUrw/mNDoQ==}
 
   '@prettier/plugin-xml@3.4.2':
     resolution: {integrity: sha512-/UyNlHfkuLXG6Ed85KB0WBF283xn2yavR+UtRibBRUcvEJId2DSLdGXwJ/cDa1X++SWDPzq3+GSFniHjkNy7yg==}
@@ -3284,8 +3284,8 @@ packages:
   astro-seo@1.1.0:
     resolution: {integrity: sha512-G6LDNDyga30o+52v58jU7C35n3cORUzk7RSuY+xf/ZRbW6JiNplyaOO1VoYVKO+xzYNaBcxqNln2RFRR/wgJNQ==}
 
-  astro@6.0.8:
-    resolution: {integrity: sha512-DCPeb8GKOoFWh+8whB7Qi/kKWD/6NcQ9nd1QVNzJFxgHkea3WYrNroQRq4whmBdjhkYPTLS/1gmUAl2iA2Es2g==}
+  astro@6.1.1:
+    resolution: {integrity: sha512-vq8sHpu1JsY1fWAunn+tdKNbVDmLQNiVdyuGsVT2csgITdFGXXVAyEXFWc1DzkMN0ehElPeiHnqItyQOJK+GqA==}
     engines: {node: '>=22.12.0', npm: '>=9.6.5', pnpm: '>=7.1.0'}
     hasBin: true
 
@@ -3320,8 +3320,8 @@ packages:
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
-  baseline-browser-mapping@2.10.10:
-    resolution: {integrity: sha512-sUoJ3IMxx4AyRqO4MLeHlnGDkyXRoUG0/AI9fjK+vS72ekpV0yWVY7O0BVjmBcRtkNcsAO2QDZ4tdKKGoI6YaQ==}
+  baseline-browser-mapping@2.10.11:
+    resolution: {integrity: sha512-DAKrHphkJyiGuau/cFieRYhcTFeK/lBuD++C7cZ6KZHbMhBrisoi+EvhQ5RZrIfV5qwsW8kgQ07JIC+MDJRAhg==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -4764,8 +4764,8 @@ packages:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
 
-  knip@6.0.5:
-    resolution: {integrity: sha512-+i9e/ZKuYlECB5iIK82NQwnYso4oNLBhzsTbXhSqCG1qfGi6D84GNtRENafmS3C0lABX8Wf3BKM434nPXi2AbQ==}
+  knip@6.0.6:
+    resolution: {integrity: sha512-PA+r1mTDLHH3eShlffn2ZDyH1hHvmgDj7JsTP3JKuhV/jZTyHbRkGcOd+uaSxfJZmcZyOE5zw3naP33WllTIlA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
@@ -5376,8 +5376,8 @@ packages:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-js@1.363.5:
-    resolution: {integrity: sha512-LVjp+c2NRtPG0sRgMzH2/NIoRw5mzRH0TngcezZI7WzH06ngBu3apxfhu/IfFBEDsjPU+S59vrkTzSCqceMVzA==}
+  posthog-js@1.363.6:
+    resolution: {integrity: sha512-eQ+Ypml3JOEMQWt21XEea6J8vD77TNyoz4Yv/xxjlTRja+ilmJtQw/SuVAB3BobjgHKYUomXX7Fc4gH/zTVpbg==}
 
   preact@10.29.0:
     resolution: {integrity: sha512-wSAGyk2bYR1c7t3SZ3jHcM6xy0lcBcDel6lODcs9ME6Th++Dx2KU+6D3HD8wMMKGA8Wpw7OMd3/4RGzYRpzwRg==}
@@ -5956,8 +5956,8 @@ packages:
     peerDependencies:
       stylelint: ^17.0.0
 
-  stylelint@17.5.0:
-    resolution: {integrity: sha512-o/NS6zhsPZFmgUm5tXX4pVNg1XDOZSlucLdf2qow/lVn4JIyzZIQ5b3kad1ugqUj3GSIgr2u5lQw7X8rjqw33g==}
+  stylelint@17.6.0:
+    resolution: {integrity: sha512-tokrsMIVAR9vAQ/q3UVEr7S0dGXCi7zkCezPRnS2kqPUulvUh5Vgfwngrk4EoAoW7wnrThqTdnTFN5Ra7CaxIg==}
     engines: {node: '>=20.19.0'}
     hasBin: true
 
@@ -6245,8 +6245,8 @@ packages:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
 
-  unstorage@1.17.4:
-    resolution: {integrity: sha512-fHK0yNg38tBiJKp/Vgsq4j0JEsCmgqH58HAn707S7zGkArbZsVr/CwINoi+nh3h98BRCwKvx1K3Xg9u3VV83sw==}
+  unstorage@1.17.5:
+    resolution: {integrity: sha512-0i3iqvRfx29hkNntHyQvJTpf5W9dQ9ZadSoRU8+xVlhVtT7jAX57fazYO9EHvcRCfBCyi5YRya7XCDOsbTgkPg==}
     peerDependencies:
       '@azure/app-configuration': ^1.8.0
       '@azure/cosmos': ^4.2.0
@@ -6553,8 +6553,8 @@ packages:
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
 
-  web-vitals@5.1.0:
-    resolution: {integrity: sha512-ArI3kx5jI0atlTtmV0fWU3fjpLmq/nD3Zr1iFFlJLaqa5wLBkUSzINwBPySCX/8jRyjlmy1Volw1kz1g9XE4Jg==}
+  web-vitals@5.2.0:
+    resolution: {integrity: sha512-i2z98bEmaCqSDiHEDu+gHl/dmR4Q+TxFmG3/13KkMO+o8UxQzCqWaDRCiLgEa41nlO4VpXSI0ASa1xWmO9sBlA==}
 
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
@@ -6897,7 +6897,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@astrojs/markdown-remark@7.0.1':
+  '@astrojs/markdown-remark@7.1.0':
     dependencies:
       '@astrojs/internal-helpers': 0.8.0
       '@astrojs/prism': 4.0.1
@@ -6912,6 +6912,7 @@ snapshots:
       remark-parse: 11.0.0
       remark-rehype: 11.1.2
       remark-smartypants: 3.0.2
+      retext-smartypants: 6.2.0
       shiki: 4.0.2
       smol-toml: 1.6.1
       unified: 11.0.5
@@ -6922,12 +6923,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@5.0.2(astro@6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))':
+  '@astrojs/mdx@5.0.3(astro@6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))':
     dependencies:
-      '@astrojs/markdown-remark': 7.0.1
+      '@astrojs/markdown-remark': 7.1.0
       '@mdx-js/mdx': 3.1.1
       acorn: 8.16.0
-      astro: 6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
+      astro: 6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
       es-module-lexer: 2.0.0
       estree-util-visit: 2.0.0
       hast-util-to-html: 9.0.5
@@ -6945,7 +6946,7 @@ snapshots:
     dependencies:
       prismjs: 1.30.0
 
-  '@astrojs/react@5.0.1(@types/node@25.5.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)':
+  '@astrojs/react@5.0.2(@types/node@25.5.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)':
     dependencies:
       '@astrojs/internal-helpers': 0.8.0
       '@types/react': 19.2.14
@@ -6982,14 +6983,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/vercel@10.0.2(astro@6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))(react@19.2.4)(rollup@4.60.0)':
+  '@astrojs/vercel@10.0.3(astro@6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))(react@19.2.4)(rollup@4.60.0)':
     dependencies:
       '@astrojs/internal-helpers': 0.8.0
       '@vercel/analytics': 1.6.1(react@19.2.4)
       '@vercel/functions': 3.4.3
       '@vercel/nft': 1.5.0(rollup@4.60.0)
       '@vercel/routing-utils': 5.3.3
-      astro: 6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
+      astro: 6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
       esbuild: 0.27.4
       tinyglobby: 0.2.15
     transitivePeerDependencies:
@@ -8055,7 +8056,7 @@ snapshots:
     dependencies:
       cross-spawn: 7.0.6
 
-  '@posthog/types@1.363.5': {}
+  '@posthog/types@1.363.6': {}
 
   '@prettier/plugin-xml@3.4.2(prettier@3.8.1)':
     dependencies:
@@ -9069,11 +9070,11 @@ snapshots:
       - prettier-plugin-astro
       - typescript
 
-  astro@6.0.8(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3):
+  astro@6.1.1(@types/node@25.5.0)(@vercel/functions@3.4.3)(jiti@2.6.1)(rollup@4.60.0)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3):
     dependencies:
       '@astrojs/compiler': 3.0.1
       '@astrojs/internal-helpers': 0.8.0
-      '@astrojs/markdown-remark': 7.0.1
+      '@astrojs/markdown-remark': 7.1.0
       '@astrojs/telemetry': 3.3.0
       '@capsizecss/unpack': 4.0.0
       '@clack/prompts': 1.1.0
@@ -9119,7 +9120,7 @@ snapshots:
       ultrahtml: 1.6.0
       unifont: 0.7.4
       unist-util-visit: 5.1.0
-      unstorage: 1.17.4(@vercel/functions@3.4.3)
+      unstorage: 1.17.5(@vercel/functions@3.4.3)
       vfile: 6.0.3
       vite: 7.3.1(@types/node@25.5.0)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3)
       vitefu: 1.1.2(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.3))
@@ -9185,7 +9186,7 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  baseline-browser-mapping@2.10.10: {}
+  baseline-browser-mapping@2.10.11: {}
 
   bidi-js@1.0.3:
     dependencies:
@@ -9224,7 +9225,7 @@ snapshots:
 
   browserslist@4.28.1:
     dependencies:
-      baseline-browser-mapping: 2.10.10
+      baseline-browser-mapping: 2.10.11
       caniuse-lite: 1.0.30001781
       electron-to-chromium: 1.5.325
       node-releases: 2.0.36
@@ -10939,7 +10940,7 @@ snapshots:
 
   kleur@4.1.5: {}
 
-  knip@6.0.5:
+  knip@6.0.6:
     dependencies:
       '@nodelib/fs.walk': 1.2.8
       fast-glob: 3.3.3
@@ -11889,7 +11890,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-js@1.363.5:
+  posthog-js@1.363.6:
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/api-logs': 0.208.0
@@ -11897,13 +11898,13 @@ snapshots:
       '@opentelemetry/resources': 2.6.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-logs': 0.208.0(@opentelemetry/api@1.9.1)
       '@posthog/core': 1.24.1
-      '@posthog/types': 1.363.5
+      '@posthog/types': 1.363.6
       core-js: 3.49.0
       dompurify: 3.3.3
       fflate: 0.4.8
       preact: 10.29.0
       query-selector-shadow-dom: 1.0.1
-      web-vitals: 5.1.0
+      web-vitals: 5.2.0
 
   preact@10.29.0: {}
 
@@ -12653,16 +12654,16 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  stylelint-config-recommended@18.0.0(stylelint@17.5.0(typescript@5.9.3)):
+  stylelint-config-recommended@18.0.0(stylelint@17.6.0(typescript@5.9.3)):
     dependencies:
-      stylelint: 17.5.0(typescript@5.9.3)
+      stylelint: 17.6.0(typescript@5.9.3)
 
-  stylelint-config-standard@40.0.0(stylelint@17.5.0(typescript@5.9.3)):
+  stylelint-config-standard@40.0.0(stylelint@17.6.0(typescript@5.9.3)):
     dependencies:
-      stylelint: 17.5.0(typescript@5.9.3)
-      stylelint-config-recommended: 18.0.0(stylelint@17.5.0(typescript@5.9.3))
+      stylelint: 17.6.0(typescript@5.9.3)
+      stylelint-config-recommended: 18.0.0(stylelint@17.6.0(typescript@5.9.3))
 
-  stylelint@17.5.0(typescript@5.9.3):
+  stylelint@17.6.0(typescript@5.9.3):
     dependencies:
       '@csstools/css-calc': 3.1.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
@@ -12685,7 +12686,6 @@ snapshots:
       html-tags: 5.1.0
       ignore: 7.0.5
       import-meta-resolve: 4.2.0
-      imurmurhash: 0.1.4
       is-plain-object: 5.0.0
       mathml-tag-names: 4.0.0
       meow: 14.1.0
@@ -13015,7 +13015,7 @@ snapshots:
 
   universalify@2.0.1: {}
 
-  unstorage@1.17.4(@vercel/functions@3.4.3):
+  unstorage@1.17.5(@vercel/functions@3.4.3):
     dependencies:
       anymatch: 3.1.3
       chokidar: 5.0.0
@@ -13337,7 +13337,7 @@ snapshots:
 
   web-namespaces@2.0.1: {}
 
-  web-vitals@5.1.0: {}
+  web-vitals@5.2.0: {}
 
   webidl-conversions@3.0.1: {}
 

@@ -27,19 +27,13 @@ import { type WindowState } from "@/window";
  * @returns The window.
  */
 export const useSelectWindow = (key?: string): WindowState | null =>
-  useSelector(
-    useCallback((state: StoreState) => selectWindow(state, key), [key]),
-  );
+  useSelector(useCallback((state: StoreState) => selectWindow(state, key), [key]));
 
-export const useSelectWindows = (): WindowState[] =>
-  useSelector(selectWindows);
+export const useSelectWindows = (): WindowState[] => useSelector(selectWindows);
 
 export const useSelectWindowKey = (label?: string): string | null =>
   useSelector(
-    useCallback(
-      (state: StoreState) => selectWindowKey(state, label),
-      [label],
-    ),
+    useCallback((state: StoreState) => selectWindowKey(state, label), [label]),
   );
 
 export const useSelectWindowAttribute = <K extends keyof WindowState>(

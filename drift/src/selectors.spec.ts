@@ -117,15 +117,11 @@ describe("selectors", () => {
 
   describe("selectWindowAttribute", () => {
     it("should return the attribute value for a window", () => {
-      expect(selectWindowAttribute(baseState(), "label-a", "title")).toBe(
-        "Window A",
-      );
+      expect(selectWindowAttribute(baseState(), "label-a", "title")).toBe("Window A");
     });
 
     it("should return null for an unknown window", () => {
-      expect(
-        selectWindowAttribute(baseState(), "nonexistent", "title"),
-      ).toBeNull();
+      expect(selectWindowAttribute(baseState(), "nonexistent", "title")).toBeNull();
     });
   });
 
