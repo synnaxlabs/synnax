@@ -318,6 +318,9 @@ importers:
       '@codingame/monaco-vscode-api':
         specifier: ^28.4.1
         version: 28.4.1
+      '@codingame/monaco-vscode-editor-api':
+        specifier: ^28.4.1
+        version: 28.4.1
       '@codingame/monaco-vscode-extension-api':
         specifier: ^28.4.1
         version: 28.4.1
@@ -390,9 +393,6 @@ importers:
       compromise-dates:
         specifier: 'catalog:'
         version: 3.7.1(compromise@14.15.0)
-      monaco-editor:
-        specifier: npm:@codingame/monaco-vscode-editor-api@^28.4.1
-        version: '@codingame/monaco-vscode-editor-api@28.4.1'
       pluralize:
         specifier: 'catalog:'
         version: 8.0.0

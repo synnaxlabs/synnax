@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@codingame/monaco-vscode-api": "^28.4.1",
+    "@codingame/monaco-vscode-editor-api": "^28.4.1",
     "@codingame/monaco-vscode-extension-api": "^28.4.1",
     "@codingame/monaco-vscode-languages-service-override": "^28.4.1",
     "@codingame/monaco-vscode-textmate-service-override": "^28.4.1",
@@ -45,7 +46,6 @@
     "@tauri-apps/plugin-updater": "^2.10.0",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
-    "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@^28.4.1",
     "pluralize": "catalog:",
     "proxy-memoize": "2.0.3",
     "react": "catalog:",
