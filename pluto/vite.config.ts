@@ -79,5 +79,10 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["src/mock/setuptests.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    coverage: {
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+    },
   },
 });

@@ -37,5 +37,13 @@ export default defineConfig({
       },
     },
   },
-  test: { globals: true, environment: "jsdom" },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    coverage: {
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+    },
+  },
 });

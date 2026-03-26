@@ -13,14 +13,14 @@ import { validateAction } from "@/validate";
 
 describe("validate", () => {
   it("should throw an error if an action is undefined", () => {
-    expect(() => validateAction({})).toThrowError();
+    expect(() => validateAction({})).toThrow();
   });
   it("should throw an error if an action type is undefined or an empty string", () => {
-    expect(() => validateAction({ action: { type: "" } })).toThrowError();
+    expect(() => validateAction({ action: { type: "" } })).toThrow();
     // @ts-expect-error - expect this to fail
-    expect(() => validateAction({ action: { type: undefined } })).toThrowError();
+    expect(() => validateAction({ action: { type: undefined } })).toThrow();
   });
   it("should not throw an error for a valid action", () => {
-    expect(() => validateAction({ action: { type: "type" } })).not.toThrowError();
+    expect(() => validateAction({ action: { type: "type" } })).not.toThrow();
   });
 });

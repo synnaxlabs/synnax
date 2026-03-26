@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference types="vitest/config" />
+
 import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [lib({ name: "freighter" })],
   build: { rollupOptions: { external: ["zod"] } },
+  test: {
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    coverage: {
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+    },
+  },
 });
