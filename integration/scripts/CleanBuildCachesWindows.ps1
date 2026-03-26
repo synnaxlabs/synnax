@@ -16,11 +16,14 @@ param(
     [int]$MaxAgeHours = 2
 )
 
+# Best-effort cleanup — must never fail the build
+$ErrorActionPreference = "Continue"
+
 $cutoff = (Get-Date).AddHours(-$MaxAgeHours)
 $totalFreed = 0
 
 function Get-DiskUsedMB {
-    $d = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3"
+    $d = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
     return [math]::Round(($d.Size - $d.FreeSpace) / 1MB, 0)
 }
 
@@ -101,7 +104,7 @@ Write-Output ""
 
 $diskAfter = Get-DiskUsedMB
 $diskFreed = $diskBefore - $diskAfter
-$disk = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3"
+$disk = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
 
 Write-Output "=== Summary ==="
 Write-Output "  Cache freed:  ${totalFreed}MB"
