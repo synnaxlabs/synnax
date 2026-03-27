@@ -34,7 +34,7 @@ export const EXPLORER_LAYOUT: Layout.State = {
 const item = Component.renderProp(Item);
 
 export const Explorer: Layout.Renderer = () => (
-  <View.Frame resourceType="range">
+  <View.Frame resourceType="range" iconName="Range">
     <Internal />
   </View.Frame>
 );
