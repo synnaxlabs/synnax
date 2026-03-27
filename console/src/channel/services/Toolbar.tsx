@@ -17,7 +17,7 @@ import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-const CreateChannelButtons = (): ReactElement | null => {
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
   const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   if (!canCreate) return null;
@@ -25,13 +25,13 @@ const CreateChannelButtons = (): ReactElement | null => {
     <Toolbar.Actions>
       <Toolbar.Action
         onClick={() => placeLayout(CALCULATED_LAYOUT)}
-        tooltip="Create Calculated Channel"
+        tooltip="Create calculated channel"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
       <Toolbar.Action
         onClick={() => placeLayout(CREATE_LAYOUT)}
-        tooltip="Create Channel"
+        tooltip="Create channel"
       >
         <Icon.Add />
       </Toolbar.Action>
@@ -45,9 +45,7 @@ const Content = (): ReactElement => {
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
-        <Toolbar.Actions>
-          <CreateChannelButtons />
-        </Toolbar.Actions>
+        <Actions />
       </Toolbar.Header>
       <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />
     </Toolbar.Content>
