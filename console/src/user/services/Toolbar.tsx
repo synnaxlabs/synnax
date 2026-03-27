@@ -24,16 +24,16 @@ const Content = (): ReactElement => {
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
-        <Toolbar.Actions>
-          {canCreateUser && (
+        {canCreateUser && (
+          <Toolbar.Actions>
             <Toolbar.Action
               onClick={() => placeLayout(REGISTER_LAYOUT)}
               tooltip="Create user"
             >
               <Icon.Add />
             </Toolbar.Action>
-          )}
-        </Toolbar.Actions>
+          </Toolbar.Actions>
+        )}
       </Toolbar.Header>
       <Ontology.Tree root={groupID} />
     </Toolbar.Content>
