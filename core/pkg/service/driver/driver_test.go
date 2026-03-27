@@ -10,19 +10,20 @@
 package driver_test
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -65,6 +66,18 @@ var _ = Describe("Driver", func() {
 		}
 	}
 
+	writeCommand := func(cmd task.Command) {
+		w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+			Keys:  channel.Keys{taskService.CommandChannelKey()},
+			Start: telem.Now(),
+		}))
+		defer func() { Expect(w.Close()).To(Succeed()) }()
+		Expect(w.Write(frame.NewUnary(
+			taskService.CommandChannelKey(),
+			MustSucceed(telem.NewJSONSeriesV(cmd)),
+		))).To(BeTrue())
+	}
+
 	Describe("Open", func() {
 		It("should create driver with valid config", func() {
 			driver := openDriver(&mockFactory{name: "test"})
@@ -94,7 +107,10 @@ var _ = Describe("Driver", func() {
 			var configuredTask atomic.Value
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					mt := &mockTask{key: t.Key}
 					configuredTask.Store(mt)
 					return mt, nil
@@ -117,7 +133,10 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -151,7 +170,10 @@ var _ = Describe("Driver", func() {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configuredCount.Add(1)
 					return &mockTask{key: t.Key}, nil
 				},
@@ -177,7 +199,10 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(initialReady) })
 					return &mockTask{
 						key:      t.Key,
@@ -206,7 +231,10 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
@@ -235,7 +263,10 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configureCalled.Store(true)
 					return nil, driver.ErrTaskNotHandled
 				},
@@ -259,7 +290,7 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(driver.Context, task.Task) (driver.Task, error) {
 					configCalled.Store(true)
 					return nil, errors.New("factory configuration failed")
 				},
@@ -284,7 +315,10 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -318,7 +352,10 @@ var _ = Describe("Driver", func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configuredTasks.Store(t.Key, true)
 					return &mockTask{key: t.Key}, nil
 				},
@@ -392,7 +429,10 @@ var _ = Describe("Driver", func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
 						if configCount.Add(1) == expectedTasks {
 							closeOnce.Do(func() { close(allConfigured) })
@@ -442,7 +482,10 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key:      t.Key,
@@ -587,26 +630,20 @@ var _ = Describe("Driver", func() {
 	})
 
 	Describe("Command Processing", func() {
-		writeCommand := func(cmd task.Command) {
-			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
-				Keys:  channel.Keys{taskService.CommandChannelKey()},
-				Start: telem.Now(),
-			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(w.Write(frame.NewUnary(
-				taskService.CommandChannelKey(),
-				MustSucceed(telem.NewJSONSeriesV(cmd)),
-			))).To(BeTrue())
-		}
-
 		It("should handle malformed command JSON without crashing", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					return &mockTask{
-						key:      t.Key,
-						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
 					}, nil
 				},
 			}
@@ -640,11 +677,14 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
-						execFunc: func(cmd task.Command) error {
+						execFunc: func(_ context.Context, cmd task.Command) error {
 							execCalled.Store(true)
 							receivedCmd.Store(cmd)
 							return nil
@@ -677,10 +717,16 @@ var _ = Describe("Driver", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					return &mockTask{
-						key:      t.Key,
-						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
 					}, nil
 				},
 			}
@@ -702,10 +748,16 @@ var _ = Describe("Driver", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					return &mockTask{
-						key:      t.Key,
-						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
 					}, nil
 				},
 			}
@@ -734,11 +786,14 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
-						execFunc: func(cmd task.Command) error {
+						execFunc: func(context.Context, task.Command) error {
 							execCalled.Store(true)
 							return errors.New("execution failed")
 						},
@@ -770,11 +825,14 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
-						execFunc: func(cmd task.Command) error {
+						execFunc: func(context.Context, task.Command) error {
 							execCalled.Store(true)
 							return driver.ErrUnsupportedCommand
 						},
@@ -796,6 +854,171 @@ var _ = Describe("Driver", func() {
 			writeCommand(cmd)
 
 			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+		})
+	})
+
+	Describe("Timeouts", func() {
+		It("should pass timeouts to ConfigureTask", func() {
+			var (
+				configureStarted = make(chan struct{})
+				startOnce        sync.Once
+				timedOut         atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					dCtx driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					startOnce.Do(func() { close(configureStarted) })
+					// Block until context is canceled (simulates a well-behaved but
+					// slow implementation that respects cancellation).
+					<-dCtx.Done()
+					timedOut.Store(true)
+					return nil, dCtx.Err()
+				},
+			}
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:          dist.DB,
+				Rack:        rackService,
+				Task:        taskService,
+				Framer:      framerSvc,
+				Channel:     channelSvc,
+				Status:      statusSvc,
+				Factories:   []driver.Factory{factory},
+				Host:        hostProvider,
+				TaskTimeout: 50 * time.Millisecond,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+
+			t := newTask(embeddedRackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+
+			Eventually(configureStarted, "1s").Should(BeClosed())
+			// The goroutine should receive context cancellation after the timeout.
+			Eventually(func() bool { return timedOut.Load() }).Should(BeTrue())
+		})
+
+		It("should timeout a hanging Exec", func() {
+			var (
+				execStarted = make(chan struct{}, 1)
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(eCtx context.Context, _ task.Command) error {
+							select {
+							case execStarted <- struct{}{}:
+							default:
+							}
+							// Block until context is canceled by the timeout.
+							<-eCtx.Done()
+							return eCtx.Err()
+						},
+					}, nil
+				},
+			}
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:          dist.DB,
+				Rack:        rackService,
+				Task:        taskService,
+				Framer:      framerSvc,
+				Channel:     channelSvc,
+				Status:      statusSvc,
+				Factories:   []driver.Factory{factory},
+				Host:        hostProvider,
+				TaskTimeout: 50 * time.Millisecond,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(embeddedRackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			writeCommand(task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(execStarted).Should(Receive())
+		})
+	})
+
+	Describe("Parallelism", func() {
+		It("should configure existing tasks in parallel on startup", func() {
+			var (
+				configCount  atomic.Int32
+				allConfiging = make(chan struct{})
+				configGate   = make(chan struct{})
+			)
+			const numTasks = 3
+
+			// Pre-create tasks before opening the driver.
+			d1 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{&mockFactory{name: "noop"}},
+				Host:      hostProvider,
+			}))
+			rackKey := embeddedRackKey()
+			for range numTasks {
+				t := task.Task{
+					Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+					Name: "Parallel Task",
+					Type: "test",
+				}
+				Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			}
+			Expect(d1.Close()).To(Succeed())
+
+			// Open a new driver with a factory that blocks until all tasks are being
+			// configured concurrently.
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					if configCount.Add(1) == numTasks {
+						close(allConfiging)
+					}
+					<-configGate
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+
+			openDone := make(chan *driver.Driver, 1)
+			go func() {
+				d, err := driver.Open(ctx, driver.Config{
+					DB:        dist.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{factory},
+					Host:      hostProvider,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				openDone <- d
+			}()
+
+			// If sequential, only 1 would be configuring at a time — never reaching
+			// numTasks.
+			Eventually(allConfiging).Should(BeClosed())
+			close(configGate)
+
+			d2 := <-openDone
+			Expect(d2.Close()).To(Succeed())
 		})
 	})
 })

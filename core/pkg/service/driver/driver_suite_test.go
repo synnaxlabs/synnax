@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -22,8 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -92,16 +91,16 @@ var _ = AfterSuite(func() {
 
 // mockFactory is a test implementation of driver.Factory.
 type mockFactory struct {
-	configureFunc func(task.Task) (driver.Task, error)
+	configureFunc func(driver.Context, task.Task) (driver.Task, error)
 	name          string
 }
 
 func (f *mockFactory) ConfigureTask(
-	_ driver.Context,
+	ctx driver.Context,
 	t task.Task,
 ) (driver.Task, error) {
 	if f.configureFunc != nil {
-		return f.configureFunc(t)
+		return f.configureFunc(ctx, t)
 	}
 	return nil, driver.ErrTaskNotHandled
 }
@@ -110,14 +109,14 @@ func (f *mockFactory) Name() string { return f.name }
 
 // mockTask is a test implementation of driver.Task.
 type mockTask struct {
-	execFunc func(cmd task.Command) error
+	execFunc func(context.Context, task.Command) error
 	stopFunc func() error
 	key      task.Key
 }
 
-func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
+func (t *mockTask) Exec(ctx context.Context, cmd task.Command) error {
 	if t.execFunc != nil {
-		return t.execFunc(cmd)
+		return t.execFunc(ctx, cmd)
 	}
 	return nil
 }

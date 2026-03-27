@@ -167,7 +167,14 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				)
 				continue
 			}
-			if err := t.Exec(ctx, cmd); err != nil {
+			sCtx, cancel := signal.WithTimeout(
+				ctx,
+				d.cfg.TaskTimeout,
+				signal.WithInstrumentation(d.cfg.Instrumentation),
+			)
+			defer cancel()
+			sCtx.Go(func(ctx context.Context) error { return t.Exec(ctx, cmd) })
+			if err := sCtx.Wait(); err != nil {
 				if errors.Is(err, ErrUnsupportedCommand) {
 					d.cfg.L.Warn(
 						"unsupported command",
@@ -211,60 +218,86 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 		return
 	}
 	d.cfg.L.Info("configuring existing tasks", zap.Int("count", len(tasks)))
+	sCtx, cancel := signal.WithTimeout(
+		ctx,
+		d.cfg.TaskTimeout,
+		signal.WithInstrumentation(d.cfg.Instrumentation),
+	)
+	defer cancel()
 	for _, t := range tasks {
-		d.configure(ctx, t)
+		sCtx.Go(func(ctx context.Context) error { d.configure(ctx, t); return nil })
+	}
+	if err := sCtx.Wait(); err != nil {
+		d.cfg.L.Error("timed out configuring existing tasks", zap.Error(err))
 	}
 }
 
 func (d *Driver) configure(ctx context.Context, t task.Task) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-	if existing, ok := d.mu.tasks[t.Key]; ok {
-		if err := existing.Stop(); err != nil {
+	existing, hadExisting := d.mu.tasks[t.Key]
+	delete(d.mu.tasks, t.Key)
+	d.mu.Unlock()
+
+	if hadExisting {
+		sCtx, cancel := signal.WithTimeout(
+			ctx, d.cfg.TaskTimeout, signal.WithInstrumentation(d.cfg.Instrumentation),
+		)
+		defer cancel()
+		sCtx.Go(func(context.Context) error { return existing.Stop() })
+		if err := sCtx.Wait(); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t),
 				zap.Error(err),
 			)
 		}
-		delete(d.mu.tasks, t.Key)
 	}
-	taskCtx := NewContext(ctx, d.cfg.Status)
 
-	for _, factory := range d.cfg.Factories {
-		newTask, err := factory.ConfigureTask(taskCtx, t)
-		if errors.Is(err, ErrTaskNotHandled) {
-			continue
+	sCtx, cancel := signal.WithTimeout(
+		ctx, d.cfg.TaskTimeout, signal.WithInstrumentation(d.cfg.Instrumentation),
+	)
+	defer cancel()
+
+	sCtx.Go(func(ctx context.Context) error {
+		taskCtx := NewContext(ctx, d.cfg.Status)
+		for _, f := range d.cfg.Factories {
+			newTask, err := f.ConfigureTask(taskCtx, t)
+			if errors.Is(err, ErrTaskNotHandled) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			d.mu.Lock()
+			d.mu.tasks[t.Key] = newTask
+			d.mu.Unlock()
+			d.cfg.L.Info("configured task", zap.Stringer("task", t))
+			return nil
 		}
-		if err != nil {
-			d.cfg.L.Error(
-				"failed to configure task",
-				zap.String("factory", factory.Name()),
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-			return
-		}
-		d.mu.tasks[t.Key] = newTask
-		d.cfg.L.Info("configured task", zap.Stringer("task", t))
-		return
+		d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
+		return nil
+	})
+	if err := sCtx.Wait(); err != nil {
+		d.cfg.L.Error(
+			"failed to configure task", zap.Stringer("task", t), zap.Error(err),
+		)
 	}
-	d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
 }
 
 func (d *Driver) delete(key task.Key) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	t, ok := d.mu.tasks[key]
+	delete(d.mu.tasks, key)
+	d.mu.Unlock()
 	if !ok {
 		return
 	}
 	if err := t.Stop(); err != nil {
-		d.cfg.L.Error("failed to stop task during deletion",
+		d.cfg.L.Error(
+			"failed to stop task during deletion",
 			zap.Stringer("task", key),
 			zap.Error(err),
 		)
 	}
-	delete(d.mu.tasks, key)
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
@@ -272,7 +305,8 @@ func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
 		if err := t.Stop(); err != nil {
-			d.cfg.L.Error("failed to stop task during shutdown",
+			d.cfg.L.Error(
+				"failed to stop task during shutdown",
 				zap.Stringer("task", key),
 				zap.Error(err),
 			)

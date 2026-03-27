@@ -44,12 +44,17 @@ type Config struct {
 	Status *status.Service
 	// HeartbeatInterval is the interval at which the driver reports its health.
 	HeartbeatInterval time.Duration
+	// TaskTimeout is the maximum duration for task operations (configure, exec).
+	TaskTimeout time.Duration
 	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
+	DefaultConfig                       = Config{
+		HeartbeatInterval: 1 * time.Second,
+		TaskTimeout:       30 * time.Second,
+	}
 )
 
 func (c Config) Override(other Config) Config {
@@ -63,6 +68,7 @@ func (c Config) Override(other Config) Config {
 	c.Factories = override.Slice(c.Factories, other.Factories)
 	c.Host = override.Nil(c.Host, other.Host)
 	c.HeartbeatInterval = override.Numeric(c.HeartbeatInterval, other.HeartbeatInterval)
+	c.TaskTimeout = override.Numeric(c.TaskTimeout, other.TaskTimeout)
 	return c
 }
 
