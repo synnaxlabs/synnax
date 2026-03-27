@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -26,6 +28,16 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
+		})
+	})
+	Describe("Service Delete", func() {
+		It("Should delete a LinePlot via the service", func() {
+			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, plot.Key)).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().
+				WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 	Describe("Update", func() {

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -53,6 +54,16 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Service Delete", func() {
+		It("Should delete a Schematic via the service", func() {
+			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, s.Key)).To(Succeed())
+			var res schematic.Schematic
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().
+				WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+		})
+	})
 	Describe("Copy", func() {
 		It("Should copy a Schematic with a new name under the same workspace", func() {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}

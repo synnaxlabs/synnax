@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -26,6 +28,16 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
+		})
+	})
+	Describe("Service Delete", func() {
+		It("Should delete a Table via the service", func() {
+			t := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, t.Key)).To(Succeed())
+			var res table.Table
+			Expect(gorp.NewRetrieve[uuid.UUID, table.Table]().
+				WhereKeys(t.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 	Describe("Update", func() {

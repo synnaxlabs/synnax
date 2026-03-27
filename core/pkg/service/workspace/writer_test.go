@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -49,13 +51,13 @@ var _ = Describe("Writer", func() {
 			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
-	Describe("DeleteChannel", func() {
+	Describe("Delete", func() {
 		It("Should delete a workspace", func() {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
 			var res workspace.Workspace
-			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 })

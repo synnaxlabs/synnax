@@ -20,6 +20,7 @@
             calc(var(--pluto-diagram-zoom, 1) * -50%)
         );
     }
+
     &.pluto--location-bottom svg,
     & svg.pluto--location-bottom {
         & > g {
@@ -60,22 +61,25 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
-            stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.15) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.75) !important;
         }
+
         &.pluto--enabled svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.8) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.85) !important;
         }
     }
+
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
-            stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.9) !important;
         }
+
         &.pluto--enabled svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.7) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.75) !important;
         }
     }
 }
@@ -107,17 +111,19 @@
 .pluto-solenoid-valve.pluto--normally-open {
     &:hover {
         & svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.95) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.95) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.95) !important;
         }
+
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
         }
     }
 
     & .pluto-body {
         fill: rgb(var(--pluto-symbol-color));
     }
+
     &.pluto--enabled {
         & .pluto-body {
             fill: none;
@@ -136,6 +142,7 @@
     &.pluto--location-top {
         writing-mode: vertical-rl;
     }
+
     &.pluto--location-bottom {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
@@ -143,7 +150,7 @@
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
+    stroke: rgb(var(--pluto-symbol-color-contrast), 0.9) !important;
 }
 
 .pluto-tank {
@@ -194,12 +201,15 @@
 
 .pluto-setpoint {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     .pluto-input {
         width: min-content;
     }
+
     input {
         min-width: 12rem;
     }
+
     &.pluto-setpoint--preview {
         input {
             flex-grow: 1;
@@ -210,12 +220,15 @@
 
 .pluto-input-symbol {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     .pluto-input {
         width: min-content;
     }
+
     input {
         min-width: 25rem;
     }
+
     &.pluto-input-symbol--preview {
         input {
             flex-grow: 1;
@@ -226,24 +239,29 @@
 
 .pluto-select-symbol {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     display: flex;
     align-items: center;
     gap: 0;
+
     .pluto-input {
         width: min-content;
     }
+
     .pluto-dialog__frame {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
     }
+
     .pluto-dialog__trigger {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
     }
+
     svg.pluto-caret-animated {
         color: var(--pluto-gray-l9);
-        fill: currentColor;
+        fill: currentcolor;
     }
 }
 
@@ -267,19 +285,25 @@
     &.pluto--location-top {
         transform: rotate(-90deg);
     }
+
     &.pluto--location-bottom {
         transform: rotate(90deg);
     }
+
     &.pluto--location-left {
         transform: rotate(180deg);
+
         .pluto-text {
             transform: rotate(180deg);
         }
     }
+
     .wrapper {
         display: inline-block;
         filter: url("#goo");
+
         .outline {
+            background-color: var(--off-page-color);
             padding: 1px;
             clip-path: polygon(
                 0 0,
@@ -297,17 +321,31 @@
                     calc(100% - 2rem) 100%,
                     0 100%
                 );
-                margin-top: 1px;
-                margin-bottom: 1px;
-                margin-left: 1px;
-                padding-right: 2.5rem;
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-                padding-left: 1rem;
+                margin: 1px 0 1px 1px;
+                padding: 0.5rem 2.5rem 0.5rem 1rem;
                 background-color: var(--pluto-gray-l0);
                 width: calc(100% - 1px);
                 height: calc(100% - 2px);
             }
         }
     }
+}
+
+.pluto-arrow.pluto--linked .wrapper .outline .bg {
+    background-color: var(--off-page-color);
+    color: var(--off-page-text-color);
+
+    * {
+        color: inherit;
+    }
+}
+
+.pluto-symbol__container:not(.pluto--editable) .pluto-arrow.pluto--linked {
+    cursor: pointer;
+}
+
+.pluto-symbol__container:not(.pluto--editable)
+    .pluto-arrow.pluto--linked:hover
+    .wrapper {
+    filter: brightness(1.2);
 }
