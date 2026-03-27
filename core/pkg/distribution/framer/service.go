@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
