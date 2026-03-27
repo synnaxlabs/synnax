@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import algoliasearch from "algoliasearch";
+import { algoliasearch } from "algoliasearch";
 import * as dotenv from "dotenv";
 import fs from "fs";
 import matter from "gray-matter";
@@ -68,14 +68,10 @@ const data = await Promise.all(
     }),
 );
 
-const idx = client.initIndex("docs_site");
-
 // delete all objects
-await idx.clearObjects();
+await client.clearObjects({ indexName: "docs_site" });
 
 // 2. Send the dataset in JSON format
-const res = await client
-  .initIndex("docs_site")
-  .saveObjects(JSON.parse(JSON.stringify(data)));
+const res = await client.saveObjects({ indexName: "docs_site", objects: data });
 
-console.log(`Successfully updated ${res.objectIDs.length} pages`);
+console.log(`Successfully updated ${res.length} pages`);
