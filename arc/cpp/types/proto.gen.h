@@ -136,6 +136,7 @@ inline std::pair<::arc::types::pb::Param, x::errors::Error> Param::to_proto() co
     }
     pb.set_value(this->value.dump());
     pb.set_description(this->description);
+    pb.set_priority(this->priority);
     return {pb, x::errors::NIL};
 }
 
@@ -150,6 +151,7 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
     }
     cpp.value = x::json::json::parse(pb.value(), nullptr, false);
     cpp.description = pb.description();
+    cpp.priority = pb.priority();
     return {cpp, x::errors::NIL};
 }
 

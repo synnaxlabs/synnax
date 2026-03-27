@@ -83,6 +83,8 @@ message Param {
   bytes value = 3;
   // description is an optional description of the parameter.
   string description = 4;
+  // priority is the display ordering priority.
+  int32 priority = 5;
 }
 
 // Channels contains channel declarations for reading from and writing to Synnax

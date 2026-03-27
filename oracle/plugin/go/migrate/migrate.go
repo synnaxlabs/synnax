@@ -18,6 +18,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/exec"
@@ -49,13 +53,14 @@ func (p *Plugin) PostWrite(files []string) error {
 }
 
 type migrationEntry struct {
-	GoName       string
-	GoPath       string
-	SchemaChange *schemaChange
+	GoName           string
+	GoPath           string
+	SchemaChange     *schemaChange
+	ExistingVersions []int
 }
 
 type schemaChange struct {
-	Version int              // major*1000+minor from core VERSION (e.g., 53 for 0.53.x)
+	Version int
 	OldType resolution.Type
 }
 
@@ -76,25 +81,29 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		me := migrationEntry{GoName: getGoName(entry), GoPath: goPath}
+		mEntry := migrationEntry{GoName: getGoName(entry), GoPath: goPath}
+		existingVersions, err := discoverExistingVersions(goPath, req.RepoRoot)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to discover existing migrations for %s", goPath)
+		}
+		mEntry.ExistingVersions = existingVersions
 		if req.OldResolutions != nil {
-			sc, err := detectSchemaChange(entry, req)
+			change, err := detectSchemaChange(entry, req)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to detect schema change for %s", me.GoName)
+				return nil, errors.Wrapf(err, "failed to detect schema change for %s", mEntry.GoName)
 			}
-			me.SchemaChange = sc
+			mEntry.SchemaChange = change
 		}
 		if _, exists := outputEntries[goPath]; !exists {
 			outputOrder = append(outputOrder, goPath)
 		}
-		outputEntries[goPath] = append(outputEntries[goPath], me)
+		outputEntries[goPath] = append(outputEntries[goPath], mEntry)
 	}
 
 	for _, goPath := range outputOrder {
 		entries := outputEntries[goPath]
 		pkg := naming.DerivePackageName(goPath)
 
-		// Generate migrate.gen.go in the parent package.
 		regContent, err := renderMigrateFile(pkg, goPath, entries, req.RepoRoot)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate migrate.gen.go for %s", goPath)
@@ -104,71 +113,156 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Content: regContent,
 		})
 
-		for _, e := range entries {
-			if e.SchemaChange == nil {
-				continue
-			}
-			sc := e.SchemaChange
-			vDir := fmt.Sprintf("v%d", sc.Version)
-
-			// Discover all packages in the dependency tree that need mirroring.
-			pkgTypes := collectPackageTypes(sc.OldType, req.OldResolutions)
-
-			// Build a path mapping: original output path → mirrored path.
-			pathMap := make(map[string]string, len(pkgTypes))
-			for origPath := range pkgTypes {
-				pathMap[origPath] = origPath + "/migrations/" + vDir
-			}
-
-			// Rewrite the resolution table so types appear to belong to
-			// their mirrored packages. This makes all existing import
-			// resolution work without any special override logic.
-			rewrittenTable := rewriteOutputPaths(req.OldResolutions, pathMap)
-
-			// Generate frozen types in each source package's migrations/vN/ directory.
-			for origPath, types := range pkgTypes {
-				mirroredPath := pathMap[origPath]
-				typeContent, err := generateFrozenTypesFile(types, rewrittenTable, mirroredPath, req.RepoRoot)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to generate frozen types for %s", origPath)
-				}
-				resp.Files = append(resp.Files, plugin.File{
-					Path:    mirroredPath + "/types.gen.go",
-					Content: typeContent,
-				})
-			}
-
-			// Generate frozen codec for the entry type in its own migrations/vN/ directory.
-			entryMirrorPath := goPath + "/migrations/" + vDir
-			codecContent, err := gomarshal.GenerateCodecFile(
-				vDir, entryMirrorPath,
-				[]gomarshal.CodecEntry{{GoName: e.GoName, Type: sc.OldType}},
-				rewrittenTable,
-				req.RepoRoot,
-			)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate frozen codec for %s", e.GoName)
-			}
-			resp.Files = append(resp.Files, plugin.File{
-				Path:    entryMirrorPath + "/codec.gen.go",
-				Content: codecContent,
-			})
-
-			// Generate developer transform template in the parent package.
-			templateFile := fmt.Sprintf("%s/v%d_migrate.go", goPath, sc.Version)
-			templateFullPath := filepath.Join(req.RepoRoot, templateFile)
-			if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-				entryMirrorImport, _ := resolveImportPath(entryMirrorPath, req.RepoRoot)
-				tc, err := renderTransformTemplate(pkg, e.GoName, sc.Version, vDir, entryMirrorImport)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to generate transform template")
-				}
-				resp.Files = append(resp.Files, plugin.File{Path: templateFile, Content: tc})
+		for _, entry := range entries {
+			if err := p.generateForEntry(resp, entry, goPath, pkg, req); err != nil {
+				return nil, err
 			}
 		}
 	}
 
 	return resp, nil
+}
+
+func (p *Plugin) generateForEntry(
+	resp *plugin.Response,
+	entry migrationEntry,
+	goPath, pkg string,
+	req *plugin.Request,
+) error {
+	if entry.SchemaChange == nil {
+		return nil
+	}
+	change := entry.SchemaChange
+	versionDir := fmt.Sprintf("v%d", change.Version)
+
+	// If there's a previous migration at a DIFFERENT version, retarget its
+	// developer transform into the new version's sub-package.
+	if len(entry.ExistingVersions) > 0 {
+		prevVersion := entry.ExistingVersions[len(entry.ExistingVersions)-1]
+		if prevVersion != change.Version {
+			retargeted, deleteFile, err := retargetTransform(goPath, change.Version, req.RepoRoot)
+			if err != nil {
+				return errors.Wrapf(err, "failed to retarget v%d transform for %s", prevVersion, entry.GoName)
+			}
+			if retargeted.Path != "" {
+				resp.Files = append(resp.Files, retargeted)
+				resp.Deletions = append(resp.Deletions, deleteFile)
+			}
+		}
+	}
+
+	pkgTypes := collectPackageTypes(change.OldType, req.OldResolutions)
+
+	pathMap := make(map[string]string, len(pkgTypes))
+	for origPath := range pkgTypes {
+		pathMap[origPath] = origPath + "/migrations/" + versionDir
+	}
+	rewrittenOldTable := rewriteOutputPaths(req.OldResolutions, pathMap)
+
+	newEntry, _ := req.Resolutions.Get(change.OldType.QualifiedName)
+	schemaDiff := SchemaDiff(change.OldType, newEntry, req.OldResolutions, req.Resolutions)
+
+	for origPath, types := range pkgTypes {
+		mirroredPath := pathMap[origPath]
+		typeContent, err := generateFrozenTypesFile(types, rewrittenOldTable, mirroredPath, req.RepoRoot)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate frozen types for %s", origPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    mirroredPath + "/types.gen.go",
+			Content: typeContent,
+		})
+
+		if origPath != goPath && needsAutoMigrate(types, schemaDiff) {
+			if err := p.generateSubPackageMigration(resp, versionDir, mirroredPath, types, schemaDiff, rewrittenOldTable, req); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Frozen codec for the entry type.
+	entryMirrorPath := goPath + "/migrations/" + versionDir
+	codecContent, err := gomarshal.GenerateCodecFile(
+		versionDir, entryMirrorPath,
+		[]gomarshal.CodecEntry{{GoName: entry.GoName, Type: change.OldType}},
+		rewrittenOldTable,
+		req.RepoRoot,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate frozen codec for %s", entry.GoName)
+	}
+	resp.Files = append(resp.Files, plugin.File{
+		Path:    entryMirrorPath + "/codec.gen.go",
+		Content: codecContent,
+	})
+
+	// Top-level auto-copy for the entry type's package.
+	entryTypes := pkgTypes[goPath]
+	if needsAutoMigrate(entryTypes, schemaDiff) {
+		autoCopyContent, err := generateAutoCopy(
+			pkg, goPath, req.RepoRoot,
+			entryTypes, schemaDiff, rewrittenOldTable, req.Resolutions,
+		)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate top-level auto-copy for %s", goPath)
+		}
+		if autoCopyContent != nil {
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    goPath + "/migrate_auto.gen.go",
+				Content: autoCopyContent,
+			})
+		}
+	}
+
+	// Developer transform template.
+	templateFile := goPath + "/migrate.go"
+	templateFullPath := filepath.Join(req.RepoRoot, templateFile)
+	if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
+		entryMirrorImport, _ := resolveImportPath(entryMirrorPath, req.RepoRoot)
+		tc, err := renderTransformTemplate(pkg, entry.GoName, change.Version, versionDir, entryMirrorImport)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate transform template")
+		}
+		resp.Files = append(resp.Files, plugin.File{Path: templateFile, Content: tc})
+	}
+
+	return nil
+}
+
+func (p *Plugin) generateSubPackageMigration(
+	resp *plugin.Response,
+	versionDir, mirroredPath string,
+	types []resolution.Type,
+	schemaDiff map[string]TypeDiff,
+	rewrittenOldTable *resolution.Table,
+	req *plugin.Request,
+) error {
+	autoCopyContent, err := generateAutoCopy(
+		versionDir, mirroredPath, req.RepoRoot,
+		types, schemaDiff, rewrittenOldTable, req.Resolutions,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate auto-copy for %s", mirroredPath)
+	}
+	if autoCopyContent != nil {
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    mirroredPath + "/migrate_auto.gen.go",
+			Content: autoCopyContent,
+		})
+	}
+
+	migrateFile := mirroredPath + "/migrate.go"
+	migrateFullPath := filepath.Join(req.RepoRoot, migrateFile)
+	if _, statErr := os.Stat(migrateFullPath); os.IsNotExist(statErr) {
+		tc, err := renderTypeMigrateTemplate(versionDir, mirroredPath, types, schemaDiff, req.Resolutions, req.RepoRoot)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate type migrate template for %s", mirroredPath)
+		}
+		if tc != nil {
+			resp.Files = append(resp.Files, plugin.File{Path: migrateFile, Content: tc})
+		}
+	}
+	return nil
 }
 
 func detectSchemaChange(
@@ -182,15 +276,11 @@ func detectSchemaChange(
 	if schemasEqual(oldType, newType, req.OldResolutions, req.Resolutions) {
 		return nil, nil
 	}
-	return &schemaChange{
-		Version: req.SnapshotVersion,
-		OldType: oldType,
-	}, nil
+	return &schemaChange{Version: req.SnapshotVersion, OldType: oldType}, nil
 }
 
 // collectPackageTypes walks the entry type's dependency tree and groups all
-// Oracle-defined struct types by their @go output path. Returns a map from
-// output path → list of types in that package.
+// Oracle-defined struct types by their @go output path.
 func collectPackageTypes(
 	entryType resolution.Type,
 	table *resolution.Table,
@@ -199,9 +289,7 @@ func collectPackageTypes(
 	visited := make(map[string]bool)
 	collectPkgTypesWalk(entryType, table, result, visited)
 	// Expand each collected package: if any type from a package is needed,
-	// include ALL types from that package. This handles cases where types are
-	// referenced through type parameters, constraints, or defaults that the
-	// walker can't follow directly.
+	// include ALL types from that package.
 	for goPath := range result {
 		expanded := make(map[string]bool)
 		for _, t := range result[goPath] {
@@ -241,14 +329,12 @@ func collectPkgTypesWalk(
 		}
 	}
 
-	// Walk parent types from struct extensions (embedding).
 	if sf, ok := typ.Form.(resolution.StructForm); ok {
 		for _, ext := range sf.Extends {
 			walkRefForPkgTypes(ext, table, result, visited)
 		}
 	}
 
-	// Walk fields to find nested types.
 	fields := resolution.UnifiedFields(typ, table)
 	for _, f := range fields {
 		walkRefForPkgTypes(f.Type, table, result, visited)
@@ -277,9 +363,6 @@ func walkRefForPkgTypes(
 	case resolution.EnumForm:
 		collectPkgTypesWalk(resolved, table, result, visited)
 	case resolution.BuiltinGenericForm:
-		// Walk the generic type's fields by looking up the struct definition.
-		// BuiltinGenericForm marks the type as generic, but the underlying struct
-		// may have fields that reference other types (e.g., Status has a Variant field).
 		collectPkgTypesWalk(resolved, table, result, visited)
 		for _, arg := range ref.TypeArgs {
 			walkRefForPkgTypes(arg, table, result, visited)
@@ -291,10 +374,56 @@ func resolveImportPath(outputPath, repoRoot string) (string, error) {
 	return gomod.ResolveImportPath(outputPath, repoRoot, "github.com/synnaxlabs/synnax/"), nil
 }
 
-// rewriteOutputPaths creates a shallow copy of the resolution table where
-// each type's @go output path is rewritten according to the path map.
-// This allows the standard type/codec generators to produce correct imports
-// for mirrored migration packages without any special override logic.
+func discoverExistingVersions(goPath, repoRoot string) ([]int, error) {
+	migrationsDir := filepath.Join(repoRoot, goPath, "migrations")
+	dirEntries, err := os.ReadDir(migrationsDir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var versions []int
+	for _, dirEntry := range dirEntries {
+		if !dirEntry.IsDir() || !strings.HasPrefix(dirEntry.Name(), "v") {
+			continue
+		}
+		v, err := strconv.Atoi(dirEntry.Name()[1:])
+		if err != nil {
+			continue
+		}
+		codecPath := filepath.Join(migrationsDir, dirEntry.Name(), "codec.gen.go")
+		if _, statErr := os.Stat(codecPath); statErr == nil {
+			versions = append(versions, v)
+		}
+	}
+	sort.Ints(versions)
+	return versions, nil
+}
+
+// retargetTransform reads the existing top-level transform file, rewrites its
+// package declaration to target the new version sub-package, and returns the
+// new file content plus the old file path to delete.
+func retargetTransform(goPath string, newVersion int, repoRoot string) (plugin.File, string, error) {
+	oldFile := goPath + "/migrate.go"
+	content, err := os.ReadFile(filepath.Join(repoRoot, oldFile))
+	if os.IsNotExist(err) {
+		return plugin.File{}, "", nil
+	}
+	if err != nil {
+		return plugin.File{}, "", errors.Wrapf(err, "failed to read transform %s", oldFile)
+	}
+	src := string(content)
+	newPkg := fmt.Sprintf("v%d", newVersion)
+	src = regexp.MustCompile(`package \w+`).ReplaceAllString(src, "package "+newPkg)
+	src = strings.Replace(src,
+		"// Generated by oracle as a template. Edit this file.",
+		"// Retargeted by oracle. Edit freely.",
+		1)
+	newPath := fmt.Sprintf("%s/migrations/v%d/migrate.go", goPath, newVersion)
+	return plugin.File{Path: newPath, Content: []byte(src)}, oldFile, nil
+}
+
 func rewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *resolution.Table {
 	clone := &resolution.Table{
 		Imports:    table.Imports,
@@ -308,7 +437,6 @@ func rewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 			clone.Types = append(clone.Types, typ)
 			continue
 		}
-		// Clone the type with rewritten @go output.
 		newDomains := make(map[string]resolution.Domain, len(typ.Domains))
 		for k, v := range typ.Domains {
 			if k == "go" {
@@ -335,9 +463,6 @@ func rewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 	return clone
 }
 
-// generateFrozenTypesFile generates a Go source file with type definitions
-// using the types plugin's full type generation. Import overrides redirect
-// cross-package references to the mirrored package structure.
 func generateFrozenTypesFile(
 	types []resolution.Type,
 	table *resolution.Table,
@@ -381,7 +506,7 @@ func getGoName(t resolution.Type) string {
 	return t.Name
 }
 
-// --- Migration Registration Template ---
+// --- Templates ---
 
 var migrateTmpl = template.Must(template.New("migrate").Parse(
 	`// Code generated by oracle. DO NOT EDIT.
@@ -400,12 +525,21 @@ func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", codec),
 {{- range $entry.SchemaChanges}}
+{{- if .IsIntermediate}}
+		gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
+			"v{{.Version}}_schema_migration",
+			{{.ImportAlias}}.{{$entry.GoName}}Codec,
+			{{.NextImportAlias}}.{{$entry.GoName}}Codec,
+			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
+		),
+{{- else}}
 		gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
 			{{.ImportAlias}}.{{$entry.GoName}}Codec,
 			codec,
-			Migrate{{$entry.GoName}}V{{.Version}},
+			Migrate{{$entry.GoName}},
 		),
+{{- end}}
 {{- end}}
 	}
 }
@@ -417,10 +551,7 @@ type migrateTemplateData struct {
 	VersionImports []versionImport
 }
 
-type versionImport struct {
-	Alias string
-	Path  string
-}
+type versionImport struct{ Alias, Path string }
 
 type migrateTemplateEntry struct {
 	GoName        string
@@ -428,27 +559,37 @@ type migrateTemplateEntry struct {
 }
 
 type migrateSchemaChange struct {
-	Version     int
-	ImportAlias string
+	Version         int
+	ImportAlias     string
+	IsIntermediate  bool
+	NextImportAlias string
 }
 
 func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot string) ([]byte, error) {
-	var tmplEntries []migrateTemplateEntry
+	var templateEntries []migrateTemplateEntry
 	importSet := make(map[string]versionImport)
-	for _, e := range entries {
-		te := migrateTemplateEntry{GoName: e.GoName}
-		if e.SchemaChange != nil {
-			sc := e.SchemaChange
-			vDir := fmt.Sprintf("v%d", sc.Version)
+	for _, entry := range entries {
+		te := migrateTemplateEntry{GoName: entry.GoName}
+		allVersions := append([]int{}, entry.ExistingVersions...)
+		if entry.SchemaChange != nil {
+			v := entry.SchemaChange.Version
+			if len(allVersions) == 0 || allVersions[len(allVersions)-1] != v {
+				allVersions = append(allVersions, v)
+			}
+		}
+		for i, version := range allVersions {
+			vDir := fmt.Sprintf("v%d", version)
 			subPkg := fmt.Sprintf("%s/migrations/%s", goPath, vDir)
 			importPath := gomod.ResolveImportPath(subPkg, repoRoot, "github.com/synnaxlabs/synnax/")
 			importSet[vDir] = versionImport{Alias: vDir, Path: importPath}
-			te.SchemaChanges = []migrateSchemaChange{{
-				Version:     sc.Version,
-				ImportAlias: vDir,
-			}}
+			isLast := i == len(allVersions)-1
+			sc := migrateSchemaChange{Version: version, ImportAlias: vDir, IsIntermediate: !isLast}
+			if !isLast {
+				sc.NextImportAlias = fmt.Sprintf("v%d", allVersions[i+1])
+			}
+			te.SchemaChanges = append(te.SchemaChanges, sc)
 		}
-		tmplEntries = append(tmplEntries, te)
+		templateEntries = append(templateEntries, te)
 	}
 	var imports []versionImport
 	for _, v := range importSet {
@@ -456,22 +597,17 @@ func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot st
 	}
 	var buf bytes.Buffer
 	if err := migrateTmpl.Execute(&buf, migrateTemplateData{
-		Package:        pkg,
-		Entries:        tmplEntries,
-		VersionImports: imports,
+		Package: pkg, Entries: templateEntries, VersionImports: imports,
 	}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-// --- Developer Transform Template ---
-
 var transformTmpl = template.Must(template.New("transform").Parse(
 	`// Generated by oracle as a template. Edit this file.
 //
-// This function transforms a frozen {{.GoName}} (from {{.VersionDir}}) into the
-// current {{.GoName}}. Copy fields from old and set defaults for new fields.
+// AutoMigrate handles field copying. Customize non-zero defaults below.
 
 package {{.Package}}
 
@@ -481,30 +617,96 @@ import (
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 
-func Migrate{{.GoName}}V{{.Version}}(_ context.Context, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
-	panic("migration Migrate{{.GoName}}V{{.Version}} not implemented - edit this function")
+func Migrate{{.GoName}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
+	return AutoMigrate{{.GoName}}(ctx, old)
 }
 `))
 
-type transformTemplateData struct {
-	Package          string
-	GoName           string
-	Version          int
-	VersionDir       string
-	MigrationsImport string
-}
-
 func renderTransformTemplate(pkg, goName string, version int, vDir, migrationsImport string) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := transformTmpl.Execute(&buf, transformTemplateData{
-		Package:          pkg,
-		GoName:           goName,
-		Version:          version,
-		VersionDir:       vDir,
-		MigrationsImport: migrationsImport,
-	}); err != nil {
+	err := transformTmpl.Execute(&buf, struct {
+		Package, GoName, VersionDir, MigrationsImport string
+		Version                                        int
+	}{pkg, goName, vDir, migrationsImport, version})
+	if err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
+var typeMigrateTmpl = template.Must(template.New("typeMigrate").Parse(
+	`// Generated by oracle as a template. Edit this file.
+
+package {{.Package}}
+
+import (
+	"context"
+{{range .Imports}}
+	{{.Alias}} "{{.Path}}"
+{{- end}}
+)
+{{range .Functions}}
+func Migrate{{.GoName}}(_ context.Context, old {{.OldTypeName}}, new {{.NewTypeName}}) ({{.NewTypeName}}, error) {
+	// New/changed fields - set non-zero defaults if needed:
+{{- range .NewFields}}
+	// new.{{.}} is zero-valued
+{{- end}}
+	return new, nil
+}
+{{end}}`))
+
+func renderTypeMigrateTemplate(
+	pkg, mirroredPath string,
+	types []resolution.Type,
+	diff map[string]TypeDiff,
+	newTable *resolution.Table,
+	repoRoot string,
+) ([]byte, error) {
+	type tmplFunc struct {
+		GoName, OldTypeName, NewTypeName string
+		NewFields                        []string
+	}
+	type tmplData struct {
+		Package   string
+		Imports   []versionImport
+		Functions []tmplFunc
+	}
+	data := tmplData{Package: pkg}
+	importSet := make(map[string]versionImport)
+	for _, typ := range types {
+		td, ok := diff[typ.QualifiedName]
+		if !ok || td.Kind != TypeChanged {
+			continue
+		}
+		goName := getGoName(typ)
+		newType, _ := newTable.Get(typ.QualifiedName)
+		newGoPath := output.GetPath(newType, "go")
+		newTypeName := getGoName(newType)
+		if newGoPath != mirroredPath {
+			ip := gomod.ResolveImportPath(newGoPath, repoRoot, gomod.DefaultModulePrefix)
+			alias := naming.DerivePackageAlias(newGoPath, pkg)
+			importSet[ip] = versionImport{Alias: alias, Path: ip}
+			newTypeName = alias + "." + newTypeName
+		}
+		var newFields []string
+		for _, fd := range td.ChangedFields {
+			if fd.Kind == FieldKindAdded {
+				newFields = append(newFields, naming.GetFieldName(*fd.NewField))
+			}
+		}
+		data.Functions = append(data.Functions, tmplFunc{
+			GoName: goName, OldTypeName: goName, NewTypeName: newTypeName, NewFields: newFields,
+		})
+	}
+	if len(data.Functions) == 0 {
+		return nil, nil
+	}
+	for _, v := range importSet {
+		data.Imports = append(data.Imports, v)
+	}
+	var buf bytes.Buffer
+	if err := typeMigrateTmpl.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}

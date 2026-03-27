@@ -152,7 +152,7 @@ func runMigrate(cmd *cobra.Command) error {
 		if err := writeFileIfChanged(fullPath, f.Content); err != nil {
 			return errors.Wrapf(err, "failed to write %s", f.Path)
 		}
-		if strings.Contains(f.Path, "_migrate.go") && !strings.HasSuffix(f.Path, "migrate.gen.go") {
+		if strings.HasSuffix(f.Path, "/migrate.go") && !strings.Contains(f.Path, "/migrations/") {
 			templates = append(templates, f.Path)
 		}
 		if verbose {
@@ -163,6 +163,17 @@ func runMigrate(cmd *cobra.Command) error {
 	if len(templates) > 0 {
 		for _, t := range templates {
 			printDim(fmt.Sprintf("  ✏️  %s ← edit this", t))
+		}
+	}
+
+	// Delete files that were retargeted and moved.
+	for _, d := range resp.Deletions {
+		fullPath := filepath.Join(repoRoot, d)
+		if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
+			return errors.Wrapf(err, "failed to delete retargeted file %s", d)
+		}
+		if verbose {
+			printDim(fmt.Sprintf("  moved %s", d))
 		}
 	}
 

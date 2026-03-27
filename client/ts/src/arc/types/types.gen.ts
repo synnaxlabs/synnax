@@ -127,6 +127,8 @@ export const paramZ = z.object({
   value: z.unknown().optional(),
   /** description is an optional description of the parameter. */
   description: z.string().optional(),
+  /** priority is the display ordering priority. */
+  priority: z.int32().optional(),
 });
 export interface Param extends z.infer<typeof paramZ> {}
 

@@ -57,6 +57,10 @@ func (r *Request) ValidateOutputPath(path string) error {
 type Response struct {
 	// Files holds the list of generated files.
 	Files []File
+	// Deletions holds repo-relative paths of files to remove. Used when the
+	// migrate plugin retargets a developer transform and moves it into a
+	// version sub-package.
+	Deletions []string
 }
 
 // PostWriter is an optional interface for post-processing.
