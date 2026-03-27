@@ -998,7 +998,8 @@ var _ = Describe("Driver", func() {
 
 			openDone := make(chan *driver.Driver, 1)
 			go func() {
-				d, err := driver.Open(ctx, driver.Config{
+				defer GinkgoRecover()
+				d := MustSucceed(driver.Open(ctx, driver.Config{
 					DB:        dist.DB,
 					Rack:      rackService,
 					Task:      taskService,
@@ -1007,8 +1008,7 @@ var _ = Describe("Driver", func() {
 					Status:    statusSvc,
 					Factories: []driver.Factory{factory},
 					Host:      hostProvider,
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				openDone <- d
 			}()
 
