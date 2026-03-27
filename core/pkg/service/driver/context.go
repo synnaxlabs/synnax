@@ -23,10 +23,12 @@ type Context struct {
 	statusSvc *status.Service
 }
 
+// NewContext creates a new Context with access to the given status service.
 func NewContext(ctx context.Context, statusSvc *status.Service) Context {
 	return Context{Context: ctx, statusSvc: statusSvc}
 }
 
+// SetStatus updates the status of the task, auto-filling the time if not provided.
 func (c Context) SetStatus(stat task.Status) error {
 	if stat.Time == 0 {
 		stat.Time = telem.Now()

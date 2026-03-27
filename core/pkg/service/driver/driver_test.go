@@ -10,23 +10,19 @@
 package driver_test
 
 import (
-	"context"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -34,54 +30,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type mockFactory struct {
-	configureFunc func(task.Task) (driver.Task, error)
-	name          string
-}
-
-func (f *mockFactory) ConfigureTask(
-	_ driver.Context,
-	t task.Task,
-) (driver.Task, error) {
-	if f.configureFunc != nil {
-		return f.configureFunc(t)
-	}
-	return nil, driver.ErrTaskNotHandled
-}
-
-func (f *mockFactory) Name() string { return f.name }
-
-type mockTask struct {
-	execFunc func(cmd task.Command) error
-	stopFunc func() error
-	key      task.Key
-}
-
-func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
-	if t.execFunc != nil {
-		return t.execFunc(cmd)
-	}
-	return nil
-}
-
-func (t *mockTask) Stop() error {
-	if t.stopFunc != nil {
-		return t.stopFunc()
-	}
-	return nil
-}
-
-var _ = Describe("Driver", Ordered, func() {
-	var (
-		dist         mock.Node
-		rackService  *rack.Service
-		taskService  *task.Service
-		channelSvc   *channel.Service
-		framerSvc    *framer.Service
-		statusSvc    *status.Service
-		hostProvider = mock.StaticHostKeyProvider(1)
-	)
-
+var _ = Describe("Driver", func() {
 	embeddedRackKey := func() rack.Key {
 		var r rack.Rack
 		Expect(rackService.NewRetrieve().
@@ -115,49 +64,6 @@ var _ = Describe("Driver", Ordered, func() {
 			Type: "test",
 		}
 	}
-
-	BeforeAll(func() {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(
-			ctx,
-			label.ServiceConfig{
-				DB:       dist.DB,
-				Ontology: dist.Ontology,
-				Group:    dist.Group,
-			}),
-		)
-		statusSvc = MustSucceed(status.OpenService(
-			ctx,
-			status.ServiceConfig{
-				Ontology: dist.Ontology,
-				DB:       dist.DB,
-				Group:    dist.Group,
-				Label:    labelSvc,
-			}),
-		)
-		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-		}))
-		channelSvc = channel.Wrap(dist.Channel)
-		framerSvc = dist.Framer
-		taskService = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Channel:  dist.Channel,
-		}))
-
-		DeferCleanup(func() {
-			Expect(dist.Close()).To(Succeed())
-		})
-	})
 
 	Describe("Open", func() {
 		It("should create driver with valid config", func() {
@@ -651,7 +557,6 @@ var _ = Describe("Driver", Ordered, func() {
 	})
 
 	Describe("Command Processing", func() {
-		// writeCommand writes a command to the task command channel via the framer.
 		writeCommand := func(cmd task.Command) {
 			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
 				Keys:  channel.Keys{taskService.CommandChannelKey()},
@@ -664,7 +569,6 @@ var _ = Describe("Driver", Ordered, func() {
 			))).To(BeTrue())
 		}
 
-		// Catches the bug: with inverted condition, Exec is never called on known tasks.
 		It("should execute command on configured task", func() {
 			var (
 				execCalled  atomic.Bool
@@ -707,7 +611,6 @@ var _ = Describe("Driver", Ordered, func() {
 			Expect(stored.Key).To(Equal("cmd-1"))
 		})
 
-		// Verifies commands for unknown tasks are ignored without crashing.
 		It("should ignore commands for unknown tasks", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
@@ -733,7 +636,6 @@ var _ = Describe("Driver", Ordered, func() {
 			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
 		})
 
-		// Verifies commands for tasks on other racks are filtered out.
 		It("should ignore commands for tasks on other racks", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
