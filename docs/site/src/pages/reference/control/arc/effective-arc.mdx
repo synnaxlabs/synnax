@@ -174,22 +174,27 @@ stage retry {
 
 Each time the stage is entered, all `=>` transitions can fire again.
 
-### Expecting Loops
+### Using Loops for Reactive Work
 
-Arc has no loops. Use stateful variables with reactive execution:
+[`for` loops](/reference/control/arc/reference/loops) are available inside function
+bodies for processing data that's already in hand. They're not a substitute for the
+reactive model when you need to respond to data as it arrives:
 
 ```arc
-// Wrong: trying to loop
-// for i := 0; i < 10; i++ { ... }
+// Wrong: trying to poll with a loop
+// for { value := sensor; ... }
 
-// Right: stateful counter triggered by interval
-func counter() i64 {
-    count $= 0
-    count = count + 1
-    return count
+// Right: let the reactive model trigger your function
+sensor -> process{} -> output
+
+// Also right: use a loop to process a batch inside a function
+func process_batch(data series f64) f64 {
+    sum f64 := 0.0
+    for x := data {
+        sum = sum + x
+    }
+    return sum / f64(len(data))
 }
-
-interval{period=100ms} -> counter{} -> count_output
 ```
 
 ### Multiple Writes to Same Channel
