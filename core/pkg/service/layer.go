@@ -221,14 +221,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, l.Workspace) {
-		return nil, err
-	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
@@ -253,6 +245,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
+		return nil, err
+	}
+	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
+		ChildDeleters: []workspace.ChildDeleter{
+			l.Schematic, l.LinePlot, l.Log, l.Table,
+		},
+	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(

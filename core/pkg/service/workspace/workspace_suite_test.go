@@ -17,6 +17,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -30,13 +34,18 @@ func TestWorkspace(t *testing.T) {
 }
 
 var (
-	ctx     = context.Background()
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	svc     *workspace.Service
-	userSvc *user.Service
-	author  user.User
-	tx      gorp.Tx
+	ctx          = context.Background()
+	db           *gorp.DB
+	otg          *ontology.Ontology
+	svc          *workspace.Service
+	groupSvc     *group.Service
+	schematicSvc *schematic.Service
+	lineplotSvc  *lineplot.Service
+	logSvc       *log.Service
+	tableSvc     *table.Service
+	userSvc      *user.Service
+	author       user.User
+	tx           gorp.Tx
 )
 
 var _ = BeforeSuite(func() {
@@ -45,19 +54,39 @@ var _ = BeforeSuite(func() {
 		EnableSearch: new(false),
 		DB:           db,
 	}))
-	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
+	lineplotSvc = MustSucceed(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	logSvc = MustSucceed(log.OpenService(ctx, log.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	tableSvc = MustSucceed(table.OpenService(ctx, table.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
 	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
+		ChildDeleters: []workspace.ChildDeleter{
+			schematicSvc, lineplotSvc, logSvc, tableSvc,
+		},
 	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 	}))
 	author.Username = "test"
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
