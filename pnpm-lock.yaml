@@ -411,6 +411,9 @@ importers:
       react-redux:
         specifier: 'catalog:'
         version: 9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1)
+      vscode:
+        specifier: npm:@codingame/monaco-vscode-extension-api@^28.4.1
+        version: '@codingame/monaco-vscode-extension-api@28.4.1'
       vscode-jsonrpc:
         specifier: ^8.2.1
         version: 8.2.1
