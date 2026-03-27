@@ -198,6 +198,36 @@ var _ = Describe("Driver", func() {
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 		})
 
+		It("should handle stop error gracefully during deletion", func() {
+			var (
+				stopCalled  atomic.Bool
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						stopFunc: func() error {
+							stopCalled.Store(true)
+							return errors.New("stop failed")
+						},
+					}, nil
+				},
+			}
+			openDriver(factory)
+
+			t := newTask(embeddedRackKey())
+			w := taskService.NewWriter(nil)
+			Expect(w.Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			Expect(w.Delete(ctx, t.Key, false)).To(Succeed())
+			Eventually(func() bool { return stopCalled.Load() }).Should(BeTrue())
+		})
+
 		It("should not configure task when factory returns not handled", func() {
 			var (
 				configureCalled atomic.Bool
@@ -569,6 +599,38 @@ var _ = Describe("Driver", func() {
 			))).To(BeTrue())
 		}
 
+		It("should handle malformed command JSON without crashing", func() {
+			var execCalled atomic.Bool
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, error) {
+					return &mockTask{
+						key:      t.Key,
+						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
+					}, nil
+				},
+			}
+			openDriver(factory)
+			time.Sleep(50 * time.Millisecond)
+
+			// Write valid JSON that won't unmarshal into task.Command
+			// (task field expects a number, not a string).
+			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+				Keys:  channel.Keys{taskService.CommandChannelKey()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(
+				taskService.CommandChannelKey(),
+				MustSucceed(telem.NewJSONSeriesV(
+					map[string]any{"task": "not-a-number", "type": "start"},
+				)),
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").
+				Should(BeFalse())
+		})
+
 		It("should execute command on configured task", func() {
 			var (
 				execCalled  atomic.Bool
@@ -694,6 +756,42 @@ var _ = Describe("Driver", func() {
 				Task: t.Key,
 				Type: "failing-command",
 				Key:  "cmd-fail",
+			}
+			writeCommand(cmd)
+
+			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+		})
+
+		It("should log warning for unsupported command without crashing", func() {
+			var (
+				execCalled  atomic.Bool
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(cmd task.Command) error {
+							execCalled.Store(true)
+							return driver.ErrUnsupportedCommand
+						},
+					}, nil
+				},
+			}
+			openDriver(factory)
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(embeddedRackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			cmd := task.Command{
+				Task: t.Key,
+				Type: "unsupported",
+				Key:  "cmd-unsupported",
 			}
 			writeCommand(cmd)
 
