@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -32,7 +33,7 @@ type benchService struct {
 
 var _ ontology.Service = (*benchService)(nil)
 
-const benchOntologyType ontology.Type = "bench"
+const benchOntologyType ontology.ResourceType = "bench"
 
 type BenchResource struct{ Key string }
 
@@ -42,7 +43,7 @@ func newBenchID(key string) ontology.ID {
 
 var benchSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *benchService) Type() ontology.Type { return benchOntologyType }
+func (s *benchService) Type() ontology.ResourceType { return benchOntologyType }
 
 func (s *benchService) Schema() zyn.Schema { return benchSchema }
 
@@ -55,10 +56,11 @@ func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource],
 }
 
 type benchEnv struct {
-	ctx context.Context
-	db  *gorp.DB
-	otg *ontology.Ontology
-	svc *benchService
+	ctx       context.Context
+	db        *gorp.DB
+	otg       *ontology.Ontology
+	svc       *benchService
+	searchIdx *search.Index
 }
 
 func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
@@ -66,14 +68,22 @@ func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
 	db := gorp.Wrap(memkv.New())
 	svc := &benchService{}
 	otg, err := ontology.Open(ctx, ontology.Config{
-		DB:           db,
-		EnableSearch: new(enableSearch),
+		DB: db,
 	})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 	otg.RegisterService(svc)
-	return &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc}
+	env := &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc}
+	if enableSearch {
+		searchIdx, err := search.New(search.Config{})
+		if err != nil {
+			b.Fatalf("failed to create search index: %v", err)
+		}
+		searchIdx.RegisterService(svc)
+		env.searchIdx = searchIdx
+	}
+	return env
 }
 
 func (e *benchEnv) close(b *testing.B) {
@@ -231,11 +241,14 @@ func BenchmarkSearch(b *testing.B) {
 			env := newBenchEnv(b, true)
 			defer env.close(b)
 			env.populate(b, count)
+			if err := env.searchIdx.InitializeIndex(env.ctx); err != nil {
+				b.Fatalf("failed to initialize search index: %v", err)
+			}
 			b.ReportAllocs()
 			b.ResetTimer()
 			var err error
 			for i := 0; i < b.N; i++ {
-				_, err = env.otg.Search(env.ctx, ontology.SearchRequest{Term: "500"})
+				_, err = env.searchIdx.Search(env.ctx, search.Request{Term: "500"})
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)

@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -27,6 +28,7 @@ import (
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	Search   *search.Index
 	Signals  *signals.Provider
 	Group    *group.Service
 }
@@ -40,6 +42,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
 	return c
@@ -81,6 +84,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	s := &Service{cfg: cfg, table: table}
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
+	}
+	if cfg.Search != nil {
+		cfg.Search.RegisterService(s)
 	}
 	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
 		return nil, err

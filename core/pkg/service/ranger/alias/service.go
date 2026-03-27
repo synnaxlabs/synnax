@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -40,6 +41,7 @@ type ParentRetriever interface {
 type ServiceConfig struct {
 	DB              *gorp.DB
 	Ontology        *ontology.Ontology
+	Search          *search.Index
 	Signals         *signals.Provider
 	ParentRetriever ParentRetriever
 	alamos.Instrumentation
@@ -64,6 +66,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ParentRetriever = override.Nil(c.ParentRetriever, other.ParentRetriever)
 	return c
@@ -88,6 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -124,19 +128,22 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewReader(tx gorp.Tx) Reader {
 	return Reader{
 		tx:              gorp.OverrideTx(s.cfg.DB, tx),
-		otg:             s.cfg.Ontology,
+		search:          s.cfg.Search,
 		parentRetriever: s.cfg.ParentRetriever,
 	}
 }
 
 // ontology.Service implementation
 
-var _ ontology.Service = (*Service)(nil)
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
 
 type change = xchange.Change[string, Alias]
 
 // Type implements ontology.Service.
-func (s *Service) Type() ontology.Type { return ontology.TypeRangeAlias }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRangeAlias }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

@@ -183,7 +183,7 @@ func isAdminPolicy(p LegacyPolicy) bool {
 	hasUserType := false
 	hasPolicyType := false
 	for _, obj := range p.Objects {
-		if obj.Type == ontology.TypeUser {
+		if obj.Type == ontology.ResourceTypeUser {
 			hasUserType = true
 		}
 		if obj.Type == "policy" {

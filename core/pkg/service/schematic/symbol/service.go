@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -39,6 +40,9 @@ type ServiceConfig struct {
 	// Signals is used to propagate changes to symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching symbols.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -53,6 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -96,6 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](cfg.DB)
 		signalsCfg.SetName = "sy_schematic_symbol_set"
@@ -125,7 +131,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, Symbol](),
 		baseTX: s.DB,
-		otg:    s.Ontology,
+		search: s.Search,
 	}
 }
 
