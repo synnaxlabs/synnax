@@ -20,16 +20,16 @@ import (
 // Context provides shared services to tasks, similar to task::Context in C++.
 type Context struct {
 	context.Context
-	status *status.Service
+	statusSvc *status.Service
 }
 
 func NewContext(ctx context.Context, statusSvc *status.Service) Context {
-	return Context{Context: ctx, status: statusSvc}
+	return Context{Context: ctx, statusSvc: statusSvc}
 }
 
 func (c Context) SetStatus(stat task.Status) error {
 	if stat.Time == 0 {
 		stat.Time = telem.Now()
 	}
-	return status.NewWriter[task.StatusDetails](c.status, nil).Set(c.Context, &stat)
+	return status.NewWriter[task.StatusDetails](c.statusSvc, nil).Set(c.Context, &stat)
 }
