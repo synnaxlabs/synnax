@@ -29,6 +29,14 @@ describe("List", () => {
   CONTEXTS.forEach((context) => {
     beforeAll(() => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+        configurable: true,
+        get: () => 100,
+      });
+      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+        configurable: true,
+        get: () => 100,
+      });
     });
     describe(context.name, () => {
       describe("basic item rendering", () => {
@@ -187,6 +195,14 @@ describe("List", () => {
 
     beforeAll(() => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+        configurable: true,
+        get: () => 100,
+      });
+      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+        configurable: true,
+        get: () => 100,
+      });
     });
 
     beforeEach(() => {
