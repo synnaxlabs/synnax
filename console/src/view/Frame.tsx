@@ -157,7 +157,7 @@ const Selector = ({
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
         const name = await renameModal(
           { initialValue: `View for ${plural(resourceType)}` },
-          { name: `View.Create`, icon: iconName },
+          { name: "View.Create", icon: iconName },
         );
         if (name == null) return false;
         const newKey = uuid.create();
