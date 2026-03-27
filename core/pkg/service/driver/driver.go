@@ -268,8 +268,6 @@ func (d *Driver) delete(key task.Key) {
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
-func (d *Driver) RackKey() rack.Key { return d.rack.Key }
-
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {

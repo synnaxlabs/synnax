@@ -190,6 +190,16 @@ var _ = Describe("Driver", Ordered, func() {
 		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
+	embeddedRackKey := func() rack.Key {
+		var r rack.Rack
+		Expect(rackService.NewRetrieve().
+			WhereEmbedded(true).
+			WhereName("Node 1").
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		return r.Key
+	}
+
 	openDriver := func(factory driver.Factory) *driver.Driver {
 		driver := MustSucceed(driver.Open(ctx, driver.Config{
 			DB:        dist.DB,
@@ -261,14 +271,14 @@ var _ = Describe("Driver", Ordered, func() {
 		It("should create driver with valid config", func() {
 			driver := openDriver(&mockFactory{name: "test"})
 			Expect(driver).ToNot(BeNil())
-			Expect(driver.RackKey()).ToNot(BeZero())
+			Expect(embeddedRackKey()).ToNot(BeZero())
 		})
 
 		It("should create rack in rack service", func() {
-			driver := openDriver(&mockFactory{name: "test"})
+			openDriver(&mockFactory{name: "test"})
 			var racks []rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereKeys(driver.RackKey()).
+				WhereKeys(embeddedRackKey()).
 				Entries(&racks).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(racks).To(HaveLen(1))
@@ -292,9 +302,9 @@ var _ = Describe("Driver", Ordered, func() {
 					return mt, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
 			Eventually(func() bool { return configuredTask.Load() != nil }).Should(BeTrue())
@@ -322,8 +332,8 @@ var _ = Describe("Driver", Ordered, func() {
 					}, nil
 				},
 			}
-			driver := openDriver(factory)
-			t := newTask(driver.RackKey())
+			openDriver(factory)
+			t := newTask(embeddedRackKey())
 			taskKey.Store(t.Key)
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
@@ -377,9 +387,9 @@ var _ = Describe("Driver", Ordered, func() {
 					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
 
@@ -402,9 +412,9 @@ var _ = Describe("Driver", Ordered, func() {
 					return nil, driver.ErrTaskNotHandled
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
 
@@ -426,9 +436,9 @@ var _ = Describe("Driver", Ordered, func() {
 					return nil, errors.New("factory configuration failed")
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
 
@@ -459,9 +469,9 @@ var _ = Describe("Driver", Ordered, func() {
 					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			taskKey.Store(t.Key)
 			w := taskService.NewWriter(nil)
 			countBeforeCreate := configCount.Load()
@@ -496,7 +506,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Factories: []driver.Factory{factory},
 				Host:      hostProvider,
 			}))
-			rackKey := d1.RackKey()
+			rackKey := embeddedRackKey()
 
 			t1 := task.Task{
 				Key:  task.NewKey(rackKey, taskCounter.Add(1)),
@@ -532,7 +542,7 @@ var _ = Describe("Driver", Ordered, func() {
 			}))
 			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
 
-			Expect(d2.RackKey()).To(Equal(rackKey))
+			Expect(embeddedRackKey()).To(Equal(rackKey))
 			Eventually(func() bool {
 				_, ok1 := configuredTasks.Load(t1.Key)
 				_, ok2 := configuredTasks.Load(t2.Key)
@@ -584,7 +594,7 @@ var _ = Describe("Driver", Ordered, func() {
 			}))
 
 			for range expectedTasks {
-				t := newTask(driver.RackKey())
+				t := newTask(embeddedRackKey())
 				testTaskKeys.Store(t.Key, true)
 				Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			}
@@ -624,7 +634,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Host:      hostProvider,
 			}))
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
 			Eventually(configReady).Should(BeClosed())
@@ -655,7 +665,7 @@ var _ = Describe("Driver", Ordered, func() {
 			}))
 			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 
-			statusKey := rack.OntologyID(driver.RackKey()).String()
+			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
 				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
@@ -681,7 +691,7 @@ var _ = Describe("Driver", Ordered, func() {
 			}))
 			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 
-			statusKey := rack.OntologyID(driver.RackKey()).String()
+			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
@@ -717,7 +727,7 @@ var _ = Describe("Driver", Ordered, func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := rack.OntologyID(driver.RackKey()).String()
+			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
 				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
@@ -784,11 +794,11 @@ var _ = Describe("Driver", Ordered, func() {
 					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 			// Allow streamer to boot up
 			time.Sleep(50 * time.Millisecond)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			Eventually(configReady).Should(BeClosed())
 
@@ -817,10 +827,10 @@ var _ = Describe("Driver", Ordered, func() {
 					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 			time.Sleep(50 * time.Millisecond)
 
-			unknownTaskKey := task.NewKey(driver.RackKey(), 99999)
+			unknownTaskKey := task.NewKey(embeddedRackKey(), 99999)
 			cmd := task.Command{
 				Task: unknownTaskKey,
 				Type: "start",
@@ -879,10 +889,10 @@ var _ = Describe("Driver", Ordered, func() {
 					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 			time.Sleep(5 * time.Millisecond)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			Eventually(configReady).Should(BeClosed())
 
