@@ -336,7 +336,7 @@ func (s *Server) Completion(
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
 		start := int(params.Position.Character)
-		for start > 0 && lsp.IsWordChar(line[start-1]) {
+		for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
 			start--
 		}
 		prefix = line[start:params.Position.Character]

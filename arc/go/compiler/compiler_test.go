@@ -37,14 +37,14 @@ import (
 func compile(source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
-	Expect(diag.Ok()).To(BeTrue())
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
 
 func compileWithHostImports(source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
-	Expect(diag.Ok()).To(BeTrue())
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(stl.SymbolResolver))
 }
 
@@ -3690,5 +3690,46 @@ var _ = Describe("Compiler", func() {
 				MustSucceed(r.Instantiate(ctx, output.WASM))
 			})
 		}
+	})
+
+	Describe("Qualified Module Calls", func() {
+		BeforeEach(func() {
+			bindDefaultModules(r)
+		})
+
+		It("Should execute time.now() via qualified name", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func compute() i64 {
+				return time.now()
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(results[0]).To(BeNumerically(">", 0))
+		})
+
+		It("Should use qualified and bare now() interchangeably", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func compute() i64 {
+				a := time.now()
+				b := now()
+				if a > b {
+					return a
+				}
+				return b
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(results[0]).To(BeNumerically(">", 0))
+		})
 	})
 })

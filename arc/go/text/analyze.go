@@ -237,7 +237,7 @@ func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	key := kg.generate(name, "")
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {

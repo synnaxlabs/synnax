@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -523,6 +524,19 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI64Add,
 			))
 			Expect(exprType).To(Equal(types.I64()))
+		})
+	})
+
+	Context("Qualified Function Calls", func() {
+		It("Should compile time.now() via qualified name", func() {
+			bytecode, exprType := compileWithAnalyzer(
+				"time.now()",
+				stl.SymbolResolver,
+			)
+			Expect(exprType).To(Equal(types.TimeStamp()))
+			Expect(bytecode).To(MatchOpcodes(
+				OpCall, uint32(0),
+			))
 		})
 	})
 })
