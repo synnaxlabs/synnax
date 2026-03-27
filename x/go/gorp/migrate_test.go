@@ -728,7 +728,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Version tracking", func() {
-			It("Should store version as uint16 big-endian", func() {
+			It("Should store applied migration names", func() {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				migration := gorp.NewRawMigration(
@@ -742,8 +742,7 @@ var _ = Describe("Gorp", func() {
 				versionKey := []byte("__gorp_migration__//entryV1")
 				b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
 				Expect(closer.Close()).To(Succeed())
-				Expect(b).To(HaveLen(2))
-				Expect(stdbinary.BigEndian.Uint16(b)).To(Equal(uint16(1)))
+				Expect(string(b)).To(Equal("noop"))
 			})
 
 			It("Should skip already-completed migrations on re-run", func() {
@@ -1125,6 +1124,170 @@ var _ = Describe("Gorp", func() {
 				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, cfg))
 				r := gorp.WrapReader[int32, entryV1](testDB, testDB)
 				Expect(MustSucceed(r.Get(ctx, 5)).Data).To(Equal("post_migration"))
+			})
+		})
+
+		Describe("WithDependencies", func() {
+			It("Should order migrations respecting declared dependencies", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				var order []string
+				m1 := gorp.NewRawMigration("alpha", func(context.Context, gorp.Tx) error {
+					order = append(order, "alpha")
+					return nil
+				})
+				m2 := gorp.WithDependencies(
+					gorp.NewRawMigration("beta", func(context.Context, gorp.Tx) error {
+						order = append(order, "beta")
+						return nil
+					}),
+					"alpha",
+				)
+				m3 := gorp.WithDependencies(
+					gorp.NewRawMigration("gamma", func(context.Context, gorp.Tx) error {
+						order = append(order, "gamma")
+						return nil
+					}),
+					"beta",
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m3, m2, m1},
+				}))
+				Expect(order).To(Equal([]string{"alpha", "beta", "gamma"}))
+			})
+
+			It("Should treat already-applied dependencies as satisfied", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				var order []string
+				m1 := gorp.NewRawMigration("first", func(context.Context, gorp.Tx) error {
+					order = append(order, "first")
+					return nil
+				})
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1},
+				}))
+				Expect(order).To(Equal([]string{"first"}))
+				m2 := gorp.WithDependencies(
+					gorp.NewRawMigration("second", func(context.Context, gorp.Tx) error {
+						order = append(order, "second")
+						return nil
+					}),
+					"first",
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2},
+				}))
+				Expect(order).To(Equal([]string{"first", "second"}))
+			})
+
+			It("Should detect cyclic dependencies", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				m1 := gorp.WithDependencies(
+					gorp.NewRawMigration("a", func(context.Context, gorp.Tx) error { return nil }),
+					"b",
+				)
+				m2 := gorp.WithDependencies(
+					gorp.NewRawMigration("b", func(context.Context, gorp.Tx) error { return nil }),
+					"a",
+				)
+				_, err := gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2},
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("cyclic dependency")))
+			})
+
+			It("Should return error for missing dependency", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				m1 := gorp.WithDependencies(
+					gorp.NewRawMigration("orphan", func(context.Context, gorp.Tx) error { return nil }),
+					"nonexistent",
+				)
+				_, err := gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1},
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("missing migration dependency")))
+				Expect(err).To(MatchError(ContainSubstring("nonexistent")))
+			})
+
+			It("Should work with migrations that do not declare dependencies", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				var order []string
+				m1 := gorp.NewRawMigration("plain_a", func(context.Context, gorp.Tx) error {
+					order = append(order, "plain_a")
+					return nil
+				})
+				m2 := gorp.NewRawMigration("plain_b", func(context.Context, gorp.Tx) error {
+					order = append(order, "plain_b")
+					return nil
+				})
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2},
+				}))
+				Expect(order).To(Equal([]string{"plain_a", "plain_b"}))
+			})
+
+			It("Should preserve insertion order for migrations without dependencies "+
+				"when mixed with dependency-declaring migrations", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				var order []string
+				m1 := gorp.NewRawMigration("no_dep", func(context.Context, gorp.Tx) error {
+					order = append(order, "no_dep")
+					return nil
+				})
+				m2 := gorp.WithDependencies(
+					gorp.NewRawMigration("has_dep", func(context.Context, gorp.Tx) error {
+						order = append(order, "has_dep")
+						return nil
+					}),
+					"no_dep",
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m2, m1},
+				}))
+				Expect(order).To(Equal([]string{"no_dep", "has_dep"}))
+			})
+		})
+
+		Describe("Backward compatibility", func() {
+			It("Should convert old uint16 format to name-based tracking", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				versionKey := []byte("__gorp_migration__//entryV1")
+				b := make([]byte, 2)
+				stdbinary.BigEndian.PutUint16(b, 2)
+				Expect(testDB.Set(ctx, versionKey, b)).To(Succeed())
+				var order []string
+				m1 := gorp.NewRawMigration("first", func(context.Context, gorp.Tx) error {
+					order = append(order, "first")
+					return nil
+				})
+				m2 := gorp.NewRawMigration("second", func(context.Context, gorp.Tx) error {
+					order = append(order, "second")
+					return nil
+				})
+				m3 := gorp.NewRawMigration("third", func(context.Context, gorp.Tx) error {
+					order = append(order, "third")
+					return nil
+				})
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2, m3},
+				}))
+				Expect(order).To(Equal([]string{"third"}))
 			})
 		})
 	})

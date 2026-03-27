@@ -526,19 +526,19 @@ func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", codec),
 {{- range $entry.SchemaChanges}}
 {{- if .IsIntermediate}}
-		gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
+		gorp.WithDependencies(gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
 			{{.ImportAlias}}.{{$entry.GoName}}Codec,
 			{{.NextImportAlias}}.{{$entry.GoName}}Codec,
 			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
-		),
+		), "{{.DependsOn}}"),
 {{- else}}
-		gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
+		gorp.WithDependencies(gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
 			{{.ImportAlias}}.{{$entry.GoName}}Codec,
 			codec,
 			Migrate{{$entry.GoName}},
-		),
+		), "{{.DependsOn}}"),
 {{- end}}
 {{- end}}
 	}
@@ -563,6 +563,7 @@ type migrateSchemaChange struct {
 	ImportAlias     string
 	IsIntermediate  bool
 	NextImportAlias string
+	DependsOn       string
 }
 
 func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot string) ([]byte, error) {
@@ -583,7 +584,14 @@ func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot st
 			importPath := gomod.ResolveImportPath(subPkg, repoRoot, "github.com/synnaxlabs/synnax/")
 			importSet[vDir] = versionImport{Alias: vDir, Path: importPath}
 			isLast := i == len(allVersions)-1
-			sc := migrateSchemaChange{Version: version, ImportAlias: vDir, IsIntermediate: !isLast}
+			dependsOn := "msgpack_to_binary"
+			if i > 0 {
+				dependsOn = fmt.Sprintf("v%d_schema_migration", allVersions[i-1])
+			}
+			sc := migrateSchemaChange{
+				Version: version, ImportAlias: vDir,
+				IsIntermediate: !isLast, DependsOn: dependsOn,
+			}
 			if !isLast {
 				sc.NextImportAlias = fmt.Sprintf("v%d", allVersions[i+1])
 			}
@@ -646,7 +654,11 @@ import (
 {{- end}}
 )
 {{range .Functions}}
-func Migrate{{.GoName}}(_ context.Context, old {{.OldTypeName}}, new {{.NewTypeName}}) ({{.NewTypeName}}, error) {
+func Migrate{{.GoName}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+	new, err := AutoMigrate{{.GoName}}(ctx, old)
+	if err != nil {
+		return {{.NewTypeName}}{}, err
+	}
 	// New/changed fields - set non-zero defaults if needed:
 {{- range .NewFields}}
 	// new.{{.}} is zero-valued

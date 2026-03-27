@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
@@ -253,5 +254,118 @@ func (m *rawMigration) Run(
 	cfg MigrationConfig,
 ) error {
 	return m.fn(ctx, WrapTx(kvTx, cfg.DBCodec))
+}
+
+// DependencyDeclarer is optionally implemented by Migration values that
+// need to run after specific other migrations.
+type DependencyDeclarer interface {
+	Dependencies() []string
+}
+
+// WithDependencies wraps a Migration to declare dependencies on other
+// migrations by name.
+func WithDependencies(m Migration, deps ...string) Migration {
+	return &dependentMigration{Migration: m, deps: deps}
+}
+
+type dependentMigration struct {
+	Migration
+	deps []string
+}
+
+func (d *dependentMigration) Dependencies() []string { return d.deps }
+
+// ErrCyclicDependency is returned when migrations form a dependency cycle.
+var ErrCyclicDependency = errors.New("cyclic dependency detected in migrations")
+
+// ErrMissingDependency is returned when a migration depends on a name that
+// does not exist in the migration list and has not already been applied.
+var ErrMissingDependency = errors.New("missing migration dependency")
+
+// topoSort filters out already-applied migrations, then produces a valid
+// execution order using Kahn's algorithm. Dependencies that are already applied
+// are considered satisfied and do not need to appear in the pending set.
+func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, error) {
+	byName := make(map[string]Migration, len(migrations))
+	for _, m := range migrations {
+		byName[m.Name()] = m
+	}
+
+	var pending []Migration
+	for _, m := range migrations {
+		if !applied[m.Name()] {
+			pending = append(pending, m)
+		}
+	}
+	if len(pending) == 0 {
+		return nil, nil
+	}
+
+	hasDeps := false
+	for _, m := range pending {
+		if _, ok := m.(DependencyDeclarer); ok {
+			hasDeps = true
+			break
+		}
+	}
+	if !hasDeps {
+		return pending, nil
+	}
+
+	pendingSet := make(map[string]bool, len(pending))
+	for _, m := range pending {
+		pendingSet[m.Name()] = true
+	}
+
+	inDegree := make(map[string]int, len(pending))
+	dependents := make(map[string][]string, len(pending))
+	for _, m := range pending {
+		name := m.Name()
+		if _, exists := inDegree[name]; !exists {
+			inDegree[name] = 0
+		}
+		if dd, ok := m.(DependencyDeclarer); ok {
+			for _, dep := range dd.Dependencies() {
+				if applied[dep] {
+					continue
+				}
+				if !pendingSet[dep] {
+					if _, known := byName[dep]; !known {
+						return nil, fmt.Errorf(
+							"%w: migration %q depends on %q which does not exist",
+							ErrMissingDependency, name, dep,
+						)
+					}
+				}
+				inDegree[name]++
+				dependents[dep] = append(dependents[dep], name)
+			}
+		}
+	}
+
+	var queue []string
+	for _, m := range pending {
+		if inDegree[m.Name()] == 0 {
+			queue = append(queue, m.Name())
+		}
+	}
+
+	var sorted []Migration
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		sorted = append(sorted, byName[name])
+		for _, dep := range dependents[name] {
+			inDegree[dep]--
+			if inDegree[dep] == 0 {
+				queue = append(queue, dep)
+			}
+		}
+	}
+
+	if len(sorted) != len(pending) {
+		return nil, fmt.Errorf("%w: not all migrations could be ordered", ErrCyclicDependency)
+	}
+	return sorted, nil
 }
 

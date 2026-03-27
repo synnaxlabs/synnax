@@ -878,6 +878,157 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 	})
 
+	Describe("Auto-copy signature", func() {
+		It("Should generate auto-copy functions with context and error propagation", func() {
+			oldSchema := `
+				@go output "out"
+				Key = uuid
+				Inner struct { value int32 }
+				Entry struct {
+					key Key     {@key}
+					inner Inner
+					@go migrate
+				}
+			`
+			newSchema := `
+				@go output "out"
+				Key = uuid
+				Inner struct { value int32  extra string }
+				Entry struct {
+					key Key     {@key}
+					inner Inner
+					@go migrate
+				}
+			`
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			content := fileContent(resp, "migrate_auto.gen.go")
+			Expect(content).To(ContainSubstring("context.Context"))
+			Expect(content).To(ContainSubstring("error"))
+			Expect(content).To(ContainSubstring("if err != nil"))
+		})
+	})
+
+	Describe("Unified template signature", func() {
+		It("Should generate sub-package template with (old) -> new signature calling AutoMigrate", func() {
+			loader.Add("schemas/dep", `
+				@go output "dep"
+				Item struct { name string }
+			`)
+			oldSchema := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					item dep.Item
+					@go migrate
+				}
+			`
+			newSchema := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					item dep.Item
+					label string
+					@go migrate
+				}
+			`
+			loader.Add("schemas/dep", `
+				@go output "dep"
+				Item struct { name string  priority int32 }
+			`)
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			tmpl := fileContent(resp, "dep/migrations/v1/migrate.go")
+			if tmpl != "" {
+				Expect(tmpl).To(ContainSubstring("func MigrateItem(_ context.Context, old Item) ("))
+				Expect(tmpl).To(ContainSubstring("AutoMigrateItem(old)"))
+				Expect(tmpl).NotTo(ContainSubstring("old Item, new"))
+			}
+		})
+	})
+
+	Describe("MigrateX wiring for TypeChanged types", func() {
+		It("Should call MigrateX instead of AutoMigrateX for TypeChanged external types", func() {
+			loader.Add("schemas/dep", `
+				@go output "dep"
+				Item struct { name string }
+			`)
+			oldDep := `
+				@go output "dep"
+				Item struct { name string }
+			`
+			newDep := `
+				@go output "dep"
+				Item struct { name string  priority int32 }
+			`
+			loader.Add("schemas/dep", oldDep)
+			oldSchema := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					item dep.Item
+					@go migrate
+				}
+			`
+			newSchema := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					item dep.Item
+					label string
+					@go migrate
+				}
+			`
+			oldTable := MustSucceed(analyze(ctx, oldSchema, "test", loader))
+			loader.Add("schemas/dep", newDep)
+			newTable := MustSucceed(analyze(ctx, newSchema, "test", loader))
+			req := &plugin.Request{
+				Resolutions:     newTable,
+				OldResolutions:  oldTable,
+				SnapshotVersion: 1,
+				RepoRoot:        loader.RepoRoot(),
+			}
+			resp := MustSucceed(p.Generate(req))
+			content := fileContent(resp, "out/migrate_auto.gen.go")
+			Expect(content).To(ContainSubstring(".MigrateItem"))
+			Expect(content).NotTo(ContainSubstring(".AutoMigrateItem"))
+		})
+	})
+
+	Describe("WithDependencies in migrate.gen.go", func() {
+		It("Should wrap schema migrations with gorp.WithDependencies", func() {
+			oldSchema := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					@go migrate
+				}
+			`
+			newSchema := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					@go migrate
+				}
+			`
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			content := fileContent(resp, "migrate.gen.go")
+			Expect(content).To(ContainSubstring("gorp.WithDependencies"))
+			Expect(content).To(ContainSubstring(`"msgpack_to_binary"`))
+		})
+	})
+
 	Describe("SchemaDiff", func() {
 		It("Should detect TypeChanged for added field", func() {
 			oldTable := MustSucceed(analyze(ctx, `@go output "out"

@@ -144,6 +144,17 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "migration generation failed")
 	}
 
+	// Detect first-time migrate.gen.go files before writing.
+	newMigrateGens := make(map[string]bool)
+	for _, f := range resp.Files {
+		if strings.HasSuffix(f.Path, "/migrate.gen.go") {
+			fullPath := filepath.Join(repoRoot, f.Path)
+			if _, statErr := os.Stat(fullPath); os.IsNotExist(statErr) {
+				newMigrateGens[f.Path] = true
+			}
+		}
+	}
+
 	// Write generated files and track what was generated.
 	written := 0
 	var templates []string
@@ -164,6 +175,10 @@ func runMigrate(cmd *cobra.Command) error {
 		for _, t := range templates {
 			printDim(fmt.Sprintf("  ✏️  %s ← edit this", t))
 		}
+	}
+	for path := range newMigrateGens {
+		pkg := filepath.Base(filepath.Dir(path))
+		printDim(fmt.Sprintf("  🔌 Wire %sMigrations(cfg.Codec) into your gorp.OpenTable call", strings.ToUpper(pkg[:1])+pkg[1:]))
 	}
 
 	// Delete files that were retargeted and moved.

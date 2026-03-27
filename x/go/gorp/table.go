@@ -14,6 +14,7 @@ import (
 	stdbinary "encoding/binary"
 	"io"
 	"iter"
+	"strings"
 
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
@@ -60,22 +61,20 @@ func OpenTable[K Key, E Entry[K]](
 	}()
 	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB}
 	if len(cfg.Migrations) > 0 {
-		currentVersion, err := readMigrationVersion(ctx, kvTx, versionKey)
+		applied, err := readAppliedMigrations(ctx, kvTx, versionKey, cfg.Migrations)
 		if err != nil {
 			return nil, err
 		}
-		for i := int(currentVersion); i < len(cfg.Migrations); i++ {
-			if err := cfg.Migrations[i].Run(ctx, kvTx, migCfg); err != nil {
-				return nil, errors.Wrapf(
-					err,
-					"migration %d (%s) failed",
-					i+1,
-					cfg.Migrations[i].Name(),
-				)
+		pending, err := topoSort(cfg.Migrations, applied)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range pending {
+			if err := m.Run(ctx, kvTx, migCfg); err != nil {
+				return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
 			}
-			if err := writeMigrationVersion(
-				ctx, kvTx, versionKey, uint16(i+1),
-			); err != nil {
+			applied[m.Name()] = true
+			if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
 				return nil, err
 			}
 		}
@@ -191,34 +190,55 @@ func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Co
 	return err
 }
 
-func readMigrationVersion(
+// readAppliedMigrations reads the set of applied migration names from the KV store.
+// It handles backward compatibility: if the stored value is exactly 2 bytes, it is
+// treated as the old uint16 index-based format and converted by marking the first N
+// migrations from the provided list as applied.
+func readAppliedMigrations(
 	ctx context.Context,
 	kvTx kv.Tx,
 	key []byte,
-) (uint16, error) {
+	migrations []Migration,
+) (map[string]bool, error) {
 	b, closer, err := kvTx.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
-			return 0, nil
+			return make(map[string]bool), nil
 		}
-		return 0, err
+		return nil, err
 	}
 	defer func() {
 		err = errors.Combine(err, closer.Close())
 	}()
-	if len(b) < 2 {
-		return 0, err
+	if len(b) == 2 {
+		count := int(stdbinary.BigEndian.Uint16(b))
+		applied := make(map[string]bool, count)
+		for i := 0; i < count && i < len(migrations); i++ {
+			applied[migrations[i].Name()] = true
+		}
+		return applied, err
 	}
-	return stdbinary.BigEndian.Uint16(b), err
+	names := strings.Split(string(b), "\n")
+	applied := make(map[string]bool, len(names))
+	for _, name := range names {
+		if name != "" {
+			applied[name] = true
+		}
+	}
+	return applied, err
 }
 
-func writeMigrationVersion(
+// writeAppliedMigrations persists the set of applied migration names as a
+// newline-delimited string.
+func writeAppliedMigrations(
 	ctx context.Context,
 	kvTx kv.Tx,
 	key []byte,
-	version uint16,
+	applied map[string]bool,
 ) error {
-	b := make([]byte, 2)
-	stdbinary.BigEndian.PutUint16(b, version)
-	return kvTx.Set(ctx, key, b)
+	names := make([]string, 0, len(applied))
+	for name := range applied {
+		names = append(names, name)
+	}
+	return kvTx.Set(ctx, key, []byte(strings.Join(names, "\n")))
 }

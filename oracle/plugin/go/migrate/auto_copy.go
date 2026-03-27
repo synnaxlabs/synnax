@@ -290,8 +290,6 @@ func (c *collector) castFunc(typ resolution.Type) funcData {
 	}
 }
 
-// structFuncFromForms builds a struct-literal function from old/new StructForms.
-// Used by both direct structs and alias/distinct types wrapping structs.
 func (c *collector) structFuncFromForms(
 	goName, oldTypeName, newTypeName string,
 	oldSF, newSF resolution.StructForm,
@@ -321,7 +319,6 @@ func (c *collector) structFuncFromForms(
 	return fn
 }
 
-// addField classifies a field and appends the result to the function.
 func (c *collector) addField(fn *funcData, ref resolution.TypeRef, accessor, goName string, isOptional bool) {
 	cls := c.classifyField(ref, accessor, goName, isOptional)
 	if cls.needsPreamble {
@@ -333,7 +330,6 @@ func (c *collector) addField(fn *funcData, ref resolution.TypeRef, accessor, goN
 	}
 }
 
-// sliceFunc generates a named-slice-type function (e.g., AutoMigrateParams).
 func (c *collector) sliceFunc(
 	typ resolution.Type,
 	goName, oldTypeName, newTypeName string,
@@ -373,14 +369,12 @@ func (c *collector) classifyField(
 	if !ok {
 		return classification{inline: accessor}
 	}
-	// Builtin generic Array
 	if bgf, ok := resolved.Form.(resolution.BuiltinGenericForm); ok {
 		if bgf.Name == "Array" && len(ref.TypeArgs) > 0 {
 			return c.classifySlice(ref.TypeArgs[0], accessor, goName, "[]")
 		}
 		return classification{inline: accessor}
 	}
-	// Alias/distinct wrapping Array
 	if elemRef, ok := arrayBaseRef(resolved); ok {
 		return c.classifySlice(elemRef, accessor, goName, c.resolveNewTypeName(resolved))
 	}
@@ -413,8 +407,6 @@ func (c *collector) classifyField(
 	return classification{inline: fmt.Sprintf("%s(%s)", newType, accessor)}
 }
 
-// classifySlice handles both anonymous (Array<T>) and named (Params) slice fields.
-// sliceTypePrefix is "[]" for anonymous slices, or the resolved alias name for named ones.
 func (c *collector) classifySlice(
 	elemRef resolution.TypeRef, accessor, goName, sliceTypePrefix string,
 ) classification {
@@ -466,8 +458,14 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		}
 		return "AutoMigrate" + goName
 	}
+	// For TypeChanged types in external packages, call MigrateX (the developer
+	// template) instead of AutoMigrateX, so developer customization takes effect.
+	prefix := "AutoMigrate"
+	if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == TypeChanged {
+		prefix = "Migrate"
+	}
 	imp := c.addImport(goPath)
-	return imp.Alias + ".AutoMigrate" + goName
+	return imp.Alias + "." + prefix + goName
 }
 
 func (c *collector) resolveTypeName(typ resolution.Type, table *resolution.Table) string {

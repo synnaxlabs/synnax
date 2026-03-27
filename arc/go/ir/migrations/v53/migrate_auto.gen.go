@@ -33,21 +33,21 @@ func AutoMigrateFunction(ctx context.Context, old Function) (ir.Function, error)
 	config := make(types.Params, len(old.Config))
 	for i, v := range old.Config {
 		var err error
-		if config[i], err = typesv53.AutoMigrateParam(ctx, v); err != nil {
+		if config[i], err = typesv53.MigrateParam(ctx, v); err != nil {
 			return ir.Function{}, err
 		}
 	}
 	inputs := make(types.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
-		if inputs[i], err = typesv53.AutoMigrateParam(ctx, v); err != nil {
+		if inputs[i], err = typesv53.MigrateParam(ctx, v); err != nil {
 			return ir.Function{}, err
 		}
 	}
 	outputs := make(types.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
-		if outputs[i], err = typesv53.AutoMigrateParam(ctx, v); err != nil {
+		if outputs[i], err = typesv53.MigrateParam(ctx, v); err != nil {
 			return ir.Function{}, err
 		}
 	}
@@ -119,21 +119,21 @@ func AutoMigrateNode(ctx context.Context, old Node) (ir.Node, error) {
 	config := make(types.Params, len(old.Config))
 	for i, v := range old.Config {
 		var err error
-		if config[i], err = typesv53.AutoMigrateParam(ctx, v); err != nil {
+		if config[i], err = typesv53.MigrateParam(ctx, v); err != nil {
 			return ir.Node{}, err
 		}
 	}
 	inputs := make(types.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
-		if inputs[i], err = typesv53.AutoMigrateParam(ctx, v); err != nil {
+		if inputs[i], err = typesv53.MigrateParam(ctx, v); err != nil {
 			return ir.Node{}, err
 		}
 	}
 	outputs := make(types.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
-		if outputs[i], err = typesv53.AutoMigrateParam(ctx, v); err != nil {
+		if outputs[i], err = typesv53.MigrateParam(ctx, v); err != nil {
 			return ir.Node{}, err
 		}
 	}

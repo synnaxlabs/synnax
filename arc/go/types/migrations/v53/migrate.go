@@ -17,7 +17,11 @@ import (
 	types "github.com/synnaxlabs/arc/types"
 )
 
-func MigrateParam(_ context.Context, old Param, new types.Param) (types.Param, error) {
+func MigrateParam(ctx context.Context, old Param) (types.Param, error) {
+	new, err := AutoMigrateParam(ctx, old)
+	if err != nil {
+		return types.Param{}, err
+	}
 	// New/changed fields - set non-zero defaults if needed:
 	// new.Priority is zero-valued
 	return new, nil
