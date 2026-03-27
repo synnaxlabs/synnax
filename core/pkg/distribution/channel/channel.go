@@ -86,18 +86,19 @@ func KeysFromUint32(keys []uint32) Keys {
 	return unsafe.ReinterpretSlice[uint32, Key](keys)
 }
 
-// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.ID(s). This
-// function will skip any ontology.ID(s) that are not of the correct type.
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs. This
+// function will skip any ontology.IDs that are not of the correct type.
 func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
 	keys := make(Keys, 0, len(ids))
 	for _, id := range ids {
-		if id.Type == ontology.TypeChannel {
-			key, err := ParseKey(id.Key)
-			if err != nil {
-				return nil, err
-			}
-			keys = append(keys, key)
+		if id.Type != ontology.TypeChannel {
+			continue
 		}
+		key, err := ParseKey(id.Key)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
 	}
 	return keys, nil
 }
@@ -115,25 +116,13 @@ func (k Keys) UniqueLeaseholders() []cluster.NodeKey {
 	})
 }
 
-func (k Keys) Local() []LocalKey {
-	return lo.Map(k, func(k Key, _ int) LocalKey { return k.LocalKey() })
-}
-
-// Strings returns the keys as a slice of strings.
-func (k Keys) Strings() []string {
-	return lo.Map(k, func(key Key, _ int) string { return key.String() })
-}
-
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
 
 // Unique removes duplicate keys from the slice and returns the result.
 func (k Keys) Unique() Keys { return lo.Uniq(k) }
 
-// Difference compares two sets of keys and returns the keys that are absent in other
-// followed by the keys that are absent in k.
-func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
-
+// IsCalculated returns true if the channel is a calculated channel, false otherwise.
 func (c Channel) IsCalculated() bool { return c.Expression != "" }
 
 // Equals returns true if the two channels are meaningfully equal to each other. If the

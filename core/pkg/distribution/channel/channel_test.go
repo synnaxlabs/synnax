@@ -149,12 +149,6 @@ var _ = Describe("Channel Tests", func() {
 				Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
 			})
 		})
-		Describe("Strings", func() {
-			It("Should return the keys as a slice of strings", func() {
-				keys := channel.Keys{1, 2, 3}
-				Expect(keys.Strings()).To(Equal([]string{"1", "2", "3"}))
-			})
-		})
 		Describe("Contains", func() {
 			It("Should return true if the slice contains the given key", func() {
 				keys := channel.Keys{1, 2, 3}
@@ -169,15 +163,6 @@ var _ = Describe("Channel Tests", func() {
 			It("Should remove duplicate keys from the slice and return the result", func() {
 				keys := channel.Keys{1, 2, 3, 2, 1}
 				Expect(keys.Unique()).To(Equal(channel.Keys{1, 2, 3}))
-			})
-		})
-		Describe("Difference", func() {
-			It("Should return the keys that are absent in other followed by the keys that are absent in k", func() {
-				k := channel.Keys{1, 2, 3}
-				other := channel.Keys{2, 3, 4}
-				added, removed := k.Difference(other)
-				Expect(added).To(Equal(channel.Keys{1}))
-				Expect(removed).To(Equal(channel.Keys{4}))
 			})
 		})
 	})
