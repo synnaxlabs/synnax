@@ -24,7 +24,7 @@ export default defineConfig({
         tauri: path.resolve(".", "src/tauri/index.ts"),
       },
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         "react",
         "react-dom",

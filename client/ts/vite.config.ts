@@ -17,7 +17,7 @@ import packageJSON from "./package.json";
 export default defineConfig({
   define: { __VERSION__: JSON.stringify(packageJSON.version) },
   plugins: [lib({ name: "client" })],
-  build: { rollupOptions: { external: ["zod"] } },
+  build: { rolldownOptions: { external: ["zod"] } },
   test: {
     globals: true,
     exclude: ["**/node_modules/**", "**/dist/**"],

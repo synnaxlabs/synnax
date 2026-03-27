@@ -58,7 +58,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@codingame/esbuild-import-meta-url-plugin": "^1.0.3",
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
@@ -77,7 +76,6 @@
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "catalog:"
   }
 }

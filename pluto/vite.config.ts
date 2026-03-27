@@ -55,7 +55,7 @@ export default defineConfig({
         color: path.resolve(".", "src/color/index.ts"),
       },
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         "react",
         "react-dom",
@@ -65,6 +65,7 @@ export default defineConfig({
         "@synnaxlabs/client",
         "@synnaxlabs/alamos",
         "@synnaxlabs/freighter",
+        "@synnaxlabs/media",
       ],
       output: {
         globals: {

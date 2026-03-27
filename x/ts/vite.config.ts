@@ -15,7 +15,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "/x/",
   plugins: [lib({ name: "x" })],
-  build: { rollupOptions: { external: ["zod"] } },
+  build: { rolldownOptions: { external: ["zod"] } },
   test: {
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {

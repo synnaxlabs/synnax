@@ -54,14 +54,14 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/drift.cjs.js",
-  "module": "./dist/drift.es.js",
+  "main": "./dist/drift.cjs",
+  "module": "./dist/drift.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/drift.js",
+      "require": "./dist/drift.cjs"
     },
     "./react": {
       "types": "./dist/src/react/index.d.ts",

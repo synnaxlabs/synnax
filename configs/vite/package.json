@@ -19,7 +19,6 @@
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "eslint": "catalog:",
-    "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-dts": "^4.5.4"
   },

@@ -22,7 +22,7 @@ catalog:
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.2.14
   '@types/react-dom': ^19.2.3
-  '@vitejs/plugin-react': ^5.2.0
+  '@vitejs/plugin-react': ^6.0.1
   '@vitest/coverage-v8': ^4.1.2
   async-mutex: ^0.5.0
   clsx: ^2.1.1
@@ -39,6 +39,6 @@ catalog:
   stylelint: ^17.6.0
   stylelint-config-standard: ^40.0.0
   typescript: ^5.9.3
-  vite: ^7.3.1
+  vite: ^8.0.3
   vitest: ^4.1.2
   zod: ^4.3.6
