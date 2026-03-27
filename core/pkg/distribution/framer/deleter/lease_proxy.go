@@ -12,13 +12,13 @@ package deleter
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -43,39 +43,17 @@ func (lp *leaseProxy) deleteTimeRange(
 	tr telem.TimeRange,
 ) error {
 	batch := lp.keyRouter.Batch(keys)
+	sCtx, cancel := signal.WithCancel(ctx)
+	defer cancel()
 	for nodeKey, entries := range batch.Peers {
-		err := lp.deleteTimeRangeRemote(ctx, nodeKey, entries, tr)
-		if err != nil {
-			return err
-		}
+		sCtx.Go(func(ctx context.Context) error {
+			return lp.deleteTimeRangeRemote(ctx, nodeKey, entries, tr)
+		})
 	}
-
-	return lp.deleteTimeRangeGateway(ctx, batch.Gateway, tr)
-}
-
-func (lp *leaseProxy) deleteTimeRangeByName(
-	ctx context.Context,
-	channelSvc *channel.Service,
-	names []string,
-	tr telem.TimeRange,
-) error {
-	res := make([]channel.Channel, 0, len(names))
-	if err := channelSvc.
-		NewRetrieve().
-		Entries(&res).
-		WhereNames(names...).
-		Exec(ctx, nil); err != nil {
-		return err
-	}
-
-	resultNames := lo.Map(res, func(item channel.Channel, _ int) string { return item.Name })
-	if len(lo.Uniq(resultNames)) < len(names) {
-		_, diff := lo.Difference(names, resultNames)
-		return errors.Wrapf(ts.ErrChannelNotFound, "channel(s) %s not found", diff)
-	}
-
-	keys := channel.KeysFromChannels(res)
-	return lp.deleteTimeRange(ctx, keys, tr)
+	sCtx.Go(func(ctx context.Context) error {
+		return lp.deleteTimeRangeGateway(ctx, batch.Gateway, tr)
+	})
+	return sCtx.Wait()
 }
 
 func (lp *leaseProxy) deleteTimeRangeRemote(

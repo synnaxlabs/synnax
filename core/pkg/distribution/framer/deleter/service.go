@@ -10,23 +10,22 @@
 package deleter
 
 import (
+	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Service struct {
-	channel *channel.Service
-	Deleter
-	proxy *leaseProxy
-}
+type Service struct{ proxy *leaseProxy }
 
 type ServiceConfig struct {
 	HostResolver cluster.HostResolver
-	Channel      *channel.Service
 	TSChannel    *ts.DB
 	Transport    Transport
 }
@@ -37,8 +36,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.deleter")
 	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "ts_channel", c.TSChannel)
-	validate.NotNil(v, "aspen_transport", c.Transport)
-	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "transport", c.Transport)
 	return v.Error()
 }
 
@@ -46,14 +44,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
 	c.Transport = override.Nil(c.Transport, other.Transport)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
-var DefaultServiceConfig = ServiceConfig{}
-
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -61,14 +56,21 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{
-		proxy:   proxy,
-		channel: cfg.Channel,
-	}
-	s.Deleter = s.New()
-	return s, nil
+	cfg.Transport.Server().BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
+		return types.Nil{}, cfg.TSChannel.DeleteTimeRange(ctx, req.Keys.Storage(), req.Bounds)
+	})
+	return &Service{proxy: proxy}, nil
 }
 
-func (s *Service) New() Deleter {
-	return Deleter{proxy: s.proxy, channel: s.channel}
+// DeleteTimeRange deletes a time range in the specified channels. It is idempotent: if
+// no data is found in the range, that channel is skipped.
+//
+// It is NOT atomic: if any deletion fails after others have succeeded, the operation is
+// abandoned midway.
+func (s *Service) DeleteTimeRange(
+	ctx context.Context,
+	keys channel.Keys,
+	tr telem.TimeRange,
+) error {
+	return s.proxy.deleteTimeRange(ctx, keys, tr)
 }

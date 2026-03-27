@@ -26,9 +26,12 @@ func newBroadcaster() *broadcaster {
 	return b
 }
 
-func (b *broadcaster) transform(ctx context.Context, in Request) (out Request, ok bool, err error) {
+func (b *broadcaster) transform(
+	ctx context.Context,
+	in Request,
+) (out Request, ok bool, err error) {
+	b.seqNum++
 	out = in
 	out.SeqNum = b.seqNum
-	b.seqNum++
 	return out, true, nil
 }

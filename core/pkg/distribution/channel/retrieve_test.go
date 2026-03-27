@@ -229,6 +229,32 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 	})
 
+	Describe("ResolveNames", func() {
+		It("Should resolve a single name to its key", func() {
+			n := channel.NewRandomName()
+			created := []channel.Channel{{Virtual: true, DataType: telem.Float32T, Name: n}}
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			keys := MustSucceed(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{n}))
+			Expect(keys).To(HaveLen(1))
+			Expect(keys[0]).To(Equal(created[0].Key()))
+		})
+		It("Should resolve multiple names to their keys", func() {
+			n1, n2 := channel.NewRandomName(), channel.NewRandomName()
+			created := []channel.Channel{
+				{Virtual: true, DataType: telem.Float32T, Name: n1},
+				{Virtual: true, DataType: telem.Float32T, Name: n2},
+			}
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			keys := MustSucceed(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{n1, n2}))
+			Expect(keys).To(HaveLen(2))
+			Expect(keys).To(ConsistOf(created[0].Key(), created[1].Key()))
+		})
+		It("Should return empty keys for an empty name list", func() {
+			keys := MustSucceed(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{}))
+			Expect(keys).To(BeEmpty())
+		})
+	})
+
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {
 			created := []channel.Channel{

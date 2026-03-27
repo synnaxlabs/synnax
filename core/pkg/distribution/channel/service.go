@@ -131,6 +131,19 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
+// ResolveNames resolves a list of channel names to their keys. If any name is not
+// found, an error wrapping query.ErrNotFound is returned and no keys are returned.
+func (s *Service) ResolveNames(ctx context.Context, names []string) (Keys, error) {
+	var channels []Channel
+	if err := s.NewRetrieve().
+		Entries(&channels).
+		WhereNames(names...).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return KeysFromChannels(channels), nil
+}
+
 // CountExternalNonVirtual returns the number of external non-virtual channels in the
 // service.
 func (s *Service) CountExternalNonVirtual() uint32 {
