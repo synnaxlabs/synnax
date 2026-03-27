@@ -38,15 +38,18 @@ import (
 )
 
 type mockFactory struct {
-	configureFunc func(t task.Task) (driver.Task, bool, error)
+	configureFunc func(task.Task) (driver.Task, error)
 	name          string
 }
 
-func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task, bool, error) {
+func (f *mockFactory) ConfigureTask(
+	_ driver.Context,
+	t task.Task,
+) (driver.Task, error) {
 	if f.configureFunc != nil {
 		return f.configureFunc(t)
 	}
-	return nil, false, nil
+	return nil, driver.ErrTaskNotHandled
 }
 
 func (f *mockFactory) Name() string { return f.name }
@@ -64,14 +67,12 @@ func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
 	return nil
 }
 
-func (t *mockTask) Stop(_ bool) error {
+func (t *mockTask) Stop() error {
 	if t.stopFunc != nil {
 		return t.stopFunc()
 	}
 	return nil
 }
-
-func (t *mockTask) Key() task.Key { return t.key }
 
 var _ = Describe("Config", Ordered, func() {
 	var (
@@ -118,41 +119,41 @@ var _ = Describe("Config", Ordered, func() {
 	Describe("Validate", func() {
 		It("should fail when DB is nil", func() {
 			cfg := driver.Config{
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
 
 		It("should fail when Rack is nil", func() {
 			cfg := driver.Config{
-				DB:      db,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        db,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
 
 		It("should fail when Task is nil", func() {
 			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        db,
+				Rack:      rackService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
 
-		It("should fail when Factory is nil", func() {
+		It("should fail when Factories is empty", func() {
 			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
@@ -166,12 +167,12 @@ var _ = Describe("Config", Ordered, func() {
 
 		It("should fail when Host is zero", func() {
 			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
+				DB:        db,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
@@ -191,14 +192,14 @@ var _ = Describe("Driver", Ordered, func() {
 
 	openDriver := func(factory driver.Factory) *driver.Driver {
 		driver := MustSucceed(driver.Open(ctx, driver.Config{
-			DB:      dist.DB,
-			Rack:    rackService,
-			Task:    taskService,
-			Framer:  framerSvc,
-			Channel: channelSvc,
-			Status:  statusSvc,
-			Factory: factory,
-			Host:    hostProvider,
+			DB:        dist.DB,
+			Rack:      rackService,
+			Task:      taskService,
+			Framer:    framerSvc,
+			Channel:   channelSvc,
+			Status:    statusSvc,
+			Factories: []driver.Factory{factory},
+			Host:      hostProvider,
 		}))
 		DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 		return driver
@@ -285,10 +286,10 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredTask atomic.Value
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					mt := &mockTask{key: t.Key}
 					configuredTask.Store(mt)
-					return mt, true, nil
+					return mt, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -297,7 +298,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
 			Eventually(func() bool { return configuredTask.Load() != nil }).Should(BeTrue())
-			Expect(configuredTask.Load().(*mockTask).Key()).To(Equal(t.Key))
+			Expect(configuredTask.Load().(*mockTask).key).To(Equal(t.Key))
 		})
 
 		It("should stop existing task before reconfiguration", func() {
@@ -308,7 +309,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -318,7 +319,7 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -342,9 +343,9 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configuredCount.Add(1)
-					return &mockTask{key: t.Key}, true, nil
+					return &mockTask{key: t.Key}, nil
 				},
 			}
 			openDriver(factory)
@@ -368,12 +369,12 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(initialReady) })
 					return &mockTask{
 						key:      t.Key,
 						stopFunc: func() error { stopped.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -396,9 +397,9 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configureCalled.Store(true)
-					return nil, false, nil
+					return nil, driver.ErrTaskNotHandled
 				},
 			}
 			driver := openDriver(factory)
@@ -420,9 +421,9 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configCalled.Store(true)
-					return nil, true, errors.New("factory configuration failed")
+					return nil, errors.New("factory configuration failed")
 				},
 			}
 			driver := openDriver(factory)
@@ -445,7 +446,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -455,7 +456,7 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return errors.New("stop failed")
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -479,21 +480,21 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configuredTasks.Store(t.Key, true)
-					return &mockTask{key: t.Key}, true, nil
+					return &mockTask{key: t.Key}, nil
 				},
 			}
 
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 			rackKey := d1.RackKey()
 
@@ -520,14 +521,14 @@ var _ = Describe("Driver", Ordered, func() {
 			configuredTasks = sync.Map{}
 
 			d2 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
 
@@ -553,7 +554,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
 						if configCount.Add(1) == expectedTasks {
 							closeOnce.Do(func() { close(allConfigured) })
@@ -567,19 +568,19 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 
 			for range expectedTasks {
@@ -603,24 +604,24 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key:      t.Key,
 						stopFunc: func() error { stopCalled.Store(true); return errors.New("stop failed") },
-					}, true, nil
+					}, nil
 				},
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 
 			t := newTask(driver.RackKey())
@@ -648,7 +649,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
@@ -674,7 +675,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
@@ -711,7 +712,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
@@ -771,7 +772,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
@@ -780,7 +781,7 @@ var _ = Describe("Driver", Ordered, func() {
 							receivedCmd.Store(cmd)
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -809,11 +810,11 @@ var _ = Describe("Driver", Ordered, func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					return &mockTask{
 						key:      t.Key,
 						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -835,11 +836,11 @@ var _ = Describe("Driver", Ordered, func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					return &mockTask{
 						key:      t.Key,
 						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
 			openDriver(factory)
@@ -867,7 +868,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
@@ -875,7 +876,7 @@ var _ = Describe("Driver", Ordered, func() {
 							execCalled.Store(true)
 							return errors.New("execution failed")
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)

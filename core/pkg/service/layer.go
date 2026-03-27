@@ -380,7 +380,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          cfg.Distribution.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factory:         arcFactory,
+		Factories:       []driver.Factory{arcFactory},
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err

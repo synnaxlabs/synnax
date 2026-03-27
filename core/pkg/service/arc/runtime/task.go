@@ -11,6 +11,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -46,7 +47,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
@@ -73,20 +73,20 @@ type taskImpl struct {
 	closer io.Closer
 }
 
+var _ driver.Task = (*taskImpl)(nil)
+
 func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.stop()
+		return t.Stop()
 	default:
-		return errors.Newf("invalid command %s received for arc task", cmd)
+		return driver.ErrUnsupportedCommand
 	}
 }
 
-func (t *taskImpl) isRunning() bool {
-	return t.closer != nil
-}
+func (t *taskImpl) isRunning() bool { return t.closer != nil }
 
 func (t *taskImpl) start(ctx context.Context) (err error) {
 	if t.isRunning() {
@@ -315,7 +315,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	return nil
 }
 
-func (t *taskImpl) stop() error {
+func (t *taskImpl) Stop() error {
 	if !t.isRunning() {
 		return nil
 	}
@@ -328,12 +328,6 @@ func (t *taskImpl) stop() error {
 	t.setStatus(status.VariantSuccess, false, "Task stopped successfully")
 	return nil
 }
-
-func (t *taskImpl) Stop(bool) error {
-	return t.stop()
-}
-
-func (t *taskImpl) Key() task.Key { return t.task.Key }
 
 func (t *taskImpl) setStatus(variant status.Variant, running bool, message string) {
 	stat := task.Status{

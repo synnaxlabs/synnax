@@ -83,7 +83,7 @@ var _ = Describe("Task", Ordered, func() {
 		return driver.NewContext(ctx, statusSvc)
 	}
 
-	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
+	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 			Channel:    svcchannel.Wrap(dist.Channel),
 			Framer:     dist.Framer,
@@ -92,7 +92,7 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 	}
 
-	newGraphFactory := func(g graph.Graph) *runtime.Factory {
+	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
 			resolver := symbol.NewResolver(dist.Channel, nil)
 			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
@@ -103,7 +103,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
-	newTextFactory := func(prof arc.Text) *runtime.Factory {
+	newTextFactory := func(prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := symbol.NewResolver(dist.Channel, nil)
 			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
@@ -121,15 +121,14 @@ var _ = Describe("Task", Ordered, func() {
 		return cfgMap
 	}
 
-	newTask := func(factory *runtime.Factory) driver.Task {
+	newTask := func(factory driver.Factory) driver.Task {
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
 			Name:   "test-task",
 			Type:   runtime.TaskType,
 			Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 		}
-		t := MustBeOk(MustSucceed2(factory.ConfigureTask(newContext(), svcTask)))
-		return t
+		return MustSucceed(factory.ConfigureTask(newContext(), svcTask))
 	}
 
 	simpleGraph := func(chKey channel.Key) graph.Graph {
@@ -217,7 +216,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	Describe("Factory.ConfigureTask", func() {
-		It("Should return false for non-arc task types", func() {
+		It("Should return ErrTaskNotHandled for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel: svcchannel.Wrap(dist.Channel),
 				Framer:  dist.Framer,
@@ -231,9 +230,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   "not-arc",
 				Config: map[string]any{},
 			}
-			t, handled := MustSucceed2(factory.ConfigureTask(newContext(), svcTask))
-			Expect(handled).To(BeFalse())
-			Expect(t).To(BeNil())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(driver.ErrTaskNotHandled))
 		})
 
 		It("Should create Task for arc type", func() {
@@ -255,10 +253,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			task, ok, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(HaveOccurred())
-			Expect(ok).To(BeTrue())
-			Expect(task).To(BeNil())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(HaveOccurred())
 		})
 
 		It("Should return error when CompileProgram fails", func() {
@@ -273,10 +269,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(query.ErrNotFound))
-			Expect(handled).To(BeTrue())
-			Expect(t).To(BeNil())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should set error status when config is invalid", func() {
@@ -292,8 +286,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			_, _, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(HaveOccurred())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -316,8 +310,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			_, _, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -340,13 +334,12 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			t, handled := MustSucceed2(
+			t := MustSucceed(
 				newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(newContext(), svcTask),
 			)
-			Expect(handled).To(BeTrue())
 			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -372,13 +365,11 @@ var _ = Describe("Task", Ordered, func() {
 					AutoStart: true,
 				}),
 			}
-			t, handled := MustSucceed2(newGraphFactory(
+			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key())).
-				ConfigureTask(newContext(), svcTask),
-			)
-			Expect(handled).To(BeTrue())
+				ConfigureTask(newContext(), svcTask))
 			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -404,7 +395,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		AfterEach(func() {
 			if arcTask != nil {
-				Expect(arcTask.Stop(false)).To(Succeed())
+				Expect(arcTask.Stop()).To(Succeed())
 			}
 		})
 
@@ -423,8 +414,8 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should be idempotent on stop", func() {
-			Expect(arcTask.Stop(false)).To(Succeed())
-			Expect(arcTask.Stop(false)).To(Succeed())
+			Expect(arcTask.Stop()).To(Succeed())
+			Expect(arcTask.Stop()).To(Succeed())
 		})
 
 		It("Should support restart after stop", func() {
@@ -435,11 +426,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for unknown command type", func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "unknown"})).
-				Error().To(MatchError(ContainSubstring("invalid command")))
-		})
-
-		It("Should return correct task key", func() {
-			Expect(arcTask.Key()).ToNot(Equal(task.Key(0)))
+				Error().To(MatchError(ContainSubstring("unsupported command")))
 		})
 	})
 
@@ -454,9 +441,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			_, ok, err := newGraphFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
-			Expect(ok).To(BeTrue())
-			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+			Expect(newGraphFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)).
+				Error().To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
 
@@ -509,7 +495,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newGraphFactory(alarmGraph))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 
@@ -560,7 +546,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -600,7 +586,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -632,7 +618,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -665,7 +651,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var (
 				fr     framer.StreamerResponse
@@ -699,7 +685,7 @@ var _ = Describe("Task", Ordered, func() {
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			time.Sleep(50 * time.Millisecond)
-			Expect(t.Stop(false)).To(Succeed())
+			Expect(t.Stop()).To(Succeed())
 		})
 	})
 
@@ -721,7 +707,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -753,7 +739,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -784,7 +770,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -818,7 +804,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -859,7 +845,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -895,7 +881,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -949,7 +935,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1012,7 +998,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -1041,7 +1027,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			startW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
@@ -1101,7 +1087,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			startW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
@@ -1162,10 +1148,10 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
+			t := MustSucceed(newTextFactory(prog).ConfigureTask(newContext(), svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() {
-				Expect(t.Stop(false)).To(Succeed())
+				Expect(t.Stop()).To(Succeed())
 			}()
 
 			time.Sleep(20 * time.Millisecond)
@@ -1223,7 +1209,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 
@@ -1283,13 +1269,13 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
+			t := MustSucceed(newTextFactory(prog).ConfigureTask(newContext(), svcTask))
 
 			responses, closeStreamer := openTestStreamer(channel.Keys{outputCh.Key()}, 5)
 			defer closeStreamer()
 
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 

@@ -56,8 +56,8 @@ type commandSink struct {
 	driver *Driver
 }
 
-// Open creates and starts a new Go driver. The driver is fully initialized and ready
-// to receive task changes when this function returns. Background goroutines for command
+// Open creates and starts a new Go driver. The driver is fully initialized and ready to
+// receive task changes when this function returns. Background goroutines for command
 // streaming are started automatically.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -81,10 +81,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
+	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
 	d.startHeartbeat()
-	d.configureInitialTasks(ctx)
+	d.configureExistingTasks(ctx)
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
@@ -115,8 +115,8 @@ func (d *Driver) startHeartbeat() {
 		})
 }
 
-// startCommandStreaming initializes the command channel streamer. This is optional
-// and will log warnings if the command channel doesn't exist or streaming fails.
+// startCommandStreaming initializes the command channel streamer. This is optional and
+// will log warnings if the command channel doesn't exist or streaming fails.
 func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdownCommands = signal.NewGracefulShutdown(sCtx, cancel)
@@ -127,7 +127,9 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 		return err
 	}
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "streamer", streamer)
+	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](
+		p, "streamer", streamer,
+	)
 	sink := &commandSink{driver: d}
 	sink.Sink = sink.process
 	plumber.SetSink[framer.StreamerResponse](p, "driver", sink)
@@ -159,13 +161,23 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			t, ok := d.mu.tasks[cmd.Task]
 			d.mu.RUnlock()
 			if !ok {
-				d.cfg.L.Warn("received command for unknown task", zap.Stringer("task", cmd.Task))
+				d.cfg.L.Warn(
+					"received command for unknown task",
+					zap.Stringer("task", cmd.Task),
+				)
 				continue
 			}
 			if err := t.Exec(ctx, cmd); err != nil {
+				if errors.Is(err, ErrUnsupportedCommand) {
+					d.cfg.L.Warn(
+						"unsupported command",
+						zap.Stringer("command", cmd),
+						zap.Stringer("task", cmd.Task),
+					)
+					continue
+				}
 				d.cfg.L.Error("failed to execute command",
-					zap.Stringer("task", cmd.Task),
-					zap.String("type", cmd.Type),
+					zap.Stringer("command", cmd),
 					zap.Error(err),
 				)
 			}
@@ -173,29 +185,32 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 	}
 }
 
-func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task.Key, task.Task]) {
+func (d *Driver) handleTaskChange(
+	ctx context.Context,
+	reader gorp.TxReader[task.Key, task.Task],
+) {
 	for ch := range reader {
 		if ch.Key.Rack() == d.rack.Key {
 			if ch.Variant == change.VariantSet {
 				d.configure(ctx, ch.Value)
 			} else {
-				d.delete(ctx, ch.Key)
+				d.delete(ch.Key)
 			}
 		}
 	}
 }
 
-func (d *Driver) configureInitialTasks(ctx context.Context) {
+func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
 		WhereRacks(d.rack.Key).
 		WhereSnapshot(false).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		d.cfg.L.Error("failed to retrieve initial tasks", zap.Error(err))
+		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))
 		return
 	}
-	d.cfg.L.Info("configuring initial tasks", zap.Int("count", len(tasks)))
+	d.cfg.L.Info("configuring existing tasks", zap.Int("count", len(tasks)))
 	for _, t := range tasks {
 		d.configure(ctx, t)
 	}
@@ -205,47 +220,45 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if existing, ok := d.mu.tasks[t.Key]; ok {
-		if err := existing.Stop(true); err != nil {
+		if err := existing.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
-				zap.Stringer("task", t.Key),
+				zap.Stringer("task", t),
 				zap.Error(err),
 			)
 		}
 		delete(d.mu.tasks, t.Key)
 	}
 	taskCtx := NewContext(ctx, d.cfg.Status)
-	newTask, ok, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
-	if err != nil {
-		d.cfg.L.Error("factory failed to configure task",
-			zap.Stringer("task", t.Key),
-			zap.String("type", t.Type),
-			zap.Error(err),
-		)
+
+	for _, factory := range d.cfg.Factories {
+		newTask, err := factory.ConfigureTask(taskCtx, t)
+		if errors.Is(err, ErrTaskNotHandled) {
+			continue
+		}
+		if err != nil {
+			d.cfg.L.Error(
+				"failed to configure task",
+				zap.String("factory", factory.Name()),
+				zap.Stringer("task", t),
+				zap.Error(err),
+			)
+			return
+		}
+		d.mu.tasks[t.Key] = newTask
+		d.cfg.L.Info("configured task", zap.Stringer("task", t))
 		return
 	}
-	if !ok {
-		d.cfg.L.Warn("no factory handled task type",
-			zap.Stringer("task", t.Key),
-			zap.String("type", t.Type),
-		)
-		return
-	}
-	d.mu.tasks[t.Key] = newTask
-	d.cfg.L.Info("configured task",
-		zap.Stringer("task", t.Key),
-		zap.String("type", t.Type),
-		zap.String("name", t.Name),
-	)
+	d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
 }
 
-func (d *Driver) delete(ctx context.Context, key task.Key) {
+func (d *Driver) delete(key task.Key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	t, ok := d.mu.tasks[key]
 	if !ok {
 		return
 	}
-	if err := t.Stop(false); err != nil {
+	if err := t.Stop(); err != nil {
 		d.cfg.L.Error("failed to stop task during deletion",
 			zap.Stringer("task", key),
 			zap.Error(err),
@@ -255,26 +268,23 @@ func (d *Driver) delete(ctx context.Context, key task.Key) {
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
-func (d *Driver) RackKey() rack.Key {
-	return d.rack.Key
-}
+func (d *Driver) RackKey() rack.Key { return d.rack.Key }
 
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
-		if err := t.Stop(false); err != nil {
+		if err := t.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop task during shutdown",
 				zap.Stringer("task", key),
 				zap.Error(err),
 			)
 		}
 	}
-	d.mu.tasks = nil
+	clear(d.mu.tasks)
 	d.mu.Unlock()
 	d.disconnectObserver()
 	if d.streamerRequests != nil {
 		d.streamerRequests.Close()
 	}
-	heartbeatErr := d.shutdownHeartbeat.Close()
-	return errors.Combine(d.shutdownCommands.Close(), heartbeatErr)
+	return errors.Combine(d.shutdownCommands.Close(), d.shutdownHeartbeat.Close())
 }
