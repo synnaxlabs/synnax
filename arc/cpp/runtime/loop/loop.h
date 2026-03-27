@@ -47,6 +47,11 @@ inline const x::telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = x::telem::MILLISECOND
 /// Intervals below 1ms require precise software timing.
 inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 
+/// @brief Upper bound for preferring RT_EVENT on RT-capable systems. Intervals
+/// between HIGH_RATE_THRESHOLD and this value use RT_EVENT when RT scheduling
+/// is available, falling through to HYBRID otherwise.
+inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
+
 /// @brief Threshold below which HYBRID mode is beneficial.
 /// Intervals between 1-5ms benefit from spin-then-block approach.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
@@ -126,6 +131,8 @@ select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) 
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
         return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                             : ExecutionMode::HIGH_RATE;
+    if (x::thread::rt::has_support() && timing_interval < timing::RT_EVENT_THRESHOLD)
+        return ExecutionMode::RT_EVENT;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
@@ -258,8 +265,10 @@ struct Loop {
         x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
     ) = 0;
 
-    /// @brief Initialize loop resources. Must be called before wait().
-    /// Applies RT configuration (priority, affinity, memory lock) if configured.
+    /// @brief Initialize loop resources and apply RT configuration. Must be
+    /// called before wait() and from the thread that will run the event loop,
+    /// since RT scheduling (SCHED_FIFO/DEADLINE, MMCSS) is applied to the
+    /// calling thread.
     /// @return Error if resource allocation fails.
     virtual x::errors::Error start() = 0;
 
@@ -279,8 +288,9 @@ struct Loop {
     virtual bool watch(x::notify::Notifier &notifier) = 0;
 };
 
-/// @brief Creates a platform-specific loop implementation.
+/// @brief Creates a platform-specific loop implementation. The loop is not
+/// started; call start() from the thread that will run the event loop so
+/// that RT scheduling is applied to the correct thread.
 /// @param cfg Loop configuration (mode, timing, RT settings).
-/// @return Pair of (loop, error). Loop is started on success.
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg);
+std::unique_ptr<Loop> create(const Config &cfg);
 }
