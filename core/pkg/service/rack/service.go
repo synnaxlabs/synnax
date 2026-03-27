@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -58,7 +57,6 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
-	Codec   binary.Codec
 	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
@@ -97,7 +95,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -131,8 +128,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: RackMigrations(cfg.Codec),
+		Codec: RackCodec,
+		Migrations: RackMigrations(),
 	})
 	if err != nil {
 		return nil, err

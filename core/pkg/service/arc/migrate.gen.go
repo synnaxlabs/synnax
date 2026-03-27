@@ -13,17 +13,16 @@ package arc
 
 import (
 	v53 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v53"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func ArcMigrations(codec binary.Codec) []gorp.Migration {
+func ArcMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Arc]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Arc]("msgpack_to_binary", ArcCodec),
 		gorp.WithDependencies(gorp.NewTypedMigration[v53.Arc, Arc](
 			"v53_schema_migration",
 			v53.ArcCodec,
-			codec,
+			ArcCodec,
 			MigrateArc,
 		), "msgpack_to_binary"),
 	}

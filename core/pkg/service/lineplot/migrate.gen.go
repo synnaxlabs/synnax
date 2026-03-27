@@ -12,12 +12,11 @@
 package lineplot
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func LinePlotMigrations(codec binary.Codec) []gorp.Migration {
+func LinePlotMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, LinePlot]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, LinePlot]("msgpack_to_binary", LinePlotCodec),
 	}
 }

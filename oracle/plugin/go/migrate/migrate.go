@@ -514,16 +514,15 @@ var migrateTmpl = template.Must(template.New("migrate").Parse(
 package {{.Package}}
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 {{- range .VersionImports}}
 	{{.Alias}} "{{.Path}}"
 {{- end}}
 )
 {{range $entry := .Entries}}
-func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
+func {{$entry.GoName}}Migrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", {{$entry.GoName}}Codec),
 {{- range $entry.SchemaChanges}}
 {{- if .IsIntermediate}}
 		gorp.WithDependencies(gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
@@ -536,7 +535,7 @@ func {{$entry.GoName}}Migrations(codec binary.Codec) []gorp.Migration {
 		gorp.WithDependencies(gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
 			{{.ImportAlias}}.{{$entry.GoName}}Codec,
-			codec,
+			{{$entry.GoName}}Codec,
 			Migrate{{$entry.GoName}},
 		), "{{.DependsOn}}"),
 {{- end}}

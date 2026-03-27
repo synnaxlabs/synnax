@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	golabel "github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -45,9 +45,6 @@ type ServiceConfig struct {
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
-	// Codec is the protobuf-based codec for encoding/decoding labels in gorp.
-	// [OPTIONAL]
-	Codec binary.Codec
 }
 
 var (
@@ -74,7 +71,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -96,9 +92,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Label]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
+		Codec: golabel.LabelCodec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[Key, Label]("msgpack_to_binary", cfg.Codec),
+			gorp.NewCodecTransition[Key, Label]("msgpack_to_binary", golabel.LabelCodec),
 		},
 	})
 	if err != nil {

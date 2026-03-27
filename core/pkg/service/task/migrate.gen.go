@@ -12,12 +12,11 @@
 package task
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func TaskMigrations(codec binary.Codec) []gorp.Migration {
+func TaskMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Task]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Task]("msgpack_to_binary", TaskCodec),
 	}
 }

@@ -12,12 +12,11 @@
 package table
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func TableMigrations(codec binary.Codec) []gorp.Migration {
+func TableMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Table]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Table]("msgpack_to_binary", TableCodec),
 	}
 }

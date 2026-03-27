@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -59,9 +58,6 @@ type ServiceConfig struct {
 	// Rack is used to retrieve and manage racks.
 	// [REQUIRED]
 	Rack *rack.Service
-	// Codec is the protobuf-based codec for encoding/decoding devices in gorp.
-	// [OPTIONAL]
-	Codec binary.Codec
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
@@ -78,7 +74,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -117,8 +112,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: DeviceMigrations(cfg.Codec),
+		Codec: DeviceCodec,
+		Migrations: DeviceMigrations(),
 	})
 	if err != nil {
 		return nil, err

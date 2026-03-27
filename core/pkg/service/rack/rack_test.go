@@ -63,7 +63,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Group:               g,
 			HostProvider:        mock.StaticHostKeyProvider(1),
 			Status:              stat,
-			Codec:               rack.RackCodec,
+
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
 		DeferCleanup(func() {
@@ -472,7 +472,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
-			Codec:        rack.RackCodec,
+
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 		return svc
@@ -485,7 +485,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
-			Codec:        rack.RackCodec,
+
 		}))
 		r := &rack.Rack{Name: "test rack"}
 		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
@@ -503,7 +503,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
-			Codec:        rack.RackCodec,
+
 		}))
 		DeferCleanup(func() { Expect(svc2.Close()).To(Succeed()) })
 

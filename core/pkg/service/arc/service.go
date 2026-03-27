@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
@@ -57,9 +56,6 @@ type ServiceConfig struct {
 	// Search is the search index for fuzzy searching arcs.
 	// [REQUIRED]
 	Search *search.Index
-	// Codec is the protobuf-based codec for encoding/decoding arcs in gorp.
-	// [OPTIONAL]
-	Codec binary.Codec
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -79,7 +75,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -159,8 +154,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: ArcMigrations(cfg.Codec),
+		Codec: ArcCodec,
+		Migrations: ArcMigrations(),
 	})
 	if err != nil {
 		return nil, err

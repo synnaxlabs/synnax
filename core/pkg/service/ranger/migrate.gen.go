@@ -12,12 +12,11 @@
 package ranger
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func RangeMigrations(codec binary.Codec) []gorp.Migration {
+func RangeMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Range]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Range]("msgpack_to_binary", RangeCodec),
 	}
 }

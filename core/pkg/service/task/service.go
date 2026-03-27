@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -63,7 +62,6 @@ type ServiceConfig struct {
 	// Search is the search index for fuzzy searching tasks.
 	// [REQUIRED]
 	Search *search.Index
-	Codec   binary.Codec
 	alamos.Instrumentation
 }
 
@@ -83,7 +81,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -119,8 +116,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: TaskMigrations(cfg.Codec),
+		Codec: TaskCodec,
+		Migrations: TaskMigrations(),
 	})
 	if err != nil {
 		return nil, err

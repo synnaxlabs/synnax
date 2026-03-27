@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -31,7 +30,6 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Search   *search.Index
-	Codec    binary.Codec
 }
 
 var (
@@ -43,7 +41,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
@@ -69,8 +66,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, gorp.TableConfig[Group]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: GroupMigrations(cfg.Codec),
+		Codec: GroupCodec,
+		Migrations: GroupMigrations(),
 	})
 	if err != nil {
 		return nil, err

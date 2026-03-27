@@ -12,12 +12,11 @@
 package device
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func DeviceMigrations(codec binary.Codec) []gorp.Migration {
+func DeviceMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Device]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Device]("msgpack_to_binary", DeviceCodec),
 	}
 }

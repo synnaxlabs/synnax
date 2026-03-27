@@ -12,12 +12,11 @@
 package log
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func LogMigrations(codec binary.Codec) []gorp.Migration {
+func LogMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Log]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Log]("msgpack_to_binary", LogCodec),
 	}
 }

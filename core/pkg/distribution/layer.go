@@ -264,7 +264,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
-			Codec:    group.GroupCodec,
 			Search:   l.Search,
 		},
 	); !ok(err, l.Group) {

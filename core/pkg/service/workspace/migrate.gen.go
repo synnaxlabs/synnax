@@ -12,12 +12,11 @@
 package workspace
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func WorkspaceMigrations(codec binary.Codec) []gorp.Migration {
+func WorkspaceMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Workspace]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Workspace]("msgpack_to_binary", WorkspaceCodec),
 	}
 }

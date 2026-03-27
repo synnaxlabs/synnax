@@ -12,12 +12,11 @@
 package label
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func LabelMigrations(codec binary.Codec) []gorp.Migration {
+func LabelMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Label]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Label]("msgpack_to_binary", LabelCodec),
 	}
 }

@@ -12,12 +12,11 @@
 package user
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func UserMigrations(codec binary.Codec) []gorp.Migration {
+func UserMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, User]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, User]("msgpack_to_binary", UserCodec),
 	}
 }

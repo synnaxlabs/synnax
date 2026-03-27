@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -31,9 +30,6 @@ type ServiceConfig struct {
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Codec is the protobuf-based codec for encoding/decoding line plots in gorp.
-	// [OPTIONAL]
-	Codec binary.Codec
 	// Search is the search index for fuzzy searching line plots.
 	// [REQUIRED]
 	Search *search.Index
@@ -51,7 +47,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -79,8 +74,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: LinePlotMigrations(cfg.Codec),
+		Codec: LinePlotCodec,
+		Migrations: LinePlotMigrations(),
 	})
 	if err != nil {
 		return nil, err

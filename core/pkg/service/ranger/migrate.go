@@ -250,7 +250,7 @@ func newRangeGroupsMigration(cfg ServiceConfig) gorp.Migration {
 	return &rangeGroupsMigration{
 		otg:   cfg.Ontology,
 		group: cfg.Group,
-		codec: cfg.Codec,
+		codec: RangeCodec,
 		l:     cfg.L,
 	}
 }

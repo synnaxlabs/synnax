@@ -12,12 +12,11 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func SchematicMigrations(codec binary.Codec) []gorp.Migration {
+func SchematicMigrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Schematic]("msgpack_to_binary", codec),
+		gorp.NewCodecTransition[Key, Schematic]("msgpack_to_binary", SchematicCodec),
 	}
 }

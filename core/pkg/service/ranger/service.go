@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -45,9 +44,6 @@ type ServiceConfig struct {
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
 	Label *label.Service
-	// Codec is the protobuf-based codec for encoding/decoding ranges in gorp.
-	// [OPTIONAL]
-	Codec binary.Codec
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
@@ -84,7 +80,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
-	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -106,8 +101,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
 		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: append(RangeMigrations(cfg.Codec), newRangeGroupsMigration(cfg)),
+		Codec: RangeCodec,
+		Migrations: append(RangeMigrations(), newRangeGroupsMigration(cfg)),
 	})
 	if err != nil {
 		return nil, err
