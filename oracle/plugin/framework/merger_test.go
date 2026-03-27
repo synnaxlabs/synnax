@@ -10,7 +10,6 @@
 package framework_test
 
 import (
-	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func TestFramework(t *testing.T) {
