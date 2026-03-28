@@ -46,7 +46,7 @@ const NoRanges = (): ReactElement => {
     <EmptyAction
       message="No favorited ranges."
       action={canViewRanges ? "Open Range Explorer" : undefined}
-      onClick={() => placeLayout(CREATE_LAYOUT)}
+      onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
 };
