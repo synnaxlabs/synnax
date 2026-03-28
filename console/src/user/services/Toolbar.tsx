@@ -11,7 +11,7 @@ import { user } from "@synnaxlabs/client";
 import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { REGISTER_LAYOUT } from "@/user/Register";
@@ -35,8 +35,20 @@ const Content = (): ReactElement => {
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
-      <Ontology.Tree root={groupID} />
+      <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
+  );
+};
+
+const EmptyContent = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  const canCreateUser = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  return (
+    <EmptyAction
+      message="No users."
+      action={canCreateUser ? "Create a user" : undefined}
+      onClick={() => placeLayout(REGISTER_LAYOUT)}
+    />
   );
 };
 

@@ -47,7 +47,7 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const canCreateWorkspace = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction

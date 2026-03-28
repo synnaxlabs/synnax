@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
@@ -47,8 +47,23 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />
+      <Ontology.Tree
+        root={g == null ? undefined : group.ontologyID(g.key)}
+        emptyContent={<EmptyContent />}
+      />
     </Toolbar.Content>
+  );
+};
+
+const EmptyContent = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  const canCreateChannel = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  return (
+    <EmptyAction
+      message="No channels."
+      action={canCreateChannel ? "Create a channel" : undefined}
+      onClick={() => placeLayout(CREATE_LAYOUT)}
+    />
   );
 };
 

@@ -37,10 +37,11 @@ import { removeFavorites } from "@/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No favorited statuses."
-      action="Open Status Explorer"
+      action={canViewStatuses ? "Open Status Explorer" : undefined}
       onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
