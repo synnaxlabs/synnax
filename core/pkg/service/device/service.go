@@ -105,7 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Device](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Device]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigString[Device](cfg.DB),
+			signals.GorpPublisherConfigString[Device](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}
@@ -159,6 +159,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:  s.table,
 	}
 }
 
@@ -167,7 +168,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		otg:    s.cfg.Ontology,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[string, Device](),
+		gorp:   s.table.NewRetrieve(),
 	}
 }
 

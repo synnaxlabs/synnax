@@ -26,6 +26,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	table     *gorp.Table[uuid.UUID, Range]
 }
 
 // Create creates a new range within the DB, assigning it a unique key if it does not
@@ -53,14 +54,14 @@ func (w Writer) CreateWithParent(
 	if err := w.validate(*r); err != nil {
 		return err
 	}
-	exists, err := gorp.
-		NewRetrieve[uuid.UUID, Range]().
+	exists, err := w.table.
+		NewRetrieve().
 		WhereKeys(r.Key).
 		Exists(ctx, w.tx)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := OntologyID(r.Key)
@@ -137,15 +138,15 @@ func (w Writer) CreateManyWithParent(
 
 // Rename renames the range with the given key.
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
-	return gorp.
-		NewUpdate[uuid.UUID, Range]().
+	return w.table.
+		NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
 }
 
 func (w Writer) swapRanges(ctx context.Context) error {
-	return gorp.NewUpdate[uuid.UUID, Range]().Change(func(_ gorp.Context, r Range) Range {
+	return w.table.NewUpdate().Change(func(_ gorp.Context, r Range) Range {
 		r.TimeRange = r.TimeRange.MakeValid()
 		return r
 	}).Exec(ctx, w.tx)
@@ -184,8 +185,8 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 			return err
 		}
 	}
-	if err := gorp.
-		NewDelete[uuid.UUID, Range]().
+	if err := w.table.
+		NewDelete().
 		WhereKeys(key).
 		Exec(ctx, w.tx); err != nil {
 		return err
