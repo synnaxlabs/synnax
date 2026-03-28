@@ -68,6 +68,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
 	validate.NotNil(v, "force_migration", c.ForceMigration)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 

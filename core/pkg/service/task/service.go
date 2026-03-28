@@ -92,6 +92,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 

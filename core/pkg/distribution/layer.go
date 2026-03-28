@@ -61,10 +61,6 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
-	// EnableSearch sets whether search indexing is enabled for cluster resources.
-	//
-	// [OPTIONAL] - Defaults to true
-	EnableSearch *bool
 	// TestingIntOverflowCheck is used for overriding default verifier behavior
 	// for testing purposes only.
 	//
@@ -117,7 +113,6 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		EnableSearch:         new(true),
 		GorpCodec:            &binary.MsgPackCodec{},
 		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
@@ -136,7 +131,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
 	c.Verifier = override.String(c.Verifier, other.Verifier)
 	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
-	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
 	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
@@ -152,7 +146,6 @@ func (c LayerConfig) Validate() error {
 	validate.NotNil(v, "channel_transport", c.ChannelTransport)
 	validate.NotNil(v, "frame_transport", c.FrameTransport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
-	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
 	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
 	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
@@ -249,12 +242,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if *cfg.EnableSearch {
-		if l.Search, err = search.New(search.Config{
-			Instrumentation: cfg.Child("search"),
-		}); err != nil {
-			return nil, err
-		}
+	if l.Search, err = search.New(search.Config{
+		Instrumentation: cfg.Child("search"),
+	}); err != nil {
+		return nil, err
 	}
 
 	if l.Group, err = group.OpenService(

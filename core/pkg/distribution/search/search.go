@@ -71,8 +71,6 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-var ErrNotEnabled = errors.New("[search] - search is not enabled")
-
 func New(configs ...Config) (*Index, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -96,9 +94,6 @@ func New(configs ...Config) (*Index, error) {
 // RegisterService registers a service for search indexing. The service's resources
 // will be indexed when InitializeIndex is called.
 func (s *Index) RegisterService(svc Service) {
-	if s == nil {
-		return
-	}
 	s.services = append(s.services, svc)
 }
 
@@ -131,9 +126,6 @@ func (s *Index) IndexResources(resources []ontology.Resource) error {
 // called AFTER all services have been registered via RegisterService. It blocks
 // until all resources have been indexed.
 func (s *Index) InitializeIndex(ctx context.Context) error {
-	if s == nil {
-		return nil
-	}
 	for _, svc := range s.services {
 		var extraFields []string
 		if provider, ok := svc.(FieldsProvider); ok {
@@ -300,9 +292,6 @@ func (s *Index) execQuery(
 }
 
 func (s *Index) Search(ctx context.Context, req Request) ([]ontology.ID, error) {
-	if s == nil {
-		return nil, ErrNotEnabled
-	}
 	ctx, span := s.T.Prod(ctx, "search")
 	fields := s.fields
 	if len(req.Type) > 0 {

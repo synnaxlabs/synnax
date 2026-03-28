@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -47,6 +48,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
+	searchIdx := MustSucceed(search.New())
 	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -56,6 +58,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	var author user.User
 	author.Username = "test"
@@ -65,6 +68,7 @@ var _ = BeforeSuite(func() {
 	svc = MustSucceed(table.OpenService(ctx, table.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 })
 

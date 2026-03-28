@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
@@ -36,15 +37,18 @@ var (
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustSucceed(search.New())
 	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 	svc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	roleSvc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 })
 

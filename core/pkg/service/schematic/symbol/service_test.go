@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -29,10 +30,12 @@ var _ = Describe("Service", func() {
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
+			testSearchIdx := MustSucceed(search.New())
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
+				Search:   testSearchIdx,
 			}))
 			Expect(testSvc).ToNot(BeNil())
 
@@ -50,11 +53,13 @@ var _ = Describe("Service", func() {
 				DB:       testDB,
 				Ontology: testOtg,
 			}))
+			testSearchIdx := MustSucceed(search.New())
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
+				Search:   testSearchIdx,
 			}))
 			Expect(testSvc).ToNot(BeNil())
 			Expect(testSvc.Group()).ToNot(BeNil())
@@ -88,14 +93,17 @@ var _ = Describe("Service", func() {
 			testOtg2 := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB2,
 			}))
+			testSearchIdx := MustSucceed(search.New())
 
 			cfg1 := symbol.ServiceConfig{
 				DB:       testDB1,
 				Ontology: testOtg1,
+				Search:   testSearchIdx,
 			}
 			cfg2 := symbol.ServiceConfig{
 				DB:       testDB2,
 				Ontology: testOtg2,
+				Search:   testSearchIdx,
 			}
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, cfg1, cfg2))
@@ -136,10 +144,12 @@ var _ = Describe("Service", func() {
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
+			testSearchIdx := MustSucceed(search.New())
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
+				Search:   testSearchIdx,
 			}))
 
 			Expect(testSvc.Close()).To(Succeed())

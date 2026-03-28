@@ -57,6 +57,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger.alias")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "parent_retriever", c.ParentRetriever)
 	return v.Error()
 }

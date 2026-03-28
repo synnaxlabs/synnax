@@ -84,7 +84,7 @@ func (r Retrieve) Entries(arcs *[]Arc) Retrieve {
 // Arc service.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
-	if r.searchTerm != "" && r.search != nil {
+	if r.searchTerm != "" {
 		ids, err := r.search.Search(ctx, search.Request{
 			Type: ontology.ResourceTypeArc,
 			Term: r.searchTerm,

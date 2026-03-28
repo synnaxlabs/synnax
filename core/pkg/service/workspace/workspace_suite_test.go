@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -48,6 +49,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
+	searchIdx := MustSucceed(search.New())
 	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -57,6 +59,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	author.Username = "test"
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())

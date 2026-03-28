@@ -63,7 +63,7 @@ type benchEnv struct {
 	searchIdx *search.Index
 }
 
-func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
+func newBenchEnv(b *testing.B) *benchEnv {
 	ctx := context.Background()
 	db := gorp.Wrap(memkv.New())
 	svc := &benchService{}
@@ -74,16 +74,12 @@ func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 	otg.RegisterService(svc)
-	env := &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc}
-	if enableSearch {
-		searchIdx, err := search.New(search.Config{})
-		if err != nil {
-			b.Fatalf("failed to create search index: %v", err)
-		}
-		searchIdx.RegisterService(svc)
-		env.searchIdx = searchIdx
+	searchIdx, err := search.New(search.Config{})
+	if err != nil {
+		b.Fatalf("failed to create search index: %v", err)
 	}
-	return env
+	searchIdx.RegisterService(svc)
+	return &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc, searchIdx: searchIdx}
 }
 
 func (e *benchEnv) close(b *testing.B) {
@@ -151,7 +147,7 @@ func BenchmarkRetrieveByID(b *testing.B) {
 	for _, count := range []int{100, 1000, 10000} {
 		for _, batch := range []int{1, 10, 100} {
 			b.Run(fmt.Sprintf("resources=%d/batch=%d", count, batch), func(b *testing.B) {
-				env := newBenchEnv(b, false)
+				env := newBenchEnv(b)
 				defer env.close(b)
 				ids := env.populate(b, count)
 				queryIDs := ids[:batch]
@@ -174,7 +170,7 @@ func BenchmarkTraverseChildren(b *testing.B) {
 	for _, depth := range []int{2, 4} {
 		for _, width := range []int{5, 10} {
 			b.Run(fmt.Sprintf("depth=%d/width=%d", depth, width), func(b *testing.B) {
-				env := newBenchEnv(b, false)
+				env := newBenchEnv(b)
 				defer env.close(b)
 				root, _ := env.populateTree(b, depth, width)
 				b.ReportAllocs()
@@ -195,7 +191,7 @@ func BenchmarkTraverseChildren(b *testing.B) {
 func BenchmarkTraverseParents(b *testing.B) {
 	for _, depth := range []int{2, 5, 10} {
 		b.Run(fmt.Sprintf("depth=%d", depth), func(b *testing.B) {
-			env := newBenchEnv(b, false)
+			env := newBenchEnv(b)
 			defer env.close(b)
 			_, leaves := env.populateTree(b, depth, 1)
 			leaf := leaves[0]
@@ -217,7 +213,7 @@ func BenchmarkPagination(b *testing.B) {
 	for _, total := range []int{1000, 10000} {
 		for _, offset := range []int{0, total / 2} {
 			b.Run(fmt.Sprintf("total=%d/offset=%d", total, offset), func(b *testing.B) {
-				env := newBenchEnv(b, false)
+				env := newBenchEnv(b)
 				defer env.close(b)
 				env.populate(b, total)
 				b.ReportAllocs()
@@ -238,7 +234,7 @@ func BenchmarkPagination(b *testing.B) {
 func BenchmarkSearch(b *testing.B) {
 	for _, count := range []int{1000, 10000} {
 		b.Run(fmt.Sprintf("resources=%d", count), func(b *testing.B) {
-			env := newBenchEnv(b, true)
+			env := newBenchEnv(b)
 			defer env.close(b)
 			env.populate(b, count)
 			if err := env.searchIdx.InitializeIndex(env.ctx); err != nil {
@@ -260,7 +256,7 @@ func BenchmarkSearch(b *testing.B) {
 func BenchmarkRetrieveByType(b *testing.B) {
 	for _, count := range []int{1000, 10000} {
 		b.Run(fmt.Sprintf("resources=%d", count), func(b *testing.B) {
-			env := newBenchEnv(b, false)
+			env := newBenchEnv(b)
 			defer env.close(b)
 			env.populate(b, count)
 			b.ReportAllocs()
@@ -284,7 +280,7 @@ func BenchmarkMultiHopTraversal(b *testing.B) {
 				continue
 			}
 			b.Run(fmt.Sprintf("depth=%d/hops=%d", depth, hops), func(b *testing.B) {
-				env := newBenchEnv(b, false)
+				env := newBenchEnv(b)
 				defer env.close(b)
 				root, _ := env.populateTree(b, depth, 3)
 				b.ReportAllocs()
@@ -309,7 +305,7 @@ func BenchmarkMultiHopTraversal(b *testing.B) {
 func BenchmarkIntermediateTraversalOverhead(b *testing.B) {
 	for _, width := range []int{10, 50} {
 		b.Run(fmt.Sprintf("width=%d/depth=3", width), func(b *testing.B) {
-			env := newBenchEnv(b, false)
+			env := newBenchEnv(b)
 			defer env.close(b)
 			root, _ := env.populateTree(b, 3, width)
 			b.ReportAllocs()
@@ -364,7 +360,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 	for _, numParents := range []int{5, 20} {
 		for _, childrenPerParent := range []int{10, 50} {
 			b.Run(fmt.Sprintf("parents=%d/children=%d/nofilter", numParents, childrenPerParent), func(b *testing.B) {
-				env := newBenchEnv(b, false)
+				env := newBenchEnv(b)
 				defer env.close(b)
 				parents := env.populateParentsWithChildren(b, numParents, childrenPerParent)
 				b.ReportAllocs()
@@ -383,7 +379,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 				}
 			})
 			b.Run(fmt.Sprintf("parents=%d/children=%d/withfilter", numParents, childrenPerParent), func(b *testing.B) {
-				env := newBenchEnv(b, false)
+				env := newBenchEnv(b)
 				defer env.close(b)
 				parents := env.populateParentsWithChildren(b, numParents, childrenPerParent)
 				b.ReportAllocs()
