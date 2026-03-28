@@ -238,13 +238,11 @@ var _ = Describe("Translator", func() {
 		It("Should round-trip a delete request", func() {
 			original := deleter.Request{
 				Keys:   channel.Keys{1, 2},
-				Names:  []string{"ch1", "ch2"},
 				Bounds: telem.TimeRange{Start: 1000, End: 2000},
 			}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
 			Expect(result.Keys).To(Equal(original.Keys))
-			Expect(result.Names).To(Equal(original.Names))
 			Expect(result.Bounds).To(Equal(original.Bounds))
 		})
 
@@ -253,7 +251,6 @@ var _ = Describe("Translator", func() {
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
 			Expect(result.Keys).To(HaveLen(0))
-			Expect(result.Names).To(HaveLen(0))
 		})
 	})
 })

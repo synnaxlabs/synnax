@@ -22,8 +22,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Service is the distribution layer interface for deleting data from a Synnax cluster
+// through deleting certain time ranges from channels.
 type Service struct{ proxy *leaseProxy }
 
+// ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
 	HostResolver cluster.HostResolver
 	TSChannel    *ts.DB
@@ -32,6 +35,7 @@ type ServiceConfig struct {
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
+// Validate validates the ServiceConfig.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.deleter")
 	validate.NotNil(v, "host_resolver", c.HostResolver)
@@ -40,6 +44,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
+// Override overrides the ServiceConfig with the other ServiceConfig.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
@@ -47,6 +52,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
+// NewService creates a new Service from the given ServiceConfig(s).
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
