@@ -74,7 +74,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 	otg.RegisterService(svc)
-	searchIdx, err := search.New(search.Config{})
+	searchIdx, err := search.Open(search.Config{})
 	if err != nil {
 		b.Fatalf("failed to create search index: %v", err)
 	}

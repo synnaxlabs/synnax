@@ -50,7 +50,7 @@ func makeResources(n int) []ontology.Resource {
 
 func newBenchIndex(b *testing.B) *search.Index {
 	b.Helper()
-	idx, err := search.New()
+	idx, err := search.Open()
 	if err != nil {
 		b.Fatal(err)
 	}

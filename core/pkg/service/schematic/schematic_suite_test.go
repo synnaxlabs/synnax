@@ -46,15 +46,17 @@ var _ = BeforeSuite(func() {
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB: db,
 	}))
+	searchIdx := MustSucceed(search.Open())
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
-	searchIdx := MustSucceed(search.New())
 	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,

@@ -45,7 +45,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	searchIdx, err := search.New()
+	searchIdx, err := search.Open()
 	if err != nil {
 		b.Fatalf("failed to create search index: %v", err)
 	}

@@ -35,11 +35,21 @@ var _ = Describe("User", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		searchIdx := MustSucceed(search.New())
-		_, err := user.OpenService(ctx, user.ServiceConfig{})
-		Expect(err).To(HaveOccurred())
-		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{DB: db, Ontology: otg, Group: g, Search: searchIdx}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
 		w = svc.NewWriter(nil)
 	})
 	AfterAll(func() {

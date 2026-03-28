@@ -88,10 +88,25 @@ var _ = Describe("Config", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.New())
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g, Search: searchIdx}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{Ontology: otg, DB: db, Group: g, Label: labelSvc, Search: searchIdx}))
+		searchIdx := MustSucceed(search.Open())
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    g,
+			Label:    labelSvc,
+			Search:   searchIdx,
+		}))
 		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
@@ -220,12 +235,17 @@ var _ = Describe("Driver", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
 		labelSvc := MustSucceed(label.OpenService(
 			ctx,
 			label.ServiceConfig{
 				DB:       dist.DB,
 				Ontology: dist.Ontology,
 				Group:    dist.Group,
+				Search:   searchIdx,
 			}),
 		)
 		statusSvc = MustSucceed(status.OpenService(
@@ -235,6 +255,7 @@ var _ = Describe("Driver", Ordered, func() {
 				DB:       dist.DB,
 				Group:    dist.Group,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}),
 		)
 		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
@@ -243,6 +264,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       searchIdx,
 		}))
 		channelSvc = channel.Wrap(dist.Channel)
 		framerSvc = dist.Framer
@@ -253,6 +275,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Rack:     rackService,
 			Status:   statusSvc,
 			Channel:  dist.Channel,
+			Search:   searchIdx,
 		}))
 
 		DeferCleanup(func() {
@@ -910,12 +933,17 @@ var _ = Describe("Context", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
 		labelSvc := MustSucceed(label.OpenService(
 			ctx,
 			label.ServiceConfig{
 				DB:       dist.DB,
 				Ontology: dist.Ontology,
 				Group:    dist.Group,
+				Search:   searchIdx,
 			}),
 		)
 		statusSvc = MustSucceed(status.OpenService(
@@ -925,6 +953,7 @@ var _ = Describe("Context", Ordered, func() {
 				DB:       dist.DB,
 				Group:    dist.Group,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}),
 		)
 

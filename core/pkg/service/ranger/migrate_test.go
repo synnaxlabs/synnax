@@ -41,11 +41,16 @@ var _ = Describe("Migrate", func() {
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
 		ctx = context.Background()
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB: db,
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
 		}))
-		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		searchIdx := MustSucceed(search.New())
 		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -98,7 +103,7 @@ var _ = Describe("Migrate", func() {
 		Expect(svc.Close()).To(Succeed())
 
 		// Reopen the service to run the migration
-		searchIdx2 := MustSucceed(search.New())
+		searchIdx2 := MustSucceed(search.Open())
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:             db,
 			Ontology:       otg,

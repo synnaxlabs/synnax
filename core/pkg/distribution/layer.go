@@ -40,7 +40,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the distribution layer.  See fields for
+// LayerConfig is the configuration for opening the distribution layer.  See fields for
 // details on defining the configuration.
 type LayerConfig struct {
 	// ChannelTransport is the network transport used for channel-related RPCs.
@@ -242,7 +242,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Search, err = search.New(search.Config{
+	if l.Search, err = search.Open(search.Config{
 		Instrumentation: cfg.Child("search"),
 	}); err != nil {
 		return nil, err

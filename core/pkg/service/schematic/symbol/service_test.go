@@ -30,7 +30,7 @@ var _ = Describe("Service", func() {
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustSucceed(search.New())
+			testSearchIdx := MustSucceed(search.Open())
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
@@ -46,14 +46,16 @@ var _ = Describe("Service", func() {
 
 		It("Should create a service with group configuration", func() {
 			testDB := gorp.Wrap(memkv.New())
-			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				DB: testDB,
-			}))
+			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
+			testSearchIdx := MustSucceed(search.Open())
+			DeferCleanup(func() {
+				Expect(testSearchIdx.Close()).To(Succeed())
+			})
 			testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
+				Search:   testSearchIdx,
 			}))
-			testSearchIdx := MustSucceed(search.New())
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
@@ -71,17 +73,11 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should fail with invalid configuration", func() {
-			_, err := symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB: nil,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("db: must be non-nil"))
+			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{DB: nil})).
+				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 
-			_, err = symbol.OpenService(ctx, symbol.ServiceConfig{
-				Ontology: otg,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("db"))
+			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{Ontology: otg})).
+				Error().To(MatchError(ContainSubstring("db")))
 		})
 
 		It("Should handle configuration override correctly", func() {
@@ -93,7 +89,7 @@ var _ = Describe("Service", func() {
 			testOtg2 := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB2,
 			}))
-			testSearchIdx := MustSucceed(search.New())
+			testSearchIdx := MustSucceed(search.Open())
 
 			cfg1 := symbol.ServiceConfig{
 				DB:       testDB1,
@@ -144,7 +140,7 @@ var _ = Describe("Service", func() {
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustSucceed(search.New())
+			testSearchIdx := MustSucceed(search.Open())
 
 			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,

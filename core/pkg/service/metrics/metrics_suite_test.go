@@ -43,7 +43,7 @@ var _ = BeforeSuite(func() {
 	builder = mock.NewCluster()
 	ctx := context.Background()
 	dist = builder.Provision(ctx)
-	searchIdx := MustSucceed(search.New())
+	searchIdx := MustSucceed(search.Open())
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,

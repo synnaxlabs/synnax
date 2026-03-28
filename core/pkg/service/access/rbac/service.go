@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -31,6 +32,7 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	Signals  *signals.Provider
 	Group    *group.Service
+	Search   *search.Index
 }
 
 var (
@@ -44,6 +46,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -53,6 +56,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -86,31 +90,30 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-
 	policyService, err := policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       cfg.DB,
 		Signals:  cfg.Signals,
 		Ontology: cfg.Ontology,
+		Search:   cfg.Search,
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	roleService, err := role.OpenService(ctx, role.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Signals:  cfg.Signals,
 		Group:    cfg.Group,
+		Search:   cfg.Search,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, policyService.Close())
 	}
-	s := &Service{
+	return &Service{
 		Policy: policyService,
 		Role:   roleService,
 		cfg:    cfg,
-	}
-	return s, nil
+	}, nil
 }
 
 func (e *Enforcer) retrievePolicies(

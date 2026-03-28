@@ -26,19 +26,27 @@ import (
 )
 
 var (
-	ctx     = context.Background()
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	g       *group.Service
-	svc     *rbac.Service
-	userSvc *user.Service
+	ctx       = context.Background()
+	db        *gorp.DB
+	otg       *ontology.Ontology
+	g         *group.Service
+	svc       *rbac.Service
+	searchIdx *search.Index
+	userSvc   *user.Service
 )
 
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustSucceed(search.New())
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+	searchIdx = MustSucceed(search.Open())
+	DeferCleanup(func() {
+		Expect(searchIdx.Close()).To(Succeed())
+	})
+	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -49,6 +57,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 })
 

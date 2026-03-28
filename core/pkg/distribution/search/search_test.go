@@ -55,7 +55,7 @@ func (m *observableMockService) OpenNexter(context.Context) (iter.Seq[ontology.R
 func (m *observableMockService) SearchableFields() []string { return m.fields }
 
 func newIndex(svcs ...*mockService) *search.Index {
-	idx := MustSucceed(search.New())
+	idx := MustSucceed(search.Open())
 	for _, svc := range svcs {
 		idx.RegisterService(svc)
 	}
@@ -335,7 +335,7 @@ var _ = Describe("Search", func() {
 					{ID: ontology.ID{Type: "widget", Key: "3"}, Name: "Gamma Gadget"},
 				},
 			}
-			idx := MustSucceed(search.New())
+			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
 			Expect(idx.InitializeIndex(ctx)).To(Succeed())
 			res := MustSucceed(idx.Search(ctx, search.Request{
@@ -354,7 +354,7 @@ var _ = Describe("Search", func() {
 					{ID: ontology.ID{Type: "item", Key: "b"}, Name: "Temperature Probe"},
 				},
 			}
-			idx := MustSucceed(search.New())
+			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
 			Expect(idx.InitializeIndex(ctx)).To(Succeed())
 			res := MustSucceed(idx.Search(ctx, search.Request{Term: "Temperature"}))
@@ -376,7 +376,7 @@ var _ = Describe("Search", func() {
 					{ID: ontology.ID{Type: "device", Key: "d1"}, Name: "LabJack T7"},
 				},
 			}
-			idx := MustSucceed(search.New())
+			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc1)
 			idx.RegisterService(svc2)
 			Expect(idx.InitializeIndex(ctx)).To(Succeed())
@@ -400,7 +400,7 @@ var _ = Describe("Search", func() {
 					},
 				},
 			}
-			idx := MustSucceed(search.New())
+			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
 			Expect(idx.InitializeIndex(ctx)).To(Succeed())
 			res := MustSucceed(idx.Search(ctx, search.Request{Term: "cDAQ"}))
@@ -413,7 +413,7 @@ var _ = Describe("Search", func() {
 				resourceType: "task",
 				resources:    []ontology.Resource{},
 			}
-			idx := MustSucceed(search.New())
+			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
 			Expect(idx.InitializeIndex(ctx)).To(Succeed())
 			Expect(idx.Search(ctx, search.Request{Term: "MyTask"})).To(BeEmpty())
@@ -439,7 +439,7 @@ var _ = Describe("Search", func() {
 					{ID: ontology.ID{Type: "task", Key: "t1"}, Name: "DeleteMe"},
 				},
 			}
-			idx := MustSucceed(search.New())
+			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
 			Expect(idx.InitializeIndex(ctx)).To(Succeed())
 			Expect(idx.Search(ctx, search.Request{Term: "DeleteMe"})).To(HaveLen(1))
