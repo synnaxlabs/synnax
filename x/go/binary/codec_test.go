@@ -11,6 +11,7 @@ package binary_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,7 +70,7 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Stack Traces", func() {
 		DescribeTable("Encoding errors should include a stack trace",
-			func(codec binary.Codec) {
+			func(ctx SpecContext, codec binary.Codec) {
 				_, err := codec.Encode(ctx, make(chan int))
 				Expect(err).To(HaveOccurred())
 				stack := errors.GetStackTrace(err)
@@ -81,7 +82,7 @@ var _ = Describe("Codec", func() {
 			Entry("MsgPack", &binary.MsgPackCodec{}),
 		)
 		DescribeTable("Decoding errors should include a stack trace",
-			func(codec binary.Codec) {
+			func(ctx SpecContext, codec binary.Codec) {
 				var d toEncode
 				err := codec.Decode(ctx, []byte("invalid"), &d)
 				Expect(err).To(HaveOccurred())

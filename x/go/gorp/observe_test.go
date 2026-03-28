@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("Observe", func() {
-	var db  *gorp.DB
+	var db *gorp.DB
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
 	})
@@ -84,7 +84,7 @@ var _ = Describe("Observe", func() {
 		Expect(grapeChanges[0].Value).To(Equal(grape{ID: 100, Data: "hundred"}))
 	})
 
-	It("Should correctly decode the key on delete notifications", func() {
+	It("Should correctly decode the key on delete notifications", func(ctx SpecContext) {
 		Expect(gorp.NewCreate[int32, entry]().
 			Entry(&entry{ID: 42, Data: "data"}).
 			Exec(ctx, db)).To(Succeed())

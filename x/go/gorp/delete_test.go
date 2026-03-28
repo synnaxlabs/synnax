@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Delete", func() {
-	var tx  gorp.Tx
+	var tx gorp.Tx
 	BeforeEach(func() {
 		tx = db.OpenTx()
 	})
@@ -32,7 +32,7 @@ var _ = Describe("Delete", func() {
 			Expect(gorp.NewDelete[int32, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(1).Exists(ctx, tx)).To(BeFalse())
 		})
-		It("Should NOT return an error if the entry does not exist", func() {
+		It("Should NOT return an error if the entry does not exist", func(ctx SpecContext) {
 			Expect(gorp.NewDelete[int32, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
 		})
 	})

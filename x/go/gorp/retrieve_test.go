@@ -461,7 +461,7 @@ var _ = Describe("Retrieve", func() {
 				r1 = prefixEntry{ID: 123, Data: "data"}
 				r2 = prefixEntry{ID: 456, Data: "data"}
 			)
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
 				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 			})
