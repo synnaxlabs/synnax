@@ -13,9 +13,10 @@ import (
 	"context"
 	"io"
 
+	"encoding/json"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
@@ -35,7 +36,7 @@ func Publish(
 			return xunsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
-			v, err := (&binary.JSONCodec{}).Encode(ctx, channel.ToPayload(c))
+			v, err := json.Marshal(channel.ToPayload(c))
 			if err != nil {
 				return nil, err
 			}
