@@ -130,15 +130,15 @@ func bindMockChannelModule(r wazero.Runtime, exports map[string]any) {
 
 var _ = Describe("Compiler", func() {
 	var r wazero.Runtime
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		r = wazero.NewRuntime(ctx)
 	})
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		Expect(r.Close(ctx)).To(Succeed())
 	})
 
 	Describe("Function Execution", func() {
-		It("should execute a function with conditional returns", func() {
+		It("should execute a function with conditional returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func dog(b i64) i64 {
 				a i64 := 2
@@ -168,7 +168,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
-		It("should execute a simple addition function", func() {
+		It("should execute a simple addition function", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func add(a i64, b i64) i64 {
 				return a + b
@@ -183,7 +183,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(42)))
 		})
 
-		It("Should compile a function with an else statement", func() {
+		It("Should compile a function with an else statement", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func add(a i64, b i64) i64 {
 				if a > 0 {
@@ -201,7 +201,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(10)))
 		})
 
-		It("Should compile nested if-else where all branches return", func() {
+		It("Should compile nested if-else where all branches return", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func nested(a i64, b i64) i64 {
 				if a > 0 {
@@ -241,7 +241,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(0)))
 		})
 
-		It("Should compile if-else where only some branches return", func() {
+		It("Should compile if-else where only some branches return", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func partial(a i64, b i64) i64 {
 				x i64 := 0
@@ -274,7 +274,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(7)))
 		})
 
-		It("Should compile deeply nested if-else with all returns", func() {
+		It("Should compile deeply nested if-else with all returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func deep(a i64, b i64, c i64) i64 {
 				if a > 0 {
@@ -314,7 +314,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(0)))
 		})
 
-		It("Should compile mixed nested returns with variables", func() {
+		It("Should compile mixed nested returns with variables", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func mixed(a i64, b i64) i64 {
 				result i64 := 0
@@ -358,7 +358,7 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Function with Config Execution", func() {
-		It("Should execute a simple compiled addition function with config", func() {
+		It("Should execute a simple compiled addition function with config", func(ctx SpecContext) {
 			output := MustSucceed(compile(`
 			func add{
 				a i64
@@ -375,7 +375,7 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		It("Should compile channel writes with high channel keys", func() {
+		It("Should compile channel writes with high channel keys", func(ctx SpecContext) {
 			var writtenValue uint32
 			bindMockChannelModule(r, map[string]any{
 				"write_u8": func(_ context.Context, _ uint32, val uint32) {
@@ -410,7 +410,7 @@ var _ = Describe("Compiler", func() {
 			Expect(writtenValue).To(Equal(uint32(1)))
 		})
 
-		It("Should execute a function with channel read operations", func() {
+		It("Should execute a function with channel read operations", func(ctx SpecContext) {
 			// Setup channel data
 			channelData := map[uint32]int32{0: 42}
 
