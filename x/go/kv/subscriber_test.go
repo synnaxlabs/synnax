@@ -46,7 +46,7 @@ var _ = Describe("Flush", func() {
 			var ds dataStruct
 			g.Expect(ecd.Decode(ctx, b, &ds)).To(Succeed())
 			g.Expect(ds.Value).To(Equal([]byte("hello")))
-			Expect(closer.Close()).To(Succeed())
+			g.Expect(closer.Close()).To(Succeed())
 		}).Should(Succeed())
 	})
 })

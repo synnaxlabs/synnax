@@ -1,10 +1,13 @@
 {
   "folders": [
     { "name": "synnax", "path": ".." },
+    { "name": ".github", "path": "../.github" },
     { "name": "alamos/go", "path": "../alamos/go" },
     { "name": "alamos/py", "path": "../alamos/py" },
     { "name": "alamos/ts", "path": "../alamos/ts" },
-    { "name": "arc", "path": "../arc" },
+    { "name": "arc/cpp", "path": "../arc/cpp" },
+    { "name": "arc/go", "path": "../arc/go" },
+    { "name": "arc/ts", "path": "../arc/ts" },
     { "name": "aspen", "path": "../aspen" },
     { "name": "cesium", "path": "../cesium" },
     { "name": "client/cpp", "path": "../client/cpp" },
@@ -27,9 +30,12 @@
     { "name": "freighter/ts", "path": "../freighter/ts" },
     { "name": "integration", "path": "../integration" },
     { "name": "media", "path": "../x/media" },
+    { "name": "oracle", "path": "../oracle" },
     { "name": "pluto", "path": "../pluto" },
+    { "name": "vendor", "path": "../vendor" },
     { "name": "x/cpp", "path": "../x/cpp" },
     { "name": "x/go", "path": "../x/go" },
+    { "name": "x/py", "path": "../x/py" },
     { "name": "x/ts", "path": "../x/ts" }
   ],
   "settings": {
@@ -167,6 +173,7 @@
       "Linspace",
       "memkv",
       "Migratable",
+      "Modbus",
       "msgpack",
       "msgpackr",
       "mult",

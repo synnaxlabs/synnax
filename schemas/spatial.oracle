@@ -1,0 +1,39 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output  "x/ts/src/spatial"
+@cpp output "x/cpp/spatial"
+@go output  "x/go/spatial"
+@pb
+
+OuterLocation enum {
+    top    = "top"
+    right  = "right"
+    bottom = "bottom"
+    left   = "left"
+
+    @doc value """
+        is a position indicator for elements anchored to the outer edge of a
+        container. Used for orientation and positioning of UI elements.
+    """
+}
+
+XY struct {
+    x float64 {
+        @doc value "is the horizontal coordinate."
+    }
+    y float64 {
+        @doc value "is the vertical coordinate."
+    }
+
+    @doc value """
+        is a 2D coordinate point with x and y values. Used for positioning
+        elements in two-dimensional space.
+    """
+}

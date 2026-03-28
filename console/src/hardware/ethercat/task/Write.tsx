@@ -20,9 +20,8 @@ import {
   retrieveAndValidateSlaves,
 } from "@/hardware/ethercat/task/configure";
 import {
-  AUTOMATIC_TYPE,
   channelMapKey,
-  createWriteChannel,
+  createOutputChannel,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
@@ -30,9 +29,7 @@ import {
   resolvePDODataType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  writeConfigZ,
-  type writeStatusDataZ,
-  type writeTypeZ,
+  type WriteSchemas,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
@@ -55,12 +52,14 @@ const Properties = () => (
     <PForm.NumericField
       path="config.executionRate"
       label="Execution Rate"
-      inputProps={{ endContent: "Hz" }}
+      inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
     <Common.Task.Fields.StateUpdateRate />
     <Common.Task.Fields.AutoStart />
   </Flex.Box>
 );
+
+const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { itemKey } = props;
@@ -85,27 +84,18 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<
-  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = () => (
+const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => (
   <Common.Task.Layouts.ListAndDetails<OutputChannel>
     listItem={listItem}
     details={channelDetails}
-    createChannel={createWriteChannel}
+    createChannel={createOutputChannel}
     contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> = ({ config }) => {
+const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({ config }) => {
   if (config != null)
-    return {
-      ...ZERO_WRITE_PAYLOAD,
-      config: writeConfigZ.parse(config),
-    };
+    return { ...ZERO_WRITE_PAYLOAD, config: WRITE_SCHEMAS.config.parse(config) };
   return { ...ZERO_WRITE_PAYLOAD };
 };
 
@@ -115,7 +105,7 @@ const WRITE_INDEX_OPTIONS = {
   nameSuffix: "_state_time" as const,
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -139,7 +129,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
         ch,
         pdoName: getPDOName(ch),
         dataType:
-          ch.type === AUTOMATIC_TYPE
+          ch.type === "automatic"
             ? resolvePDODataType(slave, ch.pdo, "outputs")
             : ch.dataType,
       }));
@@ -200,7 +190,7 @@ export const Write = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
-  type: WRITE_TYPE,
+  type: "ethercat_write",
   getInitialValues,
   onConfigure,
 });

@@ -16,8 +16,8 @@ catalogs:
       specifier: ^2.11.2
       version: 2.11.2
     '@tauri-apps/api':
-      specifier: ^2.9.1
-      version: 2.9.1
+      specifier: ^2.10.1
+      version: 2.10.1
     '@testing-library/react':
       specifier: ^16.3.2
       version: 16.3.2
@@ -135,6 +135,9 @@ importers:
         specifier: workspace:^
         version: link:../../x/ts
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -150,9 +153,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -196,6 +196,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -211,9 +214,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -270,15 +270,15 @@ importers:
         specifier: 'catalog:'
         version: 40.0.0(stylelint@17.1.0(typescript@5.9.3))
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../ts
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../eslint
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
@@ -294,15 +294,15 @@ importers:
 
   configs/vite:
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../ts
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../eslint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -316,9 +316,6 @@ importers:
   console:
     dependencies:
       '@codingame/monaco-vscode-api':
-        specifier: ^14.0.6
-        version: 14.0.6
-      '@codingame/monaco-vscode-configuration-service-override':
         specifier: ^14.0.6
         version: 14.0.6
       '@codingame/monaco-vscode-languages-service-override':
@@ -362,10 +359,10 @@ importers:
         version: link:../x/ts
       '@tauri-apps/api':
         specifier: 'catalog:'
-        version: 2.9.1
+        version: 2.10.1
       '@tauri-apps/plugin-deep-link':
-        specifier: ^2.4.6
-        version: 2.4.6
+        specifier: ^2.4.7
+        version: 2.4.7
       '@tauri-apps/plugin-dialog':
         specifier: ^2.6.0
         version: 2.6.0
@@ -376,17 +373,14 @@ importers:
         specifier: ^2.3.1
         version: 2.3.1
       '@tauri-apps/plugin-shell':
-        specifier: ^2.3.4
-        version: 2.3.4
+        specifier: ^2.3.5
+        version: 2.3.5
       '@tauri-apps/plugin-store':
         specifier: ^2.4.2
         version: 2.4.2
       '@tauri-apps/plugin-updater':
-        specifier: ^2.9.0
-        version: 2.9.0
-      async-mutex:
-        specifier: 'catalog:'
-        version: 0.5.0
+        specifier: ^2.10.0
+        version: 2.10.0
       compromise:
         specifier: 'catalog:'
         version: 14.14.5
@@ -436,6 +430,12 @@ importers:
       '@codingame/esbuild-import-meta-url-plugin':
         specifier: ^1.0.3
         version: 1.0.3
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../configs/ts
@@ -469,18 +469,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -554,6 +548,12 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.6
         version: 0.9.6(prettier-plugin-astro@0.14.1)(prettier@3.8.1)(typescript@5.9.3)
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -578,9 +578,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
@@ -602,9 +599,6 @@ importers:
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -619,7 +613,7 @@ importers:
         version: link:../x/ts
       '@tauri-apps/api':
         specifier: 'catalog:'
-        version: 2.9.1
+        version: 2.10.1
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
@@ -639,6 +633,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../configs/ts
@@ -660,9 +657,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -688,6 +682,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -703,9 +700,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -794,6 +788,12 @@ importers:
       '@juggle/resize-observer':
         specifier: ^3.4.0
         version: 3.4.0
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../configs/ts
@@ -839,9 +839,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/eslint
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -854,9 +851,6 @@ importers:
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -879,6 +873,12 @@ importers:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.4)
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -897,18 +897,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -931,6 +925,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -946,9 +943,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -1277,9 +1271,6 @@ packages:
   '@codingame/monaco-vscode-411e0589-fa79-504b-b32c-80a88847b23a-common@14.0.6':
     resolution: {integrity: sha512-8HZZQCuVTMhowKoVA2lfs0T4szQAWsdVw0nfDJgv10jDlKun8dK5cn1w3Ytq70vCwDy0Ol0uVF5En1GIcj0w2Q==}
 
-  '@codingame/monaco-vscode-422642f2-7e3a-5c1c-9e1e-1d3ef1817346-common@14.0.6':
-    resolution: {integrity: sha512-7qKnef1UFxmfTGJejK1S8BC2st+DdisldNsLXr5NnD0LB+ohtaNT8UZXujwAucs/6+JtfeDiAGGetfVPsY0grQ==}
-
   '@codingame/monaco-vscode-422642f2-7e3a-5c1c-9e1e-1d3ef1817346-common@20.2.1':
     resolution: {integrity: sha512-KiPs0Bz2NdBUbfN+SrbzAXmCK1n1sk4C/EBHcjAU9EFt+9Qs7vBWPbPL/a9uxsAn1yr3/ENKRA/sG9la3TJP6g==}
 
@@ -1448,9 +1439,6 @@ packages:
   '@codingame/monaco-vscode-api@20.2.1':
     resolution: {integrity: sha512-V0U7srsbChsugxi4HP/Q9Xrzw1eajB3UfGUN7l+EYkZK72kChtXoNTyds1wiUfNwsQIt4C6MIwyOQqOCrPY5Lw==}
 
-  '@codingame/monaco-vscode-b1249c5b-1339-5278-b002-746f08105c6d-common@14.0.6':
-    resolution: {integrity: sha512-jNhhmBKwcg0rxznKIMbrEgIBWBqQZ5lwyvm6UD+AZVgaVmflfJ7PtaDCErFUnsPGs0KtCnnM08UTlChTlOoMyA==}
-
   '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common@14.0.6':
     resolution: {integrity: sha512-PhqgWlZmQIbJSOobmR8p7hgitOqqySYt0RjghRkOgw3Xk/oU51DtbEO9IL6nfrsRLhvgeiAv6Dv8t/sSVv5qWA==}
 
@@ -1498,9 +1486,6 @@ packages:
 
   '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common@20.2.1':
     resolution: {integrity: sha512-X6pMLGw7VP/q8R+HoULf0sOlSDkwOWJg7s9SBetHY02cpfllmtDHKfZlB/DyxwfIwChypZebYvEzwjWSAzk0IQ==}
-
-  '@codingame/monaco-vscode-configuration-service-override@14.0.6':
-    resolution: {integrity: sha512-S0eQZ9T19iOQKjyH6FNOqIYK37v1szmm2zm3pMlUBavuWyDdOvP4ohs6PhbNfH4pN2SBYi2V9OBRwmqInOvleQ==}
 
   '@codingame/monaco-vscode-configuration-service-override@20.2.1':
     resolution: {integrity: sha512-Cak6szK7coRFQBi7YTbjqeSV2RUvFMaZaLkmZn7TWoSJleNwwUGotAE3Gl3f1dctXtKXXq9lh//h6PXWwviqkw==}
@@ -2923,8 +2908,8 @@ packages:
   '@taplo/lib@0.5.0':
     resolution: {integrity: sha512-+xIqpQXJco3T+VGaTTwmhxLa51qpkQxCjRwezjFZgr+l21ExlywJFcDfTrNmL6lG6tqb0h8GyJKO3UPGPtSCWg==}
 
-  '@tauri-apps/api@2.9.1':
-    resolution: {integrity: sha512-IGlhP6EivjXHepbBic618GOmiWe4URJiIeZFlB7x3czM0yDHHYviH1Xvoiv4FefdkQtn6v7TuwWCRfOGdnVUGw==}
+  '@tauri-apps/api@2.10.1':
+    resolution: {integrity: sha512-hKL/jWf293UDSUN09rR69hrToyIXBb8CjGaWC7gfinvnQrBVvnLr08FeFi38gxtugAVyVcTa5/FD/Xnkb1siBw==}
 
   '@tauri-apps/cli-darwin-arm64@2.9.6':
     resolution: {integrity: sha512-gf5no6N9FCk1qMrti4lfwP77JHP5haASZgVbBgpZG7BUepB3fhiLCXGUK8LvuOjP36HivXewjg72LTnPDScnQQ==}
@@ -3002,8 +2987,8 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
-  '@tauri-apps/plugin-deep-link@2.4.6':
-    resolution: {integrity: sha512-UUOSt0U5juK20uhO2MoHZX/IPblkrhUh+VPtIeu3RwtzI0R9Em3Auzfg/PwcZ9Pv8mLne3cQ4p9CFXD6WxqCZA==}
+  '@tauri-apps/plugin-deep-link@2.4.7':
+    resolution: {integrity: sha512-K0FQlLM6BoV7Ws2xfkh+Tnwi5VZVdkI4Vw/3AGLSf0Xvu2y86AMBzd9w/SpzKhw9ai2B6ES8di/OoGDCExkOzg==}
 
   '@tauri-apps/plugin-dialog@2.6.0':
     resolution: {integrity: sha512-q4Uq3eY87TdcYzXACiYSPhmpBA76shgmQswGkSVio4C82Sz2W4iehe9TnKYwbq7weHiL88Yw19XZm7v28+Micg==}
@@ -3014,14 +2999,14 @@ packages:
   '@tauri-apps/plugin-process@2.3.1':
     resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
 
-  '@tauri-apps/plugin-shell@2.3.4':
-    resolution: {integrity: sha512-ktsRWf8wHLD17aZEyqE8c5x98eNAuTizR1FSX475zQ4TxaiJnhwksLygQz+AGwckJL5bfEP13nWrlTNQJUpKpA==}
+  '@tauri-apps/plugin-shell@2.3.5':
+    resolution: {integrity: sha512-jewtULhiQ7lI7+owCKAjc8tYLJr92U16bPOeAa472LHJdgaibLP83NcfAF2e+wkEcA53FxKQAZ7byDzs2eeizg==}
 
   '@tauri-apps/plugin-store@2.4.2':
     resolution: {integrity: sha512-0ClHS50Oq9HEvLPhNzTNFxbWVOqoAp3dRvtewQBeqfIQ0z5m3JRnOISIn2ZVPCrQC0MyGyhTS9DWhHjpigQE7A==}
 
-  '@tauri-apps/plugin-updater@2.9.0':
-    resolution: {integrity: sha512-j++sgY8XpeDvzImTrzWA08OqqGqgkNyxczLD7FjNJJx/uXxMZFz5nDcfkyoI/rCjYuj2101Tci/r/HFmOmoxCg==}
+  '@tauri-apps/plugin-updater@2.10.0':
+    resolution: {integrity: sha512-ljN8jPlnT0aSn8ecYhuBib84alxfMx6Hc8vJSKMJyzGbTPFZAC44T2I1QNFZssgWKrAlofvJqCC6Rr472JWfkQ==}
 
   '@testing-library/dom@10.4.0':
     resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
@@ -7713,10 +7698,6 @@ snapshots:
     dependencies:
       '@codingame/monaco-vscode-api': 14.0.6
 
-  '@codingame/monaco-vscode-422642f2-7e3a-5c1c-9e1e-1d3ef1817346-common@14.0.6':
-    dependencies:
-      '@codingame/monaco-vscode-api': 14.0.6
-
   '@codingame/monaco-vscode-422642f2-7e3a-5c1c-9e1e-1d3ef1817346-common@20.2.1':
     dependencies:
       '@codingame/monaco-vscode-api': 20.2.1
@@ -8038,10 +8019,6 @@ snapshots:
       jschardet: 3.1.4
       marked: 14.0.0
 
-  '@codingame/monaco-vscode-b1249c5b-1339-5278-b002-746f08105c6d-common@14.0.6':
-    dependencies:
-      '@codingame/monaco-vscode-api': 14.0.6
-
   '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common@14.0.6':
     dependencies:
       '@codingame/monaco-vscode-api': 14.0.6
@@ -8136,17 +8113,6 @@ snapshots:
   '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common@20.2.1':
     dependencies:
       '@codingame/monaco-vscode-api': 20.2.1
-
-  '@codingame/monaco-vscode-configuration-service-override@14.0.6':
-    dependencies:
-      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 14.0.6
-      '@codingame/monaco-vscode-407531d3-fdae-5387-8c41-49ba0e9574b5-common': 14.0.6
-      '@codingame/monaco-vscode-422642f2-7e3a-5c1c-9e1e-1d3ef1817346-common': 14.0.6
-      '@codingame/monaco-vscode-api': 14.0.6
-      '@codingame/monaco-vscode-b1249c5b-1339-5278-b002-746f08105c6d-common': 14.0.6
-      '@codingame/monaco-vscode-d987325e-3e05-53aa-b9ff-6f97476f64db-common': 14.0.6
-      '@codingame/monaco-vscode-eea37658-2307-56a5-8ed0-b2752c7b7a50-common': 14.0.6
-      '@codingame/monaco-vscode-files-service-override': 14.0.6
 
   '@codingame/monaco-vscode-configuration-service-override@20.2.1':
     dependencies:
@@ -9570,7 +9536,7 @@ snapshots:
     dependencies:
       '@taplo/core': 0.2.0
 
-  '@tauri-apps/api@2.9.1': {}
+  '@tauri-apps/api@2.10.1': {}
 
   '@tauri-apps/cli-darwin-arm64@2.9.6':
     optional: true
@@ -9619,33 +9585,33 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.9.6
       '@tauri-apps/cli-win32-x64-msvc': 2.9.6
 
-  '@tauri-apps/plugin-deep-link@2.4.6':
+  '@tauri-apps/plugin-deep-link@2.4.7':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-dialog@2.6.0':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-fs@2.4.5':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-process@2.3.1':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
-  '@tauri-apps/plugin-shell@2.3.4':
+  '@tauri-apps/plugin-shell@2.3.5':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-store@2.4.2':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
-  '@tauri-apps/plugin-updater@2.9.0':
+  '@tauri-apps/plugin-updater@2.10.0':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@testing-library/dom@10.4.0':
     dependencies:

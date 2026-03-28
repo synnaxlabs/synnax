@@ -165,6 +165,80 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 	})
 
+	Describe("Literal-left expression regression tests", func() {
+		BeforeEach(func() {
+			testResolver["f32_ch"] = symbol.Symbol{
+				Name: "f32_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			}
+			testResolver["f64_ch"] = symbol.Symbol{
+				Name: "f64_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+			}
+		})
+
+		It("Should accept integer literal minus f32 channel with f32 return type", func() {
+			expectSuccess(`
+				func test{} () f32 {
+					return 1000 - f32_ch
+				}
+			`, testResolver)
+		})
+
+		It("Should accept float literal divided by f32 channel with f32 return type", func() {
+			expectSuccess(`
+				func test{} () f32 {
+					return 1000.0 / f32_ch
+				}
+			`, testResolver)
+		})
+
+		It("Should accept integer literal divided by f32 channel with f32 return type", func() {
+			expectSuccess(`
+				func test{} () f32 {
+					return 1000 / f32_ch
+				}
+			`, testResolver)
+		})
+
+		It("Should accept float literal minus f32 channel with f32 return type", func() {
+			expectSuccess(`
+				func test{} () f32 {
+					return 1000.0 - f32_ch
+				}
+			`, testResolver)
+		})
+
+		It("Should accept float literal divided by expression of f32 channels", func() {
+			expectSuccess(`
+				func test{} () f32 {
+					return 1000.0 / (f32_ch + abc)
+				}
+			`, testResolver)
+		})
+
+		It("Should reject mixed f32 and f64 channels with literal on left", func() {
+			expectFailure(`
+				func test{} () f64 {
+					return 1000.0 - f32_ch + f64_ch
+				}
+			`, testResolver, "type mismatch")
+		})
+
+		It("Should infer f32 return type for literal-left expression in type inference mode", func() {
+			program := MustSucceed(parser.Parse(`
+				func test{} () f32 {
+					return 1000 - f32_ch
+				}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
+
 	Describe("Power operator regression tests (SY-3207)", func() {
 		BeforeEach(func() {
 			testResolver["f32_sensor"] = symbol.Symbol{

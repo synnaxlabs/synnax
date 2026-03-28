@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/ir/testutil"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -888,6 +889,219 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
+
+		It("Should give priority to the first-written transition when multiple conditions are true", func() {
+			trigger := mock("trigger")
+			entryActive := mock("entry_seq_active")
+			// Two condition nodes in the active stage, both true
+			condA := mock("condA")
+			condB := mock("condB")
+			entryStageA := mock("entry_seq_stage_a")
+			entryStageB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryActive.ActivateOnNext()
+			// Both conditions output truthy and trigger their entry nodes
+			condA.MarkOnNext("transition")
+			condA.ParamTruthy["transition"] = true
+			condB.MarkOnNext("transition")
+			condB.ParamTruthy["transition"] = true
+			entryStageA.ActivateOnNext()
+			entryStageB.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_active").
+				Node("condA").
+				Node("condB").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_active", "input").
+				// Both conditions trigger their respective entry nodes
+				OneShot("condA", "transition", "entry_seq_stage_a", "input").
+				OneShot("condB", "transition", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
+				Sequence("seq", []testutil.StageSpec{
+					// Active stage has both conditions; condA is first in the stratum
+					{Key: "active", Strata: [][]string{
+						{"condA", "condB"},
+						{"entry_seq_stage_a", "entry_seq_stage_b"},
+					}},
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// First transition (condA → stage_a) wins
+			Expect(nodeA.NextCalled).To(Equal(1))
+			// Second transition (condB → stage_b) should NOT fire
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
+
+		It("Should skip later write statements after a transition fires", func() {
+			trigger := mock("trigger")
+			entryOn := mock("entry_seq_stage_on")
+			toAbort := mock("to_abort")
+			writeCmd := mock("write_ox_tpc_cmd")
+			entryAbort := mock("entry_seq_stage_abort")
+			abortNode := mock("abort_node")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryOn.ActivateOnNext()
+			entryAbort.ActivateOnNext()
+
+			toAbort.MarkOnNext("check")
+			toAbort.ParamTruthy["check"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_on").
+				Node("to_abort").
+				Node("write_ox_tpc_cmd").
+				Node("entry_seq_stage_abort").
+				Node("abort_node").
+				OneShot("trigger", "activate", "entry_seq_stage_on", "input").
+				OneShot("to_abort", "check", "entry_seq_stage_abort", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_on"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_on", Strata: [][]string{{"to_abort"}, {"entry_seq_stage_abort", "write_ox_tpc_cmd"}}},
+					{Key: "stage_abort", Strata: [][]string{{"abort_node"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Transition should fire and move into abort stage.
+			Expect(abortNode.NextCalled).To(Equal(1))
+			// Statement after transition in the same stage pass should be skipped.
+			Expect(writeCmd.NextCalled).To(Equal(0))
+		})
+	})
+
+	Describe("Source-Order Transition Priority", func() {
+		It("Should select the shallower entry when entries are at different strata", func() {
+			// Documents the pre-fix behavior: when entry nodes are at different
+			// strata, the shallower one wins due to short-circuit, regardless of
+			// source order. This is the bug we're fixing in the stratifier.
+			trigger := mock("trigger")
+			entryActive := mock("entry_seq_active")
+			condA := mock("condA")
+			condB := mock("condB")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryActive.ActivateOnNext()
+
+			condA.MarkOnNext("check")
+			condA.ParamTruthy["check"] = true
+			condB.MarkOnNext("check")
+			condB.ParamTruthy["check"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_active").
+				Node("condA").
+				Node("condB").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_active", "input").
+				OneShot("condA", "check", "entry_seq_stage_a", "input").
+				OneShot("condB", "check", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
+				Sequence("seq", []testutil.StageSpec{
+					// entry_b at stratum 1, entry_a at stratum 2 (different strata)
+					{Key: "active", Strata: [][]string{
+						{"condA", "condB"},
+						{"entry_seq_stage_b"},
+						{"entry_seq_stage_a"},
+					}},
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Short-circuit picks the shallower entry (stage_b at stratum 1)
+			// even though stage_a should win by source order.
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeA.NextCalled).To(Equal(0))
+		})
+
+		It("Should respect source order when entries are at the same stratum", func() {
+			// Post-fix behavior: when the stratifier flattens entry nodes to the
+			// same stratum, source order (position within the stratum) determines
+			// which transition wins.
+			trigger := mock("trigger")
+			entryActive := mock("entry_seq_active")
+			condA := mock("condA")
+			condB := mock("condB")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryActive.ActivateOnNext()
+
+			condA.MarkOnNext("check")
+			condA.ParamTruthy["check"] = true
+			condB.MarkOnNext("check")
+			condB.ParamTruthy["check"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_active").
+				Node("condA").
+				Node("condB").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_active", "input").
+				OneShot("condA", "check", "entry_seq_stage_a", "input").
+				OneShot("condB", "check", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
+				Sequence("seq", []testutil.StageSpec{
+					// Both entries at the same stratum, stage_a first (source order)
+					{Key: "active", Strata: [][]string{
+						{"condA", "condB"},
+						{"entry_seq_stage_a", "entry_seq_stage_b"},
+					}},
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Source-order first entry (stage_a) wins
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
 	})
 
 	Describe("Convergence Loop", func() {
@@ -1054,7 +1268,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Error Handling", func() {
 		It("Should pass errors to error handler", func() {
 			nodeA := mock("A")
-			testErr := fmt.Errorf("test error")
+			testErr := errors.New("test error")
 			nodeA.ErrorOnNext(testErr)
 
 			prog := testutil.NewIRBuilder().
@@ -1077,7 +1291,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.OnNext = func(ctx node.Context) {
-				ctx.ReportError(fmt.Errorf("error from A"))
+				ctx.ReportError(errors.New("error from A"))
 				ctx.MarkChanged("output")
 			}
 
@@ -1095,7 +1309,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should return normally after error", func() {
 			nodeA := mock("A")
-			nodeA.ErrorOnNext(fmt.Errorf("node error"))
+			nodeA.ErrorOnNext(errors.New("node error"))
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -1245,6 +1459,367 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
+	Describe("Bang-Bang Authority Release Pattern", func() {
+		It("Should execute yield stage authority nodes during start → stop → yield cascade", func() {
+			trigger := mock("trigger")
+			entryStart := mock("entry_bb_start")
+			entryStop := mock("entry_bb_stop")
+			entryYield := mock("entry_bb_yield")
+			authHighCh1 := mock("auth_high_ch1")
+			authHighCh2 := mock("auth_high_ch2")
+			stopTrigger := mock("stop_trigger")
+			writeCh1 := mock("write_ch1")
+			writeCh2 := mock("write_ch2")
+			yieldTrigger := mock("yield_trigger")
+			authLowCh1 := mock("auth_low_ch1")
+			authLowCh2 := mock("auth_low_ch2")
+			reentryTrigger := mock("reentry_trigger")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryStart.ActivateOnNext()
+			entryStop.ActivateOnNext()
+			entryYield.ActivateOnNext()
+			stopTrigger.MarkOnNext("to_stop")
+			stopTrigger.ParamTruthy["to_stop"] = true
+			yieldTrigger.MarkOnNext("to_yield")
+			yieldTrigger.ParamTruthy["to_yield"] = true
+			reentryTrigger.MarkOnNext("to_start")
+			reentryTrigger.ParamTruthy["to_start"] = false
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_bb_start").
+				Node("entry_bb_stop").
+				Node("entry_bb_yield").
+				Node("auth_high_ch1").
+				Node("auth_high_ch2").
+				Node("stop_trigger").
+				Node("write_ch1").
+				Node("write_ch2").
+				Node("yield_trigger").
+				Node("auth_low_ch1").
+				Node("auth_low_ch2").
+				Node("reentry_trigger").
+				OneShot("trigger", "activate", "entry_bb_start", "input").
+				OneShot("stop_trigger", "to_stop", "entry_bb_stop", "input").
+				OneShot("yield_trigger", "to_yield", "entry_bb_yield", "input").
+				OneShot("reentry_trigger", "to_start", "entry_bb_start", "input").
+				Strata([][]string{
+					{"trigger"},
+					{"entry_bb_start", "entry_bb_stop", "entry_bb_yield"},
+				}).
+				Sequence("bb", []testutil.StageSpec{
+					{Key: "start", Strata: [][]string{
+						{"auth_high_ch1", "auth_high_ch2", "stop_trigger"},
+						{"entry_bb_stop"},
+					}},
+					{Key: "stop", Strata: [][]string{
+						{"write_ch1", "write_ch2", "yield_trigger"},
+						{"entry_bb_yield"},
+					}},
+					{Key: "yield", Strata: [][]string{
+						{"auth_low_ch1", "auth_low_ch2", "reentry_trigger"},
+						{"entry_bb_start"},
+					}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(authHighCh1.NextCalled).To(Equal(1))
+			Expect(authHighCh2.NextCalled).To(Equal(1))
+			Expect(writeCh1.NextCalled).To(Equal(1))
+			Expect(writeCh2.NextCalled).To(Equal(1))
+			Expect(authLowCh1.NextCalled).To(Equal(1))
+			Expect(authLowCh2.NextCalled).To(Equal(1))
+
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(authLowCh1.NextCalled).To(Equal(2))
+			Expect(authLowCh2.NextCalled).To(Equal(2))
+			Expect(authHighCh1.NextCalled).To(Equal(1))
+			Expect(authHighCh2.NextCalled).To(Equal(1))
+			Expect(writeCh1.NextCalled).To(Equal(1))
+			Expect(writeCh2.NextCalled).To(Equal(1))
+		})
+
+		It("Should re-execute start authority nodes when yield re-enters start via active trigger", func() {
+			// In the real scenario, stop → yield is timer-delayed (separate tick),
+			// so re-entry only needs 2 transitions within one convergence loop
+			// (stop → yield, yield → start), which fits within maxConvergenceIterations = 3.
+			trigger := mock("trigger")
+			entryStart := mock("entry_bb_start")
+			entryStop := mock("entry_bb_stop")
+			entryYield := mock("entry_bb_yield")
+			authHighCh1 := mock("auth_high_ch1")
+			authHighCh2 := mock("auth_high_ch2")
+			stopTrigger := mock("stop_trigger")
+			mock("write_ch1")
+			mock("write_ch2")
+			yieldTrigger := mock("yield_trigger")
+			authLowCh1 := mock("auth_low_ch1")
+			authLowCh2 := mock("auth_low_ch2")
+			reentryTrigger := mock("reentry_trigger")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryStart.ActivateOnNext()
+			entryStop.ActivateOnNext()
+			entryYield.ActivateOnNext()
+			reentryTrigger.MarkOnNext("to_start")
+			reentryTrigger.ParamTruthy["to_start"] = true
+
+			// stop_trigger fires on tick 1 (cascading start → stop).
+			// yield_trigger fires on tick 2 (cascading stop → yield → start re-entry).
+			// This mirrors the real behavior where wait{duration=250ms} delays
+			// the stop → yield transition to a later tick.
+			stopCallCount := 0
+			stopTrigger.OnNext = func(nCtx node.Context) {
+				stopCallCount++
+				if stopCallCount == 1 {
+					nCtx.MarkChanged("to_stop")
+				}
+			}
+			stopTrigger.ParamTruthy["to_stop"] = true
+
+			yieldCallCount := 0
+			yieldTrigger.OnNext = func(nCtx node.Context) {
+				yieldCallCount++
+				if yieldCallCount == 1 {
+					nCtx.MarkChanged("to_yield")
+				}
+			}
+			yieldTrigger.ParamTruthy["to_yield"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_bb_start").
+				Node("entry_bb_stop").
+				Node("entry_bb_yield").
+				Node("auth_high_ch1").
+				Node("auth_high_ch2").
+				Node("stop_trigger").
+				Node("write_ch1").
+				Node("write_ch2").
+				Node("yield_trigger").
+				Node("auth_low_ch1").
+				Node("auth_low_ch2").
+				Node("reentry_trigger").
+				OneShot("trigger", "activate", "entry_bb_start", "input").
+				OneShot("stop_trigger", "to_stop", "entry_bb_stop", "input").
+				OneShot("yield_trigger", "to_yield", "entry_bb_yield", "input").
+				OneShot("reentry_trigger", "to_start", "entry_bb_start", "input").
+				Strata([][]string{
+					{"trigger"},
+					{"entry_bb_start", "entry_bb_stop", "entry_bb_yield"},
+				}).
+				Sequence("bb", []testutil.StageSpec{
+					{Key: "start", Strata: [][]string{
+						{"auth_high_ch1", "auth_high_ch2", "stop_trigger"},
+						{"entry_bb_stop"},
+					}},
+					{Key: "stop", Strata: [][]string{
+						{"write_ch1", "write_ch2", "yield_trigger"},
+						{"entry_bb_yield"},
+					}},
+					{Key: "yield", Strata: [][]string{
+						{"auth_low_ch1", "auth_low_ch2", "reentry_trigger"},
+						{"entry_bb_start"},
+					}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			// Tick 1: trigger → start → stop (stop_trigger fires once).
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(authHighCh1.NextCalled).To(Equal(1))
+			Expect(authHighCh2.NextCalled).To(Equal(1))
+
+			// Tick 2: stop is active. yield_trigger fires → stop → yield.
+			// reentry_trigger fires → yield → start (re-entry).
+			// This is 2 transitions within maxConvergenceIterations = 3.
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(authLowCh1.NextCalled).To(Equal(1))
+			Expect(authLowCh2.NextCalled).To(Equal(1))
+			Expect(authHighCh1.NextCalled).To(Equal(2))
+			Expect(authHighCh2.NextCalled).To(Equal(2))
+		})
+	})
+
+	Describe("Self-Changed (Wait in Flow Chain)", func() {
+		It("Should allow a self-changed node in a higher stratum to keep executing", func() {
+			// IR: comparison (stratum 0) => wait (stratum 1) -> entry_seq_next (stratum 2)
+			// The comparison fires a one-shot to the wait. The wait needs multiple
+			// timer ticks to complete. Without self-changed, the wait only gets one
+			// tick (the one-shot fires once), then starves.
+			comparison := mock("comparison")
+			wait := mock("wait")
+			entryNext := mock("entry_seq_next")
+
+			comparison.MarkOnNext("output")
+			comparison.ParamTruthy["output"] = true
+
+			// Wait simulates a 1s timer: calls MarkSelfChanged while timing,
+			// then calls MarkChanged("output") when done.
+			waitStarted := false
+			waitStartElapsed := telem.TimeSpan(0)
+			wait.OnNext = func(nCtx node.Context) {
+				if nCtx.Reason != node.ReasonTimerTick {
+					return
+				}
+				if !waitStarted {
+					waitStarted = true
+					waitStartElapsed = nCtx.Elapsed
+					nCtx.MarkSelfChanged()
+					return
+				}
+				if nCtx.Elapsed-waitStartElapsed < telem.Second {
+					nCtx.MarkSelfChanged()
+					return
+				}
+				nCtx.MarkChanged("output")
+			}
+			wait.ParamTruthy["output"] = true
+
+			entryNext.ActivateOnNext()
+
+			trigger := mock("trigger")
+			entry := mock("entry_seq_first")
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_first").
+				Node("comparison").
+				Node("wait").
+				Node("entry_seq_next").
+				OneShot("trigger", "activate", "entry_seq_first", "input").
+				OneShot("comparison", "output", "wait", "input").
+				Edge("wait", "output", "entry_seq_next", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_first"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "first", Strata: [][]string{{"comparison"}, {"wait"}, {"entry_seq_next"}}},
+					{Key: "next", Strata: [][]string{}},
+				}).
+				Build()
+
+			s := scheduler.New(prog, nodes, 0)
+
+			// Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
+			// wait starts timing and calls MarkSelfChanged
+			s.Next(ctx, 0, node.ReasonTimerTick)
+			Expect(wait.NextCalled).To(Equal(1))
+			Expect(entryNext.NextCalled).To(Equal(0))
+
+			// Tick at 500ms: wait should execute (self-changed), but not fire yet
+			s.Next(ctx, 500*telem.Millisecond, node.ReasonTimerTick)
+			Expect(wait.NextCalled).To(Equal(2))
+			Expect(entryNext.NextCalled).To(Equal(0))
+
+			// Tick at 1s: wait fires, propagates to entry_seq_next
+			s.Next(ctx, telem.Second, node.ReasonTimerTick)
+			Expect(wait.NextCalled).To(Equal(3))
+			Expect(entryNext.NextCalled).To(Equal(1))
+		})
+
+		It("Should not execute a self-changed node if it stops calling MarkSelfChanged", func() {
+			trigger := mock("trigger")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("output")
+			trigger.ParamTruthy["output"] = true
+
+			callCount := 0
+			nodeA.OnNext = func(nCtx node.Context) {
+				callCount++
+				if callCount <= 2 {
+					nCtx.MarkSelfChanged()
+				}
+			}
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("A").
+				OneShot("trigger", "output", "A", "input").
+				Strata([][]string{{"trigger"}, {"A"}}).
+				Build()
+
+			s := build(prog)
+
+			// Tick 0: trigger fires one-shot to A, A executes and self-changes
+			s.Next(ctx, 0, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+
+			// Tick 1: A executes via self-changed (one-shot already fired)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(2))
+
+			// Tick 2: A executes via self-changed (callCount=2, still calls MarkSelfChanged)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(3))
+
+			// Tick 3: A should NOT execute (callCount=3, stopped calling MarkSelfChanged,
+			// one-shot already fired, not in changed set)
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(3))
+		})
+
+		It("Should clear self-changed when a node is reset via stage transition", func() {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+
+			// A calls MarkSelfChanged on first execution
+			aCallCount := 0
+			nodeA.OnNext = func(nCtx node.Context) {
+				aCallCount++
+				if aCallCount == 1 {
+					nCtx.MarkSelfChanged()
+					nCtx.MarkChanged("to_b")
+				}
+			}
+			nodeA.ParamTruthy["to_b"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				OneShot("A", "to_b", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := scheduler.New(prog, nodes, 0)
+
+			// Tick 0: trigger → stage_a activates, A runs and self-changes + transitions to stage_b
+			s.Next(ctx, 0, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			// Tick 1: stage_b is active, A's self-changed should have been cleared by reset
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(2))
+		})
+	})
+
 	Describe("Edge Cases", func() {
 		It("Should handle zero elapsed time", func() {
 			nodeA := mock("A")
@@ -1288,6 +1863,112 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(mocks["A"].NextCalled).To(Equal(1))
+		})
+	})
+	Describe("NextDeadline", func() {
+		It("Should return TimeSpanMax when no node sets a deadline", func() {
+			nodeA := NewMockNode()
+			nodeA.MarkOnNext("output")
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
+		})
+		It("Should return the minimum deadline across nodes", func() {
+			nodeA := NewMockNode()
+			nodeA.OnNext = func(ctx node.Context) {
+				if ctx.SetDeadline != nil {
+					ctx.SetDeadline(3 * telem.Second)
+				}
+			}
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			nodeB := NewMockNode()
+			nodeB.OnNext = func(ctx node.Context) {
+				if ctx.SetDeadline != nil {
+					ctx.SetDeadline(1 * telem.Second)
+				}
+			}
+			mocks["B"] = nodeB
+			nodes["B"] = nodeB
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Strata([][]string{{"A", "B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.Second))
+		})
+		It("Should reset to max between cycles", func() {
+			call := 0
+			nodeA := NewMockNode()
+			nodeA.OnNext = func(ctx node.Context) {
+				call++
+				if call == 1 && ctx.SetDeadline != nil {
+					ctx.SetDeadline(telem.Second)
+				}
+			}
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.Second))
+
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
+		})
+		It("Should track deadlines from stage nodes", func() {
+			nodeA := NewMockNode()
+			nodeA.OnNext = func(ctx node.Context) {
+				if ctx.SetDeadline != nil {
+					ctx.SetDeadline(2 * telem.Second)
+				}
+			}
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			trigger := NewMockNode()
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["trigger"] = trigger
+			nodes["trigger"] = trigger
+
+			entry := NewMockNode()
+			entry.ActivateOnNext()
+			mocks["entry_seq_stage"] = entry
+			nodes["entry_seq_stage"] = entry
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(2 * telem.Second))
 		})
 	})
 })

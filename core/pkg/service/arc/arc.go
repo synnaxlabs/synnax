@@ -11,33 +11,9 @@ package arc
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
-
-type Mode string
-
-var (
-	Text  Mode = "text"
-	Graph      = "graph"
-)
-
-// StatusDetails is the status details type for arc statuses.
-type StatusDetails struct{ Running bool }
-
-// Arc is a representation of an arc automation stored within the cluster meta-data
-// store.
-type Arc struct {
-	Text    text.Text     `json:"text" msgpack:"text"`
-	Version string        `json:"version" msgpack:"version"`
-	Name    string        `json:"name" msgpack:"name"`
-	Mode    Mode          `json:"mode" msgpack:"mode"`
-	Module  module.Module `json:"module" msgpack:"module"`
-	Graph   graph.Graph   `json:"graph" msgpack:"graph"`
-	Key     uuid.UUID     `json:"key" msgpack:"key"`
-}
 
 var _ gorp.Entry[uuid.UUID] = Arc{}
 
@@ -46,3 +22,25 @@ func (s Arc) GorpKey() uuid.UUID { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Arc) SetOptions() []any { return nil }
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
+// Go field name "Running" and new lowercase msgpack tag "running" for backward
+// compatibility.
+func (s *StatusDetails) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias StatusDetails
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(s)); err != nil {
+		return err
+	}
+	if !s.Running {
+		var legacy struct{ Running bool }
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		s.Running = legacy.Running
+	}
+	return nil
+}

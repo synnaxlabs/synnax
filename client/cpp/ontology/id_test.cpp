@@ -125,10 +125,84 @@ TEST(OntologyID, testIDsToStrings) {
     EXPECT_EQ(strs[2], "user:admin");
 }
 
+/// @brief it should return true for a default-constructed (empty) ID.
+TEST(OntologyID, testIsZeroDefault) {
+    const ID id{};
+    EXPECT_TRUE(id.is_zero());
+}
+
+/// @brief it should return false for an ID with type and key.
+TEST(OntologyID, testIsZeroNonEmpty) {
+    const ID id{.type = "channel", .key = "42"};
+    EXPECT_FALSE(id.is_zero());
+}
+
+/// @brief it should return false when only type is set.
+TEST(OntologyID, testIsZeroPartialType) {
+    const ID id{.type = "channel", .key = ""};
+    EXPECT_FALSE(id.is_zero());
+}
+
+/// @brief it should return false when only key is set.
+TEST(OntologyID, testIsZeroPartialKey) {
+    const ID id{.type = "", .key = "42"};
+    EXPECT_FALSE(id.is_zero());
+}
+
 /// @brief it should verify ROOT_ID constant.
 TEST(OntologyID, testRootIDConstant) {
     EXPECT_EQ(ROOT_ID.type, "builtin");
     EXPECT_EQ(ROOT_ID.key, "root");
     EXPECT_EQ(ROOT_ID.string(), "builtin:root");
+}
+
+/// @brief it should parse an ID from JSON.
+TEST(OntologyID, testParseFromJSON) {
+    x::json::json j = {{"type", "channel"}, {"key", "42"}};
+    x::json::Parser parser(j);
+    const auto id = ID::parse(parser);
+    EXPECT_EQ(id.type, "channel");
+    EXPECT_EQ(id.key, "42");
+}
+
+/// @brief it should serialize an ID to JSON.
+TEST(OntologyID, testToJSON) {
+    const ID id{.type = "channel", .key = "42"};
+    const auto j = id.to_json();
+    EXPECT_EQ(j["type"], "channel");
+    EXPECT_EQ(j["key"], "42");
+}
+
+/// @brief it should round-trip an ID through JSON.
+TEST(OntologyID, testJSONRoundTrip) {
+    const ID original{.type = "group", .key = "abc-123"};
+    const auto j = original.to_json();
+    x::json::Parser parser(j);
+    const auto parsed = ID::parse(parser);
+    EXPECT_EQ(parsed, original);
+}
+
+/// @brief it should round-trip an ID through protobuf.
+TEST(OntologyID, testProtoRoundTrip) {
+    const ID original{.type = "channel", .key = "42"};
+    const auto pb = ASSERT_NIL_P(original.to_proto());
+    const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
+    EXPECT_EQ(parsed, original);
+}
+
+/// @brief it should return an error for an unrecognized type in to_proto.
+TEST(OntologyID, testToProtoUnrecognizedType) {
+    const ID id{.type = "nonexistent", .key = "42"};
+    const auto [pb, err] = id.to_proto();
+    ASSERT_TRUE(err);
+    ASSERT_NE(err.type.find("unrecognized"), std::string::npos);
+}
+
+/// @brief it should convert a zero ID to protobuf and back.
+TEST(OntologyID, testProtoRoundTripBuiltinType) {
+    const ID original{.type = "builtin", .key = "root"};
+    const auto pb = ASSERT_NIL_P(original.to_proto());
+    const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
+    EXPECT_EQ(parsed, original);
 }
 }

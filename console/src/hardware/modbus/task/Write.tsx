@@ -20,7 +20,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -28,15 +28,12 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
 import { SelectOutputChannelTypeField } from "@/hardware/modbus/task/SelectOutputChannelTypeField";
 import {
-  HOLDING_REGISTER_OUTPUT_TYPE,
   OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
   type OutputChannelType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type writeConfigZ,
-  type writeStatusDataZ,
-  type writeTypeZ,
+  type WriteSchemas,
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/modbus/task/types";
@@ -91,20 +88,14 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
           showHelpText={false}
           path={`${path}.address`}
         />
-        {type === HOLDING_REGISTER_OUTPUT_TYPE && (
+        {type === "holding_register_output" && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
             showHelpText={false}
             hideIfNull
           >
-            {({ value, onChange }) => (
-              <Telem.SelectDataType
-                value={value}
-                onChange={onChange}
-                hideVariableDensity
-              />
-            )}
+            {renderTelemSelectDataType}
           </PForm.Field>
         )}
       </Flex.Box>
@@ -119,6 +110,12 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
     </Select.ListItem>
   );
 };
+
+const renderTelemSelectDataType = Component.renderProp(
+  (props: Telem.SelectDataTypeProps) => (
+    <Telem.SelectDataType {...props} hideVariableDensity />
+  ),
+);
 
 const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
   if (channels.length === 0)
@@ -163,9 +160,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const Form: FC<
-  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = () => (
+const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => (
   <Common.Task.Layouts.List<OutputChannel>
     createChannel={getOpenChannel}
     listItem={listItem}
@@ -176,11 +171,9 @@ const Form: FC<
 const writeMapKey = (channel: OutputChannel) =>
   `${channel.type}-${channel.address.toString()}`.replace("_", "-");
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> = ({ deviceKey }) => ({
+const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+  deviceKey,
+}) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
     ...ZERO_WRITE_PAYLOAD.config,
@@ -188,7 +181,7 @@ const getInitialValues: Common.Task.GetInitialValues<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -199,9 +192,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
-    const existing =
-      dev.properties.write.channels[key] ??
-      dev.properties.write.channels[caseconv.snakeToCamel(key)];
+    const existing = dev.properties.write.channels[key];
     if (existing == null) {
       commandsToCreate.push(channel);
       continue;
@@ -243,9 +234,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel:
-      dev.properties.write.channels[writeMapKey(c)] ??
-      dev.properties.write.channels[caseconv.snakeToCamel(writeMapKey(c))],
+    channel: dev.properties.write.channels[writeMapKey(c)],
   }));
 
   return [config, dev.rack];
@@ -255,7 +244,7 @@ export const Write = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
-  type: WRITE_TYPE,
+  type: "modbus_write",
   getInitialValues,
   onConfigure,
 });

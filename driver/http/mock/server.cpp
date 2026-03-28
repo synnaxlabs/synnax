@@ -30,9 +30,12 @@ struct Server::Impl {
     std::atomic<bool> running{false};
     std::string host;
     bool secure;
+    std::string cert_path;
+    std::string key_path;
     int port = 0;
     mutable std::mutex mu;
     std::vector<ReceivedRequest> requests;
+    std::vector<Route> routes;
 
     static Method parse_httplib_method(const std::string &m) {
         if (m == "GET") return Method::GET;
@@ -48,7 +51,7 @@ struct Server::Impl {
     }
 
     void log_request(const httplib::Request &req) {
-        std::lock_guard lock(mu);
+        std::lock_guard lock(this->mu);
         std::multimap<std::string, std::string> headers(
             req.headers.begin(),
             req.headers.end()
@@ -57,7 +60,7 @@ struct Server::Impl {
             req.params.begin(),
             req.params.end()
         );
-        requests.push_back({
+        this->requests.push_back({
             .method = parse_httplib_method(req.method),
             .path = req.path,
             .body = req.body,
@@ -66,34 +69,52 @@ struct Server::Impl {
         });
     }
 
+    void create_server() {
+        if (this->secure) {
+            this->svr = std::make_unique<httplib::SSLServer>(
+                this->cert_path.c_str(),
+                this->key_path.c_str()
+            );
+        } else {
+            this->svr = std::make_unique<httplib::Server>();
+        }
+        for (const auto &route: this->routes)
+            this->register_route(route);
+    }
+
     void register_route(const Route &route) {
         auto handler = [this,
                         route](const httplib::Request &req, httplib::Response &res) {
             log_request(req);
             if (route.delay > x::telem::TimeSpan::ZERO())
                 std::this_thread::sleep_for(route.delay.chrono());
+            if (!route.redirect_to.empty()) {
+                res.status = route.status_code;
+                res.set_redirect(route.redirect_to, route.status_code);
+                return;
+            }
             res.status = route.status_code;
             res.set_content(route.response_body, route.content_type);
         };
 
         switch (route.method) {
             case Method::GET:
-                svr->Get(route.path, handler);
+                this->svr->Get(route.path, handler);
                 break;
             case Method::POST:
-                svr->Post(route.path, handler);
+                this->svr->Post(route.path, handler);
                 break;
             case Method::PUT:
-                svr->Put(route.path, handler);
+                this->svr->Put(route.path, handler);
                 break;
             case Method::DEL:
-                svr->Delete(route.path, handler);
+                this->svr->Delete(route.path, handler);
                 break;
             case Method::PATCH:
-                svr->Patch(route.path, handler);
+                this->svr->Patch(route.path, handler);
                 break;
             case Method::OPTIONS:
-                svr->Options(route.path, handler);
+                this->svr->Options(route.path, handler);
                 break;
             case Method::HEAD:
                 throw std::runtime_error("httplib does not support HEAD methods");
@@ -105,51 +126,62 @@ struct Server::Impl {
     }
 };
 
-Server::Server(const ServerConfig &config): impl_(std::make_unique<Impl>()) {
-    impl_->host = config.host;
-    impl_->secure = config.secure;
-    if (config.secure) {
-        impl_->svr = std::make_unique<httplib::SSLServer>(
-            config.cert_path.c_str(),
-            config.key_path.c_str()
-        );
-    } else {
-        impl_->svr = std::make_unique<httplib::Server>();
-    }
-    for (const auto &route: config.routes)
-        impl_->register_route(route);
+Server::Server(const ServerConfig &config): impl(std::make_unique<Impl>()) {
+    this->impl->host = config.host;
+    this->impl->secure = config.secure;
+    this->impl->cert_path = config.cert_path;
+    this->impl->key_path = config.key_path;
+    this->impl->routes = config.routes;
+    this->impl->create_server();
 }
 
 Server::~Server() {
-    stop();
+    this->stop();
 }
 
 x::errors::Error Server::start() {
-    if (impl_->running) return x::errors::NIL;
-    if (!impl_->svr->is_valid())
+    if (this->impl->running) return x::errors::NIL;
+    // Recreate the httplib server so that start() works after a stop().
+    this->impl->create_server();
+    if (!this->impl->svr->is_valid())
         return x::errors::Error("mock server is not valid (bad TLS cert?)");
-    impl_->port = impl_->svr->bind_to_any_port(impl_->host);
-    if (impl_->port < 0) return x::errors::Error("failed to bind mock HTTP server");
-    impl_->running = true;
-    impl_->thread = std::thread([this] { impl_->svr->listen_after_bind(); });
-    impl_->svr->wait_until_ready();
+    // If we have a previous port (restart), reuse it so existing clients keep working.
+    if (this->impl->port > 0) {
+        if (!this->impl->svr->bind_to_port(this->impl->host, this->impl->port))
+            return x::errors::Error(
+                "failed to re-bind mock HTTP server to port " +
+                std::to_string(this->impl->port)
+            );
+    } else {
+        this->impl->port = this->impl->svr->bind_to_any_port(this->impl->host);
+        if (this->impl->port < 0)
+            return x::errors::Error("failed to bind mock HTTP server");
+    }
+    this->impl->running = true;
+    this->impl->thread = std::thread([this] { this->impl->svr->listen_after_bind(); });
+    this->impl->svr->wait_until_ready();
     return x::errors::NIL;
 }
 
 void Server::stop() {
-    if (!impl_->running) return;
-    impl_->running = false;
-    impl_->svr->stop();
-    if (impl_->thread.joinable()) impl_->thread.join();
+    if (!this->impl->running) return;
+    this->impl->running = false;
+    this->impl->svr->stop();
+    if (this->impl->thread.joinable()) this->impl->thread.join();
 }
 
 std::string Server::base_url() const {
-    const std::string scheme = impl_->secure ? "https" : "http";
-    return scheme + "://" + impl_->host + ":" + std::to_string(impl_->port);
+    const std::string scheme = this->impl->secure ? "https" : "http";
+    return scheme + "://" + this->impl->host + ":" + std::to_string(this->impl->port);
 }
 
 std::vector<ReceivedRequest> Server::received_requests() const {
-    std::lock_guard lock(impl_->mu);
-    return impl_->requests;
+    std::lock_guard lock(this->impl->mu);
+    return this->impl->requests;
+}
+
+void Server::clear_requests() {
+    std::lock_guard lock(this->impl->mu);
+    this->impl->requests.clear();
 }
 }

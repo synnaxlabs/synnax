@@ -194,6 +194,38 @@ func (e *Writer) WriteLEB128Signed(val int64) {
 	writeSignedLEB128(&e.buf, val)
 }
 
+// WriteCallPlaceholder writes a call instruction with a fixed-width 5-byte
+// LEB128 operand that can be patched later. Returns the byte offset of the
+// operand within the bytecode buffer.
+func (e *Writer) WriteCallPlaceholder(handle uint32) int {
+	e.WriteOpcode(OpCall)
+	offset := e.buf.Len()
+	e.WriteLEB128Fixed5(uint64(handle))
+	return offset
+}
+
+// PatchCall overwrites a 5-byte LEB128 operand at the given offset with
+// the real function index.
+func (e *Writer) PatchCall(offset int, realIndex uint32) {
+	data := e.buf.Bytes()
+	writeLEB128Fixed5Into(data[offset:offset+5], uint64(realIndex))
+}
+
+// WriteLEB128Fixed5 writes a uint64 as exactly 5 bytes of unsigned LEB128.
+func (e *Writer) WriteLEB128Fixed5(val uint64) {
+	var buf [5]byte
+	writeLEB128Fixed5Into(buf[:], val)
+	e.buf.Write(buf[:])
+}
+
+func writeLEB128Fixed5Into(dst []byte, val uint64) {
+	for i := range 4 {
+		dst[i] = byte(val&0x7f) | 0x80
+		val >>= 7
+	}
+	dst[4] = byte(val & 0x7f)
+}
+
 // Bytes returns the accumulated bytecode
 func (e *Writer) Bytes() []byte {
 	return e.buf.Bytes()

@@ -86,9 +86,13 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}
 
 	m.mu.Lock()
-	statuses := make([]Status, len(racks))
-	for i, r := range racks {
+	now = telem.Now()
+	var statuses []Status
+	for _, r := range racks {
 		state := m.mu.racks[r.Key]
+		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {
+			continue
+		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{
 			Key:         OntologyID(r.Key).String(),
@@ -100,10 +104,13 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			Details:     StatusDetails{Rack: r.Key},
 		}
 		m.L.Warn(strings.ToLower(stat.Message), zap.Stringer("time_since_alive", timeSinceAlive))
-		statuses[i] = stat
+		statuses = append(statuses, stat)
 	}
 	m.mu.Unlock()
 
+	if len(statuses) == 0 {
+		return nil
+	}
 	if err := status.NewWriter[StatusDetails](m.svc.Status, nil).
 		SetMany(ctx, &statuses); err != nil {
 		return err
@@ -118,7 +125,7 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(OntologyType)) {
+		if !strings.HasPrefix(ch.Key, string(ontology.TypeRack)) {
 			continue
 		}
 		key, err := parseKeyFromOntologyIDString(ch.Key)

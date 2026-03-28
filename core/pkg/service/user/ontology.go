@@ -24,11 +24,9 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "user"
-
 // OntologyID returns a unique identifier for a User for use within a resource ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: key.String()}
+	return ontology.ID{Type: ontology.TypeUser, Key: key.String()}
 }
 
 // OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
@@ -60,7 +58,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"root_user":  zyn.Bool(),
 })
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeUser }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -88,7 +86,7 @@ type change = xchange.Change[uuid.UUID, User]
 func translateChange(ch change) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     OntologyID(ch.Key),
+		Key:     OntologyID(ch.Key).String(),
 		Value:   newResource(ch.Value),
 	}
 }

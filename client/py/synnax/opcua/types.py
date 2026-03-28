@@ -362,7 +362,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties)
+        props = dict(dev.properties) if dev.properties is not None else {}
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -437,7 +437,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties)
+        props = dict(dev.properties) if dev.properties is not None else {}
 
         if "write" not in props:
             props["write"] = {"channels": {}}
@@ -547,8 +547,9 @@ class Device(device.Device):
 
         # Set properties with connection info
         props = {
+            "version": "1.0.0",
             "connection": connection,
-            "read": {"index": 0, "channels": {}},
+            "read": {"indexes": [], "channels": {}},
             "write": {"channels": {}},
         }
 

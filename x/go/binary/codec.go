@@ -36,7 +36,7 @@ func sugarEncodingErr(value any, base error) error {
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(ErrEncode, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
-	return errors.Combine(main, base)
+	return errors.WithStack(errors.Combine(main, base))
 }
 
 // sugarDecodingErr adds additional context to decoding errors.
@@ -46,7 +46,7 @@ func sugarDecodingErr(data []byte, value any, base error) error {
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(ErrDecode, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
-	return errors.Combine(main, base)
+	return errors.WithStack(errors.Combine(main, base))
 }
 
 // Codec is an interface that encodes and decodes values.
@@ -350,8 +350,10 @@ func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	switch val := v.(type) {
 	case string:
 		m := make(map[string]any)
-		if err := json.Unmarshal([]byte(val), &m); err != nil {
-			return errors.Wrapf(err, "failed to unmarshal JSON string into MsgpackEncodedJSON")
+		if len(val) != 0 {
+			if err = json.Unmarshal([]byte(val), &m); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal JSON string into MsgpackEncodedJSON")
+			}
 		}
 		*e = m
 	case map[string]any:

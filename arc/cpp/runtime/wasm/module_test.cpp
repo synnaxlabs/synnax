@@ -17,10 +17,9 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
 
-#include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/module.h"
 
-using namespace arc::runtime::wasm;
+namespace arc::runtime::wasm {
 
 namespace {
 std::mt19937 gen_rand = random_generator("Module Tests");
@@ -31,26 +30,28 @@ std::string random_name(const std::string &prefix) {
 }
 
 /// @brief Compiles an Arc program via the Synnax client.
-arc::module::Module
-compile_arc(const synnax::Synnax &client, const std::string &source) {
+program::Program compile_arc(const synnax::Synnax &client, const std::string &source) {
     synnax::arc::Arc arc{
         .name = random_name("test_arc"),
-        .text = ::arc::text::Text(source)
+        .mode = synnax::arc::MODE_TEXT,
+        .text = text::Text(source)
     };
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return compiled.module;
+    if (!compiled.program.has_value())
+        throw std::runtime_error("Compiled arc has no program");
+    return *compiled.program;
 }
 }
 
 /// @brief Module::open returns error for empty WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
-    arc::module::Module mod;
+    program::Program mod;
     mod.wasm = {};
-    const ModuleConfig cfg{.module = mod};
+    const ModuleConfig cfg{.program = mod};
     const auto [module, err] = Module::open(cfg);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("empty"), std::string::npos);
@@ -58,9 +59,9 @@ TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
 
 /// @brief Module::open returns error for invalid WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
-    arc::module::Module mod;
+    program::Program mod;
     mod.wasm = {0x00, 0x01, 0x02, 0x03};
-    const ModuleConfig cfg{.module = mod};
+    const ModuleConfig cfg{.program = mod};
     const auto [module, err] = Module::open(cfg);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("compile"), std::string::npos);
@@ -75,14 +76,14 @@ TEST(ModuleOpenTest, SucceedsWithValidModule) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
     const auto mod = compile_arc(client, source);
     ASSERT_FALSE(mod.wasm.empty());
 
-    const ModuleConfig cfg{.module = mod};
+    const ModuleConfig cfg{.program = mod};
     const auto module = ASSERT_NIL_P(Module::open(cfg));
     ASSERT_NE(module, nullptr);
 }
@@ -96,12 +97,12 @@ TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
-    const ModuleConfig cfg{.module = mod};
+    const auto prog = compile_arc(client, source);
+    const ModuleConfig cfg{.program = prog};
     auto module = ASSERT_NIL_P(Module::open(cfg));
 
     auto [func, func_err] = module->func("nonexistent");
@@ -117,14 +118,14 @@ TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
-    const ModuleConfig cfg{.module = mod};
-    auto module = ASSERT_NIL_P(Module::open(cfg));
-    ASSERT_NIL_P(module->func("double"));
+    const auto program = compile_arc(client, source);
+    const ModuleConfig cfg{.program = program};
+    const auto mod = ASSERT_NIL_P(Module::open(cfg));
+    ASSERT_NIL_P(mod->func("double"));
 }
 
 /// @brief Function::call executes and returns results.
@@ -136,12 +137,12 @@ TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
-    const ModuleConfig cfg{.module = mod};
+    const auto program = compile_arc(client, source);
+    const ModuleConfig cfg{.program = program};
     auto module = ASSERT_NIL_P(Module::open(cfg));
     auto func = ASSERT_NIL_P(module->func("double"));
 
@@ -197,28 +198,28 @@ TEST(SampleFromWasmTest, ConvertsIntegerTypes) {
     wasmtime::Val i32_wasm(static_cast<int32_t>(42));
     const auto i32_sample = sample_from_wasm(
         i32_wasm,
-        arc::types::Type(arc::types::Kind::I32)
+        arc::types::Type{.kind = arc::types::Kind::I32}
     );
     EXPECT_EQ(std::get<int32_t>(i32_sample), 42);
 
     wasmtime::Val i64_wasm(static_cast<int64_t>(123456789));
     const auto i64_sample = sample_from_wasm(
         i64_wasm,
-        arc::types::Type(arc::types::Kind::I64)
+        arc::types::Type{.kind = arc::types::Kind::I64}
     );
     EXPECT_EQ(std::get<int64_t>(i64_sample), 123456789);
 
     wasmtime::Val u8_wasm(static_cast<int32_t>(255));
     const auto u8_sample = sample_from_wasm(
         u8_wasm,
-        arc::types::Type(arc::types::Kind::U8)
+        arc::types::Type{.kind = arc::types::Kind::U8}
     );
     EXPECT_EQ(std::get<uint8_t>(u8_sample), 255);
 
     wasmtime::Val u64_wasm(static_cast<int64_t>(999));
     const auto u64_sample = sample_from_wasm(
         u64_wasm,
-        arc::types::Type(arc::types::Kind::U64)
+        arc::types::Type{.kind = arc::types::Kind::U64}
     );
     EXPECT_EQ(std::get<uint64_t>(u64_sample), 999);
 }
@@ -228,14 +229,14 @@ TEST(SampleFromWasmTest, ConvertsFloatTypes) {
     wasmtime::Val f32_wasm(3.14f);
     const auto f32_sample = sample_from_wasm(
         f32_wasm,
-        arc::types::Type(arc::types::Kind::F32)
+        arc::types::Type{.kind = arc::types::Kind::F32}
     );
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
     wasmtime::Val f64_wasm(2.71828);
     const auto f64_sample = sample_from_wasm(
         f64_wasm,
-        arc::types::Type(arc::types::Kind::F64)
+        arc::types::Type{.kind = arc::types::Kind::F64}
     );
     EXPECT_DOUBLE_EQ(std::get<double>(f64_sample), 2.71828);
 }
@@ -243,10 +244,9 @@ TEST(SampleFromWasmTest, ConvertsFloatTypes) {
 /// @brief sample_from_wasm converts timestamp correctly.
 TEST(SampleFromWasmTest, ConvertsTimestamp) {
     wasmtime::Val ts_wasm(static_cast<int64_t>(1000000000));
-    arc::types::Dimensions dims;
-    dims.time = 1;
-    arc::types::Unit ns_unit(dims, 1.0, "ns");
-    arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
+    arc::types::Dimensions dims{.time = 1};
+    arc::types::Unit ns_unit{.dimensions = dims, .scale = 1.0, .name = "ns"};
+    arc::types::Type ts_type{.kind = arc::types::Kind::I64, .unit = ns_unit};
     const auto ts_sample = sample_from_wasm(ts_wasm, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
 }
@@ -255,25 +255,25 @@ TEST(SampleFromWasmTest, ConvertsTimestamp) {
 TEST(SampleFromBitsTest, ConvertsIntegerTypes) {
     const auto i32_sample = sample_from_bits(
         42,
-        arc::types::Type(arc::types::Kind::I32)
+        arc::types::Type{.kind = arc::types::Kind::I32}
     );
     EXPECT_EQ(std::get<int32_t>(i32_sample), 42);
 
     const auto i64_sample = sample_from_bits(
         123456789,
-        arc::types::Type(arc::types::Kind::I64)
+        arc::types::Type{.kind = arc::types::Kind::I64}
     );
     EXPECT_EQ(std::get<int64_t>(i64_sample), 123456789);
 
     const auto u8_sample = sample_from_bits(
         255,
-        arc::types::Type(arc::types::Kind::U8)
+        arc::types::Type{.kind = arc::types::Kind::U8}
     );
     EXPECT_EQ(std::get<uint8_t>(u8_sample), 255);
 
     const auto u64_sample = sample_from_bits(
         999,
-        arc::types::Type(arc::types::Kind::U64)
+        arc::types::Type{.kind = arc::types::Kind::U64}
     );
     EXPECT_EQ(std::get<uint64_t>(u64_sample), 999);
 }
@@ -285,7 +285,7 @@ TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     memcpy(&f32_bits, &f32_val, sizeof(float));
     const auto f32_sample = sample_from_bits(
         f32_bits,
-        arc::types::Type(arc::types::Kind::F32)
+        arc::types::Type{.kind = arc::types::Kind::F32}
     );
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
@@ -294,17 +294,89 @@ TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     memcpy(&f64_bits, &f64_val, sizeof(double));
     const auto f64_sample = sample_from_bits(
         f64_bits,
-        arc::types::Type(arc::types::Kind::F64)
+        arc::types::Type{.kind = arc::types::Kind::F64}
     );
     EXPECT_DOUBLE_EQ(std::get<double>(f64_sample), 2.71828);
 }
 
 /// @brief sample_from_bits handles timestamp special case.
 TEST(SampleFromBitsTest, HandlesTimestamp) {
-    arc::types::Dimensions dims;
-    dims.time = 1;
-    arc::types::Unit ns_unit(dims, 1.0, "ns");
-    arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
+    arc::types::Dimensions dims{.time = 1};
+    arc::types::Unit ns_unit{.dimensions = dims, .scale = 1.0, .name = "ns"};
+    arc::types::Type ts_type{.kind = arc::types::Kind::I64, .unit = ns_unit};
     const auto ts_sample = sample_from_bits(1000000000, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsF64) {
+    arc::types::Type type{.kind = arc::types::Kind::F64};
+    const auto result = sample_to_wasm(x::telem::SampleValue(3.14), type);
+    EXPECT_DOUBLE_EQ(result.f64(), 3.14);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsF32) {
+    arc::types::Type type{.kind = arc::types::Kind::F32};
+    const auto result = sample_to_wasm(x::telem::SampleValue(3.14), type);
+    EXPECT_FLOAT_EQ(result.f32(), 3.14f);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsI64) {
+    arc::types::Type type{.kind = arc::types::Kind::I64};
+    const auto result = sample_to_wasm(x::telem::SampleValue(123456789.0), type);
+    EXPECT_EQ(result.i64(), 123456789);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsU64) {
+    arc::types::Type type{.kind = arc::types::Kind::U64};
+    const auto result = sample_to_wasm(x::telem::SampleValue(999.0), type);
+    EXPECT_EQ(result.i64(), 999);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsI32Default) {
+    arc::types::Type type{.kind = arc::types::Kind::I32};
+    const auto result = sample_to_wasm(x::telem::SampleValue(42.0), type);
+    EXPECT_EQ(result.i32(), 42);
+}
+
+TEST(JsonToWasmTest, ConvertsF64) {
+    x::json::json val = 3.14;
+    arc::types::Type type{.kind = arc::types::Kind::F64};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_DOUBLE_EQ(result.f64(), 3.14);
+}
+
+TEST(JsonToWasmTest, ConvertsF32) {
+    x::json::json val = 3.14;
+    arc::types::Type type{.kind = arc::types::Kind::F32};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_FLOAT_EQ(result.f32(), 3.14f);
+}
+
+TEST(JsonToWasmTest, ConvertsI64) {
+    x::json::json val = 123456789;
+    arc::types::Type type{.kind = arc::types::Kind::I64};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i64(), 123456789);
+}
+
+TEST(JsonToWasmTest, ConvertsU64) {
+    x::json::json val = 999;
+    arc::types::Type type{.kind = arc::types::Kind::U64};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i64(), 999);
+}
+
+TEST(JsonToWasmTest, ConvertsI32Default) {
+    x::json::json val = 42;
+    arc::types::Type type{.kind = arc::types::Kind::I32};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i32(), 42);
+}
+
+TEST(JsonToWasmTest, ReturnsZeroForNull) {
+    x::json::json val = nullptr;
+    arc::types::Type type{.kind = arc::types::Kind::I32};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i32(), 0);
+}
 }

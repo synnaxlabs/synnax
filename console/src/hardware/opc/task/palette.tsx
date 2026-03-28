@@ -14,9 +14,9 @@ import { READ_LAYOUT } from "@/hardware/opc/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/opc/task/Write";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
-export const CreateReadCommand = Palette.createSimpleCommand({
+const CreateReadCommand = Palette.createSimpleCommand({
   key: "opc-ua-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
@@ -24,7 +24,7 @@ export const CreateReadCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const CreateWriteCommand = Palette.createSimpleCommand({
+const CreateWriteCommand = Palette.createSimpleCommand({
   key: "opc-ua-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,

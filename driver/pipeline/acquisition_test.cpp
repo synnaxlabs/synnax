@@ -110,8 +110,8 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
         }
     );
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_EQ(writes->size(), 0);
-    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EVENTUALLY_TRUE(!pipeline.running());
+    pipeline.stop();
     ASSERT_EQ(writes->size(), 0);
 }
 
@@ -166,7 +166,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EQ(source->stopped_err, x::errors::UNAUTHORIZED);
-    ASSERT_TRUE(pipeline.stop());
+    ASSERT_FALSE(pipeline.stop());
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
@@ -806,6 +806,137 @@ TEST(AcquisitionPipeline, testAuthorityAppliedBeforeWrite) {
         << ") must be called before write (index " << first_write << ")";
 }
 
+/// @brief err_on_unauthorized should default to true on the writer config when no
+/// explicit value is provided (the default for hardware acquisition tasks).
+TEST(AcquisitionPipeline, testErrOnUnauthorizedDefaultsToTrue) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_TRUE(mock_factory->config.err_on_unauthorized);
+}
+
+/// @brief err_on_unauthorized should be set to false on the writer config when the
+/// pipeline is constructed with err_on_unauthorized = false (e.g. for Arc tasks that
+/// need authority handoff).
+TEST(AcquisitionPipeline, testErrOnUnauthorizedCanBeDisabled) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config(),
+        "",
+        false
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_FALSE(mock_factory->config.err_on_unauthorized);
+}
+
+class NeverProducesSource final : public Source {
+    std::atomic<size_t> read_count{0};
+
+public:
+    std::atomic<size_t> &reads() { return this->read_count; }
+
+    x::errors::Error read(
+        x::breaker::Breaker &breaker,
+        x::telem::Frame &fr,
+        Authorities &authorities
+    ) override {
+        this->read_count.fetch_add(1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {}
+};
+
+/// @brief when open_eagerly is true, the writer should open immediately before the
+/// first frame arrives, using the pre-configured start timestamp.
+TEST(AcquisitionPipeline, testEagerOpenWriterBeforeFirstFrame) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<NeverProducesSource>();
+    auto configured_start = x::telem::TimeStamp(5000000000);
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = configured_start},
+        source,
+        x::breaker::Config(),
+        "",
+        /* err_on_unauthorized */ true,
+        /* open_eagerly */ true
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(source->reads().load(), 3);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EQ(mock_factory->config.start, configured_start);
+}
+
+/// @brief when an eagerly-opened pipeline is stopped and restarted, the caller
+/// must pass a fresh timestamp via start(timestamp). This prevents "write overlaps
+/// with existing data" errors in Cesium where the new writer's start falls within
+/// the previous writer's committed data range.
+TEST(AcquisitionPipeline, testStartWithTimestampRefreshesOnRestart) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        source,
+        x::breaker::Config(),
+        "",
+        /* err_on_unauthorized */ true,
+        /* open_eagerly */ true
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 3);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    auto first_start = mock_factory->config.start;
+
+    auto restart_ts = x::telem::TimeStamp::now();
+    ASSERT_TRUE(pipe.start(restart_ts));
+    ASSERT_EVENTUALLY_GE(writes->size(), 6);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 2);
+    ASSERT_GT(mock_factory->config.start, first_start);
+    ASSERT_EQ(mock_factory->config.start, restart_ts);
+}
+
+/// @brief with the default lazy-open behavior, the writer should never open if the
+/// source only produces empty frames.
+TEST(AcquisitionPipeline, testDefaultLazyOpenDoesNotOpenWriterOnEmptyFrames) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<NeverProducesSource>();
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(source->reads().load(), 5);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 0);
+}
+
 /// @brief a global authority change buffered before the writer opens should clear
 /// any previously buffered per-channel changes.
 TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
@@ -837,5 +968,67 @@ TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
     EXPECT_TRUE(change.keys.empty());
     ASSERT_EQ(change.authorities.size(), 1);
     EXPECT_EQ(change.authorities[0], 75);
+}
+
+TEST(AcquisitionPipeline, testInvalidAuthoritiesStopsPipeline) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+
+    Authorities invalid_auth{
+        .keys = {1, 2, 3},
+        .authorities = {100, 200},
+    };
+    const auto source = std::make_shared<AuthoritySource>(
+        x::telem::TimeStamp::now(),
+        invalid_auth
+    );
+
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_TRUE(!pipe.running());
+    pipe.stop();
+    EXPECT_TRUE(mock_factory->authority_changes->empty());
+}
+
+/// @brief validate should return nil for empty authorities.
+TEST(AuthoritiesValidation, EmptyAuthorities) {
+    Authorities auth;
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return nil for a single authority (broadcast).
+TEST(AuthoritiesValidation, SingleAuthorityBroadcast) {
+    Authorities auth{.keys = {1, 2, 3}, .authorities = {200}};
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return nil when keys and authorities have matching sizes.
+TEST(AuthoritiesValidation, MatchingSizes) {
+    Authorities auth{.keys = {1, 2, 3}, .authorities = {100, 200, 255}};
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return nil for a single authority with no keys.
+TEST(AuthoritiesValidation, SingleAuthorityNoKeys) {
+    Authorities auth{.authorities = {200}};
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return a validation error when sizes mismatch.
+TEST(AuthoritiesValidation, MismatchedSizes) {
+    Authorities auth{.keys = {1, 2, 3}, .authorities = {100, 200}};
+    ASSERT_OCCURRED_AS(auth.validate(), x::errors::VALIDATION);
+}
+
+/// @brief validate should return a validation error for many authorities with no keys.
+TEST(AuthoritiesValidation, MultipleAuthoritiesNoKeys) {
+    Authorities auth{.authorities = {100, 200}};
+    ASSERT_OCCURRED_AS(auth.validate(), x::errors::VALIDATION);
 }
 }

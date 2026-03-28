@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // Static completion items for Oracle schema language
@@ -43,7 +43,7 @@ var (
 		{Label: "timestamp", Kind: protocol.CompletionItemKindClass, Detail: "Timestamp type"},
 		{Label: "timespan", Kind: protocol.CompletionItemKindClass, Detail: "Duration/timespan type"},
 		{Label: "time_range", Kind: protocol.CompletionItemKindClass, Detail: "Time range type (start, end)"},
-		{Label: "json", Kind: protocol.CompletionItemKindClass, Detail: "JSON type"},
+		{Label: "record", Kind: protocol.CompletionItemKindClass, Detail: "Record type (untyped key-value map)"},
 		{Label: "bytes", Kind: protocol.CompletionItemKindClass, Detail: "Byte array type"},
 	}
 

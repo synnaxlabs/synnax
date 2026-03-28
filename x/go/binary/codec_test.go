@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -25,8 +26,7 @@ type toEncode struct {
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(ctx SpecContext, codec binary.Codec) {
-		b, err := codec.Encode(ctx, toEncode{1})
-		Expect(err).ToNot(HaveOccurred())
+		b := MustSucceed(codec.Encode(ctx, toEncode{1}))
 		var d toEncode
 		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
@@ -63,6 +63,33 @@ var _ = Describe("Codec", func() {
 				),
 			))
 		},
+			Entry("JSON", &binary.JSONCodec{}),
+			Entry("MsgPack", &binary.MsgPackCodec{}),
+		)
+	})
+	Describe("Stack Traces", func() {
+		DescribeTable("Encoding errors should include a stack trace",
+			func(codec binary.Codec) {
+				_, err := codec.Encode(ctx, make(chan int))
+				Expect(err).To(HaveOccurred())
+				stack := errors.GetStackTrace(err)
+				Expect(stack.String()).ToNot(BeEmpty())
+				Expect(stack.String()).To(ContainSubstring(".go"))
+			},
+			Entry("Gob", &binary.GobCodec{}),
+			Entry("JSON", &binary.JSONCodec{}),
+			Entry("MsgPack", &binary.MsgPackCodec{}),
+		)
+		DescribeTable("Decoding errors should include a stack trace",
+			func(codec binary.Codec) {
+				var d toEncode
+				err := codec.Decode(ctx, []byte("invalid"), &d)
+				Expect(err).To(HaveOccurred())
+				stack := errors.GetStackTrace(err)
+				Expect(stack.String()).ToNot(BeEmpty())
+				Expect(stack.String()).To(ContainSubstring(".go"))
+			},
+			Entry("Gob", &binary.GobCodec{}),
 			Entry("JSON", &binary.JSONCodec{}),
 			Entry("MsgPack", &binary.MsgPackCodec{}),
 		)
@@ -119,6 +146,7 @@ var _ = Describe("Codec", func() {
 				Codec: underlying,
 			}
 
+			// Test encoding
 			b := MustSucceed(codec.Encode(ctx, toEncode{1}))
 
 			var d toEncode
@@ -316,6 +344,30 @@ var _ = Describe("Codec", func() {
 			Expect(result.Name).To(Equal("test"))
 			Expect(result.Schema["field"]).To(Equal("value"))
 		})
+		It("Should decode an empty string to an empty map", func() {
+			b := MustSucceed(msgpack.Marshal(""))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result).ToNot(BeNil())
+			Expect(result).To(HaveLen(0))
+		})
+		It("Should decode an empty string struct field to an empty map", func() {
+			type OldConfig struct {
+				Name   string `msgpack:"name"`
+				Schema string `msgpack:"schema"`
+			}
+			type NewConfig struct {
+				Name   string                    `msgpack:"name"`
+				Schema binary.MsgpackEncodedJSON `msgpack:"schema"`
+			}
+			old := OldConfig{Name: "test", Schema: ""}
+			b := MustSucceed(msgpack.Marshal(old))
+			var result NewConfig
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result.Name).To(Equal("test"))
+			Expect(result.Schema).ToNot(BeNil())
+			Expect(result.Schema).To(HaveLen(0))
+		})
 		It("Should return an error for an invalid JSON string", func() {
 			b := MustSucceed(msgpack.Marshal("not valid json"))
 			var result binary.MsgpackEncodedJSON
@@ -428,5 +480,174 @@ var _ = Describe("Codec", func() {
 			Entry("int64 overflow", int64(5000000000)),
 			Entry("float64 overflow", float64(5000000000)),
 		)
+	})
+	Describe("MsgpackEncodedJSON", func() {
+		DescribeTable("Should decode from JSON string",
+			func(jsonStr string, expectedKey string, expectedValue any) {
+				// Encode a string containing JSON
+				b := MustSucceed(msgpack.Marshal(jsonStr))
+
+				// Decode into MsgpackEncodedJSON
+				var result binary.MsgpackEncodedJSON
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(dec.Decode(&result)).To(Succeed())
+
+				// Verify the map contents
+				Expect(result).To(HaveKey(expectedKey))
+				Expect(result[expectedKey]).To(Equal(expectedValue))
+			},
+			Entry("simple object", `{"name":"test"}`, "name", "test"),
+			Entry("number value", `{"count":42}`, "count", float64(42)),
+			Entry("boolean value", `{"active":true}`, "active", true),
+			Entry("nested object", `{"data":{"nested":"value"}}`, "data", map[string]any{"nested": "value"}),
+			Entry("array value", `{"items":[1,2,3]}`, "items", []any{float64(1), float64(2), float64(3)}),
+		)
+
+		It("Should decode from map[string]any directly", func() {
+			// Encode a map directly
+			inputMap := map[string]any{
+				"name":   "test",
+				"count":  42,
+				"active": true,
+			}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			// Decode into MsgpackEncodedJSON
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+
+			// Verify the map contents
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("test"))
+			Expect(result).To(HaveKey("count"))
+			Expect(result["count"]).To(BeEquivalentTo(42)) // Use BeEquivalentTo for numeric type flexibility
+			Expect(result).To(HaveKey("active"))
+			Expect(result["active"]).To(Equal(true))
+		})
+
+		It("Should decode from map[any]any with string keys", func() {
+			// Create a map[any]any (which msgpack sometimes produces)
+			inputMap := map[any]any{
+				"name":  "test",
+				"count": 42,
+			}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			// Decode into MsgpackEncodedJSON
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+
+			// Verify the map contents
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("test"))
+		})
+
+		It("Should return error for invalid JSON string", func() {
+			// Encode an invalid JSON string
+			invalidJSON := "not valid json"
+			b := MustSucceed(msgpack.Marshal(invalidJSON))
+
+			// Attempt to decode
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			err := dec.Decode(&result)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to unmarshal JSON string"))
+		})
+
+		It("Should return error for unsupported types", func() {
+			// Encode a non-string, non-map value
+			b := MustSucceed(msgpack.Marshal([]int{1, 2, 3}))
+
+			// Attempt to decode
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			err := dec.Decode(&result)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unsupported type"))
+		})
+
+		It("Should return error for map with non-string keys", func() {
+			// Create a map with non-string keys
+			inputMap := map[any]any{
+				123: "value",
+			}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			// Attempt to decode
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			err := dec.Decode(&result)
+			Expect(err).To(HaveOccurred())
+			// msgpack will fail before our custom decoder is called
+			Expect(err.Error()).To(Or(ContainSubstring("non-string key"), ContainSubstring("not a string"), ContainSubstring("decoding string/bytes length")))
+		})
+
+		It("Should handle empty JSON object", func() {
+			jsonStr := "{}"
+			b := MustSucceed(msgpack.Marshal(jsonStr))
+
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("Should handle empty map", func() {
+			inputMap := map[string]any{}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("Should work with MsgPackCodec", func() {
+			codec := &binary.MsgPackCodec{}
+			ctx := context.Background()
+
+			// Test with JSON string
+			jsonStr := `{"name":"test","value":123}`
+			b := MustSucceed(codec.Encode(ctx, jsonStr))
+
+			var result binary.MsgpackEncodedJSON
+			Expect(codec.Decode(ctx, b, &result)).To(Succeed())
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("test"))
+			Expect(result).To(HaveKey("value"))
+			Expect(result["value"]).To(Equal(float64(123)))
+		})
+
+		It("Should handle complex nested structures from JSON", func() {
+			jsonStr := `{
+				"user": {
+					"name": "Alice",
+					"age": 30,
+					"tags": ["admin", "developer"],
+					"metadata": {
+						"created": "2024-01-01",
+						"active": true
+					}
+				}
+			}`
+			b := MustSucceed(msgpack.Marshal(jsonStr))
+
+			var result binary.MsgpackEncodedJSON
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+
+			// Verify nested structure
+			Expect(result).To(HaveKey("user"))
+			user := result["user"].(map[string]any)
+			Expect(user).To(HaveKey("name"))
+			Expect(user["name"]).To(Equal("Alice"))
+			Expect(user).To(HaveKey("tags"))
+			tags := user["tags"].([]any)
+			Expect(tags).To(HaveLen(2))
+			Expect(tags[0]).To(Equal("admin"))
+		})
 	})
 })

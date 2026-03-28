@@ -10,18 +10,22 @@
 package arc_test
 
 import (
+	"encoding/binary"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Arc", func() {
-	compile := func(code string, resolver arc.SymbolResolver) arc.Module {
+	compile := func(code string, resolver arc.SymbolResolver) arc.Program {
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
 		return MustSucceed(arc.CompileText(ctx, t, arc.WithResolver(resolver)))
@@ -73,7 +77,7 @@ var _ = Describe("Arc", func() {
 		Expect(mod.Nodes).To(HaveLen(3))
 
 		onNode := findNodeByType(mod.Nodes, "on")
-		Expect(onNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+		Expect(onNode.Channels.Read).To(HaveKey(uint32(1)))
 		Expect(onNode.Outputs).To(HaveLen(1))
 		Expect(onNode.Outputs.Has("output")).To(BeTrue())
 
@@ -84,7 +88,7 @@ var _ = Describe("Arc", func() {
 		Expect(calcNode.Outputs.Has("output")).To(BeTrue())
 
 		writeNode := findNodeByType(mod.Nodes, "write")
-		Expect(writeNode.Channels.Write.Contains(uint32(2))).To(BeTrue())
+		Expect(writeNode.Channels.Write).To(HaveKey(uint32(2)))
 		Expect(writeNode.Inputs).To(HaveLen(1))
 
 		Expect(mod.Edges).To(HaveLen(2))
@@ -138,7 +142,7 @@ var _ = Describe("Arc", func() {
 		Expect(constNode.Config).To(HaveLen(1))
 
 		writeNode := findNodeByType(mod.Nodes, "write")
-		Expect(writeNode.Channels.Write.Contains(uint32(1))).To(BeTrue())
+		Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))
 
 		Expect(mod.Edges).To(HaveLen(1))
 		edge := MustBeOk(mod.Edges.FindByTarget(ir.Handle{Node: writeNode.Key, Param: "input"}))
@@ -300,4 +304,107 @@ sequence main {
 		`, time.SymbolResolver)
 		Expect(mod.Nodes).To(HaveLen(3))
 	})
+
+	It("Should generate typed state imports for stateful variables", func() {
+		// Regression test: stateful variables must produce typed WASM imports
+		// like "state::load_i64", not bare "state::load". This mirrors the
+		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
+		channelResolver := symbol.MapResolver{
+			"trigger": arc.Symbol{
+				Name: "trigger",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   1,
+			},
+			"output_a": arc.Symbol{
+				Name: "output_a",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   2,
+			},
+			"output_b": arc.Symbol{
+				Name: "output_b",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   3,
+			},
+		}
+		fullResolver := symbol.CompoundResolver{stl.SymbolResolver, channelResolver}
+
+		mod := compile(`
+func counter(trigger i64) i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+trigger -> counter{} -> output_a
+trigger -> counter{} -> output_b
+`, fullResolver)
+
+		Expect(mod.WASM).ToNot(BeEmpty())
+
+		imports := parseWASMImports(mod.WASM)
+		Expect(imports).ToNot(BeEmpty())
+
+		for _, imp := range imports {
+			if imp.module == "state" {
+				// Every state import must have a type suffix (e.g., load_i64, store_i64)
+				Expect(imp.name).ToNot(Equal("load"),
+					"state::load should be state::load_i64 (missing type suffix)")
+				Expect(imp.name).ToNot(Equal("store"),
+					"state::store should be state::store_i64 (missing type suffix)")
+				Expect(
+					strings.HasPrefix(imp.name, "load_") || strings.HasPrefix(imp.name, "store_"),
+				).To(BeTrue(), "unexpected state import: %s", imp.name)
+			}
+		}
+	})
 })
+
+// wasmImport represents a parsed WASM import entry.
+type wasmImport struct {
+	module string
+	name   string
+}
+
+// parseWASMImports extracts import entries from raw WASM bytecode.
+func parseWASMImports(wasm []byte) []wasmImport {
+	if len(wasm) < 8 {
+		return nil
+	}
+	// Skip magic (4 bytes) + version (4 bytes)
+	pos := 8
+	for pos < len(wasm) {
+		sectionID := wasm[pos]
+		pos++
+		sectionSize, n := binary.Uvarint(wasm[pos:])
+		pos += n
+		if sectionID != 0x02 {
+			// Not the import section — skip
+			pos += int(sectionSize)
+			continue
+		}
+		// Parse import section
+		sectionEnd := pos + int(sectionSize)
+		count, n := binary.Uvarint(wasm[pos:])
+		pos += n
+		var imports []wasmImport
+		for i := 0; i < int(count) && pos < sectionEnd; i++ {
+			modLen, n := binary.Uvarint(wasm[pos:])
+			pos += n
+			modName := string(wasm[pos : pos+int(modLen)])
+			pos += int(modLen)
+			nameLen, n := binary.Uvarint(wasm[pos:])
+			pos += n
+			funcName := string(wasm[pos : pos+int(nameLen)])
+			pos += int(nameLen)
+			// Skip import kind (1 byte) + type index (LEB128)
+			pos++ // kind
+			_, n = binary.Uvarint(wasm[pos:])
+			pos += n
+			imports = append(imports, wasmImport{module: modName, name: funcName})
+		}
+		return imports
+	}
+	return nil
+}

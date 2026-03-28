@@ -70,14 +70,14 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 		signal.WithInstrumentation(o.Instrumentation),
 	)
 	transportShutdown := signal.NewHardShutdown(sCtx, cancel)
-	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
-		return transportShutdown, err
-	}
 	mw, err := alamos.Middleware(alamos.Config{Instrumentation: o.Instrumentation})
 	if err != nil {
 		return transportShutdown, err
 	}
 	o.transport.Use(mw)
+	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
+		return transportShutdown, err
+	}
 	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()

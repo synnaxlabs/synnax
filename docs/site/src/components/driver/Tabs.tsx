@@ -20,7 +20,7 @@ const TABS = PLATFORMS.filter(
 }));
 TABS.unshift({
   tabKey: "ni-linux-rt" as Platform,
-  name: "NI Linux RT",
+  name: "NI Linux Real-Time",
   icon: <Icon.Logo.NI />,
 });
 

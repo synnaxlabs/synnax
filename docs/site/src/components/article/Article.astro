@@ -11,15 +11,43 @@ const {
     nextURL,
     prevURL,
     showBreadcrumb = true,
+    published,
+    author,
+    authorImage,
+    authorLink,
 } = Astro.props;
 ---
 
 <article transition:animate="none">
     {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
+    {
+        published && (
+            <div class="blog-meta">
+                <span class="blog-published">{published}</span>
+            </div>
+        )
+    }
     <Text.Text className="article-title" level={title.length > 30 ? "h2" : "h1"}
         >{title}</Text.Text
     >
     <h4 class="article-description">{description}</h4>
+    {
+        author && (
+            <a
+                class="blog-author"
+                href={authorLink}
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                {authorImage && (
+                    <img class="blog-author__photo" src={authorImage} alt={author} />
+                )}
+                <span class="blog-author__name">
+                    Written by <strong>{author}</strong>
+                </span>
+            </a>
+        )
+    }
     <slot />
     <NextPrev prev={prev} next={next} prevURL={prevURL} nextURL={nextURL} />
 </article>
@@ -78,7 +106,7 @@ const {
             content: "";
             display: block;
             width: 100px;
-            margin-top: 2rem;
+            margin-top: 2.3rem;
             height: 2px;
             background: var(--pluto-primary-z);
         }
@@ -86,11 +114,15 @@ const {
         .article-description {
             color: var(--pluto-gray-l9);
             font-weight: 350;
-            margin-top: 1rem;
-            margin-bottom: 6rem;
+            margin-top: 1.15rem;
+            margin-bottom: 6.9rem;
 
             & + :is(h2, h2.pluto-text) {
                 margin-top: 4rem;
+            }
+
+            & + .blog-author {
+                margin-top: -4rem;
             }
         }
 
@@ -99,7 +131,7 @@ const {
         }
 
         & video,
-        img:not(.diagram img) {
+        img:not(.diagram img):not(.blog-author__photo) {
             width: 100%;
             border-radius: 1rem;
             border: var(--pluto-border);

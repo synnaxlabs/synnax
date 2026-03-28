@@ -775,11 +775,11 @@ describe("queries", () => {
     it("should retrieve range with existing labels", async () => {
       const label1 = await client.labels.create({
         name: "existingLabel1",
-        color: "#FF00FF",
+        color: color.construct("#FF00FF"),
       });
       const label2 = await client.labels.create({
         name: "existingLabel2",
-        color: "#FFFF00",
+        color: color.construct("#FFFF00"),
       });
 
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(8));
@@ -993,7 +993,7 @@ describe("queries", () => {
         result.current.form.set("timeRange", complexTimeRange.numeric);
         result.current.form.set("parent", parentRange.key);
         result.current.form.set("labels", [label.key]);
-        result.current.form.set("color", "#654321");
+        result.current.form.set("color", color.construct("#654321"));
         result.current.save({ signal: controller.signal });
       });
 

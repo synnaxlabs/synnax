@@ -20,7 +20,7 @@ export const indicatorStatusDetailsZ = z
 export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
   colorSource: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
-  status: status.statusZ(indicatorStatusDetailsZ),
+  status: status.statusZ({ details: indicatorStatusDetailsZ }),
   color: color.colorZ.optional(),
 });
 
@@ -59,7 +59,8 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     const status = this.internal.statusSource.value();
     if (
       color.equals(colorVal, this.state.color) &&
-      status.message === this.state.status.message
+      status.message === this.state.status.message &&
+      color.equals(status.details?.color, this.state.status.details?.color)
     )
       return;
     this.setState((p) => ({ ...p, color: colorVal, status }));

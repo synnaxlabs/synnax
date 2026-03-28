@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/runtime/stage"
+	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -66,9 +66,9 @@ func (kg *keyGenerator) entry(seqName, stageName string) string {
 }
 
 type nodeResult struct {
+	node   ir.Node
 	input  ir.Handle
 	output ir.Handle
-	node   ir.Node
 }
 
 func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
@@ -134,6 +134,8 @@ func analyzeIdentifierByRole(
 		return analyzeSequenceRef(ctx, sym, kg)
 	case symbol.KindStage:
 		return analyzeStageRef(sym, kg)
+	case symbol.KindGlobalConstant:
+		return buildGlobalConstantNode(name, sym, kg)
 	default:
 		if isSink {
 			return buildChannelWriteNode(name, sym, kg)
@@ -173,7 +175,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -187,12 +189,28 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ""), true
+}
+
+func buildGlobalConstantNode(
+	name string,
+	sym *symbol.Scope,
+	kg *keyGenerator,
+) (nodeResult, bool) {
+	key := kg.generate("const", name)
+	n := ir.Node{
+		Key:      key,
+		Type:     "constant",
+		Channels: types.NewChannels(),
+		Config:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
 func analyzeNextToken(
@@ -272,7 +290,7 @@ func analyzeExpression(
 		n := ir.Node{
 			Key:      key,
 			Type:     "constant",
-			Channels: symbol.NewChannels(),
+			Channels: types.NewChannels(),
 			Config:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		}
@@ -362,11 +380,11 @@ func Analyze(
 type flowChainProcessor struct {
 	kg                 *keyGenerator
 	prevNode           *ir.Node
+	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
 	nodes              []ir.Node
 	edges              []ir.Edge
 	additionalTriggers []nodeResult
-	ctx                acontext.Context[parser.IFlowStatementContext]
 	totalFlowNodes     int
 	currentIndex       int
 	lastOpIndex        int
@@ -470,7 +488,9 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.additionalTriggers = nil
 	}
 
-	p.prevOutput = result.output
+	if len(result.node.Outputs) > 0 {
+		p.prevOutput = result.output
+	}
 	p.prevNode = &result.node
 	if result.node.Key != "" {
 		p.nodes = append(p.nodes, result.node)
@@ -557,7 +577,7 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
+			symbol.ResolveConfigChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 
@@ -650,7 +670,8 @@ func analyzeOutputRoutingTable(
 			targetParamName = entry.IDENTIFIER(1).GetText()
 		}
 
-		var prevOutputHandle ir.Handle
+		sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
+		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
 			isLast := i == len(flowNodes)-1
 			isSink := isLast && flowNode.Identifier() != nil
@@ -660,19 +681,11 @@ func analyzeOutputRoutingTable(
 				return nil, nil, false
 			}
 
-			if i == 0 {
-				edges = append(edges, ir.Edge{
-					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
-					Target: result.input,
-					Kind:   ir.EdgeKindContinuous,
-				})
-			} else {
-				edges = append(edges, ir.Edge{
-					Source: prevOutputHandle,
-					Target: result.input,
-					Kind:   ir.EdgeKindContinuous,
-				})
-			}
+			edges = append(edges, ir.Edge{
+				Source: prevOutputHandle,
+				Target: result.input,
+				Kind:   ir.EdgeKindContinuous,
+			})
 
 			if isLast && targetParamName != "" {
 				if !result.node.Inputs.Has(targetParamName) {
@@ -687,7 +700,9 @@ func analyzeOutputRoutingTable(
 				edges[len(edges)-1].Target.Param = targetParamName
 			}
 
-			prevOutputHandle = result.output
+			if len(result.node.Outputs) > 0 {
+				prevOutputHandle = result.output
+			}
 			if result.node.Key != "" {
 				nodes = append(nodes, result.node)
 			}
@@ -752,9 +767,9 @@ func analyzeStage(
 
 	entryNode := ir.Node{
 		Key:      kg.entry(seqName, stageName),
-		Type:     stage.EntryNode.Name,
-		Channels: symbol.NewChannels(),
-		Inputs:   stage.EntryNode.Type.Inputs,
+		Type:     stage.EntryNodeName,
+		Channels: types.NewChannels(),
+		Inputs:   stage.EntryNodeInputs,
 	}
 	nodes = append(nodes, entryNode)
 

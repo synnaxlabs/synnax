@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "x/cpp/thread/rt/rt.h"
+
 #include "driver/common/common.h"
 #include "driver/errors/errors.h"
 #include "driver/ethercat/engine/pool.h"
@@ -62,10 +64,13 @@ class Factory final : public task::Factory {
 
 public:
     /// @brief constructs a Factory with default manager.
-    Factory();
+    explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr);
 
     /// @brief constructs a Factory with custom manager.
-    explicit Factory(std::unique_ptr<master::Manager> manager);
+    Factory(
+        std::unique_ptr<master::Manager> manager,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+    );
 
     ~Factory() override = default;
 

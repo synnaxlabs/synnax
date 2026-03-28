@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/authority"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -164,7 +164,7 @@ var _ = Describe("Text", func() {
 				Expect(channelNode.Config).To(HaveLen(1))
 				Expect(channelNode.Config[0].Name).To(Equal("channel"))
 				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
-				Expect(channelNode.Channels.Read.Contains(10042)).To(BeTrue())
+				Expect(channelNode.Channels.Read).To(HaveKey(uint32(10042)))
 
 				printNode := findNodeByKey(inter.Nodes, "print_0")
 				Expect(printNode.Type).To(Equal("print"))
@@ -341,7 +341,7 @@ var _ = Describe("Text", func() {
 				Expect(readerNode.Config[0].Name).To(Equal("channel"))
 				Expect(readerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
 				Expect(readerNode.Config[0].Value).To(Equal(uint32(10042)))
-				Expect(readerNode.Channels.Read.Contains(uint32(10042))).To(BeTrue())
+				Expect(readerNode.Channels.Read).To(HaveKey(uint32(10042)))
 			})
 
 			It("Should produce diagnostic error when channel config type mismatches", func() {
@@ -394,7 +394,7 @@ var _ = Describe("Text", func() {
 
 			It("Should reject read channel for config param requiring write channel", func() {
 				resolver := symbol.CompoundResolver{
-					authority.SymbolResolver,
+					control.SymbolResolver,
 					symbol.MapResolver{
 						"read_sensor": {
 							Name: "read_sensor",
@@ -442,8 +442,8 @@ var _ = Describe("Text", func() {
 				Expect(writerNode.Config[0].Name).To(Equal("channel"))
 				Expect(writerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
 				Expect(writerNode.Config[0].Value).To(Equal(uint32(10055)))
-				Expect(writerNode.Channels.Write.Contains(uint32(10055))).To(BeTrue())
-				Expect(writerNode.Channels.Read.Contains(uint32(10055))).To(BeFalse())
+				Expect(writerNode.Channels.Write).To(HaveKey(uint32(10055)))
+				Expect(writerNode.Channels.Read).NotTo(HaveKey(uint32(10055)))
 			})
 
 			It("Should register separate write channels when function with channel config is used multiple times", func() {
@@ -474,11 +474,11 @@ var _ = Describe("Text", func() {
 				node2 := findNodeByKey(inter.Nodes, "count_rising_1")
 
 				// Each node should have its own write channel
-				Expect(node1.Channels.Write.Contains(uint32(10013))).To(BeTrue(), "first node should write to counter_1")
-				Expect(node2.Channels.Write.Contains(uint32(10014))).To(BeTrue(), "second node should write to counter_2")
+				Expect(node1.Channels.Write).To(HaveKey(uint32(10013)), "first node should write to counter_1")
+				Expect(node2.Channels.Write).To(HaveKey(uint32(10014)), "second node should write to counter_2")
 
-				Expect(node1.Channels.Read.Contains(uint32(10013))).To(BeTrue(), "first node should read from counter_1")
-				Expect(node2.Channels.Read.Contains(uint32(10014))).To(BeTrue(), "second node should read from counter_2")
+				Expect(node1.Channels.Read).To(HaveKey(uint32(10013)), "first node should read from counter_1")
+				Expect(node2.Channels.Read).To(HaveKey(uint32(10014)), "second node should read from counter_2")
 			})
 
 			It("Should not add stateful variable to write channels when initialized from global channel", func() {
@@ -506,7 +506,7 @@ var _ = Describe("Text", func() {
 				node := findNodeByKey(inter.Nodes, "count_rising_0")
 
 				// counter_1 should be in Read (stateful var is initialized from channel value)
-				Expect(node.Channels.Read.Contains(uint32(10102))).To(BeTrue(), "should read from counter_1")
+				Expect(node.Channels.Read).To(HaveKey(uint32(10102)), "should read from counter_1")
 				// Write channels should be empty - we write to a stateful variable, not a channel
 				Expect(node.Channels.Write).To(BeEmpty(), "should not have any write channels")
 			})
@@ -542,8 +542,8 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
-				Expect(node.Channels.Write.Contains(uint32(10202))).To(BeTrue(), "should write to do_0_counter")
-				Expect(node.Channels.Read.Contains(uint32(10203))).To(BeTrue(), "should read from do_0_counter_max")
+				Expect(node.Channels.Write).To(HaveKey(uint32(10202)), "should write to do_0_counter")
+				Expect(node.Channels.Read).To(HaveKey(uint32(10203)), "should read from do_0_counter_max")
 				Expect(node.Config).To(HaveLen(2))
 				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
 				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
@@ -675,6 +675,58 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[0].Name).To(Equal("max"))
 				Expect(node.Config[0].Type).To(Equal(types.I32()))
 				Expect(node.Config[0].Value).To(Equal(int32(255)))
+			})
+
+			It("Should handle global constant as flow source to channel", func() {
+				resolver := symbol.MapResolver{
+					"my_channel": {Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				}
+				source := `
+				SETPOINT := 42
+
+				SETPOINT => my_channel
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				constNode := findNodeByKey(inter.Nodes, "const_SETPOINT_0")
+				Expect(constNode.Type).To(Equal("constant"))
+				Expect(constNode.Config).To(HaveLen(1))
+				Expect(constNode.Config[0].Value).To(Equal(int64(42)))
+				Expect(constNode.Channels.Read).To(BeEmpty())
+				Expect(constNode.Channels.Write).To(BeEmpty())
+
+				writeNode := findNodeByType(inter.Nodes, "write")
+				Expect(writeNode.Channels.Write).To(HaveLen(1))
+				Expect(lo.HasKey(writeNode.Channels.Write, uint32(10001))).To(BeTrue())
+			})
+
+			It("Should handle global constant as flow source in a sequence stage", func() {
+				resolver := symbol.MapResolver{
+					"drive_speed_sp": {Name: "drive_speed_sp", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				}
+				source := `
+				DRIVE_SP := 2500
+
+				sequence main {
+					stage init {
+						DRIVE_SP => drive_speed_sp
+					}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				for _, n := range inter.Nodes {
+					for key := range n.Channels.Read {
+						Expect(key).ToNot(Equal(uint32(0)), "channel key 0 should not appear in any node's Read set")
+					}
+					for key := range n.Channels.Write {
+						Expect(key).ToNot(Equal(uint32(0)), "channel key 0 should not appear in any node's Write set")
+					}
+				}
 			})
 		})
 
@@ -897,6 +949,46 @@ var _ = Describe("Text", func() {
 				Expect(edge1.Target.Node).To(Equal("display_0"))
 			})
 
+			It("Should not create phantom output edges for void functions in routing branches", func() {
+				resolver := symbol.MapResolver{
+					"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
+				}
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				func increment{ch chan u32}() {
+					ch = ch + 1
+				}
+
+				func alarm{} (value f64) {
+				}
+
+				demux{threshold=100.0} -> {
+					high: increment{ch=counter} -> alarm{}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				outputSet := make(map[ir.Handle]bool)
+				for _, n := range inter.Nodes {
+					for _, p := range n.Outputs {
+						outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+					}
+				}
+				for _, edge := range inter.Edges {
+					Expect(outputSet).To(HaveKey(edge.Source),
+						"edge source %v references a non-existent node output", edge.Source)
+				}
+			})
+
 			It("Should report error for non-existent output parameter", func() {
 				source := `
 				func simple{} () (bob i64) {
@@ -1001,12 +1093,12 @@ var _ = Describe("Text", func() {
 
 				inputNode := inter.Nodes[0]
 				Expect(inputNode.Type).To(Equal("on"))
-				Expect(inputNode.Channels.Read.Contains(uint32(10021))).To(BeTrue())
+				Expect(inputNode.Channels.Read).To(HaveKey(uint32(10021)))
 				Expect(inputNode.Outputs).To(HaveLen(1))
 
 				outputNode := inter.Nodes[2]
 				Expect(outputNode.Type).To(Equal("write"))
-				Expect(outputNode.Channels.Write.Contains(uint32(10022))).To(BeTrue())
+				Expect(outputNode.Channels.Write).To(HaveKey(uint32(10022)))
 				Expect(outputNode.Inputs).To(HaveLen(1))
 				Expect(outputNode.Inputs[0].Name).To(Equal("input"))
 				Expect(outputNode.Outputs).To(BeEmpty())
@@ -1024,9 +1116,9 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Nodes).To(HaveLen(2))
 				Expect(inter.Nodes[0].Type).To(Equal("on"))
-				Expect(inter.Nodes[0].Channels.Read.Contains(uint32(10031))).To(BeTrue())
+				Expect(inter.Nodes[0].Channels.Read).To(HaveKey(uint32(10031)))
 				Expect(inter.Nodes[1].Type).To(Equal("write"))
-				Expect(inter.Nodes[1].Channels.Write.Contains(uint32(10032))).To(BeTrue())
+				Expect(inter.Nodes[1].Channels.Write).To(HaveKey(uint32(10032)))
 			})
 
 			It("Should handle channel sinks in routing tables", func() {
@@ -1221,7 +1313,7 @@ var _ = Describe("Text", func() {
 				Expect(entryNode.Type).To(Equal("stage_entry"))
 
 				writeNode := findNodeByType(inter.Nodes, "write")
-				Expect(writeNode.Channels.Write.Contains(uint32(10071))).To(BeTrue())
+				Expect(writeNode.Channels.Write).To(HaveKey(uint32(10071)))
 
 				Expect(inter.Edges).To(HaveLen(2))
 
@@ -1329,11 +1421,11 @@ var _ = Describe("Text", func() {
 
 				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(triggerNode.Type).To(Equal("on"))
-				Expect(triggerNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10142)))
 
 				exprNode := inter.Nodes[1]
 				Expect(exprNode.Type).To(HavePrefix("expression_"))
-				Expect(exprNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10142)))
 
 				Expect(inter.Edges).To(HaveLen(2))
 
@@ -1377,8 +1469,8 @@ var _ = Describe("Text", func() {
 					}
 				}
 				Expect(exprNode.Channels.Read).To(HaveLen(2))
-				Expect(exprNode.Channels.Read.Contains(uint32(10151))).To(BeTrue())
-				Expect(exprNode.Channels.Read.Contains(uint32(10152))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10151)))
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10152)))
 
 				Expect(inter.Edges).To(HaveLen(3))
 
@@ -1450,7 +1542,7 @@ var _ = Describe("Text", func() {
 				Expect(triggerCount).To(Equal(1))
 
 				triggerNode := findNodeByType(inter.Nodes, "on")
-				Expect(triggerNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10142)))
 			})
 		})
 
@@ -1590,6 +1682,43 @@ var _ = Describe("Text", func() {
 
 			seq := MustBeOk(inter.Sequences.Find("main"))
 			Expect(seq.Stages[0].Nodes).To(ContainElement(exprNode.Key))
+		})
+
+		It("Should not create phantom output edges for void functions in flow chains", func() {
+			resolver := symbol.MapResolver{
+				"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
+				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
+			}
+			source := `
+			func increment{ch chan u32}() {
+				ch = ch + 1
+			}
+
+			sequence main {
+				stage first {
+					trigger => increment{ch=counter} => next,
+				}
+				stage second {
+				}
+			}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			// Verify that every edge source references a node output that actually exists.
+			// This is the invariant that was violated when void functions appeared mid-chain,
+			// causing a nil pointer dereference in state.Node().
+			outputSet := make(map[ir.Handle]bool)
+			for _, n := range inter.Nodes {
+				for _, p := range n.Outputs {
+					outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+				}
+			}
+			for _, edge := range inter.Edges {
+				Expect(outputSet).To(HaveKey(edge.Source),
+					"edge source %v references a non-existent node output", edge.Source)
+			}
 		})
 
 		It("Should place single invocation nodes in stratum 0", func() {
@@ -1734,7 +1863,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
-			Expect(ir.Nodes[1].Channels.Read.Contains(10025)).To(BeTrue())
+			Expect(ir.Nodes[1].Channels.Read).To(HaveKey(uint32(10025)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
@@ -1786,7 +1915,7 @@ var _ = Describe("Text", func() {
 			writerNode := ir.Nodes[1]
 			Expect(writerNode.Type).To(Equal("writer"))
 			Expect(writerNode.Channels.Write).To(HaveLen(1))
-			Expect(writerNode.Channels.Write.Contains(10200)).To(BeTrue())
+			Expect(writerNode.Channels.Write).To(HaveKey(uint32(10200)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
@@ -1833,7 +1962,7 @@ var _ = Describe("Text", func() {
 			writerNode := ir.Nodes[1]
 			Expect(writerNode.Type).To(Equal("writer"))
 			Expect(writerNode.Channels.Write).To(HaveLen(1))
-			Expect(writerNode.Channels.Write.Contains(10210)).To(BeTrue())
+			Expect(writerNode.Channels.Write).To(HaveKey(uint32(10210)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())

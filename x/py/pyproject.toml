@@ -1,0 +1,20 @@
+[project]
+name = "x"
+version = "0.0.0"
+description = "Shared Python utilities for the Synnax monorepo"
+requires-python = ">=3.9,<4"
+dependencies = []
+classifiers = ["Private :: Do Not Upload"]
+
+[dependency-groups]
+dev = ["black>=26.3.1,<27", "isort>=8.0.1,<9", "mypy>=1.19.1,<2"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+strict = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

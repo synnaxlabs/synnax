@@ -1,13 +1,23 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "ontology",
     srcs = [
         "id.cpp",
     ],
-    hdrs = ["id.h"],
+    hdrs = [
+        "id.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/distribution/ontology:ontology_grpc",
         "//x/cpp/errors",
-        "@nlohmann_json//:json",
+        "//x/cpp/json",
+        "//x/cpp/pb",
     ],
 )
 

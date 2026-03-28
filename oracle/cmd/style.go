@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 var (
@@ -28,34 +28,17 @@ var (
 	dimGray = lipgloss.Color("#6B7280")
 
 	// Styles
-	successStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(green)
-
-	errorStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(red)
-
-	infoStyle = lipgloss.NewStyle().
-			Foreground(cyan)
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(dimGray)
-
-	pluginStyle = lipgloss.NewStyle().
-			Foreground(pink)
-
-	fileStyle = lipgloss.NewStyle().
-			Foreground(orange)
-
-	countStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(purple)
+	successStyle = lipgloss.NewStyle().Bold(true).Foreground(green)
+	errorStyle   = lipgloss.NewStyle().Bold(true).Foreground(red)
+	infoStyle    = lipgloss.NewStyle().Foreground(cyan)
+	dimStyle     = lipgloss.NewStyle().Foreground(dimGray)
+	pluginStyle  = lipgloss.NewStyle().Foreground(pink)
+	fileStyle    = lipgloss.NewStyle().Foreground(orange)
+	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(purple)
 )
 
 // Symbols for output
 const (
-	symbolOracle  = "✦"
 	symbolSuccess = "✓"
 	symbolError   = "✗"
 	symbolArrow   = "→"
@@ -66,10 +49,7 @@ const (
 )
 
 func printBanner() {
-	banner := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(purple).
-		Render("oracle")
+	banner := lipgloss.NewStyle().Bold(true).Foreground(purple).Render("oracle")
 	spark := lipgloss.NewStyle().Foreground(yellow).Render(symbolSpark)
 	fmt.Printf("%s %s\n\n", spark, banner)
 }
@@ -96,7 +76,13 @@ func printDim(msg string) {
 func printFileWritten(plugin, path string) {
 	p := pluginStyle.Render(plugin)
 	f := fileStyle.Render(path)
-	fmt.Printf("  %s %s %s %s\n", dimStyle.Render(symbolFile), p, dimStyle.Render(symbolArrow), f)
+	fmt.Printf(
+		"  %s %s %s %s\n",
+		dimStyle.Render(symbolFile),
+		p,
+		dimStyle.Render(symbolArrow),
+		f,
+	)
 }
 
 func printSchemaCount(count int) {
@@ -110,7 +96,11 @@ func printSchemaCount(count int) {
 
 func printSyncedCount(written, unchanged int) {
 	if written == 0 {
-		fmt.Printf("%s %s\n", dimStyle.Render(symbolDot), dimStyle.Render("already up to date"))
+		fmt.Printf(
+			"%s %s\n",
+			dimStyle.Render(symbolDot),
+			dimStyle.Render("already up to date"),
+		)
 		return
 	}
 	w := countStyle.Render(fmt.Sprintf("%d", written))
@@ -128,12 +118,19 @@ func printSyncedCount(written, unchanged int) {
 func printValidationPassed(structs, enums int) {
 	parts := []string{}
 	if structs > 0 {
-		parts = append(parts, fmt.Sprintf("%s structs", countStyle.Render(fmt.Sprintf("%d", structs))))
+		parts = append(
+			parts,
+			fmt.Sprintf("%s structs", countStyle.Render(fmt.Sprintf("%d", structs))),
+		)
 	}
 	if enums > 0 {
-		parts = append(parts, fmt.Sprintf("%s enums", countStyle.Render(fmt.Sprintf("%d", enums))))
+		parts = append(
+			parts,
+			fmt.Sprintf("%s enums", countStyle.Render(fmt.Sprintf("%d", enums))),
+		)
 	}
-	msg := "valid " + dimStyle.Render("(") + strings.Join(parts, dimStyle.Render(", ")) + dimStyle.Render(")")
+	msg := "valid " + dimStyle.Render("(") +
+		strings.Join(parts, dimStyle.Render(", ")) + dimStyle.Render(")")
 	printSuccess(msg)
 }
 
@@ -141,8 +138,7 @@ func printDiagnostics(diagnosticStr string) {
 	if diagnosticStr == "" {
 		return
 	}
-	lines := strings.Split(diagnosticStr, "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(diagnosticStr, "\n") {
 		if line == "" {
 			continue
 		}
@@ -161,13 +157,23 @@ func printFormattingStart(count int) {
 
 func printFormattingDone(formatted int) {
 	if formatted == 0 {
-		fmt.Printf("    %s %s\n", dimStyle.Render(symbolArrow), dimStyle.Render("all schemas formatted"))
-	} else {
-		c := countStyle.Render(fmt.Sprintf("%d", formatted))
-		word := "file"
-		if formatted != 1 {
-			word = "files"
-		}
-		fmt.Printf("    %s %s %s %s\n", infoStyle.Render(symbolArrow), dimStyle.Render("formatted"), c, word)
+		fmt.Printf(
+			"    %s %s\n",
+			dimStyle.Render(symbolArrow),
+			dimStyle.Render("all schemas formatted"),
+		)
+		return
 	}
+	c := countStyle.Render(fmt.Sprintf("%d", formatted))
+	word := "file"
+	if formatted != 1 {
+		word = "files"
+	}
+	fmt.Printf(
+		"    %s %s %s %s\n",
+		infoStyle.Render(symbolArrow),
+		dimStyle.Render("formatted"),
+		c,
+		word,
+	)
 }

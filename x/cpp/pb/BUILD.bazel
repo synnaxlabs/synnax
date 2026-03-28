@@ -1,0 +1,19 @@
+cc_library(
+    name = "pb",
+    hdrs = ["pb.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "pb_test",
+    size = "small",
+    srcs = ["pb_test.cpp"],
+    deps = [
+        "//x/cpp/pb",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

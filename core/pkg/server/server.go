@@ -126,6 +126,7 @@ func (s *Server) start() (err error) {
 	if err != nil {
 		return err
 	}
+	s.initBranches()
 	sCtx.Go(func(ctx context.Context) error {
 		mux := cmux.New(lis)
 		if *s.Security.Insecure {
@@ -171,6 +172,13 @@ func (s *Server) serveInsecure(sCtx signal.Context, root cmux.CMux) error {
 	return filterCloserError(root.Serve())
 }
 
+func (s *Server) initBranches() {
+	bc := s.baseBranchContext()
+	for _, b := range s.Branches {
+		b.Init(bc)
+	}
+}
+
 func (s *Server) startBranches(
 	sCtx signal.Context,
 	mux cmux.CMux,
@@ -195,8 +203,9 @@ func (s *Server) startBranches(
 	}
 	bc := s.baseBranchContext()
 	for i, b := range branches {
+		bc := bc
+		bc.Lis = listeners[i]
 		sCtx.Go(func(context.Context) error {
-			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))
 		}, signal.WithKey(b.Key()))
 	}

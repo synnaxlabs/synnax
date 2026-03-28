@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -32,30 +33,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Key = channel.Key
-
-// Channel is an API-friendly version of the channel.Channel type. It is
-// simplified for use purely as a data container.
-type Channel struct {
-	Name        string              `json:"name" msgpack:"name"`
-	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
-	Alias       string              `json:"alias" msgpack:"alias"`
-	Expression  string              `json:"expression" msgpack:"expression"`
-	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
-	Key         channel.Key         `json:"key" msgpack:"key"`
-	Density     telem.Density       `json:"density" msgpack:"density"`
-	Index       channel.Key         `json:"index" msgpack:"index"`
-	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
-	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
-	Virtual     bool                `json:"virtual" msgpack:"virtual"`
-	Internal    bool                `json:"internal" msgpack:"internal"`
-}
-
 // Service is the central service for all things Channel related.
 type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
-	internal *channel.Service
+	internal *servicechannel.Service
 	ranger   *ranger.Service
 	alias    *alias.Service
 }
@@ -67,7 +49,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		access:   cfg.Service.RBAC,
-		internal: cfg.Distribution.Channel,
+		internal: cfg.Service.Channel,
 		ranger:   cfg.Service.Ranger,
 		alias:    cfg.Service.Alias,
 		db:       cfg.Distribution.DB,
@@ -279,7 +261,6 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
-			Density:     ch.DataType.Density(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
@@ -298,7 +279,7 @@ func translateChannelsBackward(
 	for i, ch := range channels {
 		tCh := channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: ch.Leaseholder,
+			Leaseholder: cluster.NodeKey(ch.Leaseholder),
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),

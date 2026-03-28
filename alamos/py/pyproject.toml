@@ -1,6 +1,6 @@
 [project]
 name = "alamos"
-version = "0.51.1"
+version = "0.53.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.10,<4"
 dependencies = [
@@ -12,8 +12,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "black>=26.1.0,<27",
-    "isort>=7.0.0,<8",
+    "black>=26.3.1,<27",
+    "isort>=8.0.1,<9",
     "mypy>=1.19.1,<2",
     "pytest>=9.0.2,<10",
     "pytest-cov>=7.0.0,<8",

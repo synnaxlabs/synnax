@@ -33,7 +33,7 @@ public:
             cmd_channels,
             data_saving
         ),
-        pipeline::mock::Sink(writes, errors) {}
+        driver::pipeline::mock::Sink(writes, errors) {}
 
     x::errors::Error write(x::telem::Frame &frame) override {
         auto err = pipeline::mock::Sink::write(frame);
@@ -41,6 +41,78 @@ public:
         return err;
     }
 };
+
+/// @brief set_state should use the last sample from a multi-sample series.
+TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
+    synnax::channel::Channel cmd_channel;
+    cmd_channel.key = 1;
+    cmd_channel.data_type = x::telem::UINT8_T;
+    cmd_channel.is_virtual = true;
+
+    synnax::channel::Channel state_index;
+    state_index.key = 2;
+    state_index.data_type = x::telem::TIMESTAMP_T;
+    state_index.index = 2;
+
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    auto errors = std::make_shared<std::vector<x::errors::Error>>();
+
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 10,
+        std::set<synnax::channel::Key>{2},
+        std::vector{state},
+        std::vector<synnax::channel::Key>{1},
+        false,
+        writes,
+        errors
+    );
+
+    x::telem::Frame fr(1);
+    fr.emplace(1, x::telem::Series(std::vector<uint8_t>{10, 20, 30}));
+    ASSERT_NIL(sink->write(fr));
+
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    cmd_reads->push_back(std::move(fr));
+    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        cmd_reads
+    );
+
+    synnax::task::Task task;
+    task.key = 12345;
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        mock_writer_factory,
+        mock_streamer_factory
+    );
+
+    std::string cmd_key = "cmd";
+    ASSERT_TRUE(write_task.start(cmd_key));
+    ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
+
+    auto check_state = [&]() -> uint8_t {
+        const auto &state_fr = mock_writer_factory->writes->at(
+            mock_writer_factory->writes->size() - 1
+        );
+        if (!state_fr.contains(3)) return 0;
+        return state_fr.at<uint8_t>(3, 0);
+    };
+    ASSERT_EVENTUALLY_EQ_F(check_state, 30);
+
+    const std::string stop_cmd_key = "stop";
+    ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
+}
 
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
@@ -83,7 +155,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     synnax::task::Task task;
     task.key = 12345;
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
     WriteTask write_task(
         task,
@@ -100,7 +172,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.start(cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
@@ -132,7 +204,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);

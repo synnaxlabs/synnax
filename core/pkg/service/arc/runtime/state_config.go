@@ -15,15 +15,17 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/ir"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/set"
 )
 
 type ExtendedStateConfig struct {
-	Reads  set.Set[channel.Key]
-	Writes set.Set[channel.Key]
-	State  state.Config
+	Reads          set.Set[channel.Key]
+	Writes         set.Set[channel.Key]
+	ChannelDigests []stlchannel.Digest
+	IR             ir.IR
 }
 
 func retrieveChannels(
@@ -53,13 +55,13 @@ func retrieveChannels(
 func NewStateConfig(
 	ctx context.Context,
 	channelSvc *channel.Service,
-	module arc.Module,
+	prog arc.Program,
 ) (ExtendedStateConfig, error) {
 	var (
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
 	)
-	for _, n := range module.Nodes {
+	for _, n := range prog.Nodes {
 		for rawChanKey := range n.Channels.Read {
 			reads.Add(channel.Key(rawChanKey))
 		}
@@ -67,16 +69,16 @@ func NewStateConfig(
 			writes.Add(channel.Key(chanKey))
 		}
 	}
-	for key := range module.Authorities.Channels {
+	for key := range prog.Authorities.Channels {
 		writes.Add(channel.Key(key))
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Keys(), writes.Keys()))
 	if err != nil {
 		return ExtendedStateConfig{}, err
 	}
-	channelDigests := make([]state.ChannelDigest, 0, len(channels))
+	channelDigests := make([]stlchannel.Digest, 0, len(channels))
 	for _, ch := range channels {
-		channelDigests = append(channelDigests, state.ChannelDigest{
+		channelDigests = append(channelDigests, stlchannel.Digest{
 			Key:      uint32(ch.Key()),
 			DataType: ch.DataType,
 			Index:    uint32(ch.Index()),
@@ -89,11 +91,9 @@ func NewStateConfig(
 		}
 	}
 	return ExtendedStateConfig{
-		Reads:  reads,
-		Writes: writes,
-		State: state.Config{
-			ChannelDigests: lo.Uniq(channelDigests),
-			IR:             module.IR,
-		},
+		Reads:          reads,
+		Writes:         writes,
+		ChannelDigests: lo.Uniq(channelDigests),
+		IR:             prog.IR,
 	}, nil
 }

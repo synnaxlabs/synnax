@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Access", Ordered, func() {
@@ -32,9 +33,7 @@ var _ = Describe("Access", Ordered, func() {
 	)
 	BeforeAll(func() {
 		tx = db.OpenTx()
-		var err error
-		roles, err = access.Provision(ctx, tx, svc.RBAC)
-		Expect(err).ToNot(HaveOccurred())
+		roles = MustSucceed(access.Provision(ctx, tx, svc.RBAC))
 	})
 	AfterAll(func() {
 		Expect(tx.Close()).To(Succeed())
@@ -64,8 +63,7 @@ var _ = Describe("Access", Ordered, func() {
 			}
 		})
 		It("Should be idempotent", func() {
-			roles2, err := access.Provision(ctx, tx, svc.RBAC)
-			Expect(err).ToNot(HaveOccurred())
+			roles2 := MustSucceed(access.Provision(ctx, tx, svc.RBAC))
 			Expect(roles2.OwnerKey).To(Equal(roles.OwnerKey))
 			Expect(roles2.EngineerKey).To(Equal(roles.EngineerKey))
 			Expect(roles2.OperatorKey).To(Equal(roles.OperatorKey))
@@ -132,7 +130,7 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects: []ontology.ID{
-						{Type: user.OntologyType},
+						{Type: ontology.TypeUser},
 						{Type: "policy"},
 					},
 					Actions: []svcAccess.Action{"all"},
@@ -276,7 +274,7 @@ func userHasSpecificRole(
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(role.OntologyType).
+		WhereTypes(ontology.TypeRole).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {
 		return false

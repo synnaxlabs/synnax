@@ -12,13 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Sequence, TypeAlias
 
-from pydantic import BaseModel
-
 from synnax import ontology
-from synnax.telem import DataType, TimeSpan
+from synnax.channel.types_gen import Key as Key
+from synnax.channel.types_gen import New as New
+from synnax.channel.types_gen import Operation as Operation
+from synnax.channel.types_gen import Payload as Payload
 from synnax.util.normalize import normalize
-
-Key = int
 
 ONTOLOGY_TYPE = ontology.ID(type="channel")
 
@@ -29,37 +28,6 @@ def ontology_id(key: Key) -> ontology.ID:
 
 
 OPERATION_TYPES = Literal["min", "max", "avg", "none"]
-
-
-class Operation(BaseModel):
-    """Represents an operation on a calculated channel."""
-
-    type: OPERATION_TYPES
-    reset_channel: Key = 0
-    duration: TimeSpan = TimeSpan(0)
-
-
-class Payload(BaseModel):
-    """A payload container that represent the properties of a channel exchanged to and
-    from the Synnax server.
-    """
-
-    key: Key = 0
-    data_type: DataType
-    name: str = ""
-    leaseholder: int = 0
-    is_index: bool = False
-    index: Key = 0
-    internal: bool = False
-    virtual: bool = False
-    expression: str | None = ""
-    operations: list[Operation] | None = None
-
-    def __str__(self) -> str:
-        return f"Channel(name={self.name}, key={self.key})"
-
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 @dataclass

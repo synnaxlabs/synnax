@@ -10,5 +10,6 @@
 export * from "@/components/Controls";
 export * from "@/components/EmptyAction";
 export * from "@/components/FavoriteButton";
+export * from "@/components/form";
 export * from "@/components/menu";
 export * from "@/components/toolbar";

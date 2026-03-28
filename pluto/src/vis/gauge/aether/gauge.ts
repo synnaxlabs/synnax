@@ -41,7 +41,7 @@ const gaugeState = z.object({
   notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
   units: z.string().default("RPM"),
-  bounds: bounds.bounds.default(bounds.construct(0, 100)),
+  bounds: bounds.boundsZ.default(bounds.construct(0, 100)),
   // New gauge configuration properties
   barWidth: z.number().default(12), // Width of the gauge bar in pixels
 });

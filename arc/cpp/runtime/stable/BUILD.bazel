@@ -1,0 +1,28 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "stable",
+    hdrs = ["stable.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "stable_test",
+    srcs = ["stable_test.cpp"],
+    deps = [
+        ":stable",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/mem",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -237,8 +237,8 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format type params with extends constraint", func() {
-			result := format("Status<D extends json> struct {\n  data D\n}\n")
-			Expect(result).To(ContainSubstring("<D extends json>"))
+			result := format("Status<D extends record> struct {\n  data D\n}\n")
+			Expect(result).To(ContainSubstring("<D extends record>"))
 		})
 
 		It("should format type params with default value", func() {
@@ -247,9 +247,9 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format type params with extends and default", func() {
-			result := format("Task<C extends json = json> struct {\n  config C\n}\n")
-			Expect(result).To(ContainSubstring("extends json"))
-			Expect(result).To(ContainSubstring("= json"))
+			result := format("Task<C extends record = record> struct {\n  config C\n}\n")
+			Expect(result).To(ContainSubstring("extends record"))
+			Expect(result).To(ContainSubstring("= record"))
 		})
 
 		It("should format struct alias with type parameters", func() {
@@ -271,8 +271,8 @@ var _ = Describe("Format", func() {
 
 	Describe("Complex Types", func() {
 		It("should format map types", func() {
-			result := format("Config struct {\n  metadata map<string, json>\n}\n")
-			Expect(result).To(ContainSubstring("map<string, json>"))
+			result := format("Config struct {\n  metadata map<string, record>\n}\n")
+			Expect(result).To(ContainSubstring("map<string, record>"))
 		})
 
 		It("should format optional types", func() {
@@ -291,8 +291,8 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format optional map types", func() {
-			result := format("Config struct {\n  metadata map<string, json>?\n}\n")
-			Expect(result).To(ContainSubstring("map<string, json>?"))
+			result := format("Config struct {\n  metadata map<string, record>?\n}\n")
+			Expect(result).To(ContainSubstring("map<string, record>?"))
 		})
 
 		It("should format type args on references", func() {

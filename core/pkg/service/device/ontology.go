@@ -23,12 +23,9 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyType is a unique type for the device service within the ontology.
-const OntologyType ontology.Type = "device"
-
 // OntologyID returns the unique ID for the device within the ontology.
 func OntologyID(key string) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: key}
+	return ontology.ID{Type: ontology.TypeDevice, Key: key}
 }
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
@@ -71,7 +68,7 @@ var _ ontology.Service = (*Service)(nil)
 type change = xchange.Change[string, Device]
 
 // Type returns the type of the device ontology service.
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeDevice }
 
 // Schema returns the schema for the device ontology service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -97,7 +94,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key),
+		Key:     OntologyID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }

@@ -19,36 +19,14 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
-var _ = Describe("AnalyzeCalculation", func() {
-	It("Should return the data type for a valid integer expression", func() {
-		dataType := MustSucceed(svc.AnalyzeCalculation(ctx, "return 1 + 2"))
-		Expect(dataType).To(Equal(telem.Int64T))
-	})
-
-	It("Should return the data type for a valid float expression", func() {
-		dataType := MustSucceed(svc.AnalyzeCalculation(ctx, "return 1.0 + 2.0"))
-		Expect(dataType).To(Equal(telem.Float64T))
-	})
-
-	It("Should return parser error for invalid expression syntax", func() {
-		Expect(svc.AnalyzeCalculation(ctx, "return 1 +")).
-			Error().To(MatchError(ContainSubstring("mismatched input")))
-	})
-
-	It("Should return diagnostic error for undefined variable", func() {
-		Expect(svc.AnalyzeCalculation(ctx, "return undefined_var + 1")).
-			Error().To(MatchError(ContainSubstring("undefined symbol")))
-	})
-})
-
-var _ = Describe("CompileModule", func() {
+var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func() {
 		a := arc.Arc{
 			Name: "test-arc",
@@ -71,14 +49,14 @@ var _ = Describe("CompileModule", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
-		result := MustSucceed(svc.CompileModule(ctx, a.Key))
+		result := MustSucceed(svc.CompileProgram(ctx, a.Key))
 		Expect(result.Key).To(Equal(a.Key))
-		Expect(result.Module.IR).ToNot(BeNil())
+		Expect(result.Program.IR).ToNot(BeNil())
 	})
 
 	It("Should return error when Arc does not exist", func() {
 		nonExistentKey := uuid.New()
-		Expect(svc.CompileModule(ctx, nonExistentKey)).Error().
+		Expect(svc.CompileProgram(ctx, nonExistentKey)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 
@@ -108,7 +86,7 @@ var _ = Describe("CompileModule", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
-		Expect(svc.CompileModule(ctx, a.Key)).Error().
+		Expect(svc.CompileProgram(ctx, a.Key)).Error().
 			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
 	})
 })

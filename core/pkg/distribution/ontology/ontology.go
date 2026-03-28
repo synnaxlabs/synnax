@@ -59,6 +59,33 @@ type (
 	SearchRequest = search.Request
 )
 
+const (
+	TypeArc             = resource.TypeArc
+	TypeBuiltin         = resource.TypeBuiltin
+	TypeChannel         = resource.TypeChannel
+	TypeCluster         = resource.TypeCluster
+	TypeDevice          = resource.TypeDevice
+	TypeFramer          = resource.TypeFramer
+	TypeGroup           = resource.TypeGroup
+	TypeLabel           = resource.TypeLabel
+	TypeLineplot        = resource.TypeLineplot
+	TypeLog             = resource.TypeLog
+	TypeNode            = resource.TypeNode
+	TypePolicy          = resource.TypePolicy
+	TypeRack            = resource.TypeRack
+	TypeRange           = resource.TypeRange
+	TypeRangeAlias      = resource.TypeRangeAlias
+	TypeRole            = resource.TypeRole
+	TypeSchematic       = resource.TypeSchematic
+	TypeSchematicSymbol = resource.TypeSchematicSymbol
+	TypeStatus          = resource.TypeStatus
+	TypeTable           = resource.TypeTable
+	TypeTask            = resource.TypeTask
+	TypeUser            = resource.TypeUser
+	TypeView            = resource.TypeView
+	TypeWorkspace       = resource.TypeWorkspace
+)
+
 func ParseID(key string) (ID, error) { return resource.ParseID(key) }
 
 func ResourceIDs(resources []Resource) []ID { return resource.IDs(resources) }
@@ -80,6 +107,8 @@ type Ontology struct {
 	search               struct{ *search.Index }
 	registrar            serviceRegistrar
 	disconnectObservers  []observe.Disconnect
+	resourceTable        *gorp.Table[string, Resource]
+	relationshipTable    *gorp.Table[[]byte, Relationship]
 }
 
 type Config struct {
@@ -116,11 +145,21 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
+	resourceTable, err := gorp.OpenTable[string, Resource](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
+		resourceTable:        resourceTable,
+		relationshipTable:    relationshipTable,
 	}
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
@@ -253,7 +292,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 				for ch := range i {
 					o.L.Debug(
 						"updating search index",
-						zap.Stringer("key", ch.Key),
+						zap.String("key", ch.Key),
 						zap.Stringer("type", svc.Type()),
 						zap.Stringer("variant", ch.Variant),
 					)
@@ -300,5 +339,5 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return nil
+	return errors.Join(o.resourceTable.Close(), o.relationshipTable.Close())
 }

@@ -25,7 +25,7 @@ import (
 // They can be attached to the root scope via CreateRootScope to make symbols available
 // throughout the program.
 type Resolver interface {
-	// Resolve looks up a symbol by exact name match. Returns query.NotFound error
+	// Resolve looks up a symbol by exact name match. Returns query.ErrNotFound error
 	// if the symbol does not exist.
 	Resolve(ctx context.Context, name string) (Symbol, error)
 	// Search returns symbols matching the given search term. Implementations should
@@ -38,7 +38,7 @@ type MapResolver map[string]Symbol
 
 var _ Resolver = (*MapResolver)(nil)
 
-// Resolve looks up a symbol by name in the map. Returns query.NotFound if not found.
+// Resolve looks up a symbol by name in the map. Returns query.ErrNotFound if not found.
 func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	if s, ok := m[name]; ok {
 		return s, nil
@@ -103,4 +103,41 @@ func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, er
 		}
 	}
 	return symbols, accumulatedErr
+}
+
+// ModuleResolver handles qualified name resolution for a named module. It strips
+// the "Name." prefix before delegating to Members.
+type ModuleResolver struct {
+	// Name is the module namespace (e.g., "math").
+	Name string
+	// Members contains the module's symbols keyed by bare name.
+	Members MapResolver
+}
+
+var _ Resolver = (*ModuleResolver)(nil)
+
+// Resolve looks up a symbol by qualified name. If the name has the prefix
+// "Name.", it strips the prefix and delegates to Members. Otherwise it returns
+// query.ErrNotFound.
+func (m *ModuleResolver) Resolve(ctx context.Context, name string) (Symbol, error) {
+	bare, ok := strings.CutPrefix(name, m.Name+".")
+	if !ok {
+		return Symbol{}, errors.Wrapf(query.ErrNotFound, "symbol %s not found in module %s", name, m.Name)
+	}
+	return m.Members.Resolve(ctx, bare)
+}
+
+// Search returns symbols matching the given search term. If the term has the
+// prefix "Name.", it strips the prefix and delegates. If the term is a prefix
+// of "Name.", it returns all members. Otherwise it delegates with the raw term
+// for fuzzy matching.
+func (m *ModuleResolver) Search(ctx context.Context, term string) ([]Symbol, error) {
+	prefix := m.Name + "."
+	if bare, ok := strings.CutPrefix(term, prefix); ok {
+		return m.Members.Search(ctx, bare)
+	}
+	if strings.HasPrefix(prefix, term) {
+		return m.Members.Search(ctx, "")
+	}
+	return m.Members.Search(ctx, term)
 }

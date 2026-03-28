@@ -51,14 +51,18 @@ Acquisition::Acquisition(
     synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
-    std::string thread_name
+    std::string thread_name,
+    bool err_on_unauthorized,
+    bool open_eagerly
 ):
     Acquisition(
         std::make_shared<SynnaxWriterFactory>(std::move(client)),
         std::move(writer_config),
         std::move(source),
         breaker_config,
-        std::move(thread_name)
+        std::move(thread_name),
+        err_on_unauthorized,
+        open_eagerly
     ) {}
 
 Acquisition::Acquisition(
@@ -66,12 +70,16 @@ Acquisition::Acquisition(
     synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
-    std::string thread_name
+    std::string thread_name,
+    bool err_on_unauthorized,
+    bool open_eagerly
 ):
     Base(breaker_config, std::move(thread_name)),
     factory(std::move(factory)),
     source(std::move(source)),
-    writer_config(std::move(writer_config)) {}
+    writer_config(std::move(writer_config)),
+    err_on_unauthorized(err_on_unauthorized),
+    open_eagerly(open_eagerly) {}
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
@@ -98,6 +106,23 @@ void Acquisition::run() {
     x::errors::Error source_err;
     x::telem::Frame fr(0);
     Authorities authorities;
+    if (this->open_eagerly) {
+        this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
+        auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
+        writer_err = writer_err_i;
+        if (writer_err) {
+            if (writer_err.matches(freighter::UNREACHABLE) &&
+                this->breaker.wait(writer_err.message()))
+                return this->run();
+            LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
+                       << writer_err.message();
+            this->source->stopped_with_err(writer_err);
+            this->breaker.stop();
+            return;
+        }
+        writer = std::move(writer_i);
+        writer_opened = true;
+    }
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
         fr.clear();
@@ -123,10 +148,7 @@ void Acquisition::run() {
         // between the source we're recording data from and the system clock.
         if (!fr.empty() && !writer_opened) {
             this->writer_config.start = resolve_start(fr);
-            // There are no scenarios where an acquisition task would want control
-            // handoff between different levels of authorization, so we just reject
-            // unauthorized writes.
-            this->writer_config.err_on_unauthorized = true;
+            this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
             auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
             writer_err = writer_err_i;
             if (writer_err) {
@@ -162,6 +184,10 @@ void Acquisition::run() {
         // Apply authority changes before writing the frame so the frame
         // is sent at the correct authority level.
         if (!authorities.empty()) {
+            if (auto err = authorities.validate()) {
+                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
+                break;
+            }
             if (writer_opened) {
                 if (auto err = writer->set_authority(authorities)) {
                     LOG(ERROR)
@@ -195,6 +221,7 @@ void Acquisition::run() {
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);
+    this->breaker.stop();
     VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 }

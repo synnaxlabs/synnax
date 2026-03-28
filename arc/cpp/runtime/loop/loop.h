@@ -47,6 +47,11 @@ inline const x::telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = x::telem::MILLISECOND
 /// Intervals below 1ms require precise software timing.
 inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 
+/// @brief Upper bound for preferring RT_EVENT on RT-capable systems. Intervals
+/// between HIGH_RATE_THRESHOLD and this value use RT_EVENT when RT scheduling
+/// is available, falling through to HYBRID otherwise.
+inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
+
 /// @brief Threshold below which HYBRID mode is beneficial.
 /// Intervals between 1-5ms benefit from spin-then-block approach.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
@@ -126,6 +131,8 @@ select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) 
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
         return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                             : ExecutionMode::HIGH_RATE;
+    if (x::thread::rt::has_support() && timing_interval < timing::RT_EVENT_THRESHOLD)
+        return ExecutionMode::RT_EVENT;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
@@ -180,7 +187,7 @@ struct Config {
         const bool needs_interval = cfg.mode == ExecutionMode::HIGH_RATE ||
                                     cfg.mode == ExecutionMode::RT_EVENT;
         if (cfg.interval.nanoseconds() == 0 && needs_interval) {
-            LOG(WARNING) << "[loop] " << cfg.mode
+            LOG(WARNING) << "[arc.loop] " << cfg.mode
                          << " mode requires an interval, defaulting to "
                          << timing::HIGH_RATE_POLL_INTERVAL;
             cfg.interval = timing::HIGH_RATE_POLL_INTERVAL;
@@ -249,11 +256,19 @@ struct Loop {
     /// @brief Block until timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
+    /// @param max_timeout Upper bound on how long to sleep. When positive, the loop
+    /// will wake after at most this duration even if no timer or input fires.
+    /// A value of 0 means no deadline constraint (use the loop's configured timing).
     /// @return WakeReason indicating why wait() returned.
-    virtual WakeReason wait(x::breaker::Breaker &breaker) = 0;
+    virtual WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) = 0;
 
-    /// @brief Initialize loop resources. Must be called before wait().
-    /// Applies RT configuration (priority, affinity, memory lock) if configured.
+    /// @brief Initialize loop resources and apply RT configuration. Must be
+    /// called before wait() and from the thread that will run the event loop,
+    /// since RT scheduling (SCHED_FIFO/DEADLINE, MMCSS) is applied to the
+    /// calling thread.
     /// @return Error if resource allocation fails.
     virtual x::errors::Error start() = 0;
 
@@ -273,8 +288,13 @@ struct Loop {
     virtual bool watch(x::notify::Notifier &notifier) = 0;
 };
 
-/// @brief Creates a platform-specific loop implementation.
-/// @param cfg Loop configuration (mode, timing, RT settings).
-/// @return Pair of (loop, error). Loop is started on success.
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg);
+/// @brief Creates a platform-specific loop implementation. The loop is not
+/// started; call start() from the thread that will run the event loop so
+/// that RT scheduling is applied to the correct thread.
+/// @param cfg Loop configuration.
+/// @param rt_handle Optional RT handle from the Manager. When provided, the
+/// loop calls handle->apply() instead of apply_config(config.rt()), and the
+/// handle's allocated core is used for CPU affinity.
+std::unique_ptr<Loop>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr);
 }

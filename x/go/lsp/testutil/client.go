@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // MockClient implements protocol.Client and xlsp.Client for testing LSP servers.

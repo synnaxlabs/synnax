@@ -124,7 +124,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`class User(BaseModel):`,
 						`key: UUID`,
 						`name: str`,
-						`age: int`,
+						`age: int = Field(ge=-2147483648, le=2147483647)`,
 						`active: bool`,
 					)
 			})
@@ -247,11 +247,40 @@ var _ = Describe("Python Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from typing import Literal`))
-			Expect(content).To(ContainSubstring(`DATATYPE_FLOAT32: Literal["float32"] = "float32"`))
-			Expect(content).To(ContainSubstring(`DATATYPE_FLOAT64: Literal["float64"] = "float64"`))
-			Expect(content).To(ContainSubstring(`DATATYPE_INT32: Literal["int32"] = "int32"`))
+			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT32: Literal["float32"] = "float32"`))
+			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT64: Literal["float64"] = "float64"`))
+			Expect(content).To(ContainSubstring(`DATA_TYPE_INT32: Literal["int32"] = "int32"`))
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
-			Expect(content).To(ContainSubstring(`data_type: DataType`))
+		})
+
+		It("Should generate screaming snake case for multi-word enum names", func() {
+			source := `
+				@py output "out"
+
+				OperationType enum {
+					min  = "min"
+					max  = "max"
+					none = "none"
+				}
+
+				Config struct {
+					op OperationType
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MIN: Literal["min"] = "min"`))
+			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MAX: Literal["max"] = "max"`))
+			Expect(content).To(ContainSubstring(`OPERATION_TYPE_NONE: Literal["none"] = "none"`))
 		})
 
 		Context("primitive type mappings", func() {
@@ -270,17 +299,17 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uuid", "uuid", "UUID"),
 				Entry("string", "string", "str"),
 				Entry("bool", "bool", "bool"),
-				Entry("int8", "int8", "int"),
-				Entry("int16", "int16", "int"),
-				Entry("int32", "int32", "int"),
-				Entry("int64", "int64", "int"),
-				Entry("uint8", "uint8", "int"),
-				Entry("uint16", "uint16", "int"),
-				Entry("uint32", "uint32", "int"),
-				Entry("uint64", "uint64", "int"),
+				Entry("int8", "int8", "int = Field(ge=-128, le=127)"),
+				Entry("int16", "int16", "int = Field(ge=-32768, le=32767)"),
+				Entry("int32", "int32", "int = Field(ge=-2147483648, le=2147483647)"),
+				Entry("int64", "int64", "int = Field(ge=-9223372036854775808, le=9223372036854775807)"),
+				Entry("uint8", "uint8", "int = Field(ge=0, le=255)"),
+				Entry("uint16", "uint16", "int = Field(ge=0, le=65535)"),
+				Entry("uint32", "uint32", "int = Field(ge=0, le=4294967295)"),
+				Entry("uint64", "uint64", "int = Field(ge=0, le=18446744073709551615)"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
-				Entry("json", "json", "dict[str, Any]"),
+				Entry("record", "record", "dict[str, Any]"),
 				Entry("bytes", "bytes", "bytes"),
 			)
 
@@ -417,7 +446,44 @@ var _ = Describe("Python Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
-			Expect(content).To(ContainSubstring(`retries: int = Field(default=3)`))
+			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
+		})
+
+		It("Should wrap int defaults in distinct type constructor", func() {
+			source := `
+				@py output "out"
+
+				Duration int64
+
+				Config struct {
+					timeout Duration @validate default 0
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`timeout: Duration = Field(default=Duration(0), ge=-9223372036854775808, le=9223372036854775807)`))
+		})
+
+		It("Should wrap int defaults in cross-namespace distinct type constructor", func() {
+			loader.Add("schemas/telem", `
+				@py output "client/py/synnax/telem"
+
+				TimeSpan int64 {
+					@py omit
+				}
+			`)
+			source := `
+				import "schemas/telem"
+
+				@py output "client/py/synnax/channel"
+
+				Operation struct {
+					duration telem.TimeSpan @validate default 0
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
 		It("Should generate class inheritance for basic struct extension", func() {
@@ -447,14 +513,14 @@ var _ = Describe("Python Types Plugin", func() {
 			// Parent should be a regular class
 			Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
 			Expect(content).To(ContainSubstring(`name: str`))
-			Expect(content).To(ContainSubstring(`age: int`))
+			Expect(content).To(ContainSubstring(`age: int = Field(ge=-2147483648, le=2147483647)`))
 
 			// Child should inherit from Parent
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
 			Expect(content).To(ContainSubstring(`email: str`))
 		})
 
-		It("Should handle field override to make it optional", func() {
+		It("Should inline parent fields when child makes required fields optional", func() {
 			source := `
 				@py output "out"
 
@@ -478,9 +544,62 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Child should override name to be optional
-			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			// Child should be standalone (no inheritance) since it overrides
+			// a required parent field as optional
+			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
 			Expect(content).To(ContainSubstring(`name: str | None = None`))
+			Expect(content).To(ContainSubstring(`age: int = Field(ge=-2147483648, le=2147483647)`))
+			Expect(content).NotTo(ContainSubstring(`type: ignore`))
+		})
+		It("Should inline all parent fields when multiple fields are overridden as optional", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					key uuid
+					name string
+					leaseholder uint12
+					is_index bool
+				}
+
+				Child struct extends Parent {
+					key uuid?
+					leaseholder uint12?
+					is_index bool?
+					extra string
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			// Child should be standalone with all fields inlined
+			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
+			Expect(content).To(ContainSubstring(`key: UUID | None = None`))
+			Expect(content).To(ContainSubstring(`name: str`))
+			Expect(content).To(ContainSubstring(`leaseholder: int | None = Field(default=None, ge=0, le=4095)`))
+			Expect(content).To(ContainSubstring(`is_index: bool | None = None`))
+			Expect(content).To(ContainSubstring(`extra: str`))
+			Expect(content).NotTo(ContainSubstring(`type: ignore`))
+		})
+		It("Should still inherit when child only adds fields without overriding", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					email string
+					active bool
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			Expect(content).To(ContainSubstring(`email: str`))
+			Expect(content).To(ContainSubstring(`active: bool`))
+			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
 		It("Should generate multiple inheritance for multiple extends", func() {
 			source := `
@@ -659,7 +778,7 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 
 					InternalState struct {
-						cache json
+						cache record
 						@py omit
 					}
 				`
@@ -704,7 +823,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`UserID: TypeAlias = UUID`))
 			})
 
-			It("Should generate NewType for distinct type", func() {
+			It("Should generate TypeAlias for distinct type", func() {
 				source := `
 					@py output "out"
 
@@ -712,8 +831,8 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`from typing import NewType`))
-				Expect(content).To(ContainSubstring(`UserKey = NewType("UserKey", UUID)`))
+				Expect(content).To(ContainSubstring(`from typing import TypeAlias`))
+				Expect(content).To(ContainSubstring(`UserKey: TypeAlias = UUID`))
 			})
 		})
 
@@ -812,7 +931,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`T = TypeVar("T")`,
 						`class Response(BaseModel, Generic[T]):`,
 						`data: T`,
-						`status: int`,
+						`status: int = Field(ge=-2147483648, le=2147483647)`,
 					)
 			})
 
@@ -820,7 +939,7 @@ var _ = Describe("Python Types Plugin", func() {
 				source := `
 					@py output "out"
 
-					Container struct<V extends json> {
+					Container struct<V extends record> {
 						value V
 					}
 				`
@@ -837,7 +956,7 @@ var _ = Describe("Python Types Plugin", func() {
 				source := `
 					@py output "out"
 
-					Task struct<C extends json = json> {
+					Task struct<C extends record = record> {
 						config C
 					}
 				`
@@ -856,7 +975,7 @@ var _ = Describe("Python Types Plugin", func() {
 						variant string
 					}
 
-					TaskStatus struct extends Status<json> {
+					TaskStatus struct extends Status<record> {
 						task_key uuid
 					}
 				`
@@ -867,6 +986,49 @@ var _ = Describe("Python Types Plugin", func() {
 						`class TaskStatus(Status[dict[str, Any]]):`,
 						`task_key: UUID`,
 					)
+			})
+			It("Should propagate type args to fields referencing generic structs", func() {
+				source := `
+					@py output "out"
+
+					State struct<R> {
+						resource R
+					}
+
+					Transfer struct<R> {
+						from_ State<R>??
+						to   State<R>??
+					}
+
+					Update struct<R> {
+						transfers Transfer<R>[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from_: State[R] | None`,
+						`to: State[R] | None`,
+						`transfers: list[Transfer[R]]`,
+					)
+			})
+
+			It("Should skip defaulted type args for non-generic structs", func() {
+				source := `
+					@py output "out"
+
+					Details struct<D? = record> {
+						data D
+					}
+
+					Task struct {
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`details: Details`).
+					ToNotContain(`Details[`)
 			})
 		})
 
@@ -945,8 +1107,47 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("reserved keywords", func() {
+			It("Should escape Python reserved keyword field names with alias", func() {
+				source := `
+					@py output "out"
+
+					Transfer struct {
+						from string??
+						to string??
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from pydantic import BaseModel, Field, ConfigDict`,
+						`model_config = ConfigDict(populate_by_name=True)`,
+						`from_: str | None = Field(default=None, alias="from")`,
+						`to: str | None = None`,
+					)
+			})
+
+			It("Should escape required keyword field", func() {
+				source := `
+					@py output "out"
+
+					Example struct {
+						from string
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from_: str = Field(alias="from")`,
+						`name: str`,
+						`model_config = ConfigDict(populate_by_name=True)`,
+					)
+			})
+		})
+
 		Context("typedef with non-primitive base", func() {
-			It("Should generate NewType for distinct typedef referencing another typedef", func() {
+			It("Should generate TypeAlias for distinct typedef referencing another typedef", func() {
 				source := `
 					@py output "out"
 
@@ -957,12 +1158,12 @@ var _ = Describe("Python Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`BaseID = NewType("BaseID", UUID)`,
+						`BaseID: TypeAlias = UUID`,
 						`UserID: TypeAlias = BaseID`,
 					)
 			})
 
-			It("Should generate NewType referencing another distinct type in same namespace", func() {
+			It("Should generate TypeAlias referencing another distinct type in same namespace", func() {
 				source := `
 					@py output "out"
 
@@ -973,8 +1174,35 @@ var _ = Describe("Python Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`Key = NewType("Key", UUID)`,
+						`Key: TypeAlias = UUID`,
 						`UserKey: TypeAlias = Key`,
+					)
+			})
+		})
+
+		Context("generic alias with nil type argument", func() {
+			It("Should generate TypeAlias with None for nil type arg", func() {
+				loader.Add("schemas/status", `
+@py output "client/py/synnax/status"
+
+Status struct<Details?> {
+    variant string
+    message string
+    details Details??
+}
+`)
+
+				source := `
+import "schemas/status"
+
+@py output "client/py/synnax/channel"
+
+ChannelStatus = status.Status<nil>
+`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "channel/types_gen.py").
+					ToContain(
+						`ChannelStatus: TypeAlias = status.Status[None]`,
 					)
 			})
 		})
@@ -1009,6 +1237,27 @@ var _ = Describe("Python Types Plugin", func() {
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`class Task(BaseModel):`).
 					ToNotContain(`class GoTask`)
+			})
+
+			It("Should apply name override to self-referential fields", func() {
+				source := `
+					@py output "out"
+
+					Base struct {
+						key uuid
+						name string
+					}
+
+					APIRange struct extends Base {
+						parent APIRange??
+						@py name "Payload"
+					}
+				`
+				resp := MustGenerate(ctx, source, "ranger", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`class Payload(Base):`).
+					ToContain(`parent: Payload | None`).
+					ToNotContain(`APIRange`)
 			})
 		})
 
@@ -1071,6 +1320,69 @@ var _ = Describe("Python Types Plugin", func() {
 						`T = TypeVar("T", bound=Base)`,
 						`class Collection(BaseModel, Generic[T]):`,
 					)
+			})
+		})
+
+		Context("constrained type param with comparable", func() {
+			It("Should not emit a bound and should not import Any", func() {
+				source := `
+					@py output "out"
+
+					State struct<R extends comparable> {
+						resource R
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`R = TypeVar("R")`,
+						`class State(BaseModel, Generic[R]):`,
+					).
+					ToNotContain(`Any`)
+			})
+		})
+
+		Context("enum variant defaults", func() {
+			It("Should generate default for same-namespace enum variant", func() {
+				source := `
+					@py output "out"
+
+					Mode enum {
+						automatic = 0
+						manual    = 1
+					}
+
+					Config struct {
+						mode Mode @validate default ModeAutomatic
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`mode: Mode = Field(default=Mode.automatic)`)
+			})
+
+			It("Should generate default for cross-namespace enum variant", func() {
+				loader.Add("schemas/control", `
+					@py output "client/py/synnax/x/control"
+
+					Concurrency enum {
+						exclusive = 0
+						shared    = 1
+					}
+				`)
+				source := `
+					import "schemas/control"
+
+					@py output "client/py/synnax/channel"
+
+					Channel struct {
+						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
 			})
 		})
 	})

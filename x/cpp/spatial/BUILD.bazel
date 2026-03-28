@@ -1,6 +1,13 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "spatial",
-    hdrs = ["spatial.h"],
+    hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
+        "spatial.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/json",

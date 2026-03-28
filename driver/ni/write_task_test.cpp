@@ -15,7 +15,6 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/test/test.h"
 
-#include "driver/errors/errors.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -32,14 +31,14 @@ protected:
     synnax::channel::Channel state_idx_ch = synnax::channel::Channel{
         .name = make_unique_channel_name("state_idx_ch"),
         .data_type = x::telem::TIMESTAMP_T,
-        .index = 0,
-        .is_index = true
+        .is_index = true,
+        .index = 0
     };
     synnax::channel::Channel state_ch_1 = synnax::channel::Channel{
         .name = make_unique_channel_name("state_ch_1"),
         .data_type = x::telem::FLOAT64_T,
-        .index = state_idx_ch.key,
-        .is_index = false
+        .is_index = false,
+        .index = state_idx_ch.key
     };
     synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel{
         .name = make_unique_channel_name("cmd_ch_1"),
@@ -49,8 +48,8 @@ protected:
     synnax::channel::Channel state_ch_2 = synnax::channel::Channel{
         .name = make_unique_channel_name("state_ch_2"),
         .data_type = x::telem::FLOAT64_T,
-        .index = state_idx_ch.key,
-        .is_index = false
+        .is_index = false,
+        .index = state_idx_ch.key
     };
     synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel{
         .name = make_unique_channel_name("cmd_ch_2"),
@@ -74,11 +73,11 @@ protected:
 
         auto dev = synnax::device::Device{
             .key = "abc123",
-            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "my_device",
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -124,8 +123,8 @@ protected:
         cfg = std::make_unique<WriteTaskConfig>(client, p);
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
-        mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        ctx = std::make_shared<driver::task::MockContext>(client);
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
     std::unique_ptr<common::WriteTask>
@@ -162,7 +161,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -180,7 +179,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     wt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
@@ -203,6 +202,37 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EQ(written_data->at(0).at(1), 1);
 }
 
+/// @brief when a frame contains multiple samples for a channel, only the last
+/// sample should be written to hardware.
+TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
+    parse_config();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame fr(1);
+    fr.emplace(cmd_ch_2.key, x::telem::Series(std::vector<double>{1.0, 2.0, 3.0}));
+    reads->push_back(std::move(fr));
+    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        {cmd_ch_2.key},
+        reads
+    );
+    auto written_data = std::make_shared<std::vector<std::vector<double>>>();
+    auto wt = create_task(
+        std::make_unique<hardware::mock::Writer<double>>(written_data)
+    );
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_EVENTUALLY_GE(written_data->size(), 1);
+
+    auto last_write = written_data->back();
+    ASSERT_EQ(last_write.size(), 2);
+    ASSERT_EQ(last_write.at(1), 3.0);
+
+    wt->stop("stop_cmd", true);
+}
+
 /// @brief Test that an invalid channel type in the configuration is properly detected
 /// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
@@ -212,11 +242,11 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     // Create a device
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "test_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
 

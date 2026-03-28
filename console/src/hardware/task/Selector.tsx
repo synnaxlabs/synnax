@@ -11,6 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { EtherCAT } from "@/hardware/ethercat";
+import { HTTP } from "@/hardware/http";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -22,7 +23,7 @@ const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,
 ): BaseSelector.Selectable => {
   const WrappedSelectable: BaseSelector.Selectable = (props) => {
-    const visible = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+    const visible = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
     if (!visible) return null;
     return <Selectable {...props} />;
   };
@@ -32,6 +33,7 @@ const withTaskVisibility = (
 
 export const SELECTABLES: BaseSelector.Selectable[] = [
   ...EtherCAT.Task.SELECTABLES,
+  ...HTTP.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,

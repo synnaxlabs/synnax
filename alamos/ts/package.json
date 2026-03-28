@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.51.0",
+  "version": "0.53.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -29,12 +29,12 @@
     "@synnaxlabs/x": "workspace:^"
   },
   "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

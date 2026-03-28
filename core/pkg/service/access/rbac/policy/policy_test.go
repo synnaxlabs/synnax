@@ -201,7 +201,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(policy.OntologyType).
+				WhereTypes(ontology.TypePolicy).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(children).To(HaveLen(2))
@@ -214,7 +214,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(policy.OntologyType).
+				WhereTypes(ontology.TypePolicy).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(children).To(HaveLen(1))
@@ -449,7 +449,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("Type", func() {
 		It("Should return correct ontology type", func() {
-			Expect(svc.Type()).To(Equal(policy.OntologyType))
+			Expect(svc.Type()).To(Equal(ontology.TypePolicy))
 		})
 	})
 
@@ -470,8 +470,7 @@ var _ = Describe("Ontology Integration", func() {
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 
-			res, err := svc.RetrieveResource(ctx, p.Key.String(), tx)
-			Expect(err).ToNot(HaveOccurred())
+			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(res.ID.Key).To(Equal(p.Key.String()))
 			Expect(res.Name).To(Equal(p.Name))
 		})

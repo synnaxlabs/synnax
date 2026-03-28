@@ -96,6 +96,8 @@ const (
 // reporting. Symbols that receive unique IDs (variables, inputs, outputs, config, and
 // stateful variables) are assigned sequential IDs within their containing function scope.
 type Symbol struct {
+	// Type is the symbol's type from Arc's type system.
+	Type types.Type
 	// AST is the parser node for source location information. Global symbols from
 	// resolvers have AST == nil, while locally-defined symbols have non-nil AST.
 	AST antlr.ParserRuleContext
@@ -104,8 +106,6 @@ type Symbol struct {
 	DefaultValue any
 	// Name is the symbol's identifier.
 	Name string
-	// Type is the symbol's type from Arc's type system.
-	Type types.Type
 	// Kind categorizes the symbol (variable, function, channel, etc.).
 	Kind Kind
 	// ID is a unique identifier within the containing function scope. Only assigned
@@ -118,4 +118,10 @@ type Symbol struct {
 	// Channels.Read/Write can be correctly resolved at instantiation time.
 	// A nil value means this symbol is the original source (e.g., a config param).
 	SourceID *int
+	// Internal marks symbols that are only accessible to the compiler (e.g., WASM
+	// host function signatures used for type suffix derivation). Internal symbols
+	// are skipped during scope resolution so user code cannot reference them, but
+	// remain visible to the compiler's resolve.Resolver which queries the
+	// symbol.Resolver interface directly.
+	Internal bool
 }

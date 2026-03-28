@@ -85,7 +85,7 @@ var _ = Describe("PipeToLogger", func() {
 		buffer = &bytes.Buffer{}
 		core := zapcore.NewCore(
 			zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
-			zapcore.AddSync(buffer),
+			zapcore.Lock(zapcore.AddSync(buffer)),
 			zapcore.DebugLevel,
 		)
 		logger = MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
@@ -290,5 +290,101 @@ var _ = Describe("PipeToLogger", func() {
 		}()
 		Eventually(done).Should(BeClosed())
 		Expect(buffer.String()).ToNot(ContainSubstring("ERROR"))
+	})
+})
+
+var _ = Describe("ParseLine", func() {
+	Describe("glog format", func() {
+		It("Should parse an info line", func() {
+			p := log.ParseLine(
+				"I20260208 14:34:21.789995 0x1fa2cec40 start.cpp:19] starting Synnax Driver v0.50.6",
+				"",
+			)
+			Expect(p.Level).To(Equal(byte('I')))
+			Expect(p.Caller).To(Equal("start.cpp:19"))
+			Expect(p.Name).To(BeEmpty())
+			Expect(p.Message).To(Equal("starting Synnax Driver v0.50.6"))
+		})
+
+		It("Should parse a debug line", func() {
+			p := log.ParseLine(
+				"D20260208 14:34:21.000000 0x1fa2cec40 opc.cpp:12] connecting",
+				"",
+			)
+			Expect(p.Level).To(Equal(byte('D')))
+			Expect(p.Caller).To(Equal("opc.cpp:12"))
+			Expect(p.Message).To(Equal("connecting"))
+		})
+
+		It("Should parse a warning line", func() {
+			p := log.ParseLine(
+				"W20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:50] something is off",
+				"",
+			)
+			Expect(p.Level).To(Equal(byte('W')))
+			Expect(p.Caller).To(Equal("rack.cpp:50"))
+		})
+
+		It("Should parse an error line", func() {
+			p := log.ParseLine(
+				"E20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:51] something broke",
+				"",
+			)
+			Expect(p.Level).To(Equal(byte('E')))
+			Expect(p.Caller).To(Equal("rack.cpp:51"))
+		})
+
+		It("Should parse a fatal line", func() {
+			p := log.ParseLine(
+				"F20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:99] fatal crash",
+				"",
+			)
+			Expect(p.Level).To(Equal(byte('F')))
+			Expect(p.Caller).To(Equal("rack.cpp:99"))
+		})
+	})
+
+	Describe("bracketed format", func() {
+		It("Should parse caller and name", func() {
+			p := log.ParseLine("I [mock] [main.go] test message", "")
+			Expect(p.Level).To(Equal(byte('I')))
+			Expect(p.Caller).To(Equal("mock"))
+			Expect(p.Name).To(Equal("main.go"))
+			Expect(p.Message).To(Equal("test message"))
+		})
+
+		It("Should handle different level bytes", func() {
+			p := log.ParseLine("E [mock] [main.go] error msg", "")
+			Expect(p.Level).To(Equal(byte('E')))
+			Expect(p.Message).To(Equal("error msg"))
+		})
+	})
+
+	Describe("continuation lines", func() {
+		It("Should use prevCaller when line has no brackets", func() {
+			p := log.ParseLine("  priority scheduling: yes", "rack.cpp:33")
+			Expect(p.Caller).To(Equal("rack.cpp:33"))
+			Expect(p.Message).To(Equal("priority scheduling: yes"))
+		})
+
+		It("Should use empty caller when no prevCaller provided", func() {
+			p := log.ParseLine("  some continuation", "")
+			Expect(p.Caller).To(BeEmpty())
+			Expect(p.Message).To(Equal("some continuation"))
+		})
+	})
+})
+
+var _ = Describe("Logger caching", func() {
+	It("Should produce correct N field for repeated module names", func() {
+		entries := pipeAndCollect(nil, nil, nil,
+			"I [mock] [opc] first message\n"+
+				"I [mock] [opc] second message\n"+
+				"I [mock] [opc] third message\n",
+		)
+		Expect(entries).To(HaveLen(3))
+		for _, entry := range entries {
+			Expect(entry).To(HaveKeyWithValue("N", "opc"))
+		}
 	})
 })

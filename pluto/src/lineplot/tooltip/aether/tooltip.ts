@@ -31,7 +31,7 @@ const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
-  position: xy.xy.or(z.null()),
+  position: xy.xyZ.or(z.null()),
   textColor: color.colorZ.default(color.ZERO),
   backgroundColor: color.colorZ.default(color.ZERO),
   borderColor: color.colorZ.default(color.ZERO),
@@ -147,7 +147,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
         } else {
           const v = validValues[i - 1];
           label = v.label ?? "";
-          value = math.roundBySpan(v.value.y, v.bounds).toString();
+          value = math.smartRound(v.value.y, v.bounds).toString();
           color = v.color;
         }
         draw.text({

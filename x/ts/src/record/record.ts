@@ -23,13 +23,13 @@ export type Key = z.infer<typeof keyZ>;
  * Zod schema for validating unknown records. Accepts objects with string or number keys
  * and unknown values.
  */
-export const unknownZ = z.record(keyZ, z.unknown());
+export const unknownZ = () => z.record(keyZ, z.unknown());
 
 /**
  * Represents a record with unknown values and string/number keys.
  * This is a generic type for objects where the value types are not known.
  */
-export interface Unknown extends z.infer<typeof unknownZ> {}
+export interface Unknown extends z.infer<ReturnType<typeof unknownZ>> {}
 
 /**
  * Interface for objects that have a key property.
@@ -140,3 +140,18 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
   for (const key of keys) delete result[key];
   return result;
 };
+
+/**
+ * For required JSON/record fields: coerces null/undefined to empty object {}.
+ * Use when the record must always be present and iterable.
+ *
+ * - null → {}
+ * - undefined → {}
+ * - {} → {}
+ * - {data} → {data}
+ */
+export const nullishToEmpty = (): z.ZodType<Unknown> =>
+  z.union([
+    z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
+    unknownZ(),
+  ]);

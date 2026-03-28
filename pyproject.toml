@@ -11,9 +11,10 @@ dev = ["vermin>=1.8.0,<2"]
 managed = true
 
 [tool.uv.workspace]
-members = ["alamos/py", "freighter/py", "client/py", "integration"]
+members = ["alamos/py", "client/py", "freighter/py", "integration", "x/py"]
 
 [tool.uv.sources]
 alamos = { workspace = true }
 synnax-freighter = { workspace = true }
 synnax = { workspace = true }
+x = { workspace = true }

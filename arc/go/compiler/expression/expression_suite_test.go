@@ -18,12 +18,12 @@ import (
 	. "github.com/onsi/gomega"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	aexpression "github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/compiler/bindings"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
-	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -50,7 +50,7 @@ func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string
 		expr     = MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
 		exprType = MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
 	)
-	return ctx.Writer.Bytes(), exprType
+	return FinalizeContext(ctx), exprType
 }
 
 func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source string, hint types.Type) ([]byte, types.Type) {
@@ -61,7 +61,7 @@ func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source
 		}
 	}
 	exprType := MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
-	return ctx.Writer.Bytes(), exprType
+	return FinalizeContext(ctx), exprType
 }
 
 func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
@@ -75,17 +75,9 @@ func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, t
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, false)
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
-	return compilerCtx.Writer.Bytes(), exprType
-}
-
-// testImports provides function indices for test assertions
-var testImports *bindings.ImportIndex
-
-func init() {
-	m := wasm.NewModule()
-	testImports = bindings.SetupImports(m)
+	return FinalizeContext(compilerCtx), exprType
 }
 
 // expectSeriesExpression is a test helper for series operations that require symbol resolution
@@ -110,29 +102,6 @@ func seriesSymbol(name string, elemType types.Type, id int) symbol.Symbol {
 	}
 }
 
-// seriesArithmeticIdx returns the function index for series arithmetic operations
-func seriesArithmeticIdx(op string, elemType types.Type, isScalar bool) uint32 {
-	return MustSucceed(testImports.GetSeriesArithmetic(op, elemType, isScalar))
-}
-
-// seriesReverseArithmeticIdx returns the function index for reverse arithmetic operations (scalar op series)
-func seriesReverseArithmeticIdx(op string, elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesReverseArithmetic(op, elemType))
-}
-
-// seriesComparisonIdx returns the function index for series-series comparison operations
-func seriesComparisonIdx(op string, elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesComparison(op, elemType))
-}
-
-func seriesCreateEmptyIdx(elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesCreateEmpty(elemType))
-}
-
-func seriesSetElementIdx(elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesSetElement(elemType))
-}
-
 func scalarSymbol(name string, t types.Type, id int) symbol.Symbol {
 	return symbol.Symbol{
 		Name: name,
@@ -150,7 +119,9 @@ func expectSeriesWithFunctions(
 	expectedOpcodes ...any,
 ) {
 	ctx := NewContext(bCtx)
-	ctx.FunctionIndices = funcIndices
+	for name, idx := range funcIndices {
+		ctx.Resolver.RegisterLocal(name, idx)
+	}
 	for _, sym := range funcSymbols {
 		MustSucceed(ctx.Scope.Add(ctx, sym))
 	}
@@ -183,9 +154,9 @@ func expectSeriesLiteralWithHint(
 		}
 	}
 
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, false)
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
-	Expect(compilerCtx.Writer.Bytes()).To(MatchOpcodes(expectedOpcodes...))
+	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))
 }
 

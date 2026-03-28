@@ -22,7 +22,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
@@ -33,13 +33,13 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
 using LoginClient = freighter::
-    UnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>;
+    UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>;
 
-const x::errors::Error AUTH_ERROR = x::errors::SY.sub("auth");
-const x::errors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid_token");
-const x::errors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired_token");
-const x::errors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
-const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
+const x::errors::Error ERR = x::errors::SY.sub("auth");
+const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
+const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
+const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
+const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
 
 /// @brief diagnostic information about the Synnax cluster.
 struct ClusterInfo {
@@ -53,24 +53,17 @@ struct ClusterInfo {
     /// request.
     x::telem::TimeStamp node_time = x::telem::TimeStamp(0);
 
-    static std::pair<ClusterInfo, x::errors::Error>
-    from_proto(const api::v1::ClusterInfo &info) {
-        auto [cluster_key, err] = x::uuid::UUID::parse(info.cluster_key());
-        if (err) return {{}, err};
-        return {
-            ClusterInfo{
-                .cluster_key = cluster_key,
-                .node_version = info.node_version(),
-                .node_key = info.node_key(),
-                .node_time = x::telem::TimeStamp(info.node_time()),
-            },
-            x::errors::NIL,
-        };
-    }
+    ClusterInfo() = default;
+
+    explicit ClusterInfo(const grpc::auth::ClusterInfo &info):
+        cluster_key(x::uuid::UUID::parse(info.cluster_key()).first),
+        node_version(info.node_version()),
+        node_key(info.node_key()),
+        node_time(info.node_time()) {}
 };
 
-/// @brief AuthMiddleware for authenticating requests using a bearer token.
-/// AuthMiddleware has no preference on order when provided to use. Middleware is safe
+/// @brief auth::Middleware for authenticating requests using a bearer token.
+/// auth::Middleware has no preference on order when provided to use. Middleware is safe
 /// to use concurrently.
 class Middleware final : public freighter::PassthroughMiddleware {
     /// Token to be used for authentication. Empty when auth_attempted is false or error
@@ -92,7 +85,7 @@ class Middleware final : public freighter::PassthroughMiddleware {
 
 public:
     /// Cluster information.
-    ClusterInfo cluster_info;
+    ClusterInfo cluster_info = ClusterInfo();
 
     Middleware(
         std::unique_ptr<LoginClient> login_client,
@@ -109,7 +102,7 @@ public:
     /// Synnax client.
     x::errors::Error authenticate() {
         std::lock_guard lock(mu);
-        api::v1::LoginRequest req;
+        grpc::auth::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
         auto skew_calc = x::telem::ClockSkewCalculator();
@@ -117,9 +110,7 @@ public:
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
-        auto [cluster_info, ci_err] = ClusterInfo::from_proto(res.cluster_info());
-        if (ci_err) return ci_err;
-        this->cluster_info = cluster_info;
+        this->cluster_info = ClusterInfo(res.cluster_info());
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {

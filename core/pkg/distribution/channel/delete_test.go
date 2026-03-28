@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delete", Ordered, func() {
@@ -53,8 +54,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 				It("Should not be able to retrieve the channel after deletion", func() {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists, err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
-					Expect(err).ToNot(HaveOccurred())
+					exists := MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 				})
 				It("Should not be able to retrieve the channel from the time-series DB", func() {
@@ -78,12 +78,10 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 				It("Should not be able to retrieve the channel after deletion", func() {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists, err := mockCluster.Nodes[2].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
-					Expect(err).ToNot(HaveOccurred())
+					exists := MustSucceed(mockCluster.Nodes[2].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 					Eventually(func(g Gomega) {
-						exists, err = mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
-						g.Expect(err).ToNot(HaveOccurred())
+						exists = MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
 						g.Expect(exists).To(BeFalse())
 					}).Should(Succeed())
 				})

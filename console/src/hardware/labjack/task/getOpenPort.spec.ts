@@ -12,11 +12,7 @@ import { describe, expect, it } from "vitest";
 import { Device } from "@/hardware/labjack/device";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
 import {
-  AI_CHANNEL_TYPE,
-  AO_CHANNEL_TYPE,
-  type AOChannelType,
   type Channel,
-  DI_CHANNEL_TYPE,
   ZERO_INPUT_CHANNELS,
   ZERO_OUTPUT_CHANNEL,
 } from "@/hardware/labjack/task/types";
@@ -39,9 +35,7 @@ describe("getOpenPort", () => {
     const type = Device.AI_PORT_TYPE;
     const aiPorts = Device.PORTS[model][type];
     // Mark the first port as in use.
-    const channels: Channel[] = [
-      { ...ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE], port: aiPorts[0].key },
-    ];
+    const channels: Channel[] = [{ ...ZERO_INPUT_CHANNELS.AI, port: aiPorts[0].key }];
     const port = getOpenPort(channels, model, [type]);
 
     // The expected port is the second port from the AI ports list.
@@ -54,7 +48,7 @@ describe("getOpenPort", () => {
     const aiPorts = Device.PORTS[model][type];
     // Mark every port for this type as in use.
     const channels: Channel[] = aiPorts.map(({ key }) => ({
-      ...ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE],
+      ...ZERO_INPUT_CHANNELS.AI,
       port: key,
     }));
     const port = getOpenPort(channels, model, [type]);
@@ -68,7 +62,7 @@ describe("getOpenPort", () => {
     const type2 = Device.AO_PORT_TYPE;
     const diPorts = Device.PORTS[model][type1];
     const channels: Channel[] = diPorts.map(({ key }) => ({
-      ...ZERO_INPUT_CHANNELS[DI_CHANNEL_TYPE],
+      ...ZERO_INPUT_CHANNELS.DI,
       port: key,
     }));
 
@@ -86,13 +80,10 @@ describe("getOpenPort", () => {
 
     // Mark all ports for both AI and AO as in use.
     const channels: Channel[] = [
-      ...aiPorts.map(({ key }) => ({
-        ...ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE],
-        port: key,
-      })),
+      ...aiPorts.map(({ key }) => ({ ...ZERO_INPUT_CHANNELS.AI, port: key })),
       ...aoPorts.map(({ key }) => ({
         ...ZERO_OUTPUT_CHANNEL,
-        type: AO_CHANNEL_TYPE as AOChannelType,
+        type: "AO" as const,
         port: key,
       })),
     ];

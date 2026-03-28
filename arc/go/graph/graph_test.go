@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/authority"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -157,7 +157,7 @@ var _ = Describe("Graph", func() {
 			Expect(firstNode.Key).To(Equal("first"))
 			Expect(firstNode.Type).To(Equal("on"))
 			Expect(firstNode.Config).To(HaveLen(1))
-			//Expect(firstNode.Channels.Read).To(HaveLen(1))
+			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
 		Describe("Polymorphic Stages", func() {
@@ -785,7 +785,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				authority.SymbolResolver,
+				control.SymbolResolver,
 				symbol.MapResolver{
 					"10057": symbol.Symbol{
 						Name: "f64_sensor",
@@ -814,7 +814,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				authority.SymbolResolver,
+				control.SymbolResolver,
 				symbol.MapResolver{
 					"10058": symbol.Symbol{
 						Name: "f64_sensor",

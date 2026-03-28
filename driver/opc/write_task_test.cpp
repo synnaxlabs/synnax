@@ -108,11 +108,11 @@ protected:
 
         synnax::device::Device dev{
             .key = "abc123",
-            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "my_device",
             .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
         };
         ASSERT_NIL(client->devices.create(dev));
@@ -256,7 +256,7 @@ protected:
         );
         reads->push_back(std::move(fr));
 
-        mock_factory = pipeline::mock::simple_streamer_factory(
+        mock_factory = driver::pipeline::mock::simple_streamer_factory(
             {this->bool_cmd_channel.key,
              this->uint16_cmd_channel.key,
              this->uint32_cmd_channel.key,
@@ -301,7 +301,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -314,7 +314,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
@@ -358,6 +358,34 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
         testutil::simple_read(client, "NS=1;S=TestFloat")
     );
     EXPECT_FLOAT_EQ(float_result.at<float>(0), 2.718f);
+}
+
+/// @brief when a frame contains multiple samples for a channel, only the last
+/// sample should be written to hardware.
+TEST_F(TestWriteTask, testLastWriteWins) {
+    auto conn_cfg = cfg->connection;
+
+    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    ASSERT_NIL(sink->start());
+
+    auto fr = ::x::telem::Frame(1);
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(std::vector<uint32_t>{111, 222, 333})
+    );
+    ASSERT_NIL(sink->write(fr));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    auto client = ASSERT_NIL_P(
+        connection::connect(conn_cfg, "[test.last_write_wins] ")
+    );
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 333);
+
+    ASSERT_NIL(sink->stop());
 }
 
 TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
@@ -460,11 +488,11 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
 
     synnax::device::Device dev{
         .key = "invalid_node_dev",
-        .name = "invalid_node_device",
         .rack = rack.key,
         .location = "dev_invalid",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "invalid_node_device",
         .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
     };
     ASSERT_NIL(client->devices.create(dev));

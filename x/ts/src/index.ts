@@ -23,7 +23,7 @@ export * from "@/destructor";
 export * from "@/errors";
 export * from "@/id";
 export * from "@/instance";
-export * from "@/jsonrpc";
+export * from "@/json";
 export * from "@/kv";
 export * from "@/label";
 export * from "@/link";

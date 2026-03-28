@@ -27,26 +27,29 @@ class PollingLoop final : public Loop {
 public:
     explicit PollingLoop(const Config &config): config_(config) {
         if (this->config_.rt_priority > 0) {
-            LOG(WARNING) << "[loop] RT priority not supported in polling mode";
+            LOG(WARNING) << "[arc.loop] RT priority not supported in polling mode";
         }
         if (this->config_.cpu_affinity >= 0) {
-            LOG(WARNING) << "[loop] CPU affinity not supported in polling mode";
+            LOG(WARNING) << "[arc.loop] CPU affinity not supported in polling mode";
         }
         if (this->config_.lock_memory) {
-            LOG(WARNING) << "[loop] Memory locking not supported in polling mode";
+            LOG(WARNING) << "[arc.loop] Memory locking not supported in polling mode";
         }
 
         if (this->config_.mode == ExecutionMode::RT_EVENT ||
             this->config_.mode == ExecutionMode::EVENT_DRIVEN ||
             this->config_.mode == ExecutionMode::HYBRID) {
-            LOG(INFO) << "[loop] Falling back to HIGH_RATE mode for "
+            LOG(INFO) << "[arc.loop] Falling back to HIGH_RATE mode for "
                       << "unsupported execution mode in polling implementation";
         }
     }
 
     ~PollingLoop() override { this->timer_.reset(); }
 
-    WakeReason wait(x::breaker::Breaker &breaker) override {
+    WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         if (!this->started_) return WakeReason::Shutdown;
 
         if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
@@ -56,9 +59,12 @@ public:
             )
                                      .count();
 
-            if (elapsed < this->config_.interval.nanoseconds()) {
-                const int64_t remaining_ns = this->config_.interval.nanoseconds() -
-                                             elapsed;
+            auto interval_ns = this->config_.interval.nanoseconds();
+            if (max_timeout.nanoseconds() > 0)
+                interval_ns = std::min(interval_ns, max_timeout.nanoseconds());
+
+            if (elapsed < interval_ns) {
+                const int64_t remaining_ns = interval_ns - elapsed;
 
                 switch (this->config_.mode) {
                     case ExecutionMode::BUSY_WAIT:
@@ -78,7 +84,9 @@ public:
                 this->last_tick_ = now;
             }
         } else {
-            if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
+            if (max_timeout.nanoseconds() > 0) {
+                std::this_thread::sleep_for(max_timeout.chrono());
+            } else if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
                 std::this_thread::sleep_for(x::telem::MICROSECOND.chrono());
             } else {
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
@@ -108,7 +116,7 @@ public:
     bool watch(x::notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
-            LOG(WARNING) << "[loop] watch() not supported in polling mode; "
+            LOG(WARNING) << "[arc.loop] watch() not supported in polling mode; "
                          << "external notifiers will not wake wait()";
             warned = true;
         }
@@ -135,10 +143,9 @@ private:
     bool started_ = false;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<PollingLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::unique_ptr<Loop>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
+    return std::make_unique<PollingLoop>(cfg);
 }
 
 }

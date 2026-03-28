@@ -30,9 +30,9 @@ export const modeZ = z.enum(["one", "two"]);
 export type Mode = z.infer<typeof modeZ>;
 
 export const measureStateZ = z.object({
-  one: xy.xy.nullable(),
-  two: xy.xy.nullable(),
-  hover: xy.xy.nullable(),
+  one: xy.xyZ.nullable(),
+  two: xy.xyZ.nullable(),
+  hover: xy.xyZ.nullable(),
   mode: modeZ.default("one"),
   color: z
     .union([
@@ -392,7 +392,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
     const xValue = ts.toString(ts.formatBySpan(xDist), "local");
-    const yValue = `${math.roundBySpan(value.y, bounds)} ${units ?? ""}`;
+    const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
     const pointText = `${pointNumber}`;
     const pointTextWidth = pointText.length * LABEL_CHAR_WIDTH;
@@ -613,13 +613,13 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.drawPointMarker(twoPos, twoValue.color);
 
     // Now draw all labels on top
-    const yValue = `${math.roundBySpan(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
+    const yValue = `${math.smartRound(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
     const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
     const xValue = xDist.truncate(trunc).toString();
     let slopeValue = math
-      .roundBySpan(slope, bounds.construct(Math.abs(slope)))
+      .smartRound(slope, bounds.construct(Math.abs(slope)))
       .toString();
     if (oneValue.units != null && oneValue.units.length > 0)
       slopeValue += ` ${oneValue.units} / s`;

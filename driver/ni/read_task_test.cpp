@@ -55,11 +55,11 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -102,11 +102,11 @@ TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -126,11 +126,11 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -156,11 +156,11 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -185,11 +185,11 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -218,14 +218,14 @@ protected:
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
         .index = 0,
-        .is_index = true
     };
     synnax::channel::Channel data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("data_channel"),
         .data_type = x::telem::FLOAT64_T,
+        .is_index = false,
         .index = index_channel.key,
-        .is_index = false
     };
 
     void parse_config() {
@@ -240,11 +240,11 @@ protected:
 
         auto dev = synnax::device::Device{
             .key = "opcua123",
-            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "my_device",
         };
 
         ASSERT_NIL(client->devices.create(dev));
@@ -312,7 +312,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
@@ -321,7 +321,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
@@ -347,7 +347,7 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
@@ -374,7 +374,7 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
@@ -388,7 +388,7 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{},
                  x::errors::Error(
                      errors::CRITICAL_HARDWARE_ERROR,
@@ -405,14 +405,14 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, task.status_key());
+    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
     EXPECT_EQ(read_err_state.details.task, task.key);
     EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to read hardware");
@@ -427,7 +427,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{1.23456789}, x::errors::NIL}
             }
         )
@@ -442,7 +442,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 
@@ -475,7 +475,7 @@ TEST_F(AnalogReadTest, testDoubleStart) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses.size(), 2);
     for (auto &state: ctx->statuses) {
-        EXPECT_EQ(state.key, task.status_key());
+        EXPECT_EQ(state.key, synnax::task::status_key(task));
         EXPECT_EQ(state.details.cmd, "start_cmd");
         EXPECT_EQ(state.details.task, task.key);
         EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
@@ -499,13 +499,13 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(ctx->statuses.size(), 3);
     // Should only have two state messages (start + stop)
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd1");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
     const auto stop_state_2 = ctx->statuses[2];
-    EXPECT_EQ(stop_state_2.key, task.status_key());
+    EXPECT_EQ(stop_state_2.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state_2.details.cmd, "stop_cmd2");
     EXPECT_EQ(stop_state_2.details.task, task.key);
     EXPECT_EQ(stop_state_2.variant, x::status::VARIANT_SUCCESS);
@@ -522,14 +522,14 @@ protected:
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
         .index = 0,
-        .is_index = true
     };
     synnax::channel::Channel data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("digital_channel"),
         .data_type = x::telem::UINT8_T, // Digital data is typically boolean/uint8
+        .is_index = false,
         .index = index_channel.key,
-        .is_index = false
     };
 
     void parse_config() {
@@ -544,11 +544,11 @@ protected:
 
         auto dev = synnax::device::Device{
             .key = "130227d9-02aa-47e4-b370-0d590add1bc1",
-            .name = "digital_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "digital_device",
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -604,7 +604,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
         std::make_unique<hardware::mock::Reader<uint8_t>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<uint8_t>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<uint8_t>::ReadResponse>{
                 {{1}, x::errors::NIL}
             } // Digital high
         )
@@ -613,7 +613,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -623,7 +623,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
@@ -639,6 +639,36 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
 
+/// @brief digital read tasks without a timing source are software-timed. On real
+/// hardware, DigitalReader does not use SkewTrackingReader, so skew is always 0.
+/// Verify that no spurious warnings are emitted during normal operation.
+TEST_F(DigitalReadTest, testNoSkewWarningsDuringNormalOperation) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<uint8_t>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<uint8_t>::ReadResponse>{{.data = {1}}}
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+
+    // Let a few read cycles execute
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
+
+    // Digital reads don't track skew (DigitalReader doesn't extend
+    // SkewTrackingReader), so no warnings should be emitted.
+    for (const auto &s: ctx->statuses) {
+        if (s.variant == x::status::VARIANT_WARNING) {
+            FAIL() << "Unexpected warning for digital read task: " << s.message;
+        }
+    }
+    rt->stop(false);
+}
+
 /// @brief Verify device locations are extracted from channels after configuration
 TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -646,11 +676,11 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
 
     auto dev = synnax::device::Device{
         .key = "device123",
-        .name = "test_device",
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
         .model = "NI 9229",
+        .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -682,14 +712,14 @@ protected:
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
         .index = 0,
-        .is_index = true
     };
     synnax::channel::Channel data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("counter_channel"),
         .data_type = x::telem::FLOAT64_T, // Counter frequency data
+        .is_index = false,
         .index = index_channel.key,
-        .is_index = false
     };
 
     void parse_config() {
@@ -704,11 +734,11 @@ protected:
 
         auto dev = synnax::device::Device{
             .key = "f8a9c7e6-1234-4567-890a-bcdef0123456",
-            .name = "counter_device",
             .rack = rack.key,
             .location = "Dev1",
             .make = "ni",
             .model = "PCIe-6343",
+            .name = "counter_device",
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -773,7 +803,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{100.5}, x::errors::NIL} // 100.5 Hz frequency reading
             }
         )
@@ -782,7 +812,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -792,7 +822,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
@@ -822,7 +852,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
@@ -849,7 +879,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
@@ -863,7 +893,7 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{},
                  x::errors::Error(
                      errors::CRITICAL_HARDWARE_ERROR,
@@ -876,19 +906,19 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, task.status_key());
+    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
     EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Counter read failed");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Counter read failed");
@@ -901,7 +931,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{100.0}, x::errors::NIL},
                 {{150.5}, x::errors::NIL},
                 {{200.75}, x::errors::NIL}
@@ -912,7 +942,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
@@ -944,7 +974,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
@@ -956,11 +986,11 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
 
     auto dev = synnax::device::Device{
         .key = "counter_dev_123",
-        .name = "test_counter_device",
         .rack = rack.key,
         .location = "Dev1",
         .make = "ni",
         .model = "USB-6343",
+        .name = "test_counter_device",
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -1004,16 +1034,18 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
 
     auto dev = synnax::device::Device{
         .key = "counter_dev_456",
-        .name = "test_period_device",
         .rack = rack.key,
         .location = "Dev2",
         .make = "ni",
         .model = "PCIe-6343",
+        .name = "test_period_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create("period", x::telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("period"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     x::json::json j{
         {"data_saving", false},
@@ -1055,21 +1087,21 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
 
     auto dev1 = synnax::device::Device{
         .key = "d1",
-        .name = "dev1",
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
         .model = "NI 9229",
+        .name = "dev1",
     };
     ASSERT_NIL(client->devices.create(dev1));
 
     auto dev2 = synnax::device::Device{
         .key = "d2",
-        .name = "dev2",
         .rack = rack.key,
         .location = "cDAQ1Mod2",
         .make = "ni",
         .model = "NI 9205",
+        .name = "dev2",
     };
     ASSERT_NIL(client->devices.create(dev2));
 
@@ -1163,21 +1195,85 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
+/// @brief skew warnings should fire for analog read tasks when hardware reports
+/// significant skew.
+TEST_F(AnalogReadTest, testSkewWarningFiresForAnalogRead) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
+                {.data = {0.5}, .skew = 1000}
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+
+    // Wait for a read cycle to produce the skew warning
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    bool found_warning = false;
+    for (const auto &s: ctx->statuses) {
+        if (s.variant == x::status::VARIANT_WARNING &&
+            s.message.find("trailing") != std::string::npos) {
+            found_warning = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_warning) << "Expected skew warning for analog read task";
+    rt->stop(false);
+}
+
+/// @brief skew warnings should NOT fire for counter read tasks since they use
+/// software timing and skew tracking is meaningless.
+TEST_F(CounterReadTest, testSkewWarningSuppressedForCounterRead) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
+                {.data = {100.5}, .skew = 1000}
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+
+    // Let a few read cycles execute
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
+
+    // Verify no skew warnings were emitted
+    for (const auto &s: ctx->statuses) {
+        if (s.variant == x::status::VARIANT_WARNING) {
+            FAIL() << "Unexpected skew warning for counter read task: " << s.message;
+        }
+    }
+    rt->stop(false);
+}
+
 TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
         .key = "test_device_key",
-        .name = "test_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create("test_channel", x::telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test_channel"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     auto j = base_analog_config();
     j["data_saving"] = true;

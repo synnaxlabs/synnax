@@ -26,11 +26,18 @@ namespace arc::runtime::loop {
 
 class LinuxLoop final : public Loop {
 public:
-    explicit LinuxLoop(const Config &config): config_(config) {}
+    explicit LinuxLoop(
+        const Config &config,
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+    ):
+        config_(config), rt_handle_(std::move(rt_handle)) {}
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    WakeReason wait(x::breaker::Breaker &breaker) override {
+    WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
@@ -39,12 +46,12 @@ public:
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                return this->event_driven_wait(true);
+                return this->event_driven_wait(true, max_timeout);
             case ExecutionMode::HYBRID:
-                return this->hybrid_wait(breaker);
+                return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait(true);
+                return this->event_driven_wait(true, max_timeout);
         }
         return WakeReason::Shutdown;
     }
@@ -125,10 +132,12 @@ public:
             }
         }
 
-        auto rt_cfg = this->config_.rt();
-        rt_cfg.prefer_deadline_scheduler = true;
-        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
-            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
+        if (!this->rt_handle_) {
+            auto rt_cfg = this->config_.rt();
+            x::thread::rt::apply_config(rt_cfg);
+        } else {
+            this->rt_handle_->apply();
+        }
 
         return x::errors::NIL;
     }
@@ -152,13 +161,13 @@ public:
                 // fd already registered (e.g., from a previous run after restart).
                 // Update the registration instead - this makes watch() idempotent.
                 if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_MOD, fd, &ev) == -1) {
-                    LOG(ERROR) << "[loop] Failed to modify watched fd " << fd << ": "
-                               << strerror(errno);
+                    LOG(ERROR) << "[arc.loop] Failed to modify watched fd " << fd
+                               << ": " << strerror(errno);
                     return false;
                 }
                 return true;
             }
-            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
+            LOG(ERROR) << "[arc.loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
             return false;
         }
@@ -195,9 +204,12 @@ private:
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
             if (n > 0) return this->consume_events(events, n);
             if (n == -1 && errno != EINTR) {
-                LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
+                LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
+            // Prevent starvation of breaker-stopping threads. yield() over
+            // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
+            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }
@@ -210,20 +222,26 @@ private:
         return WakeReason::Timer;
     }
 
-    WakeReason event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking, const x::telem::TimeSpan max_timeout) {
         struct epoll_event events[2];
-        const int timeout_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
+        const int default_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
                                         : timing::POLL_TIMEOUT.milliseconds();
+        const int timeout_ms = max_timeout.nanoseconds() > 0
+                                 ? static_cast<int>(max_timeout.milliseconds())
+                                 : default_ms;
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
         if (n > 0) return this->consume_events(events, n);
         if (n == 0) return WakeReason::Timeout;
         if (errno != EINTR)
-            LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
+            LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
         return WakeReason::Shutdown;
     }
 
-    WakeReason hybrid_wait(const x::breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -238,7 +256,9 @@ private:
             if (n > 0) return this->consume_events(events, n);
         }
 
-        const int timeout_ms = timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
+        const int timeout_ms = max_timeout.nanoseconds() > 0
+                                 ? static_cast<int>(max_timeout.milliseconds())
+                                 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
         if (n > 0) return this->consume_events(events, n);
         return WakeReason::Timeout;
@@ -255,7 +275,7 @@ private:
                 if (events[i].data.fd == this->timer_fd_) {
                     timer_fired = true;
                     if (val > 1)
-                        LOG(WARNING) << "[loop] timer drift detected: " << val
+                        LOG(WARNING) << "[arc.loop] timer drift detected: " << val
                                      << " expirations in single read";
                 } else if (events[i].data.fd != this->event_fd_) {
                     input_fired = true;
@@ -281,6 +301,7 @@ private:
     }
 
     Config config_;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int epoll_fd_ = -1;
     int event_fd_ = -1;
     int timer_fd_ = -1;
@@ -288,10 +309,9 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<LinuxLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::unique_ptr<Loop>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
+    return std::make_unique<LinuxLoop>(cfg, std::move(rt_handle));
 }
 
 }

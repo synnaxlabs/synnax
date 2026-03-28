@@ -102,7 +102,8 @@ func (s *Service) Set(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.kv.NewWriter(tx).SetMany(ctx, req.Range, req.Pairs)
+		w := s.kv.NewWriter(tx)
+		return w.SetMany(ctx, req.Pairs)
 	})
 }
 

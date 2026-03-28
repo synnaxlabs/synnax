@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// TypeBuiltIn is a resource type that is built into the ontology.
-const TypeBuiltIn Type = "builtin"
+// TypeBuiltIn is an alias for TypeBuiltin, maintained for backward compatibility.
+const TypeBuiltIn = TypeBuiltin
 
 var (
 	// RootID is the root resource in the ontology. All other resources are reachable by

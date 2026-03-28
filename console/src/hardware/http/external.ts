@@ -9,3 +9,4 @@
 
 export * from "@/hardware/http/device";
 export * from "@/hardware/http/device/services";
+export * from "@/hardware/http/task";

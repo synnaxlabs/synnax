@@ -9,7 +9,10 @@
 
 package resolution
 
-import "github.com/samber/lo"
+import (
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/set"
+)
 
 type Type struct {
 	Domains       map[string]Domain
@@ -169,7 +172,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	}
 
 	// Collect fields from all parents (left-to-right, first wins on conflict)
-	seenFields := make(map[string]bool)
+	seenFields := make(set.Set[string])
 	var allParentFields []Field
 
 	for _, extendsRef := range form.Extends {
@@ -196,12 +199,12 @@ func UnifiedFields(typ Type, table *Table) []Field {
 			if form.IsFieldOmitted(pf.Name) {
 				continue
 			}
-			if seenFields[pf.Name] {
+			if seenFields.Contains(pf.Name) {
 				continue // First parent wins
 			}
 			substitutedField := pf
 			substitutedField.Type = SubstituteTypeRef(pf.Type, typeArgMap)
-			seenFields[pf.Name] = true
+			seenFields.Add(pf.Name)
 			allParentFields = append(allParentFields, substitutedField)
 		}
 	}
