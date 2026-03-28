@@ -42,7 +42,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const canCreateArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing Arcs."

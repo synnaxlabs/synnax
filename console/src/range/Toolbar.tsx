@@ -41,7 +41,7 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canCreateRange = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
