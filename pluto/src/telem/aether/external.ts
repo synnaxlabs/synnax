@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/log/aether/sources";
+export * from "@/log/aether/types";
 export * from "@/telem/aether/context";
 export * from "@/telem/aether/factory";
 export * from "@/telem/aether/noop";

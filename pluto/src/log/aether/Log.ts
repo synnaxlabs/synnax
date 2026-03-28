@@ -7,23 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  box,
-  color,
-  DataType,
-  type destructor,
-  MultiSeries,
-  type TelemValue,
-  xy,
-} from "@synnaxlabs/x";
+import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import {
+  type LogEntry,
+  type LogSource,
+  logSourceSpecZ,
+  noopLogSourceSpec,
+} from "@/log/aether/types";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+
+export const channelConfigZ = z.object({
+  color: z.string().default(""),
+  notation: notation.notationZ.default("standard"),
+  precision: z.number().min(-1).max(17).default(-1),
+  alias: z.string().default(""),
+});
+
+export const channelEntryZ = channelConfigZ.extend({
+  channel: z.number().or(z.string()),
+});
 
 export const logState = z.object({
   region: box.box,
@@ -31,93 +40,206 @@ export const logState = z.object({
   scrolling: z.boolean(),
   empty: z.boolean(),
   visible: z.boolean(),
-  telem: telem.seriesSourceSpecZ.default(telem.noopSeriesSourceSpec),
+  showChannelNames: z.boolean().default(true),
+  showReceiptTimestamp: z.boolean().default(true),
+  timestampPrecision: z.number().min(0).max(3).default(0),
+  // channelNames: server-side display names (fetched fresh, never persisted)
+  // channels: user-defined config per channel (color, precision, alias; persisted)
+  channelNames: z.record(z.string(), z.string()).default({}),
+  channels: z.array(channelEntryZ).default([]),
+  telem: logSourceSpecZ.default(noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   overshoot: xy.xyZ.default({ x: 0, y: 0 }),
+  selectionStart: z.number().default(-1),
+  selectionEnd: z.number().default(-1),
+  visibleStart: z.number().default(0),
+  selectedText: z.string().default(""),
+  selectedLines: z.array(z.object({ text: z.string(), color: z.string() })).default([]),
+  computedLineHeight: z.number().default(0),
+  entryCount: z.number().default(0),
+  copyFlash: z.boolean().default(false),
 });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const CANVAS: render.Canvas2DVariant = "lower2d";
+const CONTENT_PADDING = 6;
+
+// Per-theme prefix color muting — multiplied with the base color's HSLA.
+const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
+const LIGHT_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.8, alpha: 0.8 };
 
 interface InternalState {
   theme: theming.Theme;
   render: render.Context;
-  telem: telem.SeriesSource;
+  draw2d: Draw2D;
+  telem: telem.MemoizedSource<LogEntry[], LogSource>;
+  configs: Record<string, z.infer<typeof channelConfigZ>>;
   textColor: color.Color;
+  prefixColors: Record<string, color.Color>;
+  defaultPrefixColor: color.Color;
+  // Cached per-channel value colors to avoid repeated lookups in render loop.
+  valueColors: Record<string, color.Color>;
+  // Display name per channel (alias if set, otherwise server name).
+  displayNames: Record<string, string>;
+  // Padding to align channel names to the same width in the log.
+  namePadding: Record<string, string>;
+  charWidth: number;
+  lineHeight: number;
+  tsLen: number;
+  selectionColor: color.Color;
+  selectionFlashColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
 }
 
 interface ScrollbackState {
-  offset: bigint;
-  offsetRef: bigint;
+  offset: number;
+  offsetRef: number;
   scrollRef: number;
 }
 
 const ZERO_SCROLLBACK: ScrollbackState = {
-  offset: 0n,
-  offsetRef: 0n,
+  offset: 0,
+  offsetRef: 0,
   scrollRef: 0,
+};
+
+const muteColor = (c: color.Crude, theme: theming.Theme): color.Color => {
+  const p = theme.key === "synnaxDark" ? DARK_PREFIX : LIGHT_PREFIX;
+  const [h, s, l, a] = color.hsla(c);
+  return color.fromHSLA([
+    Math.min(360, Math.round(h * p.hue)),
+    Math.min(100, Math.round(s * p.saturation)),
+    Math.min(100, Math.round(l * p.lightness)),
+    Math.min(1, a * p.alpha),
+  ]);
 };
 
 export class Log extends aether.Leaf<typeof logState, InternalState> {
   static readonly TYPE = "log";
   static readonly z = logState;
   schema = Log.z;
-  values: MultiSeries = new MultiSeries([]);
+  entries: LogEntry[] = [];
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
+  // Render key for requestRender — allocated once, not per call.
+  private renderKey: string = "";
+
+  get lineHeight(): number {
+    return this.internal.lineHeight;
+  }
+
+  get totalHeight(): number {
+    return Math.ceil(this.entries.length * this.internal.lineHeight);
+  }
+
+  get visibleLineCount(): number {
+    return this.calcVisibleLineCount(this.internal.lineHeight);
+  }
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color))
-      this.internal.textColor = i.theme.colors.gray.l11;
+    i.draw2d = new Draw2D(i.render[CANVAS], i.theme);
+    if (this.renderKey === "") this.renderKey = `${this.type}-${this.key}`;
+
+    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
+
+    i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
+    i.charWidth = i.draw2d.measureCharWidth(this.state.font);
+    i.tsLen =
+      this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
+
+    // Decompose merged channel entries into keys and config map.
+    const channelEntries = this.state.channels;
+    const prevEntries = this.prevState.channels;
+    const channelsChanged = channelEntries !== prevEntries;
+    const channelKeys = channelEntries.map((e) => e.channel);
+    const configs: Record<string, z.infer<typeof channelConfigZ>> = {};
+    for (const entry of channelEntries) configs[String(entry.channel)] = entry;
+
+    // Rebuild color caches only when configs or base color changed.
+    const colorChanged = !color.equals(this.state.color, this.prevState.color);
+    if (channelsChanged || colorChanged || i.prefixColors == null) {
+      i.defaultPrefixColor = muteColor(i.textColor, i.theme);
+      i.prefixColors = {};
+      i.valueColors = {};
+      for (const [key, cfg] of Object.entries(configs))
+        if (cfg.color) {
+          i.prefixColors[key] = muteColor(cfg.color, i.theme);
+          i.valueColors[key] = color.construct(cfg.color);
+        }
+    }
+    i.configs = configs;
+
+    // Cache selection highlight colors (theme-dependent).
+    i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
+    i.selectionFlashColor = color.setAlpha(i.theme.colors.primary.z, 0.15);
+
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
+    // Always call setChannels — the source short-circuits if unchanged.
+    // This handles both initial setup (where prevState === state) and subsequent changes.
+    i.telem.wrapped.setChannels?.(channelKeys);
+
+    // Compute display names (alias takes priority over server name) and padding.
+    const namesChanged =
+      channelsChanged ||
+      this.state.channelNames !== this.prevState.channelNames ||
+      i.displayNames == null;
+    if (namesChanged) {
+      i.displayNames = {};
+      for (const [key, cfg] of Object.entries(configs))
+        i.displayNames[key] = cfg.alias || this.state.channelNames[key] || String(key);
+      const maxLen = Math.max(0, ...Object.values(i.displayNames).map((n) => n.length));
+      i.namePadding = {};
+      for (const [key, name] of Object.entries(i.displayNames))
+        i.namePadding[key] = " ".repeat(maxLen - name.length);
+    }
+
     const { scrolling, wheelPos } = this.state;
+    const lh = i.lineHeight;
 
     const justEnteredScrollback = this.state.scrolling && !this.prevState.scrolling;
     if (justEnteredScrollback) {
-      const off = this.values.alignmentBounds.upper - 1n;
+      const off = this.entries.length;
       this.scrollState = {
         offset: off,
         offsetRef: off,
         scrollRef: this.state.wheelPos,
       };
     } else if (scrolling) {
-      const { scrollState, values } = this;
-      const dist = Math.ceil((wheelPos - this.scrollState.scrollRef) / this.lineHeight);
-      scrollState.offset = this.values.traverseAlignment(
-        scrollState.offsetRef,
-        -BigInt(dist),
+      const { scrollState } = this;
+      const dist = Math.ceil((wheelPos - scrollState.scrollRef) / lh);
+      const visCount = this.calcVisibleLineCount(lh);
+      scrollState.offset = Math.max(
+        visCount,
+        Math.min(scrollState.offsetRef - dist, this.entries.length),
       );
-      // This means that the last element is visible at the top of the viewport, so we
-      // should stop scrolling.
-      if (
-        scrollState.offset <
-        values.alignmentBounds.lower + BigInt(this.visibleLineCount)
-      ) {
-        scrollState.offset = values.alignmentBounds.lower;
-        // Set the wheel position back to it's previous location so we can scroll back
-        // down without jumping.
+      if (scrollState.offset <= visCount) {
+        scrollState.offset = visCount;
         this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
-      // If we've scrolled back to the bottom fo the log, stop scrolling and go back
-      // to live mode.
-      if (scrollState.offset >= values.alignmentBounds.upper)
+      if (scrollState.offset >= this.entries.length)
         this.setState((s) => ({ ...s, scrolling: false }));
     }
 
-    const [_, series] = this.internal.telem.value();
-    this.values = series;
+    this.entries = this.internal.telem.value();
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      const [_, series] = this.internal.telem.value();
+      const { evictedCount } = this.internal.telem.wrapped;
+      this.entries = this.internal.telem.value();
+      if (evictedCount > 0) {
+        if (this.state.scrolling)
+          this.scrollState.offset = Math.max(
+            this.calcVisibleLineCount(this.internal.lineHeight),
+            this.scrollState.offset - evictedCount,
+          );
+        this.clampSelection(evictedCount);
+      }
       this.checkEmpty();
-      this.values = series;
       this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
@@ -125,9 +247,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   }
 
   private checkEmpty(): void {
-    const actuallyEmpty = this.values.length === 0;
-    if (actuallyEmpty === this.state.empty) return;
-    this.setState((s) => ({ ...s, empty: actuallyEmpty }));
+    const actuallyEmpty = this.entries.length === 0;
+    const countChanged = this.entries.length !== this.state.entryCount;
+    if (actuallyEmpty === this.state.empty && !countChanged) return;
+    this.setState((s) => ({
+      ...s,
+      empty: actuallyEmpty,
+      entryCount: this.entries.length,
+    }));
   }
 
   afterDelete(): void {
@@ -137,82 +264,72 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   }
 
   private requestRender(): void {
-    const { render } = this.internal;
-    render.loop.set({
-      key: `${this.type}-${this.key}`,
+    this.internal.render.loop.set({
+      key: this.renderKey,
       render: () => this.render(),
       priority: "high",
       canvases: [CANVAS],
     });
   }
 
-  get lineHeight(): number {
-    return (
-      this.internal.theme.typography[this.state.font].size *
-      this.internal.theme.sizes.base
-    );
-  }
-
-  get totalHeight(): number {
-    return Math.ceil(this.values.length * this.lineHeight);
-  }
-
-  get visibleLineCount(): number {
+  private calcVisibleLineCount(lh: number): number {
     return Math.min(
-      Math.floor((box.height(this.state.region) - 12) / this.lineHeight),
-      this.values.length,
+      Math.floor((box.height(this.state.region) - CONTENT_PADDING * 2) / lh),
+      this.entries.length,
     );
   }
 
   render(): render.Cleanup | undefined {
-    const { render: renderCtx } = this.internal;
+    const { render: renderCtx, lineHeight: lh, draw2d } = this.internal;
     const region = this.state.region;
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
-    let range: Iterable<any>;
-    if (!this.state.scrolling)
-      range = this.values.subIterator(
-        this.values.length - this.visibleLineCount,
-        this.values.length,
-      );
-    else {
-      const start = this.values.traverseAlignment(
-        this.scrollState.offset,
-        -BigInt(this.visibleLineCount),
-      );
-      range = this.values.subAlignmentSpanIterator(start, this.visibleLineCount);
+
+    const visible = this.calcVisibleLineCount(lh);
+    let sliceStart: number;
+    let slice: LogEntry[];
+    if (!this.state.scrolling) {
+      sliceStart = Math.max(0, this.entries.length - visible);
+      slice = this.entries.slice(sliceStart);
+    } else {
+      const end = this.scrollState.offset;
+      sliceStart = Math.max(0, end - visible);
+      slice = this.entries.slice(sliceStart, end);
     }
 
+    if (this.state.visibleStart !== sliceStart || this.state.computedLineHeight !== lh)
+      this.setState((s) => ({
+        ...s,
+        visibleStart: sliceStart,
+        computedLineHeight: lh,
+      }));
+
+    this.updateSelectedText();
+
     const reg = this.state.region;
-    const canvas = renderCtx[CANVAS];
-    const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderElements(draw2d, range);
-    this.renderScrollbar(draw2d);
+    this.renderSelection(draw2d, sliceStart, slice.length, lh);
+    this.renderElements(draw2d, slice, lh);
+    this.renderScrollbar(draw2d, lh);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
-  private renderScrollbar(draw2d: Draw2D): void {
+  private renderScrollbar(draw2d: Draw2D, lh: number): void {
+    if (!this.state.scrolling) return;
     const reg = this.state.region;
-    const scrollbarHeight = (box.height(reg) / this.totalHeight) * box.height(reg);
-    if (scrollbarHeight >= box.height(reg) * SCROLLBAR_RENDER_THRESHOLD) return;
+    const totalHeight = Math.ceil(this.entries.length * lh);
+    const regHeight = box.height(reg);
+    const scrollbarHeight = (regHeight / totalHeight) * regHeight;
+    if (scrollbarHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
     let scrollbarYPos = box.bottom(reg) - scrollbarHeight;
-    if (this.state.scrolling)
-      scrollbarYPos -=
-        (Number(
-          this.values.distance(
-            this.values.alignmentBounds.upper,
-            this.scrollState.offset,
-          ),
-        ) /
-          this.values.length) *
-        box.height(reg);
-
+    if (this.state.scrolling) {
+      const distFromEnd = this.entries.length - this.scrollState.offset;
+      scrollbarYPos -= (distFromEnd / this.entries.length) * regHeight;
+    }
     if (scrollbarYPos < 0) scrollbarYPos = box.top(reg);
-
     draw2d.container({
       region: box.construct(
         { x: box.right(reg) - 6, y: scrollbarYPos },
@@ -223,21 +340,150 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>): void {
+  private clampSelection(evictedCount: number): void {
+    const { selectionStart, selectionEnd } = this.state;
+    if (selectionStart < 0) return;
+    const newStart = selectionStart - evictedCount;
+    const newEnd = selectionEnd - evictedCount;
+    if (newEnd < 0)
+      this.setState((s) => ({
+        ...s,
+        selectionStart: -1,
+        selectionEnd: -1,
+        selectedText: "",
+      }));
+    else
+      this.setState((s) => ({
+        ...s,
+        selectionStart: Math.max(0, newStart),
+        selectionEnd: newEnd,
+        selectedText: "",
+      }));
+  }
+
+  private renderSelection(
+    draw2d: Draw2D,
+    sliceStart: number,
+    visibleCount: number,
+    lh: number,
+  ): void {
+    const { selectionStart, selectionEnd } = this.state;
+    if (selectionStart < 0 || selectionEnd < 0) return;
+    const selMin = Math.min(selectionStart, selectionEnd);
+    const selMax = Math.max(selectionStart, selectionEnd);
+    const sliceEnd = sliceStart + visibleCount;
+    if (selMax < sliceStart || selMin >= sliceEnd) return;
     const reg = this.state.region;
-    let i = 0;
-    for (const value of iter) {
-      const text = this.values.dataType.equals(DataType.JSON)
-        ? JSON.stringify(value)
-        : value.toString();
+    const highlightStart = Math.max(selMin, sliceStart) - sliceStart;
+    const highlightEnd = Math.min(selMax, sliceEnd - 1) - sliceStart;
+    const bgColor = this.state.copyFlash
+      ? this.internal.selectionFlashColor
+      : this.internal.selectionColor;
+    const rowCount = highlightEnd - highlightStart + 1;
+    draw2d.container({
+      region: box.construct(
+        xy.translate(box.topLeft(reg), {
+          x: 0,
+          y: highlightStart * lh + CONTENT_PADDING,
+        }),
+        { width: box.width(reg), height: rowCount * lh },
+      ),
+      bordered: false,
+      rounded: false,
+      backgroundColor: bgColor,
+    });
+  }
+
+  // showChannelNames is read from state (O(1)) rather than derived by scanning all
+  // entries (O(n)). The render loop below is already O(n) over visible entries —
+  // adding a second O(n) scan here just to answer a yes/no question would double the
+  // per-frame work at up to 60fps.
+  private formatEntry(entry: LogEntry): {
+    prefix: string;
+    value: string;
+    line: string;
+    channelKey: string;
+  } {
+    const { showChannelNames, showReceiptTimestamp } = this.state;
+    const { tsLen, configs } = this.internal;
+    const cfg = configs[String(entry.channelKey)];
+    const ts = showReceiptTimestamp
+      ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
+      : "";
+    let value = entry.value;
+    if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        const precision = cfg.precision >= 0 ? cfg.precision : 0;
+        value = notation.stringifyNumber(num, precision, cfg.notation);
+      }
+    }
+    const { displayNames, namePadding } = this.internal;
+    const chKey = String(entry.channelKey);
+    const name = displayNames[chKey] ?? String(entry.channelKey);
+    const pad = namePadding[chKey] ?? "";
+    let prefix: string;
+    if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
+    else if (showReceiptTimestamp) prefix = `${ts}  `;
+    else if (showChannelNames) prefix = `[${name}]${pad}  `;
+    else prefix = "";
+    return {
+      prefix,
+      value,
+      line: prefix + value,
+      channelKey: String(entry.channelKey),
+    };
+  }
+
+  private updateSelectedText(): void {
+    const { selectionStart, selectionEnd } = this.state;
+    if (selectionStart < 0 || selectionEnd < 0) {
+      if (this.state.selectedText !== "")
+        this.setState((s) => ({ ...s, selectedText: "", selectedLines: [] }));
+      return;
+    }
+    const selMin = Math.min(selectionStart, selectionEnd);
+    const selMax = Math.max(selectionStart, selectionEnd);
+    const selected = this.entries.slice(selMin, selMax + 1);
+    const formatted = selected.map((e) => this.formatEntry(e));
+    const text = formatted.map((f) => f.line).join("\n");
+    if (text !== this.state.selectedText) {
+      const { valueColors } = this.internal;
+      const selectedLines = formatted.map((f) => ({
+        text: f.line,
+        color: f.channelKey in valueColors ? color.hex(valueColors[f.channelKey]) : "",
+      }));
+      this.setState((s) => ({ ...s, selectedText: text, selectedLines }));
+    }
+  }
+
+  private renderElements(draw2D: Draw2D, entries: LogEntry[], lh: number): void {
+    const reg = this.state.region;
+    const font = this.state.font;
+    const { prefixColors, defaultPrefixColor, textColor, valueColors, charWidth } =
+      this.internal;
+    const regTopX = box.left(reg);
+    const regTopY = box.top(reg);
+    for (let i = 0; i < entries.length; i++) {
+      const { prefix, value, channelKey } = this.formatEntry(entries[i]);
+      const entryColor = valueColors[channelKey] ?? textColor;
+      const prefixColor = prefixColors[channelKey] ?? defaultPrefixColor;
+      const posX = regTopX + CONTENT_PADDING;
+      const posY = regTopY + i * lh + CONTENT_PADDING;
       draw2D.text({
-        text,
-        level: this.state.font,
-        shade: 11,
-        position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
+        text: prefix,
+        level: font,
+        color: prefixColor,
+        position: { x: posX, y: posY },
         code: true,
       });
-      i++;
+      draw2D.text({
+        text: value,
+        level: font,
+        color: entryColor,
+        position: { x: posX + prefix.length * charWidth, y: posY },
+        code: true,
+      });
     }
   }
 }

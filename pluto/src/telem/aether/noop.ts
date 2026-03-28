@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { NOOP_LOG_REGISTRY } from "@/log/aether/types";
 import { type Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
@@ -188,6 +189,7 @@ const REGISTRY: Record<string, new () => Telem> = {
   [NoopColorSource.TYPE]: NoopColorSource,
   [StringSource.TYPE]: StringSource,
   [NoopSeries.TYPE]: NoopSeries,
+  ...NOOP_LOG_REGISTRY,
 };
 
 export class NoopFactory implements Factory {
