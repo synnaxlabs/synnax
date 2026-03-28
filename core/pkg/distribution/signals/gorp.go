@@ -69,6 +69,7 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 	g.MarshalDelete = override.Nil(g.MarshalDelete, other.MarshalDelete)
 	g.SetName = override.String(g.SetName, other.SetName)
 	g.DeleteName = override.String(g.DeleteName, other.DeleteName)
+	g.Observable = override.Nil(g.Observable, other.Observable)
 	return g
 }
 
@@ -155,9 +156,10 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	if err != nil {
 		return nil, err
 	}
+	baseObs := cfg.Observable
 	var (
 		obs = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
-			Observable: cfg.Observable,
+			Observable: baseObs,
 			Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
 				var out []change.Change[[]byte, struct{}]
 				for c := range r {

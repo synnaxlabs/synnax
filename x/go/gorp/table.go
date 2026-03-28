@@ -11,19 +11,23 @@ package gorp
 
 import (
 	"context"
+	stdbinary "encoding/binary"
 	"io"
 	"iter"
+	"strings"
 
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 )
 
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
-	DB    *DB
-	Codec binary.Codec
+	DB         *DB
+	Codec      binary.Codec
+	Migrations []Migration
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
@@ -41,14 +45,52 @@ func (t *Table[K, E]) Close() error {
 	return nil
 }
 
-// OpenTable creates or opens a table for the given entry type. It runs key migrations
-// to ensure entries are stored under the current prefix and key encoding format.
+// OpenTable creates or opens a table for the given entry type. It runs any provided
+// versioned migrations followed by key migrations to ensure entries are stored under
+// the current prefix and key encoding format.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (*Table[K, E], error) {
 	codec := resolveCodec(cfg.Codec, cfg.DB)
-	if err := migrateKeys[K, E](ctx, cfg.DB, codec); err != nil {
+	prefix := []byte(magicPrefix + types.Name[E]())
+	versionKey := []byte(migrationVersionPrefix + types.Name[E]())
+	kvTx := cfg.DB.KV().OpenTx()
+	defer func() {
+		_ = kvTx.Close()
+	}()
+	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB}
+	if len(cfg.Migrations) > 0 {
+		applied, err := readAppliedMigrations(ctx, kvTx, versionKey, cfg.Migrations)
+		if err != nil {
+			return nil, err
+		}
+		pending, err := topoSort(cfg.Migrations, applied)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range pending {
+			if err := m.Run(ctx, kvTx, migCfg); err != nil {
+				return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
+			}
+			applied[m.Name()] = true
+			if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
+				return nil, err
+			}
+		}
+	}
+	// migrateOldPrefixKeys uses the DB's default codec to compute the old prefix
+	// (the type name was originally encoded with msgpack). reEncodeKeys uses the
+	// table's codec for reading/writing entry values.
+	dbTx := WrapTx(kvTx, cfg.DB)
+	if err := migrateOldPrefixKeys[K, E](ctx, dbTx, codec); err != nil {
+		return nil, err
+	}
+	tableTx := WrapTx(kvTx, codec)
+	if err := reEncodeKeys[K, E](ctx, tableTx, codec); err != nil {
+		return nil, err
+	}
+	if err := kvTx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &Table[K, E]{codec: codec, DB: cfg.DB}, nil
@@ -87,15 +129,6 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
-}
-
-func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec binary.Codec) error {
-	return db.WithTx(ctx, func(tx Tx) error {
-		if err := migrateOldPrefixKeys[K, E](ctx, tx, codec); err != nil {
-			return err
-		}
-		return reEncodeKeys[K, E](ctx, tx, codec)
-	})
 }
 
 // migrateOldPrefixKeys finds entries stored under the old codec-based prefix
@@ -155,4 +188,57 @@ func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Co
 		}
 	}
 	return err
+}
+
+// readAppliedMigrations reads the set of applied migration names from the KV store.
+// It handles backward compatibility: if the stored value is exactly 2 bytes, it is
+// treated as the old uint16 index-based format and converted by marking the first N
+// migrations from the provided list as applied.
+func readAppliedMigrations(
+	ctx context.Context,
+	kvTx kv.Tx,
+	key []byte,
+	migrations []Migration,
+) (map[string]bool, error) {
+	b, closer, err := kvTx.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return make(map[string]bool), nil
+		}
+		return nil, err
+	}
+	defer func() {
+		err = errors.Combine(err, closer.Close())
+	}()
+	if len(b) == 2 {
+		count := int(stdbinary.BigEndian.Uint16(b))
+		applied := make(map[string]bool, count)
+		for i := 0; i < count && i < len(migrations); i++ {
+			applied[migrations[i].Name()] = true
+		}
+		return applied, err
+	}
+	names := strings.Split(string(b), "\n")
+	applied := make(map[string]bool, len(names))
+	for _, name := range names {
+		if name != "" {
+			applied[name] = true
+		}
+	}
+	return applied, err
+}
+
+// writeAppliedMigrations persists the set of applied migration names as a
+// newline-delimited string.
+func writeAppliedMigrations(
+	ctx context.Context,
+	kvTx kv.Tx,
+	key []byte,
+	applied map[string]bool,
+) error {
+	names := make([]string, 0, len(applied))
+	for name := range applied {
+		names = append(names, name)
+	}
+	return kvTx.Set(ctx, key, []byte(strings.Join(names, "\n")))
 }

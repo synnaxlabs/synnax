@@ -145,13 +145,6 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 		Exec(ctx, w.tx)
 }
 
-func (w Writer) swapRanges(ctx context.Context) error {
-	return w.table.NewUpdate().Change(func(_ gorp.Context, r Range) Range {
-		r.TimeRange = r.TimeRange.MakeValid()
-		return r
-	}).Exec(ctx, w.tx)
-}
-
 // Delete deletes the range with the given key. Delete will also delete all children of
 // the range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
@@ -171,7 +164,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	}
 	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {
 		// Don't delete anything that's not a child range
-		if r.ID.Type != ontology.TypeRange {
+		if r.ID.Type != ontology.ResourceTypeRange {
 			return "", false
 		}
 		return r.ID.Key, true

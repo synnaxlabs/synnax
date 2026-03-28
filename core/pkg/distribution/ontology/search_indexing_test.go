@@ -18,9 +18,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -41,9 +43,9 @@ func newMockIndexingService(schema zyn.Schema, resources []ontology.Resource) *m
 	}
 }
 
-const testType ontology.Type = "test-type"
+const testType ontology.ResourceType = "test-type"
 
-func (s *mockIndexingService) Type() ontology.Type { return testType }
+func (s *mockIndexingService) Type() ontology.ResourceType { return testType }
 
 func (s *mockIndexingService) Schema() zyn.Schema {
 	return s.schema
@@ -102,7 +104,9 @@ var _ = Describe("SearchTerm Indexing", func() {
 
 		// Create and register the mock service
 		mockSvc = newMockIndexingService(z, resources)
-		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
+		searchIdx := MustSucceed(search.New(search.Config{}))
+		searchIdx.RegisterService(mockSvc)
+		Expect(searchIdx.InitializeIndex(ctx)).To(Succeed())
 		tx := db.OpenTx()
 		w := otg.NewWriter(tx)
 		for _, r := range resources {

@@ -21,4 +21,6 @@ message Workspace {
   // layout is the mosaic tree structure that defines how visualizations are arranged.
   // Contains tab layout, split configurations, and window positions.
   google.protobuf.Struct layout = 4;
+  // description is an optional human-readable description of the workspace.
+  string description = 5;
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,7 +29,7 @@ import (
 
 // OntologyID returns the unique ID to identify the range within the Synnax ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontology.TypeRange, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypeRange, Key: k.String()}
 }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
@@ -63,11 +64,14 @@ func newResource(r Range) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
 }
 
-var _ ontology.Service = (*Service)(nil)
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
 
 type change = xchange.Change[uuid.UUID, Range]
 
-func (s *Service) Type() ontology.Type { return ontology.TypeRange }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRange }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

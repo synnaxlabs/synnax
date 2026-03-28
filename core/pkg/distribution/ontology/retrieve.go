@@ -10,17 +10,17 @@
 package ontology
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
 type clause struct {
-	gorp.Retrieve[string, resource.Resource]
+	gorp.Retrieve[string, Resource]
 	traverser        Traverser
 	excludeFieldData bool
 }
@@ -85,7 +85,7 @@ func (r Retrieve) Where(filter gorp.FilterFunc[string, Resource]) Retrieve {
 	return r.setCurrentClause(c)
 }
 
-func (r Retrieve) WhereTypes(types ...Type) Retrieve {
+func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	c := r.currentClause()
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
@@ -143,16 +143,21 @@ type Traverser struct {
 	// Prefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
 	Prefix func(id ID) []byte
+	// RawFilter builds a raw byte filter for the given IDs that can reject
+	// non-matching relationship rows without decoding them.
+	RawFilter func(ids []ID) gorp.RawFilter
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
 
 var (
+	parentBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
 	ParentsTraverser = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
 			return rel.Type == RelationshipTypeParentOf && rel.To == res.ID
 		},
+		RawFilter: parentsRawFilter,
 		Direction: DirectionBackward,
 	}
 	// ChildrenTraverser traverse to the children of a resource.
@@ -165,6 +170,47 @@ var (
 	}
 	childrenPrefixSuffix = []byte("->" + string(RelationshipTypeParentOf) + "->")
 )
+
+// parentsRawFilter builds a raw filter that checks relationship type == "parent"
+// and To.Type + To.Key match any of the given IDs, all without decoding.
+// Wire format: [From.Type][From.Key][Type][To.Type][To.Key] (each uint32 len + bytes).
+func parentsRawFilter(ids []ID) gorp.RawFilter {
+	type rawID struct{ typ, key []byte }
+	raw := make([]rawID, len(ids))
+	for i, id := range ids {
+		raw[i] = rawID{typ: []byte(id.Type), key: []byte(id.Key)}
+	}
+	return func(data []byte) bool {
+		// Skip From.Type and From.Key (fields 0, 1)
+		rest := gorp.SkipRawFields(data, 2)
+		if rest == nil {
+			return true // malformed, fallback to full decode
+		}
+		// Read Type (field 2)
+		typeVal, rest := gorp.ReadRawField(rest)
+		if rest == nil {
+			return true
+		}
+		if !bytes.Equal(typeVal, parentBytes) {
+			return false
+		}
+		// Read To.Type (field 3) and To.Key (field 4)
+		toType, rest := gorp.ReadRawField(rest)
+		if rest == nil {
+			return true
+		}
+		toKey, _ := gorp.ReadRawField(rest)
+		if toKey == nil {
+			return true
+		}
+		for _, id := range raw {
+			if bytes.Equal(toType, id.typ) && bytes.Equal(toKey, id.key) {
+				return true
+			}
+		}
+		return false
+	}
+}
 
 func childrenPrefix(id ID) []byte {
 	idStr := id.String()
@@ -212,7 +258,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
-			nextIDs = lo.Must(resource.ParseIDs(cls.GetWhereKeys()))
+			nextIDs = lo.Must(ParseIDs(cls.GetWhereKeys()))
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,
@@ -289,7 +335,7 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (r Retrieve) extractIDs(clause gorp.Retrieve[string, resource.Resource]) []ID {
+func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
 	entries := clause.GetEntries()
 	resources := entries.All()
 	ids := make([]ID, 0, len(resources))
@@ -346,7 +392,7 @@ func (r Retrieve) traverseByScan(
 		nextIDs       = make([]ID, 0, len(ids)*4)
 		relationships []Relationship
 	)
-	if err := r.relationshipTable.NewRetrieve().
+	q := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
 		Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {
@@ -356,7 +402,11 @@ func (r Retrieve) traverseByScan(
 				}
 			}
 			return false, nil
-		}).Exec(ctx, tx); err != nil {
+		})
+	if traverse.RawFilter != nil {
+		q = q.WhereRaw(traverse.RawFilter(ids))
+	}
+	if err := q.Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	return nextIDs, nil

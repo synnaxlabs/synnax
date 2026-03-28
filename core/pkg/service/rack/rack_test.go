@@ -58,11 +58,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Label:    label,
 		}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
-			Status:              stat,
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
 		DeferCleanup(func() {
@@ -285,7 +286,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-			Expect(s.Key).To(ContainSubstring(string(ontology.TypeRack)))
+			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 			Expect(s.Details.Rack).To(Equal(r.Key))
 		})
 
@@ -330,7 +331,7 @@ var _ = Describe("Rack", Ordered, func() {
 				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
 				g.Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-				g.Expect(s.Key).To(ContainSubstring(string(ontology.TypeRack)))
+				g.Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 				g.Expect(s.Details.Rack).To(Equal(r.Key))
 				g.Expect(s.Description).To(ContainSubstring("Driver was last alive"))
 			}).Should(Succeed())
@@ -531,8 +532,9 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
-		Expect(count).To(Equal(1))
+		var allRacks []rack.Rack
+		Expect(svc.NewRetrieve().Entries(&allRacks).Exec(ctx, db)).To(Succeed())
+		Expect(allRacks).To(HaveLen(1))
 	})
 
 	It("Should not match an embedded rack with a mismatched name", func() {
@@ -556,8 +558,9 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
-		Expect(count).To(Equal(2))
+		var allRacks []rack.Rack
+		Expect(svc.NewRetrieve().Entries(&allRacks).Exec(ctx, db)).To(Succeed())
+		Expect(allRacks).To(HaveLen(2))
 	})
 
 	It("Should reuse an existing v2 embedded rack with the correct name", func() {
@@ -581,7 +584,8 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
-		Expect(count).To(Equal(1))
+		var allRacks []rack.Rack
+		Expect(svc.NewRetrieve().Entries(&allRacks).Exec(ctx, db)).To(Succeed())
+		Expect(allRacks).To(HaveLen(1))
 	})
 })

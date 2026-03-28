@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
@@ -39,6 +40,9 @@ type ServiceConfig struct {
 	// deleted.
 	Signals *signals.Provider
 	Label   *label.Service
+	// Search is the search index for fuzzy searching statuses.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -54,6 +58,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -98,6 +103,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, table: table, group: g}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -152,7 +158,7 @@ func NewRetrieve[D any](s *Service) Retrieve[D] {
 	return Retrieve[D]{
 		gorp:   gorp.NewRetrieve[string, Status[D]](s.table.Codec()),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		label:  s.cfg.Label,
 	}
 }

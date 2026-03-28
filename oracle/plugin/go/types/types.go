@@ -33,13 +33,6 @@ import (
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
-func toPascalCase(s string) string {
-	if naming.IsScreamingCase(s) {
-		return s
-	}
-	return lo.PascalCase(s)
-}
-
 // primitiveMapper is the Go-specific primitive type mapper.
 var primitiveMapper = goprimitives.Mapper()
 
@@ -101,20 +94,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type goFileGenerator struct{}
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
+	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
 	if err != nil {
 		return "", err
 	}
 	return string(content), nil
 }
 
-func generateGoFile(
+// GenerateGoFile generates a Go types file for the given structs, enums, and
+// type definitions at the specified output path. Exported for use by the
+// migrate plugin to generate frozen type definitions. ImportOverrides maps
+// original import paths to replacements (nil for normal operation).
+func GenerateGoFile(
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
+	importOverrides ...map[string]string,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -197,7 +195,7 @@ func processEnum(e resolution.Type) enumData {
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
-			Name:     toPascalCase(v.Name),
+			Name:     naming.ToPascalCase(v.Name),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
 		})
@@ -403,7 +401,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:         toPascalCase(field.Name),
+		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
 		JSONName:       lo.SnakeCase(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,

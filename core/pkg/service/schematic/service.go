@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
@@ -39,6 +40,9 @@ type ServiceConfig struct {
 	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching schematics.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -53,6 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -79,18 +84,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Schematic]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+		DB:         cfg.DB,
+		Codec:      SchematicCodec,
+		Migrations: SchematicMigrations(),
+	})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
 		Signals:  cfg.Signals,
+		Search:   cfg.Search,
 	}); err != nil {
 		return nil, err
 	}

@@ -26,6 +26,7 @@ import (
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -179,6 +180,8 @@ type Layer struct {
 	// acyclic graph. It is the main method for defining relationships between resources
 	// in Synnax.
 	Ontology *ontology.Ontology
+	// Search is the full-text search index for ontology resources.
+	Search *search.Index
 	// Signals are for propagating changes to data structures through channels in
 	// Synnax.
 	Signals *signals.Provider
@@ -239,11 +242,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ontology, err = ontology.Open(
 		ctx,
 		ontology.Config{
-			Instrumentation: cfg.Child("ontology"),
-			DB:              l.DB,
+			Instrumentation:   cfg.Child("ontology"),
+			DB:                l.DB,
+			RelationshipCodec: ontology.RelationshipCodec,
+			ResourceCodec:     ontology.ResourceCodec,
 		},
 	); !ok(err, l.Ontology) {
 		return nil, err
+	}
+
+	if *cfg.EnableSearch {
+		if l.Search, err = search.New(search.Config{
+			Instrumentation: cfg.Child("search"),
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	if l.Group, err = group.OpenService(
@@ -251,6 +264,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
+			Search:   l.Search,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -263,6 +277,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	clusterOntologySvc := &cluster.OntologyService{Cluster: l.Cluster}
 	l.Ontology.RegisterService(clusterOntologySvc)
 	l.Ontology.RegisterService(nodeOntologySvc)
+	l.Search.RegisterService(clusterOntologySvc)
+	l.Search.RegisterService(nodeOntologySvc)
 
 	nodeOntologySvc.ListenForChanges(ctx)
 
@@ -280,6 +296,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		TSChannel:    cfg.Storage.TS,
 		Transport:    cfg.ChannelTransport,
 		Ontology:     l.Ontology,
+		Search:       l.Search,
 		Group:        l.Group,
 		IntOverflowCheck: lo.Ternary(
 			cfg.TestingIntOverflowCheck != nil,

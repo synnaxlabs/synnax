@@ -35,6 +35,8 @@ export const workspaceZ = z.object({
    * positions.
    */
   layout: caseconv.preserveCase(record.nullishToEmpty()),
+  /** description is an optional human-readable description of the workspace. */
+  description: z.string().optional(),
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}
 

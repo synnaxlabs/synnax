@@ -17,6 +17,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,7 +26,7 @@ import (
 )
 
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.TypeRack, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
 }
 
 func OntologyIDs(keys []Key) []ontology.ID {
@@ -66,7 +67,12 @@ func newResource(r Rack) ontology.Resource {
 
 type change = xchange.Change[Key, Rack]
 
-func (s *Service) Type() ontology.Type { return ontology.TypeRack }
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
+
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

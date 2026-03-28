@@ -230,9 +230,11 @@ func ParamToPB(r types.Param) (*Param, error) {
 		return nil, err
 	}
 	pb := &Param{
-		Name:  r.Name,
-		Type:  typeVal,
-		Value: valueVal,
+		Name:        r.Name,
+		Description: r.Description,
+		Priority:    r.Priority,
+		Type:        typeVal,
+		Value:       valueVal,
 	}
 	return pb, nil
 }
@@ -250,6 +252,8 @@ func ParamFromPB(pb *Param) (types.Param, error) {
 	}
 	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v); return v }()
 	r.Name = pb.Name
+	r.Description = pb.Description
+	r.Priority = pb.Priority
 	return r, nil
 }
 
@@ -439,34 +443,6 @@ func UnitsFromPB(pbs []*Unit) ([]types.Unit, error) {
 	return result, nil
 }
 
-// ChanDirectionToPB converts types.ChanDirection to ChanDirection.
-func ChanDirectionToPB(v types.ChanDirection) (ChanDirection, error) {
-	switch v {
-	case types.ChanDirectionNone:
-		return ChanDirection_CHAN_DIRECTION_NONE, nil
-	case types.ChanDirectionRead:
-		return ChanDirection_CHAN_DIRECTION_READ, nil
-	case types.ChanDirectionWrite:
-		return ChanDirection_CHAN_DIRECTION_WRITE, nil
-	default:
-		return 0, errors.Newf("unrecognized types.ChanDirection value: %v", v)
-	}
-}
-
-// ChanDirectionFromPB converts ChanDirection to types.ChanDirection.
-func ChanDirectionFromPB(v ChanDirection) (types.ChanDirection, error) {
-	switch v {
-	case ChanDirection_CHAN_DIRECTION_NONE:
-		return types.ChanDirectionNone, nil
-	case ChanDirection_CHAN_DIRECTION_READ:
-		return types.ChanDirectionRead, nil
-	case ChanDirection_CHAN_DIRECTION_WRITE:
-		return types.ChanDirectionWrite, nil
-	default:
-		return 0, errors.Newf("unrecognized ChanDirection value: %v", v)
-	}
-}
-
 // KindToPB converts types.Kind to Kind.
 func KindToPB(v types.Kind) (Kind, error) {
 	switch v {
@@ -568,5 +544,33 @@ func KindFromPB(v Kind) (types.Kind, error) {
 		return types.KindStage, nil
 	default:
 		return 0, errors.Newf("unrecognized Kind value: %v", v)
+	}
+}
+
+// ChanDirectionToPB converts types.ChanDirection to ChanDirection.
+func ChanDirectionToPB(v types.ChanDirection) (ChanDirection, error) {
+	switch v {
+	case types.ChanDirectionNone:
+		return ChanDirection_CHAN_DIRECTION_NONE, nil
+	case types.ChanDirectionRead:
+		return ChanDirection_CHAN_DIRECTION_READ, nil
+	case types.ChanDirectionWrite:
+		return ChanDirection_CHAN_DIRECTION_WRITE, nil
+	default:
+		return 0, errors.Newf("unrecognized types.ChanDirection value: %v", v)
+	}
+}
+
+// ChanDirectionFromPB converts ChanDirection to types.ChanDirection.
+func ChanDirectionFromPB(v ChanDirection) (types.ChanDirection, error) {
+	switch v {
+	case ChanDirection_CHAN_DIRECTION_NONE:
+		return types.ChanDirectionNone, nil
+	case ChanDirection_CHAN_DIRECTION_READ:
+		return types.ChanDirectionRead, nil
+	case ChanDirection_CHAN_DIRECTION_WRITE:
+		return types.ChanDirectionWrite, nil
+	default:
+		return 0, errors.Newf("unrecognized ChanDirection value: %v", v)
 	}
 }

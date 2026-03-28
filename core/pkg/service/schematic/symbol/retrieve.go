@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -23,7 +24,7 @@ import (
 type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Symbol]
-	otg        *ontology.Ontology
+	search     *search.Index
 	searchTerm string
 }
 
@@ -58,8 +59,8 @@ func (r Retrieve) Entries(symbols *[]Symbol) Retrieve {
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: ontology.TypeSchematicSymbol,
+		ids, err := r.search.Search(ctx, search.Request{
+			Type: ontology.ResourceTypeSchematicSymbol,
 			Term: r.searchTerm,
 		})
 		if err != nil {

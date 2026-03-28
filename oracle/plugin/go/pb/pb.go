@@ -34,13 +34,6 @@ import (
 	"golang.org/x/text/language"
 )
 
-func toPascalCase(s string) string {
-	if naming.IsScreamingCase(s) {
-		return s
-	}
-	return lo.PascalCase(s)
-}
-
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
 type Plugin struct{ Options Options }
 
@@ -353,7 +346,7 @@ func (p *Plugin) processFieldForTranslation(
 	data *templateData,
 	parentStruct resolution.Type,
 ) fieldTranslatorData {
-	goName := toPascalCase(field.Name)
+	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
 	isHardOptional := field.IsHardOptional
@@ -485,7 +478,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 	parentForm resolution.StructForm,
 	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
-	goName := toPascalCase(field.Name)
+	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
@@ -803,7 +796,7 @@ func (p *Plugin) generateFieldConversion(
 	parentStruct resolution.Type,
 ) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
-	goFieldName := "r." + toPascalCase(field.Name)
+	goFieldName := "r." + naming.GetFieldName(field)
 	pbFieldName := "pb." + lo.PascalCase(lo.SnakeCase(field.Name))
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
@@ -1376,7 +1369,7 @@ func (p *Plugin) generateEnumTranslator(
 	goAlias := data.parentAlias
 
 	for _, v := range form.Values {
-		valueName := toPascalCase(v.Name)
+		valueName := naming.ToPascalCase(v.Name)
 
 		goValue := fmt.Sprintf("%s.%s%s", goAlias, goName, valueName)
 

@@ -13,7 +13,12 @@ package naming
 
 import (
 	"path/filepath"
+	"strings"
 	"unicode"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/resolution"
 )
 
 // IsScreamingCase returns true if s is all uppercase letters (possibly with
@@ -36,17 +41,43 @@ func IsScreamingCase(s string) bool {
 	return hasLetter
 }
 
+// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions
+// (e.g. "id" → "ID").
+func ToPascalCase(s string) string {
+	if IsScreamingCase(s) {
+		return s
+	}
+	result := lo.PascalCase(s)
+	result = strings.ReplaceAll(result, "Id", "ID")
+	return result
+}
+
+// GetFieldName returns the Go field name for a schema field. It checks for a
+// @go name override first, then falls back to ToPascalCase of the field name.
+func GetFieldName(f resolution.Field) string {
+	if override := domain.GetStringFromField(f, "go", "name"); override != "" {
+		return override
+	}
+	return ToPascalCase(f.Name)
+}
+
 // DerivePackageName extracts the package name from an output path.
 // Example: "core/pkg/service/user" -> "user"
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // DerivePackageAlias creates a unique alias for an imported package to avoid
-// conflicts. If the base name conflicts with the current package, it prepends
-// the parent directory.
+// conflicts. For migration version packages (e.g., "graph/migrations/v53"), the
+// grandparent directory name is prepended to distinguish between packages at the
+// same version across different source packages. Otherwise, if the base name
+// conflicts with the current package, it prepends the parent directory.
 func DerivePackageAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
+	parent := filepath.Base(filepath.Dir(outputPath))
+	if parent == "migrations" {
+		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
+		return grandparent + base
+	}
 	if base == currentPackage {
-		parent := filepath.Base(filepath.Dir(outputPath))
 		return parent + base
 	}
 	return base

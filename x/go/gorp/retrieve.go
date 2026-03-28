@@ -20,15 +20,21 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
+// RawFilter is a predicate that operates on the raw encoded bytes of an entry
+// before it is decoded. Returning false skips the entry without allocating a
+// decoded value. Returning true allows normal decode + filter processing.
+type RawFilter func(data []byte) bool
+
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries *Entries[K, E]
-	limit   int
-	offset  int
-	keys    *[]K
-	prefix  []byte
-	filters filters[K, E]
-	codec   binary.Codec
+	entries   *Entries[K, E]
+	limit     int
+	offset    int
+	keys      *[]K
+	prefix    []byte
+	filters   filters[K, E]
+	codec     binary.Codec
+	rawFilter RawFilter
 }
 
 // NewRetrieve opens a new Retrieve query. If codec is non-nil, it overrides the
@@ -95,6 +101,14 @@ func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
 // Offset sets the number of results that the query will skip before returning results.
 func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 	r.offset = offset
+	return r
+}
+
+// WhereRaw sets a raw byte filter that is evaluated before decoding each entry.
+// Entries whose raw bytes cause the filter to return false are skipped without
+// being decoded, which avoids allocation overhead for non-matching rows.
+func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
+	r.rawFilter = filter
 	return r
 }
 
@@ -181,6 +195,9 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		if r.rawFilter != nil && !r.rawFilter(iter.Iterator.Value()) {
+			continue
+		}
 		v := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return 0, err
@@ -283,6 +300,9 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		if r.rawFilter != nil && !r.rawFilter(iter.Iterator.Value()) {
+			continue
+		}
 		v := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return err
