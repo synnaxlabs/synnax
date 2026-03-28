@@ -27,7 +27,6 @@ func EncodeOutput(w *xbinary.Writer, s *Output) error {
 }
 
 func DecodeOutput(r *xbinary.Reader, s *Output) error {
-	var err error
 	{
 		n, err := r.Uint32()
 		if err != nil {

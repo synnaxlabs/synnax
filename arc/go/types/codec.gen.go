@@ -17,61 +17,6 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeChannels(w *xbinary.Writer, s *Channels) error {
-	w.Uint32(uint32(len(s.Read)))
-	for key, val := range s.Read {
-		w.Uint32(uint32(key))
-		w.String(val)
-	}
-	w.Uint32(uint32(len(s.Write)))
-	for key, val := range s.Write {
-		w.Uint32(uint32(key))
-		w.String(val)
-	}
-	return nil
-}
-
-func DecodeChannels(r *xbinary.Reader, s *Channels) error {
-	var err error
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Read = make(map[uint32]string, n)
-		for range n {
-			var key uint32
-			var val string
-			if key, err = r.Uint32(); err != nil {
-				return err
-			}
-			if val, err = r.String(); err != nil {
-				return err
-			}
-			s.Read[key] = val
-		}
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Write = make(map[uint32]string, n)
-		for range n {
-			var key uint32
-			var val string
-			if key, err = r.Uint32(); err != nil {
-				return err
-			}
-			if val, err = r.String(); err != nil {
-				return err
-			}
-			s.Write[key] = val
-		}
-	}
-	return nil
-}
-
 func EncodeParam(w *xbinary.Writer, s *Param) error {
 	w.String(s.Name)
 	if err := EncodeType(w, &s.Type); err != nil {
@@ -343,7 +288,6 @@ func EncodeFunctionProperties(w *xbinary.Writer, s *FunctionProperties) error {
 }
 
 func DecodeFunctionProperties(r *xbinary.Reader, s *FunctionProperties) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -467,6 +411,60 @@ func DecodeDimensions(r *xbinary.Reader, s *Dimensions) error {
 	}
 	if s.Data, err = r.Int8(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func EncodeChannels(w *xbinary.Writer, s *Channels) error {
+	w.Uint32(uint32(len(s.Read)))
+	for key, val := range s.Read {
+		w.Uint32(uint32(key))
+		w.String(val)
+	}
+	w.Uint32(uint32(len(s.Write)))
+	for key, val := range s.Write {
+		w.Uint32(uint32(key))
+		w.String(val)
+	}
+	return nil
+}
+
+func DecodeChannels(r *xbinary.Reader, s *Channels) error {
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Read = make(map[uint32]string, n)
+		for range n {
+			var key uint32
+			var val string
+			if key, err = r.Uint32(); err != nil {
+				return err
+			}
+			if val, err = r.String(); err != nil {
+				return err
+			}
+			s.Read[key] = val
+		}
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Write = make(map[uint32]string, n)
+		for range n {
+			var key uint32
+			var val string
+			if key, err = r.Uint32(); err != nil {
+				return err
+			}
+			if val, err = r.String(); err != nil {
+				return err
+			}
+			s.Write[key] = val
+		}
 	}
 	return nil
 }

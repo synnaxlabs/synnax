@@ -85,12 +85,14 @@ func generateEncoderCodecFile(
 			continue
 		}
 
-		// Collect non-defaulted type params to determine if this type
-		// needs a generic function signature.
+		// Collect type params that need converters. Type params with concrete
+		// defaults (like V = Variant) are substituted at the callsite and don't
+		// need converters. Optional params (like Details?) have no concrete
+		// default and need converters when provided.
 		var typeParams []typeParamData
 		if form.IsGeneric() {
 			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
+				if tp.HasDefault() && !tp.Optional {
 					continue
 				}
 				typeParams = append(typeParams, typeParamData{
@@ -235,6 +237,7 @@ type encoderBuilder struct {
 	needsJSON           bool
 	usesErr             bool
 	depth               int
+	inBlock        int
 	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 
@@ -254,7 +257,9 @@ func (b *encoderBuilder) decodeLine(line string) {
 }
 
 func (b *encoderBuilder) decodeWithErr(line string) {
-	b.usesErr = true
+	if b.inBlock == 0 {
+		b.usesErr = true
+	}
 	b.decodeLines = append(b.decodeLines, line)
 }
 
@@ -301,7 +306,7 @@ func (b *encoderBuilder) processValueByType(
 	getPath, setPath string,
 ) error {
 	// Check if this is a type parameter field - delegate to converter function.
-	if ref.IsTypeParam() && !ref.TypeParam.HasDefault() {
+	if ref.IsTypeParam() && b.typeParamConverters != nil {
 		if converter, ok := b.typeParamConverters[ref.Name]; ok {
 			return b.processTypeParamField(converter, getPath, setPath)
 		}
@@ -446,12 +451,12 @@ func (b *encoderBuilder) processStruct(
 			break
 		}
 		tp := form.TypeParams[i]
-		if tp.HasDefault() {
+		if tp.HasDefault() && !tp.Optional {
 			continue
 		}
 
 		// Resolve the concrete type argument.
-		if typeArg.IsTypeParam() && !typeArg.TypeParam.HasDefault() {
+		if typeArg.IsTypeParam() {
 			// Forwarding a type param from the enclosing generic function.
 			goTypeArgs = append(goTypeArgs, typeArg.Name)
 			encConverters = append(encConverters, "encode"+naming.ToPascalCase(typeArg.Name))
@@ -533,14 +538,16 @@ func (b *encoderBuilder) processHardOptional(
 			ind+"\tw.Bool(true)",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ _present, _pe := r.Bool(); if _pe != nil { return _pe }",
-			ind+"if _present {",
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
 		)
 		b.depth++
+		b.inBlock++
 		derefGet := "(*" + getPath + ")"
 		if err := b.processValueByType(resolved, f.Type, derefGet, setPath); err != nil {
 			return err
 		}
+		b.inBlock--
 		b.depth--
 		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
@@ -554,13 +561,15 @@ func (b *encoderBuilder) processHardOptional(
 			ind+"\tw.Bool(true)",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ _present, _pe := r.Bool(); if _pe != nil { return _pe }",
-			ind+"if _present {",
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
 		)
 		b.depth++
+		b.inBlock++
 		if err := b.processValueByType(resolved, f.Type, getPath, setPath); err != nil {
 			return err
 		}
+		b.inBlock--
 		b.depth--
 		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
@@ -582,10 +591,12 @@ func (b *encoderBuilder) processHardOptional(
 		ind+fmt.Sprintf("\tvar v %s", goType),
 	)
 	b.depth++
+	b.inBlock++
 	derefGet := "(*" + getPath + ")"
 	if err := b.processValueByType(resolved, f.Type, derefGet, "v"); err != nil {
 		return err
 	}
+	b.inBlock--
 	b.depth--
 	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
 	b.decodeLines = append(b.decodeLines,
@@ -613,9 +624,11 @@ func (b *encoderBuilder) processSoftOptionalNilable(
 		ind+"if present {",
 	)
 	b.depth++
+	b.inBlock++
 	if err := b.processValueByType(resolved, f.Type, getPath, setPath); err != nil {
 		return err
 	}
+	b.inBlock--
 	b.depth--
 	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
 	b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
@@ -648,11 +661,13 @@ func (b *encoderBuilder) processArray(
 	)
 
 	b.depth++
+	b.inBlock++
 	elemGetPath := getPath + "[" + idx + "]"
 	elemSetPath := setPath + "[" + idx + "]"
 	if err := b.processValueByType(elemType, elemRef, elemGetPath, elemSetPath); err != nil {
 		return err
 	}
+	b.inBlock--
 	b.depth--
 
 	b.encodeLines = append(b.encodeLines, ind+"}")
@@ -696,12 +711,14 @@ func (b *encoderBuilder) processMap(
 	)
 
 	b.depth++
+	b.inBlock++
 	if err := b.processValueByType(keyType, keyRef, "key", "key"); err != nil {
 		return errors.Wrapf(err, "map key")
 	}
 	if err := b.processValueByType(valType, valRef, "val", "val"); err != nil {
 		return errors.Wrapf(err, "map value")
 	}
+	b.inBlock--
 	b.depth--
 
 	b.encodeLines = append(b.encodeLines, ind+"}")

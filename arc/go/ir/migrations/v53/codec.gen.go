@@ -598,7 +598,6 @@ func EncodeAuthorities(w *xbinary.Writer, s *Authorities) error {
 }
 
 func DecodeAuthorities(r *xbinary.Reader, s *Authorities) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {

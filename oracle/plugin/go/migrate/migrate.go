@@ -87,7 +87,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to discover existing migrations for %s", goPath)
 		}
-		mEntry.ExistingVersions = existingVersions
+		mEntry.ExistingVersions = filterSchemaChangeVersions(goPath, existingVersions, req.RepoRoot)
 		if req.OldResolutions != nil {
 			change, err := detectSchemaChange(entry, req)
 			if err != nil {
@@ -451,6 +451,37 @@ func discoverExistingVersions(goPath, repoRoot string) ([]int, error) {
 	}
 	sort.Ints(versions)
 	return versions, nil
+}
+
+// filterSchemaChangeVersions removes versions that don't represent actual schema
+// changes for this entry type. A version directory may exist solely because a
+// parent type's migration created frozen dependency types there (e.g., Arc's
+// migration freezing Label types), not because this type's own schema changed.
+//
+// A version is considered a real schema change if a migrate.go template exists:
+//   - For the latest version: at the package level (goPath/migrate.go)
+//   - For earlier versions: retargeted into the version directory (migrations/vN/migrate.go)
+func filterSchemaChangeVersions(goPath string, versions []int, repoRoot string) []int {
+	if len(versions) == 0 {
+		return versions
+	}
+	hasPkgMigrate := false
+	if _, err := os.Stat(filepath.Join(repoRoot, goPath, "migrate.go")); err == nil {
+		hasPkgMigrate = true
+	}
+	var filtered []int
+	for i, v := range versions {
+		isLast := i == len(versions)-1
+		if isLast && hasPkgMigrate {
+			filtered = append(filtered, v)
+			continue
+		}
+		vMigrate := filepath.Join(repoRoot, goPath, "migrations", fmt.Sprintf("v%d", v), "migrate.go")
+		if _, err := os.Stat(vMigrate); err == nil {
+			filtered = append(filtered, v)
+		}
+	}
+	return filtered
 }
 
 // retargetTransform reads the existing top-level transform file, rewrites its

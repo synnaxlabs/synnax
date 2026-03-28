@@ -31,12 +31,18 @@ type Plugin struct{ Options Options }
 
 // Options configures the go/marshal plugin.
 type Options struct {
-	FileNamePattern string
+	FileNamePattern     string
+	TestFileNamePattern string
+	GenerateTests       bool
 }
 
 // DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
-	return Options{FileNamePattern: "codec.gen.go"}
+	return Options{
+		FileNamePattern:     "codec.gen.go",
+		TestFileNamePattern: "codec_gen_test.go",
+		GenerateTests:       true,
+	}
 }
 
 // New creates a new go/marshal plugin with the given options.
@@ -167,6 +173,37 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Content: content,
 		})
 	}
+
+	if p.Options.GenerateTests {
+		for goPath, typeMap := range merged {
+			packageName := naming.DerivePackageName(goPath)
+			var entries []CodecEntry
+			for _, t := range typeMap {
+				goName := getGoName(t)
+				if goName == "" {
+					goName = naming.ToPascalCase(t.Name)
+				}
+				ce := CodecEntry{GoName: goName, Type: t}
+				if adapterPath, ok := adapters[goName]; ok && adapterPath == goPath {
+					ce.Adapter = true
+				}
+				entries = append(entries, ce)
+			}
+			testContent, testErr := generateTestCodecFile(
+				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
+			)
+			if testErr != nil {
+				return nil, errors.Wrapf(testErr, "failed to generate codec tests for %s", goPath)
+			}
+			if testContent != nil {
+				resp.Files = append(resp.Files, plugin.File{
+					Path:    fmt.Sprintf("%s/%s", goPath, p.Options.TestFileNamePattern),
+					Content: testContent,
+				})
+			}
+		}
+	}
+
 	return resp, nil
 }
 

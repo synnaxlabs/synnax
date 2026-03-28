@@ -134,11 +134,11 @@ func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
 		return err
 	}
 	{
-		_present, _pe := r.Bool()
-		if _pe != nil {
-			return _pe
+		present, err := r.Bool()
+		if err != nil {
+			return err
 		}
-		if _present {
+		if present {
 			{
 				n, err := r.Uint32()
 				if err != nil {

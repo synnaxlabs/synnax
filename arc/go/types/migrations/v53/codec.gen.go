@@ -284,7 +284,6 @@ func EncodeFunctionProperties(w *xbinary.Writer, s *FunctionProperties) error {
 }
 
 func DecodeFunctionProperties(r *xbinary.Reader, s *FunctionProperties) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -427,7 +426,6 @@ func EncodeChannels(w *xbinary.Writer, s *Channels) error {
 }
 
 func DecodeChannels(r *xbinary.Reader, s *Channels) error {
-	var err error
 	{
 		n, err := r.Uint32()
 		if err != nil {
