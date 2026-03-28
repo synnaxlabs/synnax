@@ -133,7 +133,8 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 // ResolveNames resolves a list of channel names to their keys. Returns
-// query.ErrNotFound if no channels are found.
+// query.ErrNotFound if no channels are found. If some names do exist but others do not,
+// ResolveNames will return the keys of the existing channels without an error.
 func (s *Service) ResolveNames(ctx context.Context, names []string) (Keys, error) {
 	var channels []Channel
 	if err := s.NewRetrieve().

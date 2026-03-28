@@ -253,6 +253,15 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{})).Error().
 				To(MatchError(query.ErrNotFound))
 		})
+		It("Should successfully resolve names even if some of them don't exist", func() {
+			n1, n2 := channel.NewRandomName(), channel.NewRandomName()
+			created := []channel.Channel{
+				{Virtual: true, DataType: telem.Float32T, Name: n1},
+			}
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			keys := MustSucceed(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{n1, n2}))
+			Expect(keys).To(ConsistOf(created[0].Key()))
+		})
 		It("Should resolve by regex expression", func() {
 			n1, n2 := channel.NewRandomName(), channel.NewRandomName()
 			created := []channel.Channel{
