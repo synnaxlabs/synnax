@@ -106,6 +106,14 @@ func (c failMarshalCodec) DecodeStream(_ context.Context, r io.Reader, value any
 
 var _ binary.Codec = failMarshalCodec{}
 
+type migrationDepProvider interface {
+	GetSuffix() string
+}
+
+type migrationDepProviderImpl string
+
+func (p migrationDepProviderImpl) GetSuffix() string { return string(p) }
+
 // mapEntry mimics production types like Schematic that have a MsgpackEncodedJSON field.
 type mapEntry struct {
 	ID   int32                     `msgpack:"id"`
@@ -1259,6 +1267,141 @@ var _ = Describe("Gorp", func() {
 					Migrations: []gorp.Migration{m2, m1},
 				}))
 				Expect(order).To(Equal([]string{"no_dep", "has_dep"}))
+			})
+		})
+
+		Describe("MigrationDep", func() {
+			It("Should inject and retrieve a dependency via context", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "original"})).To(Succeed())
+				type LookupService struct {
+					Suffix string
+				}
+				depCtx := gorp.WithMigrationDep[*LookupService](ctx, &LookupService{Suffix: "_enriched"})
+				migration := gorp.NewTypedMigration[entryV1, entryV1](
+					"enrich",
+					nil, nil,
+					func(ctx context.Context, old entryV1) (entryV1, error) {
+						svc := gorp.MigrationDep[*LookupService](ctx)
+						return entryV1{ID: old.ID, Data: old.Data + svc.Suffix}, nil
+					},
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](depCtx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
+				r := gorp.WrapReader[int32, entryV1](testDB, testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("original_enriched"))
+			})
+
+			It("Should support multiple dependencies of different types", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "base"})).To(Succeed())
+				type PrefixService struct {
+					Prefix string
+				}
+				type SuffixService struct {
+					Suffix string
+				}
+				depCtx := gorp.WithMigrationDep[*PrefixService](ctx, &PrefixService{Prefix: "pre_"})
+				depCtx = gorp.WithMigrationDep[*SuffixService](depCtx, &SuffixService{Suffix: "_post"})
+				migration := gorp.NewTypedMigration[entryV1, entryV1](
+					"wrap",
+					nil, nil,
+					func(ctx context.Context, old entryV1) (entryV1, error) {
+						pre := gorp.MigrationDep[*PrefixService](ctx)
+						suf := gorp.MigrationDep[*SuffixService](ctx)
+						return entryV1{
+							ID:   old.ID,
+							Data: pre.Prefix + old.Data + suf.Suffix,
+						}, nil
+					},
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](depCtx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
+				r := gorp.WrapReader[int32, entryV1](testDB, testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("pre_base_post"))
+			})
+
+			It("Should panic when a required dependency is missing", func() {
+				type MissingService struct{}
+				Expect(func() {
+					gorp.MigrationDep[*MissingService](ctx)
+				}).To(PanicWith(ContainSubstring("missing migration dependency")))
+			})
+
+			It("Should return false from MigrationDepOpt when dependency is missing", func() {
+				type OptionalService struct{}
+				_, ok := gorp.MigrationDepOpt[*OptionalService](ctx)
+				Expect(ok).To(BeFalse())
+			})
+
+			It("Should return the dependency from MigrationDepOpt when present", func() {
+				type OptionalService struct {
+					Value string
+				}
+				depCtx := gorp.WithMigrationDep[*OptionalService](ctx, &OptionalService{Value: "here"})
+				svc, ok := gorp.MigrationDepOpt[*OptionalService](depCtx)
+				Expect(ok).To(BeTrue())
+				Expect(svc.Value).To(Equal("here"))
+			})
+
+			It("Should work with RawMigration", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "raw"})).To(Succeed())
+				type Renamer struct {
+					NewData string
+				}
+				depCtx := gorp.WithMigrationDep[*Renamer](ctx, &Renamer{NewData: "renamed"})
+				migration := gorp.NewRawMigration(
+					"raw_with_dep",
+					func(ctx context.Context, tx gorp.Tx) error {
+						renamer := gorp.MigrationDep[*Renamer](ctx)
+						r := gorp.WrapReader[int32, entryV1](tx, tx)
+						e := MustSucceed(r.Get(ctx, 1))
+						e.Data = renamer.NewData
+						w := gorp.WrapWriter[int32, entryV1](tx, tx)
+						return w.Set(ctx, e)
+					},
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](depCtx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
+				r := gorp.WrapReader[int32, entryV1](testDB, testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("renamed"))
+			})
+
+			It("Should work with interface types", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "iface"})).To(Succeed())
+				depCtx := gorp.WithMigrationDep[migrationDepProvider](
+					ctx, migrationDepProviderImpl("_from_iface"),
+				)
+				migration := gorp.NewTypedMigration[entryV1, entryV1](
+					"iface_dep",
+					nil, nil,
+					func(ctx context.Context, old entryV1) (entryV1, error) {
+						dp := gorp.MigrationDep[migrationDepProvider](ctx)
+						return entryV1{ID: old.ID, Data: old.Data + dp.GetSuffix()}, nil
+					},
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](depCtx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
+				r := gorp.WrapReader[int32, entryV1](testDB, testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("iface_from_iface"))
 			})
 		})
 

@@ -85,14 +85,14 @@ func generateEncoderCodecFile(
 			continue
 		}
 
-		// Collect type params that need converters. Type params with concrete
-		// defaults (like V = Variant) are substituted at the callsite and don't
-		// need converters. Optional params (like Details?) have no concrete
-		// default and need converters when provided.
+		// Collect type params that produce Go generics. A type param becomes a Go
+		// generic parameter only when it has NO default value (like Details? in
+		// Status<Details?>). Params with any default (like V = Variant or Data? =
+		// record) are substituted by the types plugin and the Go type is concrete.
 		var typeParams []typeParamData
 		if form.IsGeneric() {
 			for _, tp := range form.TypeParams {
-				if tp.HasDefault() && !tp.Optional {
+				if tp.HasDefault() {
 					continue
 				}
 				typeParams = append(typeParams, typeParamData{
@@ -274,6 +274,18 @@ func (b *encoderBuilder) processFields(
 		goName := naming.GetFieldName(f)
 		getPath := getPrefix + "." + goName
 		setPath := setPrefix + "." + goName
+
+		// Type parameter fields are always processed via their converter,
+		// regardless of optional flags.
+		if f.Type.IsTypeParam() && b.typeParamConverters != nil {
+			if converter, ok := b.typeParamConverters[f.Type.Name]; ok {
+				if err := b.processTypeParamField(converter, getPath, setPath); err != nil {
+					return err
+				}
+				continue
+			}
+		}
+
 		if f.IsHardOptional {
 			if err := b.processHardOptional(f, getPath, setPath); err != nil {
 				return err
@@ -451,7 +463,7 @@ func (b *encoderBuilder) processStruct(
 			break
 		}
 		tp := form.TypeParams[i]
-		if tp.HasDefault() && !tp.Optional {
+		if tp.HasDefault() {
 			continue
 		}
 

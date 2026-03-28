@@ -275,6 +275,42 @@ type dependentMigration struct {
 
 func (d *dependentMigration) Dependencies() []string { return d.deps }
 
+type depKey[T any] struct{}
+
+// ErrMissingMigrationDep is returned when MigrationDep is called for a type
+// that was not injected into the context via WithMigrationDep.
+var ErrMissingMigrationDep = errors.New("missing migration dependency")
+
+// WithMigrationDep injects a dependency into the context for use during migrations.
+// The dependency is keyed by its type, so each concrete type can be injected once.
+// Use this before calling OpenTable to make services or other resources available
+// to migration transform functions.
+func WithMigrationDep[T any](ctx context.Context, dep T) context.Context {
+	return context.WithValue(ctx, depKey[T]{}, dep)
+}
+
+// MigrationDep retrieves a dependency previously injected via WithMigrationDep.
+// Panics if the dependency was not injected, since this indicates a programming
+// error (the service forgot to inject the dependency before calling OpenTable).
+func MigrationDep[T any](ctx context.Context) T {
+	v, ok := ctx.Value(depKey[T]{}).(T)
+	if !ok {
+		panic(fmt.Sprintf(
+			"%s: %T not found in context",
+			ErrMissingMigrationDep,
+			*new(T),
+		))
+	}
+	return v
+}
+
+// MigrationDepOpt retrieves a dependency previously injected via WithMigrationDep.
+// Returns the dependency and true if found, or the zero value and false if not.
+func MigrationDepOpt[T any](ctx context.Context) (T, bool) {
+	v, ok := ctx.Value(depKey[T]{}).(T)
+	return v, ok
+}
+
 // ErrCyclicDependency is returned when migrations form a dependency cycle.
 var ErrCyclicDependency = errors.New("cyclic dependency detected in migrations")
 

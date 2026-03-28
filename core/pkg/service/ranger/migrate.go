@@ -92,7 +92,7 @@ func (m *rangeGroupsMigration) Run(
 
 	for _, g := range groups {
 		var childRanges []ontology.Resource
-		if err := m.otg.
+		if err = m.otg.
 			NewRetrieve().
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
@@ -145,13 +145,13 @@ func (m *rangeGroupsMigration) Run(
 			Name:      g.Name,
 			TimeRange: tr.MakeValid(),
 		}
-		if err := m.writeRange(ctx, kvTx, migCfg.Prefix, newParentRange); err != nil {
+		if err = m.writeRange(ctx, kvTx, migCfg.Prefix, newParentRange); err != nil {
 			return err
 		}
-		if err := otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
+		if err = otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
 			return err
 		}
-		if err := otgWriter.DefineFromOneToManyRelationships(
+		if err = otgWriter.DefineFromOneToManyRelationships(
 			ctx,
 			newParentRange.OntologyID(),
 			ontology.RelationshipTypeParentOf,

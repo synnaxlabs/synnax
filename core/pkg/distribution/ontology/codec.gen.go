@@ -22,6 +22,27 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
+func EncodeID(w *xbinary.Writer, s *ID) error {
+	w.String(string(s.Type))
+	w.String(s.Key)
+	return nil
+}
+
+func DecodeID(r *xbinary.Reader, s *ID) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = ResourceType(v)
+	}
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeResource(w *xbinary.Writer, s *Resource) error {
 	if err := EncodeID(w, &s.ID); err != nil {
 		return err
@@ -86,27 +107,6 @@ func DecodeRelationship(r *xbinary.Reader, s *Relationship) error {
 		s.Type = RelationshipType(v)
 	}
 	if err = DecodeID(r, &s.To); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeID(w *xbinary.Writer, s *ID) error {
-	w.String(string(s.Type))
-	w.String(s.Key)
-	return nil
-}
-
-func DecodeID(r *xbinary.Reader, s *ID) error {
-	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = ResourceType(v)
-	}
-	if s.Key, err = r.String(); err != nil {
 		return err
 	}
 	return nil
