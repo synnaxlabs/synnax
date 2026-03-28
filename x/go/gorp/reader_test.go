@@ -17,7 +17,7 @@ import (
 )
 
 var _ = Describe("Reader", func() {
-	var tx  gorp.Tx
+	var tx gorp.Tx
 	BeforeEach(func() {
 		tx = db.OpenTx()
 	})

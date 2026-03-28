@@ -49,8 +49,8 @@ func (m grape) SetOptions() []any { return nil }
 
 var _ = Describe("Create", Ordered, func() {
 	var (
-		db  *gorp.DB
-		tx  gorp.Tx
+		db *gorp.DB
+		tx gorp.Tx
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())

@@ -23,6 +23,7 @@ import (
 
 var _ = Describe("Opener", Ordered, func() {
 	var (
+		ctx              context.Context
 		err              error
 		closer           xio.MultiCloser
 		cleanup          func(error) error
@@ -30,7 +31,8 @@ var _ = Describe("Opener", Ordered, func() {
 		multiCloserCalls int
 		cancel           context.CancelFunc
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx = context.Background()
 		err = nil
 		var cancelCtx context.Context
 		cancelCtx, cancel = context.WithCancel(ctx)
@@ -43,7 +45,7 @@ var _ = Describe("Opener", Ordered, func() {
 		}
 		cleanup, ok = service.NewOpener(cancelCtx, &closer)
 	})
-	It("Should correctly open a set of services that return without an error", func(ctx SpecContext) {
+	It("Should correctly open a set of services that return without an error", func() {
 		open := func(ctx context.Context) error {
 			defer func() {
 				err = cleanup(err)
@@ -58,7 +60,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(open(ctx)).To(Succeed())
 		Expect(multiCloserCalls).To(Equal(0))
 	})
-	It("Should call the closer if an error occurs", func(ctx SpecContext) {
+	It("Should call the closer if an error occurs", func() {
 		open := func(ctx context.Context) error {
 			defer func() {
 				err = cleanup(err)
@@ -73,7 +75,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(open(ctx)).To(HaveOccurred())
 		Expect(multiCloserCalls).To(Equal(1))
 	})
-	It("Should call the closer if the context is cancelled", func(ctx SpecContext) {
+	It("Should call the closer if the context is cancelled", func() {
 		open := func(ctx context.Context) error {
 			defer func() {
 				err = cleanup(err)
@@ -85,7 +87,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(multiCloserCalls).To(Equal(1))
 	})
 
-	It("Should add a new closer to the list of closers", func(ctx SpecContext) {
+	It("Should add a new closer to the list of closers", func() {
 		secondaryCloserCalls := 0
 		open := func(ctx context.Context) error {
 			defer func() {
@@ -107,7 +109,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(secondaryCloserCalls).To(Equal(0))
 	})
 
-	It("Should call added closers if an error occurs", func(ctx SpecContext) {
+	It("Should call added closers if an error occurs", func() {
 		secondaryCloserCalls := 0
 		tertiaryCloserCalls := 0
 		open := func(ctx context.Context) error {
@@ -138,7 +140,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(tertiaryCloserCalls).To(Equal(0))
 	})
 
-	It("Should work with errors defined with scopes", func(ctx SpecContext) {
+	It("Should work with errors defined with scopes", func() {
 		open := func(ctx context.Context) error {
 			defer func() {
 				err = cleanup(err)

@@ -24,24 +24,24 @@ import (
 
 var _ = Describe("Table", func() {
 	var (
-		ctx context.Context
-		kvs kv.DB
 		db  *gorp.DB
+		kvs kv.DB
 	)
 	BeforeEach(func() {
-		ctx = context.Background()
 		kvs = memkv.New()
 		db = gorp.Wrap(kvs)
 	})
-	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
+	AfterEach(func() {
+		Expect(db.Close()).To(Succeed())
+	})
 
 	Describe("OpenTable", func() {
-		It("Should open a table on an empty database", func() {
+		It("Should open a table on an empty database", func(ctx SpecContext) {
 			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
 			Expect(table.Close()).To(Succeed())
 		})
 
-		It("Should be idempotent when called multiple times", func() {
+		It("Should be idempotent when called multiple times", func(ctx SpecContext) {
 			e := entry{ID: 1, Data: "data"}
 			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
 
@@ -57,7 +57,7 @@ var _ = Describe("Table", func() {
 			Expect(res).To(Equal(e))
 		})
 
-		It("Should preserve entries after re-encoding", func() {
+		It("Should preserve entries after re-encoding", func(ctx SpecContext) {
 			entries := []entry{
 				{ID: 1, Data: "one"},
 				{ID: 2, Data: "two"},
@@ -76,7 +76,7 @@ var _ = Describe("Table", func() {
 			Expect(res).To(Equal(entries))
 		})
 
-		It("Should work with uint64 keys", func() {
+		It("Should work with uint64 keys", func(ctx SpecContext) {
 			entries := []uint64Entry{
 				{ID: 1, Data: "one"},
 				{ID: 999999999, Data: "big"},
@@ -94,7 +94,7 @@ var _ = Describe("Table", func() {
 			Expect(res).To(HaveLen(2))
 		})
 
-		It("Should work with string keys", func() {
+		It("Should work with string keys", func(ctx SpecContext) {
 			entries := []stringEntry{
 				{ID: "alpha", Data: "first"},
 				{ID: "beta", Data: "second"},
@@ -114,7 +114,7 @@ var _ = Describe("Table", func() {
 	})
 
 	Describe("MigrateOldPrefixKeys", func() {
-		writeOldFormatEntry := func(codec *binary.MsgPackCodec, e entry) {
+		writeOldFormatEntry := func(ctx context.Context, codec *binary.MsgPackCodec, e entry) {
 			typeName := types.Name[entry]()
 			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
 			encodedValue := MustSucceed(codec.Encode(ctx, e))
@@ -128,9 +128,9 @@ var _ = Describe("Table", func() {
 			Expect(kvs.Set(ctx, fullKey, encodedValue)).To(Succeed())
 		}
 
-		It("Should migrate entries stored under old codec-based prefix", func() {
+		It("Should migrate entries stored under old codec-based prefix", func(ctx SpecContext) {
 			codec := &binary.MsgPackCodec{}
-			writeOldFormatEntry(codec, entry{ID: 42, Data: "old format"})
+			writeOldFormatEntry(ctx, codec, entry{ID: 42, Data: "old format"})
 
 			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
 			Expect(table.Close()).To(Succeed())
@@ -141,9 +141,9 @@ var _ = Describe("Table", func() {
 			Expect(res.Data).To(Equal("old format"))
 		})
 
-		It("Should remove entries from the old prefix after migration", func() {
+		It("Should remove entries from the old prefix after migration", func(ctx SpecContext) {
 			codec := &binary.MsgPackCodec{}
-			writeOldFormatEntry(codec, entry{ID: 7, Data: "migrate me"})
+			writeOldFormatEntry(ctx, codec, entry{ID: 7, Data: "migrate me"})
 
 			oldPrefix := MustSucceed(codec.Encode(ctx, types.Name[entry]()))
 			iter := MustSucceed(kvs.OpenIterator(kv.IterPrefix(oldPrefix)))
@@ -160,10 +160,10 @@ var _ = Describe("Table", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should handle migration with multiple old-format entries", func() {
+		It("Should handle migration with multiple old-format entries", func(ctx SpecContext) {
 			codec := &binary.MsgPackCodec{}
 			for i := range 5 {
-				writeOldFormatEntry(codec, entry{ID: int32(i), Data: "old"})
+				writeOldFormatEntry(ctx, codec, entry{ID: int32(i), Data: "old"})
 			}
 
 			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
@@ -175,7 +175,7 @@ var _ = Describe("Table", func() {
 			Expect(res).To(HaveLen(5))
 		})
 
-		It("Should not duplicate entries already stored under the new prefix", func() {
+		It("Should not duplicate entries already stored under the new prefix", func(ctx SpecContext) {
 			e := entry{ID: 10, Data: "already new"}
 			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
 
@@ -189,9 +189,9 @@ var _ = Describe("Table", func() {
 			Expect(res[0]).To(Equal(e))
 		})
 
-		It("Should migrate old-format entries while preserving new-format entries", func() {
+		It("Should migrate old-format entries while preserving new-format entries", func(ctx SpecContext) {
 			codec := &binary.MsgPackCodec{}
-			writeOldFormatEntry(codec, entry{ID: 1, Data: "old"})
+			writeOldFormatEntry(ctx, codec, entry{ID: 1, Data: "old"})
 
 			newEntry := entry{ID: 2, Data: "new"}
 			Expect(gorp.NewCreate[int32, entry]().
