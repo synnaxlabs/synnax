@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -134,14 +135,15 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Child("writer"),
 		FreeWrites:      freeWrites,
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, s.Relay.Close())
 	}
 	if s.deleter, err = deleter.NewService(deleter.ServiceConfig{
 		HostResolver: cfg.HostResolver,
 		TSChannel:    cfg.TS,
 		Transport:    cfg.Transport.Deleter(),
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, s.Relay.Close())
+
 	}
 	return s, nil
 }
