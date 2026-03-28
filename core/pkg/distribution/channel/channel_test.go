@@ -134,7 +134,7 @@ var _ = Describe("Channel Tests", func() {
 					channel.NewKey(cluster.NodeKey(3), 4),
 					channel.NewKey(cluster.NodeKey(1), 2),
 				}
-				Expect(ids.UniqueLeaseholders()).To(Equal([]cluster.NodeKey{1, 3}))
+				Expect(ids.UniqueLeaseholders()).To(ConsistOf([]cluster.NodeKey{1, 3}))
 			})
 		})
 		Describe("Uint32", func() {

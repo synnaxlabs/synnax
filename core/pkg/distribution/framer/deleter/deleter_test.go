@@ -65,7 +65,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					}))
 				})
 				AfterEach(func() {
-					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax))
+					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax)).To(Succeed())
 					Expect(i.Close()).To(Succeed())
 				})
 

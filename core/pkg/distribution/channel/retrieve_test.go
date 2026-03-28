@@ -249,9 +249,20 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(keys).To(HaveLen(2))
 			Expect(keys).To(ConsistOf(created[0].Key(), created[1].Key()))
 		})
-		It("Should return empty keys for an empty name list", func() {
-			keys := MustSucceed(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{}))
-			Expect(keys).To(BeEmpty())
+		It("Should return query.ErrNotFound if no channels are found", func() {
+			Expect(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{})).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should resolve by regex expression", func() {
+			n1, n2 := channel.NewRandomName(), channel.NewRandomName()
+			created := []channel.Channel{
+				{Virtual: true, DataType: telem.Float32T, Name: "SG22_" + n1},
+				{Virtual: true, DataType: telem.Float32T, Name: "SG22_" + n2},
+			}
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			keys := MustSucceed(mockCluster.Nodes[1].Channel.ResolveNames(ctx, []string{"^SG22_.*"}))
+			Expect(keys).To(HaveLen(2))
+			Expect(keys).To(ConsistOf(channel.KeysFromChannels(created)))
 		})
 	})
 

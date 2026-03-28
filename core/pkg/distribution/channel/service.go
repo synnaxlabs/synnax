@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -131,8 +132,8 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// ResolveNames resolves a list of channel names to their keys. If any name is not
-// found, an error wrapping query.ErrNotFound is returned and no keys are returned.
+// ResolveNames resolves a list of channel names to their keys. Returns
+// query.ErrNotFound if no channels are found.
 func (s *Service) ResolveNames(ctx context.Context, names []string) (Keys, error) {
 	var channels []Channel
 	if err := s.NewRetrieve().
@@ -140,6 +141,9 @@ func (s *Service) ResolveNames(ctx context.Context, names []string) (Keys, error
 		WhereNames(names...).
 		Exec(ctx, nil); err != nil {
 		return nil, err
+	}
+	if len(channels) == 0 {
+		return nil, query.ErrNotFound
 	}
 	return KeysFromChannels(channels), nil
 }
