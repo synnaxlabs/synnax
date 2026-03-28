@@ -134,7 +134,7 @@ func userHasRole(
 	}
 	for _, r := range roles {
 		var rl role.Role
-		if err := gorp.NewRetrieve[uuid.UUID, role.Role]().
+		if err := gorp.NewRetrieve[uuid.UUID, role.Role](nil).
 			WhereKeys(uuid.MustParse(r.ID.Key)).
 			Entry(&rl).
 			Exec(ctx, tx); err != nil {

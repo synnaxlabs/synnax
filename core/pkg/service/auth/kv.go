@@ -14,42 +14,65 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// KV is a simple key-value backed Authenticator. It saves data to the provided
-// gorp DB. It's important to note that all gorp.tx(s) provided to the Authenticator
-// interface must be spawned from the same gorp DB.
+// KVConfig is the configuration for opening the KV backed authenticator.
+type KVConfig struct{ DB *gorp.DB }
+
+var _ config.Config[KVConfig] = KVConfig{}
+
+// Override implements config.Config.
+func (c KVConfig) Override(other KVConfig) KVConfig {
+	c.DB = override.Nil(c.DB, other.DB)
+	return c
+}
+
+// Validate implements config.Config.
+func (c KVConfig) Validate() error {
+	v := validate.New("auth.kv")
+	validate.NotNil(v, "db", c.DB)
+	return v.Error()
+}
+
+// KV is a simple key-value backed Authenticator. It saves data to the provided Gorp DB.
+// It's important to note that all gorp.tx(s) provided to the Authenticator interface
+// must be spawned from the same gorp DB.
 type KV struct {
-	DB    *gorp.DB
+	cfg   KVConfig
 	table *gorp.Table[string, SecureCredentials]
 }
 
 // OpenKV opens a new KV authenticator with the given database.
-func OpenKV(ctx context.Context, db *gorp.DB) (*KV, error) {
-	table, err := gorp.OpenTable[string, SecureCredentials](ctx, db)
+func OpenKV(ctx context.Context, cfgs ...KVConfig) (*KV, error) {
+	cfg, err := config.New(KVConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &KV{DB: db, table: table}, nil
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	return &KV{cfg: cfg, table: table}, nil
 }
 
 // Close closes the KV authenticator and releases any resources.
-func (db *KV) Close() error {
-	return db.table.Close()
-}
+func (kv *KV) Close() error { return kv.table.Close() }
 
 var _ Authenticator = (*KV)(nil)
 
 // Authenticate implements Authenticator.
-func (db *KV) Authenticate(ctx context.Context, creds InsecureCredentials) error {
-	_, err := db.authenticate(ctx, creds, db.DB)
+func (kv *KV) Authenticate(ctx context.Context, creds InsecureCredentials) error {
+	_, err := kv.authenticate(ctx, creds, kv.cfg.DB)
 	return err
 }
 
-func (db *KV) authenticate(
+func (kv *KV) authenticate(
 	ctx context.Context,
 	creds InsecureCredentials,
 	tx gorp.Tx,
@@ -58,7 +81,7 @@ func (db *KV) authenticate(
 		return SecureCredentials{}, err
 	}
 	var secureCreds SecureCredentials
-	err := db.retrieve(ctx, tx, creds.Username, &secureCreds)
+	err := kv.retrieve(ctx, tx, creds.Username, &secureCreds)
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			err = InvalidCredentials
@@ -72,11 +95,14 @@ func (db *KV) authenticate(
 }
 
 // NewWriter implements Authenticator.
-func (db *KV) NewWriter(tx gorp.Tx) Writer { return &kvWriter{service: db, tx: db.DB.OverrideTx(tx)} }
+func (kv *KV) NewWriter(tx gorp.Tx) Writer {
+	return &kvWriter{service: kv, tx: kv.cfg.DB.OverrideTx(tx), table: kv.table}
+}
 
 type kvWriter struct {
 	service *KV
 	tx      gorp.Tx
+	table   *gorp.Table[string, SecureCredentials]
 }
 
 // Register implements Authenticator.
@@ -144,15 +170,15 @@ func (w *kvWriter) changeUsername(ctx context.Context, oldUsername, newUsername 
 }
 
 func (w *kvWriter) set(ctx context.Context, creds SecureCredentials) error {
-	return gorp.NewCreate[string, SecureCredentials]().Entry(&creds).Exec(ctx, w.tx)
+	return w.table.NewCreate().Entry(&creds).Exec(ctx, w.tx)
 }
 
 func (w *kvWriter) delete(ctx context.Context, usernames ...string) error {
-	return gorp.NewDelete[string, SecureCredentials]().WhereKeys(usernames...).Exec(ctx, w.tx)
+	return w.table.NewDelete().WhereKeys(usernames...).Exec(ctx, w.tx)
 }
 
 func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
-	exists, err := gorp.NewRetrieve[string, SecureCredentials]().WhereKeys(user).Exists(ctx, w.tx)
+	exists, err := w.service.table.NewRetrieve().WhereKeys(user).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
@@ -162,9 +188,9 @@ func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
 	return err
 }
 
-func (db *KV) retrieve(ctx context.Context, tx gorp.Tx, user string, creds *SecureCredentials) error {
-	return gorp.NewRetrieve[string, SecureCredentials]().
+func (kv *KV) retrieve(ctx context.Context, tx gorp.Tx, user string, creds *SecureCredentials) error {
+	return kv.table.NewRetrieve().
 		WhereKeys(user).
 		Entry(creds).
-		Exec(ctx, gorp.OverrideTx(db.DB, tx))
+		Exec(ctx, gorp.OverrideTx(kv.cfg.DB, tx))
 }

@@ -109,16 +109,12 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return s.NewObservable().OnChange(handleChange)
-}
-
-func (s *Service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return gorp.Observe[Key, Channel](s.db)
+	return s.Observe().OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[Key, Channel](s.db).OpenNexter(ctx)
+	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
