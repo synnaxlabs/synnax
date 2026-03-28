@@ -172,9 +172,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				d.cfg.TaskTimeout,
 				signal.WithInstrumentation(d.cfg.Instrumentation),
 			)
-			defer cancel()
 			sCtx.Go(func(ctx context.Context) error { return t.Exec(ctx, cmd) })
-			if err := sCtx.Wait(); err != nil {
+			err := sCtx.Wait()
+			cancel()
+			if err != nil {
 				if errors.Is(err, ErrUnsupportedCommand) {
 					d.cfg.L.Warn(
 						"unsupported command",
