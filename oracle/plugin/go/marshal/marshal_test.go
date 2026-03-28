@@ -39,7 +39,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("simple struct with string and int fields", func() {
-			It("Should generate protowire codec", func() {
+			It("Should generate Writer/Reader codec functions", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -51,19 +51,20 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"package test",
-						"binary.BigEndian.AppendUint32",
+						"w.String(s.Name)",
+						"w.Int32(int32(s.Age))",
 						"TestCodec xbinary.Codec",
+						"func EncodeTest(w *xbinary.Writer",
+						"func DecodeTest(r *xbinary.Reader",
 					)
 			})
 		})
 
-		Context("nested struct (inlined fields)", func() {
-			It("Should inline nested struct fields in wire format", func() {
+		Context("nested struct (same package delegation)", func() {
+			It("Should delegate to nested struct codec functions", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -82,19 +83,17 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"s.From.Type",
-						"s.From.Key",
+						"EncodeInner(w, &s.From)",
+						"DecodeInner(r, &s.From)",
 						"s.Name",
 					)
 			})
 		})
 
 		Context("hard optional field", func() {
-			It("Should generate presence varint for pointer-based optional", func() {
+			It("Should generate presence flag for pointer-based optional", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -106,8 +105,6 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("if s.Description != nil {")
 			})
@@ -140,8 +137,6 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("TestCodec xbinary.Codec")
 			})
@@ -168,8 +163,6 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("GraphCodec xbinary.Codec")
 			})
@@ -192,8 +185,6 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("TestCodec xbinary.Codec")
 			})
@@ -225,14 +216,13 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("TestCodec xbinary.Codec")
 			})
 		})
+
 		Context("recursive struct (self-referencing optional fields)", func() {
-			It("Should handle recursive type via length-prefixed sub-message", func() {
+			It("Should handle recursive type via delegation", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -249,11 +239,12 @@ var _ = Describe("Go Marshal Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				Expect(resp.Files).To(HaveLen(1))
-
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("ContainerCodec xbinary.Codec").
-					ToContain("marshalType")
+					ToContain(
+						"ContainerCodec xbinary.Codec",
+						"EncodeType(w, &s.Type)",
+						"DecodeType(r, &s.Type)",
+					)
 			})
 		})
 	})

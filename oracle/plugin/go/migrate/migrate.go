@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Plugin struct{}
@@ -100,6 +101,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputEntries[goPath] = append(outputEntries[goPath], mEntry)
 	}
 
+	// Collect all migration entry type names so sub-package codecs can mark
+	// them with Adapter: true when they have their own migrations.
+	migrateEntryNames := make(set.Set[string])
+	for _, entries := range outputEntries {
+		for _, e := range entries {
+			migrateEntryNames.Add(e.GoName)
+		}
+	}
+
 	for _, goPath := range outputOrder {
 		entries := outputEntries[goPath]
 		pkg := naming.DerivePackageName(goPath)
@@ -114,7 +124,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 
 		for _, entry := range entries {
-			if err := p.generateForEntry(resp, entry, goPath, pkg, req); err != nil {
+			if err := p.generateForEntry(resp, entry, goPath, pkg, migrateEntryNames, req); err != nil {
 				return nil, err
 			}
 		}
@@ -127,6 +137,7 @@ func (p *Plugin) generateForEntry(
 	resp *plugin.Response,
 	entry migrationEntry,
 	goPath, pkg string,
+	migrateEntryNames set.Set[string],
 	req *plugin.Request,
 ) error {
 	if entry.SchemaChange == nil {
@@ -151,7 +162,7 @@ func (p *Plugin) generateForEntry(
 		}
 	}
 
-	pkgTypes := collectPackageTypes(change.OldType, req.OldResolutions)
+	pkgTypes, codecReachable := collectPackageTypes(change.OldType, req.OldResolutions)
 
 	pathMap := make(map[string]string, len(pkgTypes))
 	for origPath := range pkgTypes {
@@ -173,28 +184,31 @@ func (p *Plugin) generateForEntry(
 			Content: typeContent,
 		})
 
+		// Generate frozen codec for this package with per-type Encode/Decode
+		// functions. The entry type's package gets the Codec adapter.
+		codecEntries := codecEntriesForTypes(types, migrateEntryNames, codecReachable)
+		if len(codecEntries) > 0 {
+			codecContent, err := gomarshal.GenerateCodecFile(
+				versionDir, mirroredPath,
+				codecEntries,
+				rewrittenOldTable,
+				req.RepoRoot,
+			)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate frozen codec for %s", origPath)
+			}
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    mirroredPath + "/codec.gen.go",
+				Content: codecContent,
+			})
+		}
+
 		if origPath != goPath && needsAutoMigrate(types, schemaDiff) {
 			if err := p.generateSubPackageMigration(resp, versionDir, mirroredPath, types, schemaDiff, rewrittenOldTable, req); err != nil {
 				return err
 			}
 		}
 	}
-
-	// Frozen codec for the entry type.
-	entryMirrorPath := goPath + "/migrations/" + versionDir
-	codecContent, err := gomarshal.GenerateCodecFile(
-		versionDir, entryMirrorPath,
-		[]gomarshal.CodecEntry{{GoName: entry.GoName, Type: change.OldType}},
-		rewrittenOldTable,
-		req.RepoRoot,
-	)
-	if err != nil {
-		return errors.Wrapf(err, "failed to generate frozen codec for %s", entry.GoName)
-	}
-	resp.Files = append(resp.Files, plugin.File{
-		Path:    entryMirrorPath + "/codec.gen.go",
-		Content: codecContent,
-	})
 
 	// Top-level auto-copy for the entry type's package.
 	entryTypes := pkgTypes[goPath]
@@ -215,6 +229,7 @@ func (p *Plugin) generateForEntry(
 	}
 
 	// Developer transform template.
+	entryMirrorPath := goPath + "/migrations/" + versionDir
 	templateFile := goPath + "/migrate.go"
 	templateFullPath := filepath.Join(req.RepoRoot, templateFile)
 	if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
@@ -227,6 +242,40 @@ func (p *Plugin) generateForEntry(
 	}
 
 	return nil
+}
+
+func codecEntriesForTypes(
+	types []resolution.Type,
+	migrateEntryNames set.Set[string],
+	reachable set.Set[string],
+) []gomarshal.CodecEntry {
+	var entries []gomarshal.CodecEntry
+	for _, t := range types {
+		if _, ok := t.Form.(resolution.StructForm); !ok {
+			continue
+		}
+		if !reachable.Contains(t.QualifiedName) {
+			continue
+		}
+		goName := goNameFromType(t)
+		ce := gomarshal.CodecEntry{GoName: goName, Type: t}
+		if migrateEntryNames.Contains(goName) {
+			ce.Adapter = true
+		}
+		entries = append(entries, ce)
+	}
+	return entries
+}
+
+func goNameFromType(t resolution.Type) string {
+	if domain, ok := t.Domains["go"]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 {
+				return expr.Values[0].StringValue
+			}
+		}
+	}
+	return naming.ToPascalCase(t.Name)
 }
 
 func (p *Plugin) generateSubPackageMigration(
@@ -280,23 +329,27 @@ func detectSchemaChange(
 }
 
 // collectPackageTypes walks the entry type's dependency tree and groups all
-// Oracle-defined struct types by their @go output path.
+// Oracle-defined struct types by their @go output path. It also returns the
+// set of types that are directly reachable from the entry type's serialization
+// tree (before package expansion), which determines which types need codec
+// functions.
 func collectPackageTypes(
 	entryType resolution.Type,
 	table *resolution.Table,
-) map[string][]resolution.Type {
+) (pkgTypes map[string][]resolution.Type, serializationReachable set.Set[string]) {
 	result := make(map[string][]resolution.Type)
-	visited := make(map[string]bool)
+	visited := make(set.Set[string])
 	collectPkgTypesWalk(entryType, table, result, visited)
+	serializationReachable = visited
 	// Expand each collected package: if any type from a package is needed,
-	// include ALL types from that package.
+	// include ALL types from that package (for complete frozen types files).
 	for goPath := range result {
-		expanded := make(map[string]bool)
+		expanded := make(set.Set[string])
 		for _, t := range result[goPath] {
-			expanded[t.QualifiedName] = true
+			expanded.Add(t.QualifiedName)
 		}
 		for _, t := range table.TypesWithDomain("go") {
-			if expanded[t.QualifiedName] {
+			if expanded.Contains(t.QualifiedName) {
 				continue
 			}
 			if output.GetPath(t, "go") == goPath {
@@ -307,19 +360,19 @@ func collectPackageTypes(
 			}
 		}
 	}
-	return result
+	return result, serializationReachable
 }
 
 func collectPkgTypesWalk(
 	typ resolution.Type,
 	table *resolution.Table,
 	result map[string][]resolution.Type,
-	visited map[string]bool,
+	visited set.Set[string],
 ) {
-	if visited[typ.QualifiedName] {
+	if visited.Contains(typ.QualifiedName) {
 		return
 	}
-	visited[typ.QualifiedName] = true
+	visited.Add(typ.QualifiedName)
 
 	goPath := output.GetPath(typ, "go")
 	if goPath != "" {
@@ -345,11 +398,15 @@ func walkRefForPkgTypes(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 	result map[string][]resolution.Type,
-	visited map[string]bool,
+	visited set.Set[string],
 ) {
 	resolved, ok := ref.Resolve(table)
 	if !ok {
 		return
+	}
+	// Always walk type arguments (e.g., Status[StatusDetails] needs StatusDetails).
+	for _, arg := range ref.TypeArgs {
+		walkRefForPkgTypes(arg, table, result, visited)
 	}
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
@@ -362,11 +419,6 @@ func walkRefForPkgTypes(
 		walkRefForPkgTypes(form.Base, table, result, visited)
 	case resolution.EnumForm:
 		collectPkgTypesWalk(resolved, table, result, visited)
-	case resolution.BuiltinGenericForm:
-		collectPkgTypesWalk(resolved, table, result, visited)
-		for _, arg := range ref.TypeArgs {
-			walkRefForPkgTypes(arg, table, result, visited)
-		}
 	}
 }
 
@@ -633,7 +685,7 @@ func renderTransformTemplate(pkg, goName string, version int, vDir, migrationsIm
 	var buf bytes.Buffer
 	err := transformTmpl.Execute(&buf, struct {
 		Package, GoName, VersionDir, MigrationsImport string
-		Version                                        int
+		Version                                       int
 	}{pkg, goName, vDir, migrationsImport, version})
 	if err != nil {
 		return nil, err
@@ -654,15 +706,15 @@ import (
 )
 {{range .Functions}}
 func Migrate{{.GoName}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
-	new, err := AutoMigrate{{.GoName}}(ctx, old)
+	migrated, err := AutoMigrate{{.GoName}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 {{- range .NewFields}}
-	// new.{{.}} is zero-valued
+	// migrated.{{.}} is zero-valued
 {{- end}}
-	return new, nil
+	return migrated, nil
 }
 {{end}}`))
 

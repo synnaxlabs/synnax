@@ -124,10 +124,10 @@ type MigrationConfig struct {
 type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
 type typedMigration[I, O any] struct {
-	name       string
-	inputCodec binary.Codec
+	name        string
+	inputCodec  binary.Codec
 	outputCodec binary.Codec
-	transform  TransformFunc[I, O]
+	transform   TransformFunc[I, O]
 }
 
 // NewTypedMigration creates a Migration that iterates over all entries with the
@@ -368,4 +368,3 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 	}
 	return sorted, nil
 }
-

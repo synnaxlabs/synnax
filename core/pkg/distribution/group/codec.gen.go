@@ -12,41 +12,50 @@
 package group
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
-
-	_io "io"
+	"io"
+	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-var _ = binary.BigEndian
+func EncodeGroup(w *xbinary.Writer, s *Group) error {
+	w.Write(s.Key[:])
+	w.String(s.Name)
+	return nil
+}
 
-const (
-	GroupFieldKey   = 0
-	GroupFieldName  = 1
-	GroupFieldCount = 2
-)
+func DecodeGroup(r *xbinary.Reader, s *Group) error {
+	var err error
+	if _, err := r.Read(s.Key[:]); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type groupCodec struct{}
 
-func (groupCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var GroupCodec xbinary.Codec = groupCodec{}
+
+func (groupCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Group)
-	buf := make([]byte, 0, 48)
-	buf = append(buf, s.Key[:]...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeGroup(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c groupCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c groupCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -55,39 +64,19 @@ func (c groupCodec) EncodeStream(
 	return err
 }
 
-func (groupCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Group)
-	if len(data) < 16 {
-		return nil
-	}
-	copy(r.Key[:], data[:16])
-	data = data[16:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	return nil
+func (groupCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Group)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeGroup(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c groupCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c groupCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var GroupCodec xbinary.Codec = groupCodec{}

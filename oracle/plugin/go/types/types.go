@@ -149,11 +149,11 @@ func GenerateGoFile(
 		Structs:    make([]structData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
 		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
-		imports:  imports,
-		table:    table,
-		repoRoot: repoRoot,
-		resolver: r,
-		ctx:      ctx,
+		imports:    imports,
+		table:      table,
+		repoRoot:   repoRoot,
+		resolver:   r,
+		ctx:        ctx,
 	}
 
 	for _, td := range typeDefs {

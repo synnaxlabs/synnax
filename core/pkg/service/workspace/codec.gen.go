@@ -12,56 +12,80 @@
 package workspace
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
-
-	_io "io"
+	"io"
+	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-var _ = binary.BigEndian
+func EncodeWorkspace(w *xbinary.Writer, s *Workspace) error {
+	w.Write(s.Key[:])
+	w.String(s.Name)
+	w.Write(s.Author[:])
+	{
+		b, err := json.Marshal(s.Layout)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	w.String(s.Description)
+	return nil
+}
 
-const (
-	WorkspaceFieldKey         = 0
-	WorkspaceFieldName        = 1
-	WorkspaceFieldAuthor      = 2
-	WorkspaceFieldLayout      = 3
-	WorkspaceFieldDescription = 4
-	WorkspaceFieldCount       = 5
-)
+func DecodeWorkspace(r *xbinary.Reader, s *Workspace) error {
+	var err error
+	if _, err := r.Read(s.Key[:]); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if _, err := r.Read(s.Author[:]); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Layout); err != nil {
+			return err
+		}
+	}
+	if s.Description, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type workspaceCodec struct{}
 
-func (workspaceCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var WorkspaceCodec xbinary.Codec = workspaceCodec{}
+
+func (workspaceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Workspace)
-	buf := make([]byte, 0, 160)
-	buf = append(buf, s.Key[:]...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	buf = append(buf, s.Author[:]...)
-	{
-		_jb, _je := json.Marshal(s.Layout)
-		if _je != nil {
-			return nil, _je
-		}
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
-		buf = append(buf, _jb...)
-	}
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Description)))
-	buf = append(buf, s.Description...)
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeWorkspace(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c workspaceCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c workspaceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -70,64 +94,19 @@ func (c workspaceCodec) EncodeStream(
 	return err
 }
 
-func (workspaceCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Workspace)
-	if len(data) < 16 {
-		return nil
-	}
-	copy(r.Key[:], data[:16])
-	data = data[16:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 16 {
-		return nil
-	}
-	copy(r.Author[:], data[:16])
-	data = data[16:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		if err := json.Unmarshal(data[:_n], &r.Layout); err != nil {
-			return err
-		}
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Description = string(data[:_n])
-		data = data[_n:]
-	}
-	return nil
+func (workspaceCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Workspace)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeWorkspace(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c workspaceCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c workspaceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var WorkspaceCodec xbinary.Codec = workspaceCodec{}

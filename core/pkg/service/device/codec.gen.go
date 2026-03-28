@@ -12,139 +12,162 @@
 package device
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"math"
+	"io"
+	"sync"
 
-	_io "io"
-
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	xbinary "github.com/synnaxlabs/x/binary"
-
-	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
-
-	label "github.com/synnaxlabs/x/label"
-
-	status "github.com/synnaxlabs/x/status"
-
-	telem "github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/status"
 )
 
-var _ = binary.BigEndian
+func EncodeDevice(w *xbinary.Writer, s *Device) error {
+	w.String(s.Key)
+	w.Uint32(uint32(s.Rack))
+	w.String(s.Location)
+	w.String(s.Make)
+	w.String(s.Model)
+	w.String(s.Name)
+	w.Bool(s.Configured)
+	{
+		b, err := json.Marshal(s.Properties)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	if s.Status != nil {
+		w.Bool(true)
+		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Parent != nil {
+		w.Bool(true)
+		if err := ontology.EncodeID(w, &(*s.Parent)); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
 
-const (
-	DeviceFieldKey                    = 0
-	DeviceFieldRack                   = 1
-	DeviceFieldLocation               = 2
-	DeviceFieldMake                   = 3
-	DeviceFieldModel                  = 4
-	DeviceFieldName                   = 5
-	DeviceFieldConfigured             = 6
-	DeviceFieldProperties             = 7
-	DeviceFieldStatusKey              = 8
-	DeviceFieldStatusName             = 9
-	DeviceFieldStatusVariant          = 10
-	DeviceFieldStatusMessage          = 11
-	DeviceFieldStatusDescription      = 12
-	DeviceFieldStatusTime             = 13
-	DeviceFieldStatusDetailsRack      = 14
-	DeviceFieldStatusDetailsDevice    = 15
-	DeviceFieldStatusLabelsElemKey    = 16
-	DeviceFieldStatusLabelsElemName   = 17
-	DeviceFieldStatusLabelsElemColorR = 18
-	DeviceFieldStatusLabelsElemColorG = 19
-	DeviceFieldStatusLabelsElemColorB = 20
-	DeviceFieldStatusLabelsElemColorA = 21
-	DeviceFieldParentType             = 22
-	DeviceFieldParentKey              = 23
-	DeviceFieldCount                  = 24
-)
+func DecodeDevice(r *xbinary.Reader, s *Device) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Rack = rack.Key(v)
+	}
+	if s.Location, err = r.String(); err != nil {
+		return err
+	}
+	if s.Make, err = r.String(); err != nil {
+		return err
+	}
+	if s.Model, err = r.String(); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if s.Configured, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Properties); err != nil {
+			return err
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v Status
+			if err = status.DecodeStatus[StatusDetails](r, &v, DecodeStatusDetails); err != nil {
+				return err
+			}
+			s.Status = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v ontology.ID
+			if err = ontology.DecodeID(r, &v); err != nil {
+				return err
+			}
+			s.Parent = &v
+		}
+	}
+	return nil
+}
+
+func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+	w.Uint32(uint32(s.Rack))
+	w.String(s.Device)
+	return nil
+}
+
+func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+	var err error
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Rack = rack.Key(v)
+	}
+	if s.Device, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type deviceCodec struct{}
 
-func (deviceCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var DeviceCodec xbinary.Codec = deviceCodec{}
+
+func (deviceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Device)
-	buf := make([]byte, 0, 556)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Key)))
-	buf = append(buf, s.Key...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(s.Rack))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Location)))
-	buf = append(buf, s.Location...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Make)))
-	buf = append(buf, s.Make...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Model)))
-	buf = append(buf, s.Model...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	if s.Configured {
-		buf = append(buf, 1)
-	} else {
-		buf = append(buf, 0)
-	}
-	{
-		_jb, _je := json.Marshal(s.Properties)
-		if _je != nil {
-			return nil, _je
-		}
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
-		buf = append(buf, _jb...)
-	}
-	if s.Status != nil {
-		buf = append(buf, 1)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Key)))
-		buf = append(buf, (*s.Status).Key...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Name)))
-		buf = append(buf, (*s.Status).Name...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Variant)))
-		buf = append(buf, (*s.Status).Variant...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Message)))
-		buf = append(buf, (*s.Status).Message...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Description)))
-		buf = append(buf, (*s.Status).Description...)
-		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Time))
-		buf = binary.BigEndian.AppendUint32(buf, uint32((*s.Status).Details.Rack))
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Details.Device)))
-		buf = append(buf, (*s.Status).Details.Device...)
-		if (*s.Status).Labels != nil {
-			buf = append(buf, 1)
-			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Labels)))
-			for _, _e2 := range (*s.Status).Labels {
-				buf = append(buf, _e2.Key[:]...)
-				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e2.Name)))
-				buf = append(buf, _e2.Name...)
-				buf = append(buf, byte(_e2.Color.R))
-				buf = append(buf, byte(_e2.Color.G))
-				buf = append(buf, byte(_e2.Color.B))
-				buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e2.Color.A)))
-			}
-		} else {
-			buf = append(buf, 0)
-		}
-	} else {
-		buf = append(buf, 0)
-	}
-	if s.Parent != nil {
-		buf = append(buf, 1)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Parent).Type)))
-		buf = append(buf, (*s.Parent).Type...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Parent).Key)))
-		buf = append(buf, (*s.Parent).Key...)
-	} else {
-		buf = append(buf, 0)
-	}
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeDevice(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c deviceCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c deviceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -153,236 +176,19 @@ func (c deviceCodec) EncodeStream(
 	return err
 }
 
-func (deviceCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Device)
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Key = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	r.Rack = rack.Key(binary.BigEndian.Uint32(data[:4]))
-	data = data[4:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Location = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Make = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Model = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 1 {
-		return nil
-	}
-	r.Configured = data[0] != 0
-	data = data[1:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		if err := json.Unmarshal(data[:_n], &r.Properties); err != nil {
-			return err
-		}
-		data = data[_n:]
-	}
-	if data[0] == 1 {
-		data = data[1:]
-		var _ov1 Status
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Key = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Name = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Variant = status.Variant(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Message = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Description = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 8 {
-			return nil
-		}
-		_ov1.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
-		data = data[8:]
-		if len(data) < 4 {
-			return nil
-		}
-		_ov1.Details.Rack = rack.Key(binary.BigEndian.Uint32(data[:4]))
-		data = data[4:]
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Details.Device = string(data[:_n])
-			data = data[_n:]
-		}
-		if data[0] == 1 {
-			data = data[1:]
-			if len(data) < 4 {
-				return nil
-			}
-			{
-				_n := binary.BigEndian.Uint32(data[:4])
-				data = data[4:]
-				_ov1.Labels = make([]label.Label, _n)
-				for _i3 := range _ov1.Labels {
-					if len(data) < 16 {
-						return nil
-					}
-					copy(_ov1.Labels[_i3].Key[:], data[:16])
-					data = data[16:]
-					if len(data) < 4 {
-						return nil
-					}
-					{
-						_n := binary.BigEndian.Uint32(data[:4])
-						data = data[4:]
-						_ov1.Labels[_i3].Name = string(data[:_n])
-						data = data[_n:]
-					}
-					if len(data) < 1 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.R = uint8(data[0])
-					data = data[1:]
-					if len(data) < 1 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.G = uint8(data[0])
-					data = data[1:]
-					if len(data) < 1 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.B = uint8(data[0])
-					data = data[1:]
-					if len(data) < 8 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
-					data = data[8:]
-				}
-			}
-		} else {
-			data = data[1:]
-		}
-		r.Status = &_ov1
-	} else {
-		data = data[1:]
-	}
-	if data[0] == 1 {
-		data = data[1:]
-		var _ov4 ontology.ID
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov4.Type = ontology.ResourceType(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov4.Key = string(data[:_n])
-			data = data[_n:]
-		}
-		r.Parent = &_ov4
-	} else {
-		data = data[1:]
-	}
-	return nil
+func (deviceCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Device)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeDevice(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c deviceCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c deviceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var DeviceCodec xbinary.Codec = deviceCodec{}

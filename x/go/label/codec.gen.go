@@ -12,50 +12,57 @@
 package label
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
-	"math"
-
-	_io "io"
+	"io"
+	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/color"
 )
 
-var _ = binary.BigEndian
+func EncodeLabel(w *xbinary.Writer, s *Label) error {
+	w.Write(s.Key[:])
+	w.String(s.Name)
+	if err := color.EncodeColor(w, &s.Color); err != nil {
+		return err
+	}
+	return nil
+}
 
-const (
-	LabelFieldKey    = 0
-	LabelFieldName   = 1
-	LabelFieldColorR = 2
-	LabelFieldColorG = 3
-	LabelFieldColorB = 4
-	LabelFieldColorA = 5
-	LabelFieldCount  = 6
-)
+func DecodeLabel(r *xbinary.Reader, s *Label) error {
+	var err error
+	if _, err := r.Read(s.Key[:]); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = color.DecodeColor(r, &s.Color); err != nil {
+		return err
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type labelCodec struct{}
 
-func (labelCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var LabelCodec xbinary.Codec = labelCodec{}
+
+func (labelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Label)
-	buf := make([]byte, 0, 59)
-	buf = append(buf, s.Key[:]...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	buf = append(buf, byte(s.Color.R))
-	buf = append(buf, byte(s.Color.G))
-	buf = append(buf, byte(s.Color.B))
-	buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(s.Color.A)))
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeLabel(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c labelCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c labelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -64,59 +71,19 @@ func (c labelCodec) EncodeStream(
 	return err
 }
 
-func (labelCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Label)
-	if len(data) < 16 {
-		return nil
-	}
-	copy(r.Key[:], data[:16])
-	data = data[16:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 1 {
-		return nil
-	}
-	r.Color.R = uint8(data[0])
-	data = data[1:]
-	if len(data) < 1 {
-		return nil
-	}
-	r.Color.G = uint8(data[0])
-	data = data[1:]
-	if len(data) < 1 {
-		return nil
-	}
-	r.Color.B = uint8(data[0])
-	data = data[1:]
-	if len(data) < 8 {
-		return nil
-	}
-	r.Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
-	data = data[8:]
-	return nil
+func (labelCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Label)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeLabel(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c labelCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c labelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var LabelCodec xbinary.Codec = labelCodec{}

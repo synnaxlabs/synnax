@@ -330,7 +330,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Task:            l.Task,
-			},
+		},
 	); !ok(err, l.Arc) {
 		return nil, err
 	}

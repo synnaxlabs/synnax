@@ -73,8 +73,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{
-		DB:    cfg.DB,
-		Codec: LinePlotCodec,
+		DB:         cfg.DB,
+		Codec:      LinePlotCodec,
 		Migrations: LinePlotMigrations(),
 	})
 	if err != nil {

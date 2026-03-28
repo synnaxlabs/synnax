@@ -12,55 +12,124 @@
 package ontology
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
-
-	_io "io"
+	"io"
+	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-var _ = binary.BigEndian
+func EncodeID(w *xbinary.Writer, s *ID) error {
+	w.String(string(s.Type))
+	w.String(s.Key)
+	return nil
+}
 
-const (
-	ResourceFieldIDType = 0
-	ResourceFieldIDKey  = 1
-	ResourceFieldName   = 2
-	ResourceFieldData   = 3
-	ResourceFieldCount  = 4
-)
+func DecodeID(r *xbinary.Reader, s *ID) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = ResourceType(v)
+	}
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeResource(w *xbinary.Writer, s *Resource) error {
+	if err := EncodeID(w, &s.ID); err != nil {
+		return err
+	}
+	w.String(s.Name)
+	{
+		b, err := json.Marshal(s.Data)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	return nil
+}
+
+func DecodeResource(r *xbinary.Reader, s *Resource) error {
+	var err error
+	if err = DecodeID(r, &s.ID); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func EncodeRelationship(w *xbinary.Writer, s *Relationship) error {
+	if err := EncodeID(w, &s.From); err != nil {
+		return err
+	}
+	w.String(string(s.Type))
+	if err := EncodeID(w, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeRelationship(r *xbinary.Reader, s *Relationship) error {
+	var err error
+	if err = DecodeID(r, &s.From); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = RelationshipType(v)
+	}
+	if err = DecodeID(r, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type resourceCodec struct{}
 
-func (resourceCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var ResourceCodec xbinary.Codec = resourceCodec{}
+
+func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Resource)
-	buf := make([]byte, 0, 160)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Type)))
-	buf = append(buf, s.ID.Type...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Key)))
-	buf = append(buf, s.ID.Key...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	{
-		_jb, _je := json.Marshal(s.Data)
-		if _je != nil {
-			return nil, _je
-		}
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
-		buf = append(buf, _jb...)
-	}
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeResource(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c resourceCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -69,102 +138,38 @@ func (c resourceCodec) EncodeStream(
 	return err
 }
 
-func (resourceCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Resource)
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.ID.Type = ResourceType(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.ID.Key = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
-			return err
-		}
-		data = data[_n:]
-	}
-	return nil
+func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Resource)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeResource(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c resourceCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var ResourceCodec xbinary.Codec = resourceCodec{}
-
-const (
-	RelationshipFieldFromType = 0
-	RelationshipFieldFromKey  = 1
-	RelationshipFieldType     = 2
-	RelationshipFieldToType   = 3
-	RelationshipFieldToKey    = 4
-	RelationshipFieldCount    = 5
-)
 
 type relationshipCodec struct{}
 
-func (relationshipCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var RelationshipCodec xbinary.Codec = relationshipCodec{}
+
+func (relationshipCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Relationship)
-	buf := make([]byte, 0, 160)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.From.Type)))
-	buf = append(buf, s.From.Type...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.From.Key)))
-	buf = append(buf, s.From.Key...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type)))
-	buf = append(buf, s.Type...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.To.Type)))
-	buf = append(buf, s.To.Type...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.To.Key)))
-	buf = append(buf, s.To.Key...)
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeRelationship(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c relationshipCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c relationshipCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -173,70 +178,19 @@ func (c relationshipCodec) EncodeStream(
 	return err
 }
 
-func (relationshipCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Relationship)
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.From.Type = ResourceType(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.From.Key = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Type = RelationshipType(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.To.Type = ResourceType(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.To.Key = string(data[:_n])
-		data = data[_n:]
-	}
-	return nil
+func (relationshipCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Relationship)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeRelationship(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c relationshipCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c relationshipCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var RelationshipCodec xbinary.Codec = relationshipCodec{}

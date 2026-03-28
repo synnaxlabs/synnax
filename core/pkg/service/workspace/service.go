@@ -71,8 +71,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{
-		DB:    cfg.DB,
-		Codec: WorkspaceCodec,
+		DB:         cfg.DB,
+		Codec:      WorkspaceCodec,
 		Migrations: WorkspaceMigrations(),
 	})
 	if err != nil {

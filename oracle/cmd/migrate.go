@@ -24,6 +24,7 @@ import (
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
 	"github.com/synnaxlabs/oracle/snapshot"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 var migrateCmd = &cobra.Command{
@@ -145,12 +146,12 @@ func runMigrate(cmd *cobra.Command) error {
 	}
 
 	// Detect first-time migrate.gen.go files before writing.
-	newMigrateGens := make(map[string]bool)
+	newMigrateGens := make(set.Set[string])
 	for _, f := range resp.Files {
 		if strings.HasSuffix(f.Path, "/migrate.gen.go") {
 			fullPath := filepath.Join(repoRoot, f.Path)
 			if _, statErr := os.Stat(fullPath); os.IsNotExist(statErr) {
-				newMigrateGens[f.Path] = true
+				newMigrateGens.Add(f.Path)
 			}
 		}
 	}

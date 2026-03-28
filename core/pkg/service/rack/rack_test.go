@@ -58,11 +58,11 @@ var _ = Describe("Rack", Ordered, func() {
 			Label:    label,
 		}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
-			Status:              stat,
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
 
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
@@ -472,7 +472,6 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
-
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 		return svc
@@ -485,7 +484,6 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
-
 		}))
 		r := &rack.Rack{Name: "test rack"}
 		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
@@ -503,7 +501,6 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
-
 		}))
 		DeferCleanup(func() { Expect(svc2.Close()).To(Succeed()) })
 

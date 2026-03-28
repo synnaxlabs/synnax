@@ -12,101 +12,100 @@
 package rack
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
-	"math"
-
-	_io "io"
+	"io"
+	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
-
-	label "github.com/synnaxlabs/x/label"
-
-	status "github.com/synnaxlabs/x/status"
-
-	telem "github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/status"
 )
 
-var _ = binary.BigEndian
+func EncodeRack(w *xbinary.Writer, s *Rack) error {
+	w.Uint32(uint32(s.Key))
+	w.String(s.Name)
+	w.Uint32(uint32(s.TaskCounter))
+	w.Bool(s.Embedded)
+	if s.Status != nil {
+		w.Bool(true)
+		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
 
-const (
-	RackFieldKey                    = 0
-	RackFieldName                   = 1
-	RackFieldTaskCounter            = 2
-	RackFieldEmbedded               = 3
-	RackFieldStatusKey              = 4
-	RackFieldStatusName             = 5
-	RackFieldStatusVariant          = 6
-	RackFieldStatusMessage          = 7
-	RackFieldStatusDescription      = 8
-	RackFieldStatusTime             = 9
-	RackFieldStatusDetailsRack      = 10
-	RackFieldStatusLabelsElemKey    = 11
-	RackFieldStatusLabelsElemName   = 12
-	RackFieldStatusLabelsElemColorR = 13
-	RackFieldStatusLabelsElemColorG = 14
-	RackFieldStatusLabelsElemColorB = 15
-	RackFieldStatusLabelsElemColorA = 16
-	RackFieldCount                  = 17
-)
+func DecodeRack(r *xbinary.Reader, s *Rack) error {
+	var err error
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Key = Key(v)
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if s.TaskCounter, err = r.Uint32(); err != nil {
+		return err
+	}
+	if s.Embedded, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v Status
+			if err = status.DecodeStatus[StatusDetails](r, &v, DecodeStatusDetails); err != nil {
+				return err
+			}
+			s.Status = &v
+		}
+	}
+	return nil
+}
+
+func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+	w.Uint32(uint32(s.Rack))
+	return nil
+}
+
+func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Rack = Key(v)
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type rackCodec struct{}
 
-func (rackCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var RackCodec xbinary.Codec = rackCodec{}
+
+func (rackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Rack)
-	buf := make([]byte, 0, 272)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(s.Key))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(s.TaskCounter))
-	if s.Embedded {
-		buf = append(buf, 1)
-	} else {
-		buf = append(buf, 0)
-	}
-	if s.Status != nil {
-		buf = append(buf, 1)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Key)))
-		buf = append(buf, (*s.Status).Key...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Name)))
-		buf = append(buf, (*s.Status).Name...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Variant)))
-		buf = append(buf, (*s.Status).Variant...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Message)))
-		buf = append(buf, (*s.Status).Message...)
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Description)))
-		buf = append(buf, (*s.Status).Description...)
-		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Time))
-		buf = binary.BigEndian.AppendUint32(buf, uint32((*s.Status).Details.Rack))
-		if (*s.Status).Labels != nil {
-			buf = append(buf, 1)
-			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Labels)))
-			for _, _e2 := range (*s.Status).Labels {
-				buf = append(buf, _e2.Key[:]...)
-				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e2.Name)))
-				buf = append(buf, _e2.Name...)
-				buf = append(buf, byte(_e2.Color.R))
-				buf = append(buf, byte(_e2.Color.G))
-				buf = append(buf, byte(_e2.Color.B))
-				buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e2.Color.A)))
-			}
-		} else {
-			buf = append(buf, 0)
-		}
-	} else {
-		buf = append(buf, 0)
-	}
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeRack(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c rackCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -115,160 +114,19 @@ func (c rackCodec) EncodeStream(
 	return err
 }
 
-func (rackCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Rack)
-	if len(data) < 4 {
-		return nil
-	}
-	r.Key = Key(binary.BigEndian.Uint32(data[:4]))
-	data = data[4:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	r.TaskCounter = uint32(binary.BigEndian.Uint32(data[:4]))
-	data = data[4:]
-	if len(data) < 1 {
-		return nil
-	}
-	r.Embedded = data[0] != 0
-	data = data[1:]
-	if data[0] == 1 {
-		data = data[1:]
-		var _ov1 Status
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Key = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Name = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Variant = status.Variant(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Message = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 4 {
-			return nil
-		}
-		{
-			_n := binary.BigEndian.Uint32(data[:4])
-			data = data[4:]
-			_ov1.Description = string(data[:_n])
-			data = data[_n:]
-		}
-		if len(data) < 8 {
-			return nil
-		}
-		_ov1.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
-		data = data[8:]
-		if len(data) < 4 {
-			return nil
-		}
-		_ov1.Details.Rack = Key(binary.BigEndian.Uint32(data[:4]))
-		data = data[4:]
-		if data[0] == 1 {
-			data = data[1:]
-			if len(data) < 4 {
-				return nil
-			}
-			{
-				_n := binary.BigEndian.Uint32(data[:4])
-				data = data[4:]
-				_ov1.Labels = make([]label.Label, _n)
-				for _i3 := range _ov1.Labels {
-					if len(data) < 16 {
-						return nil
-					}
-					copy(_ov1.Labels[_i3].Key[:], data[:16])
-					data = data[16:]
-					if len(data) < 4 {
-						return nil
-					}
-					{
-						_n := binary.BigEndian.Uint32(data[:4])
-						data = data[4:]
-						_ov1.Labels[_i3].Name = string(data[:_n])
-						data = data[_n:]
-					}
-					if len(data) < 1 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.R = uint8(data[0])
-					data = data[1:]
-					if len(data) < 1 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.G = uint8(data[0])
-					data = data[1:]
-					if len(data) < 1 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.B = uint8(data[0])
-					data = data[1:]
-					if len(data) < 8 {
-						return nil
-					}
-					_ov1.Labels[_i3].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
-					data = data[8:]
-				}
-			}
-		} else {
-			data = data[1:]
-		}
-		r.Status = &_ov1
-	} else {
-		data = data[1:]
-	}
-	return nil
+func (rackCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Rack)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeRack(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c rackCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c rackCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var RackCodec xbinary.Codec = rackCodec{}

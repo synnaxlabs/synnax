@@ -12,51 +12,72 @@
 package table
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
-
-	_io "io"
+	"io"
+	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-var _ = binary.BigEndian
+func EncodeTable(w *xbinary.Writer, s *Table) error {
+	w.Write(s.Key[:])
+	w.String(s.Name)
+	{
+		b, err := json.Marshal(s.Data)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	return nil
+}
 
-const (
-	TableFieldKey   = 0
-	TableFieldName  = 1
-	TableFieldData  = 2
-	TableFieldCount = 3
-)
+func DecodeTable(r *xbinary.Reader, s *Table) error {
+	var err error
+	if _, err := r.Read(s.Key[:]); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
 type tableCodec struct{}
 
-func (tableCodec) Encode(
-	ctx context.Context,
-	value any,
-) ([]byte, error) {
+var TableCodec xbinary.Codec = tableCodec{}
+
+func (tableCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Table)
-	buf := make([]byte, 0, 112)
-	buf = append(buf, s.Key[:]...)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
-	buf = append(buf, s.Name...)
-	{
-		_jb, _je := json.Marshal(s.Data)
-		if _je != nil {
-			return nil, _je
-		}
-		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
-		buf = append(buf, _jb...)
-	}
-	return buf, nil
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeTable(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
 }
 
-func (c tableCodec) EncodeStream(
-	ctx context.Context,
-	w _io.Writer,
-	value any,
-) error {
+func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -65,50 +86,19 @@ func (c tableCodec) EncodeStream(
 	return err
 }
 
-func (tableCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	r := value.(*Table)
-	if len(data) < 16 {
-		return nil
-	}
-	copy(r.Key[:], data[:16])
-	data = data[16:]
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		r.Name = string(data[:_n])
-		data = data[_n:]
-	}
-	if len(data) < 4 {
-		return nil
-	}
-	{
-		_n := binary.BigEndian.Uint32(data[:4])
-		data = data[4:]
-		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
-			return err
-		}
-		data = data[_n:]
-	}
-	return nil
+func (tableCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Table)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeTable(r, s)
+	readerPool.Put(r)
+	return err
 }
 
-func (c tableCodec) DecodeStream(
-	ctx context.Context,
-	r _io.Reader,
-	value any,
-) error {
-	data, err := _io.ReadAll(r)
+func (c tableCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 	return c.Decode(ctx, data, value)
 }
-
-var TableCodec xbinary.Codec = tableCodec{}
