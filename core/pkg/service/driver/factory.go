@@ -11,15 +11,17 @@ package driver
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Factory is an interface for creating tasks based on their type.
 type Factory interface {
 	// ConfigureTask creates a task instance if this factory handles the task type.
-	// Returns (task, true, nil) if handled successfully.
-	// Returns (nil, false, nil) if this factory does not handle the task type.
-	// Returns (nil, true, err) if the factory handles this type but configuration failed.
-	ConfigureTask(ctx Context, t task.Task) (Task, bool, error)
+	// ConfigureTask should return ErrNotHandled if it does not handle the task type.
+	ConfigureTask(Context, task.Task) (Task, error)
 	// Name returns the factory name for logging.
 	Name() string
 }
+
+// ErrTaskNotHandled is returned when a task is not handled by a factory.
+var ErrTaskNotHandled = errors.New("task not handled by factory")
