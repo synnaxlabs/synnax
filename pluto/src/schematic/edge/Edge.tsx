@@ -20,11 +20,11 @@ import {
   Fragment,
   type ReactElement,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { connector } from "@/schematic/edge/connector";
 import { DefaultPath, type EdgeType, PATHS } from "@/schematic/edge/paths";
@@ -54,7 +54,6 @@ export const ConnectionLine = ({
   connectionLineStyle,
   connectionStatus,
 }: ConnectionLineComponentProps): ReactElement => {
-  // select an element with 'react-flow__handle-connecting' class
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
   if (toNodeHandle != null) {
@@ -109,7 +108,7 @@ export const Edge = ({
 }: Diagram.EdgeProps<EdgeData>): ReactElement => {
   const {
     segments: propsSegments = [],
-    color = "var(--pluto-gray-l11)",
+    color: edgeColor = "var(--pluto-gray-l11)",
     variant = "pipe",
   } = data ?? {};
   const sourcePos = xy.construct(rest.sourceX, rest.sourceY);
@@ -121,7 +120,8 @@ export const Edge = ({
   const targetPosEq = xy.equals(targetPos, targetPosRef.current);
 
   const flow = useReactFlow();
-  const [segments, setSegments, segRef] = useCombinedStateAndRef<connector.Segment[]>(
+
+  const segments = useMemo(
     () =>
       propsSegments.length > 0
         ? propsSegments
@@ -133,21 +133,18 @@ export const Edge = ({
             sourceBox: selectNodeBox(flow, source),
             targetBox: selectNodeBox(flow, target),
           }),
+    [propsSegments, sourcePos, targetPos, sourceOrientation, targetOrientation],
+  );
+
+  const dispatchSegments = useCallback(
+    (next: connector.Segment[]) => {
+      onDataChange({ segments: next, color: edgeColor, variant });
+    },
+    [edgeColor, variant, onDataChange],
   );
 
   const targetOrientationRef = useRef(targetOrientation);
   const sourceOrientationRef = useRef(sourceOrientation);
-
-  const handleSegmentsChange = useCallback(
-    (segments: connector.Segment[]) => {
-      onDataChange({ ...data, segments });
-    },
-    [data, onDataChange],
-  );
-
-  const debouncedOnSegmentsChange = useDebouncedCallback(handleSegmentsChange, 100, [
-    handleSegmentsChange,
-  ]);
 
   if (!sourcePosEq || !targetPosEq) {
     let next: connector.Segment[] = segments;
@@ -204,38 +201,40 @@ export const Edge = ({
           });
         targetPosRef.current = targetPos;
       }
-      debouncedOnSegmentsChange(next);
-      setSegments(next);
+      dispatchSegments(next);
     }
   }
 
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
-    onStart: useCallback((_: xy.XY, __: Key, e: DragEvent) => {
-      dragRef.current = {
-        index: Number(e.currentTarget.id.split("-")[1]),
-        segments: [...segRef.current],
-      };
-    }, []),
-    onMove: useCallback((b: box.Box) => {
-      if (dragRef.current == null) return;
-      const next = connector.dragSegment({
-        segments: dragRef.current.segments,
-        index: dragRef.current.index,
-        magnitude:
-          box.dim(
-            b,
-            direction.swap(dragRef.current.segments[dragRef.current.index].direction),
-            true,
-          ) / flow.getZoom(),
-      });
-      setSegments(next);
-    }, []),
-    onEnd: useCallback(
-      () => handleSegmentsChange(segRef.current),
-      [handleSegmentsChange],
+    onStart: useCallback(
+      (_: xy.XY, __: Key, e: DragEvent) => {
+        dragRef.current = {
+          index: Number(e.currentTarget.id.split("-")[1]),
+          segments: [...segments],
+        };
+      },
+      [segments],
     ),
+    onMove: useCallback(
+      (b: box.Box) => {
+        if (dragRef.current == null) return;
+        const next = connector.dragSegment({
+          segments: dragRef.current.segments,
+          index: dragRef.current.index,
+          magnitude:
+            box.dim(
+              b,
+              direction.swap(dragRef.current.segments[dragRef.current.index].direction),
+              true,
+            ) / flow.getZoom(),
+        });
+        dispatchSegments(next);
+      },
+      [dispatchSegments],
+    ),
+    onEnd: useCallback(() => {}, []),
   });
 
   const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
@@ -244,7 +243,7 @@ export const Edge = ({
 
   return (
     <>
-      <P points={points} color={color} />
+      <P points={points} color={edgeColor} />
       {selected &&
         calcMidPoints(points).map((p, i) => {
           const dir = segments[i].direction;

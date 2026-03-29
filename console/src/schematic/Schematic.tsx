@@ -168,16 +168,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [selectedEdges, setSelectedEdges] = useState<string[]>([]);
 
-  const handleSelectionChange = useCallback(
-    (nodes: string[], edges: string[]) => {
-      setSelectedNodes(nodes);
-      setSelectedEdges(edges);
-    },
-    [],
-  );
+  const handleSelectionChange = useCallback((nodes: string[], edges: string[]) => {
+    setSelectedNodes(nodes);
+    setSelectedEdges(edges);
+  }, []);
 
   const handleViewportChange = useCallback(
-    (vp: Diagram.Viewport) => syncDispatch(setViewport({ key: layoutKey, viewport: vp })),
+    (vp: Diagram.Viewport) =>
+      syncDispatch(setViewport({ key: layoutKey, viewport: vp })),
     [layoutKey, syncDispatch],
   );
 
@@ -277,13 +275,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
-  const handleSelectAll = useCallback(
-    () => {
-      // Read all node/edge keys from Flux and set them as selected
-      // For now this is a no-op until we wire it properly
-    },
-    [layoutKey],
-  );
+  const handleSelectAll = useCallback(() => {
+    // Read all node/edge keys from Flux and set them as selected
+    // For now this is a no-op until we wire it properly
+  }, [layoutKey]);
 
   const handleClearSelection = useCallback(
     () => handleSelectionChange([], []),

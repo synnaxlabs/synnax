@@ -356,10 +356,13 @@ const Base = ({
     [nodeRenderer],
   );
 
+  const onEdgesChangeRef = useRef(onEdgesChange);
+  onEdgesChangeRef.current = onEdgesChange;
+
   const handleDataChange = useCallback(
     (id: string, data: record.Unknown) =>
-      onEdgesChange([{ type: "data", key: id, data }]),
-    [onEdgesChange],
+      onEdgesChangeRef.current([{ type: "data", key: id, data }]),
+    [],
   );
 
   const edgeTypes = useMemo(() => {

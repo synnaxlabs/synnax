@@ -20,15 +20,10 @@ import { useDispatch, useRetrieve } from "@/schematic/queries";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { Diagram } from "@/vis/diagram";
 
-export interface SchematicProps
-  extends Omit<
-    Diagram.DiagramProps,
-    | "dragHandleSelector"
-    | "nodes"
-    | "edges"
-    | "onNodesChange"
-    | "onEdgesChange"
-  > {
+export interface SchematicProps extends Omit<
+  Diagram.DiagramProps,
+  "dragHandleSelector" | "nodes" | "edges" | "onNodesChange" | "onEdgesChange"
+> {
   schematicKey: string;
   selectedNodes?: string[];
   selectedEdges?: string[];
@@ -112,8 +107,7 @@ export const Schematic = ({
       const actions = changes
         .map(nodeChangeToAction)
         .filter((a): a is schematic.Action => a != null);
-      if (actions.length > 0)
-        dispatch({ key: schematicKey, actions });
+      if (actions.length > 0) dispatch({ key: schematicKey, actions });
     },
     [schematicKey, dispatch, selectedNodes, selectedEdges, onSelectionChange],
   );
@@ -135,8 +129,7 @@ export const Schematic = ({
       const actions = changes
         .map(edgeChangeToAction)
         .filter((a): a is schematic.Action => a != null);
-      if (actions.length > 0)
-        dispatch({ key: schematicKey, actions });
+      if (actions.length > 0) dispatch({ key: schematicKey, actions });
     },
     [schematicKey, dispatch, selectedNodes, selectedEdges, onSelectionChange],
   );

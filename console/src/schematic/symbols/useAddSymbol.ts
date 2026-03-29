@@ -46,12 +46,14 @@ export const useAddSymbol = (schematicKey: string) => {
         position: position ?? xy.ZERO,
         zIndex: spec.zIndex,
       };
-      const props: record.Unknown = { key: variant, ...initialProps, ...parsedData.data };
+      const props: record.Unknown = {
+        key: variant,
+        ...initialProps,
+        ...parsedData.data,
+      };
       dispatch({
         key: schematicKey,
-        actions: [
-          schematic.addNode({ node, props }),
-        ],
+        actions: [schematic.addNode({ node, props })],
       });
     },
     [dispatch, schematicKey, theme, store],

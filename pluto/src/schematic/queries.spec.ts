@@ -215,7 +215,15 @@ describe("schematic queries", () => {
         workspace.key,
         newSchematic({
           name: "dispatch_pos",
-          nodes: [{ key: "n1", position: { x: 0, y: 0 }, selected: false, zIndex: 0, type: "" }],
+          nodes: [
+            {
+              key: "n1",
+              position: { x: 0, y: 0 },
+              selected: false,
+              zIndex: 0,
+              type: "",
+            },
+          ],
         }),
       );
 
@@ -231,7 +239,10 @@ describe("schematic queries", () => {
       await act(async () => {
         await result.current.dispatch.updateAsync({
           key: s.key,
-          actions: schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
+          actions: schematic.setNodePosition({
+            key: "n1",
+            position: { x: 100, y: 200 },
+          }),
         });
       });
 
@@ -268,10 +279,22 @@ describe("schematic queries", () => {
           key: s.key,
           actions: [
             schematic.addNode({
-              node: { key: "a", position: { x: 10, y: 20 }, selected: false, zIndex: 0, type: "" },
+              node: {
+                key: "a",
+                position: { x: 10, y: 20 },
+                selected: false,
+                zIndex: 0,
+                type: "",
+              },
             }),
             schematic.addNode({
-              node: { key: "b", position: { x: 30, y: 40 }, selected: false, zIndex: 0, type: "" },
+              node: {
+                key: "b",
+                position: { x: 30, y: 40 },
+                selected: false,
+                zIndex: 0,
+                type: "",
+              },
             }),
             schematic.removeNode({ key: "a" }),
           ],
@@ -308,10 +331,22 @@ describe("schematic queries", () => {
           key: s.key,
           actions: [
             schematic.setEdge({
-              edge: { key: "e1", source: "n1", target: "n2", id: "e1", selected: false },
+              edge: {
+                key: "e1",
+                source: "n1",
+                target: "n2",
+                id: "e1",
+                selected: false,
+              },
             }),
             schematic.setEdge({
-              edge: { key: "e2", source: "n2", target: "n3", id: "e2", selected: false },
+              edge: {
+                key: "e2",
+                source: "n2",
+                target: "n3",
+                id: "e2",
+                selected: false,
+              },
             }),
             schematic.removeEdge({ key: "e1" }),
           ],
@@ -347,7 +382,13 @@ describe("schematic queries", () => {
         await result.current.dispatch.updateAsync({
           key: s.key,
           actions: schematic.addNode({
-            node: { key: "persisted", position: { x: 5, y: 10 }, selected: false, zIndex: 0, type: "" },
+            node: {
+              key: "persisted",
+              position: { x: 5, y: 10 },
+              selected: false,
+              zIndex: 0,
+              type: "",
+            },
           }),
         });
       });

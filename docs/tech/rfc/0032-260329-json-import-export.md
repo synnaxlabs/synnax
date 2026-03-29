@@ -406,5 +406,5 @@ Implement missing zyn types:
 
 1. **TypeScript/Python zyn equivalents.** The Console currently does client-side
    import/export with its own ad-hoc validation. Should Oracle generate zod schemas (TS)
-   or pydantic models (Python) for cross-language validation parity? Not blocking for the
-   initial Go implementation, but worth considering for long-term consistency.
+   or pydantic models (Python) for cross-language validation parity? Not blocking for
+   the initial Go implementation, but worth considering for long-term consistency.

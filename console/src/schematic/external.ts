@@ -10,7 +10,12 @@
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { extract } from "@/schematic/export";
-import { ContextMenu, LAYOUT_TYPE, SchematicComponent, Selectable } from "@/schematic/Schematic";
+import {
+  ContextMenu,
+  LAYOUT_TYPE,
+  SchematicComponent,
+  Selectable,
+} from "@/schematic/Schematic";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
 import { type Selector } from "@/selector";
 

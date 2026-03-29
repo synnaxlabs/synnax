@@ -61,10 +61,7 @@ const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
   }
 };
 
-const handleRemoveNode = (
-  state: Schematic,
-  payload: RemoveNodePayload,
-): void => {
+const handleRemoveNode = (state: Schematic, payload: RemoveNodePayload): void => {
   const i = state.nodes.findIndex((n) => n.key === payload.key);
   if (i !== -1) state.nodes.splice(i, 1);
   // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -77,10 +74,7 @@ const handleSetEdge = (state: Schematic, payload: SetEdgePayload): void => {
   else state.edges.push(payload.edge);
 };
 
-const handleRemoveEdge = (
-  state: Schematic,
-  payload: RemoveEdgePayload,
-): void => {
+const handleRemoveEdge = (state: Schematic, payload: RemoveEdgePayload): void => {
   const i = state.edges.findIndex((e) => e.key === payload.key);
   if (i !== -1) state.edges.splice(i, 1);
 };
@@ -93,18 +87,12 @@ const handleSetNodeDimensions = (
   if (node != null) node.measured = payload.dimensions;
 };
 
-const handleSetNodeProps = (
-  state: Schematic,
-  payload: SetNodePropsPayload,
-): void => {
+const handleSetNodeProps = (state: Schematic, payload: SetNodePropsPayload): void => {
   if (state.props == null) state.props = {};
   state.props[payload.key] = payload.props;
 };
 
-const handleSetEdgeData = (
-  state: Schematic,
-  payload: SetEdgeDataPayload,
-): void => {
+const handleSetEdgeData = (state: Schematic, payload: SetEdgeDataPayload): void => {
   const edge = state.edges.find((e) => e.key === payload.key);
   if (edge != null) edge.data = payload.data;
 };
