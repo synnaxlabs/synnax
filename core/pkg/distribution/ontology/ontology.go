@@ -31,7 +31,6 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -74,9 +73,6 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
-	c.RelationshipCodec = override.Nil(c.RelationshipCodec, other.RelationshipCodec)
-	c.ResourceCodec = override.Nil(c.ResourceCodec, other.ResourceCodec)
 	return c
 }
 
@@ -89,9 +85,9 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 	resourceTable, err := gorp.OpenTable[string, Resource](ctx, gorp.TableConfig[Resource]{
 		DB:    cfg.DB,
-		Codec: cfg.ResourceCodec,
+		Codec: ResourceCodec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[string, Resource]("msgpack_to_binary", cfg.ResourceCodec),
+			gorp.NewCodecTransition[string, Resource]("msgpack_to_binary", ResourceCodec),
 		},
 	})
 	if err != nil {
@@ -99,9 +95,9 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, gorp.TableConfig[Relationship]{
 		DB:    cfg.DB,
-		Codec: cfg.RelationshipCodec,
+		Codec: RelationshipCodec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_binary", cfg.RelationshipCodec),
+			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_binary", RelationshipCodec),
 		},
 	})
 	if err != nil {
@@ -110,8 +106,6 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
-		RelationshipObserver: relationshipTable.Observe(),
-		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		RelationshipObserver: relationshipTable.Observe(),
 		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		resourceTable:        resourceTable,

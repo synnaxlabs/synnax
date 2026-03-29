@@ -179,6 +179,10 @@ func (p *Plugin) generateForEntry(
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate frozen types for %s", origPath)
 		}
+		entryMethods := generateGorpEntryMethods(types, migrateEntryNames)
+		if len(entryMethods) > 0 {
+			typeContent = append(typeContent, entryMethods...)
+		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    mirroredPath + "/types.gen.go",
 			Content: typeContent,
@@ -565,6 +569,42 @@ func generateFrozenTypesFile(
 	return gotypes.GenerateGoFile(outputPath, structs, enums, typeDefs, table, repoRoot)
 }
 
+func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set[string]) []byte {
+	var buf bytes.Buffer
+	for _, typ := range types {
+		if !migrateEntryNames.Contains(getGoName(typ)) {
+			continue
+		}
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok || !form.HasKeyDomain {
+			continue
+		}
+		goName := getGoName(typ)
+		keyFieldGoName := findKeyFieldGoName(form)
+		if keyFieldGoName == "" {
+			continue
+		}
+		buf.WriteString(fmt.Sprintf(
+			"\nfunc (e %s) GorpKey() Key { return e.%s }\n",
+			goName, keyFieldGoName,
+		))
+		buf.WriteString(fmt.Sprintf(
+			"\nfunc (e %s) SetOptions() []any { return nil }\n",
+			goName,
+		))
+	}
+	return buf.Bytes()
+}
+
+func findKeyFieldGoName(form resolution.StructForm) string {
+	for _, f := range form.Fields {
+		if _, ok := f.Domains["key"]; ok {
+			return naming.GetFieldName(f)
+		}
+	}
+	return ""
+}
+
 func hasMigrateAnnotation(typ resolution.Type) bool {
 	domain, ok := typ.Domains["go"]
 	if !ok {
@@ -608,14 +648,14 @@ func {{$entry.GoName}}Migrations() []gorp.Migration {
 		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", {{$entry.GoName}}Codec),
 {{- range $entry.SchemaChanges}}
 {{- if .IsIntermediate}}
-		gorp.WithDependencies(gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
+		gorp.WithDependencies(gorp.NewTypedMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
 			{{.ImportAlias}}.{{$entry.GoName}}Codec,
 			{{.NextImportAlias}}.{{$entry.GoName}}Codec,
 			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
 		), "{{.DependsOn}}"),
 {{- else}}
-		gorp.WithDependencies(gorp.NewTypedMigration[{{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
+		gorp.WithDependencies(gorp.NewTypedMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
 			{{.ImportAlias}}.{{$entry.GoName}}Codec,
 			{{$entry.GoName}}Codec,

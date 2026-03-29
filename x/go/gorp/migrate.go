@@ -13,10 +13,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"go.uber.org/zap"
 )
 
 // Deprecated: Use Migration interface and OpenTable with variadic migrations.
@@ -118,16 +120,27 @@ type Migration interface {
 type MigrationConfig struct {
 	Prefix  []byte
 	DBCodec binary.Codec
+	L       *alamos.Logger
 }
+
+// EntryCounter is optionally implemented by Migration types that track how many
+// entries they processed. OpenTable checks for this after each migration to include
+// entry counts in log output.
+type EntryCounter interface {
+	EntriesProcessed() int
+}
+
+const migrationProgressInterval = 10000
 
 // TransformFunc transforms an old entry of type I into a new entry of type O.
 type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
-type typedMigration[I, O any] struct {
+type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 	name        string
 	inputCodec  binary.Codec
 	outputCodec binary.Codec
 	transform   TransformFunc[I, O]
+	entries     int
 }
 
 // NewTypedMigration creates a Migration that iterates over all entries with the
@@ -135,13 +148,13 @@ type typedMigration[I, O any] struct {
 // type O via the transform function, and encodes the result using outputCodec.
 // If inputCodec is nil, MigrationConfig.DBCodec is used for decoding.
 // If outputCodec is nil, MigrationConfig.DBCodec is used for encoding.
-func NewTypedMigration[I, O any](
+func NewTypedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	name string,
 	inputCodec binary.Codec,
 	outputCodec binary.Codec,
 	transform TransformFunc[I, O],
 ) Migration {
-	return &typedMigration[I, O]{
+	return &typedMigration[IK, OK, I, O]{
 		name:        name,
 		inputCodec:  inputCodec,
 		outputCodec: outputCodec,
@@ -149,13 +162,16 @@ func NewTypedMigration[I, O any](
 	}
 }
 
-func (m *typedMigration[I, O]) Name() string { return m.name }
+func (m *typedMigration[IK, OK, I, O]) Name() string { return m.name }
 
-func (m *typedMigration[I, O]) Run(
+func (m *typedMigration[IK, OK, I, O]) EntriesProcessed() int { return m.entries }
+
+func (m *typedMigration[IK, OK, I, O]) Run(
 	ctx context.Context,
 	kvTx kv.Tx,
 	cfg MigrationConfig,
 ) error {
+	m.entries = 0
 	inCodec := m.inputCodec
 	if inCodec == nil {
 		inCodec = cfg.DBCodec
@@ -172,17 +188,25 @@ func (m *typedMigration[I, O]) Run(
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		m.entries++
+		if m.entries%migrationProgressInterval == 0 {
+			cfg.L.Debug(
+				"migration progress",
+				zap.String("migration", m.name),
+				zap.Int("entries", m.entries),
+			)
+		}
 		var old I
 		if err = inCodec.Decode(ctx, iter.Value(), &old); err != nil {
-			return err
+			return errors.Wrapf(err, "entry %q (decode)", iter.Key())
 		}
 		newEntry, err := m.transform(ctx, old)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "entry %v (transform)", old.GorpKey())
 		}
 		var data []byte
 		if data, err = outCodec.Encode(ctx, newEntry); err != nil {
-			return err
+			return errors.Wrapf(err, "entry %v (encode)", newEntry.GorpKey())
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
 			return err
@@ -192,8 +216,9 @@ func (m *typedMigration[I, O]) Run(
 }
 
 type codecTransitionMigration[K Key, E Entry[K]] struct {
-	name  string
-	codec binary.Codec
+	name    string
+	codec   binary.Codec
+	entries int
 }
 
 // NewCodecTransition creates a Migration that re-encodes all entries from the DB's
@@ -204,11 +229,14 @@ func NewCodecTransition[K Key, E Entry[K]](name string, codec binary.Codec) Migr
 
 func (m *codecTransitionMigration[K, E]) Name() string { return m.name }
 
+func (m *codecTransitionMigration[K, E]) EntriesProcessed() int { return m.entries }
+
 func (m *codecTransitionMigration[K, E]) Run(
 	ctx context.Context,
 	kvTx kv.Tx,
 	cfg MigrationConfig,
 ) error {
+	m.entries = 0
 	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
 	if err != nil {
 		return err
@@ -217,13 +245,21 @@ func (m *codecTransitionMigration[K, E]) Run(
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		m.entries++
+		if m.entries%migrationProgressInterval == 0 {
+			cfg.L.Debug(
+				"migration progress",
+				zap.String("migration", m.name),
+				zap.Int("entries", m.entries),
+			)
+		}
 		var entry E
 		if err = cfg.DBCodec.Decode(ctx, iter.Value(), &entry); err != nil {
-			return err
+			return errors.Wrapf(err, "entry %q (decode)", iter.Key())
 		}
 		var data []byte
 		if data, err = m.codec.Encode(ctx, entry); err != nil {
-			return err
+			return errors.Wrapf(err, "entry %v (encode)", entry.GorpKey())
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
 			return err

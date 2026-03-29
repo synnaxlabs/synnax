@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -42,6 +43,8 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -51,6 +54,7 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -84,9 +88,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 
 	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
-		DB:         cfg.DB,
-		Codec:      UserCodec,
-		Migrations: UserMigrations(),
+		DB:              cfg.DB,
+		Codec:           UserCodec,
+		Migrations:      UserMigrations(),
+		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err

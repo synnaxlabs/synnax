@@ -167,10 +167,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}()
 
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
+		Instrumentation: cfg.Child("user"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -199,11 +200,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("label"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -242,32 +244,36 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("schematic"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("lineplot"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("log"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("table"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -298,13 +304,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-		Status:   l.Status,
-		Rack:     l.Rack,
+		Instrumentation: cfg.Child("device"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+		Status:          l.Status,
+		Rack:            l.Rack,
 	}); !ok(err, l.Device) {
 		return nil, err
 	}

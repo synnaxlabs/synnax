@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -43,6 +44,8 @@ type ServiceConfig struct {
 	// Search is the search index for fuzzy searching schematics.
 	// [REQUIRED]
 	Search *search.Index
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -53,6 +56,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -86,9 +90,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
-		DB:         cfg.DB,
-		Codec:      SchematicCodec,
-		Migrations: SchematicMigrations(),
+		DB:              cfg.DB,
+		Codec:           SchematicCodec,
+		Migrations:      SchematicMigrations(),
+		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err

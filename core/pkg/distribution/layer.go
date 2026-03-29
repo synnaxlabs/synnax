@@ -236,10 +236,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ontology, err = ontology.Open(
 		ctx,
 		ontology.Config{
-			Instrumentation:   cfg.Child("ontology"),
-			DB:                l.DB,
-			RelationshipCodec: ontology.RelationshipCodec,
-			ResourceCodec:     ontology.ResourceCodec,
+			Instrumentation: cfg.Child("ontology"),
+			DB:              l.DB,
 		},
 	); !ok(err, l.Ontology) {
 		return nil, err

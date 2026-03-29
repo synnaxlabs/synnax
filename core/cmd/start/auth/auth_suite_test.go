@@ -65,10 +65,11 @@ var _ = BeforeSuite(func() {
 		Group:    g,
 		Search:   searchIdx,
 	}))
+	authKV = MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
 	svc = &service.Layer{
 		User: userSvc,
 		RBAC: rbacSvc,
-		Auth: MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: db})),
+		Auth: authKV,
 	}
 })
 

@@ -14,13 +14,17 @@ import (
 	stdbinary "encoding/binary"
 	"io"
 	"iter"
+	"sort"
 	"strings"
+	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
+	"go.uber.org/zap"
 )
 
 // TableConfig configures a Table opened via OpenTable.
@@ -28,6 +32,7 @@ type TableConfig[E any] struct {
 	DB         *DB
 	Codec      binary.Codec
 	Migrations []Migration
+	alamos.Instrumentation
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
@@ -53,13 +58,14 @@ func OpenTable[K Key, E Entry[K]](
 	cfg TableConfig[E],
 ) (*Table[K, E], error) {
 	codec := resolveCodec(cfg.Codec, cfg.DB)
-	prefix := []byte(magicPrefix + types.Name[E]())
-	versionKey := []byte(migrationVersionPrefix + types.Name[E]())
+	tableName := types.Name[E]()
+	prefix := []byte(magicPrefix + tableName)
+	versionKey := []byte(migrationVersionPrefix + tableName)
 	kvTx := cfg.DB.KV().OpenTx()
 	defer func() {
 		_ = kvTx.Close()
 	}()
-	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB}
+	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB, L: cfg.L}
 	if len(cfg.Migrations) > 0 {
 		applied, err := readAppliedMigrations(ctx, kvTx, versionKey, cfg.Migrations)
 		if err != nil {
@@ -69,14 +75,64 @@ func OpenTable[K Key, E Entry[K]](
 		if err != nil {
 			return nil, err
 		}
-		for _, m := range pending {
-			if err := m.Run(ctx, kvTx, migCfg); err != nil {
-				return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
+		if len(pending) > 0 {
+			totalStart := time.Now()
+			cfg.L.Info(
+				"starting migrations",
+				zap.String("table", tableName),
+				zap.Int("pending", len(pending)),
+			)
+			if len(applied) > 0 {
+				appliedNames := make([]string, 0, len(applied))
+				for name := range applied {
+					appliedNames = append(appliedNames, name)
+				}
+				sort.Strings(appliedNames)
+				cfg.L.Debug(
+					"already applied",
+					zap.String("table", tableName),
+					zap.Strings("applied", appliedNames),
+				)
 			}
-			applied[m.Name()] = true
-			if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
-				return nil, err
+			for _, m := range pending {
+				mStart := time.Now()
+				if err := m.Run(ctx, kvTx, migCfg); err != nil {
+					entries := 0
+					if ec, ok := m.(EntryCounter); ok {
+						entries = ec.EntriesProcessed()
+					}
+					cfg.L.Error(
+						"migration failed",
+						zap.String("table", tableName),
+						zap.String("migration", m.Name()),
+						zap.Int("entries_processed", entries),
+						zap.Duration("elapsed", time.Since(mStart)),
+						zap.Error(err),
+					)
+					return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
+				}
+				entries := 0
+				if ec, ok := m.(EntryCounter); ok {
+					entries = ec.EntriesProcessed()
+				}
+				cfg.L.Info(
+					"migration complete",
+					zap.String("table", tableName),
+					zap.String("migration", m.Name()),
+					zap.Int("entries", entries),
+					zap.Duration("elapsed", time.Since(mStart)),
+				)
+				applied[m.Name()] = true
+				if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
+					return nil, err
+				}
 			}
+			cfg.L.Info(
+				"migrations complete",
+				zap.String("table", tableName),
+				zap.Int("migrations", len(pending)),
+				zap.Duration("elapsed", time.Since(totalStart)),
+			)
 		}
 	}
 	// migrateOldPrefixKeys uses the DB's default codec to compute the old prefix

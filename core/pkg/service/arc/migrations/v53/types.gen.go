@@ -58,3 +58,7 @@ type StatusDetails struct {
 	// Running indicates whether the Arc module is currently executing.
 	Running bool `json:"running" msgpack:"running"`
 }
+
+func (e Arc) GorpKey() Key { return e.Key }
+
+func (e Arc) SetOptions() []any { return nil }

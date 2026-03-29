@@ -116,9 +116,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
-		DB:         cfg.DB,
-		Codec:      TaskCodec,
-		Migrations: TaskMigrations(),
+		DB:              cfg.DB,
+		Codec:           TaskCodec,
+		Migrations:      TaskMigrations(),
+		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err

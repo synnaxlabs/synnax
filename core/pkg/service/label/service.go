@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -45,6 +46,8 @@ type ServiceConfig struct {
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -67,6 +70,7 @@ func (c ServiceConfig) Validate() error {
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -97,6 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Migrations: []gorp.Migration{
 			gorp.NewCodecTransition[Key, Label]("msgpack_to_binary", golabel.LabelCodec),
 		},
+		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
