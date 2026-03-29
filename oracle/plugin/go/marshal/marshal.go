@@ -12,15 +12,14 @@
 package marshal
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -62,30 +61,6 @@ func (p *Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 
-func hasMarshalAnnotation(typ resolution.Type) bool {
-	domain, ok := typ.Domains["go"]
-	if !ok {
-		return false
-	}
-	for _, expr := range domain.Expressions {
-		if expr.Name == "marshal" {
-			return true
-		}
-	}
-	return false
-}
-
-func getGoName(s resolution.Type) string {
-	if domain, ok := s.Domains["go"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
-}
-
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -96,7 +71,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	var entryTypes []entryInfo
 	for _, entry := range req.Resolutions.StructTypes() {
-		if !hasMarshalAnnotation(entry) || !output.HasPB(entry) {
+		if !domain.HasExprFromType(entry, "go", "marshal") || !output.HasPB(entry) {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")
@@ -108,11 +83,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				return nil, errors.Wrapf(err, "invalid output path for %s", entry.Name)
 			}
 		}
-		goName := getGoName(entry)
-		if goName == "" {
-			goName = entry.Name
-		}
-		entryTypes = append(entryTypes, entryInfo{goName: goName, goPath: goPath})
+		entryTypes = append(entryTypes, entryInfo{goName: naming.GetGoName(entry), goPath: goPath})
 	}
 
 	// Merge all entry types' dependency trees per package.
@@ -123,11 +94,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		entry, _ := req.Resolutions.Get(ei.goName)
 		if entry.QualifiedName == "" {
 			for _, t := range req.Resolutions.StructTypes() {
-				n := getGoName(t)
-				if n == "" {
-					n = t.Name
-				}
-				if n == ei.goName {
+				if naming.GetGoName(t) == ei.goName {
 					entry = t
 					break
 				}
@@ -147,18 +114,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// Generate one file per package.
 	for goPath, typeMap := range merged {
 		packageName := naming.DerivePackageName(goPath)
-		var entries []CodecEntry
-		for _, t := range typeMap {
-			goName := getGoName(t)
-			if goName == "" {
-				goName = naming.ToPascalCase(t.Name)
-			}
-			ce := CodecEntry{GoName: goName, Type: t}
-			if adapterPath, ok := adapters[goName]; ok && adapterPath == goPath {
-				ce.Adapter = true
-			}
-			entries = append(entries, ce)
-		}
+		entries := buildCodecEntries(typeMap, adapters, goPath)
 		if len(entries) == 0 {
 			continue
 		}
@@ -177,18 +133,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if p.Options.GenerateTests {
 		for goPath, typeMap := range merged {
 			packageName := naming.DerivePackageName(goPath)
-			var entries []CodecEntry
-			for _, t := range typeMap {
-				goName := getGoName(t)
-				if goName == "" {
-					goName = naming.ToPascalCase(t.Name)
-				}
-				ce := CodecEntry{GoName: goName, Type: t}
-				if adapterPath, ok := adapters[goName]; ok && adapterPath == goPath {
-					ce.Adapter = true
-				}
-				entries = append(entries, ce)
-			}
+			entries := buildCodecEntries(typeMap, adapters, goPath)
 			testContent, testErr := generateTestCodecFile(
 				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
 			)
@@ -214,6 +159,23 @@ type CodecEntry struct {
 	Adapter bool
 }
 
+func buildCodecEntries(
+	typeMap map[string]resolution.Type,
+	adapters map[string]string,
+	goPath string,
+) []CodecEntry {
+	var entries []CodecEntry
+	for _, t := range typeMap {
+		goName := naming.GetGoName(t)
+		ce := CodecEntry{GoName: goName, Type: t}
+		if adapterPath, ok := adapters[goName]; ok && adapterPath == goPath {
+			ce.Adapter = true
+		}
+		entries = append(entries, ce)
+	}
+	return entries
+}
+
 // GenerateCodecFile generates a complete codec file for the given entries using the
 // specified package name and output path context. This is used by the migrate plugin
 // to generate frozen codecs for old schema versions. Each entry gets exported
@@ -237,56 +199,5 @@ func lowerFirst(s string) string {
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	if repoRoot == "" {
-		return "github.com/synnaxlabs/synnax/" + outputPath, nil
-	}
-	absPath := filepath.Join(repoRoot, outputPath)
-	dir := absPath
-	for {
-		modPath := filepath.Join(dir, "go.mod")
-		if fileExists(modPath) {
-			moduleName, err := parseModuleName(modPath)
-			if err != nil {
-				return "", errors.Wrapf(err, "failed to parse go.mod at %s", modPath)
-			}
-			relPath, err := filepath.Rel(dir, absPath)
-			if err != nil {
-				return "", errors.Wrapf(err, "failed to compute relative path")
-			}
-			if relPath == "." {
-				return moduleName, nil
-			}
-			return moduleName + "/" + filepath.ToSlash(relPath), nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return "github.com/synnaxlabs/synnax/" + outputPath, nil
-}
-
-func parseModuleName(modPath string) (string, error) {
-	file, err := os.Open(modPath)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = file.Close() }()
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "module ") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return parts[1], nil
-			}
-		}
-	}
-	return "", errors.New("module name not found in go.mod")
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
 }

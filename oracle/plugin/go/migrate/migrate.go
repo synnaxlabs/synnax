@@ -26,6 +26,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -71,7 +72,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	var outputOrder []string
 
 	for _, entry := range req.Resolutions.StructTypes() {
-		if !hasMigrateAnnotation(entry) {
+		if !domain.HasExprFromType(entry, "go", "migrate") {
 			continue
 		}
 		form, ok := entry.Form.(resolution.StructForm)
@@ -82,7 +83,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		mEntry := migrationEntry{GoName: getGoName(entry), GoPath: goPath}
+		mEntry := migrationEntry{GoName: naming.GetGoName(entry), GoPath: goPath}
 		existingVersions, err := discoverExistingVersions(goPath, req.RepoRoot)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to discover existing migrations for %s", goPath)
@@ -261,7 +262,7 @@ func codecEntriesForTypes(
 		if !reachable.Contains(t.QualifiedName) {
 			continue
 		}
-		goName := goNameFromType(t)
+		goName := naming.GetGoName(t)
 		ce := gomarshal.CodecEntry{GoName: goName, Type: t}
 		if migrateEntryNames.Contains(goName) {
 			ce.Adapter = true
@@ -269,17 +270,6 @@ func codecEntriesForTypes(
 		entries = append(entries, ce)
 	}
 	return entries
-}
-
-func goNameFromType(t resolution.Type) string {
-	if domain, ok := t.Domains["go"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return naming.ToPascalCase(t.Name)
 }
 
 func (p *Plugin) generateSubPackageMigration(
@@ -572,14 +562,14 @@ func generateFrozenTypesFile(
 func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set[string]) []byte {
 	var buf bytes.Buffer
 	for _, typ := range types {
-		if !migrateEntryNames.Contains(getGoName(typ)) {
+		if !migrateEntryNames.Contains(naming.GetGoName(typ)) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
 		if !ok || !form.HasKeyDomain {
 			continue
 		}
-		goName := getGoName(typ)
+		goName := naming.GetGoName(typ)
 		keyFieldGoName := findKeyFieldGoName(form)
 		if keyFieldGoName == "" {
 			continue
@@ -603,30 +593,6 @@ func findKeyFieldGoName(form resolution.StructForm) string {
 		}
 	}
 	return ""
-}
-
-func hasMigrateAnnotation(typ resolution.Type) bool {
-	domain, ok := typ.Domains["go"]
-	if !ok {
-		return false
-	}
-	for _, expr := range domain.Expressions {
-		if expr.Name == "migrate" {
-			return true
-		}
-	}
-	return false
-}
-
-func getGoName(t resolution.Type) string {
-	if domain, ok := t.Domains["go"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return t.Name
 }
 
 // --- Templates ---
@@ -812,10 +778,10 @@ func renderTypeMigrateTemplate(
 		if !ok || td.Kind != TypeChanged {
 			continue
 		}
-		goName := getGoName(typ)
+		goName := naming.GetGoName(typ)
 		newType, _ := newTable.Get(typ.QualifiedName)
 		newGoPath := output.GetPath(newType, "go")
-		newTypeName := getGoName(newType)
+		newTypeName := naming.GetGoName(newType)
 		if newGoPath != mirroredPath {
 			ip := gomod.ResolveImportPath(newGoPath, repoRoot, gomod.DefaultModulePrefix)
 			alias := naming.DerivePackageAlias(newGoPath, pkg)

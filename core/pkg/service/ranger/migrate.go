@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/binary"
@@ -24,13 +23,13 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type rangeGroupsMigration struct {
 	otg   *ontology.Ontology
 	group *group.Service
 	codec binary.Codec
-	l     *alamos.Logger
 }
 
 func (m *rangeGroupsMigration) Name() string { return "range_groups" }
@@ -42,7 +41,7 @@ func (m *rangeGroupsMigration) Run(
 ) error {
 	gorpTx := gorp.WrapTx(kvTx, m.codec)
 
-	m.l.Info("Swapping ranges to make sure the time range is valid.")
+	migCfg.L.Debug("swapping invalid time ranges")
 	if err := m.swapRanges(ctx, kvTx, migCfg.Prefix); err != nil {
 		return err
 	}
@@ -59,9 +58,6 @@ func (m *rangeGroupsMigration) Run(
 		return err
 	}
 
-	m.l.Info(
-		"Migrating subgroups of the Ranges group to ranges and deleting the group.",
-	)
 	var groups []ontology.Resource
 	if err := m.otg.
 		NewRetrieve().
@@ -72,6 +68,7 @@ func (m *rangeGroupsMigration) Run(
 		Exec(ctx, gorpTx); err != nil {
 		return err
 	}
+	migCfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
 
 	otgWriter := m.otg.NewWriter(gorpTx)
 	if err := otgWriter.DeleteOutgoingRelationshipsOfType(
@@ -92,32 +89,36 @@ func (m *rangeGroupsMigration) Run(
 
 	for _, g := range groups {
 		var childRanges []ontology.Resource
+		// ExcludeFieldData is required because this migration runs during
+		// OpenService before the range ontology service is registered. Without
+		// it, the ontology would panic trying to retrieve range resources.
 		if err = m.otg.
 			NewRetrieve().
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ontology.ResourceTypeRange).
+			ExcludeFieldData(true).
 			Entries(&childRanges).
 			Exec(ctx, gorpTx); err != nil {
 			return err
 		}
-		m.l.Infof(
-			"Migrating range group: %s with %d children.",
-			g.Name,
-			len(childRanges),
+		migCfg.L.Debug(
+			"migrating range group",
+			zap.String("group", g.Name),
+			zap.Int("children", len(childRanges)),
 		)
 		gKey, err := uuid.Parse(g.ID.Key)
 		if err != nil {
 			return err
 		}
-		if err := otgWriter.DeleteOutgoingRelationshipsOfType(
+		if err = otgWriter.DeleteOutgoingRelationshipsOfType(
 			ctx,
 			g.ID,
 			ontology.RelationshipTypeParentOf,
 		); err != nil {
 			return err
 		}
-		if err := m.group.NewWriter(gorpTx).Delete(ctx, gKey); err != nil {
+		if err = m.group.NewWriter(gorpTx).Delete(ctx, gKey); err != nil {
 			return err
 		}
 		if len(childRanges) == 0 {
@@ -163,7 +164,6 @@ func (m *rangeGroupsMigration) Run(
 		}
 	}
 
-	m.l.Info("finished ranger migration")
 	return nil
 }
 
@@ -251,7 +251,6 @@ func newRangeGroupsMigration(cfg ServiceConfig) gorp.Migration {
 		otg:   cfg.Ontology,
 		group: cfg.Group,
 		codec: RangeCodec,
-		l:     cfg.L,
 	}
 }
 

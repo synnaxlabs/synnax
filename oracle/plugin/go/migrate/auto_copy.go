@@ -237,7 +237,7 @@ func (c *collector) structFunc(typ resolution.Type, sf resolution.StructForm) fu
 	newType, _ := c.newTable.Get(typ.QualifiedName)
 	newSF, _ := newType.Form.(resolution.StructForm)
 	return c.structFuncFromForms(
-		getGoName(typ),
+		naming.GetGoName(typ),
 		c.resolveTypeName(typ, c.oldTable),
 		c.resolveNewTypeName(typ),
 		sf, newSF,
@@ -245,7 +245,7 @@ func (c *collector) structFunc(typ resolution.Type, sf resolution.StructForm) fu
 }
 
 func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) funcData {
-	goName := getGoName(typ)
+	goName := naming.GetGoName(typ)
 	oldName := c.resolveTypeName(typ, c.oldTable)
 	newName := c.resolveNewTypeName(typ)
 	if isArr, elemRef := isArrayAlias(form, c.oldTable); isArr {
@@ -272,7 +272,7 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 }
 
 func (c *collector) distinctFunc(typ resolution.Type, form resolution.DistinctForm) funcData {
-	goName := getGoName(typ)
+	goName := naming.GetGoName(typ)
 	oldName := c.resolveTypeName(typ, c.oldTable)
 	newName := c.resolveNewTypeName(typ)
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
@@ -283,7 +283,7 @@ func (c *collector) distinctFunc(typ resolution.Type, form resolution.DistinctFo
 
 func (c *collector) castFunc(typ resolution.Type) funcData {
 	return funcData{
-		GoName:      getGoName(typ),
+		GoName:      naming.GetGoName(typ),
 		OldTypeName: c.resolveTypeName(typ, c.oldTable),
 		NewTypeName: c.resolveNewTypeName(typ),
 		Kind:        "cast",
@@ -306,7 +306,7 @@ func (c *collector) structFuncFromForms(
 		if !ok {
 			continue
 		}
-		name := getGoName(oldParent)
+		name := naming.GetGoName(oldParent)
 		c.addField(&fn, ext, "old."+name, name, false)
 	}
 	for _, oldField := range oldSF.Fields {
@@ -440,7 +440,7 @@ func (c *collector) classifySlice(
 // --- Type resolution helpers ---
 
 func (c *collector) requireFunc(typ resolution.Type) string {
-	goName := getGoName(typ)
+	goName := naming.GetGoName(typ)
 	goPath := output.GetPath(typ, "go")
 	isLocal := goPath == c.outputPath
 	if !isLocal {
@@ -471,9 +471,9 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 func (c *collector) resolveTypeName(typ resolution.Type, table *resolution.Table) string {
 	t, ok := table.Get(typ.QualifiedName)
 	if !ok {
-		return getGoName(typ)
+		return naming.GetGoName(typ)
 	}
-	goName := getGoName(t)
+	goName := naming.GetGoName(t)
 	goPath := output.GetPath(t, "go")
 	if goPath == "" || goPath == c.outputPath {
 		return goName
@@ -484,7 +484,7 @@ func (c *collector) resolveTypeName(typ resolution.Type, table *resolution.Table
 func (c *collector) resolveNewTypeName(typ resolution.Type) string {
 	nt, ok := c.newTable.Get(typ.QualifiedName)
 	if !ok {
-		return getGoName(typ)
+		return naming.GetGoName(typ)
 	}
 	return c.resolveTypeName(nt, c.newTable)
 }

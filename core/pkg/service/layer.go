@@ -210,16 +210,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-		Label:    l.Label,
+		Instrumentation: cfg.Child("ranger"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+		Label:           l.Label,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
+		Instrumentation: cfg.Child("alias"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
@@ -229,17 +231,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
-		DB:      cfg.Distribution.DB,
-		Signals: cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("kv"),
+		DB:              cfg.Distribution.DB,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("workspace"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
@@ -391,7 +395,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
 		Channel:    l.Channel,
 		Framer:     cfg.Distribution.Framer,

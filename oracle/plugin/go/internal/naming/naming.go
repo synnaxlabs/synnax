@@ -61,6 +61,15 @@ func GetFieldName(f resolution.Field) string {
 	return ToPascalCase(f.Name)
 }
 
+// GetGoName returns the Go name for a type. It checks for a @go name
+// override first, then falls back to ToPascalCase of the schema type name.
+func GetGoName(t resolution.Type) string {
+	if override := domain.GetStringFromType(t, "go", "name"); override != "" {
+		return override
+	}
+	return ToPascalCase(t.Name)
+}
+
 // DerivePackageName extracts the package name from an output path.
 // Example: "core/pkg/service/user" -> "user"
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }

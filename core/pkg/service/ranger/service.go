@@ -57,7 +57,7 @@ type ServiceConfig struct {
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for opening a range service.
-	DefaultServiceConfig = ServiceConfig{}
+	DefaultServiceConfig = ServiceConfig{ForceMigration: new(false)}
 )
 
 // Validate implements config.Config.

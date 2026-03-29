@@ -187,10 +187,7 @@ func resolveGoImportPath(outputPath, repoRoot string) string {
 }
 
 func processEnum(e resolution.Type) enumData {
-	name := getGoName(e)
-	if name == "" {
-		name = e.Name
-	}
+	name := naming.GetGoName(e)
 	form := e.Form.(resolution.EnumForm)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
@@ -219,10 +216,7 @@ func processEnum(e resolution.Type) enumData {
 }
 
 func processTypeDef(td resolution.Type, data *templateData) typeDefData {
-	name := getGoName(td)
-	if name == "" {
-		name = td.Name
-	}
+	name := naming.GetGoName(td)
 
 	switch form := td.Form.(type) {
 	case resolution.DistinctForm:
@@ -444,10 +438,7 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
-	name := getGoName(parent)
-	if name == "" {
-		name = parent.Name
-	}
+	name := naming.GetGoName(parent)
 
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
@@ -646,7 +637,3 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{end -}}
 {{end -}}
 `))
-
-func getGoName(t resolution.Type) string {
-	return domain.GetStringFromType(t, "go", "name")
-}

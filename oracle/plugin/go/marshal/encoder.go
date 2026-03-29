@@ -278,7 +278,7 @@ func (b *encoderBuilder) processFields(
 		// Type parameter fields are always processed via their converter,
 		// regardless of optional flags.
 		if f.Type.IsTypeParam() && b.typeParamConverters != nil {
-			if converter, ok := b.typeParamConverters[f.Type.Name]; ok {
+			if converter, ok := b.typeParamConverters[f.Type.TypeParam.Name]; ok {
 				if err := b.processTypeParamField(converter, getPath, setPath); err != nil {
 					return err
 				}
@@ -319,7 +319,7 @@ func (b *encoderBuilder) processValueByType(
 ) error {
 	// Check if this is a type parameter field - delegate to converter function.
 	if ref.IsTypeParam() && b.typeParamConverters != nil {
-		if converter, ok := b.typeParamConverters[ref.Name]; ok {
+		if converter, ok := b.typeParamConverters[ref.TypeParam.Name]; ok {
 			return b.processTypeParamField(converter, getPath, setPath)
 		}
 	}
@@ -406,10 +406,7 @@ func (b *encoderBuilder) processStruct(
 ) error {
 	ind := b.indent()
 	structPath := output.GetPath(actual, "go")
-	localName := getGoName(actual)
-	if localName == "" {
-		localName = naming.ToPascalCase(actual.Name)
-	}
+	localName := naming.GetGoName(actual)
 
 	// Determine function prefix (same-package vs cross-package).
 	var fnPrefix string
@@ -490,10 +487,7 @@ func (b *encoderBuilder) processStruct(
 		goTypeArgs = append(goTypeArgs, argGoType)
 
 		// Build encoder name for this concrete type argument.
-		argLocalName := getGoName(argResolved)
-		if argLocalName == "" {
-			argLocalName = naming.ToPascalCase(argResolved.Name)
-		}
+		argLocalName := naming.GetGoName(argResolved)
 		argPath := output.GetPath(argResolved, "go")
 		var argFnPrefix string
 		if argPath != "" && argPath != b.parentPath {
@@ -940,7 +934,7 @@ func (b *encoderBuilder) resolveTypeRef(ref resolution.TypeRef) (resolution.Type
 
 func (b *encoderBuilder) canResolve(ref resolution.TypeRef) bool {
 	if ref.IsTypeParam() && b.typeParamConverters != nil {
-		if _, ok := b.typeParamConverters[ref.Name]; ok {
+		if _, ok := b.typeParamConverters[ref.TypeParam.Name]; ok {
 			return true
 		}
 	}
@@ -1073,10 +1067,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 			return "", errors.Newf("unsupported primitive type: %s", prim.Name)
 		}
 	}
-	goName := getGoName(typ)
-	if goName == "" {
-		goName = naming.ToPascalCase(typ.Name)
-	}
+	goName := naming.GetGoName(typ)
 	goPath := output.GetPath(typ, "go")
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil

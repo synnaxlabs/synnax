@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -110,7 +111,14 @@ type testValueBuilder struct {
 func (b *testValueBuilder) buildStructLiteral(
 	typ resolution.Type, goName string,
 ) (string, error) {
-	fields := resolution.UnifiedFields(typ, b.table)
+	fieldExprs, err := b.buildStructFieldExprs(typ)
+	if err != nil {
+		return "", errors.Wrapf(err, "type %s", goName)
+	}
+	return b.pkgPrefix + goName + "{" + strings.Join(fieldExprs, ", ") + "}", nil
+}
+
+func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string, error) {
 	var fieldExprs []string
 	for _, f := range fields {
 		if f.Type.Name == "nil" {
@@ -128,19 +136,57 @@ func (b *testValueBuilder) buildStructLiteral(
 		var err error
 		if f.IsHardOptional {
 			expr, err = b.hardOptionalExpr(resolved, f.Type)
-		} else if f.IsOptional && isNilableForm(resolved, b.table) {
-			expr, err = b.valueExpr(resolved, f.Type)
 		} else {
 			expr, err = b.valueExpr(resolved, f.Type)
 		}
 		if err != nil {
-			return "", errors.Wrapf(err, "field %s", fieldGoName)
+			return nil, errors.Wrapf(err, "field %s", fieldGoName)
 		}
 		if expr != "" {
 			fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
 		}
 	}
-	return b.pkgPrefix + goName + "{" + strings.Join(fieldExprs, ", ") + "}", nil
+	return fieldExprs, nil
+}
+
+func (b *testValueBuilder) buildStructFieldExprs(typ resolution.Type) ([]string, error) {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return nil, nil
+	}
+	if resolver.CanUseInheritance(form, b.table) {
+		return b.buildEmbeddedStructFieldExprs(form)
+	}
+	fields := resolution.UnifiedFields(typ, b.table)
+	return b.buildFieldExprs(fields)
+}
+
+func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
+	form resolution.StructForm,
+) ([]string, error) {
+	var exprs []string
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		parentGoName := naming.GetGoName(parent)
+		parentGoType, err := b.goTypeName(parent)
+		if err != nil {
+			return nil, err
+		}
+		parentFieldExprs, err := b.buildStructFieldExprs(parent)
+		if err != nil {
+			return nil, err
+		}
+		exprs = append(exprs, parentGoName+": "+parentGoType+"{"+strings.Join(parentFieldExprs, ", ")+"}")
+	}
+	childFieldExprs, err := b.buildFieldExprs(form.Fields)
+	if err != nil {
+		return nil, err
+	}
+	exprs = append(exprs, childFieldExprs...)
+	return exprs, nil
 }
 
 func (b *testValueBuilder) hardOptionalExpr(
@@ -153,18 +199,19 @@ func (b *testValueBuilder) hardOptionalExpr(
 	if inner == "" {
 		return "nil", nil
 	}
-	// For struct literals, extract the type from "Type{...}". For primitives,
-	// look up the Go type name directly.
+	// For struct/map/slice literals, extract the type from "Type{...}".
+	// For primitives, cast the value to the correct type so that Go's
+	// type inference assigns the right type to v (e.g., uint8(5) not just 5).
 	var goType string
 	if idx := strings.Index(inner, "{"); idx >= 0 {
 		goType = inner[:idx]
-	} else {
-		goType, err = b.goTypeName(resolved)
-		if err != nil {
-			return "", err
-		}
+		return fmt.Sprintf("func() *%s { v := %s; return &v }()", goType, inner), nil
 	}
-	return fmt.Sprintf("func() *%s { v := %s; return &v }()", goType, inner), nil
+	goType, err = b.goTypeName(resolved)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("func() *%s { v := %s(%s); return &v }()", goType, goType, inner), nil
 }
 
 func (b *testValueBuilder) valueExpr(
@@ -209,10 +256,7 @@ func (b *testValueBuilder) valueExpr(
 			return goType + "{}", nil
 		}
 		b.depth++
-		goName := getGoName(actual)
-		if goName == "" {
-			goName = naming.ToPascalCase(actual.Name)
-		}
+		goName := naming.GetGoName(actual)
 		structPath := output.GetPath(actual, "go")
 		prefix := b.pkgPrefix
 		if structPath != "" && structPath != b.parentPath {
@@ -283,30 +327,9 @@ func (b *testValueBuilder) valueExpr(
 			return prefix + goName + typeArgSuffix + "{" + strings.Join(fieldExprs, ", ") + "}", nil
 		}
 
-		fields := resolution.UnifiedFields(actual, b.table)
-		var fieldExprs []string
-		for _, f := range fields {
-			if f.Type.Name == "nil" {
-				continue
-			}
-			r, ok := f.Type.Resolve(b.table)
-			if !ok {
-				continue
-			}
-			fieldGoName := naming.GetFieldName(f)
-			var expr string
-			var err error
-			if f.IsHardOptional {
-				expr, err = b.hardOptionalExpr(r, f.Type)
-			} else {
-				expr, err = b.valueExpr(r, f.Type)
-			}
-			if err != nil {
-				return "", err
-			}
-			if expr != "" {
-				fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
-			}
+		fieldExprs, err := b.buildStructFieldExprs(actual)
+		if err != nil {
+			return "", err
 		}
 		b.depth--
 		return prefix + goName + "{" + strings.Join(fieldExprs, ", ") + "}", nil
@@ -505,10 +528,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 			return "", errors.Newf("unsupported primitive: %s", prim.Name)
 		}
 	}
-	goName := getGoName(typ)
-	if goName == "" {
-		goName = naming.ToPascalCase(typ.Name)
-	}
+	goName := naming.GetGoName(typ)
 	goPath := output.GetPath(typ, "go")
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
@@ -562,34 +582,6 @@ func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) 
 		}
 		actual = target
 	}
-}
-
-func isNilableForm(typ resolution.Type, table *resolution.Table) bool {
-	actual := typ
-	for {
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			target, ok := form.Target.Resolve(table)
-			if !ok {
-				return false
-			}
-			actual = target
-			continue
-		case resolution.DistinctForm:
-			target, ok := form.Base.Resolve(table)
-			if !ok {
-				return false
-			}
-			actual = target
-			continue
-		default:
-		}
-		break
-	}
-	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok {
-		return bg.Name == "Array" || bg.Name == "Map"
-	}
-	return false
 }
 
 const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.

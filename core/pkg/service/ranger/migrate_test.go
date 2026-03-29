@@ -31,18 +31,19 @@ import (
 
 var _ = Describe("Migrate", func() {
 	var (
-		db     *gorp.DB
-		ctx    context.Context
-		otg    *ontology.Ontology
-		closer io.Closer
-		gSvc   *group.Service
-		lab    *label.Service
+		db        *gorp.DB
+		ctx       context.Context
+		otg       *ontology.Ontology
+		closer    io.Closer
+		gSvc      *group.Service
+		searchIdx *search.Index
+		lab       *label.Service
 	)
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
 		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.Open())
+		searchIdx = MustSucceed(search.Open())
 		DeferCleanup(func() {
 			Expect(searchIdx.Close()).To(Succeed())
 		})
@@ -125,6 +126,7 @@ var _ = Describe("Migrate", func() {
 			Ontology: otg,
 			Group:    gSvc,
 			Label:    lab,
+			Search:   searchIdx,
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted.

@@ -24,6 +24,9 @@ func EncodeStatus[Details any](w *xbinary.Writer, s *Status[Details], encodeDeta
 	w.String(s.Message)
 	w.String(s.Description)
 	w.Int64(int64(s.Time))
+	if err := encodeDetails(w, &s.Details); err != nil {
+		return err
+	}
 	if s.Labels != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Labels)))
@@ -65,6 +68,9 @@ func DecodeStatus[Details any](r *xbinary.Reader, s *Status[Details], decodeDeta
 			return err
 		}
 		s.Time = telem.TimeStamp(v)
+	}
+	if err = decodeDetails(r, &s.Details); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()

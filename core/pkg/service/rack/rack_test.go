@@ -558,7 +558,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 
@@ -583,7 +583,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(2))
 	})
 
@@ -608,7 +608,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 })
