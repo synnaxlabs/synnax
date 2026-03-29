@@ -79,17 +79,19 @@ const useCreateSchematic = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...schematic } = data;
       await maybeChangeWorkspace(workspace);
-      const { key, name, snapshot } = schematic;
-      placeLayout(Schematic.create({ ...schematic.data, key, name, snapshot }));
+      placeLayout(
+        Schematic.create({
+          ...Schematic.stateFromRemote(schematic),
+          name: schematic.name,
+        }),
+      );
     },
   });
   return useCallback(
     () =>
       update({
         workspace: workspaceID.key,
-        name: "New Schematic",
-        snapshot: false,
-        data: deep.copy(Schematic.ZERO_STATE),
+        ...deep.copy(Schematic.ZERO_REMOTE),
       }),
     [workspaceID.key],
   );

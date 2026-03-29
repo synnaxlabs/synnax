@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, type schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -17,6 +17,16 @@ import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+
+const newSchematic = (overrides: Partial<schematic.New> = {}): schematic.New => ({
+  name: "test",
+  viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+  legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+  nodes: [],
+  edges: [],
+  props: {},
+  ...overrides,
+});
 
 describe("schematic queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
@@ -30,10 +40,10 @@ describe("schematic queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "retrieve_test",
-        data: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "retrieve_test" }),
+      );
 
       const { result } = renderHook(
         () => Schematic.useRetrieve({ key: schematic.key }),
@@ -53,10 +63,10 @@ describe("schematic queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "cached_schematic",
-        data: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "cached_schematic" }),
+      );
 
       const { result: result1 } = renderHook(
         () => Schematic.useRetrieve({ key: schematic.key }),
@@ -85,10 +95,9 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
+          ...newSchematic({ name: "created_schematic" }),
           key,
           workspace: workspace.key,
-          name: "created_schematic",
-          data: {},
         });
       });
 
@@ -113,10 +122,9 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
+          ...newSchematic({ name: "stored_schematic" }),
           key,
           workspace: workspace.key,
-          name: "stored_schematic",
-          data: {},
         });
       });
 
@@ -135,10 +143,10 @@ describe("schematic queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "original_name",
-        data: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "original_name" }),
+      );
 
       const { result } = renderHook(
         () => {
@@ -170,10 +178,10 @@ describe("schematic queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "cache_original",
-        data: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "cache_original" }),
+      );
 
       const { result } = renderHook(
         () => ({
@@ -203,10 +211,10 @@ describe("schematic queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "delete_single",
-        data: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "delete_single" }),
+      );
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
@@ -224,14 +232,14 @@ describe("schematic queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const schematic1 = await client.schematics.create(workspace.key, {
-        name: "delete_multi_1",
-        data: {},
-      });
-      const schematic2 = await client.schematics.create(workspace.key, {
-        name: "delete_multi_2",
-        data: {},
-      });
+      const schematic1 = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "delete_multi_1" }),
+      );
+      const schematic2 = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "delete_multi_2" }),
+      );
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 

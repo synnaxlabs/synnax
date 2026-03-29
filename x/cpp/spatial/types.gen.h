@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -21,11 +22,18 @@
 namespace x::spatial {
 
 struct XY;
+struct Corner;
+struct StickyUnits;
+struct Viewport;
+struct StickyXY;
 
 constexpr const char *OUTER_LOCATION_TOP = "top";
 constexpr const char *OUTER_LOCATION_RIGHT = "right";
 constexpr const char *OUTER_LOCATION_BOTTOM = "bottom";
 constexpr const char *OUTER_LOCATION_LEFT = "left";
+
+constexpr const char *DIRECTION_X = "x";
+constexpr const char *DIRECTION_Y = "y";
 
 /// @brief XY is a 2D coordinate point with x and y values. Used for positioning
 /// elements in two-dimensional space.
@@ -41,5 +49,78 @@ struct XY {
     using proto_type = ::x::spatial::pb::XY;
     [[nodiscard]] std::pair<::x::spatial::pb::XY, x::errors::Error> to_proto() const;
     static std::pair<XY, x::errors::Error> from_proto(const ::x::spatial::pb::XY &pb);
+};
+
+/// @brief Corner is an anchor corner for positioning.
+struct Corner {
+    /// @brief x is the horizontal anchor (left or right).
+    std::string x;
+    /// @brief y is the vertical anchor (top or bottom).
+    std::string y;
+
+    static Corner parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::Corner;
+    [[nodiscard]] std::pair<::x::spatial::pb::Corner, x::errors::Error>
+    to_proto() const;
+    static std::pair<Corner, x::errors::Error>
+    from_proto(const ::x::spatial::pb::Corner &pb);
+};
+
+/// @brief StickyUnits specifies the measurement units for sticky positioning.
+struct StickyUnits {
+    /// @brief x is the horizontal unit (px or decimal).
+    std::string x;
+    /// @brief y is the vertical unit (px or decimal).
+    std::string y;
+
+    static StickyUnits parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::StickyUnits;
+    [[nodiscard]] std::pair<::x::spatial::pb::StickyUnits, x::errors::Error>
+    to_proto() const;
+    static std::pair<StickyUnits, x::errors::Error>
+    from_proto(const ::x::spatial::pb::StickyUnits &pb);
+};
+
+/// @brief Viewport is the camera state of a viewport.
+struct Viewport {
+    /// @brief zoom is the zoom level where 1.0 equals 100%.
+    double zoom = 0;
+    /// @brief position is the (x, y) pan offset of the viewport.
+    XY position;
+
+    static Viewport parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::Viewport;
+    [[nodiscard]] std::pair<::x::spatial::pb::Viewport, x::errors::Error>
+    to_proto() const;
+    static std::pair<Viewport, x::errors::Error>
+    from_proto(const ::x::spatial::pb::Viewport &pb);
+};
+
+/// @brief StickyXY is a position that can be anchored to different corners of a
+/// container with configurable units (pixels or decimal fractions).
+struct StickyXY {
+    /// @brief x is the horizontal coordinate.
+    double x = 0;
+    /// @brief y is the vertical coordinate.
+    double y = 0;
+    /// @brief root is the optional anchor corner for the position.
+    Corner root;
+    /// @brief units is the optional unit specification for the coordinates.
+    StickyUnits units;
+
+    static StickyXY parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::StickyXY;
+    [[nodiscard]] std::pair<::x::spatial::pb::StickyXY, x::errors::Error>
+    to_proto() const;
+    static std::pair<StickyXY, x::errors::Error>
+    from_proto(const ::x::spatial::pb::StickyXY &pb);
 };
 }

@@ -15,9 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete logs within Synnax. The writer
@@ -134,22 +132,6 @@ func (w Writer) Copy(
 		ontology.RelationshipTypeParentOf,
 		OntologyID(newKey),
 	)
-}
-
-// SetData sets the data of the log with the given key to the provided data.
-func (w Writer) SetData(
-	ctx context.Context,
-	key uuid.UUID,
-	data map[string]any,
-) error {
-	return w.table.NewUpdate().WhereKeys(key).
-		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
-			if s.Snapshot {
-				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
-			}
-			s.Data = data
-			return s, nil
-		}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the logs with the given keys.

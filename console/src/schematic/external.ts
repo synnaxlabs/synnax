@@ -16,6 +16,7 @@ import { type Selector } from "@/selector";
 
 export * from "@/schematic/export";
 export * from "@/schematic/middleware";
+export * from "@/schematic/remote";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";

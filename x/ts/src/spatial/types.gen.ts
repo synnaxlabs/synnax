@@ -15,6 +15,10 @@ export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
+export const DIRECTIONS = ["x", "y"] as const;
+export const directionZ = z.enum(DIRECTIONS);
+export type Direction = z.infer<typeof directionZ>;
+
 /**
  * XY is a 2D coordinate point with x and y values. Used for positioning
  * elements in two-dimensional space.
@@ -26,3 +30,46 @@ export const xyZ = z.object({
   y: z.number(),
 });
 export interface XY extends z.infer<typeof xyZ> {}
+
+/** Corner is an anchor corner for positioning. */
+export const cornerZ = z.object({
+  /** x is the horizontal anchor (left or right). */
+  x: z.string(),
+  /** y is the vertical anchor (top or bottom). */
+  y: z.string(),
+});
+export interface Corner extends z.infer<typeof cornerZ> {}
+
+/** StickyUnits specifies the measurement units for sticky positioning. */
+export const stickyUnitsZ = z.object({
+  /** x is the horizontal unit (px or decimal). */
+  x: z.string(),
+  /** y is the vertical unit (px or decimal). */
+  y: z.string(),
+});
+export interface StickyUnits extends z.infer<typeof stickyUnitsZ> {}
+
+/** Viewport is the camera state of a viewport. */
+export const viewportZ = z.object({
+  /** zoom is the zoom level where 1.0 equals 100%. */
+  zoom: z.number().default(1),
+  /** position is the (x, y) pan offset of the viewport. */
+  position: xyZ,
+});
+export interface Viewport extends z.infer<typeof viewportZ> {}
+
+/**
+ * StickyXY is a position that can be anchored to different corners of a
+ * container with configurable units (pixels or decimal fractions).
+ */
+export const stickyXyZ = z.object({
+  /** x is the horizontal coordinate. */
+  x: z.number(),
+  /** y is the vertical coordinate. */
+  y: z.number(),
+  /** root is the optional anchor corner for the position. */
+  root: cornerZ.optional(),
+  /** units is the optional unit specification for the coordinates. */
+  units: stickyUnitsZ.optional(),
+});
+export interface StickyXY extends z.infer<typeof stickyXyZ> {}

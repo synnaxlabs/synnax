@@ -86,6 +86,53 @@ func (OuterLocation) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{0}
 }
 
+// Direction is a 2D axis direction.
+type Direction int32
+
+const (
+	Direction_DIRECTION_X Direction = 0
+	Direction_DIRECTION_Y Direction = 1
+)
+
+// Enum value maps for Direction.
+var (
+	Direction_name = map[int32]string{
+		0: "DIRECTION_X",
+		1: "DIRECTION_Y",
+	}
+	Direction_value = map[string]int32{
+		"DIRECTION_X": 0,
+		"DIRECTION_Y": 1,
+	}
+)
+
+func (x Direction) Enum() *Direction {
+	p := new(Direction)
+	*p = x
+	return p
+}
+
+func (x Direction) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Direction) Descriptor() protoreflect.EnumDescriptor {
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[1].Descriptor()
+}
+
+func (Direction) Type() protoreflect.EnumType {
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[1]
+}
+
+func (x Direction) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Direction.Descriptor instead.
+func (Direction) EnumDescriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{1}
+}
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 type XY struct {
@@ -142,6 +189,245 @@ func (x *XY) GetY() float64 {
 	return 0
 }
 
+// Corner is an anchor corner for positioning.
+type Corner struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// x is the horizontal anchor (left or right).
+	X string `protobuf:"bytes,1,opt,name=x,proto3" json:"x,omitempty"`
+	// y is the vertical anchor (top or bottom).
+	Y             string `protobuf:"bytes,2,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Corner) Reset() {
+	*x = Corner{}
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Corner) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Corner) ProtoMessage() {}
+
+func (x *Corner) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Corner.ProtoReflect.Descriptor instead.
+func (*Corner) Descriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Corner) GetX() string {
+	if x != nil {
+		return x.X
+	}
+	return ""
+}
+
+func (x *Corner) GetY() string {
+	if x != nil {
+		return x.Y
+	}
+	return ""
+}
+
+// StickyUnits specifies the measurement units for sticky positioning.
+type StickyUnits struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// x is the horizontal unit (px or decimal).
+	X string `protobuf:"bytes,1,opt,name=x,proto3" json:"x,omitempty"`
+	// y is the vertical unit (px or decimal).
+	Y             string `protobuf:"bytes,2,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StickyUnits) Reset() {
+	*x = StickyUnits{}
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StickyUnits) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StickyUnits) ProtoMessage() {}
+
+func (x *StickyUnits) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StickyUnits.ProtoReflect.Descriptor instead.
+func (*StickyUnits) Descriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StickyUnits) GetX() string {
+	if x != nil {
+		return x.X
+	}
+	return ""
+}
+
+func (x *StickyUnits) GetY() string {
+	if x != nil {
+		return x.Y
+	}
+	return ""
+}
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+type StickyXY struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// x is the horizontal coordinate.
+	X float64 `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	// y is the vertical coordinate.
+	Y float64 `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	// root is the optional anchor corner for the position.
+	Root *Corner `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
+	// units is the optional unit specification for the coordinates.
+	Units         *StickyUnits `protobuf:"bytes,4,opt,name=units,proto3" json:"units,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StickyXY) Reset() {
+	*x = StickyXY{}
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StickyXY) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StickyXY) ProtoMessage() {}
+
+func (x *StickyXY) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StickyXY.ProtoReflect.Descriptor instead.
+func (*StickyXY) Descriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StickyXY) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *StickyXY) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *StickyXY) GetRoot() *Corner {
+	if x != nil {
+		return x.Root
+	}
+	return nil
+}
+
+func (x *StickyXY) GetUnits() *StickyUnits {
+	if x != nil {
+		return x.Units
+	}
+	return nil
+}
+
+// Viewport is the camera state of a viewport.
+type Viewport struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `protobuf:"fixed64,1,opt,name=zoom,proto3" json:"zoom,omitempty"`
+	// position is the (x, y) pan offset of the viewport.
+	Position      *XY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Viewport) Reset() {
+	*x = Viewport{}
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Viewport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Viewport) ProtoMessage() {}
+
+func (x *Viewport) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Viewport.ProtoReflect.Descriptor instead.
+func (*Viewport) Descriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Viewport) GetZoom() float64 {
+	if x != nil {
+		return x.Zoom
+	}
+	return 0
+}
+
+func (x *Viewport) GetPosition() *XY {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
 var File_x_go_spatial_pb_spatial_proto protoreflect.FileDescriptor
 
 const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
@@ -149,12 +435,29 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\x1dx/go/spatial/pb/spatial.proto\x12\fx.spatial.pb\" \n" +
 	"\x02XY\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
-	"\x01y\x18\x02 \x01(\x01R\x01y*u\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\"$\n" +
+	"\x06Corner\x12\f\n" +
+	"\x01x\x18\x01 \x01(\tR\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\tR\x01y\")\n" +
+	"\vStickyUnits\x12\f\n" +
+	"\x01x\x18\x01 \x01(\tR\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\tR\x01y\"\x81\x01\n" +
+	"\bStickyXY\x12\f\n" +
+	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\x12(\n" +
+	"\x04root\x18\x03 \x01(\v2\x14.x.spatial.pb.CornerR\x04root\x12/\n" +
+	"\x05units\x18\x04 \x01(\v2\x19.x.spatial.pb.StickyUnitsR\x05units\"L\n" +
+	"\bViewport\x12\x12\n" +
+	"\x04zoom\x18\x01 \x01(\x01R\x04zoom\x12,\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition*u\n" +
 	"\rOuterLocation\x12\x16\n" +
 	"\x12OUTER_LOCATION_TOP\x10\x00\x12\x18\n" +
 	"\x14OUTER_LOCATION_RIGHT\x10\x01\x12\x19\n" +
 	"\x15OUTER_LOCATION_BOTTOM\x10\x02\x12\x17\n" +
-	"\x13OUTER_LOCATION_LEFT\x10\x03B\x96\x01\n" +
+	"\x13OUTER_LOCATION_LEFT\x10\x03*-\n" +
+	"\tDirection\x12\x0f\n" +
+	"\vDIRECTION_X\x10\x00\x12\x0f\n" +
+	"\vDIRECTION_Y\x10\x01B\x96\x01\n" +
 	"\x10com.x.spatial.pbB\fSpatialProtoP\x01Z\"github.com/synnaxlabs/x/spatial/pb\xa2\x02\x03XSP\xaa\x02\fX.Spatial.Pb\xca\x02\fX\\Spatial\\Pb\xe2\x02\x18X\\Spatial\\Pb\\GPBMetadata\xea\x02\x0eX::Spatial::Pbb\x06proto3"
 
 var (
@@ -169,18 +472,26 @@ func file_x_go_spatial_pb_spatial_proto_rawDescGZIP() []byte {
 	return file_x_go_spatial_pb_spatial_proto_rawDescData
 }
 
-var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_x_go_spatial_pb_spatial_proto_goTypes = []any{
-	(OuterLocation)(0), // 0: x.spatial.pb.OuterLocation
-	(*XY)(nil),         // 1: x.spatial.pb.XY
+	(OuterLocation)(0),  // 0: x.spatial.pb.OuterLocation
+	(Direction)(0),      // 1: x.spatial.pb.Direction
+	(*XY)(nil),          // 2: x.spatial.pb.XY
+	(*Corner)(nil),      // 3: x.spatial.pb.Corner
+	(*StickyUnits)(nil), // 4: x.spatial.pb.StickyUnits
+	(*StickyXY)(nil),    // 5: x.spatial.pb.StickyXY
+	(*Viewport)(nil),    // 6: x.spatial.pb.Viewport
 }
 var file_x_go_spatial_pb_spatial_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3, // 0: x.spatial.pb.StickyXY.root:type_name -> x.spatial.pb.Corner
+	4, // 1: x.spatial.pb.StickyXY.units:type_name -> x.spatial.pb.StickyUnits
+	2, // 2: x.spatial.pb.Viewport.position:type_name -> x.spatial.pb.XY
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_x_go_spatial_pb_spatial_proto_init() }
@@ -193,8 +504,8 @@ func file_x_go_spatial_pb_spatial_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_spatial_pb_spatial_proto_rawDesc), len(file_x_go_spatial_pb_spatial_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   1,
+			NumEnums:      2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

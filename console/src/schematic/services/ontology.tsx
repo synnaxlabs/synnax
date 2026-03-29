@@ -186,10 +186,8 @@ const loadSchematic = async (
   const schematic = await client.schematics.retrieve({ key });
   placeLayout(
     Schematic.create({
-      ...schematic.data,
-      key: schematic.key,
+      ...Schematic.stateFromRemote(schematic),
       name: schematic.name,
-      snapshot: schematic.snapshot,
       editable: false,
     }),
   );
@@ -222,9 +220,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const schematic = await client.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
+        ...Schematic.stateFromRemote(schematic),
         name: schematic.name,
-        ...schematic.data,
-        key,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

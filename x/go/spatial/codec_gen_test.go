@@ -23,6 +23,54 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Viewport", func() {
+		It("should round-trip encode and decode", func() {
+			original := spatial.Viewport{Zoom: 2.5, Position: spatial.XY{X: 2.5, Y: 2.5}}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(spatial.EncodeViewport(w, &original)).To(Succeed())
+			var decoded spatial.Viewport
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(spatial.DecodeViewport(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("StickyXY", func() {
+		It("should round-trip encode and decode", func() {
+			original := spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(spatial.EncodeStickyXY(w, &original)).To(Succeed())
+			var decoded spatial.StickyXY
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(spatial.DecodeStickyXY(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("Corner", func() {
+		It("should round-trip encode and decode", func() {
+			original := spatial.Corner{X: "test", Y: "test"}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(spatial.EncodeCorner(w, &original)).To(Succeed())
+			var decoded spatial.Corner
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(spatial.DecodeCorner(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("StickyUnits", func() {
+		It("should round-trip encode and decode", func() {
+			original := spatial.StickyUnits{X: "test", Y: "test"}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(spatial.EncodeStickyUnits(w, &original)).To(Succeed())
+			var decoded spatial.StickyUnits
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(spatial.DecodeStickyUnits(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("XY", func() {
 		It("should round-trip encode and decode", func() {
 			original := spatial.XY{X: 2.5, Y: 2.5}
@@ -36,6 +84,74 @@ var _ = Describe("Codec", func() {
 		})
 	})
 })
+
+func BenchmarkEncodeDecodeViewport(b *testing.B) {
+	s := spatial.Viewport{Zoom: 2.5, Position: spatial.XY{X: 2.5, Y: 2.5}}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := spatial.EncodeViewport(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded spatial.Viewport
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := spatial.DecodeViewport(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStickyXY(b *testing.B) {
+	s := spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := spatial.EncodeStickyXY(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded spatial.StickyXY
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := spatial.DecodeStickyXY(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCorner(b *testing.B) {
+	s := spatial.Corner{X: "test", Y: "test"}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := spatial.EncodeCorner(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded spatial.Corner
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := spatial.DecodeCorner(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStickyUnits(b *testing.B) {
+	s := spatial.StickyUnits{X: "test", Y: "test"}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := spatial.EncodeStickyUnits(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded spatial.StickyUnits
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := spatial.DecodeStickyUnits(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeXY(b *testing.B) {
 	s := spatial.XY{X: 2.5, Y: 2.5}

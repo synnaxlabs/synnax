@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "x/cpp/json/json.h"
 #include "x/cpp/spatial/types.gen.h"
 
@@ -27,6 +29,66 @@ inline x::json::json XY::to_json() const {
     x::json::json j;
     j["x"] = this->x;
     j["y"] = this->y;
+    return j;
+}
+
+inline Corner Corner::parse(x::json::Parser parser) {
+    return Corner{
+        .x = parser.field<std::string>("x"),
+        .y = parser.field<std::string>("y"),
+    };
+}
+
+inline x::json::json Corner::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    return j;
+}
+
+inline StickyUnits StickyUnits::parse(x::json::Parser parser) {
+    return StickyUnits{
+        .x = parser.field<std::string>("x"),
+        .y = parser.field<std::string>("y"),
+    };
+}
+
+inline x::json::json StickyUnits::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    return j;
+}
+
+inline StickyXY StickyXY::parse(x::json::Parser parser) {
+    return StickyXY{
+        .x = parser.field<double>("x"),
+        .y = parser.field<double>("y"),
+        .root = parser.field<Corner>("root"),
+        .units = parser.field<StickyUnits>("units"),
+    };
+}
+
+inline x::json::json StickyXY::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    j["root"] = this->root.to_json();
+    j["units"] = this->units.to_json();
+    return j;
+}
+
+inline Viewport Viewport::parse(x::json::Parser parser) {
+    return Viewport{
+        .zoom = parser.field<double>("zoom"),
+        .position = parser.field<XY>("position"),
+    };
+}
+
+inline x::json::json Viewport::to_json() const {
+    x::json::json j;
+    j["zoom"] = this->zoom;
+    j["position"] = this->position.to_json();
     return j;
 }
 

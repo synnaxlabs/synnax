@@ -14,10 +14,86 @@ package schematic
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
+
+// EdgeVariant is the visual style of an edge connector.
+type EdgeVariant string
+
+const (
+	EdgeVariantPipe      EdgeVariant = "pipe"
+	EdgeVariantElectric  EdgeVariant = "electric"
+	EdgeVariantSecondary EdgeVariant = "secondary"
+	EdgeVariantJacketed  EdgeVariant = "jacketed"
+	EdgeVariantHydraulic EdgeVariant = "hydraulic"
+	EdgeVariantPneumatic EdgeVariant = "pneumatic"
+	EdgeVariantData      EdgeVariant = "data"
+)
+
+// Legend is the control legend overlay configuration.
+type Legend struct {
+	// Visible is whether the legend is visible.
+	Visible bool `json:"visible" msgpack:"visible"`
+	// Position is the legend position within the schematic.
+	Position spatial.StickyXY `json:"position" msgpack:"position"`
+	// Colors maps control status keys to their display colors.
+	Colors map[string]string `json:"colors" msgpack:"colors"`
+}
+
+// Node is a diagram node representing a symbol in the schematic.
+type Node struct {
+	// Key is the unique node identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Position is the top-left position of the node.
+	Position spatial.XY `json:"position" msgpack:"position"`
+	// Selected is whether the node is currently selected.
+	Selected bool `json:"selected" msgpack:"selected"`
+	// ZIndex is the optional z-index for rendering order.
+	ZIndex int32 `json:"z_index" msgpack:"z_index"`
+	// Type is the optional node type identifier.
+	Type string `json:"type" msgpack:"type"`
+}
+
+// Segment is a connector path segment with a direction and length.
+type Segment struct {
+	// Direction is the axis of travel for this segment.
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	// Length is the distance to travel along the axis.
+	Length float64 `json:"length" msgpack:"length"`
+}
+
+// EdgeData contains the visual rendering data for an edge.
+type EdgeData struct {
+	// Segments contains the connector path segments.
+	Segments []Segment `json:"segments" msgpack:"segments"`
+	// Variant is the optional visual style of the edge.
+	Variant EdgeVariant `json:"variant" msgpack:"variant"`
+	// Color is the optional display color.
+	Color string `json:"color" msgpack:"color"`
+}
+
+// Edge is a connection between two nodes in the schematic.
+type Edge struct {
+	// Key is the unique edge identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Source is the source node key.
+	Source string `json:"source" msgpack:"source"`
+	// Target is the target node key.
+	Target string `json:"target" msgpack:"target"`
+	// ID is the edge identifier.
+	ID string `json:"id" msgpack:"id"`
+	// Selected is whether the edge is currently selected.
+	Selected bool `json:"selected" msgpack:"selected"`
+	// SourceHandle is the handle id on the source node.
+	SourceHandle string `json:"source_handle" msgpack:"source_handle"`
+	// TargetHandle is the handle id on the target node.
+	TargetHandle string `json:"target_handle" msgpack:"target_handle"`
+	// Data contains optional visual rendering data.
+	Data EdgeData `json:"data" msgpack:"data"`
+}
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
@@ -27,9 +103,24 @@ type Schematic struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the schematic.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the schematic content including symbols, connections, and layout
-	// configuration.
-	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
+	// Editable indicates whether this schematic can be edited by users.
+	Editable bool `json:"editable" msgpack:"editable"`
+	// FitViewOnResize indicates whether the viewport should auto-fit when the window
+	// resizes.
+	FitViewOnResize bool `json:"fit_view_on_resize" msgpack:"fit_view_on_resize"`
+	// Authority is the control authority level for this schematic.
+	Authority uint8 `json:"authority" msgpack:"authority"`
+	// Viewport is the camera state of the schematic viewport.
+	Viewport spatial.Viewport `json:"viewport" msgpack:"viewport"`
+	// Legend is the control legend overlay configuration.
+	Legend Legend `json:"legend" msgpack:"legend"`
+	// Nodes contains all diagram nodes in the schematic.
+	Nodes []Node `json:"nodes" msgpack:"nodes"`
+	// Edges contains all connections between nodes.
+	Edges []Edge `json:"edges" msgpack:"edges"`
+	// Props contains symbol-specific properties keyed by node key, including colors,
+	// labels, and other visual configuration.
+	Props binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
 }

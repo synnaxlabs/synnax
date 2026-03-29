@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/spatial"
+
 @ts output "client/ts/src/schematic"
 @go output "core/pkg/service/schematic"
 @pb
@@ -15,25 +17,154 @@ Key = uuid {
     @doc value "is a unique identifier for a schematic, represented as a UUID."
 }
 
+Legend struct {
+    visible  bool                {
+        @doc value "is whether the legend is visible."
+    }
+    position spatial.StickyXY    {
+        @doc value "is the legend position within the schematic."
+    }
+    colors   map<string, string> {
+        @doc value "maps control status keys to their display colors."
+    }
+
+    @doc value "is the control legend overlay configuration."
+}
+
+Node struct {
+    key      string     {
+        @doc value "is the unique node identifier within the schematic."
+    }
+    position spatial.XY {
+        @doc value "is the top-left position of the node."
+    }
+    selected bool?      {
+        @doc value "is whether the node is currently selected."
+    }
+    z_index  int32?     {
+        @doc value "is the optional z-index for rendering order."
+    }
+    type     string?    {
+        @doc value "is the optional node type identifier."
+    }
+
+    @doc value "is a diagram node representing a symbol in the schematic."
+}
+
+Segment struct {
+    direction spatial.Direction {
+        @doc value "is the axis of travel for this segment."
+    }
+    length    float64           {
+        @doc value "is the distance to travel along the axis."
+    }
+
+    @doc value "is a connector path segment with a direction and length."
+}
+
+EdgeVariant enum {
+    pipe      = "pipe"
+    electric  = "electric"
+    secondary = "secondary"
+    jacketed  = "jacketed"
+    hydraulic = "hydraulic"
+    pneumatic = "pneumatic"
+    data      = "data"
+
+    @doc value "is the visual style of an edge connector."
+}
+
+EdgeData struct {
+    segments Segment[]    {
+        @doc value "contains the connector path segments."
+    }
+    variant  EdgeVariant? {
+        @doc value "is the optional visual style of the edge."
+    }
+    color    string?      {
+        @doc value "is the optional display color."
+    }
+
+    @doc value "contains the visual rendering data for an edge."
+}
+
+Edge struct {
+    key           string    {
+        @doc value "is the unique edge identifier within the schematic."
+    }
+    source        string    {
+        @doc value "is the source node key."
+    }
+    target        string    {
+        @doc value "is the target node key."
+    }
+    id            string    {
+        @doc value "is the edge identifier."
+    }
+    selected      bool      {
+        @doc value "is whether the edge is currently selected."
+    }
+    source_handle string?   {
+        @doc value "is the handle id on the source node."
+    }
+    target_handle string?   {
+        @doc value "is the handle id on the target node."
+    }
+    data          EdgeData? {
+        @doc value "contains optional visual rendering data."
+    }
+
+    @doc value "is a connection between two nodes in the schematic."
+}
+
 Schematic struct {
-    key      Key    {
+    key                Key              {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name     string {
+    name               string           {
         @doc value "is a human-readable name for the schematic."
     }
-    data     record {
-        @doc value        """
-            is the schematic content including symbols, connections, and layout
-            configuration.
-        """
-        @ts preserve_case
-    }
-    snapshot bool   {
+    snapshot           bool             {
         @doc value """
             indicates whether this schematic represents a saved snapshot state.
         """
+    }
+    editable           bool             {
+        @validate default true
+        @doc value        """
+            indicates whether this schematic can be edited by users.
+        """
+    }
+    fit_view_on_resize bool             {
+        @validate default false
+        @doc value        """
+            indicates whether the viewport should auto-fit when the window
+            resizes.
+        """
+    }
+    authority          uint8            {
+        @validate default 1
+        @doc value        "is the control authority level for this schematic."
+    }
+    viewport           spatial.Viewport {
+        @doc value "is the camera state of the schematic viewport."
+    }
+    legend             Legend           {
+        @doc value "is the control legend overlay configuration."
+    }
+    nodes              Node[]           {
+        @doc value "contains all diagram nodes in the schematic."
+    }
+    edges              Edge[]           {
+        @doc value "contains all connections between nodes."
+    }
+    props              record           {
+        @doc value        """
+            contains symbol-specific properties keyed by node key, including
+            colors, labels, and other visual configuration.
+        """
+        @ts preserve_case
     }
 
     @doc value     """

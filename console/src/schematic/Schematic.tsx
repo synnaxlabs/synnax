@@ -69,6 +69,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/schematic/slice";
+import { stateFromRemote, stateToRemote } from "@/schematic/remote";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
 import { type RootState } from "@/store";
@@ -107,20 +108,15 @@ const useSyncComponent = Workspace.createSyncComponent(
       !Access.updateGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
     )
       return;
-    const data = selectOptional(storeState, key);
-    if (data == null) return;
+    const state = selectOptional(storeState, key);
+    if (state == null) return;
     const layout = Layout.selectRequired(storeState, key);
-    if (data.snapshot) {
+    if (state.snapshot) {
       await client.schematics.rename(key, layout.name);
       return;
     }
-    const setData = { ...data, key: undefined };
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.schematics.create(workspace, {
-      key,
-      name: layout.name,
-      data: setData,
-    });
+    if (!state.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+    await client.schematics.create(workspace, stateToRemote(state, key, layout.name));
   },
 );
 
@@ -441,7 +437,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+  actionCreator: (v) => internalCreate(stateFromRemote(v)),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {

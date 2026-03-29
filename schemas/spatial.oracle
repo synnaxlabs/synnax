@@ -37,3 +37,64 @@ XY struct {
         elements in two-dimensional space.
     """
 }
+
+Direction enum {
+    x = "x"
+    y = "y"
+
+    @doc value "is a 2D axis direction."
+}
+
+Corner struct {
+    x string {
+        @doc value "is the horizontal anchor (left or right)."
+    }
+    y string {
+        @doc value "is the vertical anchor (top or bottom)."
+    }
+
+    @doc value "is an anchor corner for positioning."
+}
+
+StickyUnits struct {
+    x string {
+        @doc value "is the horizontal unit (px or decimal)."
+    }
+    y string {
+        @doc value "is the vertical unit (px or decimal)."
+    }
+
+    @doc value "specifies the measurement units for sticky positioning."
+}
+
+StickyXY struct {
+    x     float64      {
+        @doc value "is the horizontal coordinate."
+    }
+    y     float64      {
+        @doc value "is the vertical coordinate."
+    }
+    root  Corner?      {
+        @doc value "is the optional anchor corner for the position."
+    }
+    units StickyUnits? {
+        @doc value "is the optional unit specification for the coordinates."
+    }
+
+    @doc value """
+        is a position that can be anchored to different corners of a
+        container with configurable units (pixels or decimal fractions).
+    """
+}
+
+Viewport struct {
+    zoom     float64 {
+        @validate default 1
+        @doc value        "is the zoom level where 1.0 equals 100%."
+    }
+    position XY      {
+        @doc value "is the (x, y) pan offset of the viewport."
+    }
+
+    @doc value "is the camera state of a viewport."
+}

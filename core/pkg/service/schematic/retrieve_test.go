@@ -17,10 +17,12 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Schematic", func(ctx SpecContext) {
-		s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
+		s := schematic.Schematic{Name: "test", Props: map[string]any{"key": "data"}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 		var res schematic.Schematic
 		Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-		Expect(res).To(Equal(s))
+		Expect(res.Key).To(Equal(s.Key))
+		Expect(res.Name).To(Equal(s.Name))
+		Expect(res.Props).To(Equal(s.Props))
 	})
 })

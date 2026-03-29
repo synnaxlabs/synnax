@@ -22,6 +22,14 @@ const (
 	OuterLocationLeft   OuterLocation = "left"
 )
 
+// Direction is a 2D axis direction.
+type Direction string
+
+const (
+	DirectionX Direction = "x"
+	DirectionY Direction = "y"
+)
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 type XY struct {
@@ -29,4 +37,41 @@ type XY struct {
 	X float64 `json:"x" msgpack:"x"`
 	// Y is the vertical coordinate.
 	Y float64 `json:"y" msgpack:"y"`
+}
+
+// Corner is an anchor corner for positioning.
+type Corner struct {
+	// X is the horizontal anchor (left or right).
+	X string `json:"x" msgpack:"x"`
+	// Y is the vertical anchor (top or bottom).
+	Y string `json:"y" msgpack:"y"`
+}
+
+// StickyUnits specifies the measurement units for sticky positioning.
+type StickyUnits struct {
+	// X is the horizontal unit (px or decimal).
+	X string `json:"x" msgpack:"x"`
+	// Y is the vertical unit (px or decimal).
+	Y string `json:"y" msgpack:"y"`
+}
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+type StickyXY struct {
+	// X is the horizontal coordinate.
+	X float64 `json:"x" msgpack:"x"`
+	// Y is the vertical coordinate.
+	Y float64 `json:"y" msgpack:"y"`
+	// Root is the optional anchor corner for the position.
+	Root Corner `json:"root" msgpack:"root"`
+	// Units is the optional unit specification for the coordinates.
+	Units StickyUnits `json:"units" msgpack:"units"`
+}
+
+// Viewport is the camera state of a viewport.
+type Viewport struct {
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
+	// Position is the (x, y) pan offset of the viewport.
+	Position XY `json:"position" msgpack:"position"`
 }

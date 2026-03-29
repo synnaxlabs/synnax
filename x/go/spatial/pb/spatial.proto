@@ -15,6 +15,12 @@ enum OuterLocation {
   OUTER_LOCATION_LEFT = 3;
 }
 
+// Direction is a 2D axis direction.
+enum Direction {
+  DIRECTION_X = 0;
+  DIRECTION_Y = 1;
+}
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 message XY {
@@ -22,4 +28,41 @@ message XY {
   double x = 1;
   // y is the vertical coordinate.
   double y = 2;
+}
+
+// Corner is an anchor corner for positioning.
+message Corner {
+  // x is the horizontal anchor (left or right).
+  string x = 1;
+  // y is the vertical anchor (top or bottom).
+  string y = 2;
+}
+
+// StickyUnits specifies the measurement units for sticky positioning.
+message StickyUnits {
+  // x is the horizontal unit (px or decimal).
+  string x = 1;
+  // y is the vertical unit (px or decimal).
+  string y = 2;
+}
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+message StickyXY {
+  // x is the horizontal coordinate.
+  double x = 1;
+  // y is the vertical coordinate.
+  double y = 2;
+  // root is the optional anchor corner for the position.
+  Corner root = 3;
+  // units is the optional unit specification for the coordinates.
+  StickyUnits units = 4;
+}
+
+// Viewport is the camera state of a viewport.
+message Viewport {
+  // zoom is the zoom level where 1.0 equals 100%.
+  double zoom = 1;
+  // position is the (x, y) pan offset of the viewport.
+  XY position = 2;
 }

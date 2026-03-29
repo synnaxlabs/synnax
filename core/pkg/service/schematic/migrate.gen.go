@@ -12,11 +12,18 @@
 package schematic
 
 import (
+	v53 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v53"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 func SchematicMigrations() []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Schematic]("msgpack_to_binary", SchematicCodec),
+		gorp.WithDependencies(gorp.NewTypedMigration[Key, Key, v53.Schematic, Schematic](
+			"v53_schema_migration",
+			v53.SchematicCodec,
+			SchematicCodec,
+			MigrateSchematic,
+		), "msgpack_to_binary"),
 	}
 }

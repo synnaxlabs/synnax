@@ -19,20 +19,42 @@ import (
 	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
+	w.Bool(s.Snapshot)
+	w.Bool(s.Editable)
+	w.Bool(s.FitViewOnResize)
+	w.Uint8(uint8(s.Authority))
+	if err := spatial.EncodeViewport(w, &s.Viewport); err != nil {
+		return err
+	}
+	if err := EncodeLegend(w, &s.Legend); err != nil {
+		return err
+	}
+	w.Uint32(uint32(len(s.Nodes)))
+	for i := range s.Nodes {
+		if err := EncodeNode(w, &s.Nodes[i]); err != nil {
+			return err
+		}
+	}
+	w.Uint32(uint32(len(s.Edges)))
+	for i := range s.Edges {
+		if err := EncodeEdge(w, &s.Edges[i]); err != nil {
+			return err
+		}
+	}
 	{
-		b, err := json.Marshal(s.Data)
+		b, err := json.Marshal(s.Props)
 		if err != nil {
 			return err
 		}
 		w.Uint32(uint32(len(b)))
 		w.Write(b)
 	}
-	w.Bool(s.Snapshot)
 	return nil
 }
 
@@ -44,6 +66,48 @@ func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
+	if s.Snapshot, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.Editable, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.FitViewOnResize, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.Authority, err = r.Uint8(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeViewport(r, &s.Viewport); err != nil {
+		return err
+	}
+	if err = DecodeLegend(r, &s.Legend); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Nodes = make([]Node, n)
+		for i := range s.Nodes {
+			if err = DecodeNode(r, &s.Nodes[i]); err != nil {
+				return err
+			}
+		}
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Edges = make([]Edge, n)
+		for i := range s.Edges {
+			if err = DecodeEdge(r, &s.Edges[i]); err != nil {
+				return err
+			}
+		}
+	}
 	{
 		n, err := r.Uint32()
 		if err != nil {
@@ -53,11 +117,184 @@ func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
 		if _, err = r.Read(b); err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Data); err != nil {
+		if err = json.Unmarshal(b, &s.Props); err != nil {
 			return err
 		}
 	}
-	if s.Snapshot, err = r.Bool(); err != nil {
+	return nil
+}
+
+func EncodeLegend(w *xbinary.Writer, s *Legend) error {
+	w.Bool(s.Visible)
+	if err := spatial.EncodeStickyXY(w, &s.Position); err != nil {
+		return err
+	}
+	w.Uint32(uint32(len(s.Colors)))
+	for key, val := range s.Colors {
+		w.String(key)
+		w.String(val)
+	}
+	return nil
+}
+
+func DecodeLegend(r *xbinary.Reader, s *Legend) error {
+	var err error
+	if s.Visible, err = r.Bool(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeStickyXY(r, &s.Position); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Colors = make(map[string]string, n)
+		for range n {
+			var key string
+			var val string
+			if key, err = r.String(); err != nil {
+				return err
+			}
+			if val, err = r.String(); err != nil {
+				return err
+			}
+			s.Colors[key] = val
+		}
+	}
+	return nil
+}
+
+func EncodeNode(w *xbinary.Writer, s *Node) error {
+	w.String(s.Key)
+	if err := spatial.EncodeXY(w, &s.Position); err != nil {
+		return err
+	}
+	w.Bool(s.Selected)
+	w.Int32(int32(s.ZIndex))
+	w.String(s.Type)
+	return nil
+}
+
+func DecodeNode(r *xbinary.Reader, s *Node) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeXY(r, &s.Position); err != nil {
+		return err
+	}
+	if s.Selected, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.ZIndex, err = r.Int32(); err != nil {
+		return err
+	}
+	if s.Type, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeEdge(w *xbinary.Writer, s *Edge) error {
+	w.String(s.Key)
+	w.String(s.Source)
+	w.String(s.Target)
+	w.String(s.ID)
+	w.Bool(s.Selected)
+	w.String(s.SourceHandle)
+	w.String(s.TargetHandle)
+	if err := EncodeEdgeData(w, &s.Data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEdge(r *xbinary.Reader, s *Edge) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if s.Source, err = r.String(); err != nil {
+		return err
+	}
+	if s.Target, err = r.String(); err != nil {
+		return err
+	}
+	if s.ID, err = r.String(); err != nil {
+		return err
+	}
+	if s.Selected, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.SourceHandle, err = r.String(); err != nil {
+		return err
+	}
+	if s.TargetHandle, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeEdgeData(r, &s.Data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeEdgeData(w *xbinary.Writer, s *EdgeData) error {
+	w.Uint32(uint32(len(s.Segments)))
+	for i := range s.Segments {
+		if err := EncodeSegment(w, &s.Segments[i]); err != nil {
+			return err
+		}
+	}
+	w.String(string(s.Variant))
+	w.String(s.Color)
+	return nil
+}
+
+func DecodeEdgeData(r *xbinary.Reader, s *EdgeData) error {
+	var err error
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Segments = make([]Segment, n)
+		for i := range s.Segments {
+			if err = DecodeSegment(r, &s.Segments[i]); err != nil {
+				return err
+			}
+		}
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Variant = EdgeVariant(v)
+	}
+	if s.Color, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeSegment(w *xbinary.Writer, s *Segment) error {
+	w.String(string(s.Direction))
+	w.Float64(float64(s.Length))
+	return nil
+}
+
+func DecodeSegment(r *xbinary.Reader, s *Segment) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Direction = spatial.Direction(v)
+	}
+	if s.Length, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil
