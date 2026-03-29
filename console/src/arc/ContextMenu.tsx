@@ -41,7 +41,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const { update: renameArc } = useRename(getItem);
   const confirm = useConfirmDelete({
     type: "Arc",
-    description: "Deleting this arc will permanently remove it.",
+    description: "Deleting this Arc will permanently remove it.",
   });
   const { update: del } = Arc.useDelete();
 
@@ -68,7 +68,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       );
       if (renamed == null) return;
       renameArc({ key: keys[0], name: renamed });
-    }, "Failed to rename arc");
+    }, "Failed to rename Arc");
   };
 
   const handleDelete = () => {
@@ -78,7 +78,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       if (!confirmed) return;
       dispatch(Layout.remove({ keys }));
       del(keys);
-    }, "Failed to delete arc");
+    }, "Failed to delete Arc");
   };
 
   const handleCopyLink = () => {
