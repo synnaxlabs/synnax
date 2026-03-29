@@ -9,6 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Access, Arc, Icon, type List, Menu, Status } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
 import { useRename } from "@/arc/hooks";
@@ -31,6 +32,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const someSelected = keys.length > 0;
   const isSingle = keys.length === 1;
 
+  const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -73,7 +75,9 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     handleError(async () => {
       const arcs = getItem(keys);
       const confirmed = await confirm(arcs);
-      if (confirmed) del(keys);
+      if (!confirmed) return;
+      dispatch(Layout.remove({ keys }));
+      del(keys);
     }, "Failed to delete arc");
   };
 
