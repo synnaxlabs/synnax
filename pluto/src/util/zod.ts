@@ -22,7 +22,7 @@ export const prettyParse = <Z extends z.ZodType>(
         if (err.path.length === 0) return err.message;
         return `${err.path.join(".")}: ${err.message}`;
       });
-      throw new Error(`${prefix} - ${errors.join("\n")}`, { cause: e });
+      throw new Error(`${prefix} - ${errors.join("\n")}`);
     } else throw e;
   }
 };

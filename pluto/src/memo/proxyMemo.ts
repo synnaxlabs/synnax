@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-declare module "@fontsource-variable/inter";
-declare module "@fontsource/geist-mono";
-declare module "@xyflow/react/dist/base.css";
+import { runtime } from "@synnaxlabs/x";
+import { memoize } from "proxy-memoize";
+
+export const proxyMemo: typeof memoize = (fn, opts) => {
+  if (runtime.RUNTIME === "browser") return memoize(fn, opts);
+  return fn;
+};

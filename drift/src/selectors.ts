@@ -7,34 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSelector } from "@reduxjs/toolkit";
-
 import { type SliceState, type StoreState } from "@/state";
 import { MAIN_WINDOW, type WindowState } from "@/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state.drift;
 
-export const selectWindows = createSelector(
-  [(state) => selectSliceState(state).windows],
-  (windows) => Object.values(windows),
-);
+export const selectWindows = (state: StoreState): WindowState[] =>
+  Object.values(selectSliceState(state).windows);
 
 export const selectWindow = (
   state: StoreState,
   keyOrLabel?: string,
 ): WindowState | null => {
   const driftState = selectSliceState(state);
-  if (keyOrLabel == null) return driftState.windows[driftState.label] ?? null;
-  const win = driftState.windows[keyOrLabel];
+  if (keyOrLabel == null) return driftState.windows[driftState.label];
+  let win = driftState.windows[keyOrLabel];
   if (win != null) return win;
   const label = driftState.keyLabels[keyOrLabel];
-  return driftState.windows[label] ?? null;
+  win = driftState.windows[label];
+  if (win == null && keyOrLabel != null) return null;
+  return win ?? driftState.windows[driftState.label];
 };
 
 export const selectWindowKey = (state: StoreState, label?: string): string | null => {
   const driftState = selectSliceState(state);
-  if (label == null) return driftState.labelKeys[driftState.label] ?? null;
-  const key = driftState.labelKeys[label] ?? null;
+  if (label == null) return driftState.labelKeys[driftState.label];
+  const key = driftState.labelKeys[label];
   if (key == null && label == MAIN_WINDOW) return MAIN_WINDOW;
   return key;
 };
@@ -45,5 +43,7 @@ export const selectWindowAttribute = <K extends keyof WindowState>(
   attr: K,
 ): WindowState[K] | null => selectWindow(state, keyOrLabel)?.[attr] ?? null;
 
-export const selectWindowLabel = (state: StoreState, key: string): string | null =>
-  selectSliceState(state).keyLabels[key] ?? null;
+export const selectWindowLabel = (state: StoreState, key: string): string | null => {
+  const driftState = selectSliceState(state);
+  return driftState.keyLabels[key];
+};

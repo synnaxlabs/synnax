@@ -13,7 +13,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [lib({ name: "media" })],
   build: {
-    rolldownOptions: {
+    rollupOptions: {
       external: ["react", "react-dom"],
       output: { globals: { react: "React", "react-dom": "ReactDOM" } },
     },

@@ -59,7 +59,7 @@ describe("Group", () => {
       await client.groups.delete(g.key);
       await expect(
         async () => await client.ontology.retrieve(group.ontologyID(g.key)),
-      ).rejects.toThrow(NotFoundError);
+      ).rejects.toThrowError(NotFoundError);
     });
   });
 });

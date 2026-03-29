@@ -32,7 +32,7 @@ const columnType = (columns: channel.PrimitiveParams): ColumnType => {
   const arrKeys = array.toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
-  if (!isNaN(parseInt(arrKeys[0], 10))) return "key";
+  if (!isNaN(parseInt(arrKeys[0]))) return "key";
   return "name";
 };
 
@@ -127,7 +127,7 @@ export class Frame {
         data_.keys.forEach((key, i) => this.push(key, series[i]));
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
-          const key = parseInt(k, 10);
+          const key = parseInt(k);
           if (!isNaN(key)) return this.push(key, ...array.toArray(v));
           this.push(k, ...array.toArray(v));
         });

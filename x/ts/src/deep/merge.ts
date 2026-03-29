@@ -30,8 +30,7 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
           override(base[key], source[key]);
         } else Object.assign(base, { [key]: source[key] });
       } catch (e) {
-        if (e instanceof TypeError)
-          throw new TypeError(`.${key}: ${e.message}`, { cause: e });
+        if (e instanceof TypeError) throw new TypeError(`.${key}: ${e.message}`);
         throw e;
       }
 

@@ -4,8 +4,11 @@
     "composite": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "types": [],
-    "paths": { "@/*": ["./src/*"], "syntaxes/*": ["./syntaxes/*"] }
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "syntaxes/*": ["syntaxes/*"]
+    }
   },
   "include": ["src", "syntaxes/*.json"],
   "exclude": ["node_modules", "dist"]

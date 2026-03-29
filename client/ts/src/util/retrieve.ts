@@ -64,9 +64,9 @@ export const analyzeParams = <
   const t = typeof first;
   let variant: K[keyof K];
   if (t === "string" && convertNumericStrings)
-    if (!isNaN(parseInt(first as string, 10)) && "number" in variantMap) {
+    if (!isNaN(parseInt(first as string)) && "number" in variantMap) {
       variant = variantMap.number as K[keyof K];
-      normal = normal.map((n) => parseInt(n as string, 10));
+      normal = normal.map((n) => parseInt(n as string));
     } else variant = variantMap[t as TypeName<T>];
   else variant = variantMap[t as TypeName<T>];
   return {

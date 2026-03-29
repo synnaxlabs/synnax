@@ -9,11 +9,16 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
     "noEmit": true,
+    "baseUrl": ".",
     "declaration": true,
     "noImplicitReturns": true,
     "jsx": "react-jsx",
     "skipLibCheck": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "paths": {
+      "@/*": ["src/*"]
+    }
   }
 }

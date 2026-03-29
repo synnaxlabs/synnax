@@ -143,10 +143,10 @@ export class TimeStamp
     let seconds = "00";
     let milliseconds: string | undefined = "00";
     if (mbeSeconds != null) [seconds, milliseconds] = mbeSeconds.split(".");
-    let base = TimeStamp.hours(parseInt(hours ?? "00", 10))
-      .add(TimeStamp.minutes(parseInt(minutes ?? "00", 10)))
-      .add(TimeStamp.seconds(parseInt(seconds ?? "00", 10)))
-      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00", 10)));
+    let base = TimeStamp.hours(parseInt(hours ?? "00"))
+      .add(TimeStamp.minutes(parseInt(minutes ?? "00")))
+      .add(TimeStamp.seconds(parseInt(seconds ?? "00")))
+      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00")));
     if (tzInfo === "local") base = base.add(TimeStamp.utcOffset);
     return base.valueOf();
   }
@@ -166,7 +166,7 @@ export class TimeStamp
         const parts = str.split(".");
         datePart = parts[0];
         const msPart = parts[1] || "0";
-        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3), 10);
+        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3));
       }
 
       const d =

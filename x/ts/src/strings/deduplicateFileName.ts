@@ -12,14 +12,14 @@ export const deduplicateFileName = (
   existingNames: Set<string>,
 ): string => {
   if (!existingNames.has(name)) return name;
-  let baseName: string;
-  let i: number;
+  let baseName = name;
+  let i = 1;
   let currentName = name;
   while (existingNames.has(currentName)) {
     const match = currentName.match(filenameEndingRegex);
     if (match) {
       baseName = currentName.slice(0, match.index).trim();
-      i = parseInt(match[1], 10) + 1;
+      i = parseInt(match[1]) + 1;
     } else {
       baseName = currentName;
       i = 1;

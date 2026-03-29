@@ -10,11 +10,11 @@
 import { ResizeObserver } from "@juggle/resize-observer";
 import { afterAll, beforeAll, vi } from "vitest";
 
-class MockIntersectionObserver {
-  observe = vi.fn();
-  disconnect = vi.fn();
-  unobserve = vi.fn();
-}
+const MockIntersectionObserver = vi.fn(() => ({
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+}));
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);

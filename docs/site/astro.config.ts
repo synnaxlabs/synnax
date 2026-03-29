@@ -13,12 +13,18 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
+const shikiResourcePaths = Object.keys(
+  import.meta.glob([
+    "../../node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json",
+    "../../node_modules/.pnpm/shiki@*/node_modules/shiki/themes/*.json",
+  ]),
+);
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
-  security: { csp: true },
   output: "server",
-  adapter: vercel(),
+  adapter: vercel({ includeFiles: shikiResourcePaths }),
   markdown: {
     shikiConfig: {
       theme: "css-variables",

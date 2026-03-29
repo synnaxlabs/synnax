@@ -68,7 +68,7 @@ export type LayoutType = typeof LAYOUT_TYPE;
 const parseContextKey = (key: string): string | number => {
   if (key.startsWith("resizer")) {
     const [, , index] = key.split("-");
-    return parseInt(index, 10);
+    return parseInt(index);
   }
   return key;
 };

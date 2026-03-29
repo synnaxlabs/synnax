@@ -20,14 +20,6 @@ import { Text } from "@/text";
 describe("Select.Single", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-      configurable: true,
-      get: () => 100,
-    });
-    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
-      configurable: true,
-      get: () => 100,
-    });
   });
 
   interface TestEntry {

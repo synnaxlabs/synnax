@@ -28,8 +28,8 @@ export const functionOutput = <
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
     const isLast = index === parts.length - 1;
-    const isNumericPart = !isNaN(parseInt(part, 10));
-    const nextPartIsNumeric = !isNaN(parseInt(parts[index + 1], 10));
+    const isNumericPart = !isNaN(parseInt(part));
+    const nextPartIsNumeric = !isNaN(parseInt(parts[index + 1]));
     if (isNumericPart) part = "element";
     if (isLast || nextPartIsNumeric) return part;
     return [part, "shape"];

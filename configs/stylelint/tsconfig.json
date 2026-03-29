@@ -1,5 +1,9 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
-  "compilerOptions": { "composite": true, "types": [] },
+  "compilerOptions": {
+    "baseUrl": ".",
+    "composite": true,
+    "allowSyntheticDefaultImports": true
+  },
   "include": ["index.ts", "eslint.config.ts"]
 }

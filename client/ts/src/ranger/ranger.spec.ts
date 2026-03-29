@@ -215,7 +215,9 @@ describe("range", () => {
       const val = await rng.kv.get("foo");
       expect(val).toEqual("bar");
       await rng.kv.delete("foo");
-      await expect(async () => await rng.kv.get("foo")).rejects.toThrow(NotFoundError);
+      await expect(async () => await rng.kv.get("foo")).rejects.toThrowError(
+        NotFoundError,
+      );
     });
 
     it("should set and get multiple keys", async () => {

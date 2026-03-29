@@ -32,3 +32,10 @@ export const useMemoDeepEqual = <T>(value: T): T => {
   else if (!deep.equal(ref.current, value)) ref.current = value;
   return ref.current;
 };
+
+export const useMemoPrimitiveArray = <T extends primitive.Value>(arr: T[]): T[] => {
+  const ref = useRef<T[]>(null);
+  if (ref.current == null) ref.current = arr;
+  else if (compare.primitiveArrays(ref.current, arr) !== 0) ref.current = arr;
+  return ref.current;
+};

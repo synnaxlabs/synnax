@@ -12,6 +12,8 @@
 import react from "@vitejs/plugin-react";
 import * as path from "path";
 import { defineConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
 
 const isDev = process.env.VITE_IS_DEV === "true";
 
@@ -19,7 +21,6 @@ export default defineConfig({
   clearScreen: false,
   server: { port: 5173, strictPort: true },
   resolve: {
-    tsconfigPaths: true,
     alias: isDev
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
@@ -34,9 +35,14 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  plugins: [react()],
+  plugins: [react(), tsconfigPaths()],
+  optimizeDeps: {
+    esbuildOptions: {
+      plugins: [importMetaUrlPlugin],
+    },
+  },
   build: {
-    target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
+    target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari16",
     minify: !isDev,
     sourcemap: isDev,
     // We don't really care about maintaining a small bundle size right now, as this file
@@ -50,10 +56,5 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    exclude: ["**/node_modules/**", "**/dist/**"],
-    coverage: {
-      include: ["src/**/*.ts", "src/**/*.tsx"],
-      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
-    },
   },
 });

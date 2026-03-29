@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { memoize } from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";
 
@@ -27,13 +28,22 @@ import { type WindowState } from "@/window";
  * @returns The window.
  */
 export const useSelectWindow = (key?: string): WindowState | null =>
-  useSelector(useCallback((state: StoreState) => selectWindow(state, key), [key]));
+  useSelector(
+    useCallback(
+      memoize((state: StoreState) => selectWindow(state, key)),
+      [key],
+    ),
+  );
 
-export const useSelectWindows = (): WindowState[] => useSelector(selectWindows);
+export const useSelectWindows = (): WindowState[] =>
+  useSelector(useCallback(memoize(selectWindows), []));
 
 export const useSelectWindowKey = (label?: string): string | null =>
   useSelector(
-    useCallback((state: StoreState) => selectWindowKey(state, label), [label]),
+    useCallback(
+      memoize((state: StoreState) => selectWindowKey(state, label)),
+      [label],
+    ),
   );
 
 export const useSelectWindowAttribute = <K extends keyof WindowState>(
@@ -42,7 +52,7 @@ export const useSelectWindowAttribute = <K extends keyof WindowState>(
 ): WindowState[K] | null =>
   useSelector(
     useCallback(
-      (state: StoreState) => selectWindowAttribute(state, keyOrLabel, attr),
+      memoize((state: StoreState) => selectWindowAttribute(state, keyOrLabel, attr)),
       [keyOrLabel, attr],
     ),
   );

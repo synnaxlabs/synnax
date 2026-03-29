@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fixupPluginRules, includeIgnoreFile } from "@eslint/compat";
+import { includeIgnoreFile } from "@eslint/compat";
 import pluginJs from "@eslint/js";
 import pluginReact2 from "@eslint-react/eslint-plugin";
 import type { Linter } from "eslint";
@@ -27,10 +27,7 @@ const config: Linter.Config[] = [
   { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
-  {
-    ...pluginReact.configs.flat.recommended,
-    plugins: { react: fixupPluginRules(pluginReact) },
-  },
+  pluginReact.configs.flat.recommended,
   {
     languageOptions: {
       ecmaVersion: "latest",
@@ -82,7 +79,7 @@ const config: Linter.Config[] = [
       "prefer-regex-literals": ["error", { disallowRedundantWrapping: true }],
       "prefer-spread": "error",
       "prefer-template": "error",
-      radix: "error",
+      radix: ["error", "as-needed"],
       yoda: "error",
       "@typescript-eslint/consistent-type-imports": [
         "error",

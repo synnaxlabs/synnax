@@ -288,7 +288,7 @@ describe("Aether Worker", () => {
             type: "example",
             create: (parentCtxValues) => createLeaf("test", parentCtxValues),
           });
-        }).toThrow(/empty path/);
+        }).toThrowError(/empty path/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
 
@@ -300,7 +300,7 @@ describe("Aether Worker", () => {
             type: "example",
             create: (parentCtxValues) => createLeaf("dog", parentCtxValues),
           });
-        }).toThrow(/subPath/);
+        }).toThrowError(/subPath/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
 
@@ -312,7 +312,7 @@ describe("Aether Worker", () => {
             type: "example",
             create: (parentCtxValues) => createLeaf("dog", parentCtxValues),
           });
-        }).toThrow(/key/);
+        }).toThrowError(/key/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
 
@@ -420,7 +420,7 @@ describe("Aether Worker", () => {
             type: "example",
             create: shouldNotCallCreate,
           });
-        }).toThrow(/attempting to create a new child/);
+        }).toThrowError(/attempting to create a new child/);
       });
     });
 

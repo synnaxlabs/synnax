@@ -97,7 +97,7 @@ export class Codec {
       `);
   }
 
-  encode(payload: unknown, startOffset: number = 0): Uint8Array<ArrayBuffer> {
+  encode(payload: unknown, startOffset: number = 0): Uint8Array {
     this.throwIfNotUpdated("encode");
     let src = payload as Payload;
     if (payload != null && typeof payload === "object" && "toPayload" in payload)
@@ -339,7 +339,7 @@ export class WSWriterCodec implements binary.Codec {
     this.lowPerfCodec = binary.JSON_CODEC;
   }
 
-  encode(payload: unknown): Uint8Array<ArrayBuffer> {
+  encode(payload: unknown): Uint8Array {
     const pld = payload as WebsocketMessage<WriteRequest>;
     if (pld.type == "close" || pld.payload?.command != WriterCommand.Write) {
       const data = this.lowPerfCodec.encode(pld);
@@ -375,7 +375,7 @@ export class WSStreamerCodec implements binary.Codec {
     this.lowPerfCodec = binary.JSON_CODEC;
   }
 
-  encode(payload: unknown): Uint8Array<ArrayBuffer> {
+  encode(payload: unknown): Uint8Array {
     return this.lowPerfCodec.encode(payload);
   }
 

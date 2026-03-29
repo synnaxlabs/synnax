@@ -1,5 +1,10 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
-  "compilerOptions": { "types": ["node"], "paths": { "@/*": ["./src/*"] } },
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
   "include": ["src/**/*.ts", "eslint.config.ts"]
 }
