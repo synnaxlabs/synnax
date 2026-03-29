@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"context"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,9 +108,9 @@ var _ = Describe("Service", Ordered, func() {
 
 	Describe("Observe", func() {
 		It("Should notify when a channel is created", func() {
-			called := false
+			var called atomic.Bool
 			mockCluster.Nodes[1].Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
-				called = true
+				called.Store(true)
 			})
 			ch := channel.Channel{
 				Name:        channel.NewRandomName(),
@@ -118,7 +119,7 @@ var _ = Describe("Service", Ordered, func() {
 				Leaseholder: 1,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-			Expect(called).To(BeTrue())
+			Eventually(called.Load).Should(BeTrue())
 		})
 	})
 })
