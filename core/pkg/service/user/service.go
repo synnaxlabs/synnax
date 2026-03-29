@@ -77,7 +77,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	table, err := gorp.OpenTable[uuid.UUID, User](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[User]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		cdcS, err := signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[User](cfg.DB),
+			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
 		)
 		s.shutdownSignals = cdcS
 		if err != nil {
@@ -102,23 +102,24 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // writer operates within the given transaction tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.cfg.DB, tx),
-		otg: s.cfg.Ontology.NewWriter(tx),
-		svc: s,
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		svc:   s,
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new retrieve query capable of retrieving Users.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, User](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 	}
 }
 
 // UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
-	return gorp.NewRetrieve[uuid.UUID, User]().
+	return s.table.NewRetrieve().
 		Where(func(_ gorp.Context, u *User) (bool, error) {
 			return u.Username == username, nil
 		}).

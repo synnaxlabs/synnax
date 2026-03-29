@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -37,22 +38,22 @@ var _ = Describe("Table", func() {
 
 	Describe("OpenTable", func() {
 		It("Should open a table on an empty database", func(ctx SpecContext) {
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 		})
 
 		It("Should be idempotent when called multiple times", func(ctx SpecContext) {
 			e := entry{ID: 1, Data: "data"}
-			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewCreate[int32, entry](nil).Entry(&e).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
-			table = MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res entry
-			Expect(gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry](nil).
 				WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
 		})
@@ -63,14 +64,14 @@ var _ = Describe("Table", func() {
 				{ID: 2, Data: "two"},
 				{ID: 3, Data: "three"},
 			}
-			Expect(gorp.NewCreate[int32, entry]().
+			Expect(gorp.NewCreate[int32, entry](nil).
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry](nil).
 				WhereKeys(1, 2, 3).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
@@ -81,14 +82,14 @@ var _ = Describe("Table", func() {
 				{ID: 1, Data: "one"},
 				{ID: 999999999, Data: "big"},
 			}
-			Expect(gorp.NewCreate[uint64, uint64Entry]().
+			Expect(gorp.NewCreate[uint64, uint64Entry](nil).
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[uint64, uint64Entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64Entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []uint64Entry
-			Expect(gorp.NewRetrieve[uint64, uint64Entry]().
+			Expect(gorp.NewRetrieve[uint64, uint64Entry](nil).
 				WhereKeys(1, 999999999).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(2))
@@ -99,14 +100,14 @@ var _ = Describe("Table", func() {
 				{ID: "alpha", Data: "first"},
 				{ID: "beta", Data: "second"},
 			}
-			Expect(gorp.NewCreate[string, stringEntry]().
+			Expect(gorp.NewCreate[string, stringEntry](nil).
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[string, stringEntry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[stringEntry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []stringEntry
-			Expect(gorp.NewRetrieve[string, stringEntry]().
+			Expect(gorp.NewRetrieve[string, stringEntry](nil).
 				WhereKeys("alpha", "beta").
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
@@ -132,11 +133,11 @@ var _ = Describe("Table", func() {
 			codec := &binary.MsgPackCodec{}
 			writeOldFormatEntry(ctx, codec, entry{ID: 42, Data: "old format"})
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res entry
-			Expect(gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry](nil).
 				WhereKeys(42).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res.Data).To(Equal("old format"))
 		})
@@ -151,7 +152,7 @@ var _ = Describe("Table", func() {
 			Expect(iter.Valid()).To(BeTrue())
 			Expect(iter.Close()).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			iter = MustSucceed(kvs.OpenIterator(kv.IterPrefix(oldPrefix)))
@@ -166,24 +167,24 @@ var _ = Describe("Table", func() {
 				writeOldFormatEntry(ctx, codec, entry{ID: int32(i), Data: "old"})
 			}
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry](nil).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(5))
 		})
 
 		It("Should not duplicate entries already stored under the new prefix", func(ctx SpecContext) {
 			e := entry{ID: 10, Data: "already new"}
-			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewCreate[int32, entry](nil).Entry(&e).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry](nil).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(1))
 			Expect(res[0]).To(Equal(e))
@@ -194,17 +195,110 @@ var _ = Describe("Table", func() {
 			writeOldFormatEntry(ctx, codec, entry{ID: 1, Data: "old"})
 
 			newEntry := entry{ID: 2, Data: "new"}
-			Expect(gorp.NewCreate[int32, entry]().
+			Expect(gorp.NewCreate[int32, entry](nil).
 				Entry(&newEntry).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable[int32, entry](ctx, db))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry](nil).
 				WhereKeys(1, 2).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(2))
+		})
+	})
+
+	Describe("Custom Codec", func() {
+		var (
+			table *gorp.Table[int32, entry]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
+				DB:    db,
+				Codec: jsonCodec,
+			}))
+		})
+		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+		Describe("NewCreate + NewRetrieve", func() {
+			It("Should create and retrieve an entry using the custom codec", func(ctx SpecContext) {
+				e := entry{ID: 1, Data: "json-encoded"}
+				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
+				var res entry
+				Expect(table.NewRetrieve().WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
+				Expect(res).To(Equal(e))
+			})
+
+			It("Should create and retrieve multiple entries", func(ctx SpecContext) {
+				entries := []entry{
+					{ID: 10, Data: "ten"},
+					{ID: 20, Data: "twenty"},
+					{ID: 30, Data: "thirty"},
+				}
+				Expect(table.NewCreate().Entries(&entries).Exec(ctx, db)).To(Succeed())
+				var res []entry
+				Expect(table.NewRetrieve().WhereKeys(10, 20, 30).Entries(&res).Exec(ctx, db)).To(Succeed())
+				Expect(res).To(Equal(entries))
+			})
+		})
+
+		Describe("NewUpdate", func() {
+			It("Should update an entry using the custom codec", func(ctx SpecContext) {
+				e := entry{ID: 50, Data: "before"}
+				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewUpdate().WhereKeys(50).Change(func(_ gorp.Context, e entry) entry {
+					e.Data = "after"
+					return e
+				}).Exec(ctx, db)).To(Succeed())
+				var res entry
+				Expect(table.NewRetrieve().WhereKeys(50).Entry(&res).Exec(ctx, db)).To(Succeed())
+				Expect(res.Data).To(Equal("after"))
+			})
+		})
+
+		Describe("NewDelete", func() {
+			It("Should delete an entry using the custom codec", func() {
+				e := entry{ID: 60, Data: "doomed"}
+				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewDelete().WhereKeys(60).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewRetrieve().WhereKeys(60).Exists(ctx, db)).To(BeFalse())
+			})
+		})
+
+		Describe("OpenNexter", func() {
+			It("Should iterate over entries using the custom codec", func() {
+				entries := []entry{
+					{ID: 70, Data: "seventy"},
+					{ID: 71, Data: "seventy-one"},
+				}
+				Expect(table.NewCreate().Entries(&entries).Exec(ctx, db)).To(Succeed())
+				seq, closer := MustSucceed2(table.OpenNexter(ctx))
+				var result []entry
+				for e := range seq {
+					result = append(result, e)
+				}
+				Expect(closer.Close()).To(Succeed())
+				Expect(result).To(HaveLen(2))
+			})
+		})
+
+		Describe("Observe", func() {
+			It("Should observe changes using the custom codec", func() {
+				tx := db.OpenTx()
+				e := entry{ID: 80, Data: "observed"}
+				Expect(table.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())
+				var changes []change.Change[int32, entry]
+				table.Observe().OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
+					for ch := range r {
+						changes = append(changes, ch)
+					}
+				})
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Value).To(Equal(e))
+				Expect(changes[0].Variant).To(Equal(change.VariantSet))
+			})
 		})
 	})
 })

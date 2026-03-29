@@ -10,10 +10,8 @@
 """NI-specific task test cases."""
 
 import ctypes
-import hashlib
 import pathlib
 import platform
-import tempfile
 from abc import abstractmethod
 from collections.abc import Callable
 
@@ -22,40 +20,23 @@ import synnax as sy
 from tests.driver.task import ReadTaskCase, TaskCase, WriteTaskCase
 
 _NI_MAX_CONFIG = pathlib.Path(__file__).parent.parent / "fixtures" / "ni_max_config.nce"
-# Sentinel file stores the hash of the last successfully imported config.
-_NI_MAX_CONFIG_HASH_SENTINEL = (
-    pathlib.Path(tempfile.gettempdir()) / "synnax_ni_max_config_hash"
-)
-
-
-def _file_sha256(path: pathlib.Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
-    """Import the reference NI MAX config if it has changed since last import.
+    """Import the reference NI MAX config unconditionally.
 
-    Compares the SHA-256 of tests/assets/ni_max_config.ini against a sentinel
-    file written after each successful import. If they match, this is a no-op
-    (no NI API calls). If they differ, imports the reference config and updates
-    the sentinel.
+    Always re-imports to guarantee NI MAX state is correct, even if a previous
+    test (e.g. a disconnect test) deleted devices without restoring them.
 
     Only meaningful on Windows with NI System Configuration installed.
     """
     if not _NI_MAX_CONFIG.exists():
-        log("ni_max_config.ini not found in assets, skipping config sync")
-        return
-
-    current_hash = _file_sha256(_NI_MAX_CONFIG)
-    if (
-        _NI_MAX_CONFIG_HASH_SENTINEL.exists()
-        and _NI_MAX_CONFIG_HASH_SENTINEL.read_text().strip() == current_hash
-    ):
+        log("ni_max_config.nce not found in fixtures, skipping config sync")
         return
 
     import nisyscfg  # Windows-only; caller guards with platform check
 
-    log("NI MAX config changed, importing ...")
+    log("Importing NI MAX config ...")
     with nisyscfg.Session() as session:
         detailed_result = ctypes.POINTER(ctypes.c_char)()
         status = session._library.ImportConfiguration(
@@ -67,7 +48,6 @@ def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
         )
     if status != 0:
         raise RuntimeError(f"NISysCfgImportConfiguration failed with status {status}")
-    _NI_MAX_CONFIG_HASH_SENTINEL.write_text(current_hash)
     log("NI MAX config imported successfully")
 
 

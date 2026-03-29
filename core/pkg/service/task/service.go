@@ -99,12 +99,17 @@ type Service struct {
 	commandChannelKey             channel.Key
 }
 
+// Observe returns an observable that notifies callers of changes to task entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
+	return s.table.Observe()
+}
+
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Task](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Task]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +146,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
+		signals.GorpPublisherConfigPureNumeric[Key, Task](s.table.Observe(), telem.Uint64T),
 	); err != nil {
 		return nil, err
 	}
@@ -184,6 +189,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		rack:   s.cfg.Rack.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:  s.table,
 	}
 }
 
@@ -191,7 +197,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		otg:    s.cfg.Ontology,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[Key, Task](),
+		gorp:   s.table.NewRetrieve(),
 	}
 }
 

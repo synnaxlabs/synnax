@@ -18,7 +18,7 @@ import (
 var _ = Describe("Writer", func() {
 	It("Should wrap a key-value writer with an encoder", func(ctx SpecContext) {
 		tx := db.OpenTx()
-		w := gorp.WrapWriter[int32, entry](tx)
+		w := gorp.WrapWriter[int32, entry](tx, tx)
 		Expect(w.Set(ctx, entry{ID: 1, Data: "Two"})).To(Succeed())
 		Expect(w.Delete(ctx, 1)).To(Succeed())
 	})
