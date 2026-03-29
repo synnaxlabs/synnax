@@ -106,6 +106,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "host", c.HostProvider)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "search", c.Search)
 	validate.Positive(v, "health", c.HealthCheckInterval)
 	return v.Error()
 }

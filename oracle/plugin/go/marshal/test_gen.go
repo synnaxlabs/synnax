@@ -24,7 +24,7 @@ import (
 
 type testFileOutput struct {
 	Package      string
-	PkgImport   string
+	PkgImport    string
 	ExtraImports map[string]string
 	NeedsUUID    bool
 	Tests        []testEntry
@@ -49,7 +49,7 @@ func generateTestCodecFile(
 	}
 	fo := testFileOutput{
 		Package:      packageName,
-		PkgImport:   pkgImport,
+		PkgImport:    pkgImport,
 		ExtraImports: make(map[string]string),
 	}
 

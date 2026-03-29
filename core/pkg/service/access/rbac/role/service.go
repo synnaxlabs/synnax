@@ -54,6 +54,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -85,9 +86,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	if cfg.Search != nil {
-		cfg.Search.RegisterService(s)
-	}
+	cfg.Search.RegisterService(s)
 	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
 		return nil, err
 	}

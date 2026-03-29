@@ -54,10 +54,7 @@ type Ontology struct {
 }
 
 type Config struct {
-	DB                *gorp.DB
-	EnableSearch      *bool
-	RelationshipCodec binary.Codec
-	ResourceCodec     binary.Codec
+	DB *gorp.DB
 	alamos.Instrumentation
 }
 
@@ -116,7 +113,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		RelationshipObserver: relationshipTable.Observe(),
 		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		RelationshipObserver: relationshipTable.Observe(),
-		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
+		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		resourceTable:        resourceTable,
 		relationshipTable:    relationshipTable,
 	}

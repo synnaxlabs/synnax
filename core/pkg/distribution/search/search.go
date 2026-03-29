@@ -55,59 +55,75 @@ type Index struct {
 	Config
 }
 
+// Config is the configuration for opening a search index.
 type Config struct {
 	alamos.Instrumentation
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a search index.
+	DefaultConfig = Config{}
 )
 
+// Validate implements config.Config.
 func (c Config) Validate() error { return nil }
 
+// Override implements ocnfig.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
-var ErrNotEnabled = errors.New("[search] - search is not enabled")
-
-func New(configs ...Config) (*Index, error) {
+// Open opens a new search index using the provided configuration. The index must
+// be closed after use.
+func Open(configs ...Config) (*Index, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Index{Config: cfg, typeFields: make(map[string][]string)}
-	s.mapping = bleve.NewIndexMapping()
-	s.mapping.DefaultMapping.Dynamic = false
-	s.mapping.StoreDynamic = false
-	s.mapping.IndexDynamic = false
-	s.mapping.DocValuesDynamic = false
-	if err = registerSeparatorAnalyzer(s.mapping); err != nil {
+	m := bleve.NewIndexMapping()
+	m.DefaultMapping.Dynamic = false
+	m.StoreDynamic = false
+	m.IndexDynamic = false
+	m.DocValuesDynamic = false
+	if err = registerSeparatorAnalyzer(m); err != nil {
 		return nil, err
 	}
-	if s.idx, err = bleve.NewMemOnly(s.mapping); err != nil {
+	idx, err := bleve.NewMemOnly(m)
+	if err != nil {
 		return nil, err
 	}
-	return s, nil
+	return &Index{
+		Config:     cfg,
+		typeFields: make(map[string][]string),
+		mapping:    m,
+		idx:        idx,
+	}, nil
+}
+
+// Close shuts down the index, freeing all resources. It is not safe to call Close
+// concurrently with any other Index methods. After Close is called, all other Index
+// methods are no longer valid.
+func (i *Index) Close() error {
+	for _, dc := range i.disconnectObservers {
+		dc()
+	}
+	return i.idx.Close()
 }
 
 // RegisterService registers a service for search indexing. The service's resources
-// will be indexed when InitializeIndex is called.
-func (s *Index) RegisterService(svc Service) {
-	if s == nil {
-		return
-	}
-	s.services = append(s.services, svc)
+// will be indexed when Initialize is called.
+func (i *Index) RegisterService(svc Service) {
+	i.services = append(i.services, svc)
 }
 
-func (s *Index) OpenTx() Tx {
-	return Tx{idx: s.idx, batch: s.idx.NewBatch(), buf: make(bleveDoc, 8)}
+func (i *Index) OpenTx() Tx {
+	return Tx{idx: i.idx, batch: i.idx.NewBatch(), buf: make(bleveDoc, 8)}
 }
 
-func (s *Index) WithTx(f func(Tx) error) error {
-	t := s.OpenTx()
+func (i *Index) WithTx(f func(Tx) error) error {
+	t := i.OpenTx()
 	defer t.Close()
 	if err := f(t); err != nil {
 		return err
@@ -115,8 +131,8 @@ func (s *Index) WithTx(f func(Tx) error) error {
 	return t.Commit()
 }
 
-func (s *Index) IndexResources(resources []ontology.Resource) error {
-	t := s.OpenTx()
+func (i *Index) IndexResources(resources []ontology.Resource) error {
+	t := i.OpenTx()
 	defer t.Close()
 	for _, r := range resources {
 		if err := t.Index(r); err != nil {
@@ -126,28 +142,25 @@ func (s *Index) IndexResources(resources []ontology.Resource) error {
 	return t.Commit()
 }
 
-// InitializeIndex registers search schemas for all registered services, indexes
+// Initialize registers search schemas for all registered services, indexes
 // all existing resources, and hooks OnChange for live sync. This method should be
 // called AFTER all services have been registered via RegisterService. It blocks
 // until all resources have been indexed.
-func (s *Index) InitializeIndex(ctx context.Context) error {
-	if s == nil {
-		return nil
-	}
-	for _, svc := range s.services {
+func (i *Index) Initialize(ctx context.Context) error {
+	for _, svc := range i.services {
 		var extraFields []string
 		if provider, ok := svc.(FieldsProvider); ok {
 			extraFields = provider.SearchableFields()
 		}
-		s.register(ctx, svc.Type(), extraFields...)
+		i.register(ctx, svc.Type(), extraFields...)
 	}
 	oCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
-	for _, svc := range s.services {
-		disconnect := svc.OnChange(func(ctx context.Context, i iter.Seq[ontology.Change]) {
-			err := s.WithTx(func(tx Tx) error {
-				for ch := range i {
-					s.L.Debug(
+	for _, svc := range i.services {
+		disconnect := svc.OnChange(func(ctx context.Context, it iter.Seq[ontology.Change]) {
+			err := i.WithTx(func(tx Tx) error {
+				for ch := range it {
+					i.L.Debug(
 						"updating search index",
 						zap.String("key", ch.Key),
 						zap.Stringer("type", svc.Type()),
@@ -160,13 +173,13 @@ func (s *Index) InitializeIndex(ctx context.Context) error {
 				return nil
 			})
 			if err != nil {
-				s.L.Error("failed to index resource",
+				i.L.Error("failed to index resource",
 					zap.Stringer("type", svc.Type()),
 					zap.Error(err),
 				)
 			}
 		})
-		s.disconnectObservers = append(s.disconnectObservers, disconnect)
+		i.disconnectObservers = append(i.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) (err error) {
 			n, closer, err := svc.OpenNexter(ctx)
 			if err != nil {
@@ -175,7 +188,7 @@ func (s *Index) InitializeIndex(ctx context.Context) error {
 			defer func() {
 				err = errors.Combine(err, closer.Close())
 			}()
-			err = s.WithTx(func(tx Tx) error {
+			err = i.WithTx(func(tx Tx) error {
 				for r := range n {
 					if ctx.Err() != nil {
 						return ctx.Err()
@@ -187,7 +200,7 @@ func (s *Index) InitializeIndex(ctx context.Context) error {
 				return nil
 			})
 			return err
-		}, signal.WithKeyf("startup_indexing_%s", svc.Type()))
+		}, signal.WithKeyf("startup_indexing_%i", svc.Type()))
 	}
 	return oCtx.Wait()
 }
@@ -238,13 +251,13 @@ func (t *Tx) Delete(id ontology.ID) { t.batch.Delete(id.String()) }
 
 func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 
-func (s *Index) register(
+func (i *Index) register(
 	ctx context.Context,
 	t ontology.ResourceType,
 	searchableFields ...string,
 ) {
-	s.L.Debug("registering schema", zap.Stringer("type", t))
-	_, span := s.T.Prod(ctx, "register")
+	i.L.Debug("registering schema", zap.Stringer("type", t))
+	_, span := i.T.Prod(ctx, "register")
 	defer span.End()
 	dm := bleve.NewDocumentMapping()
 	dm.Dynamic = false
@@ -259,12 +272,12 @@ func (s *Index) register(
 		fm.IncludeTermVectors = false
 		fm.DocValues = false
 		dm.AddFieldMappingsAt(field, fm)
-		if !lo.Contains(s.fields, field) {
-			s.fields = append(s.fields, field)
+		if !lo.Contains(i.fields, field) {
+			i.fields = append(i.fields, field)
 		}
 	}
-	s.typeFields[t.String()] = allFields
-	s.mapping.AddDocumentMapping(t.String(), dm)
+	i.typeFields[t.String()] = allFields
+	i.mapping.AddDocumentMapping(t.String(), dm)
 }
 
 type Request struct {
@@ -289,24 +302,21 @@ func assembleWordQuery(word string, fields []string) query.Query {
 	return bleve.NewDisjunctionQuery(queries...)
 }
 
-func (s *Index) execQuery(
+func (i *Index) execQuery(
 	ctx context.Context,
 	q query.Query,
 ) (*bleve.SearchResult, error) {
 	req := bleve.NewSearchRequest(q)
 	req.Size = 100
 	req.SortBy([]string{"-_score"})
-	return s.idx.SearchInContext(ctx, req)
+	return i.idx.SearchInContext(ctx, req)
 }
 
-func (s *Index) Search(ctx context.Context, req Request) ([]ontology.ID, error) {
-	if s == nil {
-		return nil, ErrNotEnabled
-	}
-	ctx, span := s.T.Prod(ctx, "search")
-	fields := s.fields
+func (i *Index) Search(ctx context.Context, req Request) ([]ontology.ID, error) {
+	ctx, span := i.T.Prod(ctx, "search")
+	fields := i.fields
 	if len(req.Type) > 0 {
-		if tf, ok := s.typeFields[req.Type.String()]; ok {
+		if tf, ok := i.typeFields[req.Type.String()]; ok {
 			fields = tf
 		}
 	}
@@ -316,13 +326,13 @@ func (s *Index) Search(ctx context.Context, req Request) ([]ontology.ID, error) 
 		wordQueries[i] = assembleWordQuery(word, fields)
 	}
 	cj := bleve.NewConjunctionQuery(wordQueries...)
-	res, err := s.execQuery(ctx, cj)
+	res, err := i.execQuery(ctx, cj)
 	if err != nil {
 		return nil, span.EndWith(err)
 	}
 	if res.Total == 0 {
 		dq := bleve.NewDisjunctionQuery(wordQueries...)
-		res, err = s.execQuery(ctx, dq)
+		res, err = i.execQuery(ctx, dq)
 		if err != nil {
 			return nil, span.EndWith(err)
 		}

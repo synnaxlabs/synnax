@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -45,17 +46,27 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
+			Search:   searchIdx,
 		}))
 		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    label,
+			Search:   searchIdx,
 		}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
@@ -65,6 +76,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Status:       stat,
 
 			HealthCheckInterval: 10 * telem.Millisecond,
+			Search:              searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(svc.Close()).To(Succeed())
@@ -435,26 +447,37 @@ var _ = Describe("Rack", Ordered, func() {
 
 var _ = Describe("Migration", func() {
 	var (
-		db       *gorp.DB
-		otg      *ontology.Ontology
-		g        *group.Service
-		labelSvc *label.Service
-		stat     *status.Service
+		db        *gorp.DB
+		otg       *ontology.Ontology
+		g         *group.Service
+		labelSvc  *label.Service
+		stat      *status.Service
+		searchIdx *search.Index
 	)
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		searchIdx = MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
+			Search:   searchIdx,
 		}))
 		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(stat.Close()).To(Succeed())
@@ -472,6 +495,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Search:       searchIdx,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 		return svc
@@ -484,6 +508,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Search:       searchIdx,
 		}))
 		r := &rack.Rack{Name: "test rack"}
 		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
@@ -501,6 +526,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Search:       searchIdx,
 		}))
 		DeferCleanup(func() { Expect(svc2.Close()).To(Succeed()) })
 

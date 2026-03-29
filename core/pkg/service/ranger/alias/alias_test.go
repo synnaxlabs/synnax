@@ -47,7 +47,7 @@ var _ = Describe("Alias", Ordered, func() {
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustSucceed(search.New())
+		searchIdx := MustSucceed(search.Open())
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
 		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g, Search: searchIdx}))
 		rangerSvc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
@@ -63,7 +63,7 @@ var _ = Describe("Alias", Ordered, func() {
 			ParentRetriever: rangerSvc,
 			Search:          searchIdx,
 		}))
-		Expect(searchIdx.InitializeIndex(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 		closer = xio.MultiCloser{db, otg, g, rangerSvc, aliasSvc}
 	})
 	AfterAll(func() {

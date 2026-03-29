@@ -67,6 +67,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
 	validate.NotNil(v, "validate_names", c.ValidateNames)
 	validate.NotNil(v, "force_migration", c.ForceMigration)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -117,9 +118,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	if cfg.Search != nil {
-		cfg.Search.RegisterService(s)
-	}
+	cfg.Search.RegisterService(s)
 	return s, nil
 }
 

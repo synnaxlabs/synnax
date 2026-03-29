@@ -85,6 +85,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "task", c.Task)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 

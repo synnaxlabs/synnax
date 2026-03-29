@@ -237,7 +237,7 @@ type encoderBuilder struct {
 	needsJSON           bool
 	usesErr             bool
 	depth               int
-	inBlock        int
+	inBlock             int
 	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 

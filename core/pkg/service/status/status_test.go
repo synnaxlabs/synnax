@@ -44,7 +44,7 @@ var _ = Describe("Status", Ordered, func() {
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustSucceed(search.New())
+		searchIdx := MustSucceed(search.Open())
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
 		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
@@ -59,7 +59,7 @@ var _ = Describe("Status", Ordered, func() {
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		Expect(searchIdx.InitializeIndex(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})

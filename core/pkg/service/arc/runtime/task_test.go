@@ -63,6 +63,7 @@ var _ = Describe("Task", Ordered, func() {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Search:   dist.Search,
 		}))
 		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
@@ -70,6 +71,7 @@ var _ = Describe("Task", Ordered, func() {
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
+			Search:   dist.Search,
 		}))
 	})
 

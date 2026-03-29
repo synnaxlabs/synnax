@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -44,11 +45,17 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
+	searchIdx, err := search.Open()
+	if err != nil {
+		b.Fatalf("failed to create search index: %v", err)
+	}
+
 	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
@@ -60,6 +67,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -70,6 +78,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
+		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open arc service: %v", err)

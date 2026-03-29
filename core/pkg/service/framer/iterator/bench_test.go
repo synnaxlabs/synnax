@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -39,10 +40,16 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
+	searchIdx, err := search.Open()
+	if err != nil {
+		b.Fatalf("failed to create search index: %v", err)
+	}
+
 	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       dist.DB,
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
+		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open arc service: %v", err)

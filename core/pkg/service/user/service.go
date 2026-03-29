@@ -65,6 +65,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 

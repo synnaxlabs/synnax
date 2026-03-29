@@ -29,7 +29,7 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Channel", func() {
 		It("should round-trip encode and decode", func() {
-			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
+			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(channel.EncodeChannel(w, &original)).To(Succeed())
 			var decoded channel.Channel
@@ -52,7 +52,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeChannel(b *testing.B) {
-	s := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
+	s := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
 	w := xbinary.NewWriter(0, binary.BigEndian)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
