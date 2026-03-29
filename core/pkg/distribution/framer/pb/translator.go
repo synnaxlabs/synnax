@@ -286,7 +286,6 @@ func (r DeleteRequestTranslator) Forward(
 	}
 	return &DeleteRequest{
 		Keys:   msg.Keys.Uint32(),
-		Names:  msg.Names,
 		Bounds: bounds,
 	}, nil
 }
@@ -301,7 +300,6 @@ func (r DeleteRequestTranslator) Backward(
 	}
 	return deleter.Request{
 		Keys:   channel.KeysFromUint32(msg.Keys),
-		Names:  msg.Names,
 		Bounds: bounds,
 	}, nil
 }

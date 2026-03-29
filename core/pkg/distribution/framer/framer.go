@@ -10,7 +10,6 @@
 package framer
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -33,5 +32,4 @@ type (
 	StreamerRequest  = relay.Request
 	StreamerConfig   = relay.StreamerConfig
 	Streamer         = relay.Streamer
-	Deleter          = deleter.Deleter
 )

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestWriter(t *testing.T) {
+func TestDeleter(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Deleter Suite")
 }
