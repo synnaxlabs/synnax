@@ -68,7 +68,7 @@ var _ = Describe("Delete", func() {
 
 			Describe("Single-domain deletion", func() {
 				Context("Index channels", func() {
-					It("Should delete chunks of a channel with both exact timestamps", func() {
+					It("Should delete chunks of a channel with both exact timestamps", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
 
@@ -89,7 +89,7 @@ var _ = Describe("Delete", func() {
 						series1Data := telem.UnmarshalSeries[int64](frame.SeriesAt(1))
 						Expect(series1Data).To(ConsistOf(int64(7), int64(8), int64(9)))
 					})
-					It("Should delete chunks of a channel without exact timestamps", func() {
+					It("Should delete chunks of a channel without exact timestamps", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 12, 15, 17, 19, 20, 23))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 12, 15, 17, 19, 20, 23))).To(Succeed())
 
@@ -109,7 +109,7 @@ var _ = Describe("Delete", func() {
 						Expect(frame.SeriesAt(2).TimeRange).To(Equal((23 * telem.SecondTS).Range(23*telem.SecondTS + 1)))
 						Expect(frame.SeriesAt(2).Data).To(Equal(telem.NewSeriesV[int64](23).Data))
 					})
-					It("Should delete chunks of a channel if the start is out of the pointer", func() {
+					It("Should delete chunks of a channel if the start is out of the pointer", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
 
@@ -126,7 +126,7 @@ var _ = Describe("Delete", func() {
 						series1Data := telem.UnmarshalSeries[int64](frame.SeriesAt(0))
 						Expect(series1Data).To(ConsistOf(int64(8), int64(9)))
 					})
-					It("Should delete chunks of a channel if the end is out of the pointer", func() {
+					It("Should delete chunks of a channel if the end is out of the pointer", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
 
@@ -143,7 +143,7 @@ var _ = Describe("Delete", func() {
 						series0Data := telem.UnmarshalSeries[int64](frame.SeriesAt(0))
 						Expect(series0Data).To(ConsistOf(int64(0), int64(1), int64(2)))
 					})
-					It("Should delete the whole channel", func() {
+					It("Should delete the whole channel", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
 
@@ -160,7 +160,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				Context("Indexed channels", func() {
-					It("Should delete chunks of a channel with both exact timestamps", func() {
+					It("Should delete chunks of a channel with both exact timestamps", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 
 						By("Deleting channel data")
@@ -180,7 +180,7 @@ var _ = Describe("Delete", func() {
 						series1Data := telem.UnmarshalSeries[telem.TimeStamp](frame.SeriesAt(1))
 						Expect(series1Data).To(ConsistOf(17*telem.SecondTS, 18*telem.SecondTS, 19*telem.SecondTS))
 					})
-					It("Should delete chunks of a channel without exact timestamps", func() {
+					It("Should delete chunks of a channel without exact timestamps", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 
 						By("Deleting channel data")
@@ -200,7 +200,7 @@ var _ = Describe("Delete", func() {
 						series1Data := telem.UnmarshalSeries[telem.TimeStamp](frame.SeriesAt(1))
 						Expect(series1Data).To(ConsistOf(18*telem.SecondTS, 19*telem.SecondTS))
 					})
-					It("Should delete chunks of a channel if the start is out of the pointer", func() {
+					It("Should delete chunks of a channel if the start is out of the pointer", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 
 						By("Deleting channel data")
@@ -217,7 +217,7 @@ var _ = Describe("Delete", func() {
 						series1Data := telem.UnmarshalSeries[telem.TimeStamp](frame.SeriesAt(0))
 						Expect(series1Data).To(ConsistOf(18*telem.SecondTS, 19*telem.SecondTS))
 					})
-					It("Should delete chunks of a channel if the end is out of the pointer", func() {
+					It("Should delete chunks of a channel if the end is out of the pointer", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 
 						By("Deleting channel data")
@@ -233,7 +233,7 @@ var _ = Describe("Delete", func() {
 						series0Data := telem.UnmarshalSeries[telem.TimeStamp](frame.SeriesAt(0))
 						Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
 					})
-					It("Should delete the whole channel", func() {
+					It("Should delete the whole channel", func(ctx SpecContext) {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 
 						By("Deleting channel data")
@@ -260,7 +260,7 @@ var _ = Describe("Delete", func() {
 							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesV(20*telem.SecondTS, 23500*telem.MillisecondTS, 23600*telem.MillisecondTS, 23800*telem.MillisecondTS, 25100*telem.MillisecondTS, 27800*telem.MillisecondTS))).To(Succeed())
 							Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](200, 235, 236, 238, 251, 278))).To(Succeed())
 						})
-						It("Should delete across two such domains", func() {
+						It("Should delete across two such domains", func(ctx SpecContext) {
 							By("Deleting channel data")
 							Expect(dataDB.Delete(ctx, telem.TimeRange{
 								Start: 13*telem.SecondTS + 400*telem.MillisecondTS,
@@ -279,7 +279,7 @@ var _ = Describe("Delete", func() {
 							Expect(series1Data).To(ConsistOf(int64(251), int64(278)))
 						})
 
-						It("Should delete full domains", func() {
+						It("Should delete full domains", func(ctx SpecContext) {
 							Expect(dataDB.Delete(ctx, telem.TimeRange{
 								Start: 10 * telem.SecondTS,
 								End:   20 * telem.SecondTS,
@@ -300,7 +300,7 @@ var _ = Describe("Delete", func() {
 							))
 						})
 
-						It("Should delete entire dataDB", func() {
+						It("Should delete entire dataDB", func(ctx SpecContext) {
 							Expect(dataDB.Delete(ctx, telem.TimeRangeMax)).To(Succeed())
 							frame := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
 							Expect(frame.Count()).To(Equal(0))
@@ -308,7 +308,7 @@ var _ = Describe("Delete", func() {
 					})
 
 					Context("Multiple pointers", func() {
-						It("Should complete such deletions with the appropriate pointers and tombstones", func() {
+						It("Should complete such deletions with the appropriate pointers and tombstones", func(ctx SpecContext) {
 							By("Writing data to the channel")
 							for i := 1; i <= 9; i++ {
 								var data []telem.TimeStamp
@@ -338,7 +338,7 @@ var _ = Describe("Delete", func() {
 							Expect(frame.SeriesAt(5).TimeRange.End).To(BeNumerically("<", 100*telem.SecondTS))
 						})
 
-						It("Should work for deleting whole pointers", func() {
+						It("Should work for deleting whole pointers", func(ctx SpecContext) {
 							By("Writing data to the channel")
 							for i := 1; i <= 9; i++ {
 								var data []telem.TimeStamp
@@ -367,7 +367,7 @@ var _ = Describe("Delete", func() {
 							Expect(frame.SeriesAt(5).TimeRange.End).To(BeNumerically("<", 100*telem.SecondTS))
 						})
 
-						It("Should work for deleting whole pointers in an indexed channel", func() {
+						It("Should work for deleting whole pointers in an indexed channel", func(ctx SpecContext) {
 							By("Writing data to the channel")
 							for i := 1; i <= 9; i++ {
 								var index []telem.TimeStamp
@@ -400,7 +400,7 @@ var _ = Describe("Delete", func() {
 							Expect(frame.SeriesAt(5).TimeRange.End).To(BeNumerically("<", 100*telem.SecondTS))
 						})
 
-						It("Should add up to delete the whole channel", func() {
+						It("Should add up to delete the whole channel", func(ctx SpecContext) {
 							By("Writing data to the channel")
 							for i := 1; i <= 9; i++ {
 								var index []telem.TimeStamp
@@ -446,7 +446,7 @@ var _ = Describe("Delete", func() {
 					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete between two domains", func() {
+				It("Should delete between two domains", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.TimeRange{Start: 12*telem.SecondTS + 500*telem.MillisecondTS, End: 24 * telem.SecondTS})).To(Succeed())
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(frame.Count()).To(Equal(3))
@@ -461,7 +461,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1Data).To(ConsistOf(24 * telem.SecondTS))
 				})
 
-				It("Should delete between multiple domains", func() {
+				It("Should delete between multiple domains", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.TimeRange{Start: 12*telem.SecondTS + 500*telem.MillisecondTS, End: 32 * telem.SecondTS})).To(Succeed())
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(frame.Count()).To(Equal(2))
@@ -476,7 +476,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1Data).To(ConsistOf(33*telem.SecondTS, 34*telem.SecondTS, 35*telem.SecondTS, 36*telem.SecondTS, 37*telem.SecondTS))
 				})
 
-				It("Should delete a domain entirely", func() {
+				It("Should delete a domain entirely", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.TimeRange{Start: 12*telem.SecondTS + 500*telem.MillisecondTS, End: 25 * telem.SecondTS})).To(Succeed())
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(frame.Count()).To(Equal(2))
@@ -499,7 +499,7 @@ var _ = Describe("Delete", func() {
 					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete even when the start timestamp is not in bounds of a domain", func() {
+				It("Should delete even when the start timestamp is not in bounds of a domain", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(18, 32))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
@@ -516,7 +516,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete even when the start timestamp is not in bounds of the dataDB", func() {
+				It("Should delete even when the start timestamp is not in bounds of the dataDB", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(8, 32))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
@@ -528,7 +528,7 @@ var _ = Describe("Delete", func() {
 					Expect(series0).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete even when the end timestamp is not in bounds of a pointer", func() {
+				It("Should delete even when the end timestamp is not in bounds of a pointer", func(ctx SpecContext) {
 					By("Deleting channel data")
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(23, 26)))
 
@@ -546,7 +546,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete even when the end timestamp is not in the bounds of the DB", func() {
+				It("Should delete even when the end timestamp is not in the bounds of the DB", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(12, 10123))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
@@ -558,7 +558,7 @@ var _ = Describe("Delete", func() {
 					Expect(series0).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)))
 				})
 
-				It("Should delete even when both timestamps are not in bounds of a pointer", func() {
+				It("Should delete even when both timestamps are not in bounds of a pointer", func(ctx SpecContext) {
 					By("Deleting channel data")
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(16, 29))).To(Succeed())
 
@@ -585,7 +585,7 @@ var _ = Describe("Delete", func() {
 					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37))).To(Succeed())
 				})
 
-				It("Should only delete one sample when Start = End - 1", func() {
+				It("Should only delete one sample when Start = End - 1", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(20, 21))).To(Succeed())
 					frame := MustSucceed(indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)))
 					Expect(frame.Count()).To(Equal(2))
@@ -596,7 +596,7 @@ var _ = Describe("Delete", func() {
 					Expect(series0).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(21, 22, 23, 24)))
 				})
 
-				It("Should delete nothing when there is no data before end", func() {
+				It("Should delete nothing when there is no data before end", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(0, 5))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
@@ -608,7 +608,7 @@ var _ = Describe("Delete", func() {
 					Expect(series0).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 				})
 
-				It("Should delete nothing when there is no data after start", func() {
+				It("Should delete nothing when there is no data after start", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(41, 45))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
@@ -620,7 +620,7 @@ var _ = Describe("Delete", func() {
 					Expect(lastSeries).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete no element when Start = End", func() {
+				It("Should delete no element when Start = End", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(20, 20))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)))
@@ -628,7 +628,7 @@ var _ = Describe("Delete", func() {
 					Expect(frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
 				})
 
-				It("Should delete no sample when the range is in-between pointers", func() {
+				It("Should delete no sample when the range is in-between pointers", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(14, 20))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
@@ -641,7 +641,7 @@ var _ = Describe("Delete", func() {
 					Expect(frame.Len()).To(Equal(int64(17)))
 				})
 
-				It("Should delete no element when given a range that contains no samples", func() {
+				It("Should delete no element when given a range that contains no samples", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(10, 20))).To(Succeed())
 
 					w, _ := MustSucceed2(indexDB.OpenWriter(
@@ -668,7 +668,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			Context("Error paths", func() {
-				It("Should error when the end timestamp is earlier than start timestamp", func() {
+				It("Should error when the end timestamp is earlier than start timestamp", func(ctx SpecContext) {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(30, 20))).To(MatchError(ContainSubstring("after delete end")))
 				})
 			})
@@ -684,7 +684,7 @@ var _ = Describe("Delete", func() {
 				// always gets cut off after Timestamp data. This makes it so that
 				// after enough samples, the index will almost always be split into two
 				// for one data domain.
-				It("Should work when the index is split into two domains", func() {
+				It("Should work when the index is split into two domains", func(ctx SpecContext) {
 					var (
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
@@ -740,7 +740,7 @@ var _ = Describe("Delete", func() {
 				// the index channel as well. Previously in the codebase we checked that
 				// the ensuing Stamp operation must be exact since we made that assumption,
 				// as a result, the codebase DPanic'ed when it did not need to.
-				It("Should work when the index approximation is not exact", func() {
+				It("Should work when the index approximation is not exact", func(ctx SpecContext) {
 					var (
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
@@ -794,7 +794,7 @@ var _ = Describe("Delete", func() {
 
 				// This test addresses an edge case in the previous test, where we attempt
 				// to delete before the first element in a cut-off domain.
-				It("Should work when we delete before the first element in a cut-off domain", func() {
+				It("Should work when we delete before the first element in a cut-off domain", func(ctx SpecContext) {
 					var (
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
@@ -845,7 +845,7 @@ var _ = Describe("Delete", func() {
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())
 				})
-				It("Should work when we delete at the first element in a cut-off domain", func() {
+				It("Should work when we delete at the first element in a cut-off domain", func(ctx SpecContext) {
 					var (
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
@@ -900,7 +900,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			Describe("HasDataFor", func() {
-				It("Should return whether there is data for the given range", func() {
+				It("Should return whether there is data for the given range", func(ctx SpecContext) {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6))).To(Succeed())
 					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
@@ -912,7 +912,7 @@ var _ = Describe("Delete", func() {
 					hasData = MustSucceed(dataDB.HasDataFor(ctx, (5 * telem.SecondTS).Range(10*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
 				})
-				It("Should return true when there is a writer starting before the given time range", func() {
+				It("Should return true when there is a writer starting before the given time range", func(ctx SpecContext) {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   5 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo_writer"},
@@ -926,7 +926,7 @@ var _ = Describe("Delete", func() {
 					hasData = MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
 				})
-				It("Should return true when there is a writer starting in the middle of the given time range", func() {
+				It("Should return true when there is a writer starting in the middle of the given time range", func(ctx SpecContext) {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   15 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo_writer"},
@@ -940,7 +940,7 @@ var _ = Describe("Delete", func() {
 					hasData = MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
 				})
-				It("Should return false when there is a writer starting after the given time range", func() {
+				It("Should return false when there is a writer starting after the given time range", func(ctx SpecContext) {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   25 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo_writer"},

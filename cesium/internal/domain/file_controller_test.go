@@ -36,7 +36,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Writers", func() {
-				It("Should allow one writing to a file at all times", func() {
+				It("Should allow one writing to a file at all times", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -73,7 +73,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w3.Close()).To(Succeed())
 				})
 
-				It("Should obey the file size limit", func() {
+				It("Should obey the file size limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -99,7 +99,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w2.Close()).To(Succeed())
 				})
 
-				It("Should persist obey the file size limit", func() {
+				It("Should persist obey the file size limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS: fs, FileSize: 10 * telem.Byte,
@@ -135,7 +135,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w2.Close()).To(Succeed())
 				})
 
-				It("Should open a file if it is below threshold", func() {
+				It("Should open a file if it is below threshold", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -162,7 +162,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w2.Close()).To(Succeed())
 				})
 
-				It("Should persist and open a file if it is below threshold", func() {
+				It("Should persist and open a file if it is below threshold", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -199,7 +199,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w2.Close()).To(Succeed())
 				})
 
-				It("Should obey the file descriptor limit", func() {
+				It("Should obey the file descriptor limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -243,7 +243,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w2.Close()).To(Succeed())
 				})
 
-				It("Should persist the counter file across open/close", func() {
+				It("Should persist the counter file across open/close", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -293,7 +293,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(0)))
 				})
 
-				It("Should open writers on partially full files after reopening the file controller", func() {
+				It("Should open writers on partially full files after reopening the file controller", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -425,7 +425,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					})
 				})
 
-				It("Should work with file auto cutoff generated files", func() {
+				It("Should work with file auto cutoff generated files", func(ctx SpecContext) {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -477,7 +477,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				})
 			})
 			Describe("Readers", func() {
-				It("Should manage readers for a file", func() {
+				It("Should manage readers for a file", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        1 * telem.Megabyte,

@@ -95,7 +95,7 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("Initialize", func() {
-		It("Should handle an initialize request and return capabilities", func() {
+		It("Should handle an initialize request and return capabilities", func(ctx SpecContext) {
 			sendRequest(1, "initialize", map[string]any{
 				"clientInfo": map[string]any{"name": "test-client"},
 			})
@@ -107,7 +107,7 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("DidOpen + Hover", func() {
-		It("Should handle document open notification followed by hover request", func() {
+		It("Should handle document open notification followed by hover request", func(ctx SpecContext) {
 			sendRequest(1, "initialize", map[string]any{
 				"clientInfo": map[string]any{"name": "test-client"},
 			})
@@ -130,7 +130,7 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("Multiple sequential requests", func() {
-		It("Should handle multiple requests over the same connection", func() {
+		It("Should handle multiple requests over the same connection", func(ctx SpecContext) {
 			sendRequest(1, "initialize", map[string]any{
 				"clientInfo": map[string]any{"name": "test-client"},
 			})
@@ -142,7 +142,7 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("Connection close", func() {
-		It("Should exit cleanly when the client stream closes", func() {
+		It("Should exit cleanly when the client stream closes", func(ctx SpecContext) {
 			sendRequest(1, "initialize", map[string]any{
 				"clientInfo": map[string]any{"name": "test-client"},
 			})
@@ -153,19 +153,19 @@ var _ = Describe("Freighter Transport", func() {
 
 	Describe("JSONRPCMessage", func() {
 		Describe("UnmarshalJSON", func() {
-			It("Should unmarshal valid JSON object", func() {
+			It("Should unmarshal valid JSON object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage
 				input := `{"content":"test message"}`
 				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())
 				Expect(msg.Content).To(Equal("test message"))
 			})
-			It("Should handle raw string as content", func() {
+			It("Should handle raw string as content", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage
 				input := `"raw string content"`
 				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())
 				Expect(msg.Content).To(Equal(input))
 			})
-			It("Should handle empty object", func() {
+			It("Should handle empty object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage
 				input := `{}`
 				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())

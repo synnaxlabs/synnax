@@ -10,8 +10,6 @@
 package search_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
@@ -21,17 +19,13 @@ import (
 
 var _ = Describe("SearchTerm", func() {
 	Describe("SearchTerm", func() {
-		var (
-			idx *search.Index
-			ctx context.Context
-		)
-		BeforeEach(func() {
+		var idx *search.Index
+		BeforeEach(func(ctx SpecContext) {
 			idx = MustSucceed(search.New())
-			ctx = context.Background()
 			idx.Register(ctx, "test")
 		})
 		DescribeTable("SearchTerm Searching",
-			func(res resource.Resource, term string) {
+			func(ctx SpecContext, res resource.Resource, term string) {
 				Expect(idx.Index([]resource.Resource{res})).To(Succeed())
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -80,7 +74,7 @@ var _ = Describe("SearchTerm", func() {
 			}, "DAQ_PT"),
 		)
 		DescribeTable("SearchTerm Prioritization",
-			func(resources []resource.Resource, term string, first resource.ID) {
+			func(ctx SpecContext, resources []resource.Resource, term string, first resource.ID) {
 				Expect(idx.Index(resources)).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -133,7 +127,7 @@ var _ = Describe("SearchTerm", func() {
 			}, "View A", resource.ID{Type: "test", Key: "1"}),
 		)
 		DescribeTable("No Results",
-			func(res resource.Resource, term string) {
+			func(ctx SpecContext, res resource.Resource, term string) {
 				Expect(idx.Index([]resource.Resource{res})).To(Succeed())
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -150,7 +144,7 @@ var _ = Describe("SearchTerm", func() {
 			}, "nn"),
 		)
 		Describe("Multiple Fields", func() {
-			It("Should match on extra searchable fields", func() {
+			It("Should match on extra searchable fields", func(ctx SpecContext) {
 				idx = MustSucceed(search.New())
 				idx.Register(ctx, "device", "make", "model")
 				Expect(idx.Index([]resource.Resource{
@@ -167,7 +161,7 @@ var _ = Describe("SearchTerm", func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Key).To(Equal("1"))
 			})
-			It("Should match on name when extra fields are registered", func() {
+			It("Should match on name when extra fields are registered", func(ctx SpecContext) {
 				idx = MustSucceed(search.New())
 				idx.Register(ctx, "device", "make", "model")
 				Expect(idx.Index([]resource.Resource{
@@ -183,7 +177,7 @@ var _ = Describe("SearchTerm", func() {
 				}))
 				Expect(res).To(HaveLen(1))
 			})
-			It("Should prioritize exact match across multiple types", func() {
+			It("Should prioritize exact match across multiple types", func(ctx SpecContext) {
 				idx = MustSucceed(search.New())
 				idx.Register(ctx, "device", "make")
 				idx.Register(ctx, "channel")
@@ -204,7 +198,7 @@ var _ = Describe("SearchTerm", func() {
 				Expect(res).ToNot(BeEmpty())
 				Expect(res[0].Key).To(Equal("1"))
 			})
-			It("Should find results by searching extra fields across types", func() {
+			It("Should find results by searching extra fields across types", func(ctx SpecContext) {
 				idx = MustSucceed(search.New())
 				idx.Register(ctx, "device", "make")
 				idx.Register(ctx, "channel")
@@ -227,7 +221,7 @@ var _ = Describe("SearchTerm", func() {
 			})
 		})
 		Describe("Disjunction Fallback", func() {
-			It("Should fall back to a disjunction search if the conjunction search finds no results", func() {
+			It("Should fall back to a disjunction search if the conjunction search finds no results", func(ctx SpecContext) {
 				Expect(idx.Index([]resource.Resource{
 					{
 						ID:   resource.ID{Type: "test", Key: "1"},
@@ -239,7 +233,7 @@ var _ = Describe("SearchTerm", func() {
 					Term: "My Blog",
 				})).To(Not(BeEmpty()))
 			})
-			It("Should not fall back to a disjunction search if the conjunction search finds results", func() {
+			It("Should not fall back to a disjunction search if the conjunction search finds results", func(ctx SpecContext) {
 				Expect(idx.Index([]resource.Resource{
 					{
 						ID:   resource.ID{Type: "test", Key: "1"},

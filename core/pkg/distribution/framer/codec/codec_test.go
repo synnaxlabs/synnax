@@ -31,12 +31,13 @@ import (
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(
+		ctx SpecContext,
 		channels channel.Keys,
 		dataTypes []telem.DataType,
 		fr framer.Frame,
 	) {
 		cdc := codec.NewStatic(channels, dataTypes)
-		encoded := MustSucceed(cdc.Encode(context.Background(), fr))
+		encoded := MustSucceed(cdc.Encode(ctx, fr))
 		decoded := MustSucceed(cdc.Decode(encoded))
 		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 	},
@@ -206,7 +207,7 @@ var _ = Describe("Codec", func() {
 	)
 
 	Describe("Complex Frames", func() {
-		It("Should correctly serialize and deserialize a complex frame", func() {
+		It("Should correctly serialize and deserialize a complex frame", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2, 3, 4}
 			dataTypes := []telem.DataType{"int32", "float32", "string", "uint8"}
 			s1 := telem.NewSeriesV[int32](1, 2, 3)
@@ -238,7 +239,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Error Handling", func() {
-		It("Should return a validation error when a series has the wrong data type", func() {
+		It("Should return a validation error when a series has the wrong data type", func(ctx SpecContext) {
 			c := codec.NewStatic(
 				[]channel.Key{1},
 				[]telem.DataType{telem.Uint8T},
@@ -258,6 +259,7 @@ var _ = Describe("Codec", func() {
 			dataCh     channel.Channel
 		)
 		BeforeAll(func() {
+			ctx := context.Background()
 			builder = mock.NewCluster()
 			dist := builder.Provision(ctx)
 			channelSvc = dist.Channel
@@ -280,7 +282,7 @@ var _ = Describe("Codec", func() {
 		})
 		ShouldNotLeakGoroutinesBeforeEach()
 
-		It("Should allow the caller to update the list of channels", func() {
+		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {
 			codec := codec.NewDynamic(channelSvc)
 			Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
 			fr := frame.NewMulti(
@@ -301,14 +303,14 @@ var _ = Describe("Codec", func() {
 				Expect(codec.Initialized()).To(BeFalse())
 			})
 
-			It("Should return true if update has been called on the codec at least once", func() {
+			It("Should return true if update has been called on the codec at least once", func(ctx SpecContext) {
 				codec := codec.NewDynamic(channelSvc)
 				Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
 				Expect(codec.Initialized()).To(BeTrue())
 			})
 		})
 
-		It("Should not mutate the caller's keys slice when updating", func() {
+		It("Should not mutate the caller's keys slice when updating", func(ctx SpecContext) {
 			c := codec.NewDynamic(channelSvc)
 			keys := []channel.Key{dataCh.Key(), idxCh.Key()}
 			original := make([]channel.Key, len(keys))
@@ -317,7 +319,7 @@ var _ = Describe("Codec", func() {
 			Expect(keys).To(Equal(original))
 		})
 
-		It("Should panic if the codec is not initialized", func() {
+		It("Should panic if the codec is not initialized", func(ctx SpecContext) {
 			codec := codec.NewDynamic(nil)
 			Expect(func() {
 				fr := framer.Frame{}
@@ -325,7 +327,7 @@ var _ = Describe("Codec", func() {
 			}).To(Panic())
 		})
 
-		It("Should use the correct encode/decode state even if the codecs are out of sync", func() {
+		It("Should use the correct encode/decode state even if the codecs are out of sync", func(ctx SpecContext) {
 			encoder := codec.NewDynamic(channelSvc)
 			decoder := codec.NewDynamic(channelSvc)
 			By("Correctly encoding and decoding when the two codecs are in sync")
@@ -363,7 +365,7 @@ var _ = Describe("Codec", func() {
 		// ignored.
 		Describe("Delayed Frames", func() {
 			Context("Empty Result", func() {
-				It("Should work correctly when a 'delayed' frame is provided ot the codec", func() {
+				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
 					encoder := codec.NewDynamic(channelSvc)
 					decoder := codec.NewDynamic(channelSvc)
 					By("Correctly encoding and decoding when the two codecs are in sync")
@@ -391,7 +393,7 @@ var _ = Describe("Codec", func() {
 			})
 
 			Context("Non-Empty Result", func() {
-				It("Should work correctly when a 'delayed' frame is provided ot the codec", func() {
+				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
 					encoder := codec.NewDynamic(channelSvc)
 					decoder := codec.NewDynamic(channelSvc)
 					By("Correctly encoding and decoding when the two codecs are in sync")
@@ -428,7 +430,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Sorter Reuse", func() {
-		It("Should correctly handle encoding frames of varying sizes sequentially", func() {
+		It("Should correctly handle encoding frames of varying sizes sequentially", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2, 3, 4, 5}
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Int64T, telem.Uint8T, telem.Float64T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -479,7 +481,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Duplicate Channel Keys Sorting", func() {
-		It("Should correctly sort and encode frames with duplicate channel keys", func() {
+		It("Should correctly sort and encode frames with duplicate channel keys", func(ctx SpecContext) {
 			keys := channel.Keys{10, 20, 30}
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float64T, telem.Uint8T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -515,7 +517,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Edge Cases", func() {
-		It("Should handle frames with very large channel key values", func() {
+		It("Should handle frames with very large channel key values", func(ctx SpecContext) {
 			keys := channel.Keys{channel.Key(^uint32(0)), channel.Key(^uint32(0) - 1), channel.Key(1)}
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint64T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -534,7 +536,7 @@ var _ = Describe("Codec", func() {
 			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
 		})
 
-		It("Should handle encoding after an empty frame (sorter reset edge case)", func() {
+		It("Should handle encoding after an empty frame (sorter reset edge case)", func(ctx SpecContext) {
 			keys := channel.Keys{5, 10, 15}
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -568,7 +570,7 @@ var _ = Describe("Codec", func() {
 			Expect(frame3.Frame).To(telem.MatchFrame(decoded3.Frame))
 		})
 
-		It("Should handle single channel frame after multi-channel frame", func() {
+		It("Should handle single channel frame after multi-channel frame", func(ctx SpecContext) {
 			keys := channel.Keys{100, 200, 300}
 			dataTypes := []telem.DataType{telem.Int64T, telem.Float64T, telem.StringT}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -593,7 +595,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Alignment Compression", func() {
-		It("Should merge two contiguous series for the same channel", func() {
+		It("Should merge two contiguous series for the same channel", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Int32T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -628,7 +630,7 @@ var _ = Describe("Codec", func() {
 			Expect(series.Series[0].Alignment).To(Equal(telem.Alignment(0)))
 		})
 
-		It("Should merge three contiguous series for the same channel", func() {
+		It("Should merge three contiguous series for the same channel", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Uint8T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -655,7 +657,7 @@ var _ = Describe("Codec", func() {
 			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
 		})
 
-		It("Should not merge non-contiguous series for the same channel", func() {
+		It("Should not merge non-contiguous series for the same channel", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Int32T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -680,7 +682,7 @@ var _ = Describe("Codec", func() {
 			Expect(len(series.Series)).To(Equal(2))
 		})
 
-		It("Should handle mixed contiguous and non-contiguous series", func() {
+		It("Should handle mixed contiguous and non-contiguous series", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Int32T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -719,7 +721,7 @@ var _ = Describe("Codec", func() {
 			Expect(secondData).To(Equal([]int32{5, 6}))
 		})
 
-		It("Should merge series for multiple channels independently", func() {
+		It("Should merge series for multiple channels independently", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2}
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -760,7 +762,7 @@ var _ = Describe("Codec", func() {
 			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
 		})
 
-		It("Should merge series with zero alignments", func() {
+		It("Should merge series with zero alignments", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Int32T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -785,7 +787,7 @@ var _ = Describe("Codec", func() {
 			Expect(decoded.Count()).To(Equal(2))
 		})
 
-		It("Should handle time range extension when merging", func() {
+		It("Should handle time range extension when merging", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Int32T}
 			codec := codec.NewStatic(keys, dataTypes)
@@ -822,7 +824,7 @@ var _ = Describe("Codec", func() {
 			Expect(mergedSeries.TimeRange.End).To(Equal(telem.TimeStamp(300)))
 		})
 
-		It("Should preserve variable-density types when merging", func() {
+		It("Should preserve variable-density types when merging", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.StringT}
 			codec := codec.NewStatic(keys, dataTypes)

@@ -32,7 +32,6 @@ var _ = Describe("Ranger", Ordered, func() {
 	var (
 		db       *gorp.DB
 		svc      *ranger.Service
-		ctx      context.Context
 		w        ranger.Writer
 		otg      *ontology.Ontology
 		tx       gorp.Tx
@@ -40,8 +39,8 @@ var _ = Describe("Ranger", Ordered, func() {
 		labelSvc *label.Service
 	)
 	BeforeAll(func() {
+		ctx := context.Background()
 		db = gorp.Wrap(memkv.New())
-		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: new(true),
@@ -68,7 +67,7 @@ var _ = Describe("Ranger", Ordered, func() {
 		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should create a new range", func() {
+		It("Should create a new range", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -79,7 +78,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
-		It("should return an error if the time range is invalid", func() {
+		It("should return an error if the time range is invalid", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -92,7 +91,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					ContainSubstring("time_range.start cannot be after time_range.end"),
 				))
 		})
-		It("should create a range with start equal to end", func() {
+		It("should create a range with start equal to end", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -103,7 +102,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
-		It("Should not override the UUID if it is already set", func() {
+		It("Should not override the UUID if it is already set", func(ctx SpecContext) {
 			k := uuid.New()
 			r := &ranger.Range{
 				Key:  k,
@@ -117,7 +116,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(r.Key).To(Equal(k))
 		})
 		Context("Parent Management", func() {
-			It("Should set a custom parent for the range", func() {
+			It("Should set a custom parent for the range", func(ctx SpecContext) {
 				parent := ranger.Range{
 					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -136,7 +135,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
 			})
-			It("Should NOT re-set the custom parent when the range exists but no parent is provided", func() {
+			It("Should NOT re-set the custom parent when the range exists but no parent is provided", func(ctx SpecContext) {
 				parent := ranger.Range{
 					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -156,7 +155,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
 			})
-			It("Should change the custom parent when the range exists and a new parent is provided", func() {
+			It("Should change the custom parent when the range exists and a new parent is provided", func(ctx SpecContext) {
 				parent1 := ranger.Range{
 					Name:      "Parent1",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -187,7 +186,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&res2).
 					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
-			It("Should create multiple ranges with the same parent", func() {
+			It("Should create multiple ranges with the same parent", func(ctx SpecContext) {
 				parent := ranger.Range{
 					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -211,7 +210,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				Expect(res).To(HaveLen(2))
 			})
 			Context("RetrieveParent", func() {
-				It("Should get the parent of the range", func() {
+				It("Should get the parent of the range", func(ctx SpecContext) {
 					parent := ranger.Range{
 						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -225,7 +224,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
 					Expect(pKey).To(Equal(parent.Key))
 				})
-				It("Should return an error if the range has no parent", func() {
+				It("Should return an error if the range has no parent", func(ctx SpecContext) {
 					p := ranger.Range{
 						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -236,7 +235,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				})
 			})
 			Context("RetrieveParentKey", func() {
-				It("Should get the parent key of the range", func() {
+				It("Should get the parent key of the range", func(ctx SpecContext) {
 					parent := ranger.Range{
 						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -250,7 +249,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
 					Expect(pKey).To(Equal(parent.Key))
 				})
-				It("Should return an error if the range has no parent", func() {
+				It("Should return an error if the range has no parent", func(ctx SpecContext) {
 					p := ranger.Range{
 						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -263,7 +262,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
-		It("Should retrieve a range by its key", func() {
+		It("Should retrieve a range by its key", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -276,7 +275,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
-		It("Should retrieve a range by its name", func() {
+		It("Should retrieve a range by its name", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -289,7 +288,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereNames(r.Name).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
-		It("Should retrieve any ranges that overlap a given time range", func() {
+		It("Should retrieve any ranges that overlap a given time range", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -305,7 +304,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
-		It("Should retrieve ranges that have a specific label", func() {
+		It("Should retrieve ranges that have a specific label", func(ctx SpecContext) {
 			l := &label.Label{Name: "TestLabel"}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 			r1 := &ranger.Range{
@@ -324,7 +323,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Key).To(Equal(r1.Key))
 		})
-		It("Should return empty when no ranges have the specified label", func() {
+		It("Should return empty when no ranges have the specified label", func(ctx SpecContext) {
 			l := &label.Label{Name: "UnusedLabel"}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 			r := &ranger.Range{
@@ -339,7 +338,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should delete a range by its key", func() {
+		It("Should delete a range by its key", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -352,7 +351,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
-		It("Should delete all child ranges when a range is deleted", func() {
+		It("Should delete all child ranges when a range is deleted", func(ctx SpecContext) {
 			parent := ranger.Range{
 				Name: "Parent",
 				TimeRange: telem.TimeRange{

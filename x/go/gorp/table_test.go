@@ -258,7 +258,7 @@ var _ = Describe("Table", func() {
 		})
 
 		Describe("NewDelete", func() {
-			It("Should delete an entry using the custom codec", func() {
+			It("Should delete an entry using the custom codec", func(ctx SpecContext) {
 				e := entry{ID: 60, Data: "doomed"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
 				Expect(table.NewDelete().WhereKeys(60).Exec(ctx, db)).To(Succeed())
@@ -267,7 +267,7 @@ var _ = Describe("Table", func() {
 		})
 
 		Describe("OpenNexter", func() {
-			It("Should iterate over entries using the custom codec", func() {
+			It("Should iterate over entries using the custom codec", func(ctx SpecContext) {
 				entries := []entry{
 					{ID: 70, Data: "seventy"},
 					{ID: 71, Data: "seventy-one"},
@@ -284,7 +284,7 @@ var _ = Describe("Table", func() {
 		})
 
 		Describe("Observe", func() {
-			It("Should observe changes using the custom codec", func() {
+			It("Should observe changes using the custom codec", func(ctx SpecContext) {
 				tx := db.OpenTx()
 				e := entry{ID: 80, Data: "observed"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())

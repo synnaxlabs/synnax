@@ -46,7 +46,7 @@ var _ = Describe("Open", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should error when numeric folders do not have meta.json file", func() {
+				It("Should error when numeric folders do not have meta.json file", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub"))
 					MustSucceed(s.Sub("1"))
 
@@ -56,7 +56,7 @@ var _ = Describe("Open", func() {
 					Expect(err.Error()).To(ContainSubstring("required"))
 				})
 
-				It("Should not error when db gets created with proper numeric folders", func() {
+				It("Should not error when db gets created with proper numeric folders", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub0"))
 					db := openDBOnFS(s)
 					key := GenerateChannelKey()
@@ -85,7 +85,7 @@ var _ = Describe("Open", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should not error when db is opened on existing directory", func() {
+				It("Should not error when db is opened on existing directory", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub3"))
 					db := openDBOnFS(s)
 					indexKey := GenerateChannelKey()

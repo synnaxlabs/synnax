@@ -53,7 +53,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 				})
 				DescribeTable("SeekFirst",
-					func(
+					func(ctx SpecContext, 
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedFirst telem.TimeRange,
@@ -95,7 +95,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					),
 				)
 				DescribeTable("SeekLast",
-					func(
+					func(ctx SpecContext, 
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedLast telem.TimeRange,
@@ -135,7 +135,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 
 				DescribeTable("SeekGE",
-					func(
+					func(ctx SpecContext, 
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedRange telem.TimeRange,
@@ -180,7 +180,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 
 				DescribeTable("SeekLE",
-					func(
+					func(ctx SpecContext, 
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedRange telem.TimeRange,
@@ -224,7 +224,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					),
 				)
 
-				It("Should handle closed iterator correctly", func() {
+				It("Should handle closed iterator correctly", func(ctx SpecContext) {
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekGE(ctx, 10*telem.SecondTS)).To(BeFalse())
@@ -240,7 +240,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 				})
 				Context("Requests", func() {
-					It("Should return false when the iterator is exhausted", func() {
+					It("Should return false when the iterator is exhausted", func(ctx SpecContext) {
 						iter := db.OpenIterator(domain.IteratorConfig{
 							Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 						})
@@ -261,7 +261,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					})
 				})
 				Context("Responses", func() {
-					It("Should return false when the iterator is exhausted", func() {
+					It("Should return false when the iterator is exhausted", func(ctx SpecContext) {
 						iter := db.OpenIterator(domain.IteratorConfig{
 							Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 						})
@@ -286,7 +286,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(domain.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{6, 7, 8, 9, 10, 11})).To(Succeed())
 				})
-				It("Should return a reader that can be used to read telemetry from the current domain", func() {
+				It("Should return a reader that can be used to read telemetry from the current domain", func(ctx SpecContext) {
 					i := db.OpenIterator(domain.IteratorConfig{
 						Bounds: (50 * telem.SecondTS).SpanRange(21 * telem.Second),
 					})
@@ -321,7 +321,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 
 			Describe("Close", func() {
-				It("Should not allow operations on a closed iterator", func() {
+				It("Should not allow operations on a closed iterator", func(ctx SpecContext) {
 					var (
 						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						e = resource.NewClosedError("domain.iterator")
@@ -339,7 +339,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should give an iterator that cannot be used when the db is closed", func() {
+				It("Should give an iterator that cannot be used when the db is closed", func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (0 * telem.SecondTS).Range(10*telem.SecondTS), []byte{1, 2, 3, 4})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 					r := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))

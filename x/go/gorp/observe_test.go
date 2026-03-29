@@ -16,21 +16,25 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Observe", func() {
 	var (
+		db         *gorp.DB
 		entryTable *gorp.Table[int32, entry]
 		grapeTable *gorp.Table[int32, grape]
 	)
 	BeforeEach(func(ctx SpecContext) {
+		db = gorp.Wrap(memkv.New())
 		entryTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 		grapeTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[grape]{DB: db}))
 	})
 	AfterEach(func() {
 		Expect(entryTable.Close()).To(Succeed())
 		Expect(grapeTable.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
 	})
 	It("Should correctly observe a change to the key value store", func(ctx SpecContext) {
 		tx := db.OpenTx()

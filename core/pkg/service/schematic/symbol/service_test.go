@@ -10,8 +10,6 @@
 package symbol_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -157,7 +155,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Integration", func() {
-		It("Should handle concurrent operations", func() {
+		It("Should handle concurrent operations", func(ctx SpecContext) {
 			done := make(chan bool, 3)
 
 			// Writer goroutine
@@ -168,8 +166,8 @@ var _ = Describe("Service", func() {
 						Name: "concurrent-write",
 						Data: map[string]any{"svg": "<svg>...</svg>"},
 					}
-					Expect(svc.NewWriter(nil).Create(context.Background(), &sym, ws.OntologyID())).To(Succeed())
-					Expect(svc.NewWriter(nil).Delete(context.Background(), sym.Key)).To(Succeed())
+					Expect(svc.NewWriter(nil).Create(ctx, &sym, ws.OntologyID())).To(Succeed())
+					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 				}
 				done <- true
 			}()
@@ -179,7 +177,7 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(context.Background(), nil)
+					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
 				}
 				done <- true
 			}()
@@ -189,7 +187,7 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(context.Background(), nil)
+					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
 				}
 				done <- true
 			}()

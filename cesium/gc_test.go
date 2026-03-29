@@ -52,7 +52,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 
-				It("Should recycle properly for deletion on an indexed channel", func() {
+				It("Should recycle properly for deletion on an indexed channel", func(ctx SpecContext) {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -119,7 +119,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should only garbage collect after a certain amount garbage has accumulated", func() {
+				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -194,7 +194,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should only garbage collect after a certain amount garbage has accumulated", func() {
+				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating channels")
 					Expect(db.CreateChannel(
 						ctx,

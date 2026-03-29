@@ -10,8 +10,6 @@
 package pb_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,9 +37,9 @@ func testFrame() frame.Frame {
 }
 
 var _ = Describe("Translator", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
+	var ctx SpecContext
+	BeforeEach(func(c SpecContext) {
+		ctx = c
 	})
 
 	Describe("WriterRequestTranslator", func() {

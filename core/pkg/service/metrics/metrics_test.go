@@ -29,12 +29,8 @@ import (
 )
 
 var _ = Describe("Metrics", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 	Describe("Service Creation", func() {
-		It("Should create a service with valid configuration", func() {
+		It("Should create a service with valid configuration", func(ctx SpecContext) {
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              dist.Group,
@@ -47,28 +43,28 @@ var _ = Describe("Metrics", func() {
 			}))
 			Expect(svc.Close()).To(Succeed())
 		})
-		It("Should fail with missing Channel service", func() {
+		It("Should fail with missing Channel service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Framer:       framerSvc,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
-		It("Should fail with missing Framer service", func() {
+		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:      channelSvc,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
-		It("Should fail with missing HostProvider", func() {
+		It("Should fail with missing HostProvider", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
 		})
-		It("Should fail with missing Storage", func() {
+		It("Should fail with missing Storage", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:      channelSvc,
 				Framer:       framerSvc,
@@ -91,6 +87,7 @@ var _ = Describe("Metrics", func() {
 			names []string
 		)
 		JustBeforeEach(func() {
+			ctx := context.Background()
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              dist.Group,
@@ -106,7 +103,7 @@ var _ = Describe("Metrics", func() {
 		JustAfterEach(func() {
 			Expect(svc.Close()).To(Succeed())
 		})
-		It("Should create index channel with correct naming", func() {
+		It("Should create index channel with correct naming", func(ctx SpecContext) {
 			expectedName := names[0]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -118,7 +115,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.TimeStampT))
 			Expect(ch.IsIndex).To(BeTrue())
 		})
-		It("Should create CPU metric channel", func() {
+		It("Should create CPU metric channel", func(ctx SpecContext) {
 			expectedName := names[1]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -130,7 +127,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
-		It("Should create memory metric channel", func() {
+		It("Should create memory metric channel", func(ctx SpecContext) {
 			expectedName := names[2]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -142,7 +139,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
-		It("Should create total disk size metric channel as calculated", func() {
+		It("Should create total disk size metric channel as calculated", func(ctx SpecContext) {
 			expectedName := names[3]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -154,7 +151,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.IsCalculated()).To(BeTrue())
 		})
-		It("Should create ts (cesium) size metric channel", func() {
+		It("Should create ts (cesium) size metric channel", func(ctx SpecContext) {
 			expectedName := names[4]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -166,7 +163,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
-		It("Should create kv (pebble) size metric channel", func() {
+		It("Should create kv (pebble) size metric channel", func(ctx SpecContext) {
 			expectedName := names[5]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -178,7 +175,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
-		It("Should reuse existing channels", func() {
+		It("Should reuse existing channels", func(ctx SpecContext) {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              dist.Group,
@@ -202,7 +199,7 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 	Describe("Group Relationship Persistence", func() {
-		It("Should not re-attach a channel to the metrics group if it was moved to a different group", func() {
+		It("Should not re-attach a channel to the metrics group if it was moved to a different group", func(ctx SpecContext) {
 			names := getNames(dist.Cluster.HostKey())
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
@@ -281,7 +278,7 @@ var _ = Describe("Metrics", func() {
 
 			Expect(svc.Close()).To(Succeed())
 		})
-		It("Should attach channels to the metrics group if they have no group relationship", func() {
+		It("Should attach channels to the metrics group if they have no group relationship", func(ctx SpecContext) {
 			names := getNames(dist.Cluster.HostKey())
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
@@ -358,6 +355,7 @@ var _ = Describe("Metrics", func() {
 			responses confluence.Outlet[framer.StreamerResponse]
 		)
 		BeforeEach(func() {
+			ctx := context.Background()
 			// Write some data to cesium so disk size metrics are non-zero
 			indexCh := &channel.Channel{
 				Name:     "metrics_test_index",

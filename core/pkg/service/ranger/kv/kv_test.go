@@ -32,14 +32,13 @@ var _ = Describe("KV", Ordered, func() {
 		db        *gorp.DB
 		rangerSvc *ranger.Service
 		kvSvc     *kv.Service
-		ctx       context.Context
 		otg       *ontology.Ontology
 		tx        gorp.Tx
 		closer    io.Closer
 	)
 	BeforeAll(func() {
+		ctx := context.Background()
 		db = gorp.Wrap(memkv.New())
-		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: new(true),
@@ -67,7 +66,7 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(tx.Close()).To(Succeed())
 	})
 
-	It("Should be able to store key-value pairs in a range", func() {
+	It("Should be able to store key-value pairs in a range", func(ctx SpecContext) {
 		r := &ranger.Range{
 			Name: "Range",
 			TimeRange: telem.TimeRange{
@@ -79,7 +78,7 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
 	})
 
-	It("Should be able to retrieve key-value pairs from a range", func() {
+	It("Should be able to retrieve key-value pairs from a range", func(ctx SpecContext) {
 		r := &ranger.Range{
 			Name: "Range",
 			TimeRange: telem.TimeRange{
@@ -93,7 +92,7 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(value).To(Equal("value"))
 	})
 
-	It("Should be able to delete key-value pairs from a range", func() {
+	It("Should be able to delete key-value pairs from a range", func(ctx SpecContext) {
 		r := &ranger.Range{
 			Name: "Range",
 			TimeRange: telem.TimeRange{
@@ -108,7 +107,7 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("Should set many key-value pairs on the range", func() {
+	It("Should set many key-value pairs on the range", func(ctx SpecContext) {
 		r := &ranger.Range{
 			Name: "Range",
 			TimeRange: telem.TimeRange{
@@ -128,7 +127,7 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(value).To(Equal("value2"))
 	})
 
-	It("Should be able to list all key-value pairs in a range", func() {
+	It("Should be able to list all key-value pairs in a range", func(ctx SpecContext) {
 		r := &ranger.Range{
 			Name: "Range",
 			TimeRange: telem.TimeRange{

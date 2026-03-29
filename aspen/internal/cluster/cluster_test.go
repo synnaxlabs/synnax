@@ -31,7 +31,7 @@ var _ = Describe("Cluster", func() {
 		shutdown   context.CancelFunc
 	)
 	BeforeEach(func() {
-		clusterCtx, shutdown = signal.WithCancel(ctx)
+		clusterCtx, shutdown = signal.WithCancel(context.Background())
 		builder = clustermock.NewBuilder(cluster.Config{
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},

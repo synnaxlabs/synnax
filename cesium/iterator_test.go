@@ -262,7 +262,7 @@ var _ = Describe("Iterator Behavior", func() {
 			})
 
 			Describe("Open", func() {
-				It("Should return an error when attempting to open an iterator on a virtual channel", func() {
+				It("Should return an error when attempting to open an iterator on a virtual channel", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
@@ -276,7 +276,7 @@ var _ = Describe("Iterator Behavior", func() {
 			})
 
 			Describe("Close", func() {
-				It("Should not allow operations on a closed iterator", func() {
+				It("Should not allow operations on a closed iterator", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
@@ -296,7 +296,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should not allow opening an iterator on a closed db", func() {
+				It("Should not allow opening an iterator on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
@@ -313,7 +313,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 
-				It("Should not allow opening a stream iterator on a closed db", func() {
+				It("Should not allow opening a stream iterator on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
@@ -330,7 +330,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 
-				It("Should not allow reading from a closed db", func() {
+				It("Should not allow reading from a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)

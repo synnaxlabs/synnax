@@ -48,7 +48,7 @@ var _ = Describe("Metrics", Ordered, func() {
 					Expect(m.ChannelCount).To(Equal(0))
 				})
 
-				It("Should return correct channel count for unary channels", func() {
+				It("Should return correct channel count for unary channels", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("unary-metrics"))
 					subDB := openDBOnFS(sub)
 					defer func() { Expect(subDB.Close()).To(Succeed()) }()
@@ -77,7 +77,7 @@ var _ = Describe("Metrics", Ordered, func() {
 					Expect(m.ChannelCount).To(Equal(2))
 				})
 
-				It("Should return correct channel count including virtual channels", func() {
+				It("Should return correct channel count including virtual channels", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("virtual-metrics"))
 					subDB := openDBOnFS(sub)
 					defer func() { Expect(subDB.Close()).To(Succeed()) }()
@@ -103,7 +103,7 @@ var _ = Describe("Metrics", Ordered, func() {
 					Expect(m.ChannelCount).To(Equal(2))
 				})
 
-				It("Should return correct disk size after writing data", func() {
+				It("Should return correct disk size after writing data", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("size-metrics"))
 					subDB := openDBOnFS(sub)
 					defer func() { Expect(subDB.Close()).To(Succeed()) }()

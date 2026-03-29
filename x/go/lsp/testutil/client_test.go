@@ -10,8 +10,6 @@
 package testutil_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -26,9 +24,8 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Diagnostics()).To(BeEmpty())
 		})
 
-		It("should capture diagnostics from PublishDiagnostics", func() {
+		It("should capture diagnostics from PublishDiagnostics", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
-			ctx := context.Background()
 			diags := []protocol.Diagnostic{
 				{Message: "undefined symbol: x", Severity: protocol.DiagnosticSeverityError},
 				{Message: "unused variable: y", Severity: protocol.DiagnosticSeverityWarning},
@@ -42,9 +39,8 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Diagnostics()[1].Message).To(Equal("unused variable: y"))
 		})
 
-		It("should replace diagnostics on subsequent PublishDiagnostics calls", func() {
+		It("should replace diagnostics on subsequent PublishDiagnostics calls", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
-			ctx := context.Background()
 			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 				URI: "file:///test.arc",
 				Diagnostics: []protocol.Diagnostic{
@@ -63,9 +59,8 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Diagnostics()[0].Message).To(Equal("second error"))
 		})
 
-		It("should clear diagnostics when publishing empty slice", func() {
+		It("should clear diagnostics when publishing empty slice", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
-			ctx := context.Background()
 			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 				URI:         "file:///test.arc",
 				Diagnostics: []protocol.Diagnostic{{Message: "error"}},

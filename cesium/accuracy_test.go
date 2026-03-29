@@ -56,7 +56,7 @@ var _ = Describe("Accuracy", func() {
 					Expect(db.WriteSeries(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 				})
 				DescribeTable("Accuracy",
-					func(
+					func(ctx SpecContext, 
 						tr telem.TimeRange,
 						expected []int64,
 					) {
@@ -139,7 +139,7 @@ var _ = Describe("Accuracy", func() {
 						Expect(db.WriteSeries(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 					})
 					DescribeTable("Accuracy",
-						func(
+						func(ctx SpecContext, 
 							tr telem.TimeRange,
 							expected1 []int64,
 							expected2 []int64,

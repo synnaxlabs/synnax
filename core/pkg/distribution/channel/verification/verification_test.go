@@ -104,8 +104,8 @@ var _ = Describe("Verification", func() {
 	})
 	Describe("Service", func() {
 		var ctx context.Context
-		BeforeEach(func() {
-			ctx = context.Background()
+		BeforeEach(func(c SpecContext) {
+			ctx = c
 		})
 		Describe("Normal DB usage", func() {
 			var db kv.DB

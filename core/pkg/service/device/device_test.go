@@ -31,7 +31,6 @@ import (
 
 var _ = Describe("Device", func() {
 	var (
-		ctx      context.Context
 		otg      *ontology.Ontology
 		groupSvc *group.Service
 		rackSvc  *rack.Service
@@ -83,7 +82,7 @@ var _ = Describe("Device", func() {
 		Expect(otg.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should correctly create a device", func() {
+		It("Should correctly create a device", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device1",
 				Rack:     rackSvc.EmbeddedKey,
@@ -96,7 +95,7 @@ var _ = Describe("Device", func() {
 				To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
-		It("Should correctly create an ontology resource for the device", func() {
+		It("Should correctly create an ontology resource for the device", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device2",
 				Rack:     rackSvc.EmbeddedKey,
@@ -110,7 +109,7 @@ var _ = Describe("Device", func() {
 			).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
-		It("Should create a parent-child relationship between chassis and module", func() {
+		It("Should create a parent-child relationship between chassis and module", func(ctx SpecContext) {
 			chassis := device.Device{
 				Key:      "chassis1",
 				Rack:     rackSvc.EmbeddedKey,
@@ -142,7 +141,7 @@ var _ = Describe("Device", func() {
 			Expect(children).To(HaveLen(1))
 			Expect(children[0].ID).To(Equal(child.OntologyID()))
 		})
-		It("Should correctly create an ontology relationship between the device and the rack", func() {
+		It("Should correctly create an ontology relationship between the device and the rack", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device3",
 				Rack:     rackSvc.EmbeddedKey,
@@ -159,7 +158,7 @@ var _ = Describe("Device", func() {
 			).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
-		It("Should not recreate the device in the ontology if it already exists", func() {
+		It("Should not recreate the device in the ontology if it already exists", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device3",
 				Rack:     rackSvc.EmbeddedKey,
@@ -188,7 +187,7 @@ var _ = Describe("Device", func() {
 				Exec(ctx, tx),
 			).To(MatchError(query.ErrNotFound))
 		})
-		It("Should redefine ontology relationships if a device has moved racks", func() {
+		It("Should redefine ontology relationships if a device has moved racks", func(ctx SpecContext) {
 			rw := rackSvc.NewWriter(tx)
 			rack1 := rack.Rack{Name: "Rack 1"}
 			Expect(rw.Create(ctx, &rack1)).To(Succeed())
@@ -233,7 +232,7 @@ var _ = Describe("Device", func() {
 				Exec(ctx, tx),
 			).To(MatchError(query.ErrNotFound))
 		})
-		It("Should update the status name when renaming a device", func() {
+		It("Should update the status name when renaming a device", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "rename-device",
 				Rack:     rackSvc.EmbeddedKey,
@@ -259,7 +258,7 @@ var _ = Describe("Device", func() {
 			Expect(deviceStatus.Message).To(ContainSubstring("New Name"))
 		})
 
-		It("Should use the provided status when creating a device", func() {
+		It("Should use the provided status when creating a device", func(ctx SpecContext) {
 			providedStatus := &device.Status{
 				Variant:     xstatus.VariantSuccess,
 				Time:        telem.Now(),
@@ -292,7 +291,7 @@ var _ = Describe("Device", func() {
 			Expect(deviceStatus.Details.Rack).To(Equal(d.Rack))
 		})
 
-		It("Should return a validation error if provided status has empty variant", func() {
+		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
 			providedStatus := &device.Status{
 				Message: "Status with no variant",
 				Time:    telem.Now(),
@@ -308,7 +307,7 @@ var _ = Describe("Device", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("variant"))
 		})
-		It("Should populate Status and Parent on the device after Create", func() {
+		It("Should populate Status and Parent on the device after Create", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device-status-parent",
 				Rack:     rackSvc.EmbeddedKey,
@@ -322,7 +321,7 @@ var _ = Describe("Device", func() {
 			Expect(d.Parent).ToNot(BeNil())
 			Expect(*d.Parent).To(Equal(rackSvc.EmbeddedKey.OntologyID()))
 		})
-		It("Should populate Status and Parent with explicit parent after Create", func() {
+		It("Should populate Status and Parent with explicit parent after Create", func(ctx SpecContext) {
 			chassis := device.Device{
 				Key:      "pop-chassis",
 				Rack:     rackSvc.EmbeddedKey,
@@ -346,7 +345,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Parent Ontology Relationship", func() {
-		It("Should parent a device to another device via ontology ID", func() {
+		It("Should parent a device to another device via ontology ID", func(ctx SpecContext) {
 			chassis := device.Device{
 				Key:      "pd-chassis-1",
 				Rack:     rackSvc.EmbeddedKey,
@@ -375,7 +374,7 @@ var _ = Describe("Device", func() {
 			Expect(res.ID).To(Equal(module.OntologyID()))
 		})
 
-		It("Should default to rack when no parent is provided", func() {
+		It("Should default to rack when no parent is provided", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "pd-no-parent",
 				Rack:     rackSvc.EmbeddedKey,
@@ -394,7 +393,7 @@ var _ = Describe("Device", func() {
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
 
-		It("Should re-parent a device when parent changes", func() {
+		It("Should re-parent a device when parent changes", func(ctx SpecContext) {
 			chassisA := device.Device{
 				Key:      "pd-chassis-a",
 				Rack:     rackSvc.EmbeddedKey,
@@ -451,7 +450,7 @@ var _ = Describe("Device", func() {
 			).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should converge when parent is created after the child", func() {
+		It("Should converge when parent is created after the child", func(ctx SpecContext) {
 			module := device.Device{
 				Key:      "pd-converge-module",
 				Rack:     rackSvc.EmbeddedKey,
@@ -492,7 +491,7 @@ var _ = Describe("Device", func() {
 			Expect(childRes.ID).To(Equal(module.OntologyID()))
 		})
 
-		It("Should not skip update when an explicit parent is provided", func() {
+		It("Should not skip update when an explicit parent is provided", func(ctx SpecContext) {
 			chassis := device.Device{
 				Key:      "pd-skip-chassis",
 				Rack:     rackSvc.EmbeddedKey,
@@ -525,7 +524,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Retrieve", func() {
-		It("Should correctly retrieve a device", func() {
+		It("Should correctly retrieve a device", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device4",
 				Rack:     rackSvc.EmbeddedKey,
@@ -537,7 +536,7 @@ var _ = Describe("Device", func() {
 				To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
-		It("Should retrieve devices by their model", func() {
+		It("Should retrieve devices by their model", func(ctx SpecContext) {
 			d1 := device.Device{
 				Key:      "device5",
 				Rack:     rackSvc.EmbeddedKey,
@@ -570,7 +569,7 @@ var _ = Describe("Device", func() {
 				To(Succeed())
 			Expect(res).To(ConsistOf(d2a, d2b))
 		})
-		It("Should retrieve devices by their make", func() {
+		It("Should retrieve devices by their make", func(ctx SpecContext) {
 			d1 := device.Device{
 				Key:      "device8",
 				Rack:     rackSvc.EmbeddedKey,
@@ -602,7 +601,7 @@ var _ = Describe("Device", func() {
 				To(Succeed())
 			Expect(res).To(ConsistOf(d2a, d2b))
 		})
-		It("Should retrieve devices by their location", func() {
+		It("Should retrieve devices by their location", func(ctx SpecContext) {
 			d1 := device.Device{
 				Key:      "device11",
 				Rack:     rackSvc.EmbeddedKey,
@@ -633,7 +632,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Delete", func() {
-		It("Should correctly delete a device and its associated status", func() {
+		It("Should correctly delete a device and its associated status", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device14",
 				Rack:     rackSvc.EmbeddedKey,
@@ -651,7 +650,7 @@ var _ = Describe("Device", func() {
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
-		It("Should correctly delete an ontology resource for the device", func() {
+		It("Should correctly delete an ontology resource for the device", func(ctx SpecContext) {
 			d := device.Device{
 				Key:      "device15",
 				Rack:     rackSvc.EmbeddedKey,
@@ -667,8 +666,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Suspect Rack", func() {
-		It("Should propagate rack warning status to devices on that rack", func() {
-			ctx := context.Background()
+		It("Should propagate rack warning status to devices on that rack", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
@@ -733,8 +731,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Migration", func() {
-		It("Should create unknown statuses for devices missing them", func() {
-			ctx := context.Background()
+		It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
