@@ -14,15 +14,14 @@ import (
 	"context"
 	"iter"
 
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"go.uber.org/zap"
 )
 
-// Observe wraps an observable key-value store and returns an observable that notifies
-// its caller whenever a change is made to the provided entry type.
-func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[change.Change[K, E]]] {
+func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec binary.Codec) observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := newKeyCodec[K, E]()
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: kvo,
@@ -36,23 +35,29 @@ func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges(ctx, matched, kCodec, kvo), true
+			return wrapMatchedChanges(ctx, matched, kCodec, codec), true
 		},
 	}
+}
+
+// Observe returns an observable that notifies its caller whenever a change is made
+// to entries in this table.
+func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
+	return newObservable[K, E](t.DB, t.codec)
 }
 
 func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
 	kCodec *keyCodec[K, E],
-	tools Tools,
+	codec binary.Codec,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
 		for _, kvChange := range changes {
 			var op change.Change[K, E]
 			op.Variant = kvChange.Variant
 			if op.Variant == change.VariantSet {
-				if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
+				if err := codec.Decode(ctx, kvChange.Value, &op.Value); err != nil {
 					zap.S().DPanic("failed to decode value", zap.Error(err))
 					continue
 				}

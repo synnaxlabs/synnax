@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -30,6 +31,7 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
+	Search   *search.Index
 }
 
 var (
@@ -42,6 +44,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -52,6 +55,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -67,7 +71,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Workspace]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +81,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Workspace](cfg.DB),
+		signals.GorpPublisherConfigUUID[Workspace](s.table.Observe()),
 	); err != nil {
 		return nil, err
 	}
@@ -100,13 +105,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
 		otg:   s.cfg.Ontology.NewWriter(tx),
 		group: s.group,
+		table: s.table,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Workspace](),
+		gorp:   s.table.NewRetrieve(),
 	}
 }

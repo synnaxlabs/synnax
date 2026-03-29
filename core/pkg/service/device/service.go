@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -47,6 +48,9 @@ type ServiceConfig struct {
 	// Status is used to define and process statuses for devices.
 	// [REQUIRED]
 	Status *status.Service
+	// Search is the search index for fuzzy searching devices.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]
@@ -67,6 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	return c
@@ -81,6 +86,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -105,7 +111,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Device](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Device]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -122,12 +128,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals != nil {
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigString[Device](cfg.DB),
+			signals.GorpPublisherConfigString[Device](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}
@@ -159,15 +166,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:  s.table,
 	}
 }
 
 // NewRetrieve opens a new Retrieve query to fetch devices from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[string, Device](),
+		gorp:   s.table.NewRetrieve(),
 	}
 }
 

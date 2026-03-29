@@ -25,6 +25,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otg       *ontology.Ontology
 	otgWriter ontology.Writer
+	table     *gorp.Table[string, Alias]
 }
 
 // Set sets an alias for the given channel on the specified range.
@@ -34,7 +35,7 @@ func (w Writer) Set(
 	ch channel.Key,
 	al string,
 ) error {
-	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel]().
+	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel](nil).
 		WhereKeys(ch).Exists(ctx, w.tx)
 	if err != nil {
 		return err
@@ -46,7 +47,7 @@ func (w Writer) Set(
 			ch,
 		)
 	}
-	if err := gorp.NewCreate[string, Alias]().
+	if err := w.table.NewCreate().
 		Entry(&Alias{Range: rng, Channel: ch, Alias: al}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -62,8 +63,8 @@ func (w Writer) Delete(
 	rng uuid.UUID,
 	ch channel.Key,
 ) error {
-	return gorp.
-		NewDelete[string, Alias]().
+	return w.table.
+		NewDelete().
 		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
 		Exec(ctx, w.tx)
 }
