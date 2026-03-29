@@ -52,7 +52,7 @@ func (lp *leaseProxy) deleteTimeRange(
 	}
 	sCtx.Go(func(ctx context.Context) error {
 		return lp.deleteTimeRangeGateway(ctx, batch.Gateway, tr)
-	})
+	}, signal.CancelOnFail())
 	return sCtx.Wait()
 }
 
