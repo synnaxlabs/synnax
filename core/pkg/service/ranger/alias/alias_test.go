@@ -10,7 +10,6 @@
 package alias_test
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -36,14 +35,12 @@ var _ = Describe("Alias", Ordered, func() {
 		db        *gorp.DB
 		rangerSvc *ranger.Service
 		aliasSvc  *alias.Service
-		ctx       context.Context
 		otg       *ontology.Ontology
 		tx        gorp.Tx
 		closer    io.Closer
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
@@ -77,7 +74,7 @@ var _ = Describe("Alias", Ordered, func() {
 	})
 
 	Describe("Set", func() {
-		It("Should set an alias for a channel on a range", func() {
+		It("Should set an alias for a channel on a range", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -95,7 +92,7 @@ var _ = Describe("Alias", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
-		It("Should get an alias for a channel on a range", func() {
+		It("Should get an alias for a channel on a range", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -113,7 +110,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(a).To(Equal("Alias"))
 		})
 
-		It("Should return an error if an alias can't be found", func() {
+		It("Should return an error if an alias can't be found", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -130,7 +127,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should fallback to the parent range if the alias is not found", func() {
+		It("Should fallback to the parent range if the alias is not found", func(ctx SpecContext) {
 			parent := ranger.Range{
 				Name: "Parent",
 				TimeRange: telem.TimeRange{
@@ -158,7 +155,7 @@ var _ = Describe("Alias", Ordered, func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should delete an alias for a channel on a range", func() {
+		It("Should delete an alias for a channel on a range", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -179,7 +176,7 @@ var _ = Describe("Alias", Ordered, func() {
 	})
 
 	Describe("Resolve", func() {
-		It("Should resolve an alias for a channel on a range", func() {
+		It("Should resolve an alias for a channel on a range", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -197,7 +194,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(resolved).To(Equal(ch.Key()))
 		})
 
-		It("Should return an error if an alias can't be resolved", func() {
+		It("Should return an error if an alias can't be resolved", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -215,7 +212,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 
-		It("Should fallback to the parent range if the alias is not found", func() {
+		It("Should fallback to the parent range if the alias is not found", func(ctx SpecContext) {
 			parent := ranger.Range{
 				Name: "Parent",
 				TimeRange: telem.TimeRange{
@@ -241,7 +238,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(resolved).To(Equal(ch.Key()))
 		})
 
-		It("Should return an error if the alias can't be resolved on both the child range and its parent", func() {
+		It("Should return an error if the alias can't be resolved on both the child range and its parent", func(ctx SpecContext) {
 			parent := ranger.Range{
 				Name: "Parent",
 				TimeRange: telem.TimeRange{
@@ -268,7 +265,7 @@ var _ = Describe("Alias", Ordered, func() {
 		})
 	})
 
-	Specify("Aliases should be searchable by the ontology", func() {
+	Specify("Aliases should be searchable by the ontology", func(ctx SpecContext) {
 		time.Sleep(10 * time.Millisecond)
 		r := ranger.Range{
 			Name: "Range",
@@ -290,7 +287,7 @@ var _ = Describe("Alias", Ordered, func() {
 	})
 
 	Describe("List", func() {
-		It("Should list the aliases on a range", func() {
+		It("Should list the aliases on a range", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
@@ -308,7 +305,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 		})
 
-		It("Should list the aliases on a range and its parent", func() {
+		It("Should list the aliases on a range and its parent", func(ctx SpecContext) {
 			parent := ranger.Range{
 				Name: "RetrieveParent",
 				TimeRange: telem.TimeRange{
@@ -336,7 +333,7 @@ var _ = Describe("Alias", Ordered, func() {
 	})
 
 	Context("Ontology", func() {
-		It("Should find a created alias in the ontology", func() {
+		It("Should find a created alias in the ontology", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{

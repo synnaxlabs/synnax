@@ -10,18 +10,11 @@
 package authority_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-var bCtx = context.Background()
-
-var _ = BeforeEach(func() {
-	bCtx = context.Background()
-})
 
 func TestAuthority(t *testing.T) {
 	RegisterFailHandler(Fail)

@@ -10,8 +10,6 @@
 package pb_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,15 +37,10 @@ func testFrame() frame.Frame {
 }
 
 var _ = Describe("Translator", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
 	Describe("WriterRequestTranslator", func() {
 		t := framerpb.WriterRequestTranslator{}
 
-		It("Should round-trip a writer request", func() {
+		It("Should round-trip a writer request", func(ctx SpecContext) {
 			original := writer.Request{
 				Command: writer.CommandWrite,
 				Config: writer.Config{
@@ -82,7 +75,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.Frame.Count()).To(Equal(2))
 		})
 
-		It("Should handle nil optional fields", func() {
+		It("Should handle nil optional fields", func(ctx SpecContext) {
 			original := writer.Request{
 				Command: writer.CommandOpen,
 				Config: writer.Config{
@@ -100,7 +93,7 @@ var _ = Describe("Translator", func() {
 	Describe("WriterResponseTranslator", func() {
 		t := framerpb.WriterResponseTranslator{}
 
-		It("Should round-trip a writer response", func() {
+		It("Should round-trip a writer response", func(ctx SpecContext) {
 			original := writer.Response{
 				Command:    writer.CommandCommit,
 				SeqNum:     42,
@@ -117,7 +110,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.End).To(Equal(original.End))
 		})
 
-		It("Should handle zero-value response", func() {
+		It("Should handle zero-value response", func(ctx SpecContext) {
 			original := writer.Response{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -130,7 +123,7 @@ var _ = Describe("Translator", func() {
 	Describe("IteratorRequestTranslator", func() {
 		t := framerpb.IteratorRequestTranslator{}
 
-		It("Should round-trip an iterator request", func() {
+		It("Should round-trip an iterator request", func(ctx SpecContext) {
 			original := iterator.Request{
 				Command:   iterator.CommandNext,
 				Span:      telem.TimeSpan(5000),
@@ -151,7 +144,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.SeqNum).To(Equal(original.SeqNum))
 		})
 
-		It("Should handle zero-value request", func() {
+		It("Should handle zero-value request", func(ctx SpecContext) {
 			original := iterator.Request{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -163,7 +156,7 @@ var _ = Describe("Translator", func() {
 	Describe("IteratorResponseTranslator", func() {
 		t := framerpb.IteratorResponseTranslator{}
 
-		It("Should round-trip an iterator response", func() {
+		It("Should round-trip an iterator response", func(ctx SpecContext) {
 			original := iterator.Response{
 				Variant: iterator.ResponseVariantData,
 				NodeKey: 3,
@@ -182,7 +175,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.Frame.Count()).To(Equal(2))
 		})
 
-		It("Should handle zero-value response", func() {
+		It("Should handle zero-value response", func(ctx SpecContext) {
 			original := iterator.Response{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -194,14 +187,14 @@ var _ = Describe("Translator", func() {
 	Describe("RelayRequestTranslator", func() {
 		t := framerpb.RelayRequestTranslator{}
 
-		It("Should round-trip a relay request", func() {
+		It("Should round-trip a relay request", func(ctx SpecContext) {
 			original := relay.Request{Keys: channel.Keys{5, 10, 15}}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
 			Expect(result.Keys).To(Equal(original.Keys))
 		})
 
-		It("Should handle empty keys", func() {
+		It("Should handle empty keys", func(ctx SpecContext) {
 			original := relay.Request{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -212,7 +205,7 @@ var _ = Describe("Translator", func() {
 	Describe("RelayResponseTranslator", func() {
 		t := framerpb.RelayResponseTranslator{}
 
-		It("Should round-trip a relay response", func() {
+		It("Should round-trip a relay response", func(ctx SpecContext) {
 			original := relay.Response{
 				Frame: testFrame(),
 				Group: 42,
@@ -223,7 +216,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.Group).To(Equal(uint32(42)))
 		})
 
-		It("Should handle zero-value response", func() {
+		It("Should handle zero-value response", func(ctx SpecContext) {
 			original := relay.Response{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
@@ -235,7 +228,7 @@ var _ = Describe("Translator", func() {
 	Describe("DeleteRequestTranslator", func() {
 		t := framerpb.DeleteRequestTranslator{}
 
-		It("Should round-trip a delete request", func() {
+		It("Should round-trip a delete request", func(ctx SpecContext) {
 			original := deleter.Request{
 				Keys:   channel.Keys{1, 2},
 				Bounds: telem.TimeRange{Start: 1000, End: 2000},
@@ -246,7 +239,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.Bounds).To(Equal(original.Bounds))
 		})
 
-		It("Should handle empty delete request", func() {
+		It("Should handle empty delete request", func(ctx SpecContext) {
 			original := deleter.Request{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))

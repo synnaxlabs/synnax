@@ -23,8 +23,8 @@ var _ = Describe("Codec", func() {
 			Expect(ecd.ContentType()).To(Equal("application/json"))
 		})
 		It("Should return an error if the content-type is not supported", func() {
-			_, err := httputil.ResolveCodec("application/octet-stream")
-			Expect(err).To(HaveOccurred())
+			Expect(httputil.ResolveCodec("application/octet-stream")).
+				Error().To(MatchError(ContainSubstring("unable to determine encoding type")))
 		})
 	})
 	Describe("SupportedContentTypes", func() {

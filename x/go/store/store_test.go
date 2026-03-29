@@ -31,7 +31,7 @@ var _ = Describe("Store", func() {
 		})
 	})
 	Describe("Observable", func() {
-		It("Should initialize an observable store correctly", func() {
+		It("Should initialize an observable store correctly", func(ctx SpecContext) {
 			s := MustSucceed(store.WrapObservable(store.ObservableConfig[state, state]{
 				Store:     store.New(copyState),
 				Transform: func(_, next state) (state, bool) { return next, true },

@@ -10,7 +10,6 @@
 package policy_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,7 +25,6 @@ import (
 )
 
 var (
-	ctx     = context.Background()
 	db      *gorp.DB
 	otg     *ontology.Ontology
 	g       *group.Service
@@ -34,7 +32,7 @@ var (
 	roleSvc *role.Service
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustSucceed(search.Open())
@@ -59,7 +57,7 @@ var _ = BeforeSuite(func() {
 	}))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(roleSvc.Close()).To(Succeed())
 	Expect(svc.Close()).To(Succeed())
 	Expect(g.Close()).To(Succeed())

@@ -10,8 +10,6 @@
 package selector_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -25,11 +23,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func() {
+		It("Should create module", func(ctx SpecContext) {
 			module := selector.NewModule()
 			Expect(module).ToNot(BeNil())
 		})
@@ -37,7 +33,7 @@ var _ = Describe("Select", func() {
 	Describe("Module.Create", func() {
 		var factory node.Factory
 		var s *node.ProgramState
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			factory = selector.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{
@@ -73,7 +69,7 @@ var _ = Describe("Select", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create node for select type", func() {
+		It("Should create node for select type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -81,7 +77,7 @@ var _ = Describe("Select", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func() {
+		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("select"),
@@ -93,7 +89,7 @@ var _ = Describe("Select", func() {
 	Describe("select.Next", func() {
 		var s *node.ProgramState
 		var factory node.Factory
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			factory = selector.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{
@@ -129,7 +125,7 @@ var _ = Describe("Select", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should handle empty input", func() {
+		It("Should handle empty input", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -143,7 +139,7 @@ var _ = Describe("Select", func() {
 			Expect(outputs.Contains("true")).To(BeFalse())
 			Expect(outputs.Contains("false")).To(BeFalse())
 		})
-		It("Should split all true values", func() {
+		It("Should split all true values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -162,7 +158,7 @@ var _ = Describe("Select", func() {
 			trueVals := telem.UnmarshalSeries[uint8](*trueOut)
 			Expect(trueVals).To(Equal([]uint8{1, 1, 1}))
 		})
-		It("Should split all false values", func() {
+		It("Should split all false values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -181,7 +177,7 @@ var _ = Describe("Select", func() {
 			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
 			Expect(falseVals).To(Equal([]uint8{0, 0, 0, 0}))
 		})
-		It("Should split mixed true and false values", func() {
+		It("Should split mixed true and false values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -204,7 +200,7 @@ var _ = Describe("Select", func() {
 			Expect(trueVals).To(Equal([]uint8{1, 1, 1}))
 			Expect(falseVals).To(Equal([]uint8{0, 0}))
 		})
-		It("Should correctly copy timestamps for true values", func() {
+		It("Should correctly copy timestamps for true values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -223,7 +219,7 @@ var _ = Describe("Select", func() {
 				telem.SecondTS * 50,
 			}))
 		})
-		It("Should correctly copy timestamps for false values", func() {
+		It("Should correctly copy timestamps for false values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -241,7 +237,7 @@ var _ = Describe("Select", func() {
 				telem.SecondTS * 40,
 			}))
 		})
-		It("Should handle single true value", func() {
+		It("Should handle single true value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -258,7 +254,7 @@ var _ = Describe("Select", func() {
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(1)))
 		})
-		It("Should handle single false value", func() {
+		It("Should handle single false value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -275,7 +271,7 @@ var _ = Describe("Select", func() {
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(1)))
 		})
-		It("Should handle values other than 0 and 1 as false", func() {
+		It("Should handle values other than 0 and 1 as false", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -294,7 +290,7 @@ var _ = Describe("Select", func() {
 			Expect(trueOut.Len()).To(Equal(int64(2)))
 			Expect(falseOut.Len()).To(Equal(int64(3)))
 		})
-		It("Should handle long series", func() {
+		It("Should handle long series", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -316,7 +312,7 @@ var _ = Describe("Select", func() {
 			Expect(trueOut.Len()).To(Equal(int64(500)))
 			Expect(falseOut.Len()).To(Equal(int64(500)))
 		})
-		It("Should handle consecutive true values", func() {
+		It("Should handle consecutive true values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -337,7 +333,7 @@ var _ = Describe("Select", func() {
 				telem.SecondTS * 5,
 			}))
 		})
-		It("Should handle consecutive false values", func() {
+		It("Should handle consecutive false values", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -360,14 +356,14 @@ var _ = Describe("Select", func() {
 		})
 	})
 	Describe("SymbolResolver", func() {
-		It("Should resolve select symbol", func() {
+		It("Should resolve select symbol", func(ctx SpecContext) {
 			sym, ok := selector.SymbolResolver["select"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("select"))
 		})
 	})
 	Describe("Alignment Propagation", func() {
-		It("Should propagate alignment and time range to both outputs", func() {
+		It("Should propagate alignment and time range to both outputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},

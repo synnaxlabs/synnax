@@ -10,7 +10,6 @@
 package auth_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,7 +27,6 @@ import (
 )
 
 var (
-	ctx = context.Background()
 	db  *gorp.DB
 	otg *ontology.Ontology
 	g   *group.Service
@@ -40,7 +38,7 @@ func TestAuth(t *testing.T) {
 	RunSpecs(t, "Auth Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustSucceed(search.Open())
@@ -71,7 +69,7 @@ var _ = BeforeSuite(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(svc.RBAC.Close()).To(Succeed())
 	Expect(g.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())

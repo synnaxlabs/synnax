@@ -10,7 +10,6 @@
 package virtual_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +19,6 @@ import (
 )
 
 var (
-	ctx         = context.Background()
 	codec       = &binary.JSONCodec{}
 	fileSystems = testutil.FileSystems
 )

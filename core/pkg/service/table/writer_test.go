@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Table", func() {
+		It("Should create a Table", func(ctx SpecContext) {
 			t := table.Table{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -28,7 +28,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a Table", func() {
+		It("Should rename a Table", func(ctx SpecContext) {
 			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
@@ -38,7 +38,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a Table", func() {
+		It("Should set the data of a Table", func(ctx SpecContext) {
 			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, map[string]any{"key": "data2"})).To(Succeed())

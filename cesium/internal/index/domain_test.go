@@ -40,7 +40,7 @@ var _ = Describe("Domain", func() {
 
 			Describe("Distance", func() {
 				Context("Continuous", func() {
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						Expect(domain.Write(
 							ctx,
 							db,
@@ -49,7 +49,7 @@ var _ = Describe("Domain", func() {
 						)).To(Succeed())
 					})
 					DescribeTable("Continuous",
-						func(
+						func(ctx SpecContext,
 							tr telem.TimeRange,
 							expected index.Approximation[int64],
 							expectedErr error,
@@ -136,7 +136,7 @@ var _ = Describe("Domain", func() {
 				})
 
 				Context("Discontinuous", func() {
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						Expect(domain.Write(
 							ctx,
 							db,
@@ -157,7 +157,7 @@ var _ = Describe("Domain", func() {
 						)).To(Succeed())
 					})
 					DescribeTable("Discontinuous",
-						func(
+						func(ctx SpecContext,
 							tr telem.TimeRange,
 							expected index.Approximation[int64],
 							align telem.Alignment,
@@ -263,7 +263,7 @@ var _ = Describe("Domain", func() {
 						db2  *domain.DB
 						idx2 *index.Domain
 					)
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						// Open a new domain DB with a file size that corresponds
 						// 3 timestamp samples, so that we trigger automatic rollovers.
 						db2 = MustSucceed(domain.Open(domain.Config{
@@ -296,7 +296,7 @@ var _ = Describe("Domain", func() {
 					AfterEach(func() {
 						Expect(db2.Close()).To(Succeed())
 					})
-					DescribeTable("effectively continuous", func(
+					DescribeTable("effectively continuous", func(ctx SpecContext,
 						tr telem.TimeRange,
 						expected index.Approximation[int64],
 						db telem.Alignment,
@@ -342,7 +342,7 @@ var _ = Describe("Domain", func() {
 				Context("Forward", func() {
 
 					Context("Continuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -350,7 +350,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Continuous", func(
+						DescribeTable("Continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -416,7 +416,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -445,7 +445,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(40, 41, 45).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Quasi-continuous", func(
+						DescribeTable("Quasi-continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -552,7 +552,7 @@ var _ = Describe("Domain", func() {
 						)
 					})
 
-					Specify("Quasi-Continuous Without Ending Domain", func() {
+					Specify("Quasi-Continuous Without Ending Domain", func(ctx SpecContext) {
 						Expect(domain.Write(
 							ctx,
 							db,
@@ -584,7 +584,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Discontinuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -604,7 +604,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
 							))
 						})
-						DescribeTable("Discontinuous", func(
+						DescribeTable("Discontinuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -654,7 +654,7 @@ var _ = Describe("Domain", func() {
 
 				Context("Backward", func() {
 					Context("Continuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -662,7 +662,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Continuous", func(
+						DescribeTable("Continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -710,7 +710,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -739,7 +739,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(40, 41, 45).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Quasi-continuous", func(
+						DescribeTable("Quasi-continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -847,7 +847,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Discontinuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -867,7 +867,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
 							))
 						})
-						DescribeTable("Discontinuous", func(
+						DescribeTable("Discontinuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,

@@ -10,8 +10,6 @@
 package testutil_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
@@ -111,19 +109,19 @@ var _ = Describe("WASM Helper", func() {
 })
 
 var _ = Describe("FunctionScope", func() {
-	It("Should create a scope containing a function and block", func() {
-		scope := FunctionScope(context.Background())
+	It("Should create a scope containing a function and block", func(ctx SpecContext) {
+		scope := FunctionScope(ctx)
 		Expect(scope).ToNot(BeNil())
 		Expect(scope.Kind).To(Equal(symbol.KindBlock))
 	})
 })
 
 var _ = Describe("NewContext", func() {
-	It("Should create a root compilation context with initialized fields", func() {
-		ctx := NewContext(context.Background())
-		Expect(ctx.Scope).ToNot(BeNil())
-		Expect(ctx.Module).ToNot(BeNil())
-		Expect(ctx.Writer).ToNot(BeNil())
-		Expect(ctx.TypeMap).ToNot(BeNil())
+	It("Should create a root compilation context with initialized fields", func(ctx SpecContext) {
+		cCtx := NewContext(ctx)
+		Expect(cCtx.Scope).ToNot(BeNil())
+		Expect(cCtx.Module).ToNot(BeNil())
+		Expect(cCtx.Writer).ToNot(BeNil())
+		Expect(cCtx.TypeMap).ToNot(BeNil())
 	})
 })
