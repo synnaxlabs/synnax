@@ -200,7 +200,7 @@ func (i *Index) Initialize(ctx context.Context) error {
 				return nil
 			})
 			return err
-		}, signal.WithKeyf("startup_indexing_%i", svc.Type()))
+		}, signal.WithKeyf("startup_indexing_%v", svc.Type()))
 	}
 	return oCtx.Wait()
 }
