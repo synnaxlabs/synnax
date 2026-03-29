@@ -157,7 +157,7 @@ func openMonitor(
 	ins alamos.Instrumentation,
 	svc *Service,
 ) (*monitor, error) {
-	obs := gorp.Observe[string, status.Status[any]](svc.DB)
+	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
 		Observer:         observe.New[Status](),

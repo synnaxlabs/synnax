@@ -27,6 +27,7 @@ type Reader struct {
 	tx              gorp.Tx
 	search          *search.Index
 	parentRetriever ParentRetriever
+	table           *gorp.Table[string, Alias]
 }
 
 // Retrieve gets the alias for the given channel on the specified range.
@@ -38,7 +39,7 @@ func (r Reader) Retrieve(
 	ch channel.Key,
 ) (string, error) {
 	var res Alias
-	err := gorp.NewRetrieve[string, Alias]().
+	err := r.table.NewRetrieve().
 		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
@@ -76,8 +77,7 @@ func (r Reader) Resolve(
 			return a.Range == rng && rxp.MatchString(a.Alias), nil
 		}
 	}
-	err = gorp.
-		NewRetrieve[string, Alias]().
+	err = r.table.NewRetrieve().
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
@@ -120,7 +120,7 @@ func (r Reader) listAliases(
 	accumulated map[channel.Key]string,
 ) error {
 	var aliases []Alias
-	if err := gorp.NewRetrieve[string, Alias]().
+	if err := r.table.NewRetrieve().
 		Where(func(_ gorp.Context, a *Alias) (bool, error) {
 			return a.Range == rng, nil
 		}).

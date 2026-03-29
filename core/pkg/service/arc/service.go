@@ -105,7 +105,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 		Instrumentation: s.cfg.Child("lsp"),
 		GlobalResolver:  s.NewSymbolResolver(nil),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
-			Observable: s.cfg.Channel.NewObservable(),
+			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
 				ctx context.Context,
 				r gorp.TxReader[channel.Key, channel.Channel],
@@ -153,7 +153,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Arc]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
+		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](s.table.Observe()))
 		if err != nil {
 			return nil, err
 		}
@@ -174,16 +174,17 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:   gorp.OverrideTx(s.cfg.DB, tx),
-		otg:  s.cfg.Ontology.NewWriter(tx),
-		task: s.cfg.Task.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		task:  s.cfg.Task.NewWriter(tx),
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Arc](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 		search: s.cfg.Search,
 	}

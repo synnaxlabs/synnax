@@ -83,18 +83,18 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
-	resourceTable, err := gorp.OpenTable[string, Resource](ctx, cfg.DB)
+	resourceTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Resource]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
-	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, cfg.DB)
+	relationshipTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
-		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
+		RelationshipObserver: relationshipTable.Observe(),
 		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		resourceTable:        resourceTable,
 		relationshipTable:    relationshipTable,
@@ -160,7 +160,12 @@ type Writer interface {
 // NewWriter opens a new Writer using the provided transaction. Panics if the
 // transaction does not root from the same database as the Ontology.
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
-	return dagWriter{tx: o.DB.OverrideTx(tx), registrar: o.registrar}
+	return dagWriter{
+		tx:                o.DB.OverrideTx(tx),
+		registrar:         o.registrar,
+		resourceTable:     o.resourceTable,
+		relationshipTable: o.relationshipTable,
+	}
 }
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].

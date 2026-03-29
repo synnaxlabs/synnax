@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "state",
     srcs = [
@@ -14,9 +17,9 @@ cc_library(
         "//arc/cpp/stl/series:state",
         "//arc/cpp/stl/stateful:state",
         "//arc/cpp/stl/str:state",
-        "//x/cpp/telem",
         "//x/cpp/errors",
         "//x/cpp/mem",
+        "//x/cpp/telem",
         "@glog",
     ],
 )

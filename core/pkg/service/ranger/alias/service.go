@@ -86,7 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Alias](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Alias]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Alias](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
 	signalsCfg.SetName = "sy_range_alias_set"
 	signalsCfg.DeleteName = "sy_range_alias_delete"
 	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
@@ -122,6 +122,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		table:     s.table,
 	}
 }
 
@@ -131,6 +132,7 @@ func (s *Service) NewReader(tx gorp.Tx) Reader {
 		tx:              gorp.OverrideTx(s.cfg.DB, tx),
 		search:          s.cfg.Search,
 		parentRetriever: s.cfg.ParentRetriever,
+		table:           s.table,
 	}
 }
 
@@ -160,7 +162,7 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var res Alias
-	if err = gorp.NewRetrieve[string, Alias]().
+	if err = s.table.NewRetrieve().
 		WhereKeys(Alias{Range: rangeKey, Channel: channelKey}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, tx); err != nil {
@@ -182,12 +184,12 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Alias]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[string, Alias](s.cfg.DB).OnChange(handleChange)
+	return s.table.Observe().OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[string, Alias](s.cfg.DB).OpenNexter(ctx)
+	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

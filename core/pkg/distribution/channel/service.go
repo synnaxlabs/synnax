@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -91,7 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Channel](ctx, cfg.ClusterDB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{DB: cfg.ClusterDB})
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(ctx, cfg, g)
+	proxy, err := newLeaseProxy(ctx, cfg, g, table)
 	if err != nil {
 		return nil, err
 	}
@@ -127,9 +128,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) Group() group.Group { return s.group }
 
+// Observe returns an observable that notifies callers of changes to channel entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.table.Observe()
+}
+
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		gorp:                      s.table.NewRetrieve(),
 		tx:                        s.db,
 		search:                    s.cfg.Search,
 		validateRetrievedChannels: s.validateChannels,

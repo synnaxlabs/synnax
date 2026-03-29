@@ -127,7 +127,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Rack](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Rack]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
+			signals.GorpPublisherConfigNumeric[Key, Rack](s.table.Observe(), telem.Uint32T),
 		); err != nil {
 			return nil, err
 		}
@@ -281,6 +281,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		newTaskKey: s.newTaskKey,
 		group:      s.group,
 		status:     status.NewWriter[StatusDetails](s.Status, tx),
+		table:      s.table,
 	}
 }
 
@@ -292,7 +293,7 @@ func (s *Service) newKey() (Key, error) {
 func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
 	s.keyMu.Lock()
 	defer s.keyMu.Unlock()
-	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(rackKey).Change(func(_ gorp.Context, r Rack) Rack {
+	return next, s.table.NewUpdate().WhereKeys(rackKey).Change(func(_ gorp.Context, r Rack) Rack {
 		r.TaskCounter += 1
 		next = r.TaskCounter
 		return r
@@ -303,7 +304,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		search:       s.Search,
 		baseTX:       s.DB,
-		gorp:         gorp.NewRetrieve[Key, Rack](),
+		gorp:         s.table.NewRetrieve(),
 		hostProvider: s.HostProvider,
 	}
 }

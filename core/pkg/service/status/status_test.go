@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"context"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -449,6 +450,25 @@ var _ = Describe("Status", Ordered, func() {
 			var retrieved status.Status[DetailsA]
 			retrieveA := status.NewRetrieve[DetailsA](svc)
 			Expect(retrieveA.Entry(&retrieved).Exec(ctx, tx)).To(Not(Succeed()))
+		})
+	})
+
+	Describe("Observe", func() {
+		It("Should notify when a status is created", func() {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			w := status.NewWriter[any](svc, tx)
+			s := &status.Status[any]{
+				Key: "observe-test", Name: "Observe Test",
+				Variant: xstatus.VariantSuccess, Time: telem.Now(),
+			}
+			Expect(w.Set(ctx, s)).To(Succeed())
+			called := false
+			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[string, status.Status[any]]) {
+				called = true
+			})
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(called).To(BeTrue())
 		})
 	})
 })

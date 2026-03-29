@@ -324,12 +324,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		if channelSignalsCloser, err = channelsignals.Publish(
 			ctx,
 			l.Signals,
-			l.DB,
+			l.Channel.Observe(),
 		); !ok(err, channelSignalsCloser) {
 			return nil, err
 		}
 		var groupSignalsCloser io.Closer
-		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.Group.Observe()); !ok(err, groupSignalsCloser) {
 			return nil, err
 		}
 	}

@@ -90,7 +90,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Arc:               arcSvc,
 		Framer:            dist.Framer,
 		Channel:           channelSvc,
-		ChannelObservable: dist.Channel.NewObservable(),
+		ChannelObservable: dist.Channel.Observe(),
 		Status:            statusSvc,
 	})
 	if err != nil {

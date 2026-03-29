@@ -28,6 +28,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	table     *gorp.Table[uuid.UUID, Schematic]
 }
 
 // Create creates the given log within the workspace provided. If the log does not
@@ -41,12 +42,12 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Schematic]().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Schematic]().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if exists {
@@ -87,7 +88,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
+	return w.table.NewUpdate().WhereKeys(key).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Name = name
 			return s
@@ -105,7 +106,7 @@ func (w Writer) Copy(
 	result *Schematic,
 ) error {
 	newKey := uuid.New()
-	if err := gorp.NewUpdate[uuid.UUID, Schematic]().
+	if err := w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Key = newKey
@@ -141,7 +142,7 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data map[string]any,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
+	return w.table.NewUpdate().WhereKeys(key).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
 				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
@@ -156,7 +157,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := gorp.NewDelete[uuid.UUID, Schematic]().WhereKeys(keys...).Exec(ctx, w.tx)
+	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

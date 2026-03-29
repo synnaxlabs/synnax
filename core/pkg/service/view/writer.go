@@ -27,6 +27,7 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
+	table     *gorp.Table[uuid.UUID, View]
 }
 
 // Create creates or updates a view within the DB. If the view already has a key and an
@@ -38,8 +39,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if view.Key == uuid.Nil {
 		view.Key = uuid.New()
 	}
-	if err := gorp.
-		NewCreate[uuid.UUID, View]().
+	if err := w.table.NewCreate().
 		Entry(view).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -70,8 +70,7 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 
 // Delete deletes the view with the given key. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	if err := gorp.
-		NewDelete[uuid.UUID, View]().
+	if err := w.table.NewDelete().
 		WhereKeys(key).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err

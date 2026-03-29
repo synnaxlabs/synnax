@@ -23,6 +23,7 @@ import ctypes
 import os
 import tempfile
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 import nidaqmx.system
 import nisyscfg
@@ -33,7 +34,8 @@ from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import ReadTaskCase, WriteTaskCase, send_and_verify_commands
 
-_STATUS_TIMEOUT = 10 * sy.TimeSpan.SECOND
+# The scan task polls every 5s. 30s gives ~5 cycles of margin under CI load.
+_STATUS_TIMEOUT = 30 * sy.TimeSpan.SECOND
 
 
 def _export_ni_config() -> str:
@@ -81,6 +83,25 @@ def _delete_ni_device(device_name: str) -> None:
     raise RuntimeError(f"Simulated device '{device_name}' not found in NI MAX")
 
 
+@dataclass
+class _StatusWaitDiag:
+    """Diagnostics collected during _wait_for_device_status for debugging
+    timeout failures."""
+
+    frames_received: int = 0
+    frames_with_status: int = 0
+    all_keys: list[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        unique = sorted(set(self.all_keys))
+        return (
+            f"frames={self.frames_received}, "
+            f"frames_with_status={self.frames_with_status}, "
+            f"total_statuses={len(self.all_keys)}, "
+            f"unique_keys={unique}"
+        )
+
+
 def _wait_for_device_status(
     streamer: sy.Streamer,
     message: str,
@@ -98,34 +119,41 @@ def _wait_for_device_status(
     Returns all matching device statuses collected up to (and including)
     the first status with the expected ``message``.
     """
-    device_statuses: list[sy.task.Status] = []
+    matched: list[sy.task.Status] = []
+    diag = _StatusWaitDiag()
     timer = sy.Timer()
+
     while timer.elapsed() < timeout:
-        remaining = timeout - timer.elapsed()
-        frame = streamer.read(timeout=remaining)
+        frame = streamer.read(timeout=timeout - timer.elapsed())
         if frame is None:
             break
+        diag.frames_received += 1
         if "sy_status_set" not in frame:
             continue
+        diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
             try:
                 s = sy.task.Status.model_validate(raw)
             except ValidationError:
                 continue
+            diag.all_keys.append(s.key)
             if device_key and s.key != f"device:{device_key}":
                 continue
             if device_name and s.name != device_name:
                 continue
             if not s.key.startswith("device:"):
                 continue
-            device_statuses.append(s)
+            matched.append(s)
             if s.message == message:
-                return device_statuses
+                return matched
+
     label = device_key or device_name
-    msgs = [f"  {s.variant}: {s.message}" for s in device_statuses]
-    detail = "\n".join(msgs) if msgs else "  (no statuses)"
+    lines = [f"  {s.variant}: {s.message}" for s in matched]
+    detail = "\n".join(lines) if lines else "  (no matching statuses)"
     raise AssertionError(
-        f"Timed out waiting for '{message}' on {label}, got:\n{detail}"
+        f"Timed out waiting for '{message}' on {label}:\n"
+        f"{detail}\n"
+        f"  {diag.summary()}"
     )
 
 
@@ -133,19 +161,63 @@ def _log_statuses(
     log: Callable[[str], None], statuses: list[sy.task.Status], label: str
 ) -> None:
     """Log final status with count of skipped intermediate ones."""
-    n = len(statuses)
     final = statuses[-1]
+    n = len(statuses)
     if n > 1:
-        log(f"  [{label}] {n - 1} intermediate, then {final.variant}: {final.message}")
+        log(
+            f"  [{label}] {n - 1} intermediate, final: {final.variant}: {final.message}"
+        )
     else:
         log(f"  [{label}] {final.variant}: {final.message}")
 
 
+def _remove_device_and_wait(
+    client: sy.Synnax,
+    log: Callable[[str], None],
+    device_name: str,
+    device_key: str,
+) -> None:
+    """Delete a device from NI MAX and wait for the driver to report it gone."""
+    with client.open_streamer(["sy_status_set"]) as streamer:
+        log(f"Remove {device_name} from NI MAX")
+        _delete_ni_device(device_name)
+        statuses = _wait_for_device_status(
+            streamer, "Device disconnected", device_key=device_key
+        )
+        _log_statuses(log, statuses, "removal")
+
+
+def _restore_device_and_wait(
+    client: sy.Synnax,
+    log: Callable[[str], None],
+    saved_config: str,
+    device_name: str,
+) -> None:
+    """Re-import the NI MAX config and wait for the driver to see the device.
+
+    This runs inside ``finally`` blocks, so it must never raise — an exception
+    here would suppress the original test failure.
+    """
+    try:
+        with client.open_streamer(["sy_status_set"]) as streamer:
+            log(f"Restore {device_name} to NI MAX")
+            _import_ni_config(saved_config)
+            statuses = _wait_for_device_status(
+                streamer, "Device present", device_name=device_name
+            )
+            _log_statuses(log, statuses, "re-add")
+    except Exception as e:
+        log(f"Warning: restore failed: {e}")
+
+
 class _NIReadDisconnectMixin(ReadTaskCase):
-    """Mixin providing reset + remove/re-add disconnect test logic for read tasks.
+    """Reset + remove/re-add disconnect test logic for read tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
     to reset and remove (e.g. "E101Mod4").
+
+    The device deletion is wrapped in try/finally so that the NI MAX config
+    is always restored, even if the status wait times out.
     """
 
     disconnect_device: str
@@ -157,9 +229,8 @@ class _NIReadDisconnectMixin(ReadTaskCase):
         tsk = self.tsk
         dev = self.disconnect_device
         device = self.client.devices.retrieve(location=dev)
-        dev_key = device.key
-        dev_name = device.name
 
+        # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Assert samples ({dev})")
         self.assert_sample_count(task=tsk)
 
@@ -169,43 +240,44 @@ class _NIReadDisconnectMixin(ReadTaskCase):
         self.log("Test 3 - Assert samples resume after reset")
         self.assert_sample_count(task=tsk, strict=False)
 
-        self.log("Test 4 - Export NI MAX config")
+        # Phase 2: Device removal and recovery (always restores config)
         saved_config = _export_ni_config()
-
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            self.log(f"Test 5 - Remove {dev} from NI MAX")
-            _delete_ni_device(dev)
-            statuses = _wait_for_device_status(
-                streamer, "Device disconnected", device_key=dev_key
+        try:
+            _remove_device_and_wait(
+                self.client,
+                self.log,
+                dev,
+                device.key,
             )
-            _log_statuses(self.log, statuses, "removal")
+            self._assert_no_samples_after_removal(tsk)
+        finally:
+            _restore_device_and_wait(
+                self.client,
+                self.log,
+                saved_config,
+                device.name,
+            )
+            os.unlink(saved_config)
 
-        self.log("Test 6 - Assert no new samples after removal")
-        channel_keys = self._channel_keys(tsk)
+        # Phase 3: Verify task recovers after re-add
+        self.log("Test 4 - Reconfigure and assert samples resume")
+        self.client.tasks.configure(tsk)
+        self.assert_sample_count(task=tsk, strict=False)
+
+    def _assert_no_samples_after_removal(self, tsk: sy.Task) -> None:
+        self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
         sy.sleep(0.5)
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
-        for key in channel_keys:
+        for key in self._channel_keys(tsk):
             ch = self.client.channels.retrieve(key)
-            num_samples = len(ch.read(tr))
-            if num_samples > 0:
+            n = len(ch.read(tr))
+            if n > 0:
                 self.fail(
-                    f"Channel '{ch.name}' has {num_samples} samples "
+                    f"Channel '{ch.name}' has {n} samples "
                     f"after device removal, expected 0"
                 )
-
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            self.log(f"Test 7 - Re-add {dev} to NI MAX")
-            _import_ni_config(saved_config)
-            statuses = _wait_for_device_status(
-                streamer, "Device present", device_name=dev_name
-            )
-            _log_statuses(self.log, statuses, "re-add")
-
-        self.log("Test 8 - Reconfigure and assert samples resume")
-        self.client.tasks.configure(tsk)
-        self.assert_sample_count(task=tsk, strict=False)
 
 
 class NIAnalogReadDisconnect(_NIReadDisconnectMixin, NIReadCurrentVoltage):
@@ -229,10 +301,13 @@ class NIDigitalReadDisconnect(_NIReadDisconnectMixin, NIDigitalRead):
 
 
 class _NIWriteDisconnectMixin(WriteTaskCase):
-    """Mixin providing reset + remove/re-add disconnect test logic for write tasks.
+    """Reset + remove/re-add disconnect test logic for write tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
     to reset and remove (e.g. "SYMod1").
+
+    The device deletion is wrapped in try/finally so that the NI MAX config
+    is always restored, even if the status wait times out.
     """
 
     disconnect_device: str
@@ -244,9 +319,8 @@ class _NIWriteDisconnectMixin(WriteTaskCase):
         tsk = self.tsk
         dev = self.disconnect_device
         device = self.client.devices.retrieve(location=dev)
-        dev_key = device.key
-        dev_name = device.name
 
+        # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Send commands ({dev})")
         with tsk.run():
             send_and_verify_commands(
@@ -272,26 +346,26 @@ class _NIWriteDisconnectMixin(WriteTaskCase):
                 command_values=self.command_values,
             )
 
-        self.log("Test 4 - Export NI MAX config")
+        # Phase 2: Device removal and recovery (always restores config)
         saved_config = _export_ni_config()
-
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            self.log(f"Test 5 - Remove {dev} from NI MAX")
-            _delete_ni_device(dev)
-            statuses = _wait_for_device_status(
-                streamer, "Device disconnected", device_key=dev_key
+        try:
+            _remove_device_and_wait(
+                self.client,
+                self.log,
+                dev,
+                device.key,
             )
-            _log_statuses(self.log, statuses, "removal")
-
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            self.log(f"Test 6 - Re-add {dev} to NI MAX")
-            _import_ni_config(saved_config)
-            statuses = _wait_for_device_status(
-                streamer, "Device present", device_name=dev_name
+        finally:
+            _restore_device_and_wait(
+                self.client,
+                self.log,
+                saved_config,
+                device.name,
             )
-            _log_statuses(self.log, statuses, "re-add")
+            os.unlink(saved_config)
 
-        self.log("Test 7 - Reconfigure and send commands after re-add")
+        # Phase 3: Verify task recovers after re-add
+        self.log("Test 4 - Reconfigure and send commands after re-add")
         self.client.tasks.configure(tsk)
         with tsk.run():
             send_and_verify_commands(

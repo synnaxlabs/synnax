@@ -178,9 +178,9 @@ var _ = Describe("Service Passthrough", func() {
 		})
 	})
 
-	Describe("NewObservable", func() {
+	Describe("Observe", func() {
 		It("Should return a non-nil observable", func() {
-			obs := svc.NewObservable()
+			obs := svc.Observe()
 			Expect(obs).ToNot(BeNil())
 		})
 	})

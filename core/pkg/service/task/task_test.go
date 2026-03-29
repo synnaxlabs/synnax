@@ -10,6 +10,8 @@
 package task_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -542,6 +544,26 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(searchIdx.Close()).To(Succeed())
 			Expect(otg.Close()).To(Succeed())
 			Expect(db.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Observe", func() {
+		It("Should notify when a task is created", func() {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			w := svc.NewWriter(tx)
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 999),
+				Name: "observe-test",
+				Type: "test",
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			called := false
+			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
+				called = true
+			})
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(called).To(BeTrue())
 		})
 	})
 })

@@ -10,11 +10,14 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -99,6 +102,23 @@ var _ = Describe("Service", Ordered, func() {
 
 			// Count should NOT increase
 			Expect(mockCluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount))
+		})
+	})
+
+	Describe("Observe", func() {
+		It("Should notify when a channel is created", func() {
+			called := false
+			mockCluster.Nodes[1].Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
+				called = true
+			})
+			ch := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(called).To(BeTrue())
 		})
 	})
 })

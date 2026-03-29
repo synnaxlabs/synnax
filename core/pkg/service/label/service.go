@@ -90,7 +90,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Label](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Label]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
+		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](s.table.Observe()))
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func (s *Service) Close() error {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[Key, Label](),
+		gorp:   s.table.NewRetrieve(),
 		search: s.cfg.Search,
 	}
 }
@@ -128,5 +128,5 @@ func (s *Service) NewRetrieve() Retrieve {
 // the writer will use it, otherwise it will execute operations directly against the
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
+	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }
