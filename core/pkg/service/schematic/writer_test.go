@@ -22,7 +22,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Schematic", func() {
+		It("Should create a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -32,7 +32,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a Schematic", func() {
+		It("Should rename a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
@@ -42,7 +42,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a Schematic", func() {
+		It("Should set the data of a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, map[string]any{"key": "data2"})).To(Succeed())
@@ -53,7 +53,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Copy", func() {
-		It("Should copy a Schematic with a new name under the same workspace", func() {
+		It("Should copy a Schematic with a new name under the same workspace", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic
@@ -65,7 +65,7 @@ var _ = Describe("Writer", func() {
 			keys := lo.Map(res, func(r ontology.Resource, _ int) string { return r.ID.Key })
 			Expect(keys).To(ContainElement(cpy.Key.String()))
 		})
-		It("Should copy a Schematic into a snapshot that cannot be modified", func() {
+		It("Should copy a Schematic into a snapshot that cannot be modified", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic

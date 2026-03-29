@@ -33,7 +33,7 @@ var _ = Describe("Group", Ordered, func() {
 		w   group.Writer
 	)
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
@@ -46,20 +46,20 @@ var _ = Describe("Group", Ordered, func() {
 	})
 
 	Describe("Create", func() {
-		It("Should create a new group", func() {
+		It("Should create a new group", func(ctx SpecContext) {
 			g := MustSucceed(w.Create(ctx, "test1", ontology.RootID))
 			Expect(g.Key).ToNot(Equal(uuid.Nil))
 			Expect(g.Name).To(Equal("test1"))
 		})
 
-		It("Should create a group with a specific key", func() {
+		It("Should create a group with a specific key", func(ctx SpecContext) {
 			key := uuid.New()
 			g := MustSucceed(w.CreateWithKey(ctx, key, "test2", ontology.RootID))
 			Expect(g.Key).To(Equal(key))
 			Expect(g.Name).To(Equal("test2"))
 		})
 
-		It("Should create a nested group", func() {
+		It("Should create a nested group", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent", ontology.RootID))
 
 			child := MustSucceed(w.Create(ctx, "child", group.OntologyID(parent.Key)))
@@ -69,7 +69,7 @@ var _ = Describe("Group", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
-		It("Should retrieve a group by its key", func() {
+		It("Should retrieve a group by its key", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, "retrieve-test", ontology.RootID))
 
 			var g group.Group
@@ -77,7 +77,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(g).To(Equal(created))
 		})
 
-		It("Should retrieve multiple groups by keys", func() {
+		It("Should retrieve multiple groups by keys", func(ctx SpecContext) {
 			g1 := MustSucceed(w.Create(ctx, "multi1", ontology.RootID))
 
 			g2 := MustSucceed(w.Create(ctx, "multi2", ontology.RootID))
@@ -87,7 +87,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(ret).To(ConsistOf(g1, g2))
 		})
 
-		It("Should retrieve a group by its name", func() {
+		It("Should retrieve a group by its name", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, "name-test", ontology.RootID))
 
 			var g group.Group
@@ -97,7 +97,7 @@ var _ = Describe("Group", Ordered, func() {
 	})
 
 	Describe("Rename", func() {
-		It("Should rename a group", func() {
+		It("Should rename a group", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, "original-name", ontology.RootID))
 
 			newName := "renamed"
@@ -110,7 +110,7 @@ var _ = Describe("Group", Ordered, func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should not delete a group with children", func() {
+		It("Should not delete a group with children", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-to-keep", ontology.RootID))
 
 			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", group.OntologyID(parent.Key)))
@@ -120,7 +120,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
 		})
 
-		It("Should delete a group without children", func() {
+		It("Should delete a group without children", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, "to-delete", ontology.RootID))
 
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
@@ -129,7 +129,7 @@ var _ = Describe("Group", Ordered, func() {
 				Exec(ctx, nil)).To(HaveOccurred())
 		})
 
-		It("Should delete multiple groups", func() {
+		It("Should delete multiple groups", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-for-deletion", ontology.RootID))
 
 			child := MustSucceed(w.Create(ctx, "child-for-deletion", group.OntologyID(parent.Key)))
@@ -141,7 +141,7 @@ var _ = Describe("Group", Ordered, func() {
 				Entry(new(group.Group)).Exec(ctx, nil)).To(HaveOccurred())
 		})
 
-		It("Should allow batch deletion when parent is being deleted along with all of its children", func() {
+		It("Should allow batch deletion when parent is being deleted along with all of its children", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-batch-delete", ontology.RootID))
 
 			child1 := MustSucceed(w.Create(ctx, "child1-batch-delete", group.OntologyID(parent.Key)))
@@ -157,7 +157,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(groups).To(BeEmpty())
 		})
 
-		It("Should allow deleting nested hierarchy when ordered leaf to root", func() {
+		It("Should allow deleting nested hierarchy when ordered leaf to root", func(ctx SpecContext) {
 			root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
 
 			level1 := MustSucceed(w.Create(ctx, "level1-nested", group.OntologyID(root.Key)))
@@ -176,7 +176,7 @@ var _ = Describe("Group", Ordered, func() {
 	})
 
 	Describe("Observe", func() {
-		It("Should notify when a group is created", func() {
+		It("Should notify when a group is created", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
 			w := svc.NewWriter(tx)

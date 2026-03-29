@@ -27,14 +27,14 @@ var _ = Describe("Writer", func() {
 		tx gorp.Tx
 		w  role.Writer
 	)
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx, true)
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
-		It("Should create a role with auto-generated UUID", func() {
+		It("Should create a role with auto-generated UUID", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "admin",
 				Description: "Administrator role",
@@ -43,7 +43,7 @@ var _ = Describe("Writer", func() {
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create a role with provided UUID", func() {
+		It("Should create a role with provided UUID", func(ctx SpecContext) {
 			key := uuid.New()
 			r := &role.Role{
 				Key:         key,
@@ -54,7 +54,7 @@ var _ = Describe("Writer", func() {
 			Expect(r.Key).To(Equal(key))
 		})
 
-		It("Should define role in ontology", func() {
+		It("Should define role in ontology", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "engineer",
 				Description: "Engineering role",
@@ -70,7 +70,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal(r.Name))
 		})
 
-		It("Should create relationship to Users group", func() {
+		It("Should create relationship to Users group", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "operator",
 				Description: "Operator role",
@@ -87,7 +87,7 @@ var _ = Describe("Writer", func() {
 			Expect(parents).ToNot(BeEmpty())
 		})
 
-		It("Should create an internal role when allowInternal is true", func() {
+		It("Should create an internal role when allowInternal is true", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "builtin-role",
 				Description: "A builtin role",
@@ -97,7 +97,7 @@ var _ = Describe("Writer", func() {
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should fail to create an internal role when allowInternal is false", func() {
+		It("Should fail to create an internal role when allowInternal is false", func(ctx SpecContext) {
 			restrictedWriter := svc.NewWriter(tx, false)
 			r := &role.Role{
 				Name:        "builtin-role",
@@ -112,7 +112,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", func() {
 		var roles []role.Role
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			roles = []role.Role{
 				{Name: "role-1", Description: "First role"},
 				{Name: "role-2", Description: "Second role"},
@@ -122,7 +122,7 @@ var _ = Describe("Writer", func() {
 			}
 		})
 
-		It("Should delete a role", func() {
+		It("Should delete a role", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
@@ -130,7 +130,7 @@ var _ = Describe("Writer", func() {
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should delete an internal role when allowInternal is true", func() {
+		It("Should delete an internal role when allowInternal is true", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "internal-to-delete",
 				Description: "Internal role to delete",
@@ -144,7 +144,7 @@ var _ = Describe("Writer", func() {
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should fail to delete an internal role when allowInternal is false", func() {
+		It("Should fail to delete an internal role when allowInternal is false", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "internal-protected",
 				Description: "Internal role that cannot be deleted",
@@ -164,7 +164,7 @@ var _ = Describe("Writer", func() {
 			r       *role.Role
 			subject ontology.ID
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			r = &role.Role{
 				Name:        "test-role",
 				Description: "Test role",
@@ -174,7 +174,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
 		})
 
-		It("Should assign role to subject", func() {
+		It("Should assign role to subject", func(ctx SpecContext) {
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 			var parents []ontology.Resource
@@ -190,7 +190,7 @@ var _ = Describe("Writer", func() {
 			Expect(parents[0].ID.Key).To(Equal(r.Key.String()))
 		})
 
-		It("Should be idempotent", func() {
+		It("Should be idempotent", func(ctx SpecContext) {
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
@@ -212,7 +212,7 @@ var _ = Describe("Writer", func() {
 			r       *role.Role
 			subject ontology.ID
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			r = &role.Role{
 				Name:        "test-role",
 				Description: "Test role",
@@ -223,7 +223,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 		})
 
-		It("Should unassign role from subject", func() {
+		It("Should unassign role from subject", func(ctx SpecContext) {
 			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
 
 			var parents []ontology.Resource
@@ -236,7 +236,7 @@ var _ = Describe("Writer", func() {
 			Expect(parents).To(BeEmpty())
 		})
 
-		It("Should be idempotent", func() {
+		It("Should be idempotent", func(ctx SpecContext) {
 			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
 			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
 
@@ -259,7 +259,7 @@ var _ = Describe("Retrieve", func() {
 		w     role.Writer
 		roles []role.Role
 	)
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx, true)
 		roles = []role.Role{
@@ -271,10 +271,10 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.Create(ctx, &roles[i])).To(Succeed())
 		}
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
-		It("Should retrieve a single role by key", func() {
+		It("Should retrieve a single role by key", func(ctx SpecContext) {
 			var r role.Role
 			Expect(svc.NewRetrieve().
 				WhereKeys(roles[0].Key).
@@ -284,7 +284,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(r.Name).To(Equal(roles[0].Name))
 		})
 
-		It("Should retrieve multiple roles by keys", func() {
+		It("Should retrieve multiple roles by keys", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
 				WhereKeys(roles[0].Key, roles[1].Key).
@@ -293,7 +293,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(rs).To(HaveLen(2))
 		})
 
-		It("Should return error when key not found", func() {
+		It("Should return error when key not found", func(ctx SpecContext) {
 			var r role.Role
 			err := svc.NewRetrieve().
 				WhereKeys(uuid.New()).
@@ -304,7 +304,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("WhereName", func() {
-		It("Should retrieve a role by name", func() {
+		It("Should retrieve a role by name", func(ctx SpecContext) {
 			var r role.Role
 			Expect(svc.NewRetrieve().
 				WhereName("admin").
@@ -313,7 +313,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(r.Name).To(Equal("admin"))
 		})
 
-		It("Should return error when name not found", func() {
+		It("Should return error when name not found", func(ctx SpecContext) {
 			var r role.Role
 			err := svc.NewRetrieve().
 				WhereName("nonexistent").
@@ -324,7 +324,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("Limit and Offset", func() {
-		It("Should limit results", func() {
+		It("Should limit results", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
 				Limit(2).
@@ -333,7 +333,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(rs).To(HaveLen(2))
 		})
 
-		It("Should apply offset", func() {
+		It("Should apply offset", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
 				Offset(1).
@@ -343,7 +343,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(rs).To(HaveLen(2))
 		})
 
-		It("Should handle offset beyond results", func() {
+		It("Should handle offset beyond results", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
 				Offset(10).
@@ -355,7 +355,7 @@ var _ = Describe("Retrieve", func() {
 
 	Describe("WhereInternal", func() {
 		var internalRole, regularRole role.Role
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			internalRole = role.Role{
 				Name:        "internal-role",
 				Description: "An internal role",
@@ -370,7 +370,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.Create(ctx, &regularRole)).To(Succeed())
 		})
 
-		It("Should retrieve only internal roles", func() {
+		It("Should retrieve only internal roles", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
 				WhereInternal(true).
@@ -382,7 +382,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(rs).To(ContainElement(HaveField("Key", internalRole.Key)))
 		})
 
-		It("Should retrieve only non-internal roles", func() {
+		It("Should retrieve only non-internal roles", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
 				WhereInternal(false).
@@ -398,24 +398,24 @@ var _ = Describe("Retrieve", func() {
 
 var _ = Describe("Ontology Integration", func() {
 	var tx gorp.Tx
-	BeforeEach(func() { tx = db.OpenTx() })
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Type", func() {
-		It("Should return correct ontology type", func() {
+		It("Should return correct ontology type", func(ctx SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.TypeRole))
 		})
 	})
 
 	Describe("Schema", func() {
-		It("Should return a valid schema", func() {
+		It("Should return a valid schema", func(ctx SpecContext) {
 			schema := svc.Schema()
 			Expect(schema).ToNot(BeNil())
 		})
 	})
 
 	Describe("RetrieveResource", func() {
-		It("Should retrieve a role as an ontology resource", func() {
+		It("Should retrieve a role as an ontology resource", func(ctx SpecContext) {
 			w := svc.NewWriter(tx, true)
 			r := &role.Role{
 				Name:        "resource-test",
@@ -428,19 +428,19 @@ var _ = Describe("Ontology Integration", func() {
 			Expect(res.Name).To(Equal(r.Name))
 		})
 
-		It("Should return error for invalid UUID", func() {
+		It("Should return error for invalid UUID", func(ctx SpecContext) {
 			_, err := svc.RetrieveResource(ctx, "invalid-uuid", tx)
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should return error for non-existent role", func() {
+		It("Should return error for non-existent role", func(ctx SpecContext) {
 			_, err := svc.RetrieveResource(ctx, uuid.New().String(), tx)
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Describe("OpenNexter", func() {
-		It("Should iterate over all roles", func() {
+		It("Should iterate over all roles", func(ctx SpecContext) {
 			w := svc.NewWriter(tx, true)
 			for range 3 {
 				r := &role.Role{

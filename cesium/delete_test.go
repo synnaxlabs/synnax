@@ -36,9 +36,9 @@ var _ = Describe("Delete", func() {
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -58,7 +58,7 @@ var _ = Describe("Delete", func() {
 					Specify("Deleting a channel with db closed", func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(sub)
+						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Name: "IndexChannel", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
@@ -377,7 +377,7 @@ var _ = Describe("Delete", func() {
 						{Name: "TLS", Key: index3, IsIndex: true, Index: index3, DataType: telem.TimeStampT},
 					}
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 				})
 				AfterEach(func() {
@@ -418,7 +418,7 @@ var _ = Describe("Delete", func() {
 					Specify("Deleting a channel with db closed", func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(sub)
+						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Name: "IndexChannel", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
@@ -727,7 +727,7 @@ var _ = Describe("Delete", func() {
 						index    cesium.ChannelKey
 						channels []cesium.Channel
 					)
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						data = GenerateChannelKey()
 						index = GenerateChannelKey()
 						channels = []cesium.Channel{

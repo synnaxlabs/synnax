@@ -30,9 +30,9 @@ var _ = Describe("Iterator Behavior", func() {
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -45,7 +45,7 @@ var _ = Describe("Iterator Behavior", func() {
 					data1, index1, data2, index2             cesium.Channel
 					i                                        *cesium.Iterator
 				)
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					data1Key, index1Key, data2Key, index2Key = GenerateChannelKey(),
 						GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					index1 = cesium.Channel{Key: index1Key, Name: "Magellan", IsIndex: true, DataType: telem.TimeStampT}
@@ -299,7 +299,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It("Should not allow opening an iterator on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Drake",
@@ -316,7 +316,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It("Should not allow opening a stream iterator on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Polo",
@@ -333,7 +333,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It("Should not allow reading from a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Zheng",

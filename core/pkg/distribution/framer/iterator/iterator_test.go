@@ -10,6 +10,7 @@
 package iterator_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -27,7 +28,7 @@ import (
 
 var _ = Describe("Iterator", func() {
 	Describe("Happy Path", Ordered, func() {
-		scenarios := []func() scenario{
+		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
 			peerOnlyScenario,
 		}
@@ -35,8 +36,8 @@ var _ = Describe("Iterator", func() {
 			_sF := sF
 			var s scenario
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
-				BeforeAll(func() {
-					s = _sF()
+				BeforeAll(func(ctx SpecContext) {
+					s = _sF(ctx)
 					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
@@ -64,7 +65,7 @@ var _ = Describe("Iterator", func() {
 					Expect(writer.Close()).To(Succeed())
 				})
 				AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-				Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
+				Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 						Keys:   s.keys,
 						Bounds: telem.TimeRangeMax,
@@ -91,7 +92,7 @@ var _ = Describe("Iterator", func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				Specify("Auto chunk", func() {
+				Specify("Auto chunk", func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 						Keys:      s.keys,
 						Bounds:    telem.TimeRangeMax,
@@ -108,7 +109,7 @@ var _ = Describe("Iterator", func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				Specify("Reverse Auto Chunk", func() {
+				Specify("Reverse Auto Chunk", func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 						Keys:      s.keys,
 						Bounds:    telem.TimeRangeMax,
@@ -150,7 +151,7 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario() scenario {
+func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
@@ -159,7 +160,7 @@ func gatewayOnlyScenario() scenario {
 	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
 }
 
-func peerOnlyScenario() scenario {
+func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]

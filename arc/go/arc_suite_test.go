@@ -17,10 +17,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var ctx context.Context
 
-var _ = BeforeEach(func() {
-	ctx = context.Background()
+var _ = BeforeEach(func(sc SpecContext) {
+	ctx = sc
 })
 
 func TestArc(t *testing.T) {

@@ -41,7 +41,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					fs      fs.FS
 					cleanUp func() error
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
@@ -95,7 +95,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					data    = testutil.GenerateChannelKey()
 					cleanUp func() error
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					var fs fs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
@@ -391,7 +391,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					fs      fs.FS
 					cleanUp func() error
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
@@ -487,7 +487,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					cleanUp func() error
 					key     = testutil.GenerateChannelKey()
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,

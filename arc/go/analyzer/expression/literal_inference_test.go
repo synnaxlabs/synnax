@@ -180,7 +180,7 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 
 		It("Should accept integer literal minus f32 channel with f32 return type", func() {
-			expectSuccess(`
+			expectSuccess(bCtx, `
 				func test{} () f32 {
 					return 1000 - f32_ch
 				}
@@ -188,7 +188,7 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 
 		It("Should accept float literal divided by f32 channel with f32 return type", func() {
-			expectSuccess(`
+			expectSuccess(bCtx, `
 				func test{} () f32 {
 					return 1000.0 / f32_ch
 				}
@@ -196,7 +196,7 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 
 		It("Should accept integer literal divided by f32 channel with f32 return type", func() {
-			expectSuccess(`
+			expectSuccess(bCtx, `
 				func test{} () f32 {
 					return 1000 / f32_ch
 				}
@@ -204,7 +204,7 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 
 		It("Should accept float literal minus f32 channel with f32 return type", func() {
-			expectSuccess(`
+			expectSuccess(bCtx, `
 				func test{} () f32 {
 					return 1000.0 - f32_ch
 				}
@@ -212,7 +212,7 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 
 		It("Should accept float literal divided by expression of f32 channels", func() {
-			expectSuccess(`
+			expectSuccess(bCtx, `
 				func test{} () f32 {
 					return 1000.0 / (f32_ch + abc)
 				}
@@ -220,7 +220,7 @@ var _ = Describe("Literal Type Inference", func() {
 		})
 
 		It("Should reject mixed f32 and f64 channels with literal on left", func() {
-			expectFailure(`
+			expectFailure(bCtx, `
 				func test{} () f64 {
 					return 1000.0 - f32_ch + f64_ch
 				}

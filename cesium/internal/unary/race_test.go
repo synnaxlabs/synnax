@@ -32,7 +32,7 @@ var _ = Describe("Unary racing", func() {
 				indexDB           *unary.DB
 				dataDB            *unary.DB
 			)
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				indexKey = GenerateChannelKey()
 				dataKey = GenerateChannelKey()
 				fs, cleanUp = makeFS()

@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -22,7 +24,7 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func() {
-		mockCluster = mock.ProvisionCluster(ctx, 2)
+		mockCluster = mock.ProvisionCluster(context.Background(), 2)
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
@@ -30,7 +32,7 @@ var _ = Describe("Delete", Ordered, func() {
 	Describe("Channel Deletion", func() {
 		Context("Single Channel", func() {
 			var idxCh, ch channel.Channel
-			JustBeforeEach(func() {
+			JustBeforeEach(func(ctx SpecContext) {
 				prefix := channel.NewRandomName()
 				idxCh.Name = prefix + "_time"
 				idxCh.DataType = telem.TimeStampT
@@ -46,18 +48,18 @@ var _ = Describe("Delete", Ordered, func() {
 					idxCh.Leaseholder = 1
 					ch.Leaseholder = 1
 				})
-				It("Should not allow deletion of index channel with dependent channels", func() {
+				It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 				})
-				It("Should delete the channel without error", func() {
+				It("Should delete the channel without error", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
-				It("Should not be able to retrieve the channel after deletion", func() {
+				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
 					exists := MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 				})
-				It("Should not be able to retrieve the channel from the time-series DB", func() {
+				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
 					channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -70,13 +72,13 @@ var _ = Describe("Delete", Ordered, func() {
 					idxCh.Leaseholder = 2
 					ch.Leaseholder = 2
 				})
-				It("Should not allow deletion of index channel with dependent channels", func() {
+				It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 				})
-				It("Should delete the channel without error", func() {
+				It("Should delete the channel without error", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
-				It("Should not be able to retrieve the channel after deletion", func() {
+				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
 					exists := MustSucceed(mockCluster.Nodes[2].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
@@ -85,7 +87,7 @@ var _ = Describe("Delete", Ordered, func() {
 						g.Expect(exists).To(BeFalse())
 					}).Should(Succeed())
 				})
-				It("Should not be able to retrieve the channel from the time-series DB", func() {
+				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
 					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))

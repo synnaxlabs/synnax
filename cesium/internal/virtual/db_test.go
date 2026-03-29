@@ -35,7 +35,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		)
 
 		Context("FS: "+fsName, func() {
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
 				dbKey = testutil.GenerateChannelKey()
 				db = MustSucceed(virtual.Open(ctx, virtual.Config{
@@ -109,7 +109,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	Describe("Close", func() {
 		var db *virtual.DB
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			db = MustSucceed(virtual.Open(ctx, virtual.Config{
 				FS:        fs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},

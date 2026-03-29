@@ -48,8 +48,8 @@ var _ = Describe("Control", func() {
 
 			Describe("Nominal", func() {
 				var db *cesium.DB
-				BeforeAll(func() {
-					db = openDBOnFS(fs)
+				BeforeAll(func(ctx SpecContext) {
+					db = openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
 				})
 				AfterAll(func() {
@@ -275,7 +275,7 @@ var _ = Describe("Control", func() {
 						dataStreamerOut, controlStreamerOut confluence.Outlet[cesium.StreamerResponse]
 						shutdown                            io.Closer
 					)
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
 						dataChKey = GenerateChannelKey()
 						virtualChKey = GenerateChannelKey()
@@ -433,13 +433,13 @@ var _ = Describe("Control", func() {
 
 			Describe("Error paths", func() {
 				It("Should not allow control channel with key 0", func(ctx SpecContext) {
-					db := openDBOnFS(fs)
+					db := openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, 0, "cat")).To(MatchError(ContainSubstring("key: must be positive")))
 					Expect(db.Close()).To(Succeed())
 				})
 
 				It("Should not allow configuring a control channel with datatype not string", func(ctx SpecContext) {
-					db := openDBOnFS(fs)
+					db := openDBOnFS(ctx, fs)
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{
 						Name:     "Deshon",

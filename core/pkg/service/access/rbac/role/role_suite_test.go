@@ -35,7 +35,7 @@ var (
 	userSvc   *user.Service
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
@@ -55,7 +55,7 @@ var _ = BeforeSuite(func() {
 	}))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(svc.Close()).To(Succeed())
 	Expect(policySvc.Close()).To(Succeed())
 	Expect(g.Close()).To(Succeed())

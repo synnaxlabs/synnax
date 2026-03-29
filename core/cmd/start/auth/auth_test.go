@@ -37,12 +37,12 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 			Group:    g,
 		}
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("New root user creation", func() {
-		It("Should create a new root user with correct credentials", func() {
+		It("Should create a new root user with correct credentials", func(ctx SpecContext) {
 			creds := svcauth.InsecureCredentials{
 				Username: "newroot",
 				Password: "password123",
@@ -58,7 +58,7 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 			Expect(u.RootUser).To(BeTrue())
 		})
 
-		It("Should assign Owner role to newly created root user", func() {
+		It("Should assign Owner role to newly created root user", func(ctx SpecContext) {
 			var u user.User
 			Expect(svc.User.NewRetrieve().
 				WhereUsernames("newroot").
@@ -69,7 +69,7 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 			Expect(hasOwner).To(BeTrue())
 		})
 
-		It("Should NOT assign Operator role to root user", func() {
+		It("Should NOT assign Operator role to root user", func(ctx SpecContext) {
 			var u user.User
 			Expect(svc.User.NewRetrieve().
 				WhereUsernames("newroot").
@@ -82,7 +82,7 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 	})
 
 	Describe("Existing root user", func() {
-		It("Should not create duplicate user if root user already exists", func() {
+		It("Should not create duplicate user if root user already exists", func(ctx SpecContext) {
 			creds := svcauth.InsecureCredentials{
 				Username: "newroot",
 				Password: "password123",
@@ -99,7 +99,7 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 	})
 
 	Describe("Authentication", func() {
-		It("Should allow authentication with root user credentials", func() {
+		It("Should allow authentication with root user credentials", func(ctx SpecContext) {
 			creds := svcauth.InsecureCredentials{
 				Username: "newroot",
 				Password: "password123",
@@ -107,7 +107,7 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 			Expect(svc.Auth.Authenticate(ctx, creds)).To(Succeed())
 		})
 
-		It("Should reject invalid password", func() {
+		It("Should reject invalid password", func(ctx SpecContext) {
 			creds := svcauth.InsecureCredentials{
 				Username: "newroot",
 				Password: "wrongpassword",

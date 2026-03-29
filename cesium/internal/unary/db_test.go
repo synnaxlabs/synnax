@@ -38,7 +38,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			dataDB     *unary.DB
 		)
 		Context("FS: "+fsName, func() {
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
 				indexDBKey = testutil.GenerateChannelKey()
 				indexDBfs = MustSucceed(fs.Sub("index"))
@@ -177,7 +177,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	Describe("Close", func() {
 		var db *unary.DB
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			db = MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},

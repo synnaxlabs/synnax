@@ -17,7 +17,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var ctx context.Context
+
+var _ = BeforeEach(func(sc SpecContext) {
+	ctx = sc
+})
 
 func TestWasm(t *testing.T) {
 	RegisterFailHandler(Fail)

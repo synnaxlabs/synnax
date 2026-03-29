@@ -10,7 +10,6 @@
 package workspace_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,7 +29,6 @@ func TestWorkspace(t *testing.T) {
 }
 
 var (
-	ctx     = context.Background()
 	db      *gorp.DB
 	otg     *ontology.Ontology
 	svc     *workspace.Service
@@ -39,7 +37,7 @@ var (
 	tx      gorp.Tx
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		EnableSearch: new(false),
@@ -64,10 +62,10 @@ var _ = BeforeSuite(func() {
 })
 
 var (
-	_ = AfterSuite(func() {
+	_ = AfterSuite(func(ctx SpecContext) {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 )

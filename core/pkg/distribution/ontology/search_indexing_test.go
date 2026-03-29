@@ -71,7 +71,7 @@ func (s *mockIndexingService) RetrieveResource(
 var _ = Describe("SearchTerm Indexing", func() {
 	var mockSvc *mockIndexingService
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		z := zyn.Object(nil)
 		resources := []ontology.Resource{
 			ontology.NewResource(

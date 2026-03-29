@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"context"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,18 +31,19 @@ var _ = Describe("Ontology", Ordered, func() {
 		otg     *ontology.Ontology
 	)
 	BeforeAll(func() {
+		ctx := context.Background()
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{DB: db, Ontology: otg, Group: g}))
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Schema", func() {
-		It("Should return the ontology schema", func() {
+		It("Should return the ontology schema", func(ctx SpecContext) {
 			schema := svc.Schema().Shape()
 			Expect(schema.DataType()).To(Equal(zyn.ObjectT))
 			fields := schema.Fields()
@@ -50,7 +52,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		})
 	})
 	Describe("retrieveResource", func() {
-		It("Should retrieve a users schema entity by its key", func() {
+		It("Should retrieve a users schema entity by its key", func(ctx SpecContext) {
 			u := user.User{Username: "test", Key: userKey}
 			w := svc.NewWriter(nil)
 			Expect(w.Create(ctx, &u)).To(Succeed())

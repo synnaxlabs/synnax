@@ -32,7 +32,7 @@ var _ = Describe("Delete", func() {
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				By("Creating channels")
 				fs, cleanUp = makeFS()
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
@@ -252,7 +252,7 @@ var _ = Describe("Delete", func() {
 			Describe("Cross-domain deletion", func() {
 				Context("Indexed channels", func() {
 					Context("Two pointers", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							By("Writing data to the channel")
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesV(10*telem.SecondTS, 13*telem.SecondTS, 13*telem.SecondTS+500*telem.MillisecondTS, 18*telem.SecondTS, 19*telem.SecondTS))).To(Succeed())
 							Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 13, 131, 18, 19))).To(Succeed())
@@ -439,7 +439,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			Context("Index channels", func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					By("Writing data to the channel")
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 24)))
@@ -492,7 +492,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			Context("Overshooting time range", func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					By("Writing data to the channel")
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
@@ -578,7 +578,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			Context("Delete Nothing", func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					By("Writing data to the channel")
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13))).To(Succeed())
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())

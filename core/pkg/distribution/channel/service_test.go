@@ -24,19 +24,19 @@ import (
 var _ = Describe("Service", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func() {
-		mockCluster = mock.ProvisionCluster(ctx, 1)
+		mockCluster = mock.ProvisionCluster(context.Background(), 1)
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
 
 	Describe("CountExternalNonVirtual", func() {
-		It("Should return zero for empty database", func() {
+		It("Should return zero for empty database", func(ctx SpecContext) {
 			count := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
 			Expect(count).To(BeEquivalentTo(0))
 		})
 
-		It("Should count external non-virtual channels", func() {
+		It("Should count external non-virtual channels", func(ctx SpecContext) {
 			initialCount := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
 
 			// Create an index channel (external, non-virtual)
@@ -61,7 +61,7 @@ var _ = Describe("Service", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount + 2))
 		})
 
-		It("Should not count virtual channels", func() {
+		It("Should not count virtual channels", func(ctx SpecContext) {
 			initialCount := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
 
 			// Create a virtual channel (external, but virtual)
@@ -77,7 +77,7 @@ var _ = Describe("Service", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount))
 		})
 
-		It("Should not count internal channels", func() {
+		It("Should not count internal channels", func(ctx SpecContext) {
 			initialCount := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
 
 			// Create an internal index channel
@@ -106,7 +106,7 @@ var _ = Describe("Service", Ordered, func() {
 	})
 
 	Describe("Observe", func() {
-		It("Should notify when a channel is created", func() {
+		It("Should notify when a channel is created", func(ctx SpecContext) {
 			called := false
 			mockCluster.Nodes[1].Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
 				called = true

@@ -48,7 +48,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 			})
 			Describe("SeekFirst + SeekLast", Ordered, func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 				})
@@ -128,7 +128,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 
 			Describe("SeekGE + SeekLE", Ordered, func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3})).To(Succeed())
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{4, 5, 6})).To(Succeed())
 					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{7, 8, 9})).To(Succeed())
@@ -233,7 +233,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 
 			Describe("Exhaustion", func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(domain.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
@@ -282,7 +282,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 
 			Describe("Reader", func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(domain.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{6, 7, 8, 9, 10, 11})).To(Succeed())
 				})

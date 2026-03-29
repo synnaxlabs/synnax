@@ -31,8 +31,8 @@ import (
 
 var bCtx context.Context
 
-var _ = BeforeEach(func() {
-	bCtx = context.Background()
+var _ = BeforeEach(func(sc SpecContext) {
+	bCtx = sc
 })
 
 func expectExpression(expression string, expectedType types.Type, expectedOpcodes ...any) {

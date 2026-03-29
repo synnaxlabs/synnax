@@ -19,8 +19,8 @@ import (
 
 var bCtx context.Context
 
-var _ = BeforeEach(func() {
-	bCtx = context.Background()
+var _ = BeforeEach(func(sc SpecContext) {
+	bCtx = sc
 })
 
 func TestAnalyzer(t *testing.T) {

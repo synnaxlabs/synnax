@@ -61,7 +61,7 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Context("Single Pointer", func() {
-				JustBeforeEach(func() {
+				JustBeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 				})
 
@@ -121,7 +121,7 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Context("Multiple Pointers", func() {
-				JustBeforeEach(func() {
+				JustBeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(
 						ctx,
 						db,
@@ -407,7 +407,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 			Context("Edge cases", func() {
 				Context("With Data", func() {
-					JustBeforeEach(func() {
+					JustBeforeEach(func(ctx SpecContext) {
 						Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 						Expect(domain.Write(ctx, db, (22 * telem.SecondTS).SpanRange(8*telem.Second), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29})).To(Succeed())
 						Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39})).To(Succeed())

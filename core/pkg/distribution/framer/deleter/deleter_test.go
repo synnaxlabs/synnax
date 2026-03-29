@@ -10,6 +10,7 @@
 package deleter_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -28,7 +29,7 @@ import (
 )
 
 var _ = Describe("Deleter", Ordered, func() {
-	scenarios := []func() scenario{
+	scenarios := []func(context.Context) scenario{
 		gatewayOnlyScenario,
 	}
 	for _, createScenario := range scenarios {
@@ -37,11 +38,11 @@ var _ = Describe("Deleter", Ordered, func() {
 			d deleter.Deleter
 			i *iterator.Iterator
 		)
-		BeforeAll(func() { s = createScenario() })
+		BeforeAll(func(ctx SpecContext) { s = createScenario(ctx) })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
 			Context(fmt.Sprintf("Scenario: %s - Happy Path", s.name), func() {
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
@@ -63,33 +64,33 @@ var _ = Describe("Deleter", Ordered, func() {
 						Bounds: telem.TimeRangeMax,
 					}))
 				})
-				AfterEach(func() {
+				AfterEach(func(ctx SpecContext) {
 					Expect(d.DeleteTimeRangeMany(ctx, s.keys, telem.TimeRangeMax))
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should delete one channel by key", func() {
+				It("Should delete one channel by key", func(ctx SpecContext) {
 					Expect(d.DeleteTimeRange(ctx, s.keys[0], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
 					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
-				It("Should delete one channel by name", func() {
+				It("Should delete one channel by name", func(ctx SpecContext) {
 					Expect(d.DeleteTimeRangeByName(ctx, s.names[0], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
 					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
-				It("Should delete many channels by keys", func() {
+				It("Should delete many channels by keys", func(ctx SpecContext) {
 					Expect(d.DeleteTimeRangeMany(ctx, s.keys, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(1)))
 					Expect(i.Value().Get(s.keys[1]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
-				It("Should delete many channels by names", func() {
+				It("Should delete many channels by names", func(ctx SpecContext) {
 					Expect(d.DeleteTimeRangeManyByNames(ctx, s.names, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
@@ -99,11 +100,11 @@ var _ = Describe("Deleter", Ordered, func() {
 			})
 		})
 		Describe("Channel not found", func() {
-			Specify("By name", func() {
+			Specify("By name", func(ctx SpecContext) {
 				d = s.dist.Framer.NewDeleter()
 				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(MatchError(ts.ErrChannelNotFound))
 			})
-			Specify("By key", func() {
+			Specify("By key", func(ctx SpecContext) {
 				d = s.dist.Framer.NewDeleter()
 				Expect(d.DeleteTimeRange(ctx, 10, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotFound))
 			})
@@ -139,7 +140,7 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario() scenario {
+func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]

@@ -39,50 +39,50 @@ func TestMetrics(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	bgCtx := context.Background()
 	builder = mock.NewCluster()
-	ctx := context.Background()
-	dist = builder.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	dist = builder.Provision(bgCtx)
+	labelSvc := MustSucceed(label.OpenService(bgCtx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 	}))
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustSucceed(status.OpenService(bgCtx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 	}))
-	rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc := MustSucceed(rack.OpenService(bgCtx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
 	}))
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustSucceed(task.OpenService(bgCtx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Rack:     rackSvc,
 		Status:   statusSvc,
 	}))
-	arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc := MustSucceed(arc.OpenService(bgCtx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
 	}))
-	channelSvc = MustSucceed(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+	channelSvc = MustSucceed(servicechannel.OpenService(bgCtx, servicechannel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
 		Arc:          arcSvc,
 	}))
-	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustSucceed(framer.OpenService(bgCtx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,
 		Arc:     arcSvc,
@@ -91,7 +91,7 @@ var _ = BeforeSuite(func() {
 	}))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(channelSvc.Close()).To(Succeed())
 	Expect(framerSvc.Close()).To(Succeed())
 	Expect(builder.Close()).To(Succeed())

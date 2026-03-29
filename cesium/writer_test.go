@@ -42,9 +42,9 @@ var _ = Describe("Writer Behavior", func() {
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -289,7 +289,7 @@ var _ = Describe("Writer Behavior", func() {
 							basic2 cesium.ChannelKey
 							basic3 cesium.ChannelKey
 						)
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							index1 = GenerateChannelKey()
 							basic1 = GenerateChannelKey()
 							index2 = GenerateChannelKey()
@@ -1222,7 +1222,7 @@ var _ = Describe("Writer Behavior", func() {
 					idx  = GenerateChannelKey()
 					data = GenerateChannelKey()
 				)
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Key: idx, Name: "uneven 1", DataType: telem.TimeStampT, IsIndex: true},
@@ -1437,10 +1437,10 @@ var _ = Describe("Writer Behavior", func() {
 					w1         *cesium.Writer
 					w2         *cesium.Writer
 				)
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
 				})
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					key = GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Name: "We", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS}))
@@ -1674,7 +1674,7 @@ var _ = Describe("Writer Behavior", func() {
 				It("Should not allow opening an iterator on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "It", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
@@ -1686,7 +1686,7 @@ var _ = Describe("Writer Behavior", func() {
 				It("Should not allow opening a stream iterator on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Our", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
@@ -1697,7 +1697,7 @@ var _ = Describe("Writer Behavior", func() {
 				It("Should not allow writing from a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Was", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					err := subDB.Write(ctx, 0, telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}))

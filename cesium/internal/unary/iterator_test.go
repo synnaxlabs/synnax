@@ -35,7 +35,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					fs      fs.FS
 					cleanUp func() error
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
@@ -515,7 +515,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 						Describe("Regression tests: discontinuity", func() {
-							BeforeEach(func() {
+							BeforeEach(func(ctx SpecContext) {
 								// 0  1  4  6 / 10  11  12 / 13  15  17
 								// 0  1  4  6 / 10  11  12 / 13  15  17
 								Expect(unary.Write(ctx, indexDB, 0, telem.NewSeriesSecondsTSV(0, 1, 4, 6))).To(Succeed())
@@ -863,7 +863,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							iKey     cesium.ChannelKey
 							indexDB2 *unary.DB
 						)
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							iKey = GenerateChannelKey()
 							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
@@ -947,7 +947,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					db      *unary.DB
 					key     cesium.ChannelKey
 				)
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					key = GenerateChannelKey()
 					db = MustSucceed(unary.Open(ctx, unary.Config{

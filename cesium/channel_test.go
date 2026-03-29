@@ -36,9 +36,9 @@ var _ = Describe("Channel", Ordered, func() {
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -87,7 +87,7 @@ var _ = Describe("Channel", Ordered, func() {
 					It("Should not allow creating a channel", func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(sub)
+						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
 						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
@@ -97,7 +97,7 @@ var _ = Describe("Channel", Ordered, func() {
 					It("Should not allow retrieving channels", func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(sub)
+						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Lebron",
@@ -118,7 +118,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 			Describe("Retrieve", func() {
 				var k1, k2, k3 cesium.ChannelKey
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, []cesium.Channel{
 						{Name: "Christian", Key: k1, DataType: telem.TimeStampT, IsIndex: true},
@@ -172,7 +172,7 @@ var _ = Describe("Channel", Ordered, func() {
 						{Name: "Keaton", Key: errorKey2, Virtual: true, DataType: telem.Int64T},
 					}
 				)
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 				})
 				It("Should rekey a unary channel into another", func(ctx SpecContext) {

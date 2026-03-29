@@ -10,6 +10,7 @@
 package calculator_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,8 +36,9 @@ var _ = Describe("Calculator", Ordered, func() {
 		dist   mock.Node
 	)
 	BeforeAll(func() {
+		ctx := context.Background()
 		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		dist = distB.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -85,11 +87,12 @@ var _ = Describe("Calculator", Ordered, func() {
 		}))
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(dist.Close()).To(Succeed())
 	})
 
 	open := func(
+		ctx context.Context,
 		indexes, bases *[]channel.Channel,
 		calc *channel.Channel,
 	) *calculator.Calculator {
@@ -120,7 +123,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	}
 
 	Describe("Alignment", func() {
-		Specify("Single alignment propagation", func() {
+		Specify("Single alignment propagation", func(ctx SpecContext) {
 			base := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -132,7 +135,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", base[0].Name),
 			}
-			c := open(nil, &base, &calc)
+			c := open(ctx, nil, &base, &calc)
 			d := telem.NewSeriesV[int64](10, 20, 30)
 			d.Alignment = telem.NewAlignment(100, 50)
 			fr := frame.NewUnary(base[0].Key(), d)
@@ -144,7 +147,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Multiple alignments accumulation", func() {
+		Specify("Multiple alignments accumulation", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -163,7 +166,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := open(ctx, nil, &bases, &calc)
 			d1 := telem.NewSeriesV[int64](1, 2)
 			d1.Alignment = telem.NewAlignment(10, 5)
 			d2 := telem.NewSeriesV[int64](3, 4)
@@ -180,7 +183,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Alignment persistence across calls", func() {
+		Specify("Alignment persistence across calls", func(ctx SpecContext) {
 			base := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -192,7 +195,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 5", base[0].Name),
 			}
-			c := open(nil, &base, &calc)
+			c := open(ctx, nil, &base, &calc)
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(15, 2)
 			fr1 := frame.NewUnary(base[0].Key(), d1)
@@ -212,7 +215,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Mixed alignment sources", func() {
+		Specify("Mixed alignment sources", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -236,7 +239,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := open(ctx, nil, &bases, &calc)
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(10, 3)
 			d2 := telem.NewSeriesV[int64](2)
@@ -256,7 +259,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	})
 
 	Describe("Channel Configurations", func() {
-		Specify("Two virtual channels", func() {
+		Specify("Two virtual channels", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -275,7 +278,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := open(ctx, nil, &bases, &calc)
 			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
@@ -289,7 +292,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Three virtual channels", func() {
+		Specify("Three virtual channels", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -313,7 +316,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := open(ctx, nil, &bases, &calc)
 			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
 				[]telem.Series{
@@ -328,7 +331,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Single persisted channel", func() {
+		Specify("Single persisted channel", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -344,7 +347,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / 2", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(10, 5)
 			valData := telem.NewSeriesV(100.0, 200.0, 300.0)
@@ -363,7 +366,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Two persisted channels shared index", func() {
+		Specify("Two persisted channels shared index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -385,7 +388,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
 			idxData.Alignment = telem.NewAlignment(5, 2)
 			tempData := telem.NewSeriesV[int64](15, 25, 35)
@@ -407,7 +410,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Two persisted channels unique indexes", func() {
+		Specify("Two persisted channels unique indexes", func(ctx SpecContext) {
 			indexes := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -436,7 +439,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			idx1Data := telem.NewSeriesSecondsTSV(1, 2)
 			idx1Data.Alignment = telem.NewAlignment(3, 1)
 			voltageData := telem.NewSeriesV[float32](2.0, 4.0)
@@ -456,7 +459,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Mixed virtual and persisted", func() {
+		Specify("Mixed virtual and persisted", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -479,7 +482,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(5, 10)
 			idxData.Alignment = telem.NewAlignment(8, 4)
 			persistedData := telem.NewSeriesV[int64](100, 200)
@@ -499,7 +502,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	})
 
 	Describe("Data Types", func() {
-		Specify("Float32", func() {
+		Specify("Float32", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -518,7 +521,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := open(ctx, nil, &bases, &calc)
 			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
@@ -534,7 +537,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	})
 
 	Describe("Accumulation", func() {
-		Specify("Index after data", func() {
+		Specify("Index after data", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -550,7 +553,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 3", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			dataOnly := telem.NewSeriesV[int64](10, 20, 30)
 			dataOnly.Alignment = telem.NewAlignment(5, 2)
 			fr1 := frame.NewUnary(bases[0].Key(), dataOnly)
@@ -569,7 +572,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Data after index", func() {
+		Specify("Data after index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -585,7 +588,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(3, 1)
 			fr1 := frame.NewUnary(indexes[0].Key(), idxData)
@@ -604,7 +607,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Sequential channel arrivals", func() {
+		Specify("Sequential channel arrivals", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -626,7 +629,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idx.Alignment = telem.NewAlignment(5, 1)
 			fr1 := frame.NewUnary(indexes[0].Key(), idx)
@@ -653,7 +656,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Different indexes from different writers", func() {
+		Specify("Different indexes from different writers", func(ctx SpecContext) {
 			indexes := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -682,7 +685,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := open(ctx, &indexes, &bases, &calc)
 
 			// Writer 1 sends idx1 + ch1 — not enough inputs to compute yet
 			idx1 := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -713,7 +716,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 	})
 
-	It("Operations", func() {
+	It("Operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     channel.NewRandomName(),
 			DataType: telem.TimeStampT,
@@ -735,7 +738,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				},
 			},
 		}
-		c := open(&idx, &base, &calc)
+		c := open(ctx, &idx, &base, &calc)
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
 		d.Alignment = telem.NewAlignment(1, 0)
@@ -765,7 +768,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
-	It("Should correctly chain multiple operations", func() {
+	It("Should correctly chain multiple operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     channel.NewRandomName(),
 			DataType: telem.TimeStampT,
@@ -791,7 +794,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				},
 			},
 		}
-		c := open(&idx, &base, &calc)
+		c := open(ctx, &idx, &base, &calc)
 
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -814,7 +817,7 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	Describe("Group", func() {
 
-		It("Should aggregate ReadFrom keys from all calculators", func() {
+		It("Should aggregate ReadFrom keys from all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
 			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
 			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
@@ -830,15 +833,15 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
 			}
-			calc1 := open(&idx, &b1, &c1)
-			calc2 := open(nil, &b2, &c2)
+			calc1 := open(ctx, &idx, &b1, &c1)
+			calc2 := open(ctx, nil, &b2, &c2)
 			g := calculator.Group{calc1, calc2}
 			keys := g.ReadFrom()
 			Expect(keys).To(HaveLen(3))
 			Expect(keys).To(ContainElements(idx[0].Key(), b1[0].Key(), b2[0].Key()))
 		})
 
-		It("Should execute all calculators and aggregate results", func() {
+		It("Should execute all calculators and aggregate results", func(ctx SpecContext) {
 			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
 			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
 			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
@@ -854,8 +857,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
 			}
-			calc1 := open(&idx, &b1, &c1)
-			calc2 := open(nil, &b2, &c2)
+			calc1 := open(ctx, &idx, &b1, &c1)
+			calc2 := open(ctx, nil, &b2, &c2)
 			g := calculator.Group{calc1, calc2}
 			d1 := telem.NewSeriesV[int64](10, 20)
 			d2 := telem.NewSeriesV[int64](5, 10)
@@ -871,7 +874,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(output.Get(c2.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](10, 20))
 		})
 
-		It("Should close all calculators", func() {
+		It("Should close all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
 			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
 			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
@@ -887,13 +890,13 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s", b2[0].Name),
 			}
-			calc1 := open(&idx, &b1, &c1)
-			calc2 := open(&idx, &b2, &c2)
+			calc1 := open(ctx, &idx, &b1, &c1)
+			calc2 := open(ctx, &idx, &b2, &c2)
 			g := calculator.Group{calc1, calc2}
 			Expect(g.Close()).To(Succeed())
 		})
 
-		It("Should execute nested calculators", func() {
+		It("Should execute nested calculators", func(ctx SpecContext) {
 			b1 := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -911,8 +914,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", c1.Name),
 			}
-			calc1 := open(nil, &b1, &c1)
-			calc2 := open(nil, nil, &c2)
+			calc1 := open(ctx, nil, &b1, &c1)
+			calc2 := open(ctx, nil, nil, &c2)
 			g := calculator.Group{calc1, calc2}
 			for i := range 10 {
 				d1 := telem.NewSeriesV[int64](10, 20)
@@ -932,6 +935,7 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	Describe("Leading Literal Type Coercion", func() {
 		openWithInferredType := func(
+			ctx context.Context,
 			bases *[]channel.Channel,
 			calc *channel.Channel,
 		) *calculator.Calculator {
@@ -948,7 +952,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 		}
 
-		Specify("Float literal * f32 channel should infer f32 and produce correct results", func() {
+		Specify("Float literal * f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
 			base := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -959,7 +963,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
-			c := openWithInferredType(&base, &calc)
+			c := openWithInferredType(ctx, &base, &calc)
 			Expect(calc.DataType).To(Equal(telem.Float32T))
 			fr := frame.NewUnary(
 				base[0].Key(),
@@ -973,7 +977,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Integer literal - f32 channel should infer f32 and produce correct results", func() {
+		Specify("Integer literal - f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
 			base := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -984,7 +988,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 1000 - %s", base[0].Name),
 			}
-			c := openWithInferredType(&base, &calc)
+			c := openWithInferredType(ctx, &base, &calc)
 			Expect(calc.DataType).To(Equal(telem.Float32T))
 			fr := frame.NewUnary(
 				base[0].Key(),
@@ -998,7 +1002,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Float literal / f32 channel should infer f32 and produce correct results", func() {
+		Specify("Float literal / f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
 			base := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -1009,7 +1013,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 1000.0 / %s", base[0].Name),
 			}
-			c := openWithInferredType(&base, &calc)
+			c := openWithInferredType(ctx, &base, &calc)
 			Expect(calc.DataType).To(Equal(telem.Float32T))
 			fr := frame.NewUnary(
 				base[0].Key(),
@@ -1023,7 +1027,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Stale f64 output type from old inference with f32 channel and leading literal", func() {
+		Specify("Stale f64 output type from old inference with f32 channel and leading literal", func(ctx SpecContext) {
 			base := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,

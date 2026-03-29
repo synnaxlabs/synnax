@@ -40,7 +40,7 @@ var _ = Describe("Domain", func() {
 
 			Describe("Distance", func() {
 				Context("Continuous", func() {
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						Expect(domain.Write(
 							ctx,
 							db,
@@ -136,7 +136,7 @@ var _ = Describe("Domain", func() {
 				})
 
 				Context("Discontinuous", func() {
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						Expect(domain.Write(
 							ctx,
 							db,
@@ -263,7 +263,7 @@ var _ = Describe("Domain", func() {
 						db2  *domain.DB
 						idx2 *index.Domain
 					)
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						// Open a new domain DB with a file size that corresponds
 						// 3 timestamp samples, so that we trigger automatic rollovers.
 						db2 = MustSucceed(domain.Open(domain.Config{
@@ -342,7 +342,7 @@ var _ = Describe("Domain", func() {
 				Context("Forward", func() {
 
 					Context("Continuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -416,7 +416,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -584,7 +584,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Discontinuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -654,7 +654,7 @@ var _ = Describe("Domain", func() {
 
 				Context("Backward", func() {
 					Context("Continuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -710,7 +710,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,
@@ -847,7 +847,7 @@ var _ = Describe("Domain", func() {
 					})
 
 					Context("Discontinuous", func() {
-						BeforeEach(func() {
+						BeforeEach(func(ctx SpecContext) {
 							Expect(domain.Write(
 								ctx,
 								db,

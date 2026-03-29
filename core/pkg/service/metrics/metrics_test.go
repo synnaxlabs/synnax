@@ -71,7 +71,7 @@ var _ = Describe("Metrics", func() {
 				HostProvider: dist.Cluster,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
-		It("Should apply default collection interval", func() {
+		It("Should apply default collection interval", func(ctx SpecContext) {
 			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
 				Channel:      channelSvc,
 				Framer:       framerSvc,
@@ -87,8 +87,7 @@ var _ = Describe("Metrics", func() {
 			names []string
 		)
 		JustBeforeEach(func() {
-			ctx := context.Background()
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+			svc = MustSucceed(metrics.OpenService(context.Background(), metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
@@ -100,7 +99,7 @@ var _ = Describe("Metrics", func() {
 			}))
 			names = getNames(dist.Cluster.HostKey())
 		})
-		JustAfterEach(func() {
+		JustAfterEach(func(ctx SpecContext) {
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should create index channel with correct naming", func(ctx SpecContext) {
@@ -404,12 +403,12 @@ var _ = Describe("Metrics", func() {
 			requests, responses = confluence.Attach(streamer)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		})
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			Expect(svc.Close()).To(Succeed())
 		})
-		It("Should write metrics at configured interval", func() {
+		It("Should write metrics at configured interval", func(ctx SpecContext) {
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Count()).To(Equal(5))

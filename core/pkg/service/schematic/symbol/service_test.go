@@ -22,7 +22,7 @@ import (
 
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
-		It("Should create a service with minimal configuration", func() {
+		It("Should create a service with minimal configuration", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				EnableSearch: new(false),
@@ -40,7 +40,7 @@ var _ = Describe("Service", func() {
 			Expect(testDB.Close()).To(Succeed())
 		})
 
-		It("Should create a service with group configuration", func() {
+		It("Should create a service with group configuration", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				EnableSearch: new(false),
@@ -65,7 +65,7 @@ var _ = Describe("Service", func() {
 			Expect(testDB.Close()).To(Succeed())
 		})
 
-		It("Should fail with invalid configuration", func() {
+		It("Should fail with invalid configuration", func(ctx SpecContext) {
 			_, err := symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB: nil,
 			})
@@ -79,7 +79,7 @@ var _ = Describe("Service", func() {
 			Expect(err.Error()).To(ContainSubstring("db"))
 		})
 
-		It("Should handle configuration override correctly", func() {
+		It("Should handle configuration override correctly", func(ctx SpecContext) {
 			testDB1 := gorp.Wrap(memkv.New())
 			testDB2 := gorp.Wrap(memkv.New())
 			testOtg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
@@ -114,26 +114,26 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewWriter", func() {
-		It("Should create a writer with transaction", func() {
+		It("Should create a writer with transaction", func(ctx SpecContext) {
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
 		})
 
-		It("Should create a writer without transaction", func() {
+		It("Should create a writer without transaction", func(ctx SpecContext) {
 			writer := svc.NewWriter(nil)
 			Expect(writer).ToNot(BeNil())
 		})
 	})
 
 	Describe("NewRetrieve", func() {
-		It("Should create a retrieve query builder", func() {
+		It("Should create a retrieve query builder", func(ctx SpecContext) {
 			retrieve := svc.NewRetrieve()
 			Expect(retrieve).ToNot(BeNil())
 		})
 	})
 
 	Describe("Close", func() {
-		It("Should close the service cleanly", func() {
+		It("Should close the service cleanly", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				EnableSearch: new(false),

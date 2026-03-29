@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	ctx    context.Context
 	dist   mock.Node
 	svc    *svcChannel.Service
 	arcSvc *arc.Service
@@ -37,10 +36,9 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "Service Channel Suite")
 }
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
@@ -101,6 +99,6 @@ var _ = BeforeSuite(func() {
 	})
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(dist.Close()).To(Succeed())
 })

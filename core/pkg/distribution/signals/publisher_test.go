@@ -10,6 +10,7 @@
 package signals_test
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -43,6 +44,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		closeStreamer io.Closer
 	)
 	BeforeEach(func() {
+		ctx := context.Background()
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
 		cfg = signals.ObservablePublisherConfig{
 			SetChannel:    channel.Channel{Name: publisherSetChannelName, DataType: telem.UUIDT},
@@ -77,7 +79,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		Expect(closeStreamer.Close()).To(Succeed())
 		Expect(closer.Close()).To(Succeed())
 	})
-	It("Should correctly propagate a change", func() {
+	It("Should correctly propagate a change", func(ctx SpecContext) {
 		uid := uuid.New()
 		obs.Notify(ctx, []change.Change[[]byte, struct{}]{{
 			Variant: change.VariantSet,
@@ -89,7 +91,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})
-	It("Should not send an empty frame if an empty list of changes is provided", func() {
+	It("Should not send an empty frame if an empty list of changes is provided", func(ctx SpecContext) {
 		obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
 		Expect(responses.Outlet()).ToNot(Receive())
 	})

@@ -10,11 +10,18 @@
 package flow_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+var bCtx context.Context
+
+var _ = BeforeEach(func(sc SpecContext) {
+	bCtx = sc
+})
 
 func TestFlow(t *testing.T) {
 	RegisterFailHandler(Fail)

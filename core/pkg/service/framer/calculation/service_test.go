@@ -46,6 +46,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		statusSvc *status.Service
 	)
 	open := func(
+		ctx context.Context,
 		indexChannels,
 		baseChannels,
 		calculations *[]channel.Channel,
@@ -101,8 +102,9 @@ var _ = Describe("Calculation", Ordered, func() {
 	}
 
 	BeforeAll(func() {
+		ctx := context.Background()
 		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		dist = distB.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -157,14 +159,14 @@ var _ = Describe("Calculation", Ordered, func() {
 		}))
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(c.Close()).To(Succeed())
 		Expect(dist.Close()).To(Succeed())
 	})
 
 	Describe("Calculation Patterns", func() {
 
-		Specify("Single Virtual Channel as Base", func() {
+		Specify("Single Virtual Channel as Base", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -177,7 +179,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
@@ -194,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				bases = []channel.Channel{
 					{
 						Name:     channel.NewRandomName(),
@@ -215,8 +217,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 				}}
 			})
-			Specify("Single Write with Data for Both Channels", func() {
-				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			Specify("Single Write with Data for Both Channels", func(ctx SpecContext) {
+				w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
@@ -232,8 +234,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 			})
 
-			Specify("Two Writes with Data for Individual Channels", func() {
-				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			Specify("Two Writes with Data for Individual Channels", func(ctx SpecContext) {
+				w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
@@ -248,7 +250,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			})
 		})
 
-		Specify("Single Data Channel as Base", func() {
+		Specify("Single Data Channel as Base", func(ctx SpecContext) {
 			var (
 				indexes = []channel.Channel{{
 					Name:     channel.NewRandomName(),
@@ -267,7 +269,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
-			w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+			w, sOutlet, cancel := open(ctx, &indexes, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			idxCh := indexes[0]
 			baseCh := bases[0]
@@ -287,7 +289,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 
 		Describe("Multiple Data Channels as Base", func() {
-			Specify("Shared Index", func() {
+			Specify("Shared Index", func(ctx SpecContext) {
 				var (
 					indexes = []channel.Channel{{
 						Name:     channel.NewRandomName(),
@@ -312,7 +314,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
-				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+				w, sOutlet, cancel := open(ctx, &indexes, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				idxCh := indexes[0]
 				baseCh1 := bases[0]
@@ -331,7 +333,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](2, 8))
 			})
 
-			Specify("Unique Indexes", func() {
+			Specify("Unique Indexes", func(ctx SpecContext) {
 				var (
 					indexes = []channel.Channel{
 						{
@@ -363,7 +365,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
-				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+				w, sOutlet, cancel := open(ctx, &indexes, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				var (
 					idxCh1  = indexes[0]
@@ -386,7 +388,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](2, 8))
 			})
 
-			Specify("Unique Indexes, Separate Writes", func() {
+			Specify("Unique Indexes, Separate Writes", func(ctx SpecContext) {
 				var (
 					indexes = []channel.Channel{
 						{
@@ -418,7 +420,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
-				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+				w, sOutlet, cancel := open(ctx, &indexes, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				var (
 					idxCh1  = indexes[0]
@@ -452,7 +454,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				calc1Name := channel.NewRandomName()
 				bases = []channel.Channel{{
 					Name:     channel.NewRandomName(),
@@ -473,8 +475,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
-			Specify("Base and Derived Requested", func() {
-				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			Specify("Base and Derived Requested", func(ctx SpecContext) {
+				w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				baseCh := bases[0]
 				calcCh := calcs[0]
@@ -488,8 +490,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
 			})
 
-			Specify("Calculations of Calculations, Base Not Requested", func() {
-				w, sOutlet, cancel := open(nil, &bases, &calcs, func(calcs []channel.Channel) channel.Keys {
+			Specify("Calculations of Calculations, Base Not Requested", func(ctx SpecContext) {
+				w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, func(calcs []channel.Channel) channel.Keys {
 					return []channel.Key{calcs[1].Key()}
 				})
 				defer cancel()
@@ -506,7 +508,7 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	Describe("Calculation Status", func() {
-		Specify("Should persist error status on invalid expression request", func() {
+		Specify("Should persist error status on invalid expression request", func(ctx SpecContext) {
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
@@ -526,7 +528,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(st.Variant).To(Equal(xstatus.VariantError))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
-		Specify("Should persist error status on calculation update failure", func() {
+		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -558,7 +560,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 
-		Specify("Should use channel ontology ID as status key", func() {
+		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
@@ -581,7 +583,7 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	Describe("Calculation Updates", func() {
-		Specify("Modified Expression, No New Dependencies", func() {
+		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -594,7 +596,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
@@ -617,7 +619,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
 
-		Specify("Modified Expression, New Dependencies", func() {
+		Specify("Modified Expression, New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
@@ -634,7 +636,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			baseCh2 := bases[1]

@@ -10,6 +10,7 @@
 package label_test
 
 import (
+	"context"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +34,7 @@ var _ = Describe("Label", Ordered, func() {
 		tx  gorp.Tx
 	)
 	BeforeAll(func() {
+		ctx := context.Background()
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
@@ -42,20 +44,20 @@ var _ = Describe("Label", Ordered, func() {
 			Group:    g,
 		}))
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(svc.Close()).To(Succeed())
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
 	})
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should create a new label", func() {
+		It("Should create a new label", func(ctx SpecContext) {
 			l := &xlabel.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
@@ -63,7 +65,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
 		})
-		It("Should create many labels", func() {
+		It("Should create many labels", func(ctx SpecContext) {
 			ls := []xlabel.Label{
 				{
 					Name:  "Label1",
@@ -81,7 +83,7 @@ var _ = Describe("Label", Ordered, func() {
 		})
 	})
 	Describe("Delete", func() {
-		It("Should delete a label", func() {
+		It("Should delete a label", func(ctx SpecContext) {
 			l := &xlabel.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
@@ -90,7 +92,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
-		It("Should delete many labels", func() {
+		It("Should delete many labels", func(ctx SpecContext) {
 			ls := []xlabel.Label{
 				{
 					Name:  "Label1",
@@ -109,7 +111,7 @@ var _ = Describe("Label", Ordered, func() {
 		})
 	})
 	Describe("Retrieve", func() {
-		It("Should get the labels for an ontology resource", func() {
+		It("Should get the labels for an ontology resource", func(ctx SpecContext) {
 			l := &xlabel.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
@@ -127,7 +129,7 @@ var _ = Describe("Label", Ordered, func() {
 		})
 	})
 	Describe("RemoveLabel", func() {
-		It("Should remove a label", func() {
+		It("Should remove a label", func(ctx SpecContext) {
 			l := &xlabel.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
@@ -148,7 +150,7 @@ var _ = Describe("Label", Ordered, func() {
 		})
 	})
 	Describe("Clear", func() {
-		It("Should remove all labels on an object", func() {
+		It("Should remove all labels on an object", func(ctx SpecContext) {
 			l := &xlabel.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
