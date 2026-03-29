@@ -16,8 +16,11 @@ import {
   type AddNodePayload,
   type RemoveEdgePayload,
   type RemoveNodePayload,
+  type SetEdgeDataPayload,
   type SetEdgePayload,
+  type SetNodeDimensionsPayload,
   type SetNodePositionPayload,
+  type SetNodePropsPayload,
 } from "@/schematic/actions.gen";
 
 export type { Action } from "@/schematic/actions.gen";
@@ -29,6 +32,9 @@ export {
   removeNode,
   setEdge,
   removeEdge,
+  setNodeDimensions,
+  setNodeProps,
+  setEdgeData,
 } from "@/schematic/actions.gen";
 
 export const scopedActionZ = z.object({
@@ -79,6 +85,30 @@ const handleRemoveEdge = (
   if (i !== -1) state.edges.splice(i, 1);
 };
 
+const handleSetNodeDimensions = (
+  state: Schematic,
+  payload: SetNodeDimensionsPayload,
+): void => {
+  const node = state.nodes.find((n) => n.key === payload.key);
+  if (node != null) node.measured = payload.dimensions;
+};
+
+const handleSetNodeProps = (
+  state: Schematic,
+  payload: SetNodePropsPayload,
+): void => {
+  if (state.props == null) state.props = {};
+  state.props[payload.key] = payload.props;
+};
+
+const handleSetEdgeData = (
+  state: Schematic,
+  payload: SetEdgeDataPayload,
+): void => {
+  const edge = state.edges.find((e) => e.key === payload.key);
+  if (edge != null) edge.data = payload.data;
+};
+
 export const reduce = (state: Schematic, action: Action): Schematic => {
   switch (action.type) {
     case "set_node_position":
@@ -95,6 +125,15 @@ export const reduce = (state: Schematic, action: Action): Schematic => {
       break;
     case "remove_edge":
       handleRemoveEdge(state, action.removeEdge);
+      break;
+    case "set_node_dimensions":
+      handleSetNodeDimensions(state, action.setNodeDimensions);
+      break;
+    case "set_node_props":
+      handleSetNodeProps(state, action.setNodeProps);
+      break;
+    case "set_edge_data":
+      handleSetEdgeData(state, action.setEdgeData);
       break;
   }
   return state;

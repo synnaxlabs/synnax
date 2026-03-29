@@ -49,6 +49,15 @@ export const stickyUnitsZ = z.object({
 });
 export interface StickyUnits extends z.infer<typeof stickyUnitsZ> {}
 
+/** Dimensions is a 2D size with width and height values. */
+export const dimensionsZ = z.object({
+  /** width is the width in pixels. */
+  width: z.number(),
+  /** height is the height in pixels. */
+  height: z.number(),
+});
+export interface Dimensions extends z.infer<typeof dimensionsZ> {}
+
 /** Viewport is the camera state of a viewport. */
 export const viewportZ = z.object({
   /** zoom is the zoom level where 1.0 equals 100%. */

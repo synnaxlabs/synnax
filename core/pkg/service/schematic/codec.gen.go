@@ -174,6 +174,9 @@ func EncodeNode(w *xbinary.Writer, s *Node) error {
 	w.Bool(s.Selected)
 	w.Int32(int32(s.ZIndex))
 	w.String(s.Type)
+	if err := spatial.EncodeDimensions(w, &s.Measured); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -192,6 +195,9 @@ func DecodeNode(r *xbinary.Reader, s *Node) error {
 		return err
 	}
 	if s.Type, err = r.String(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {
 		return err
 	}
 	return nil

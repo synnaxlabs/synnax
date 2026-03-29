@@ -87,6 +87,17 @@ StickyXY struct {
     """
 }
 
+Dimensions struct {
+    width  float64 {
+        @doc value "is the width in pixels."
+    }
+    height float64 {
+        @doc value "is the height in pixels."
+    }
+
+    @doc value "is a 2D size with width and height values."
+}
+
 Viewport struct {
     zoom     float64 {
         @validate default 1

@@ -72,3 +72,31 @@ func (r RemoveEdge) Handle(state Schematic) (Schematic, error) {
 	}
 	return state, nil
 }
+
+func (s SetNodeDimensions) Handle(state Schematic) (Schematic, error) {
+	for i, node := range state.Nodes {
+		if node.Key == s.Key {
+			state.Nodes[i].Measured = s.Dimensions
+			break
+		}
+	}
+	return state, nil
+}
+
+func (s SetNodeProps) Handle(state Schematic) (Schematic, error) {
+	if state.Props == nil {
+		state.Props = make(map[string]any)
+	}
+	state.Props[s.Key] = s.Props
+	return state, nil
+}
+
+func (s SetEdgeData) Handle(state Schematic) (Schematic, error) {
+	for i, edge := range state.Edges {
+		if edge.Key == s.Key {
+			state.Edges[i].Data = s.Data
+			break
+		}
+	}
+	return state, nil
+}

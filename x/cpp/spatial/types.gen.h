@@ -24,6 +24,7 @@ namespace x::spatial {
 struct XY;
 struct Corner;
 struct StickyUnits;
+struct Dimensions;
 struct Viewport;
 struct StickyXY;
 
@@ -83,6 +84,23 @@ struct StickyUnits {
     to_proto() const;
     static std::pair<StickyUnits, x::errors::Error>
     from_proto(const ::x::spatial::pb::StickyUnits &pb);
+};
+
+/// @brief Dimensions is a 2D size with width and height values.
+struct Dimensions {
+    /// @brief width is the width in pixels.
+    double width = 0;
+    /// @brief height is the height in pixels.
+    double height = 0;
+
+    static Dimensions parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::Dimensions;
+    [[nodiscard]] std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
+    to_proto() const;
+    static std::pair<Dimensions, x::errors::Error>
+    from_proto(const ::x::spatial::pb::Dimensions &pb);
 };
 
 /// @brief Viewport is the camera state of a viewport.

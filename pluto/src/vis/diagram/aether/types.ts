@@ -181,3 +181,77 @@ export const edgeConverter = (
   f: (edges: rf.Edge<record.Unknown>[]) => rf.Edge<record.Unknown>[],
   color: color.Crude,
 ): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)), color);
+
+export type NodeChange =
+  | { type: "position"; key: string; position: xy.XY; dragging: boolean }
+  | { type: "remove"; key: string }
+  | { type: "select"; key: string; selected: boolean }
+  | {
+      type: "dimensions";
+      key: string;
+      dimensions: { width: number; height: number };
+    };
+
+export const translateNodeChangeForward = (
+  change: rf.NodeChange,
+): NodeChange | null => {
+  switch (change.type) {
+    case "position":
+      if (change.position == null) return null;
+      return {
+        type: "position",
+        key: change.id,
+        position: xy.construct(change.position),
+        dragging: change.dragging ?? false,
+      };
+    case "remove":
+      return { type: "remove", key: change.id };
+    case "select":
+      return { type: "select", key: change.id, selected: change.selected };
+    case "dimensions":
+      if (change.dimensions == null) return null;
+      return {
+        type: "dimensions",
+        key: change.id,
+        dimensions: change.dimensions,
+      };
+    default:
+      return null;
+  }
+};
+
+export type EdgeChange =
+  | { type: "add"; edge: Edge }
+  | { type: "remove"; key: string }
+  | { type: "select"; key: string; selected: boolean }
+  | { type: "data"; key: string; data: record.Unknown };
+
+export const translateEdgeChangeForward = (
+  change: rf.EdgeChange<rf.Edge<record.Unknown>>,
+): EdgeChange | null => {
+  switch (change.type) {
+    case "add": {
+      const item = change.item;
+      item.data ??= {};
+      return {
+        type: "add",
+        edge: {
+          key: item.id,
+          source: item.source,
+          target: item.target,
+          id: item.id,
+          selected: item.selected ?? false,
+          sourceHandle: item.sourceHandle ?? undefined,
+          targetHandle: item.targetHandle ?? undefined,
+          data: item.data as record.Unknown,
+        },
+      };
+    }
+    case "remove":
+      return { type: "remove", key: change.id };
+    case "select":
+      return { type: "select", key: change.id, selected: change.selected };
+    default:
+      return null;
+  }
+};

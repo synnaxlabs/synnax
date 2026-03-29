@@ -42,6 +42,8 @@ message Node {
   int32 z_index = 4;
   // type is the optional node type identifier.
   string type = 5;
+  // measured contains the measured dimensions from rendering.
+  .x.spatial.pb.Dimensions measured = 6;
 }
 
 // Segment is a connector path segment with a direction and length.

@@ -600,7 +600,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
-  const addElement = useAddSymbol(dispatch, layoutKey);
+  const addElement = useAddSymbol(layoutKey);
   const handleAddElement = useCallback(
     (key: string) => addElement(key, undefined, { specKey: key }),
     [addElement],

@@ -83,6 +83,18 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
+	Describe("Dimensions", func() {
+		It("should round-trip encode and decode", func() {
+			original := spatial.Dimensions{Width: 2.5, Height: 2.5}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(spatial.EncodeDimensions(w, &original)).To(Succeed())
+			var decoded spatial.Dimensions
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(spatial.DecodeDimensions(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 })
 
 func BenchmarkEncodeDecodeXY(b *testing.B) {
@@ -165,6 +177,23 @@ func BenchmarkEncodeDecodeStickyUnits(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := spatial.DecodeStickyUnits(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDimensions(b *testing.B) {
+	s := spatial.Dimensions{Width: 2.5, Height: 2.5}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := spatial.EncodeDimensions(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded spatial.Dimensions
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := spatial.DecodeDimensions(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

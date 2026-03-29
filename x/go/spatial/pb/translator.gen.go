@@ -219,6 +219,52 @@ func StickyXiesFromPB(pbs []*StickyXY) ([]spatial.StickyXY, error) {
 	return result, nil
 }
 
+// DimensionsToPB converts Dimensions to Dimensions.
+func DimensionsToPB(r spatial.Dimensions) (*Dimensions, error) {
+	pb := &Dimensions{
+		Width:  r.Width,
+		Height: r.Height,
+	}
+	return pb, nil
+}
+
+// DimensionsFromPB converts Dimensions to Dimensions.
+func DimensionsFromPB(pb *Dimensions) (spatial.Dimensions, error) {
+	var r spatial.Dimensions
+	if pb == nil {
+		return r, nil
+	}
+	r.Width = pb.Width
+	r.Height = pb.Height
+	return r, nil
+}
+
+// DimensionsListToPB converts a slice of Dimensions to Dimensions.
+func DimensionsListToPB(rs []spatial.Dimensions) ([]*Dimensions, error) {
+	result := make([]*Dimensions, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = DimensionsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DimensionsListFromPB converts a slice of Dimensions to Dimensions.
+func DimensionsListFromPB(pbs []*Dimensions) ([]spatial.Dimensions, error) {
+	result := make([]spatial.Dimensions, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = DimensionsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // ViewportToPB converts Viewport to Viewport.
 func ViewportToPB(r spatial.Viewport) (*Viewport, error) {
 	positionVal, err := XYToPB(r.Position)

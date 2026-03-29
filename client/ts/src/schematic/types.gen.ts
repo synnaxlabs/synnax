@@ -49,6 +49,8 @@ export const nodeZ = z.object({
   zIndex: z.int32().optional(),
   /** type is the optional node type identifier. */
   type: z.string().optional(),
+  /** measured contains the measured dimensions from rendering. */
+  measured: spatial.dimensionsZ.optional(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

@@ -68,6 +68,14 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
+// Dimensions is a 2D size with width and height values.
+type Dimensions struct {
+	// Width is the width in pixels.
+	Width float64 `json:"width" msgpack:"width"`
+	// Height is the height in pixels.
+	Height float64 `json:"height" msgpack:"height"`
+}
+
 // Viewport is the camera state of a viewport.
 type Viewport struct {
 	// Zoom is the zoom level where 1.0 equals 100%.

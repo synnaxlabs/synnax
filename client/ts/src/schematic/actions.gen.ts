@@ -11,7 +11,7 @@
 import { record, spatial, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { edgeZ, nodeZ } from "./types.gen";
+import { edgeDataZ, edgeZ, nodeZ } from "./types.gen";
 
 export const setNodePositionPayloadZ = z.object({
   key: z.string(),
@@ -45,12 +45,36 @@ export const removeEdgePayloadZ = z.object({
 
 export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
 
+export const setNodeDimensionsPayloadZ = z.object({
+  key: z.string(),
+  dimensions: spatial.dimensionsZ,
+});
+
+export type SetNodeDimensionsPayload = z.infer<typeof setNodeDimensionsPayloadZ>;
+
+export const setNodePropsPayloadZ = z.object({
+  key: z.string(),
+  props: record.nullishToEmpty(),
+});
+
+export type SetNodePropsPayload = z.infer<typeof setNodePropsPayloadZ>;
+
+export const setEdgeDataPayloadZ = z.object({
+  key: z.string(),
+  data: edgeDataZ,
+});
+
+export type SetEdgeDataPayload = z.infer<typeof setEdgeDataPayloadZ>;
+
 export const ACTION_TYPES = {
   set_node_position: "set_node_position",
   add_node: "add_node",
   remove_node: "remove_node",
   set_edge: "set_edge",
   remove_edge: "remove_edge",
+  set_node_dimensions: "set_node_dimensions",
+  set_node_props: "set_node_props",
+  set_edge_data: "set_edge_data",
 } as const;
 
 export const actionZ = z.discriminatedUnion("type", [
@@ -62,6 +86,12 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("set_edge"), setEdge: setEdgePayloadZ }),
   z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
+  z.object({
+    type: z.literal("set_node_dimensions"),
+    setNodeDimensions: setNodeDimensionsPayloadZ,
+  }),
+  z.object({ type: z.literal("set_node_props"), setNodeProps: setNodePropsPayloadZ }),
+  z.object({ type: z.literal("set_edge_data"), setEdgeData: setEdgeDataPayloadZ }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
@@ -89,4 +119,19 @@ export const setEdge = (payload: SetEdgePayload): Action => ({
 export const removeEdge = (payload: RemoveEdgePayload): Action => ({
   type: "remove_edge",
   removeEdge: payload,
+});
+
+export const setNodeDimensions = (payload: SetNodeDimensionsPayload): Action => ({
+  type: "set_node_dimensions",
+  setNodeDimensions: payload,
+});
+
+export const setNodeProps = (payload: SetNodePropsPayload): Action => ({
+  type: "set_node_props",
+  setNodeProps: payload,
+});
+
+export const setEdgeData = (payload: SetEdgeDataPayload): Action => ({
+  type: "set_edge_data",
+  setEdgeData: payload,
 });

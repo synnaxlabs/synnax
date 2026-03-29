@@ -10,7 +10,7 @@
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { extract } from "@/schematic/export";
-import { ContextMenu, LAYOUT_TYPE, Schematic, Selectable } from "@/schematic/Schematic";
+import { ContextMenu, LAYOUT_TYPE, SchematicComponent, Selectable } from "@/schematic/Schematic";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
 import { type Selector } from "@/selector";
 
@@ -29,7 +29,7 @@ export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [LAYOUT_TYPE]: Schematic,
+  [LAYOUT_TYPE]: SchematicComponent,
   [EDIT_LAYOUT_TYPE]: Edit,
 };
 

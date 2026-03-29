@@ -78,6 +78,20 @@ inline x::json::json StickyXY::to_json() const {
     return j;
 }
 
+inline Dimensions Dimensions::parse(x::json::Parser parser) {
+    return Dimensions{
+        .width = parser.field<double>("width"),
+        .height = parser.field<double>("height"),
+    };
+}
+
+inline x::json::json Dimensions::to_json() const {
+    x::json::json j;
+    j["width"] = this->width;
+    j["height"] = this->height;
+    return j;
+}
+
 inline Viewport Viewport::parse(x::json::Parser parser) {
     return Viewport{
         .zoom = parser.field<double>("zoom"),

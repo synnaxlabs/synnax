@@ -172,7 +172,9 @@ type Node struct {
 	// z_index is the optional z-index for rendering order.
 	ZIndex int32 `protobuf:"varint,4,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
 	// type is the optional node type identifier.
-	Type          string `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
+	Type string `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
+	// measured contains the measured dimensions from rendering.
+	Measured      *pb.Dimensions `protobuf:"bytes,6,opt,name=measured,proto3" json:"measured,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -240,6 +242,13 @@ func (x *Node) GetType() string {
 		return x.Type
 	}
 	return ""
+}
+
+func (x *Node) GetMeasured() *pb.Dimensions {
+	if x != nil {
+		return x.Measured
+	}
+	return nil
 }
 
 // Segment is a connector path segment with a direction and length.
@@ -621,13 +630,14 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06colors\x18\x03 \x03(\v2(.service.schematic.pb.Legend.ColorsEntryR\x06colors\x1a9\n" +
 	"\vColorsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8f\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc5\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x1a\n" +
 	"\bselected\x18\x03 \x01(\bR\bselected\x12\x17\n" +
 	"\az_index\x18\x04 \x01(\x05R\x06zIndex\x12\x12\n" +
-	"\x04type\x18\x05 \x01(\tR\x04type\"X\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\x124\n" +
+	"\bmeasured\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"X\n" +
 	"\aSegment\x125\n" +
 	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x16\n" +
 	"\x06length\x18\x02 \x01(\x01R\x06length\"\x98\x01\n" +
@@ -692,28 +702,30 @@ var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	nil,                     // 7: service.schematic.pb.Legend.ColorsEntry
 	(*pb.StickyXY)(nil),     // 8: x.spatial.pb.StickyXY
 	(*pb.XY)(nil),           // 9: x.spatial.pb.XY
-	(pb.Direction)(0),       // 10: x.spatial.pb.Direction
-	(*pb.Viewport)(nil),     // 11: x.spatial.pb.Viewport
-	(*structpb.Struct)(nil), // 12: google.protobuf.Struct
+	(*pb.Dimensions)(nil),   // 10: x.spatial.pb.Dimensions
+	(pb.Direction)(0),       // 11: x.spatial.pb.Direction
+	(*pb.Viewport)(nil),     // 12: x.spatial.pb.Viewport
+	(*structpb.Struct)(nil), // 13: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	8,  // 0: service.schematic.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
 	7,  // 1: service.schematic.pb.Legend.colors:type_name -> service.schematic.pb.Legend.ColorsEntry
 	9,  // 2: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
-	10, // 3: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
-	3,  // 4: service.schematic.pb.EdgeData.segments:type_name -> service.schematic.pb.Segment
-	0,  // 5: service.schematic.pb.EdgeData.variant:type_name -> service.schematic.pb.EdgeVariant
-	4,  // 6: service.schematic.pb.Edge.data:type_name -> service.schematic.pb.EdgeData
-	11, // 7: service.schematic.pb.Schematic.viewport:type_name -> x.spatial.pb.Viewport
-	1,  // 8: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
-	2,  // 9: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	5,  // 10: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	12, // 11: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	10, // 3: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
+	11, // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
+	3,  // 5: service.schematic.pb.EdgeData.segments:type_name -> service.schematic.pb.Segment
+	0,  // 6: service.schematic.pb.EdgeData.variant:type_name -> service.schematic.pb.EdgeVariant
+	4,  // 7: service.schematic.pb.Edge.data:type_name -> service.schematic.pb.EdgeData
+	12, // 8: service.schematic.pb.Schematic.viewport:type_name -> x.spatial.pb.Viewport
+	1,  // 9: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
+	2,  // 10: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	5,  // 11: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	13, // 12: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }

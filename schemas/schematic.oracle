@@ -32,20 +32,23 @@ Legend struct {
 }
 
 Node struct {
-    key      string     {
+    key      string              {
         @doc value "is the unique node identifier within the schematic."
     }
-    position spatial.XY {
+    position spatial.XY          {
         @doc value "is the top-left position of the node."
     }
-    selected bool?      {
+    selected bool?               {
         @doc value "is whether the node is currently selected."
     }
-    z_index  int32?     {
+    z_index  int32?              {
         @doc value "is the optional z-index for rendering order."
     }
-    type     string?    {
+    type     string?             {
         @doc value "is the optional node type identifier."
+    }
+    measured spatial.Dimensions? {
+        @doc value "contains the measured dimensions from rendering."
     }
 
     @doc value "is a diagram node representing a symbol in the schematic."
@@ -187,6 +190,21 @@ Schematic struct {
 
     action RemoveEdge {
         key string
+    }
+
+    action SetNodeDimensions {
+        key        string
+        dimensions spatial.Dimensions
+    }
+
+    action SetNodeProps {
+        key   string
+        props record
+    }
+
+    action SetEdgeData {
+        key  string
+        data EdgeData
     }
 
     @doc value     """

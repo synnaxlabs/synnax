@@ -17,11 +17,14 @@ import (
 )
 
 const (
-	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeAddNode         = "add_node"
-	ActionTypeRemoveNode      = "remove_node"
-	ActionTypeSetEdge         = "set_edge"
-	ActionTypeRemoveEdge      = "remove_edge"
+	ActionTypeSetNodePosition   = "set_node_position"
+	ActionTypeAddNode           = "add_node"
+	ActionTypeRemoveNode        = "remove_node"
+	ActionTypeSetEdge           = "set_edge"
+	ActionTypeRemoveEdge        = "remove_edge"
+	ActionTypeSetNodeDimensions = "set_node_dimensions"
+	ActionTypeSetNodeProps      = "set_node_props"
+	ActionTypeSetEdgeData       = "set_edge_data"
 )
 
 type SetNodePosition struct {
@@ -41,15 +44,30 @@ type SetEdge struct {
 type RemoveEdge struct {
 	Key string `json:"key" msgpack:"key"`
 }
+type SetNodeDimensions struct {
+	Key        string             `json:"key" msgpack:"key"`
+	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
+}
+type SetNodeProps struct {
+	Key   string                    `json:"key" msgpack:"key"`
+	Props binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
+}
+type SetEdgeData struct {
+	Key  string   `json:"key" msgpack:"key"`
+	Data EdgeData `json:"data" msgpack:"data"`
+}
 
 // Action is a discriminated union for all Schematic mutations.
 type Action struct {
-	Type            string           `json:"type" msgpack:"type"`
-	SetNodePosition *SetNodePosition `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	AddNode         *AddNode         `json:"add_node,omitempty" msgpack:"add_node,omitempty"`
-	RemoveNode      *RemoveNode      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
-	SetEdge         *SetEdge         `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
-	RemoveEdge      *RemoveEdge      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
+	Type              string             `json:"type" msgpack:"type"`
+	SetNodePosition   *SetNodePosition   `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
+	AddNode           *AddNode           `json:"add_node,omitempty" msgpack:"add_node,omitempty"`
+	RemoveNode        *RemoveNode        `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
+	SetEdge           *SetEdge           `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
+	RemoveEdge        *RemoveEdge        `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
+	SetNodeDimensions *SetNodeDimensions `json:"set_node_dimensions,omitempty" msgpack:"set_node_dimensions,omitempty"`
+	SetNodeProps      *SetNodeProps      `json:"set_node_props,omitempty" msgpack:"set_node_props,omitempty"`
+	SetEdgeData       *SetEdgeData       `json:"set_edge_data,omitempty" msgpack:"set_edge_data,omitempty"`
 }
 
 // Reduce applies the action to the given state.
@@ -65,6 +83,12 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 		return a.SetEdge.Handle(state)
 	case ActionTypeRemoveEdge:
 		return a.RemoveEdge.Handle(state)
+	case ActionTypeSetNodeDimensions:
+		return a.SetNodeDimensions.Handle(state)
+	case ActionTypeSetNodeProps:
+		return a.SetNodeProps.Handle(state)
+	case ActionTypeSetEdgeData:
+		return a.SetEdgeData.Handle(state)
 	default:
 		return state, nil
 	}
@@ -105,4 +129,19 @@ func NewSetEdgeAction(p SetEdge) Action {
 // NewRemoveEdgeAction creates an Action that wraps a RemoveEdge payload.
 func NewRemoveEdgeAction(p RemoveEdge) Action {
 	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
+}
+
+// NewSetNodeDimensionsAction creates an Action that wraps a SetNodeDimensions payload.
+func NewSetNodeDimensionsAction(p SetNodeDimensions) Action {
+	return Action{Type: ActionTypeSetNodeDimensions, SetNodeDimensions: &p}
+}
+
+// NewSetNodePropsAction creates an Action that wraps a SetNodeProps payload.
+func NewSetNodePropsAction(p SetNodeProps) Action {
+	return Action{Type: ActionTypeSetNodeProps, SetNodeProps: &p}
+}
+
+// NewSetEdgeDataAction creates an Action that wraps a SetEdgeData payload.
+func NewSetEdgeDataAction(p SetEdgeData) Action {
+	return Action{Type: ActionTypeSetEdgeData, SetEdgeData: &p}
 }

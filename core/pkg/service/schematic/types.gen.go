@@ -55,6 +55,8 @@ type Node struct {
 	ZIndex int32 `json:"z_index" msgpack:"z_index"`
 	// Type is the optional node type identifier.
 	Type string `json:"type" msgpack:"type"`
+	// Measured contains the measured dimensions from rendering.
+	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
 // Segment is a connector path segment with a direction and length.

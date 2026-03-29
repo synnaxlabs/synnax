@@ -103,6 +103,22 @@ StickyXY::from_proto(const ::x::spatial::pb::StickyXY &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
+Dimensions::to_proto() const {
+    ::x::spatial::pb::Dimensions pb;
+    pb.set_width(this->width);
+    pb.set_height(this->height);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Dimensions, x::errors::Error>
+Dimensions::from_proto(const ::x::spatial::pb::Dimensions &pb) {
+    Dimensions cpp;
+    cpp.width = pb.width();
+    cpp.height = pb.height();
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::x::spatial::pb::Viewport, x::errors::Error>
 Viewport::to_proto() const {
     ::x::spatial::pb::Viewport pb;

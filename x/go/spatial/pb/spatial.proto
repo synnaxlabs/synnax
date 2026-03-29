@@ -59,6 +59,14 @@ message StickyXY {
   StickyUnits units = 4;
 }
 
+// Dimensions is a 2D size with width and height values.
+message Dimensions {
+  // width is the width in pixels.
+  double width = 1;
+  // height is the height in pixels.
+  double height = 2;
+}
+
 // Viewport is the camera state of a viewport.
 message Viewport {
   // zoom is the zoom level where 1.0 equals 100%.
