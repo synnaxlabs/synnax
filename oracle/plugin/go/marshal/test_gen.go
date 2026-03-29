@@ -17,6 +17,7 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -217,34 +218,7 @@ func (b *testValueBuilder) hardOptionalExpr(
 func (b *testValueBuilder) valueExpr(
 	resolved resolution.Type, ref resolution.TypeRef,
 ) (string, error) {
-	actual := resolved
-	effectiveTypeArgs := ref.TypeArgs
-	for {
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			target, ok := form.Target.Resolve(b.table)
-			if !ok {
-				return "", errors.Newf("cannot resolve alias %s", form.Target.Name)
-			}
-			if len(form.Target.TypeArgs) > 0 {
-				effectiveTypeArgs = form.Target.TypeArgs
-			}
-			actual = target
-			continue
-		case resolution.DistinctForm:
-			target, ok := form.Base.Resolve(b.table)
-			if !ok {
-				return "", errors.Newf("cannot resolve distinct %s", form.Base.Name)
-			}
-			if len(form.Base.TypeArgs) > 0 {
-				effectiveTypeArgs = form.Base.TypeArgs
-			}
-			actual = target
-			continue
-		default:
-		}
-		break
-	}
+	actual, effectiveTypeArgs := typemap.UnwrapTypeRef(resolved, ref, b.table)
 
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
@@ -459,74 +433,21 @@ func (b *testValueBuilder) mapExpr(keyRef, valRef resolution.TypeRef) (string, e
 	return fmt.Sprintf("map[%s]%s{%s: %s}", goKeyType, goValType, keyExpr, valExpr), nil
 }
 
-// resolveLeafPrim resolves a type to its primitive name and optional Go cast type.
 func (b *testValueBuilder) resolveLeafPrim(typ resolution.Type) (string, string, error) {
-	switch form := typ.Form.(type) {
-	case resolution.PrimitiveForm:
-		return form.Name, "", nil
-	case resolution.DistinctForm:
-		base, ok := form.Base.Resolve(b.table)
-		if !ok {
-			return "", "", errors.Newf("cannot resolve distinct base %s", form.Base.Name)
-		}
-		basePrim, _, err := b.resolveLeafPrim(base)
-		if err != nil {
-			return "", "", err
-		}
-		goType, err := b.goTypeName(typ)
-		if err != nil {
-			return "", "", err
-		}
-		return basePrim, goType, nil
-	case resolution.AliasForm:
-		target, ok := form.Target.Resolve(b.table)
-		if !ok {
-			return "", "", errors.Newf("cannot resolve alias %s", form.Target.Name)
-		}
-		return b.resolveLeafPrim(target)
-	default:
-		return "", "", errors.Newf("not a leaf type: %T", form)
-	}
+	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 
 func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
-		switch prim.Name {
-		case "string":
-			return "string", nil
-		case "bool":
-			return "bool", nil
-		case "int8":
-			return "int8", nil
-		case "int16":
-			return "int16", nil
-		case "int32":
-			return "int32", nil
-		case "int64":
-			return "int64", nil
-		case "uint8":
-			return "uint8", nil
-		case "uint12", "uint16":
-			return "uint16", nil
-		case "uint20", "uint32":
-			return "uint32", nil
-		case "uint64":
-			return "uint64", nil
-		case "float32":
-			return "float32", nil
-		case "float64":
-			return "float64", nil
-		case "uuid":
-			b.needsUUID = true
-			b.imports["github.com/google/uuid"] = "uuid"
-			return "uuid.UUID", nil
-		case "bytes":
-			return "[]byte", nil
-		case "record", "any":
-			return "interface{}", nil
-		default:
+		goType, ok := typemap.PrimitiveGoType(prim.Name)
+		if !ok {
 			return "", errors.Newf("unsupported primitive: %s", prim.Name)
 		}
+		if typemap.IsUUID(prim.Name) {
+			b.needsUUID = true
+			b.imports["github.com/google/uuid"] = "uuid"
+		}
+		return goType, nil
 	}
 	goName := naming.GetGoName(typ)
 	goPath := output.GetPath(typ, "go")
@@ -554,34 +475,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 }
 
 func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) {
-	actual := typ
-	for {
-		var baseRef resolution.TypeRef
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			baseRef = form.Target
-		case resolution.DistinctForm:
-			baseRef = form.Base
-		default:
-			return b.goTypeName(actual)
-		}
-		target, ok := baseRef.Resolve(b.table)
-		if !ok {
-			return "", errors.Newf("cannot resolve type %s", baseRef.Name)
-		}
-		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok && bg.Name == "Array" && len(baseRef.TypeArgs) > 0 {
-			innerElem, ok := baseRef.TypeArgs[0].Resolve(b.table)
-			if !ok {
-				return "", errors.Newf("cannot resolve element %s", baseRef.TypeArgs[0].Name)
-			}
-			innerGoType, err := b.goSliceElemType(innerElem)
-			if err != nil {
-				return "", err
-			}
-			return "[]" + innerGoType, nil
-		}
-		actual = target
-	}
+	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.

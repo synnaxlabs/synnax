@@ -16,10 +16,8 @@ import (
 	"fmt"
 	"sort"
 	"text/template"
-	"unicode"
 
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -383,7 +381,7 @@ func (c *collector) classifyField(
 	}
 	td, hasDiff := c.diff[resolved.QualifiedName]
 	needsMigration := hasDiff && td.Kind != TypeUnchanged
-	varName := lowerFirst(goName)
+	varName := naming.LowerFirst(goName)
 	if needsMigration || c.hasOracleDefinedFields(resolved) {
 		helper := c.requireFunc(resolved)
 		if isOptional {
@@ -419,7 +417,7 @@ func (c *collector) classifySlice(
 	if !needsMigration && !c.isOracleDefined(elemResolved) {
 		return classification{inline: accessor}
 	}
-	varName := lowerFirst(goName)
+	varName := naming.LowerFirst(goName)
 	newElem := c.resolveNewTypeName(elemResolved)
 	sliceType := sliceTypePrefix
 	if sliceTypePrefix == "[]" {
@@ -549,17 +547,7 @@ func (c *collector) refHasOracleType(ref resolution.TypeRef) bool {
 	if !ok {
 		return false
 	}
-	if c.isOracleDefined(resolved) {
-		return true
-	}
-	if bgf, ok := resolved.Form.(resolution.BuiltinGenericForm); ok && bgf.Name == "Array" {
-		for _, arg := range ref.TypeArgs {
-			if c.refHasOracleType(arg) {
-				return true
-			}
-		}
-	}
-	return false
+	return c.isOracleDefined(resolved)
 }
 
 func (c *collector) isStructLike(typ resolution.Type) bool {
@@ -666,30 +654,4 @@ func substituteRef(ref resolution.TypeRef, paramMap map[string]resolution.TypeRe
 		return result
 	}
 	return ref
-}
-
-func lowerFirst(s string) string {
-	if s == "" {
-		return s
-	}
-	runes := []rune(s)
-	i := 0
-	for i < len(runes) && unicode.IsUpper(runes[i]) {
-		i++
-	}
-	if i == 0 {
-		return s
-	}
-	if i == 1 {
-		runes[0] = unicode.ToLower(runes[0])
-	} else if i == len(runes) {
-		for j := range runes {
-			runes[j] = unicode.ToLower(runes[j])
-		}
-	} else {
-		for j := 0; j < i-1; j++ {
-			runes[j] = unicode.ToLower(runes[j])
-		}
-	}
-	return keywords.Escape(string(runes))
 }

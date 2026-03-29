@@ -17,6 +17,7 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -148,7 +149,7 @@ func generateEncoderCodecFile(
 		}
 	}
 	tmpl, err := template.New("encoder_codec").Funcs(template.FuncMap{
-		"lowerFirst": lowerFirst,
+		"lowerFirst": naming.LowerFirst,
 		"tpList":     tpList,
 		"tpNames":    tpNames,
 		"encodeArgs": encodeArgs,
@@ -232,7 +233,6 @@ type encoderBuilder struct {
 	imports             map[string]string
 	encodeLines         []string
 	decodeLines         []string
-	estSize             int
 	needsMath           bool
 	needsJSON           bool
 	usesErr             bool
@@ -324,35 +324,7 @@ func (b *encoderBuilder) processValueByType(
 		}
 	}
 
-	actual := resolved
-	effectiveTypeArgs := ref.TypeArgs
-	for {
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			target, ok := form.Target.Resolve(b.table)
-			if !ok {
-				return errors.Newf("cannot resolve alias target %s", form.Target.Name)
-			}
-			if len(form.Target.TypeArgs) > 0 {
-				effectiveTypeArgs = form.Target.TypeArgs
-			}
-			actual = target
-			continue
-		case resolution.DistinctForm:
-			target, ok := form.Base.Resolve(b.table)
-			if !ok {
-				return errors.Newf("cannot resolve distinct base %s", form.Base.Name)
-			}
-			if len(form.Base.TypeArgs) > 0 {
-				effectiveTypeArgs = form.Base.TypeArgs
-			}
-			actual = target
-			continue
-		default:
-			_ = form
-		}
-		break
-	}
+	actual, effectiveTypeArgs := typemap.UnwrapTypeRef(resolved, ref, b.table)
 
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
@@ -388,7 +360,6 @@ func (b *encoderBuilder) processValueByType(
 
 func (b *encoderBuilder) processTypeParamField(converter, getPath, setPath string) error {
 	ind := b.indent()
-	b.estSize += 64
 	encConverter := converter
 	decConverter := strings.Replace(converter, "encode", "decode", 1)
 	b.encodeLines = append(b.encodeLines,
@@ -424,7 +395,6 @@ func (b *encoderBuilder) processStruct(
 
 	if !form.IsGeneric() {
 		// Concrete struct - simple delegation.
-		b.estSize += 64
 		encodeFn := fnPrefix + "Encode" + localName
 		decodeFn := fnPrefix + "Decode" + localName
 		b.encodeLines = append(b.encodeLines,
@@ -501,7 +471,6 @@ func (b *encoderBuilder) processStruct(
 		decConverters = append(decConverters, argFnPrefix+"Decode"+argLocalName)
 	}
 
-	b.estSize += 64
 	typeArgStr := ""
 	if len(goTypeArgs) > 0 {
 		typeArgStr = "[" + strings.Join(goTypeArgs, ", ") + "]"
@@ -703,7 +672,6 @@ func (b *encoderBuilder) processMap(
 		return err
 	}
 
-	b.estSize += 64
 	b.encodeLines = append(b.encodeLines,
 		ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
 		ind+fmt.Sprintf("for key, val := range %s {", getPath),
@@ -747,7 +715,6 @@ func (b *encoderBuilder) processLeaf(
 
 	switch primName {
 	case "string":
-		b.estSize += 32
 		if goTypeCast != "" {
 			b.encodeLines = append(b.encodeLines,
 				ind+fmt.Sprintf("w.String(string(%s))", getPath))
@@ -761,14 +728,12 @@ func (b *encoderBuilder) processLeaf(
 		}
 
 	case "uuid":
-		b.estSize += 16
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
 		b.decodeLine(
 			ind + fmt.Sprintf("if _, err := r.Read(%s[:]); err != nil { return err }", setPath))
 
 	case "record", "any":
-		b.estSize += 64
 		b.needsJSON = true
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", getPath),
@@ -784,7 +749,6 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bytes":
-		b.estSize += 32
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
 			ind+fmt.Sprintf("w.Write(%s)", getPath),
@@ -796,41 +760,30 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bool":
-		b.estSize += 1
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s)", getPath))
 		b.decodeWithErr(
 			ind + fmt.Sprintf("if %s, err = r.Bool(); err != nil { return err }", setPath))
 
 	case "int8":
-		b.estSize += 1
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
 	case "int16":
-		b.estSize += 2
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int16", "int16", "int16(%s)")
 	case "int32":
-		b.estSize += 4
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int32", "int32", "int32(%s)")
 	case "int64":
-		b.estSize += 8
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Int64", "int64", "int64(%s)")
 	case "uint8":
-		b.estSize += 1
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
 	case "uint12", "uint16":
-		b.estSize += 2
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint16", "uint16", "uint16(%s)")
 	case "uint20", "uint32":
-		b.estSize += 4
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint32", "uint32", "uint32(%s)")
 	case "uint64":
-		b.estSize += 8
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Uint64", "uint64", "uint64(%s)")
 	case "float32":
-		b.estSize += 4
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Float32", "float32", "float32(%s)")
 	case "float64":
-		b.estSize += 8
 		b.addIntLeaf(ind, getPath, setPath, goTypeCast, "Float64", "float64", "float64(%s)")
 
 	default:
@@ -943,29 +896,7 @@ func (b *encoderBuilder) canResolve(ref resolution.TypeRef) bool {
 }
 
 func (b *encoderBuilder) unwrapType(typ resolution.Type) resolution.Type {
-	actual := typ
-	for {
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			target, ok := form.Target.Resolve(b.table)
-			if !ok {
-				return actual
-			}
-			actual = target
-			continue
-		case resolution.DistinctForm:
-			target, ok := form.Base.Resolve(b.table)
-			if !ok {
-				return actual
-			}
-			actual = target
-			continue
-		default:
-			_ = form
-		}
-		break
-	}
-	return actual
+	return typemap.UnwrapType(typ, b.table)
 }
 
 func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
@@ -981,91 +912,19 @@ func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
 }
 
 func (b *encoderBuilder) resolveLeaf(typ resolution.Type) (primName, goTypeCast string, err error) {
-	switch form := typ.Form.(type) {
-	case resolution.PrimitiveForm:
-		return form.Name, "", nil
-	case resolution.DistinctForm:
-		base, ok := form.Base.Resolve(b.table)
-		if !ok {
-			return "", "", errors.Newf("cannot resolve distinct base %s", form.Base.Name)
-		}
-		basePrim, _, err := b.resolveLeaf(base)
-		if err != nil {
-			return "", "", err
-		}
-		goType, err := b.goTypeName(typ)
-		if err != nil {
-			return "", "", err
-		}
-		return basePrim, goType, nil
-	case resolution.EnumForm:
-		goType, err := b.goTypeName(typ)
-		if err != nil {
-			return "", "", err
-		}
-		if form.IsIntEnum {
-			return "int64", goType, nil
-		}
-		return "string", goType, nil
-	case resolution.AliasForm:
-		target, ok := form.Target.Resolve(b.table)
-		if !ok {
-			return "", "", errors.Newf("cannot resolve alias target %s", form.Target.Name)
-		}
-		basePrim, baseCast, err := b.resolveLeaf(target)
-		if err != nil {
-			return "", "", err
-		}
-		if baseCast != "" {
-			goType, err := b.goTypeName(typ)
-			if err != nil {
-				return "", "", err
-			}
-			return basePrim, goType, nil
-		}
-		return basePrim, "", nil
-	default:
-		return "", "", errors.Newf("unsupported type form for leaf: %T (%s)", form, typ.QualifiedName)
-	}
+	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 
 func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
-		switch prim.Name {
-		case "string":
-			return "string", nil
-		case "bool":
-			return "bool", nil
-		case "int8":
-			return "int8", nil
-		case "int16":
-			return "int16", nil
-		case "int32":
-			return "int32", nil
-		case "int64":
-			return "int64", nil
-		case "uint8":
-			return "uint8", nil
-		case "uint12", "uint16":
-			return "uint16", nil
-		case "uint20", "uint32":
-			return "uint32", nil
-		case "uint64":
-			return "uint64", nil
-		case "float32":
-			return "float32", nil
-		case "float64":
-			return "float64", nil
-		case "uuid":
-			b.imports["github.com/google/uuid"] = "uuid"
-			return "uuid.UUID", nil
-		case "bytes":
-			return "[]byte", nil
-		case "record", "any":
-			return "interface{}", nil
-		default:
+		goType, ok := typemap.PrimitiveGoType(prim.Name)
+		if !ok {
 			return "", errors.Newf("unsupported primitive type: %s", prim.Name)
 		}
+		if typemap.IsUUID(prim.Name) {
+			b.imports["github.com/google/uuid"] = "uuid"
+		}
+		return goType, nil
 	}
 	goName := naming.GetGoName(typ)
 	goPath := output.GetPath(typ, "go")
@@ -1111,34 +970,7 @@ func (b *encoderBuilder) aliasUsed(alias string) bool {
 }
 
 func (b *encoderBuilder) resolveGoSliceElemType(typ resolution.Type) (string, error) {
-	actual := typ
-	for {
-		var baseRef resolution.TypeRef
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			baseRef = form.Target
-		case resolution.DistinctForm:
-			baseRef = form.Base
-		default:
-			return b.goTypeName(actual)
-		}
-		target, ok := baseRef.Resolve(b.table)
-		if !ok {
-			return "", errors.Newf("cannot resolve type %s", baseRef.Name)
-		}
-		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok && bg.Name == "Array" && len(baseRef.TypeArgs) > 0 {
-			innerElem, ok := baseRef.TypeArgs[0].Resolve(b.table)
-			if !ok {
-				return "", errors.Newf("cannot resolve array element %s", baseRef.TypeArgs[0].Name)
-			}
-			innerGoType, err := b.resolveGoSliceElemType(innerElem)
-			if err != nil {
-				return "", err
-			}
-			return "[]" + innerGoType, nil
-		}
-		actual = target
-	}
+	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 // --- Template ---

@@ -238,7 +238,7 @@ func (p *Plugin) generateForEntry(
 	templateFile := goPath + "/migrate.go"
 	templateFullPath := filepath.Join(req.RepoRoot, templateFile)
 	if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
-		entryMirrorImport, _ := resolveImportPath(entryMirrorPath, req.RepoRoot)
+		entryMirrorImport := gomod.ResolveImportPath(entryMirrorPath, req.RepoRoot, gomod.DefaultModulePrefix)
 		tc, err := renderTransformTemplate(pkg, entry.GoName, change.Version, versionDir, entryMirrorImport)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate transform template")
@@ -414,10 +414,6 @@ func walkRefForPkgTypes(
 	case resolution.EnumForm:
 		collectPkgTypesWalk(resolved, table, result, visited)
 	}
-}
-
-func resolveImportPath(outputPath, repoRoot string) (string, error) {
-	return gomod.ResolveImportPath(outputPath, repoRoot, "github.com/synnaxlabs/synnax/"), nil
 }
 
 func discoverExistingVersions(goPath, repoRoot string) ([]int, error) {
@@ -669,7 +665,7 @@ func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot st
 		for i, version := range allVersions {
 			vDir := fmt.Sprintf("v%d", version)
 			subPkg := fmt.Sprintf("%s/migrations/%s", goPath, vDir)
-			importPath := gomod.ResolveImportPath(subPkg, repoRoot, "github.com/synnaxlabs/synnax/")
+			importPath := gomod.ResolveImportPath(subPkg, repoRoot, gomod.DefaultModulePrefix)
 			importSet[vDir] = versionImport{Alias: vDir, Path: importPath}
 			isLast := i == len(allVersions)-1
 			dependsOn := "msgpack_to_binary"
@@ -691,6 +687,7 @@ func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot st
 	for _, v := range importSet {
 		imports = append(imports, v)
 	}
+	sort.Slice(imports, func(i, j int) bool { return imports[i].Alias < imports[j].Alias })
 	var buf bytes.Buffer
 	if err := migrateTmpl.Execute(&buf, migrateTemplateData{
 		Package: pkg, Entries: templateEntries, VersionImports: imports,

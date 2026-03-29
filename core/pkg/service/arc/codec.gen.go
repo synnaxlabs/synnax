@@ -25,6 +25,19 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+	w.Bool(s.Running)
+	return nil
+}
+
+func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+	var err error
+	if s.Running, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeArc(w *xbinary.Writer, s *Arc) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -100,19 +113,6 @@ func DecodeArc(r *xbinary.Reader, s *Arc) error {
 			}
 			s.Status = &v
 		}
-	}
-	return nil
-}
-
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
-	w.Bool(s.Running)
-	return nil
-}
-
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
-	var err error
-	if s.Running, err = r.Bool(); err != nil {
-		return err
 	}
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -68,6 +69,35 @@ func GetGoName(t resolution.Type) string {
 		return override
 	}
 	return ToPascalCase(t.Name)
+}
+
+// LowerFirst lowercases the leading uppercase run of a string, handling
+// acronyms correctly (e.g., "HTTPClient" -> "httpClient", "Key" -> "key").
+// The result is escaped if it collides with a Go keyword.
+func LowerFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	runes := []rune(s)
+	i := 0
+	for i < len(runes) && unicode.IsUpper(runes[i]) {
+		i++
+	}
+	if i == 0 {
+		return s
+	}
+	if i == 1 {
+		runes[0] = unicode.ToLower(runes[0])
+	} else if i == len(runes) {
+		for j := range runes {
+			runes[j] = unicode.ToLower(runes[j])
+		}
+	} else {
+		for j := 0; j < i-1; j++ {
+			runes[j] = unicode.ToLower(runes[j])
+		}
+	}
+	return keywords.Escape(string(runes))
 }
 
 // DerivePackageName extracts the package name from an output path.

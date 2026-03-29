@@ -13,7 +13,6 @@ package marshal
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -189,13 +188,6 @@ func GenerateCodecFile(
 	repoRoot string,
 ) ([]byte, error) {
 	return generateEncoderCodecFile(packageName, parentPath, entries, table, repoRoot)
-}
-
-func lowerFirst(s string) string {
-	if s == "" {
-		return s
-	}
-	return strings.ToLower(s[:1]) + s[1:]
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {

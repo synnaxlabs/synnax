@@ -22,6 +22,35 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
+func EncodeRelationship(w *xbinary.Writer, s *Relationship) error {
+	if err := EncodeID(w, &s.From); err != nil {
+		return err
+	}
+	w.String(string(s.Type))
+	if err := EncodeID(w, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeRelationship(r *xbinary.Reader, s *Relationship) error {
+	var err error
+	if err = DecodeID(r, &s.From); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = RelationshipType(v)
+	}
+	if err = DecodeID(r, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeID(w *xbinary.Writer, s *ID) error {
 	w.String(string(s.Type))
 	w.String(s.Key)
@@ -83,77 +112,8 @@ func DecodeResource(r *xbinary.Reader, s *Resource) error {
 	return nil
 }
 
-func EncodeRelationship(w *xbinary.Writer, s *Relationship) error {
-	if err := EncodeID(w, &s.From); err != nil {
-		return err
-	}
-	w.String(string(s.Type))
-	if err := EncodeID(w, &s.To); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeRelationship(r *xbinary.Reader, s *Relationship) error {
-	var err error
-	if err = DecodeID(r, &s.From); err != nil {
-		return err
-	}
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = RelationshipType(v)
-	}
-	if err = DecodeID(r, &s.To); err != nil {
-		return err
-	}
-	return nil
-}
-
 var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
 var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
-
-type resourceCodec struct{}
-
-var ResourceCodec xbinary.Codec = resourceCodec{}
-
-func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Resource)
-	w := writerPool.Get().(*xbinary.Writer)
-	w.Reset()
-	err := EncodeResource(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
-}
-
-func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Resource)
-	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
-	err := DecodeResource(r, s)
-	readerPool.Put(r)
-	return err
-}
-
-func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
-}
 
 type relationshipCodec struct{}
 
@@ -188,6 +148,46 @@ func (relationshipCodec) Decode(ctx context.Context, data []byte, value any) err
 }
 
 func (c relationshipCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+type resourceCodec struct{}
+
+var ResourceCodec xbinary.Codec = resourceCodec{}
+
+func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	s := value.(Resource)
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeResource(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
+}
+
+func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Resource)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.Reset(bytes.NewReader(data))
+	err := DecodeResource(r, s)
+	readerPool.Put(r)
+	return err
+}
+
+func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err

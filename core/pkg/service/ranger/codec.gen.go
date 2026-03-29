@@ -55,11 +55,11 @@ func DecodeRange(r *xbinary.Reader, s *Range) error {
 var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
 var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
-type rangeCodec struct{}
+type rangeValCodec struct{}
 
-var RangeCodec xbinary.Codec = rangeCodec{}
+var RangeCodec xbinary.Codec = rangeValCodec{}
 
-func (rangeCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+func (rangeValCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Range)
 	w := writerPool.Get().(*xbinary.Writer)
 	w.Reset()
@@ -69,7 +69,7 @@ func (rangeCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	return out, err
 }
 
-func (c rangeCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (c rangeValCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (c rangeCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 	return err
 }
 
-func (rangeCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (rangeValCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Range)
 	r := readerPool.Get().(*xbinary.Reader)
 	r.Reset(bytes.NewReader(data))
@@ -87,7 +87,7 @@ func (rangeCodec) Decode(ctx context.Context, data []byte, value any) error {
 	return err
 }
 
-func (c rangeCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+func (c rangeValCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
