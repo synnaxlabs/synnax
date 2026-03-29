@@ -44,8 +44,8 @@ func newStorageRequestTranslator(generateSeqNums bool) func(ctx context.Context,
 			SeqNum:  req.SeqNum,
 		}
 		if generateSeqNums {
-			seqNum++
 			oReq.SeqNum = seqNum
+			seqNum++
 		}
 		return oReq, true, nil
 	}

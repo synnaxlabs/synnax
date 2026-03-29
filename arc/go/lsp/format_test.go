@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -22,18 +20,16 @@ import (
 
 var _ = Describe("Formatting", func() {
 	var (
-		ctx    context.Context
 		server *lsp.Server
 		uri    protocol.DocumentURI
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		server, uri = SetupTestServer()
 	})
 
 	Describe("Full Document Formatting", func() {
-		It("should format a simple function", func() {
+		It("should format a simple function", func(ctx SpecContext) {
 			content := "func add(x i32,y i32)i32{return x+y}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -48,7 +44,7 @@ var _ = Describe("Formatting", func() {
 			Expect(edits[0].NewText).To(ContainSubstring("return x + y"))
 		})
 
-		It("should return nil for already-formatted code", func() {
+		It("should return nil for already-formatted code", func(ctx SpecContext) {
 			content := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -58,14 +54,14 @@ var _ = Describe("Formatting", func() {
 			})).To(BeNil())
 		})
 
-		It("should return nil for closed document", func() {
+		It("should return nil for closed document", func(ctx SpecContext) {
 			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
 				Options:      protocol.FormattingOptions{},
 			})).To(BeNil())
 		})
 
-		It("should format binary operators with spaces", func() {
+		It("should format binary operators with spaces", func(ctx SpecContext) {
 			content := "x:=a+b*c"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -78,7 +74,7 @@ var _ = Describe("Formatting", func() {
 			Expect(edits[0].NewText).To(ContainSubstring("x := a + b * c"))
 		})
 
-		It("should respect tab size option", func() {
+		It("should respect tab size option", func(ctx SpecContext) {
 			content := "func test(){x:=1}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -93,7 +89,7 @@ var _ = Describe("Formatting", func() {
 			Expect(edits[0].NewText).To(ContainSubstring("  x := 1"))
 		})
 
-		It("should preserve unit literals without space", func() {
+		It("should preserve unit literals without space", func(ctx SpecContext) {
 			content := "delay:=100ms"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -109,7 +105,7 @@ var _ = Describe("Formatting", func() {
 	})
 
 	Describe("Range Formatting", func() {
-		It("should format a specific range", func() {
+		It("should format a specific range", func(ctx SpecContext) {
 			content := "x:=1\ny:=2\nz:=3"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -126,7 +122,7 @@ var _ = Describe("Formatting", func() {
 			Expect(edits[0].NewText).To(ContainSubstring("x := 1"))
 		})
 
-		It("should return nil for closed document", func() {
+		It("should return nil for closed document", func(ctx SpecContext) {
 			Expect(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
 				Range: protocol.Range{

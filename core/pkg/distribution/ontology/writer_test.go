@@ -28,20 +28,21 @@ var _ = Describe("Writer", func() {
 		w = otg.NewWriter(tx)
 		id = newSampleType("foo")
 	})
+
 	Describe("Resources", func() {
 		Describe("Defining a Resource", func() {
-			It("Should define a resource by its ID", func() {
+			It("Should define a resource by its ID", func(ctx SpecContext) {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
-		It("Should define many resources by their names", func() {
+		It("Should define many resources by their names", func(ctx SpecContext) {
 			ids := []ontology.ID{id, newSampleType("bar")}
 			Expect(w.DefineManyResources(ctx, ids)).To(Succeed())
 			Expect(w.NewRetrieve().WhereIDs(ids...).Exec(ctx, tx)).To(Succeed())
 		})
 		Describe("Deleting a Resource", func() {
-			It("Should delete a resource by its ID", func() {
+			It("Should delete a resource by its ID", func(ctx SpecContext) {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.DeleteResource(ctx, id)).To(Succeed())
 				err := w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
@@ -50,7 +51,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		Describe("Idempotency", func() {
-			Specify("Defining a resource should be idempotent", func() {
+			Specify("Defining a resource should be idempotent", func(ctx SpecContext) {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
@@ -59,18 +60,18 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Relationships", func() {
 		var idOne, idTwo ontology.ID
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			idOne = newSampleType("foo")
 			idTwo = newSampleType("bar")
 			Expect(w.DefineResource(ctx, idOne)).To(Succeed())
 			Expect(w.DefineResource(ctx, idTwo)).To(Succeed())
 		})
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			Expect(w.DeleteResource(ctx, idOne)).To(Succeed())
 			Expect(w.DeleteResource(ctx, idTwo)).To(Succeed())
 		})
 		Describe("Defining a Relationship", func() {
-			It("Should define a relationship by its ID", func() {
+			It("Should define a relationship by its ID", func(ctx SpecContext) {
 				Expect(w.DefineRelationship(
 					ctx,
 					idOne,
@@ -87,7 +88,7 @@ var _ = Describe("Writer", func() {
 				Expect(res[0].ID).To(Equal(idTwo))
 			})
 			Context("Resources are not defined", func() {
-				It("Should return a query.IDsNotFound error", func() {
+				It("Should return a query.IDsNotFound error", func(ctx SpecContext) {
 					err := w.DefineRelationship(
 						ctx,
 						idOne,
@@ -101,7 +102,7 @@ var _ = Describe("Writer", func() {
 			Context("Cyclic violations", func() {
 				It(
 					"Should return an error if a relationship is defined in two directions",
-					func() {
+					func(ctx SpecContext) {
 						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 						err := w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idOne)
 						Expect(err).To(HaveOccurred())
@@ -109,7 +110,7 @@ var _ = Describe("Writer", func() {
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
-					func() {
+					func(ctx SpecContext) {
 						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 						idThree := ontology.ID{Key: "qux", Type: "quux"}
 						Expect(w.DefineResource(ctx, idThree)).To(Succeed())
@@ -121,7 +122,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		Describe("Defining a Relationship to Many Resources", func() {
-			It("Should define a relationship to many resources by their IDs", func() {
+			It("Should define a relationship to many resources by their IDs", func(ctx SpecContext) {
 				Expect(w.DefineFromOneToManyRelationships(
 					ctx,
 					idOne,
@@ -137,7 +138,7 @@ var _ = Describe("Writer", func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].ID).To(Equal(idTwo))
 			})
-			It("Should return an error if any of the resources are not defined", func() {
+			It("Should return an error if any of the resources are not defined", func(ctx SpecContext) {
 				Expect(w.DefineFromOneToManyRelationships(
 					ctx,
 					idOne,
@@ -145,7 +146,7 @@ var _ = Describe("Writer", func() {
 					[]ontology.ID{newSampleType("42")},
 				)).To(HaveOccurredAs(query.ErrNotFound))
 			})
-			It("Should return an error if a cyclic relationship is created", func() {
+			It("Should return an error if a cyclic relationship is created", func(ctx SpecContext) {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				err := w.DefineFromOneToManyRelationships(
 					ctx,
@@ -158,7 +159,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		Describe("Deleting a Relationship", func() {
-			It("Should delete a relationship by its ID", func() {
+			It("Should delete a relationship by its ID", func(ctx SpecContext) {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				Expect(w.DeleteRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource
@@ -170,7 +171,7 @@ var _ = Describe("Writer", func() {
 				Expect(res).To(HaveLen(0))
 			})
 			Describe("DeleteOutgoingRelationshipsOfType", func() {
-				It("Should delete all outgoing relationships of a type", func() {
+				It("Should delete all outgoing relationships of a type", func(ctx SpecContext) {
 					var t ontology.RelationshipType = "baz"
 					Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 					Expect(w.DefineRelationship(ctx, idOne, t, idTwo)).To(Succeed())
@@ -185,7 +186,7 @@ var _ = Describe("Writer", func() {
 				})
 			})
 			Describe("DeleteIncomingRelationshipsOfType", func() {
-				It("Should delete all incoming relationships of a type", func() {
+				It("Should delete all incoming relationships of a type", func(ctx SpecContext) {
 					Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 					Expect(w.DefineRelationship(ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo)).To(Succeed())
 					Expect(w.DeleteIncomingRelationshipsOfType(ctx, idTwo, ontology.RelationshipTypeParentOf)).To(Succeed())
@@ -207,7 +208,7 @@ var _ = Describe("Writer", func() {
 				})
 			})
 			Describe("DeleteOutgoingRelationshipsOfType", func() {
-				It("Should delete all outgoing relationships of a type", func() {
+				It("Should delete all outgoing relationships of a type", func(ctx SpecContext) {
 					Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 					Expect(w.DefineRelationship(ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo)).To(Succeed())
 					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.RelationshipTypeParentOf)).To(Succeed())
@@ -229,7 +230,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		Describe("Idempotency", func() {
-			Specify("Defining a relationship should be idempotent", func() {
+			Specify("Defining a relationship should be idempotent", func(ctx SpecContext) {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 			})

@@ -36,7 +36,6 @@ func TestArc(t *testing.T) {
 }
 
 var (
-	ctx      = context.Background()
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	svc      *arc.Service
@@ -50,7 +49,7 @@ var (
 	testRack *rack.Rack
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB: db,
@@ -62,7 +61,7 @@ var _ = BeforeSuite(func() {
 
 	// Use mock distribution for simplified testing
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 
 	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
@@ -112,7 +111,7 @@ var _ = BeforeSuite(func() {
 })
 
 var (
-	_ = AfterSuite(func() {
+	_ = AfterSuite(func(ctx SpecContext) {
 		Expect(svc.Close()).To(Succeed())
 		Expect(taskSvc.Close()).To(Succeed())
 		Expect(rackSvc.Close()).To(Succeed())
@@ -123,6 +122,6 @@ var (
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 )

@@ -10,6 +10,8 @@
 package aspen_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -24,7 +26,7 @@ var _ = Describe("Open", func() {
 	)
 	BeforeEach(func() {
 		db1 = MustSucceed(aspen.Open(
-			ctx,
+			context.Background(),
 			"",
 			"localhost:22646",
 			[]address.Address{},
@@ -33,7 +35,7 @@ var _ = Describe("Open", func() {
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		))
 		db2 = MustSucceed(aspen.Open(
-			ctx,
+			context.Background(),
 			"",
 			"localhost:22647",
 			[]address.Address{"localhost:22646"},
@@ -45,7 +47,7 @@ var _ = Describe("Open", func() {
 		Expect(db1.Close()).To(Succeed())
 		Expect(db2.Close()).To(Succeed())
 	})
-	It("Should be able to join two clusters", func() {
+	It("Should be able to join two clusters", func(ctx SpecContext) {
 		Eventually(db1.Cluster.Nodes).Should(HaveLen(2))
 		tx := db1.OpenTx()
 		for range 10 {

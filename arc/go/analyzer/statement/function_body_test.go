@@ -23,6 +23,7 @@ import (
 var _ = Describe("AnalyzeFunctionBody", func() {
 	// Helper to create a context with a global resolver
 	createContextWithResolver := func(
+		bCtx SpecContext,
 		block parser.IBlockContext,
 		resolver symbol.Resolver,
 	) context.Context[parser.IBlockContext] {
@@ -30,7 +31,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 	}
 
 	// Helper to create a context without a resolver
-	createContext := func(block parser.IBlockContext) context.Context[parser.IBlockContext] {
+	createContext := func(bCtx SpecContext, block parser.IBlockContext) context.Context[parser.IBlockContext] {
 		return context.CreateRoot(bCtx, block, nil)
 	}
 
@@ -43,9 +44,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 	Context("when inferring return type from single return statement", func() {
 		DescribeTable("explicit variable types",
-			func(code string, expected types.Type) {
+			func(bCtx SpecContext, code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
@@ -60,9 +61,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		)
 
 		DescribeTable("literal returns",
-			func(code string, expectedKind types.Kind) {
+			func(bCtx SpecContext, code string, expectedKind types.Kind) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType.Kind).To(Equal(expectedKind))
 			},
@@ -70,15 +71,15 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			Entry("float literal", `{ return 3.14 }`, types.KindF64),
 		)
 
-		It("should infer string from single string return", func() {
+		It("should infer string from single string return", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{ return "hello" }`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.String()))
 		})
 
 		DescribeTable("channel type inference with integer constants",
-			func(code string, chanName string, chanType types.Type, expected types.Type) {
+			func(bCtx SpecContext, code string, chanName string, chanType types.Type, expected types.Type) {
 				globalResolver := symbol.MapResolver{
 					"condition": symbol.Symbol{
 						Name: "condition",
@@ -97,7 +98,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					},
 				}
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContextWithResolver(block, globalResolver)
+				ctx := createContextWithResolver(bCtx, block, globalResolver)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
@@ -115,7 +116,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			}`, "i32_chan", types.Chan(types.I32()), types.I32()),
 		)
 
-		It("should infer f32 from integer constant and f32 series", func() {
+		It("should infer f32 from integer constant and f32 series", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				if (condition == 1) { return 0 }
 				return f32_series
@@ -132,23 +133,23 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					Type: types.Series(types.F32()),
 				},
 			}
-			ctx := createContextWithResolver(block, globalResolver)
+			ctx := createContextWithResolver(bCtx, block, globalResolver)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
-		It("should infer f32 from integer constant and plain f32 variable", func() {
+		It("should infer f32 from integer constant and plain f32 variable", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x f32 := 3.5
 				if (x > 0) { return 0 }
 				return x
 			}`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
-		It("should infer f32 from multiple integer constants and one f32 channel", func() {
+		It("should infer f32 from multiple integer constants and one f32 channel", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				if (a == 1) { return 0 }
 				else if (a == 2) { return 1 }
@@ -163,12 +164,12 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					Type: types.Chan(types.F32()),
 				},
 			}
-			ctx := createContextWithResolver(block, globalResolver)
+			ctx := createContextWithResolver(bCtx, block, globalResolver)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
-		It("should infer the correct type for channel and literal operations in power expressions", func() {
+		It("should infer the correct type for channel and literal operations in power expressions", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{ return f32_chan ^ 2 }`))
 			globalResolver := symbol.MapResolver{
 				"f32_chan": symbol.Symbol{
@@ -177,12 +178,12 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					Type: types.Chan(types.F32()),
 				},
 			}
-			ctx := createContextWithResolver(block, globalResolver)
+			ctx := createContextWithResolver(bCtx, block, globalResolver)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
-		It("should infer f32 from float constant and f32 channel", func() {
+		It("should infer f32 from float constant and f32 channel", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				if (condition == 1) { return 3.14 }
 				return f32_chan
@@ -199,12 +200,12 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					Type: types.Chan(types.F32()),
 				},
 			}
-			ctx := createContextWithResolver(block, globalResolver)
+			ctx := createContextWithResolver(bCtx, block, globalResolver)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
-		It("should infer f32 from channel and plain variable of same type", func() {
+		It("should infer f32 from channel and plain variable of same type", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x f32 := 2.5
 				if (x > 0) { return f32_chan }
@@ -217,7 +218,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					Type: types.Chan(types.F32()),
 				},
 			}
-			ctx := createContextWithResolver(block, globalResolver)
+			ctx := createContextWithResolver(bCtx, block, globalResolver)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
@@ -225,9 +226,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 	Context("when unifying multiple return types", func() {
 		DescribeTable("compatible numeric types",
-			func(code string, expected types.Type) {
+			func(bCtx SpecContext, code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
@@ -264,9 +265,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		)
 
 		DescribeTable("incompatible types produce errors",
-			func(code string, expectedErrSubstring string) {
+			func(bCtx SpecContext, code string, expectedErrSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				statement.AnalyzeFunctionBody(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -288,9 +289,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 	Context("when handling nested control flow", func() {
 		DescribeTable("nested if statements",
-			func(code string, expected types.Type) {
+			func(bCtx SpecContext, code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
@@ -316,14 +317,14 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			}`, types.U32()),
 		)
 
-		It("should handle if-else-if chains", func() {
+		It("should handle if-else-if chains", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 1
 				if x > 10 { return 1 }
 				else if x > 5 { return 2 }
 				else { return 3 }
 			}`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType.Kind).To(Equal(types.KindI64))
 		})
@@ -331,9 +332,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 	Context("when no return statements exist", func() {
 		DescribeTable("returns invalid type",
-			func(code string) {
+			func(bCtx SpecContext, code string) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType.IsValid()).To(BeFalse())
 			},
@@ -351,9 +352,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 	Context("when some paths return but not all", func() {
 		DescribeTable("partial returns",
-			func(code string, expected types.Type) {
+			func(bCtx SpecContext, code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
@@ -378,27 +379,27 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 	})
 
 	Context("edge cases", func() {
-		It("should handle return with no expression (void return)", func() {
+		It("should handle return with no expression (void return)", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 1
 				if x > 0 { return }
 			}`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType.IsValid()).To(BeFalse())
 		})
 
-		It("should handle all same type returns", func() {
+		It("should handle all same type returns", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{ return 1 }`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType.Kind).To(Or(Equal(types.KindVariable), Equal(types.KindI64)))
 		})
 
 		DescribeTable("integer size unification",
-			func(code string, expected types.Type) {
+			func(bCtx SpecContext, code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
@@ -422,23 +423,23 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 	})
 
 	Context("error handling", func() {
-		It("should fail gracefully on undefined variable", func() {
+		It("should fail gracefully on undefined variable", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{ return undefined_var }`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			statement.AnalyzeFunctionBody(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol"))
 		})
 
-		It("should report type incompatibility clearly", func() {
+		It("should report type incompatibility clearly", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 1
 				y str := "hello"
 				if x > 0 { return x }
 				return y
 			}`))
-			ctx := createContext(block)
+			ctx := createContext(bCtx, block)
 			statement.AnalyzeFunctionBody(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -448,9 +449,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 	Context("type preservation", func() {
 		DescribeTable("preserves exact types when possible",
-			func(code string, expected types.Type) {
+			func(bCtx SpecContext, code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
-				ctx := createContext(block)
+				ctx := createContext(bCtx, block)
 				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},

@@ -27,7 +27,7 @@ import (
 var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Bootstrap Cluster", func() {
 
-		It("Should correctly bootstrap a cluster", func() {
+		It("Should correctly bootstrap a cluster", func(ctx SpecContext) {
 			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
@@ -49,7 +49,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(db.Close()).To(Succeed())
 		})
 
-		It("Should correctly bootstrap a cluster with peers provided", func() {
+		It("Should correctly bootstrap a cluster with peers provided", func(ctx SpecContext) {
 			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
 			db := MustSucceed(aspen.Open(
 				ctx,
@@ -65,7 +65,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 		})
 
-		It("Should correctly join a node that is already looking for peers", func() {
+		It("Should correctly join a node that is already looking for peers", func(ctx SpecContext) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
@@ -108,7 +108,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 	Describe("Concurrent Pledges", func() {
 
-		It("Should correctly join many nodes to the cluster concurrently", func() {
+		It("Should correctly join many nodes to the cluster concurrently", func(ctx SpecContext) {
 			numNodes := 10
 			wg := sync.WaitGroup{}
 			wg.Add(numNodes)
@@ -152,7 +152,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Joining, Dying, and Rejoining", func() {
 		Context("Persisted storage", func() {
 			Context("Single node death", func() {
-				It("Should correctly handle a single node dying and rejoining", func() {
+				It("Should correctly handle a single node dying and rejoining", func(ctx SpecContext) {
 					propConfig := aspen.PropagationConfig{
 						PledgeRetryInterval:   10 * time.Millisecond,
 						PledgeRetryScale:      1,

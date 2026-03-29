@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -95,25 +94,18 @@ func (e namedStringEntry) GorpKey() namedStringKey { return e.ID }
 func (namedStringEntry) SetOptions() []any         { return nil }
 
 var _ = Describe("KeyCodec", func() {
-	var (
-		ctx context.Context
-		db  *gorp.DB
-		tx  gorp.Tx
-	)
+	var tx gorp.Tx
 	BeforeEach(func() {
-		ctx = context.Background()
-		db = gorp.Wrap(memkv.New())
 		tx = db.OpenTx()
 	})
 	AfterEach(func() {
 		Expect(tx.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 
 	Describe("Encode/Decode Roundtrip", func() {
 		Describe("int8 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id int8) {
+				func(ctx SpecContext, id int8) {
 					e := int8Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[int8, int8Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -132,7 +124,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("int16 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id int16) {
+				func(ctx SpecContext, id int16) {
 					e := int16Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[int16, int16Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -151,7 +143,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("int32 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id int32) {
+				func(ctx SpecContext, id int32) {
 					e := entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[int32, entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -170,7 +162,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("int64 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id int64) {
+				func(ctx SpecContext, id int64) {
 					e := int64Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[int64, int64Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -189,7 +181,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("uint8 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id uint8) {
+				func(ctx SpecContext, id uint8) {
 					e := uint8Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[uint8, uint8Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -206,7 +198,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("uint16 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id uint16) {
+				func(ctx SpecContext, id uint16) {
 					e := uint16Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[uint16, uint16Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -223,7 +215,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("uint32 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id uint32) {
+				func(ctx SpecContext, id uint32) {
 					e := uint32Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[uint32, uint32Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -240,7 +232,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("uint64 keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id uint64) {
+				func(ctx SpecContext, id uint64) {
 					e := uint64Entry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[uint64, uint64Entry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -257,7 +249,7 @@ var _ = Describe("KeyCodec", func() {
 
 		Describe("string keys", func() {
 			DescribeTable("Should roundtrip",
-				func(id string) {
+				func(ctx SpecContext, id string) {
 					e := stringEntry{ID: id, Data: "data"}
 					Expect(gorp.NewCreate[string, stringEntry](nil).
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -273,7 +265,7 @@ var _ = Describe("KeyCodec", func() {
 		})
 
 		Describe("[]byte keys", func() {
-			It("Should roundtrip", func() {
+			It("Should roundtrip", func(ctx SpecContext) {
 				e := prefixEntry{ID: 42, Data: "data"}
 				Expect(gorp.NewCreate[[]byte, prefixEntry](nil).
 					Entry(&e).Exec(ctx, tx)).To(Succeed())
@@ -286,7 +278,7 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Multiple entries with different key types", func() {
-		It("Should create, retrieve, and delete uint16 entries", func() {
+		It("Should create, retrieve, and delete uint16 entries", func(ctx SpecContext) {
 			entries := []uint16Entry{
 				{ID: 1, Data: "one"},
 				{ID: 100, Data: "hundred"},
@@ -305,7 +297,7 @@ var _ = Describe("KeyCodec", func() {
 				WhereKeys(100).Exists(ctx, tx)).To(BeFalse())
 		})
 
-		It("Should create, retrieve, and delete int64 entries", func() {
+		It("Should create, retrieve, and delete int64 entries", func(ctx SpecContext) {
 			entries := []int64Entry{
 				{ID: -1, Data: "neg"},
 				{ID: 0, Data: "zero"},
@@ -322,7 +314,7 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Key ordering", func() {
-		It("Should iterate uint32 entries in big-endian byte order", func() {
+		It("Should iterate uint32 entries in big-endian byte order", func(ctx SpecContext) {
 			entries := []uint32Entry{
 				{ID: 300, Data: "three"},
 				{ID: 1, Data: "one"},
@@ -343,7 +335,7 @@ var _ = Describe("KeyCodec", func() {
 			Expect(ids).To(Equal([]uint32{1, 200, 300}))
 		})
 
-		It("Should iterate int16 entries in big-endian byte order", func() {
+		It("Should iterate int16 entries in big-endian byte order", func(ctx SpecContext) {
 			entries := []int16Entry{
 				{ID: 300, Data: "three"},
 				{ID: -1, Data: "neg"},
@@ -366,7 +358,7 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Type isolation", func() {
-		It("Should not mix entries of different types with the same key value", func() {
+		It("Should not mix entries of different types with the same key value", func(ctx SpecContext) {
 			e1 := uint32Entry{ID: 42, Data: "uint32"}
 			e2 := int64Entry{ID: 42, Data: "int64"}
 			Expect(gorp.NewCreate[uint32, uint32Entry](nil).
@@ -387,7 +379,7 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Observe with non-int32 keys", func() {
-		It("Should decode uint64 keys on delete notifications", func() {
+		It("Should decode uint64 keys on delete notifications", func(ctx SpecContext) {
 			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64Entry]{DB: db}))
 			defer func() { Expect(uint64Table.Close()).To(Succeed()) }()
 
@@ -413,7 +405,7 @@ var _ = Describe("KeyCodec", func() {
 			Expect(deletedKey).To(Equal(uint64(math.MaxUint64)))
 		})
 
-		It("Should decode int16 keys on set notifications", func() {
+		It("Should decode int16 keys on set notifications", func(ctx SpecContext) {
 			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16Entry]{DB: db}))
 			defer func() { Expect(int16Table.Close()).To(Succeed()) }()
 
@@ -438,7 +430,7 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Named string key types", func() {
-		It("Should create, retrieve, and delete entries with a named string key", func() {
+		It("Should create, retrieve, and delete entries with a named string key", func(ctx SpecContext) {
 			entries := []namedStringEntry{
 				{ID: "alpha", Data: "first"},
 				{ID: "beta", Data: "second"},
@@ -468,7 +460,7 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("WherePrefix with numeric keys", func() {
-		It("Should retrieve entries matching a byte prefix for uint32 keys", func() {
+		It("Should retrieve entries matching a byte prefix for uint32 keys", func(ctx SpecContext) {
 			entries := []uint32Entry{
 				{ID: 0x01000000, Data: "a"},
 				{ID: 0x01000001, Data: "b"},

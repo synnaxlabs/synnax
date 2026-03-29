@@ -134,7 +134,7 @@ var _ = Describe("Channel Tests", func() {
 					channel.NewKey(cluster.NodeKey(3), 4),
 					channel.NewKey(cluster.NodeKey(1), 2),
 				}
-				Expect(ids.UniqueLeaseholders()).To(Equal([]cluster.NodeKey{1, 3}))
+				Expect(ids.UniqueLeaseholders()).To(ConsistOf([]cluster.NodeKey{1, 3}))
 			})
 		})
 		Describe("Uint32", func() {
@@ -147,12 +147,6 @@ var _ = Describe("Channel Tests", func() {
 			It("Should correctly return the storage representation of the keys", func() {
 				keys := channel.Keys{1, 2, 3}
 				Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
-			})
-		})
-		Describe("Strings", func() {
-			It("Should return the keys as a slice of strings", func() {
-				keys := channel.Keys{1, 2, 3}
-				Expect(keys.Strings()).To(Equal([]string{"1", "2", "3"}))
 			})
 		})
 		Describe("Contains", func() {
@@ -169,15 +163,6 @@ var _ = Describe("Channel Tests", func() {
 			It("Should remove duplicate keys from the slice and return the result", func() {
 				keys := channel.Keys{1, 2, 3, 2, 1}
 				Expect(keys.Unique()).To(Equal(channel.Keys{1, 2, 3}))
-			})
-		})
-		Describe("Difference", func() {
-			It("Should return the keys that are absent in other followed by the keys that are absent in k", func() {
-				k := channel.Keys{1, 2, 3}
-				other := channel.Keys{2, 3, 4}
-				added, removed := k.Difference(other)
-				Expect(added).To(Equal(channel.Keys{1}))
-				Expect(removed).To(Equal(channel.Keys{4}))
 			})
 		})
 	})

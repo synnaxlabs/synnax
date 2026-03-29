@@ -35,7 +35,7 @@ var _ = Describe("storage", func() {
 		})
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
-			It("Should return an error if the lock is already acquired", func() {
+			It("Should return an error if the lock is already acquired", func(ctx SpecContext) {
 				store := MustSucceed(storage.OpenLayer(ctx, cfg))
 				Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
@@ -47,7 +47,7 @@ var _ = Describe("storage", func() {
 			// with 777.
 			if !strings.HasPrefix(runtime.GOOS, "windows") {
 				Describe("Name Directory", func() {
-					It("Should set the correct permissions on the storage directory", func() {
+					It("Should set the correct permissions on the storage directory", func(ctx SpecContext) {
 						cfg.Perm = storage.DefaultLayerConfig.Perm
 						store := MustSucceed(storage.OpenLayer(ctx, cfg))
 						stat := MustSucceed(os.Stat(cfg.Dirname))
@@ -63,7 +63,7 @@ var _ = Describe("storage", func() {
 						cfg.Dirname = p
 					})
 					AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
-					It("Should return an error if the directory exists but has insufficient permissions", func() {
+					It("Should return an error if the directory exists but has insufficient permissions", func(ctx SpecContext) {
 						// use os.Stat to check the dir permissions
 						cfg.Perm = xfs.UserRWX
 						_, err := storage.OpenLayer(ctx, cfg)
@@ -73,7 +73,7 @@ var _ = Describe("storage", func() {
 			}
 		})
 		Describe("In-Memory", func() {
-			It("Should open a memory backed version of storage", func() {
+			It("Should open a memory backed version of storage", func(ctx SpecContext) {
 				cfg.InMemory = new(true)
 				store := MustSucceed(storage.OpenLayer(ctx, cfg))
 				Expect(store.Close()).To(Succeed())

@@ -22,7 +22,7 @@ var _ = Describe("Retrieve", func() {
 	var w ontology.Writer
 	BeforeEach(func() { w = otg.NewWriter(tx) })
 	Describe("Single Clause", func() {
-		It("Should retrieve a resource by its Name", func() {
+		It("Should retrieve a resource by its Name", func(ctx SpecContext) {
 			id := newSampleType("A")
 			Expect(w.DefineResource(ctx, id)).To(Succeed())
 			var r ontology.Resource
@@ -35,7 +35,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(r.Parse(&res)).To(Succeed())
 			Expect(res.Key).To(Equal("A"))
 		})
-		It("Should retrieve multiple resources by their Name", func() {
+		It("Should retrieve multiple resources by their Name", func(ctx SpecContext) {
 			ids := []ontology.ID{newSampleType("A"), newSampleType("B")}
 			Expect(w.DefineResource(ctx, ids[0])).To(Succeed())
 			Expect(w.DefineResource(ctx, ids[1])).To(Succeed())
@@ -55,7 +55,7 @@ var _ = Describe("Retrieve", func() {
 	Describe("Multi Clause", func() {
 		Describe("Parental Traversal", func() {
 
-			It("Should retrieve the parent of a resource", func() {
+			It("Should retrieve the parent of a resource", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
@@ -73,7 +73,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("B"))
 			})
 
-			It("Should retrieve the parents of multiple resources", func() {
+			It("Should retrieve the parents of multiple resources", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")
 				c := newSampleType("C")
@@ -96,7 +96,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("C"))
 			})
 
-			It("Should retrieve the grandparents of a resource", func() {
+			It("Should retrieve the grandparents of a resource", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")
 				c := newSampleType("C")
@@ -118,7 +118,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("C"))
 			})
 
-			It("Should retrieve resources at intermediate and final clauses", func() {
+			It("Should retrieve resources at intermediate and final clauses", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")
 				c := newSampleType("C")
@@ -146,7 +146,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("C"))
 			})
 
-			It("Should retrieve the resources of a parent by their type", func() {
+			It("Should retrieve the resources of a parent by their type", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")
 				c := newSampleType("C")
@@ -173,7 +173,7 @@ var _ = Describe("Retrieve", func() {
 		// Regression test for issue where intermediate clauses with filters
 		// but no bound entries would silently drop results because gorp.NewRetrieve
 		// created unbound entries that couldn't store query results.
-		It("Should traverse through intermediate filtered clauses without bound entries", func() {
+		It("Should traverse through intermediate filtered clauses without bound entries", func(ctx SpecContext) {
 			// Create a hierarchy: grandparent -> parent -> child
 			// We'll query: grandparent -> TraverseTo(Children) -> WhereTypes(sample) -> TraverseTo(Children) -> Entries
 			grandparent := newSampleType("grandparent")
@@ -204,7 +204,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(res.Key).To(Equal("child"))
 		})
 
-		It("Should traverse through multiple intermediate filtered clauses", func() {
+		It("Should traverse through multiple intermediate filtered clauses", func(ctx SpecContext) {
 			// Create a 4-level hierarchy: A -> B -> C -> D
 			a := newSampleType("level-A")
 			b := newSampleType("level-B")
@@ -240,7 +240,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("Limit + Offset", func() {
-		It("Should page through resources in order", func() {
+		It("Should page through resources in order", func(ctx SpecContext) {
 			ids := make([]ontology.ID, 10)
 			for i := range ids {
 				Expect(w.DefineResource(ctx, newSampleType(strconv.Itoa(i)))).To(Succeed())
@@ -269,7 +269,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("WhereTypes", func() {
-		It("Should retrieve resources of a single type using prefix matching", func() {
+		It("Should retrieve resources of a single type using prefix matching", func(ctx SpecContext) {
 			a := newSampleType("type-filter-A")
 			b := newSampleType("type-filter-B")
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
@@ -289,7 +289,7 @@ var _ = Describe("Retrieve", func() {
 			}
 		})
 
-		It("Should return empty results when filtering by non-existent type", func() {
+		It("Should return empty results when filtering by non-existent type", func(ctx SpecContext) {
 			Expect(w.DefineResource(ctx, newSampleType("type-filter-C"))).To(Succeed())
 			nonExistentType := ontology.ResourceType("nonexistent")
 			var r []ontology.Resource
@@ -301,7 +301,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(r).To(BeEmpty())
 		})
 
-		It("Should retrieve resources matching any of multiple types using filter function", func() {
+		It("Should retrieve resources matching any of multiple types using filter function", func(ctx SpecContext) {
 			a := newSampleType("multi-type-A")
 			b := newSampleType("multi-type-B")
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
@@ -319,7 +319,7 @@ var _ = Describe("Retrieve", func() {
 			}
 		})
 
-		It("Should return empty when none of the multiple types match", func() {
+		It("Should return empty when none of the multiple types match", func(ctx SpecContext) {
 			Expect(w.DefineResource(ctx, newSampleType("multi-type-none"))).To(Succeed())
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
@@ -330,7 +330,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(r).To(BeEmpty())
 		})
 
-		It("Should combine WhereTypes with WhereIDs", func() {
+		It("Should combine WhereTypes with WhereIDs", func(ctx SpecContext) {
 			a := newSampleType("combined-A")
 			b := newSampleType("combined-B")
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
@@ -349,7 +349,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(ids).To(ContainElements(a, b))
 		})
 
-		It("Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function", func() {
+		It("Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function", func(ctx SpecContext) {
 			a := newSampleType("no-overlap-A")
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
 			var r []ontology.Resource
@@ -363,7 +363,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(r).To(BeEmpty())
 		})
 
-		It("Should work with Limit when using single type prefix matching", func() {
+		It("Should work with Limit when using single type prefix matching", func(ctx SpecContext) {
 			for i := range 5 {
 				Expect(w.DefineResource(ctx, newSampleType("limit-type-"+strconv.Itoa(i)))).To(Succeed())
 			}
@@ -377,7 +377,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(len(r)).To(Equal(3))
 		})
 
-		It("Should work with Limit when using multiple types filter", func() {
+		It("Should work with Limit when using multiple types filter", func(ctx SpecContext) {
 			for i := range 5 {
 				Expect(w.DefineResource(ctx, newSampleType("limit-multi-"+strconv.Itoa(i)))).To(Succeed())
 			}

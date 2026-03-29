@@ -10,7 +10,6 @@
 package gorp_test
 
 import (
-	"context"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -53,21 +52,19 @@ var jsonCodec = &binary.JSONCodec{}
 
 var _ = Describe("Create", Ordered, func() {
 	var (
-		ctx context.Context
-		db  *gorp.DB
-		tx  gorp.Tx
+		db *gorp.DB
+		tx gorp.Tx
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 	})
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	BeforeEach(func() {
-		ctx = context.Background()
 		tx = db.OpenTx()
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Context("Single entry", func() {
-		It("Should create the entry in the db", func() {
+		It("Should create the entry in the db", func(ctx SpecContext) {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
@@ -78,7 +75,7 @@ var _ = Describe("Create", Ordered, func() {
 	})
 
 	Context("Multiple entries", func() {
-		It("Should create the entries in the db", func() {
+		It("Should create the entries in the db", func(ctx SpecContext) {
 			e := make([]entry, 10)
 			for i := range 10 {
 				e[i] = entry{ID: int32(i), Data: "data"}
@@ -94,7 +91,7 @@ var _ = Describe("Create", Ordered, func() {
 	})
 
 	Describe("Guard", func() {
-		It("Should prevent the accidental override of existing entries", func() {
+		It("Should prevent the accidental override of existing entries", func(ctx SpecContext) {
 			e := &entry{
 				ID:   int32(42),
 				Data: "The answer to life, the universe, and everything",
@@ -105,7 +102,7 @@ var _ = Describe("Create", Ordered, func() {
 				return entry{}, validate.ErrValidation
 			}).Exec(ctx, tx)).To(HaveOccurredAs(validate.ErrValidation))
 		})
-		It("Should not call the filter if no entry with a matching GorpKey is found", func() {
+		It("Should not call the filter if no entry with a matching GorpKey is found", func(ctx SpecContext) {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
@@ -117,7 +114,7 @@ var _ = Describe("Create", Ordered, func() {
 			}).Exec(ctx, tx)).To(Succeed())
 			Expect(c).To(Equal(0))
 		})
-		It("Should merge an existing entry with the new entry", func() {
+		It("Should merge an existing entry with the new entry", func(ctx SpecContext) {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
@@ -134,7 +131,7 @@ var _ = Describe("Create", Ordered, func() {
 	})
 
 	Describe("Writer", func() {
-		It("Should execute operations within a transaction", func() {
+		It("Should execute operations within a transaction", func(ctx SpecContext) {
 			entries := make([]entry, 10)
 			keys := make([]int32, 10)
 			for i := range 10 {

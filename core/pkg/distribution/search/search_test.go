@@ -65,16 +65,12 @@ func newIndex(svcs ...*mockService) *search.Index {
 
 var _ = Describe("Search", func() {
 	Describe("Search", func() {
-		var (
-			idx *search.Index
-			ctx context.Context
-		)
+		var idx *search.Index
 		BeforeEach(func() {
 			idx = newIndex(&mockService{resourceType: "test"})
-			ctx = context.Background()
 		})
 		DescribeTable("Searching",
-			func(res ontology.Resource, term string) {
+			func(ctx SpecContext, res ontology.Resource, term string) {
 				Expect(idx.IndexResources([]ontology.Resource{res})).To(Succeed())
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -123,7 +119,7 @@ var _ = Describe("Search", func() {
 			}, "DAQ_PT"),
 		)
 		DescribeTable("Prioritization",
-			func(resources []ontology.Resource, term string, first ontology.ID) {
+			func(ctx SpecContext, resources []ontology.Resource, term string, first ontology.ID) {
 				Expect(idx.IndexResources(resources)).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -176,7 +172,7 @@ var _ = Describe("Search", func() {
 			}, "View A", ontology.ID{Type: "test", Key: "1"}),
 		)
 		DescribeTable("No Results",
-			func(res ontology.Resource, term string) {
+			func(ctx SpecContext, res ontology.Resource, term string) {
 				Expect(idx.IndexResources([]ontology.Resource{res})).To(Succeed())
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -193,7 +189,7 @@ var _ = Describe("Search", func() {
 			}, "nn"),
 		)
 		Describe("Multiple Fields", func() {
-			It("Should match on extra searchable fields", func() {
+			It("Should match on extra searchable fields", func(ctx SpecContext) {
 				idx = newIndex(&mockService{
 					resourceType: "device",
 					fields:       []string{"make", "model"},
@@ -212,7 +208,7 @@ var _ = Describe("Search", func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Key).To(Equal("1"))
 			})
-			It("Should match on name when extra fields are registered", func() {
+			It("Should match on name when extra fields are registered", func(ctx SpecContext) {
 				idx = newIndex(&mockService{
 					resourceType: "device",
 					fields:       []string{"make", "model"},
@@ -230,7 +226,7 @@ var _ = Describe("Search", func() {
 				}))
 				Expect(res).To(HaveLen(1))
 			})
-			It("Should prioritize exact match across multiple types", func() {
+			It("Should prioritize exact match across multiple types", func(ctx SpecContext) {
 				idx = newIndex(
 					&mockService{resourceType: "device", fields: []string{"make"}},
 					&mockService{resourceType: "channel"},
@@ -252,7 +248,7 @@ var _ = Describe("Search", func() {
 				Expect(res).ToNot(BeEmpty())
 				Expect(res[0].Key).To(Equal("1"))
 			})
-			It("Should find results by searching extra fields across types", func() {
+			It("Should find results by searching extra fields across types", func(ctx SpecContext) {
 				idx = newIndex(
 					&mockService{resourceType: "device", fields: []string{"make"}},
 					&mockService{resourceType: "channel"},
@@ -276,7 +272,7 @@ var _ = Describe("Search", func() {
 			})
 		})
 		Describe("Disjunction Fallback", func() {
-			It("Should fall back to disjunction if conjunction finds no results", func() {
+			It("Should fall back to disjunction if conjunction finds no results", func(ctx SpecContext) {
 				Expect(idx.IndexResources([]ontology.Resource{
 					{
 						ID:   ontology.ID{Type: "test", Key: "1"},
@@ -288,7 +284,7 @@ var _ = Describe("Search", func() {
 					Term: "My Blog",
 				})).To(Not(BeEmpty()))
 			})
-			It("Should not fall back to disjunction if conjunction finds results", func() {
+			It("Should not fall back to disjunction if conjunction finds results", func(ctx SpecContext) {
 				Expect(idx.IndexResources([]ontology.Resource{
 					{
 						ID:   ontology.ID{Type: "test", Key: "1"},
@@ -323,9 +319,7 @@ var _ = Describe("Search", func() {
 		Entry("Scream Case with Space", "TEST TEST", []string{"TEST", "TEST"}),
 	)
 	Describe("Initialize", func() {
-		var ctx context.Context
-		BeforeEach(func() { ctx = context.Background() })
-		It("Should index existing resources from OpenNexter", func() {
+		It("Should index existing resources from OpenNexter", func(ctx SpecContext) {
 			svc := &observableMockService{
 				Observer:     observe.New[iter.Seq[ontology.Change]](),
 				resourceType: "widget",
@@ -345,7 +339,8 @@ var _ = Describe("Search", func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("1"))
 		})
-		It("Should make all startup resources searchable", func() {
+
+		It("Should make all startup resources searchable", func(ctx SpecContext) {
 			svc := &observableMockService{
 				Observer:     observe.New[iter.Seq[ontology.Change]](),
 				resourceType: "item",
@@ -361,7 +356,7 @@ var _ = Describe("Search", func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("b"))
 		})
-		It("Should index multiple services", func() {
+		It("Should index multiple services", func(ctx SpecContext) {
 			svc1 := &observableMockService{
 				Observer:     observe.New[iter.Seq[ontology.Change]](),
 				resourceType: "channel",
@@ -387,7 +382,7 @@ var _ = Describe("Search", func() {
 			Expect(devRes).To(HaveLen(1))
 			Expect(devRes[0].Key).To(Equal("d1"))
 		})
-		It("Should index extra fields from FieldsProvider", func() {
+		It("Should index extra fields from FieldsProvider", func(ctx SpecContext) {
 			svc := &observableMockService{
 				Observer:     observe.New[iter.Seq[ontology.Change]](),
 				resourceType: "device",
@@ -407,7 +402,7 @@ var _ = Describe("Search", func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("1"))
 		})
-		It("Should apply live changes via OnChange", func() {
+		It("Should apply live changes via OnChange", func(ctx SpecContext) {
 			svc := &observableMockService{
 				Observer:     observe.New[iter.Seq[ontology.Change]](),
 				resourceType: "task",
@@ -431,7 +426,7 @@ var _ = Describe("Search", func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("t1"))
 		})
-		It("Should remove resources via OnChange delete", func() {
+		It("Should remove resources via OnChange delete", func(ctx SpecContext) {
 			svc := &observableMockService{
 				Observer:     observe.New[iter.Seq[ontology.Change]](),
 				resourceType: "task",

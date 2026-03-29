@@ -10,8 +10,6 @@
 package stable_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -25,8 +23,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("StableFor", func() {
 	var (
 		module      *stable.Module
@@ -34,7 +30,7 @@ var _ = Describe("StableFor", func() {
 		irNode      ir.Node
 		currentTime telem.TimeStamp
 	)
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		module = stable.NewModule(stable.WithNow(func() telem.TimeStamp {
 			return currentTime
 		}))
@@ -86,14 +82,14 @@ var _ = Describe("StableFor", func() {
 	})
 
 	Describe("Factory.Create", func() {
-		It("Should create node for stable_for type", func() {
+		It("Should create node for stable_for type", func(ctx SpecContext) {
 			n := MustSucceed(module.Create(ctx, node.Config{
 				Node: irNode, State: s.Node(irNode.Key),
 			}))
 			Expect(n).ToNot(BeNil())
 		})
 
-		It("Should return NotFound for unknown type", func() {
+		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
@@ -104,7 +100,7 @@ var _ = Describe("StableFor", func() {
 	})
 
 	Describe("Next", func() {
-		It("Should handle empty input", func() {
+		It("Should handle empty input", func(ctx SpecContext) {
 			cfg := node.Config{Node: irNode, State: s.Node("stable")}
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[uint8]()
@@ -115,7 +111,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
 		})
 
-		It("Should not emit when value is not stable for duration", func() {
+		It("Should not emit when value is not stable for duration", func(ctx SpecContext) {
 			cfg := node.Config{Node: irNode, State: s.Node("stable")}
 			source := s.Node("source")
 			currentTime = 0
@@ -131,7 +127,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
 		})
 
-		It("Should emit when value is stable for duration", func() {
+		It("Should emit when value is stable for duration", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -166,7 +162,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputVals).To(Equal([]uint8{5}))
 		})
 
-		It("Should reset timer when value changes", func() {
+		It("Should reset timer when value changes", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -208,7 +204,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
 		})
 
-		It("Should not emit same value twice", func() {
+		It("Should not emit same value twice", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -242,7 +238,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
 		})
 
-		It("Should emit different value after stable period", func() {
+		It("Should emit different value after stable period", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -282,7 +278,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputVals).To(Equal([]uint8{10}))
 		})
 
-		It("Should handle multiple values in single input", func() {
+		It("Should handle multiple values in single input", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -318,7 +314,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputVals).To(Equal([]uint8{7}))
 		})
 
-		It("Should use output timestamp as current time not input time", func() {
+		It("Should use output timestamp as current time not input time", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -348,7 +344,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputTimes).To(Equal([]telem.TimeStamp{telem.SecondTS * 100}))
 		})
 
-		It("Should handle same value repeated in input", func() {
+		It("Should handle same value repeated in input", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
@@ -380,7 +376,7 @@ var _ = Describe("StableFor", func() {
 	})
 
 	Describe("SymbolResolver", func() {
-		It("Should resolve stable_for symbol", func() {
+		It("Should resolve stable_for symbol", func(ctx SpecContext) {
 			sym, ok := stable.SymbolResolver["stable_for"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("stable_for"))

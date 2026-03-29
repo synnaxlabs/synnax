@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -26,19 +24,17 @@ import (
 var _ = Describe("Completion", func() {
 	var (
 		server *lsp.Server
-		ctx    context.Context
 		uri    protocol.DocumentURI
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		server = MustSucceed(lsp.New())
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
 	Describe("Basic Completion", func() {
-		It("should return built-in completions", func() {
+		It("should return built-in completions", func(ctx SpecContext) {
 			content := "func test() {\n    i\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -49,7 +45,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Context-Aware Completion", func() {
-		It("should return empty completions in single-line comment", func() {
+		It("should return empty completions in single-line comment", func(ctx SpecContext) {
 			content := "// comment here"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -58,7 +54,7 @@ var _ = Describe("Completion", func() {
 			Expect(completions.Items).To(BeEmpty())
 		})
 
-		It("should return empty completions in multi-line comment", func() {
+		It("should return empty completions in multi-line comment", func(ctx SpecContext) {
 			content := "/* multi\nline\ncomment */"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -67,7 +63,7 @@ var _ = Describe("Completion", func() {
 			Expect(completions.Items).To(BeEmpty())
 		})
 
-		It("should return only types in type annotation position", func() {
+		It("should return only types in type annotation position", func(ctx SpecContext) {
 			content := "func foo(x "
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -87,7 +83,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' keyword in type annotation context")
 		})
 
-		It("should return types matching prefix in type annotation position", func() {
+		It("should return types matching prefix in type annotation position", func(ctx SpecContext) {
 			content := "func foo(x i"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -100,7 +96,7 @@ var _ = Describe("Completion", func() {
 			}
 		})
 
-		It("should not show keywords in expression context", func() {
+		It("should not show keywords in expression context", func(ctx SpecContext) {
 			content := "x := "
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -114,7 +110,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' keyword in expression context")
 		})
 
-		It("should show functions and values in expression context", func() {
+		It("should show functions and values in expression context", func(ctx SpecContext) {
 			content := "x := "
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -125,7 +121,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(), "Should show 'now' function in expression context")
 		})
 
-		It("should show function keywords at statement start inside func body", func() {
+		It("should show function keywords at statement start inside func body", func(ctx SpecContext) {
 			content := "func foo() { "
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -140,7 +136,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' inside func body")
 		})
 
-		It("should show top-level keywords at top level", func() {
+		It("should show top-level keywords at top level", func(ctx SpecContext) {
 			content := "seq"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -156,7 +152,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' at top level")
 		})
 
-		It("should show func keyword at top level", func() {
+		It("should show func keyword at top level", func(ctx SpecContext) {
 			content := "fu"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -166,7 +162,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "func")).To(BeTrue(), "Should show 'func' keyword at top level")
 		})
 
-		It("should show only stage keyword inside a sequence body", func() {
+		It("should show only stage keyword inside a sequence body", func(ctx SpecContext) {
 			content := "sequence main {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -185,7 +181,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "now")).To(BeFalse(), "Should not show 'now' inside sequence body")
 		})
 
-		It("should show next keyword inside a stage body", func() {
+		It("should show next keyword inside a stage body", func(ctx SpecContext) {
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -200,7 +196,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside stage body")
 		})
 
-		It("should not show types at statement start", func() {
+		It("should not show types at statement start", func(ctx SpecContext) {
 			content := "func foo() { "
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -212,7 +208,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Nested If Inside Function", func() {
-		It("should show function keywords inside nested if block", func() {
+		It("should show function keywords inside nested if block", func(ctx SpecContext) {
 			content := "func foo() {\n    if x > 0 {\n        \n    }\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -227,7 +223,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Block Expression Completion", func() {
-		It("should show function keywords in block expression", func() {
+		It("should show function keywords in block expression", func(ctx SpecContext) {
 			blockURI := protocol.DocumentURI("arc://block/test")
 			content := ""
 			OpenArcDocument(server, ctx, blockURI, content)
@@ -243,7 +239,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Sequence Body Suppresses Symbols", func() {
-		It("should not show channel symbols inside sequence body", func() {
+		It("should not show channel symbols inside sequence body", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"sensor": symbol.Symbol{
 					Name: "sensor",
@@ -268,7 +264,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("GlobalResolver", func() {
-		It("should include global variables from GlobalResolver in completion", func() {
+		It("should include global variables from GlobalResolver in completion", func(ctx SpecContext) {
 			// Create a mock GlobalResolver with a global variable
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{
@@ -298,7 +294,7 @@ var _ = Describe("Completion", func() {
 			Expect(item.Detail).To(Equal("i32"))
 		})
 
-		It("should not show GlobalResolver symbols when prefix doesn't match", func() {
+		It("should not show GlobalResolver symbols when prefix doesn't match", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{
 					Name: "myGlobal",
@@ -321,7 +317,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Parenthesized Expression Completion", func() {
-		It("should suggest channels inside parenthesized expression after return", func() {
+		It("should suggest channels inside parenthesized expression after return", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"output_sensor": symbol.Symbol{
 					Name: "output_sensor",
@@ -369,7 +365,7 @@ var _ = Describe("Completion", func() {
 			}
 		})
 
-		It("should suggest all config parameters in empty config block", func() {
+		It("should suggest all config parameters in empty config block", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -384,7 +380,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "channel")).To(BeTrue(), "Should suggest 'channel' parameter")
 		})
 
-		It("should filter out already-provided parameters", func() {
+		It("should filter out already-provided parameters", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -398,7 +394,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "channel")).To(BeTrue(), "Should still suggest 'channel' parameter")
 		})
 
-		It("should filter by prefix when typing parameter name", func() {
+		It("should filter by prefix when typing parameter name", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -412,7 +408,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "timeout")).To(BeFalse(), "Should NOT suggest 'timeout' not matching prefix 'th'")
 		})
 
-		It("should show type details for config parameters", func() {
+		It("should show type details for config parameters", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -428,7 +424,7 @@ var _ = Describe("Completion", func() {
 			Expect(thresholdItem.Kind).To(Equal(protocol.CompletionItemKindProperty))
 		})
 
-		It("should suggest channel symbols for chan type parameters", func() {
+		It("should suggest channel symbols for chan type parameters", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -467,7 +463,7 @@ var _ = Describe("Completion", func() {
 			}
 		})
 
-		It("should suggest authority keyword at top level", func() {
+		It("should suggest authority keyword at top level", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -479,7 +475,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "authority")).To(BeTrue())
 		})
 
-		It("should suggest channels inside authority block", func() {
+		It("should suggest channels inside authority block", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -493,7 +489,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue())
 		})
 
-		It("should not suggest non-channel symbols inside authority block", func() {
+		It("should not suggest non-channel symbols inside authority block", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -506,7 +502,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse())
 		})
 
-		It("should filter out already-listed channels", func() {
+		It("should filter out already-listed channels", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -520,7 +516,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue())
 		})
 
-		It("should filter by prefix inside authority block", func() {
+		It("should filter by prefix inside authority block", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -561,7 +557,7 @@ var _ = Describe("Completion", func() {
 			}
 		})
 
-		It("should suggest channels inside stage body", func() {
+		It("should suggest channels inside stage body", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -576,7 +572,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "press_pt")).To(BeTrue(), "Should suggest 'press_pt' channel inside stage")
 		})
 
-		It("should suggest channels with prefix filter inside stage body", func() {
+		It("should suggest channels with prefix filter inside stage body", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -590,7 +586,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeFalse(), "Should NOT suggest 'press_vlv_cmd' not matching prefix 'v'")
 		})
 
-		It("should suggest channels inside stage after flow statement", func() {
+		It("should suggest channels inside stage after flow statement", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
@@ -604,7 +600,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue(), "Should suggest 'press_vlv_cmd' channel")
 		})
 
-		It("should suggest channels with prefix after flow statement", func() {
+		It("should suggest channels with prefix after flow statement", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 

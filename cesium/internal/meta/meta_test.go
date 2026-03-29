@@ -30,20 +30,18 @@ import (
 var _ = Describe("Meta", func() {
 	for fsName, makeFS := range FileSystems {
 		var (
-			ctx     context.Context
 			fs      fs.FS
 			cleanUp func() error
 			codec   binary.Codec
 		)
 		BeforeEach(func() {
-			ctx = context.Background()
 			fs, cleanUp = makeFS()
 			codec = &binary.JSONCodec{}
 		})
 		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, func() {
 			Describe("Corrupted Meta file", func() {
-				Specify("Corrupted meta.json", func() {
+				Specify("Corrupted meta.json", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 					ch := MustSucceed(meta.Open(
@@ -72,7 +70,7 @@ var _ = Describe("Meta", func() {
 			})
 
 			Describe("Impossible meta configurations", func() {
-				DescribeTable("meta configs", func(ch channel.Channel, badField string) {
+				DescribeTable("meta configs", func(ctx SpecContext, ch channel.Channel, badField string) {
 					key := GenerateChannelKey()
 					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 					createdChannel := MustSucceed(
@@ -127,7 +125,7 @@ var _ = Describe("Meta", func() {
 				)
 			})
 
-			It("Should not delete the original file if an error occurs while encoding", func() {
+			It("Should not delete the original file if an error occurs while encoding", func(ctx SpecContext) {
 				key := GenerateChannelKey()
 				subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 				ch := MustSucceed(meta.Open(
