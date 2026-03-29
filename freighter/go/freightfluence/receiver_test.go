@@ -30,16 +30,14 @@ func (e *errReceiver) Receive() (int, error) { return 0, e.recvErr }
 
 var _ = Describe("Receiver", func() {
 	var (
-		ctx    context.Context
 		server freighter.StreamServer[int, int]
 		client freighter.StreamClient[int, int]
 	)
 	BeforeEach(func() {
-		ctx = context.Background()
 		server, client = mock.NewStreamPair[int, int]()
 	})
 	Describe("Receiver", func() {
-		It("Should operate correctly", func() {
+		It("Should operate correctly", func(ctx SpecContext) {
 			var receivedValues []int
 			receiverStream := confluence.NewStream[int](10)
 			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
@@ -61,7 +59,7 @@ var _ = Describe("Receiver", func() {
 			By("Closing the receive server on exit")
 			Eventually(receiverStream.Outlet()).Should(BeClosed())
 		})
-		It("Should exit the receiver on context cancellation", func() {
+		It("Should exit the receiver on context cancellation", func(ctx SpecContext) {
 			receiverStream := confluence.NewStream[int](10)
 			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
@@ -72,8 +70,8 @@ var _ = Describe("Receiver", func() {
 				By("Receiving values from the input server")
 				return sCtx.Wait()
 			})
-			ctx, cancel := context.WithCancel(ctx)
-			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
+			cancelCtx, cancel := context.WithCancel(ctx)
+			stream := MustSucceed(client.Stream(cancelCtx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			By("Closing the network pipe")
 			v := <-receiverStream.Outlet()
@@ -85,7 +83,7 @@ var _ = Describe("Receiver", func() {
 		})
 	})
 	Describe("Stream Closure", func() {
-		It("Should not treat ErrStreamClosed as a routine failure", func() {
+		It("Should not treat ErrStreamClosed as a routine failure", func(ctx SpecContext) {
 			sCtx, cancel := signal.WithCancel(ctx)
 			defer cancel()
 			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
@@ -96,7 +94,7 @@ var _ = Describe("Receiver", func() {
 			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 			Eventually(outputStream.Outlet()).Should(BeClosed())
 		})
-		It("Should not treat TransformReceiver ErrStreamClosed as a routine failure", func() {
+		It("Should not treat TransformReceiver ErrStreamClosed as a routine failure", func(ctx SpecContext) {
 			sCtx, cancel := signal.WithCancel(ctx)
 			defer cancel()
 			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
@@ -112,7 +110,7 @@ var _ = Describe("Receiver", func() {
 		})
 	})
 	Describe("TransformReceiver", func() {
-		It("It should transform values before sending them through the channel", func() {
+		It("It should transform values before sending them through the channel", func(ctx SpecContext) {
 			var receivedValues []int
 			receiverStream := confluence.NewStream[int](10)
 			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {

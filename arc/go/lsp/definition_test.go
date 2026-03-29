@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -26,19 +24,17 @@ import (
 var _ = Describe("Definition", func() {
 	var (
 		server *lsp.Server
-		ctx    context.Context
 		uri    protocol.DocumentURI
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		server = MustSucceed(lsp.New())
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
 	Describe("Function Definitions", func() {
-		It("should jump to function definition from call site", func() {
+		It("should jump to function definition from call site", func(ctx SpecContext) {
 			content := `func add(x i32, y i32) i32 {
     return x + y
 }
@@ -57,7 +53,7 @@ func main() {
 			// Column should be at "func" keyword or function name
 		})
 
-		It("should jump to function definition when hovering over declaration", func() {
+		It("should jump to function definition when hovering over declaration", func(ctx SpecContext) {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
@@ -73,7 +69,7 @@ func main() {
 	})
 
 	Describe("Stage Definitions", func() {
-		It("should jump to stage definition", func() {
+		It("should jump to stage definition", func(ctx SpecContext) {
 			content := `func max{} (value f32) f32 {
     max_val $= value
     if (value > max_val) {
@@ -93,7 +89,7 @@ func main() {
 	})
 
 	Describe("Variable Definitions", func() {
-		It("should jump to variable declaration from usage", func() {
+		It("should jump to variable declaration from usage", func(ctx SpecContext) {
 			content := `func test() {
     x i32 := 42
     y := x + 10
@@ -108,7 +104,7 @@ func main() {
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: x i32 := 42
 		})
 
-		It("should jump to stateful variable declaration", func() {
+		It("should jump to stateful variable declaration", func(ctx SpecContext) {
 			content := `func counter{} () u32 {
     count u32 $= 0
     count = count + 1
@@ -126,7 +122,7 @@ func main() {
 	})
 
 	Describe("Parameter Definitions", func() {
-		It("should jump to parameter declaration from function body", func() {
+		It("should jump to parameter declaration from function body", func(ctx SpecContext) {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
@@ -142,7 +138,7 @@ func main() {
 	})
 
 	Describe("Edge Cases", func() {
-		It("should return nil for keywords", func() {
+		It("should return nil for keywords", func(ctx SpecContext) {
 			content := `func test() {
     return 42
 }`
@@ -153,7 +149,7 @@ func main() {
 			Expect(locations).To(BeNil())
 		})
 
-		It("should return nil for undefined symbols", func() {
+		It("should return nil for undefined symbols", func(ctx SpecContext) {
 			content := `func test() {
     x := undefined_symbol
 }`
@@ -164,12 +160,12 @@ func main() {
 			Expect(locations).To(BeNil())
 		})
 
-		It("should return nil when document not found", func() {
+		It("should return nil when document not found", func(ctx SpecContext) {
 			locations := Definition(server, ctx, "file:///nonexistent.arc", 0, 0)
 			Expect(locations).To(BeNil())
 		})
 
-		It("should return nil for empty word", func() {
+		It("should return nil for empty word", func(ctx SpecContext) {
 			content := `func test() {
 
 }`
@@ -182,7 +178,7 @@ func main() {
 	})
 
 	Describe("GlobalResolver", func() {
-		It("should return nil for global variables from GlobalResolver (no AST)", func() {
+		It("should return nil for global variables from GlobalResolver (no AST)", func(ctx SpecContext) {
 			// Create a mock GlobalResolver with a global variable
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{

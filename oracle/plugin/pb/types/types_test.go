@@ -10,7 +10,6 @@
 package types_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -99,13 +98,11 @@ var _ = Describe("PbImportResolver", func() {
 
 var _ = Describe("Plugin", func() {
 	var (
-		ctx    context.Context
 		loader *MockFileLoader
 		p      *types.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		p = types.New(types.DefaultOptions())
 	})
@@ -137,7 +134,7 @@ var _ = Describe("Plugin", func() {
 	Describe("Generate", func() {
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct proto type",
-				func(oracleType, expectedProtoType string) {
+				func(ctx SpecContext, oracleType, expectedProtoType string) {
 					source := `
 						@go output "core/pkg/api/grpc/v1"
 						@pb
@@ -160,7 +157,7 @@ var _ = Describe("Plugin", func() {
 				Entry("bytes", "bytes", "bytes"),
 			)
 
-			It("Should map uuid to string", func() {
+			It("Should map uuid to string", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -173,7 +170,7 @@ var _ = Describe("Plugin", func() {
 				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
 
-			It("Should map record to google.protobuf.Struct", func() {
+			It("Should map record to google.protobuf.Struct", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -470,7 +467,7 @@ var _ = Describe("Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @pb omit directive", func() {
+			It("Should skip types with @pb omit directive", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -491,7 +488,7 @@ var _ = Describe("Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @pb omit directive", func() {
+			It("Should skip enums with @pb omit directive", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
@@ -668,7 +665,7 @@ var _ = Describe("Plugin", func() {
 		})
 
 		Context("@pb name override", func() {
-			It("Should use @pb name for struct if specified", func() {
+			It("Should use @pb name for struct if specified", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb name "MyProtoMessage"
@@ -861,7 +858,7 @@ var _ = Describe("Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate proto comments from doc domain", func() {
+			It("Should generate proto comments from doc domain", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb

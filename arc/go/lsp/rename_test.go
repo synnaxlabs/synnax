@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -26,19 +24,17 @@ import (
 var _ = Describe("Rename", func() {
 	var (
 		server *lsp.Server
-		ctx    context.Context
 		uri    protocol.DocumentURI
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		server = MustSucceed(lsp.New())
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
 	Describe("PrepareRename", func() {
-		It("should return range for renameable variable", func() {
+		It("should return range for renameable variable", func(ctx SpecContext) {
 			content := `func test() {
     x i32 := 42
     y := x + 10
@@ -56,7 +52,7 @@ var _ = Describe("Rename", func() {
 			Expect(result.Start.Character).To(Equal(uint32(4)))
 		})
 
-		It("should return nil for keywords", func() {
+		It("should return nil for keywords", func(ctx SpecContext) {
 			content := `func test() {
     return 42
 }`
@@ -71,7 +67,7 @@ var _ = Describe("Rename", func() {
 			Expect(result).To(BeNil())
 		})
 
-		It("should return nil for global/builtin symbols", func() {
+		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{
 					Name: "myGlobal",
@@ -95,7 +91,7 @@ var _ = Describe("Rename", func() {
 			Expect(result).To(BeNil())
 		})
 
-		It("should return nil when document not found", func() {
+		It("should return nil when document not found", func(ctx SpecContext) {
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
@@ -107,7 +103,7 @@ var _ = Describe("Rename", func() {
 	})
 
 	Describe("Rename", func() {
-		It("should rename variable with multiple references", func() {
+		It("should rename variable with multiple references", func(ctx SpecContext) {
 			content := `func test() {
     x i32 := 42
     y := x + 10
@@ -131,7 +127,7 @@ var _ = Describe("Rename", func() {
 			}
 		})
 
-		It("should rename function parameter", func() {
+		It("should rename function parameter", func(ctx SpecContext) {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
@@ -154,7 +150,7 @@ var _ = Describe("Rename", func() {
 			}
 		})
 
-		It("should not rename variables across different functions", func() {
+		It("should not rename variables across different functions", func(ctx SpecContext) {
 			content := `func first() {
     x := 10
     y := x + 1
@@ -187,7 +183,7 @@ func second() {
 			}
 		})
 
-		It("should rename stateful variable", func() {
+		It("should rename stateful variable", func(ctx SpecContext) {
 			content := `func counter{} () u32 {
     count u32 $= 0
     count = count + 1
@@ -212,7 +208,7 @@ func second() {
 			}
 		})
 
-		It("should rename function", func() {
+		It("should rename function", func(ctx SpecContext) {
 			content := `func add(x i32, y i32) i32 {
     return x + y
 }
@@ -238,7 +234,7 @@ func main() {
 			}
 		})
 
-		It("should return nil for global/builtin symbols", func() {
+		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{
 					Name: "myGlobal",
@@ -263,7 +259,7 @@ func main() {
 			Expect(result).To(BeNil())
 		})
 
-		It("should return nil when document not found", func() {
+		It("should return nil when document not found", func(ctx SpecContext) {
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
@@ -274,7 +270,7 @@ func main() {
 			Expect(result).To(BeNil())
 		})
 
-		It("should return nil for empty word", func() {
+		It("should return nil for empty word", func(ctx SpecContext) {
 			content := `func test() {
 
 }`

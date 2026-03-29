@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
-	It("Should retrieve a Log", func() {
+	It("Should retrieve a Log", func(ctx SpecContext) {
 		l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 		var res log.Log

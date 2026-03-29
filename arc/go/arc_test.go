@@ -25,7 +25,7 @@ import (
 )
 
 var _ = Describe("Arc", func() {
-	compile := func(code string, resolver arc.SymbolResolver) arc.Program {
+	compile := func(ctx SpecContext, code string, resolver arc.SymbolResolver) arc.Program {
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
 		return MustSucceed(arc.CompileText(ctx, t, arc.WithResolver(resolver)))
@@ -41,8 +41,8 @@ var _ = Describe("Arc", func() {
 		return ir.Node{}
 	}
 
-	It("Should compile a basic calculated channel", func() {
-		mod := compile(
+	It("Should compile a basic calculated channel", func(ctx SpecContext) {
+		mod := compile(ctx,
 			`func calc(val f32) f32 {
     			return val * 2
 			}
@@ -108,8 +108,8 @@ var _ = Describe("Arc", func() {
 		Expect(mod.Strata[2]).To(ContainElement(writeNode.Key))
 	})
 
-	It("Should compile a one-stage sequence", func() {
-		mod := compile(
+	It("Should compile a one-stage sequence", func(ctx SpecContext) {
+		mod := compile(ctx,
 			`sequence seg {
 				stage init {
 					1 -> output
@@ -154,8 +154,8 @@ var _ = Describe("Arc", func() {
 		Expect(initStage.Strata[1]).To(ContainElement(writeNode.Key))
 	})
 
-	It("Should compile a three stage sequence", func() {
-		mod := compile(`
+	It("Should compile a three stage sequence", func(ctx SpecContext) {
+		mod := compile(ctx, `
 start_seq_cmd => main
 
 sequence main {
@@ -217,8 +217,8 @@ sequence main {
 		Expect(continuousEdges).ToNot(BeEmpty())
 	})
 
-	It("Should correctly generate strata for a loop", func() {
-		mod := compile(`
+	It("Should correctly generate strata for a loop", func(ctx SpecContext) {
+		mod := compile(ctx, `
 		start_seq_cmd => main
 
 		func expr(in f32) u8 {
@@ -292,8 +292,8 @@ sequence main {
 		Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
 	})
 
-	It("Should correctly compile a node with a unit literal", func() {
-		mod := compile(`
+	It("Should correctly compile a node with a unit literal", func(ctx SpecContext) {
+		mod := compile(ctx, `
 			sequence main {
 				stage initial {
 					wait{duration=5s} => next
@@ -305,7 +305,7 @@ sequence main {
 		Expect(mod.Nodes).To(HaveLen(3))
 	})
 
-	It("Should generate typed state imports for stateful variables", func() {
+	It("Should generate typed state imports for stateful variables", func(ctx SpecContext) {
 		// Regression test: stateful variables must produce typed WASM imports
 		// like "state::load_i64", not bare "state::load". This mirrors the
 		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
@@ -331,7 +331,7 @@ sequence main {
 		}
 		fullResolver := symbol.CompoundResolver{stl.SymbolResolver, channelResolver}
 
-		mod := compile(`
+		mod := compile(ctx, `
 func counter(trigger i64) i64 {
     count i64 $= 0
     count = count + 1

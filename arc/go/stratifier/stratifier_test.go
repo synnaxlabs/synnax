@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("Stratification", func() {
 	Describe("Basic Linear Flows", func() {
-		It("Should assign stratum 0 to channel sources", func() {
+		It("Should assign stratum 0 to channel sources", func(ctx SpecContext) {
 			var (
 				nodes  = []ir.Node{{Key: "source", Type: "on"}}
 				edges  []ir.Edge
@@ -31,7 +31,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("source")).To(Equal(0))
 		})
 
-		It("Should assign stratum 0 to constant nodes", func() {
+		It("Should assign stratum 0 to constant nodes", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "const1", Type: "constant"},
@@ -46,7 +46,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("const2")).To(Equal(0))
 		})
 
-		It("Should create simple linear stratification: channel -> process", func() {
+		It("Should create simple linear stratification: channel -> process", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "sensor", Type: "on"},
@@ -66,7 +66,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("process")).To(Equal(1))
 		})
 
-		It("Should create three-level stratification: channel -> process1 -> process2", func() {
+		It("Should create three-level stratification: channel -> process1 -> process2", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "sensor", Type: "on"},
@@ -92,7 +92,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("logger")).To(Equal(2))
 		})
 
-		It("Should handle long chains correctly", func() {
+		It("Should handle long chains correctly", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "source", Type: "on"},
@@ -138,7 +138,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Diamond Dependencies", func() {
-		It("Should handle diamond pattern correctly", func() {
+		It("Should handle diamond pattern correctly", func(ctx SpecContext) {
 			// Pattern:
 			//     source (0)
 			//     /    \
@@ -180,7 +180,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("sink")).To(Equal(2))
 		})
 
-		It("Should handle asymmetric diamond (different path lengths)", func() {
+		It("Should handle asymmetric diamond (different path lengths)", func(ctx SpecContext) {
 			// Pattern:
 			//       source (0)
 			//       /    \
@@ -229,7 +229,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("sink")).To(Equal(3))
 		})
 
-		It("Should handle multiple diamonds in series", func() {
+		It("Should handle multiple diamonds in series", func(ctx SpecContext) {
 			// Pattern:
 			//   source -> diamond1 -> diamond2 -> sink
 			var (
@@ -293,7 +293,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Independent Parallel Flows", func() {
-		It("Should handle two independent linear flows", func() {
+		It("Should handle two independent linear flows", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "sensor1", Type: "on"},
@@ -323,7 +323,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("process2")).To(Equal(1))
 		})
 
-		It("Should handle multiple independent chains of different lengths", func() {
+		It("Should handle multiple independent chains of different lengths", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					// Short chain
@@ -370,7 +370,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("long_sink")).To(Equal(3))
 		})
 
-		It("Should handle fan-out from single source to multiple sinks", func() {
+		It("Should handle fan-out from single source to multiple sinks", func(ctx SpecContext) {
 			// Pattern:
 			//          source (0)
 			//        /   |   \
@@ -407,7 +407,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("sink3")).To(Equal(1))
 		})
 
-		It("Should handle fan-in from multiple sources to single sink", func() {
+		It("Should handle fan-in from multiple sources to single sink", func(ctx SpecContext) {
 			// Pattern:
 			//   source1 (0)    source2 (0)    source3 (0)
 			//        \          |          /
@@ -445,7 +445,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Cycle Detection", func() {
-		It("Should detect simple two-node cycle", func() {
+		It("Should detect simple two-node cycle", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "node1", Type: "process"},
@@ -473,7 +473,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata).To(BeEmpty())
 		})
 
-		It("Should detect self-loop", func() {
+		It("Should detect self-loop", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{{Key: "looper", Type: "process"}}
 				edges = []ir.Edge{
@@ -494,7 +494,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata).To(BeEmpty())
 		})
 
-		It("Should detect three-node cycle", func() {
+		It("Should detect three-node cycle", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "a", Type: "process"},
@@ -532,7 +532,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata).To(BeEmpty())
 		})
 
-		It("Should detect cycle in complex graph with valid paths", func() {
+		It("Should detect cycle in complex graph with valid paths", func(ctx SpecContext) {
 			// Valid path: source -> valid_chain -> sink
 			// Cycle: cycleA -> cycleB -> cycleC -> cycleA
 			var (
@@ -580,7 +580,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata).To(BeEmpty())
 		})
 
-		It("Should not falsely detect cycles in diamond patterns", func() {
+		It("Should not falsely detect cycles in diamond patterns", func(ctx SpecContext) {
 			var (
 				// Diamond is NOT a cycle - both paths converge at sink
 				nodes = []ir.Node{
@@ -615,7 +615,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Edge Cases", func() {
-		It("Should handle empty graph", func() {
+		It("Should handle empty graph", func(ctx SpecContext) {
 			var (
 				nodes  []ir.Node
 				edges  []ir.Edge
@@ -625,7 +625,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.NodeCount()).To(Equal(0))
 		})
 
-		It("Should handle single isolated node", func() {
+		It("Should handle single isolated node", func(ctx SpecContext) {
 			var (
 				nodes  = []ir.Node{{Key: "isolated", Type: "constant"}}
 				edges  []ir.Edge
@@ -636,7 +636,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("isolated")).To(Equal(0))
 		})
 
-		It("Should handle multiple isolated nodes", func() {
+		It("Should handle multiple isolated nodes", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "island1", Type: "constant"},
@@ -653,7 +653,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("island3")).To(Equal(0))
 		})
 
-		It("Should handle node with only outgoing edges", func() {
+		It("Should handle node with only outgoing edges", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "broadcaster", Type: "on"},
@@ -678,7 +678,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("listener2")).To(Equal(1))
 		})
 
-		It("Should handle node with only incoming edges", func() {
+		It("Should handle node with only incoming edges", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "source1", Type: "on"},
@@ -703,7 +703,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("aggregator")).To(Equal(1))
 		})
 
-		It("Should handle non-source nodes without incoming edges as stratum 0", func() {
+		It("Should handle non-source nodes without incoming edges as stratum 0", func(ctx SpecContext) {
 			// A non-source node (not 'on' or 'constant') with no incoming edges
 			// should still be assigned stratum 0 (it's a root in the subgraph)
 			var (
@@ -726,7 +726,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Complex Real-World Scenarios", func() {
-		It("Should stratify a typical sensor processing pipeline", func() {
+		It("Should stratify a typical sensor processing pipeline", func(ctx SpecContext) {
 			// Realistic pattern:
 			// - Multiple sensors (channels)
 			// - Preprocessing stages
@@ -822,7 +822,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("valve_cmd")).To(Equal(4))
 		})
 
-		It("Should stratify a multi-func alarm system with priorities", func() {
+		It("Should stratify a multi-func alarm system with priorities", func(ctx SpecContext) {
 			// Pattern: Multiple alarm conditions with different priorities merging
 			var (
 				nodes = []ir.Node{
@@ -905,7 +905,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Per-Stage Stratification (Two-Tier Model)", func() {
-		It("Should not detect cycles in cyclic state machines", func() {
+		It("Should not detect cycles in cyclic state machines", func(ctx SpecContext) {
 			// This is a valid state machine where stages transition to each other
 			// stage first -> second, stage second -> first
 			// This should NOT produce a cycle error because stages are stratified independently
@@ -952,7 +952,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.NodeCount()).To(BeNumerically(">", 0))
 		})
 
-		It("Should populate per-stage strata independently", func() {
+		It("Should populate per-stage strata independently", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "global_source", Type: "on"},
@@ -992,7 +992,7 @@ var _ = Describe("Stratification", func() {
 			Expect(sequences[0].Stages[0].Strata.Get("stage_process")).To(Equal(1))
 		})
 
-		It("Should preserve statement order when stage entry and later writes share a stratum", func() {
+		It("Should preserve statement order when stage entry and later writes share a stratum", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "entry_main_on", Type: "entry"},
@@ -1044,7 +1044,7 @@ var _ = Describe("Stratification", func() {
 			Expect(sequences[0].Stages[0].Strata[2]).To(Equal([]string{"entry_main_off", "write_cmd"}))
 		})
 
-		It("Should preserve relative order across multiple transition targets and writes", func() {
+		It("Should preserve relative order across multiple transition targets and writes", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "entry_main_off", Type: "entry"},
@@ -1127,7 +1127,7 @@ var _ = Describe("Stratification", func() {
 			))
 		})
 
-		It("Should preserve edge order when one source transitions to multiple stages", func() {
+		It("Should preserve edge order when one source transitions to multiple stages", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "entry_main_off", Type: "entry"},
@@ -1172,7 +1172,7 @@ var _ = Describe("Stratification", func() {
 			))
 		})
 
-		It("Should flatten entry nodes at different natural strata to the deepest entry stratum", func() {
+		It("Should flatten entry nodes at different natural strata to the deepest entry stratum", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "entry_main_off", Type: "entry"},
@@ -1240,7 +1240,7 @@ var _ = Describe("Stratification", func() {
 			))
 		})
 
-		It("Should stratify multiple stages independently", func() {
+		It("Should stratify multiple stages independently", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "global_src", Type: "on"},
@@ -1310,7 +1310,7 @@ var _ = Describe("Stratification", func() {
 	})
 
 	Describe("Multiple Output Parameters", func() {
-		It("Should handle nodes with multiple named outputs", func() {
+		It("Should handle nodes with multiple named outputs", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "source", Type: "on"},
@@ -1341,7 +1341,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("low_sink")).To(Equal(2))
 		})
 
-		It("Should handle conditional routing through different outputs", func() {
+		It("Should handle conditional routing through different outputs", func(ctx SpecContext) {
 			var (
 				nodes = []ir.Node{
 					{Key: "input", Type: "on"},

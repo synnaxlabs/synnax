@@ -24,14 +24,14 @@ import (
 )
 
 var _ = Describe("NewResolver", func() {
-	It("Should resolve an STL symbol", func() {
+	It("Should resolve an STL symbol", func(ctx SpecContext) {
 		resolver := symbol.NewResolver(dist.Channel, nil)
 		sym := MustSucceed(resolver.Resolve(ctx, "set_status"))
 		Expect(sym.Name).To(Equal("set_status"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindFunction))
 	})
 
-	It("Should resolve a channel by name", func() {
+	It("Should resolve a channel by name", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_test_ch",
 			Virtual:  true,
@@ -47,7 +47,7 @@ var _ = Describe("NewResolver", func() {
 		Expect(sym.ID).To(Equal(int(ch.Key())))
 	})
 
-	It("Should resolve a channel by numeric key", func() {
+	It("Should resolve a channel by numeric key", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_key_test_ch",
 			Virtual:  true,
@@ -62,7 +62,7 @@ var _ = Describe("NewResolver", func() {
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))
 	})
 
-	It("Should return an error for a nonexistent symbol", func() {
+	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
 		resolver := symbol.NewResolver(dist.Channel, nil)
 		_, err := resolver.Resolve(ctx, "does_not_exist_anywhere")
 		Expect(err).To(MatchError(query.ErrNotFound))

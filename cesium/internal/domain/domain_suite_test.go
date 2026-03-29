@@ -10,7 +10,6 @@
 package domain_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,7 +18,6 @@ import (
 )
 
 var (
-	ctx         = context.Background()
 	fileSystems = testutil.FileSystems
 )
 
