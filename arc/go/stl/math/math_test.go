@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Math", func() {
 	var (
-		rt  *testutil.Runtime
+		rt *testutil.Runtime
 	)
 
 	BeforeEach(func(ctx SpecContext) {

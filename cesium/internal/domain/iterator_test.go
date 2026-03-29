@@ -53,7 +53,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 				})
 				DescribeTable("SeekFirst",
-					func(ctx SpecContext, 
+					func(ctx SpecContext,
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedFirst telem.TimeRange,
@@ -95,7 +95,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					),
 				)
 				DescribeTable("SeekLast",
-					func(ctx SpecContext, 
+					func(ctx SpecContext,
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedLast telem.TimeRange,
@@ -135,7 +135,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 
 				DescribeTable("SeekGE",
-					func(ctx SpecContext, 
+					func(ctx SpecContext,
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedRange telem.TimeRange,
@@ -180,7 +180,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 
 				DescribeTable("SeekLE",
-					func(ctx SpecContext, 
+					func(ctx SpecContext,
 						ts telem.TimeStamp,
 						expectedResult bool,
 						expectedRange telem.TimeRange,

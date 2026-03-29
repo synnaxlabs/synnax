@@ -49,7 +49,7 @@ var _ = Describe("Domain", func() {
 						)).To(Succeed())
 					})
 					DescribeTable("Continuous",
-						func(ctx SpecContext, 
+						func(ctx SpecContext,
 							tr telem.TimeRange,
 							expected index.Approximation[int64],
 							expectedErr error,
@@ -157,7 +157,7 @@ var _ = Describe("Domain", func() {
 						)).To(Succeed())
 					})
 					DescribeTable("Discontinuous",
-						func(ctx SpecContext, 
+						func(ctx SpecContext,
 							tr telem.TimeRange,
 							expected index.Approximation[int64],
 							align telem.Alignment,
@@ -296,7 +296,7 @@ var _ = Describe("Domain", func() {
 					AfterEach(func() {
 						Expect(db2.Close()).To(Succeed())
 					})
-					DescribeTable("effectively continuous", func(ctx SpecContext, 
+					DescribeTable("effectively continuous", func(ctx SpecContext,
 						tr telem.TimeRange,
 						expected index.Approximation[int64],
 						db telem.Alignment,
@@ -350,7 +350,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Continuous", func(ctx SpecContext, 
+						DescribeTable("Continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -445,7 +445,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(40, 41, 45).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Quasi-continuous", func(ctx SpecContext, 
+						DescribeTable("Quasi-continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -604,7 +604,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
 							))
 						})
-						DescribeTable("Discontinuous", func(ctx SpecContext, 
+						DescribeTable("Discontinuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -662,7 +662,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Continuous", func(ctx SpecContext, 
+						DescribeTable("Continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -739,7 +739,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(40, 41, 45).Data,
 							)).To(Succeed())
 						})
-						DescribeTable("Quasi-continuous", func(ctx SpecContext, 
+						DescribeTable("Quasi-continuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,
@@ -867,7 +867,7 @@ var _ = Describe("Domain", func() {
 								telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
 							))
 						})
-						DescribeTable("Discontinuous", func(ctx SpecContext, 
+						DescribeTable("Discontinuous", func(ctx SpecContext,
 							start telem.TimeStamp,
 							distance int,
 							expected index.TimeStampApproximation,

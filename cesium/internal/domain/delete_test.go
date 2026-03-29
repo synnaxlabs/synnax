@@ -150,7 +150,7 @@ var _ = Describe("Delete", Ordered, func() {
 					StartOffset     int64
 					EndOffset       int64
 				}
-				DescribeTable("Basic, continuous deletion of time range", func(ctx SpecContext, 
+				DescribeTable("Basic, continuous deletion of time range", func(ctx SpecContext,
 					cfg MultiPointerSpec,
 				) {
 					Expect(db.Delete(
