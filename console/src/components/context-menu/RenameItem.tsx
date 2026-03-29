@@ -10,9 +10,11 @@
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export const CopyMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="link" size="small">
-    <Icon.Link />
-    Copy link
+export interface RenameItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
+
+export const RenameItem = (props: RenameItemProps): ReactElement => (
+  <Menu.Item itemKey="rename" {...props}>
+    <Icon.Rename />
+    Rename
   </Menu.Item>
 );

@@ -8,9 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import { Flex, type Flux, Icon, Input, List as PList, Select } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import {
+  Flex,
+  type Flux,
+  Icon,
+  Input,
+  List as PList,
+  Menu,
+  Select,
+} from "@synnaxlabs/pluto";
+import { useCallback, useState } from "react";
 
+import { ContextMenu } from "@/arc/ContextMenu";
 import { Item, type ItemProps } from "@/arc/list/Item";
 
 export interface ListProps
@@ -34,39 +43,48 @@ export const List = ({
   const { fetchMore, search } = PList.usePager({ retrieve });
   const [value, setValue] = useState<arc.Key[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const menuProps = Menu.useContextMenu();
+
+  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
+    (props) => <ContextMenu {...props} getItem={getItem} />,
+    [getItem],
+  );
+
   return (
-    <Select.Frame<arc.Key, arc.Arc>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onChange={setValue}
-      value={value}
-      onFetchMore={fetchMore}
-    >
-      {enableSearch && (
-        <Flex.Box x bordered style={{ padding: "2rem" }} background={1}>
-          <Input.Text
-            size="large"
-            level="h4"
-            variant="text"
-            value={searchTerm}
-            placeholder={
-              <>
-                <Icon.Search />
-                Search Arcs...
-              </>
-            }
-            onChange={(value) => {
-              setSearchTerm(value);
-              search(value);
-            }}
-          />
-        </Flex.Box>
-      )}
-      <PList.Items<arc.Key>>
-        {({ key, ...rest }) => <Item key={key} {...rest} showStatus={showStatus} />}
-      </PList.Items>
-    </Select.Frame>
+    <Menu.ContextMenu menu={contextMenu} {...menuProps}>
+      <Select.Frame<arc.Key, arc.Arc>
+        multiple
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onChange={setValue}
+        value={value}
+        onFetchMore={fetchMore}
+      >
+        {enableSearch && (
+          <Flex.Box x bordered style={{ padding: "2rem" }} background={1}>
+            <Input.Text
+              size="large"
+              level="h4"
+              variant="text"
+              value={searchTerm}
+              placeholder={
+                <>
+                  <Icon.Search />
+                  Search Arcs...
+                </>
+              }
+              onChange={(value) => {
+                setSearchTerm(value);
+                search(value);
+              }}
+            />
+          </Flex.Box>
+        )}
+        <PList.Items<arc.Key> onContextMenu={menuProps.open}>
+          {({ key, ...rest }) => <Item key={key} {...rest} showStatus={showStatus} />}
+        </PList.Items>
+      </Select.Frame>
+    </Menu.ContextMenu>
   );
 };

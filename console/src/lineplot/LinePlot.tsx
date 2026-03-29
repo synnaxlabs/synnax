@@ -15,7 +15,7 @@ import {
   Channel,
   Icon,
   LinePlot as Base,
-  Menu as PMenu,
+  Menu,
   Ranger,
   Status,
   Synnax,
@@ -47,7 +47,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
@@ -138,20 +138,20 @@ const RangeAnnotationContextMenu = ({
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
   };
   return (
-    <PMenu.Menu level="small">
-      <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+    <ContextMenu.Menu>
+      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
         <Icon.CSV />
         Download as CSV
-      </PMenu.Item>
-      <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
+      </Menu.Item>
+      <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
         Open in new plot
-      </PMenu.Item>
-      <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
+      </Menu.Item>
+      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
         <Icon.Annotate />
         View details
-      </PMenu.Item>
-    </PMenu.Menu>
+      </Menu.Item>
+    </ContextMenu.Menu>
   );
 };
 
@@ -361,10 +361,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [dispatch, layoutKey],
   );
 
-  const props = PMenu.useContextMenu();
+  const props = Menu.useContextMenu();
   const linePlotRef = useRef<Base.LinePlotRef | null>(null);
 
-  interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
+  interface ContextMenuContentProps extends Menu.ContextMenuMenuProps {
     layoutKey: string;
   }
 
@@ -382,7 +382,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
     const downloadAsCSV = useDownloadAsCSV();
 
-    const handleSelect = (key: string): void => {
+    const createHandler = (key: string) => () => {
       handleError(async () => {
         const tr = await getTimeRange();
         if (tr == null) return;
@@ -414,31 +414,31 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     };
 
     return (
-      <PMenu.Menu onChange={handleSelect} gap="small" level="small">
+      <ContextMenu.Menu>
         {!box.areaIsZero(selection) && (
           <>
-            <PMenu.Item itemKey="iso">
+            <Menu.Item itemKey="iso" onClick={createHandler("iso")}>
               <Icon.Range /> Copy ISO time range
-            </PMenu.Item>
-            <PMenu.Item itemKey="python">
+            </Menu.Item>
+            <Menu.Item itemKey="python" onClick={createHandler("python")}>
               <Icon.Python /> Copy Python time range
-            </PMenu.Item>
-            <PMenu.Item itemKey="typescript">
+            </Menu.Item>
+            <Menu.Item itemKey="typescript" onClick={createHandler("typescript")}>
               <Icon.TypeScript /> Copy TypeScript time range
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="range">
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item itemKey="range" onClick={createHandler("range")}>
               <Ranger.CreateIcon /> Create range from selection
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="download">
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item itemKey="download" onClick={createHandler("download")}>
               <Icon.CSV /> Download region as CSV
-            </PMenu.Item>
-            <PMenu.Divider />
+            </Menu.Item>
+            <Menu.Divider />
           </>
         )}
-        <Menu.ReloadConsoleItem />
-      </PMenu.Menu>
+        <ContextMenu.ReloadConsoleItem />
+      </ContextMenu.Menu>
     );
   };
 
@@ -451,7 +451,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       style={{ height: "100%", width: "100%", padding: "2rem" }}
       className={props.className}
     >
-      <PMenu.ContextMenu
+      <Menu.ContextMenu
         {...props}
         menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
@@ -493,7 +493,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         >
           {!focused && <Controls layoutKey={layoutKey} />}
         </Channel.LinePlot>
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
       {focused && <Controls layoutKey={layoutKey} />}
     </div>
   );

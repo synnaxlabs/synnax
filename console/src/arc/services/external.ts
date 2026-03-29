@@ -12,6 +12,7 @@ import { TYPE } from "@/arc/types";
 import { type Import } from "@/import";
 
 export * from "@/arc/import";
+export * from "@/arc/services/link";
 export * from "@/arc/services/ontology";
 export * from "@/arc/services/palette";
 

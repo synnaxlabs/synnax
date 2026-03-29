@@ -18,7 +18,6 @@ import {
   Flex,
   Haul,
   Icon,
-  Menu as PMenu,
   Schematic as Base,
   Theming,
   usePrevious,
@@ -37,7 +36,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls } from "@/components";
+import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -175,9 +174,9 @@ const SymbolRenderer = ({
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" gap="small">
+  <CContextMenu.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
+  </CContextMenu.Menu>
 );
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {

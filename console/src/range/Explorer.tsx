@@ -17,6 +17,7 @@ import { useCallback } from "react";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
 import { View } from "@/view";
 
@@ -32,6 +33,7 @@ export const EXPLORER_LAYOUT: Layout.State = {
 };
 
 const item = Component.renderProp(Item);
+const contextMenu = Component.renderProp(ContextMenu);
 
 export const Explorer: Layout.Renderer = () => (
   <View.Frame resourceType="range">
@@ -65,7 +67,7 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items>{item}</View.Items>
+      <View.Items contextMenu={contextMenu}>{item}</View.Items>
     </View.Form>
   );
 };

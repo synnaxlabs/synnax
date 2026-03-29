@@ -18,7 +18,7 @@ import {
   Haul,
   Icon,
   List as BaseList,
-  Menu as PMenu,
+  Menu,
   Ranger,
   Select,
   Tag,
@@ -80,7 +80,7 @@ const List = (): ReactElement => {
     },
   });
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
 
   return (
     <Select.Frame<string, StaticRange>
@@ -88,7 +88,7 @@ const List = (): ReactElement => {
       value={activeRange?.key}
       onChange={handleSelect}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
+      <Menu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
       <BaseList.Items
         full="y"
         emptyContent={<NoRanges />}

@@ -12,7 +12,7 @@ import {
   Icon,
   LinePlot as PLinePlot,
   Log as PLog,
-  Menu as PMenu,
+  Menu,
   Schematic as PSchematic,
   Synnax,
   Table as PTable,
@@ -23,7 +23,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Import } from "@/import";
@@ -198,62 +198,57 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
-  const handleSelect = {
-    delete: handleDelete,
-    rename: handleRename,
-    group: () => group(props),
-    createLog,
-    createPlot,
-    createTable,
-    createSchematic,
-    import: () => importComponent(firstID.key),
-    export: () => handleExport(first.id.key),
-    link: () => handleLink({ name: first.name, ontologyID: first.id }),
-  };
   const singleResource = resources.length === 1;
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" background={1} gap="small">
+    <ContextMenu.Menu>
       {singleResource && (
         <>
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={handleRename} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      <PMenu.Divider />
+      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={() => group(props)}
+      />
+      <Menu.Divider />
       {singleResource && (
         <>
-          <PMenu.Item itemKey="createPlot">
+          <Menu.Item itemKey="createPlot" onClick={createPlot}>
             <PLinePlot.CreateIcon />
             Create line plot
-          </PMenu.Item>
-          <PMenu.Item itemKey="createLog">
+          </Menu.Item>
+          <Menu.Item itemKey="createLog" onClick={createLog}>
             <PLog.CreateIcon />
             Create log
-          </PMenu.Item>
-          <PMenu.Item itemKey="createTable">
+          </Menu.Item>
+          <Menu.Item itemKey="createTable" onClick={createTable}>
             <PTable.CreateIcon />
             Create table
-          </PMenu.Item>
-          <PMenu.Item itemKey="createSchematic">
+          </Menu.Item>
+          <Menu.Item itemKey="createSchematic" onClick={createSchematic}>
             <PSchematic.CreateIcon />
             Create schematic
-          </PMenu.Item>
-          <PMenu.Divider />
-          <PMenu.Item itemKey="import">
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Item itemKey="import" onClick={() => importComponent(firstID.key)}>
             <Icon.Import />
             Import component(s)
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          </Menu.Item>
+          <Menu.Divider />
+          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

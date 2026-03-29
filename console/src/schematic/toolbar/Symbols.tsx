@@ -30,8 +30,9 @@ import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { EmptyAction } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
@@ -209,34 +210,20 @@ const RemoteSymbolListContextMenu = (
       }),
     );
   };
-  const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update(firstKey),
-    rename: () => {
-      if (item == null) return;
-      rename.update(item);
-    },
-    edit: handleEdit,
-    export: () => exportSymbol(firstKey),
-  };
   return (
-    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </Menu.Item>
-      <Menu.Item itemKey="rename">
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Item itemKey="edit">
+    <ContextMenu.Menu>
+      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <ContextMenu.RenameItem
+        onClick={() => {
+          if (item != null) rename.update(item);
+        }}
+      />
+      <Menu.Item itemKey="edit" onClick={handleEdit}>
         <Icon.Edit />
         Edit
       </Menu.Item>
-      <Menu.Item itemKey="export">
-        <Icon.Export />
-        Export
-      </Menu.Item>
-    </Menu.Menu>
+      <Export.ContextMenuItem onClick={() => exportSymbol(firstKey)} />
+    </ContextMenu.Menu>
   );
 };
 
@@ -462,36 +449,25 @@ const GroupListContextMenu = ({
     },
   });
 
-  const handleSelect: Menu.MenuProps["onChange"] = {
-    del: () => {
-      if (item == null) return;
-      deleteSymbolGroup(item);
-    },
-    rename: () => {
-      if (item == null) return;
-      rename.update(item);
-    },
-    export: () => {
-      if (item == null) return;
-      exportGroup(item);
-    },
-  };
   if (!isRemoteGroup) return null;
   return (
-    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="del">
-        <Icon.Delete />
-        Delete
-      </Menu.Item>
-      <Menu.Item itemKey="rename">
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Item itemKey="export">
-        <Icon.Export />
-        Export
-      </Menu.Item>
-    </Menu.Menu>
+    <ContextMenu.Menu>
+      <ContextMenu.DeleteItem
+        onClick={() => {
+          if (item != null) deleteSymbolGroup(item);
+        }}
+      />
+      <ContextMenu.RenameItem
+        onClick={() => {
+          if (item != null) rename.update(item);
+        }}
+      />
+      <Export.ContextMenuItem
+        onClick={() => {
+          if (item != null) exportGroup(item);
+        }}
+      />
+    </ContextMenu.Menu>
   );
 };
 

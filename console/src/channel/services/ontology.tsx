@@ -14,7 +14,7 @@ import {
   type Flux,
   type Haul,
   Icon,
-  Menu as PMenu,
+  Menu,
   type Schematic as PSchematic,
   Status,
   telem,
@@ -27,7 +27,7 @@ import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -216,30 +216,26 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
-  const handleSelect = {
-    group: () => groupFromSelection(props),
-    delete: handleDelete,
-    deleteAlias: handleDeleteAlias,
-    alias: handleSetAlias,
-    rename: handleRename,
-    link: () => handleLink({ name: first.name, ontologyID: first.id }),
-    openCalculated: () => openCalculated(props),
-  };
   const singleResource = resources.length === 1;
 
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
 
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {singleResource && canCreate && <Menu.RenameItem />}
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+    <ContextMenu.Menu>
+      {singleResource && canCreate && <ContextMenu.RenameItem onClick={handleRename} />}
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={() => groupFromSelection(props)}
+      />
       {isCalc && canCreate && (
         <>
-          <PMenu.Divider />
-          <PMenu.Item itemKey="openCalculated">
+          <Menu.Divider />
+          <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
             <Icon.Edit />
             Edit calculation
-          </PMenu.Item>
+          </Menu.Item>
         </>
       )}
       {activeRange != null &&
@@ -247,40 +243,39 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         (singleResource || showDeleteAlias) &&
         canCreate && (
           <>
-            <PMenu.Divider />
+            <Menu.Divider />
             {singleResource && (
-              <PMenu.Item itemKey="alias">
+              <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}
-              </PMenu.Item>
+              </Menu.Item>
             )}
             {showDeleteAlias && (
-              <PMenu.Item itemKey="deleteAlias">
+              <Menu.Item itemKey="deleteAlias" onClick={handleDeleteAlias}>
                 <Icon.Delete />
                 Remove alias under {activeRange.name}
-              </PMenu.Item>
+              </Menu.Item>
             )}
-            <PMenu.Divider />
+            <Menu.Divider />
           </>
         )}
       {canDelete && (
         <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <Menu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
         </>
       )}
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

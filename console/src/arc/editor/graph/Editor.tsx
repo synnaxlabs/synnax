@@ -15,7 +15,6 @@ import {
   Arc as Base,
   Diagram,
   Haul,
-  Menu as PMenu,
   Theming,
   useSyncedRef,
   Viewport,
@@ -47,7 +46,7 @@ import {
   setViewportMode,
   type State,
 } from "@/arc/slice";
-import { Controls as BaseControls } from "@/components";
+import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -100,9 +99,9 @@ const StageRenderer = ({
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" gap="small">
+  <CMenu.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
+  </CMenu.Menu>
 );
 
 export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {

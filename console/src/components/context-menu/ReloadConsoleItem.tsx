@@ -21,7 +21,7 @@ export const ReloadConsoleItem = (): ReactElement => {
     dispatch(reloadWindow({}));
   }, [dispatch]);
   return (
-    <Menu.Item onClick={handleClick} size="small" itemKey="hardReload">
+    <Menu.Item onClick={handleClick} itemKey="hardReload">
       <Icon.Refresh />
       Reload Console
     </Menu.Item>

@@ -15,6 +15,7 @@ import { useCallback } from "react";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
+import { contextMenu } from "@/status/list/ContextMenu";
 import { Item } from "@/status/list/Item";
 import { View } from "@/view";
 
@@ -61,7 +62,7 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items>{item}</View.Items>
+      <View.Items contextMenu={contextMenu}>{item}</View.Items>
     </View.Form>
   );
 };

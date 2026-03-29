@@ -12,7 +12,7 @@ import {
   Access,
   type Flux,
   Icon,
-  Menu as PMenu,
+  Menu,
   Mosaic,
   Schematic as Base,
   Status,
@@ -22,7 +22,7 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -139,42 +139,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const firstID = ids[0];
   const resources = getResource(ids);
   const first = resources[0];
-  const onSelect = {
-    delete: handleDelete,
-    copy: handleCopy,
-    rangeSnapshot: () => snapshot(props),
-    rename,
-    export: () => handleExport(first.id.key),
-    group: () => group(props),
-    link: () => handleLink({ name: first.name, ontologyID: firstID }),
-  };
   return (
-    <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {canDelete && <Menu.DeleteItem />}
+    <ContextMenu.Menu>
+      {canDelete && <ContextMenu.DeleteItem onClick={handleDelete} />}
       {canEdit && (
         <>
-          <Menu.RenameItem />
-          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={rename} />
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={() => group(props)}
+          />
+          <Menu.Divider />
         </>
       )}
       {resources.every((r) => r.data?.snapshot === false) && canEdit && (
         <>
-          <Range.SnapshotMenuItem range={activeRange} />
+          <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
           {canEdit && (
-            <PMenu.Item itemKey="copy">
+            <Menu.Item itemKey="copy" onClick={handleCopy}>
               <Icon.Copy />
               Copy
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          <PMenu.Divider />
+          <Menu.Divider />
         </>
       )}
-      <Export.MenuItem />
-      <Link.CopyMenuItem />
-      <Ontology.CopyMenuItem {...props} />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+      <Link.CopyContextMenuItem
+        onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+      />
+      <Ontology.CopyPropertiesContextMenuItem {...props} />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 
