@@ -34,7 +34,7 @@ var _ = Describe("Deleter", Ordered, func() {
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = createScenario(context.Background()) })
+		BeforeAll(func() { s = createScenario(context.Background()) })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
 			Context(s.name+" - Happy Path", func() {
@@ -55,7 +55,10 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
 
-					i = MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+					// Use context.Background() because the iterator must survive
+					// beyond BeforeEach into It/AfterEach. SpecContext is cancelled
+					// when BeforeEach exits, which kills peer streams and deadlocks.
+					i = MustSucceed(s.dist.Framer.OpenIterator(context.Background(), iterator.Config{
 						Keys:   s.keys,
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -65,7 +68,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				FIt("Should delete one channel by key", func(ctx SpecContext) {
+				It("Should delete one channel by key", func(ctx SpecContext) {
 					Expect(s.dist.Framer.DeleteTimeRange(ctx, s.keys[:1], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
@@ -107,7 +110,7 @@ var _ = Describe("Deleter", Ordered, func() {
 
 	Describe("Mixed Gateway and Peer", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = mixedScenario(ctx) })
+		BeforeAll(func(ctx SpecContext) { s = mixedScenario(context.Background()) })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
