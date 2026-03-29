@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -46,17 +47,27 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
+			Search:   searchIdx,
 		}))
 		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -65,6 +76,7 @@ var _ = Describe("Task", Ordered, func() {
 			HostProvider:        mock.StaticHostKeyProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			Search:              searchIdx,
 		}))
 		svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
@@ -72,6 +84,7 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
+			Search:   searchIdx,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -458,17 +471,24 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create unknown statuses for tasks missing them", func() {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			searchIdx := MustSucceed(search.Open())
+			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
 			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
+				Search:   searchIdx,
 			}))
 			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}))
 			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -476,6 +496,7 @@ var _ = Describe("Task", Ordered, func() {
 				Group:        g,
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
+				Search:       searchIdx,
 			}))
 			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
@@ -483,6 +504,7 @@ var _ = Describe("Task", Ordered, func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
+				Search:   searchIdx,
 			}))
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
@@ -504,6 +526,7 @@ var _ = Describe("Task", Ordered, func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
+				Search:   searchIdx,
 			}))
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
@@ -518,6 +541,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Close()).To(Succeed())
 			Expect(labelSvc.Close()).To(Succeed())
 			Expect(g.Close()).To(Succeed())
+			Expect(searchIdx.Close()).To(Succeed())
 			Expect(otg.Close()).To(Succeed())
 			Expect(db.Close()).To(Succeed())
 		})

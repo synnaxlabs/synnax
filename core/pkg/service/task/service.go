@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -58,6 +59,9 @@ type ServiceConfig struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	// Search is the search index for fuzzy searching tasks.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -76,6 +80,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -87,6 +92,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -119,6 +125,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
 		return nil, err
@@ -195,7 +202,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}

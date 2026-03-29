@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,7 +26,7 @@ import (
 )
 
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontology.TypeGroup, Key: key.String()}
+	return ontology.ID{Type: ontology.ResourceTypeGroup, Key: key.String()}
 }
 
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
@@ -38,7 +39,12 @@ func newResource(g Group) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Group]
 
-func (s *Service) Type() ontology.Type { return ontology.TypeGroup }
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
+
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeGroup }
 
 func (s *Service) Schema() zyn.Schema { return schema }
 

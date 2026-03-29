@@ -41,6 +41,7 @@ var _ = BeforeSuite(func() {
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(labelSvc.Close()).To(Succeed())
@@ -51,6 +52,7 @@ var _ = BeforeSuite(func() {
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(statusSvc.Close()).To(Succeed())
@@ -61,6 +63,7 @@ var _ = BeforeSuite(func() {
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(rackService.Close()).To(Succeed())
@@ -71,6 +74,7 @@ var _ = BeforeSuite(func() {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(taskSvc.Close()).To(Succeed())
@@ -81,6 +85,7 @@ var _ = BeforeSuite(func() {
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   dist.Search,
 	}))
 })
 

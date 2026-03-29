@@ -41,6 +41,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	})
 	if err != nil {
 		b.Fatalf("failed to open arc service: %v", err)

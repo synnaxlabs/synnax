@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package resource
+package ontology
 
 import (
 	"strings"
@@ -21,26 +21,7 @@ import (
 )
 
 // String implements fmt.Stringer.
-func (t Type) String() string { return string(t) }
-
-// ID is a unique identifier for a Resource. An example:
-//
-//	userID := ID{
-//	    Key:  "748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
-//	    Type: "user",
-//	}
-//
-// The ID has two elements for several reasons. First, by storing the Type we know which
-// service to query for additional info on the Resource. Second, while a Key may be
-// unique for a particular resource (e.g. channel), it might not be unique across all
-// resources. We need something universally unique across the entire Synnax Core.
-type ID struct {
-	// Key is a string that uniquely identifies a Resource within its Type.
-	Key string `json:"key" msgpack:"key"`
-	// Type defines the type of Resource the Key refers to. For example, a channel is a
-	// Resource of Type "channel". A user is a Resource of Type "user".
-	Type Type `json:"type" msgpack:"type"`
-}
+func (t ResourceType) String() string { return string(t) }
 
 // Validate ensures that the given ID has both a Key and Type.
 func (id ID) Validate() error {
@@ -82,7 +63,7 @@ func ParseID(key string) (ID, error) {
 			key,
 		)
 	}
-	return ID{Type: Type(split[0]), Key: split[1]}, nil
+	return ID{Type: ResourceType(split[0]), Key: split[1]}, nil
 }
 
 // ParseIDs parses the given keys into IDs.
@@ -97,7 +78,7 @@ func ParseIDs(keys []string) ([]ID, error) {
 	return ids, nil
 }
 
-// IDsToKeys converts a slice of IDs to a slice of their keys.
+// IDsToKeys converts a slice of IDs to a slice of their string representations.
 func IDsToKeys(ids []ID) []string {
 	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
 }
@@ -115,9 +96,9 @@ type Resource struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// New creates a new Resource with the given schema, name, and data. New panics if the
-// provided data value does not fit the Resource's schema.
-func New(schema zyn.Schema, id ID, name string, data any) Resource {
+// NewResource creates a new Resource with the given schema, name, and data. NewResource
+// panics if the provided data value does not fit the Resource's schema.
+func NewResource(schema zyn.Schema, id ID, name string, data any) Resource {
 	return Resource{
 		schema: schema,
 		ID:     id,
@@ -133,10 +114,6 @@ func (r Resource) Parse(dest any) error { return r.schema.Parse(r.Data, dest) }
 
 var _ gorp.Entry[string] = Resource{}
 
-// BleveType returns the type of the entity for use search indexing,
-// implementing the bleve.bleveClassifier interface.
-func (r Resource) BleveType() string { return r.ID.Type.String() }
-
 // GorpKey implements gorp.Entry.
 func (r Resource) GorpKey() string { return r.ID.String() }
 
@@ -146,7 +123,7 @@ func (r Resource) SetOptions() []any { return nil }
 // Change is a change to a Resource.
 type Change = change.Change[string, Resource]
 
-// IDs extracts the IDs from a slice of Resources.
-func IDs(resources []Resource) []ID {
+// ResourceIDs extracts the IDs from a slice of Resources.
+func ResourceIDs(resources []Resource) []ID {
 	return lo.Map(resources, func(r Resource, _ int) ID { return r.ID })
 }

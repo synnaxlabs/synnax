@@ -18,7 +18,7 @@ import (
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k channel.Key) ontology.ID {
-	return ontology.ID{Type: ontology.TypeFramer, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypeFramer, Key: k.String()}
 }
 
 // OntologyIDs returns the ontology.ID for each key.
