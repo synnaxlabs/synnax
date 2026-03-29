@@ -42,6 +42,25 @@ var _ = Describe("IsScreamingCase", func() {
 	)
 })
 
+var _ = Describe("ToPascalCase", func() {
+	DescribeTable("should convert snake_case to PascalCase",
+		func(input, expected string) {
+			Expect(naming.ToPascalCase(input)).To(Equal(expected))
+		},
+		Entry("simple name", "user_name", "UserName"),
+		Entry("single word", "name", "Name"),
+		Entry("id acronym", "user_id", "UserID"),
+		Entry("xy acronym", "sticky_xy", "StickyXY"),
+		Entry("http acronym", "http_server", "HTTPServer"),
+		Entry("url acronym", "base_url", "BaseURL"),
+		Entry("json acronym", "json_data", "JSONData"),
+		Entry("uuid acronym", "my_uuid", "MyUUID"),
+		Entry("multiple acronyms", "http_url", "HTTPURL"),
+		Entry("acronym at start", "id", "ID"),
+		Entry("screaming case passthrough", "WASM", "WASM"),
+	)
+})
+
 var _ = Describe("DerivePackageName", func() {
 	DescribeTable("should extract the last path segment",
 		func(path, expected string) {

@@ -196,17 +196,9 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		c.pending = c.pending[1:]
 		c.ensureFunc(typ)
 	}
-	usesCtx := false
-	for _, fn := range c.funcs {
-		if fn.UsesCtx {
-			usesCtx = true
-			break
-		}
-	}
-	var imps []importEntry
-	if usesCtx {
-		imps = append(imps, importEntry{Path: "context"})
-	}
+	// Always import context because every AutoMigrate function signature
+	// includes context.Context as a parameter.
+	imps := []importEntry{{Path: "context"}}
 	for _, imp := range c.imports {
 		imps = append(imps, imp)
 	}

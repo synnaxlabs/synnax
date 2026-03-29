@@ -498,7 +498,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 					}
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
-				Expect(fileContent(resp, "migrate_auto.gen.go")).To(ContainSubstring("_ context.Context"))
+				content := fileContent(resp, "migrate_auto.gen.go")
+				Expect(content).To(ContainSubstring("_ context.Context"))
+				Expect(content).To(ContainSubstring(`"context"`))
 			})
 		})
 

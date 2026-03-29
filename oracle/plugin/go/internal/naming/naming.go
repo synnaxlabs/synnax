@@ -42,14 +42,25 @@ func IsScreamingCase(s string) bool {
 	return hasLetter
 }
 
+// goAcronyms lists common Go acronyms that should remain fully uppercased in
+// PascalCase identifiers (e.g., "Xy" → "XY", "Id" → "ID").
+var goAcronyms = []string{
+	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
+	"Https", "Id", "Io", "Ip", "Json", "Lhs", "Qps", "Ram", "Rhs", "Rpc",
+	"Sla", "Smtp", "Sql", "Ssh", "Tcp", "Tls", "Ttl", "Udp", "Ui", "Uid",
+	"Uri", "Url", "Utf8", "Uuid", "Vm", "Xml", "Xmpp", "Xss", "Xy",
+}
+
 // ToPascalCase converts a name to PascalCase, preserving Go acronym conventions
-// (e.g. "id" → "ID").
+// (e.g. "id" → "ID", "sticky_xy" → "StickyXY").
 func ToPascalCase(s string) string {
 	if IsScreamingCase(s) {
 		return s
 	}
 	result := lo.PascalCase(s)
-	result = strings.ReplaceAll(result, "Id", "ID")
+	for _, acr := range goAcronyms {
+		result = strings.ReplaceAll(result, acr, strings.ToUpper(acr))
+	}
 	return result
 }
 
