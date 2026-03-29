@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("MapResolver", func() {
 	Describe("Resolve", func() {
-		It("Should resolve existing symbol", func() {
+		It("Should resolve existing symbol", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
@@ -31,21 +31,21 @@ var _ = Describe("MapResolver", func() {
 			Expect(sym.Type).To(Equal(types.F64()))
 		})
 
-		It("Should return error for non-existent symbol", func() {
+		It("Should return error for non-existent symbol", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			}
 			Expect(resolver.Resolve(bCtx, "y")).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should work with empty resolver", func() {
+		It("Should work with empty resolver", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{}
 			Expect(resolver.Resolve(bCtx, "anything")).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Search", func() {
-		It("Should resolve all symbols matching prefix", func() {
+		It("Should resolve all symbols matching prefix", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"pi":      symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count":   symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
@@ -59,7 +59,7 @@ var _ = Describe("MapResolver", func() {
 			Expect(names).To(ContainElements("count", "counter"))
 		})
 
-		It("Should return empty slice for non-matching search", func() {
+		It("Should return empty slice for non-matching search", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
@@ -68,7 +68,7 @@ var _ = Describe("MapResolver", func() {
 			Expect(symbols).To(BeEmpty())
 		})
 
-		It("Should return all symbols for empty prefix", func() {
+		It("Should return all symbols for empty prefix", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
@@ -77,7 +77,7 @@ var _ = Describe("MapResolver", func() {
 			Expect(symbols).To(HaveLen(2))
 		})
 
-		It("Should work with empty resolver", func() {
+		It("Should work with empty resolver", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{}
 			symbols := MustSucceed(resolver.Search(bCtx, "anything"))
 			Expect(symbols).To(BeEmpty())
@@ -87,7 +87,7 @@ var _ = Describe("MapResolver", func() {
 
 var _ = Describe("ModuleResolver", func() {
 	Describe("Resolve", func() {
-		It("Should resolve a qualified name by stripping the module prefix", func() {
+		It("Should resolve a qualified name by stripping the module prefix", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -100,7 +100,7 @@ var _ = Describe("ModuleResolver", func() {
 			Expect(sym.Kind).To(Equal(symbol.KindConfig))
 		})
 
-		It("Should return error when name doesn't have the module prefix", func() {
+		It("Should return error when name doesn't have the module prefix", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -110,7 +110,7 @@ var _ = Describe("ModuleResolver", func() {
 			Expect(resolver.Resolve(bCtx, "pi")).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should return error when member doesn't exist in module", func() {
+		It("Should return error when member doesn't exist in module", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -120,7 +120,7 @@ var _ = Describe("ModuleResolver", func() {
 			Expect(resolver.Resolve(bCtx, "math.nonexistent")).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should return error when prefix is a different module", func() {
+		It("Should return error when prefix is a different module", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -132,7 +132,7 @@ var _ = Describe("ModuleResolver", func() {
 	})
 
 	Describe("Search", func() {
-		It("Should search members when term has the module prefix", func() {
+		It("Should search members when term has the module prefix", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -147,7 +147,7 @@ var _ = Describe("ModuleResolver", func() {
 			Expect(names).To(ContainElements("abs", "acos"))
 		})
 
-		It("Should return all members when term is a prefix of the module name", func() {
+		It("Should return all members when term is a prefix of the module name", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -159,7 +159,7 @@ var _ = Describe("ModuleResolver", func() {
 			Expect(symbols).To(HaveLen(2))
 		})
 
-		It("Should return all members when term is the exact module name", func() {
+		It("Should return all members when term is the exact module name", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -171,7 +171,7 @@ var _ = Describe("ModuleResolver", func() {
 			Expect(symbols).To(HaveLen(2))
 		})
 
-		It("Should delegate with raw term for non-matching prefix", func() {
+		It("Should delegate with raw term for non-matching prefix", func(bCtx SpecContext) {
 			resolver := &symbol.ModuleResolver{
 				Name: "math",
 				Members: symbol.MapResolver{
@@ -188,7 +188,7 @@ var _ = Describe("ModuleResolver", func() {
 
 var _ = Describe("CompoundResolver", func() {
 	Describe("Resolve", func() {
-		It("Should resolve from first matching resolver", func() {
+		It("Should resolve from first matching resolver", func(bCtx SpecContext) {
 			resolver1 := symbol.MapResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
@@ -200,7 +200,7 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(sym.Name).To(Equal("bar"))
 			Expect(sym.Type).To(Equal(types.String()))
 		})
-		It("Should prioritize first resolver when multiple match", func() {
+		It("Should prioritize first resolver when multiple match", func(bCtx SpecContext) {
 			resolver1 := symbol.MapResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
@@ -211,7 +211,7 @@ var _ = Describe("CompoundResolver", func() {
 			sym := MustSucceed(compound.Resolve(bCtx, "foo"))
 			Expect(sym.Type).To(Equal(types.I32()))
 		})
-		It("Should return error when no resolver matches", func() {
+		It("Should return error when no resolver matches", func(bCtx SpecContext) {
 			resolver1 := symbol.MapResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
@@ -222,7 +222,7 @@ var _ = Describe("CompoundResolver", func() {
 	})
 
 	Describe("Search", func() {
-		It("Should resolve from all sub-resolvers", func() {
+		It("Should resolve from all sub-resolvers", func(bCtx SpecContext) {
 			resolver1 := symbol.MapResolver{
 				"foo":    symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 				"foobar": symbol.Symbol{Name: "foobar", Kind: symbol.KindVariable, Type: types.I32()},
@@ -239,7 +239,7 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(names).To(ContainElements("foo", "foobar", "food"))
 		})
 
-		It("Should deduplicate symbols by name (first wins)", func() {
+		It("Should deduplicate symbols by name (first wins)", func(bCtx SpecContext) {
 			resolver1 := symbol.MapResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
@@ -253,7 +253,7 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(symbols[0].Type).To(Equal(types.I32())) // First resolver wins
 		})
 
-		It("Should return empty slice when no resolvers match", func() {
+		It("Should return empty slice when no resolvers match", func(bCtx SpecContext) {
 			resolver1 := symbol.MapResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}

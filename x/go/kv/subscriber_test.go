@@ -25,7 +25,7 @@ type dataStruct struct {
 }
 
 var _ = Describe("Flush", func() {
-	It("Should flush the observable contents", func() {
+	It("Should flush the observable contents", func(ctx SpecContext) {
 		o := observe.New[dataStruct]()
 		db := memkv.New()
 		ecd := &binary.GobCodec{}

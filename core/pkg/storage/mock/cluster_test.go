@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Storage", func() {
 	ShouldNotLeakGoroutinesBeforeEach()
-	DescribeTable("Name", func(cfg ...storage.LayerConfig) {
+	DescribeTable("Name", func(ctx SpecContext, cfg ...storage.LayerConfig) {
 		b := mock.NewCluster(cfg...)
 		store := b.Provision(ctx)
 		Expect(store).NotTo(BeNil())

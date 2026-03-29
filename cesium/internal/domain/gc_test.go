@@ -38,7 +38,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Happy path - one file", func() {
-				It("Should garbage collect one tombstone", func() {
+				It("Should garbage collect one tombstone", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        9 * telem.Byte,
@@ -91,7 +91,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should garbage collect multiple tombstones", func() {
+				It("Should garbage collect multiple tombstones", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.Byte,
@@ -164,7 +164,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 
-				It("Should garbage collect multiple tombstones based on the threshold", func() {
+				It("Should garbage collect multiple tombstones based on the threshold", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        (1.25 * 20) * telem.Byte,
@@ -219,7 +219,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 
-				It("Should not garbage collect a file that is oversize but not still being written to", func() {
+				It("Should not garbage collect a file that is oversize but not still being written to", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        13 * telem.Byte,
@@ -273,7 +273,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 
-				It("Should not garbage collect a file that has an open reader on it", func() {
+				It("Should not garbage collect a file that has an open reader on it", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        9 * telem.Byte,
@@ -317,7 +317,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Happy path - multiple files", func() {
-				It("Should garbage collect multiple tombstones", func() {
+				It("Should garbage collect multiple tombstones", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  4,
@@ -387,7 +387,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 
-				It("Should garbage collect multiple tombstones across many files", func() {
+				It("Should garbage collect multiple tombstones across many files", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
@@ -452,7 +452,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 
-				It("Should garbage collect tombstones based on the threshold", func() {
+				It("Should garbage collect tombstones based on the threshold", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
@@ -509,7 +509,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Tombstone persist", func() {
-				It("Should preserve the tombstones after database closure", func() {
+				It("Should preserve the tombstones after database closure", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
@@ -592,7 +592,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				// This regression test is used to verify that when GC is run, there is
 				// no readers on the old file that is still symlinking to the old file,
 				// causing the reading of incorrect data.
-				Specify("Reader should be recycled", func() {
+				Specify("Reader should be recycled", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
@@ -629,7 +629,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				// in garbage collection, the slice will be popped correctly. Previously,
 				// the slice was being popped while iterated, causing out-of-bounds
 				// errors.
-				Specify("Reader gc", func() {
+				Specify("Reader gc", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
@@ -651,7 +651,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Close", func() {
-				It("Should not allow GC on a closed DB", func() {
+				It("Should not allow GC on a closed DB", func(ctx SpecContext) {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.Byte,

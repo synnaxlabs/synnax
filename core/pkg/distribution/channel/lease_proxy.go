@@ -435,7 +435,7 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 			return
 		}
 	}
-	nextCounterValue, err := counter.add(incCounterBy)
+	nextCounterValue, err := counter.add(ctx, incCounterBy)
 	if err != nil {
 		return
 	}

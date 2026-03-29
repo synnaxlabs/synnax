@@ -10,7 +10,6 @@
 package scheduler_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -84,7 +83,6 @@ func (h *MockErrorHandler) HandleError(nodeKey string, err error) {
 
 var _ = Describe("Scheduler", func() {
 	var (
-		ctx   context.Context
 		nodes map[string]node.Node
 		mocks map[string]*MockNode
 	)
@@ -101,19 +99,18 @@ var _ = Describe("Scheduler", func() {
 	}
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		nodes = make(map[string]node.Node)
 		mocks = make(map[string]*MockNode)
 	})
 
 	Describe("Construction & Initialization", func() {
-		It("Should construct with empty program", func() {
+		It("Should construct with empty program", func(ctx SpecContext) {
 			prog := ir.IR{}
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 		})
 
-		It("Should construct with single stratum", func() {
+		It("Should construct with single stratum", func(ctx SpecContext) {
 			mock("A")
 			mock("B")
 			mock("C")
@@ -131,7 +128,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(mocks["C"].NextCalled).To(Equal(1))
 		})
 
-		It("Should build transition table", func() {
+		It("Should build transition table", func(ctx SpecContext) {
 			triggerA := mock("trigger_a")
 			mock("trigger_b")
 			entryA := mock("entry_seq_stage_a")
@@ -168,7 +165,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Basic Execution", func() {
-		It("Should always execute stratum 0", func() {
+		It("Should always execute stratum 0", func(ctx SpecContext) {
 			nodeA := mock("A")
 
 			prog := testutil.NewIRBuilder().
@@ -185,7 +182,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(3))
 		})
 
-		It("Should skip higher strata without changes", func() {
+		It("Should skip higher strata without changes", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -203,7 +200,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
 
-		It("Should pass elapsed time to context", func() {
+		It("Should pass elapsed time to context", func(ctx SpecContext) {
 			nodeA := mock("A")
 
 			prog := testutil.NewIRBuilder().
@@ -221,7 +218,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.ElapsedValues[1]).To(Equal(10 * telem.Microsecond))
 		})
 
-		It("Should accumulate multiple next() calls", func() {
+		It("Should accumulate multiple next() calls", func(ctx SpecContext) {
 			nodeA := mock("A")
 
 			prog := testutil.NewIRBuilder().
@@ -238,7 +235,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(100))
 		})
 
-		It("Should handle empty strata without crashing", func() {
+		It("Should handle empty strata without crashing", func(ctx SpecContext) {
 			mock("A")
 			mock("B")
 
@@ -255,7 +252,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(mocks["B"].NextCalled).To(Equal(0))
 		})
 
-		It("Should clear changed set per strata execution", func() {
+		It("Should clear changed set per strata execution", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			mock("C")
@@ -287,7 +284,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Change Propagation", func() {
-		It("Should propagate changes via continuous edge", func() {
+		It("Should propagate changes via continuous edge", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -307,7 +304,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should not propagate without edge", func() {
+		It("Should not propagate without edge", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -326,7 +323,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
 
-		It("Should handle multiple outputs from single node", func() {
+		It("Should handle multiple outputs from single node", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -349,7 +346,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(0))
 		})
 
-		It("Should handle multiple inputs to single node", func() {
+		It("Should handle multiple inputs to single node", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -372,7 +369,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
 
-		It("Should respect parameter-specific edges", func() {
+		It("Should respect parameter-specific edges", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -395,7 +392,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(0))
 		})
 
-		It("Should handle chained propagation", func() {
+		It("Should handle chained propagation", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -420,7 +417,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
 
-		It("Should handle diamond dependency", func() {
+		It("Should handle diamond dependency", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -448,7 +445,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeD.NextCalled).To(Equal(1))
 		})
 
-		It("Should handle wide graph", func() {
+		It("Should handle wide graph", func(ctx SpecContext) {
 			for i := range 10 {
 				mock(fmt.Sprintf("N%d", i))
 			}
@@ -474,7 +471,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("One-Shot Edge Semantics", func() {
-		It("Should fire one-shot when truthy", func() {
+		It("Should fire one-shot when truthy", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -494,7 +491,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should not fire one-shot when falsy", func() {
+		It("Should not fire one-shot when falsy", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -514,7 +511,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
 
-		It("Should fire one-shot only once per stage", func() {
+		It("Should fire one-shot only once per stage", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -548,7 +545,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should fire one-shot once ever in global strata", func() {
+		It("Should fire one-shot once ever in global strata", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -574,7 +571,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should reset one-shot on stage entry", func() {
+		It("Should reset one-shot on stage entry", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -613,7 +610,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.ResetCalled).To(Equal(2))
 		})
 
-		It("Should not affect continuous edge by truthiness", func() {
+		It("Should not affect continuous edge by truthiness", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -635,7 +632,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Stage Filtering & Transitions", func() {
-		It("Should not execute when no stage is active", func() {
+		It("Should not execute when no stage is active", func(ctx SpecContext) {
 			mock("A")
 			nodeB := mock("B")
 
@@ -654,7 +651,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
 
-		It("Should execute staged nodes when active", func() {
+		It("Should execute staged nodes when active", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -680,7 +677,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
-		It("Should always execute global strata", func() {
+		It("Should always execute global strata", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -709,7 +706,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1)) // Stage
 		})
 
-		It("Should activate stage via entry node", func() {
+		It("Should activate stage via entry node", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -735,7 +732,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
-		It("Should deactivate previous stage on transition", func() {
+		It("Should deactivate previous stage on transition", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryA := mock("entry_seq_stage_a")
 			entryB := mock("entry_seq_stage_b")
@@ -776,7 +773,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(2))
 		})
 
-		It("Should reset nodes on stage transition", func() {
+		It("Should reset nodes on stage transition", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -803,7 +800,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.ResetCalled).To(Equal(1))
 		})
 
-		It("Should maintain cross-sequence independence", func() {
+		It("Should maintain cross-sequence independence", func(ctx SpecContext) {
 			trigger1 := mock("trigger1")
 			trigger2 := mock("trigger2")
 			entry1 := mock("entry_seq1_stage")
@@ -843,7 +840,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should handle multiple stages in sequence", func() {
+		It("Should handle multiple stages in sequence", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryA := mock("entry_seq_stage_a")
 			entryB := mock("entry_seq_stage_b")
@@ -890,7 +887,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
 
-		It("Should give priority to the first-written transition when multiple conditions are true", func() {
+		It("Should give priority to the first-written transition when multiple conditions are true", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryActive := mock("entry_seq_active")
 			// Two condition nodes in the active stage, both true
@@ -946,7 +943,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
 
-		It("Should skip later write statements after a transition fires", func() {
+		It("Should skip later write statements after a transition fires", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryOn := mock("entry_seq_stage_on")
 			toAbort := mock("to_abort")
@@ -989,7 +986,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Source-Order Transition Priority", func() {
-		It("Should select the shallower entry when entries are at different strata", func() {
+		It("Should select the shallower entry when entries are at different strata", func(ctx SpecContext) {
 			// Documents the pre-fix behavior: when entry nodes are at different
 			// strata, the shallower one wins due to short-circuit, regardless of
 			// source order. This is the bug we're fixing in the stratifier.
@@ -1047,7 +1044,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(0))
 		})
 
-		It("Should respect source order when entries are at the same stratum", func() {
+		It("Should respect source order when entries are at the same stratum", func(ctx SpecContext) {
 			// Post-fix behavior: when the stratifier flattens entry nodes to the
 			// same stratum, source order (position within the stratum) determines
 			// which transition wins.
@@ -1105,7 +1102,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Convergence Loop", func() {
-		It("Should converge single transition", func() {
+		It("Should converge single transition", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -1130,7 +1127,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
-		It("Should complete cascading transitions", func() {
+		It("Should complete cascading transitions", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryA := mock("entry_seq_stage_a")
 			entryB := mock("entry_seq_stage_b")
@@ -1174,7 +1171,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
 
-		It("Should stop when stable", func() {
+		It("Should stop when stable", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -1200,7 +1197,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(2))
 		})
 
-		It("Should prevent infinite loop with max iterations", func() {
+		It("Should prevent infinite loop with max iterations", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -1230,7 +1227,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(true).To(BeTrue())
 		})
 
-		It("Should detect transition during execution", func() {
+		It("Should detect transition during execution", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryA := mock("entry_seq_stage_a")
 			entryB := mock("entry_seq_stage_b")
@@ -1266,7 +1263,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Error Handling", func() {
-		It("Should pass errors to error handler", func() {
+		It("Should pass errors to error handler", func(ctx SpecContext) {
 			nodeA := mock("A")
 			testErr := errors.New("test error")
 			nodeA.ErrorOnNext(testErr)
@@ -1286,7 +1283,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(handler.Errors[0].Err).To(Equal(testErr))
 		})
 
-		It("Should continue execution after error", func() {
+		It("Should continue execution after error", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -1307,7 +1304,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should return normally after error", func() {
+		It("Should return normally after error", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeA.ErrorOnNext(errors.New("node error"))
 
@@ -1324,7 +1321,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Complex Graph Structures", func() {
-		It("Should handle deep strata chain", func() {
+		It("Should handle deep strata chain", func(ctx SpecContext) {
 			for i := range 10 {
 				m := mock(fmt.Sprintf("N%d", i))
 				if i < 9 {
@@ -1355,7 +1352,7 @@ var _ = Describe("Scheduler", func() {
 			}
 		})
 
-		It("Should handle mixed continuous and one-shot", func() {
+		It("Should handle mixed continuous and one-shot", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -1381,7 +1378,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
 
-		It("Should handle global and staged mixed", func() {
+		It("Should handle global and staged mixed", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			globalNode := mock("G")
@@ -1412,7 +1409,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(stagedNode.NextCalled).To(Equal(1))
 		})
 
-		It("Should handle multi-sequence with shared global", func() {
+		It("Should handle multi-sequence with shared global", func(ctx SpecContext) {
 			trigger1 := mock("trigger1")
 			trigger2 := mock("trigger2")
 			entry1 := mock("entry_seq1_stage")
@@ -1460,7 +1457,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Bang-Bang Authority Release Pattern", func() {
-		It("Should execute yield stage authority nodes during start → stop → yield cascade", func() {
+		It("Should execute yield stage authority nodes during start → stop → yield cascade", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryStart := mock("entry_bb_start")
 			entryStop := mock("entry_bb_stop")
@@ -1544,7 +1541,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(writeCh2.NextCalled).To(Equal(1))
 		})
 
-		It("Should re-execute start authority nodes when yield re-enters start via active trigger", func() {
+		It("Should re-execute start authority nodes when yield re-enters start via active trigger", func(ctx SpecContext) {
 			// In the real scenario, stop → yield is timer-delayed (separate tick),
 			// so re-entry only needs 2 transitions within one convergence loop
 			// (stop → yield, yield → start), which fits within maxConvergenceIterations = 3.
@@ -1649,7 +1646,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Self-Changed (Wait in Flow Chain)", func() {
-		It("Should allow a self-changed node in a higher stratum to keep executing", func() {
+		It("Should allow a self-changed node in a higher stratum to keep executing", func(ctx SpecContext) {
 			// IR: comparison (stratum 0) => wait (stratum 1) -> entry_seq_next (stratum 2)
 			// The comparison fires a one-shot to the wait. The wait needs multiple
 			// timer ticks to complete. Without self-changed, the wait only gets one
@@ -1726,7 +1723,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(entryNext.NextCalled).To(Equal(1))
 		})
 
-		It("Should not execute a self-changed node if it stops calling MarkSelfChanged", func() {
+		It("Should not execute a self-changed node if it stops calling MarkSelfChanged", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			nodeA := mock("A")
 
@@ -1768,7 +1765,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(3))
 		})
 
-		It("Should clear self-changed when a node is reset via stage transition", func() {
+		It("Should clear self-changed when a node is reset via stage transition", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entryA := mock("entry_seq_stage_a")
 			entryB := mock("entry_seq_stage_b")
@@ -1821,7 +1818,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Edge Cases", func() {
-		It("Should handle zero elapsed time", func() {
+		It("Should handle zero elapsed time", func(ctx SpecContext) {
 			nodeA := mock("A")
 
 			prog := testutil.NewIRBuilder().
@@ -1836,7 +1833,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.ElapsedValues[0]).To(Equal(telem.TimeSpan(0)))
 		})
 
-		It("Should handle self-loop", func() {
+		It("Should handle self-loop", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeA.MarkOnNext("output")
 
@@ -1851,7 +1848,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
-		It("Should handle empty sequence", func() {
+		It("Should handle empty sequence", func(ctx SpecContext) {
 			mock("A")
 
 			prog := testutil.NewIRBuilder().
@@ -1866,7 +1863,7 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 	Describe("NextDeadline", func() {
-		It("Should return TimeSpanMax when no node sets a deadline", func() {
+		It("Should return TimeSpanMax when no node sets a deadline", func(ctx SpecContext) {
 			nodeA := NewMockNode()
 			nodeA.MarkOnNext("output")
 			mocks["A"] = nodeA
@@ -1881,7 +1878,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
 		})
-		It("Should return the minimum deadline across nodes", func() {
+		It("Should return the minimum deadline across nodes", func(ctx SpecContext) {
 			nodeA := NewMockNode()
 			nodeA.OnNext = func(ctx node.Context) {
 				if ctx.SetDeadline != nil {
@@ -1910,7 +1907,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.Second))
 		})
-		It("Should reset to max between cycles", func() {
+		It("Should reset to max between cycles", func(ctx SpecContext) {
 			call := 0
 			nodeA := NewMockNode()
 			nodeA.OnNext = func(ctx node.Context) {
@@ -1934,7 +1931,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
 		})
-		It("Should track deadlines from stage nodes", func() {
+		It("Should track deadlines from stage nodes", func(ctx SpecContext) {
 			nodeA := NewMockNode()
 			nodeA.OnNext = func(ctx node.Context) {
 				if ctx.SetDeadline != nil {

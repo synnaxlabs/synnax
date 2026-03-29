@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a LinePlot", func() {
+		It("Should create a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -28,7 +28,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a LinePlot", func() {
+		It("Should rename a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
@@ -38,7 +38,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a LinePlot", func() {
+		It("Should set the data of a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, map[string]any{"key": "data2"})).To(Succeed())

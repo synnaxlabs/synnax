@@ -10,8 +10,6 @@
 package control_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -25,14 +23,9 @@ import (
 )
 
 var _ = Describe("Authority", func() {
-	var ctx = context.Background()
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 
 	Describe("NewModule", func() {
-		It("Should create factory with state", func() {
+		It("Should create factory with state", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
@@ -51,7 +44,7 @@ var _ = Describe("Authority", func() {
 			s            *node.ProgramState
 			controlState *control.ProgramState
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
@@ -62,7 +55,7 @@ var _ = Describe("Authority", func() {
 			controlState = &control.ProgramState{}
 			factory = control.NewModule(controlState)
 		})
-		It("Should create node for set_authority type", func() {
+		It("Should create node for set_authority type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -75,14 +68,14 @@ var _ = Describe("Authority", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func() {
+		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("set_auth"),
 			}
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
-		It("Should parse channel config with specific channel", func() {
+		It("Should parse channel config with specific channel", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -102,7 +95,7 @@ var _ = Describe("Authority", func() {
 			Expect(changes[0].Channel).ToNot(BeNil())
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
 		})
-		It("Should parse channel config with zero (global)", func() {
+		It("Should parse channel config with zero (global)", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -129,7 +122,7 @@ var _ = Describe("Authority", func() {
 			factory      node.Factory
 			outputs      []string
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
@@ -142,7 +135,7 @@ var _ = Describe("Authority", func() {
 			outputs = []string{}
 		})
 
-		It("Should buffer per-channel authority change", func() {
+		It("Should buffer per-channel authority change", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -162,7 +155,7 @@ var _ = Describe("Authority", func() {
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
 		})
 
-		It("Should buffer global authority change", func() {
+		It("Should buffer global authority change", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -181,7 +174,7 @@ var _ = Describe("Authority", func() {
 			Expect(changes[0].Channel).To(BeNil())
 		})
 
-		It("Should fire only once before Reset", func() {
+		It("Should fire only once before Reset", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -201,7 +194,7 @@ var _ = Describe("Authority", func() {
 			Expect(changes).To(HaveLen(1))
 		})
 
-		It("Should not call MarkChanged", func() {
+		It("Should not call MarkChanged", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -226,7 +219,7 @@ var _ = Describe("Authority", func() {
 			controlState *control.ProgramState
 			factory      node.Factory
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
@@ -238,7 +231,7 @@ var _ = Describe("Authority", func() {
 			factory = control.NewModule(controlState)
 		})
 
-		It("Should allow re-fire after Reset", func() {
+		It("Should allow re-fire after Reset", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -260,7 +253,7 @@ var _ = Describe("Authority", func() {
 			Expect(changes).To(HaveLen(1))
 		})
 
-		It("Should produce same authority on re-fire", func() {
+		It("Should produce same authority on re-fire", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -286,7 +279,7 @@ var _ = Describe("Authority", func() {
 	})
 
 	Describe("IsOutputTruthy", func() {
-		It("Should always return false", func() {
+		It("Should always return false", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
@@ -313,19 +306,19 @@ var _ = Describe("Authority", func() {
 	})
 
 	Describe("SymbolResolver", func() {
-		It("Should resolve set_authority symbol", func() {
+		It("Should resolve set_authority symbol", func(ctx SpecContext) {
 			sym, ok := control.SymbolResolver["set_authority"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should have optional input", func() {
+		It("Should have optional input", func(ctx SpecContext) {
 			sym := control.SymbolResolver["set_authority"]
 			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
 		})
-		It("Should have config params", func() {
+		It("Should have config params", func(ctx SpecContext) {
 			sym := control.SymbolResolver["set_authority"]
 			Expect(sym.Type.Config).To(HaveLen(2))
 			Expect(sym.Type.Config[0].Name).To(Equal("value"))

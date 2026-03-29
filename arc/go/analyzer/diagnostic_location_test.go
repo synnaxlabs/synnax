@@ -30,7 +30,7 @@ var _ = Describe("Diagnostic Locations", func() {
 		expectedSev       diagnostics.Severity
 	}
 
-	runDiagnosticTest := func(tc diagnosticCase) {
+	runDiagnosticTest := func(bCtx SpecContext, tc diagnosticCase) {
 		prog := MustSucceed(parser.Parse(tc.source))
 		ctx := context.CreateRoot(bCtx, prog, nil)
 		analyzer.AnalyzeProgram(ctx)
@@ -274,7 +274,7 @@ func test() {
 	)
 
 	Describe("Error Recovery", func() {
-		It("Should report all independent errors with correct locations", func() {
+		It("Should report all independent errors with correct locations", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
 func test() {
 	a := undefined1

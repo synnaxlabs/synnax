@@ -10,8 +10,6 @@
 package stage_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -24,11 +22,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Stage", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func() {
+		It("Should create module", func(ctx SpecContext) {
 			module := stage.NewModule()
 			Expect(module).ToNot(BeNil())
 		})
@@ -38,7 +34,7 @@ var _ = Describe("Stage", func() {
 		var module *stage.Module
 		var s *node.ProgramState
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			module = stage.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{
@@ -69,7 +65,7 @@ var _ = Describe("Stage", func() {
 			s = node.New(analyzed)
 		})
 
-		It("Should create node for stage_entry type", func() {
+		It("Should create node for stage_entry type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Key: "stage_entry_1", Type: "stage_entry"},
 				State: s.Node("stage_entry_1"),
@@ -78,7 +74,7 @@ var _ = Describe("Stage", func() {
 			Expect(n).ToNot(BeNil())
 		})
 
-		It("Should return NotFound for unknown type", func() {
+		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Key: "unknown", Type: "unknown"},
 				State: s.Node("stage_entry_1"),
@@ -92,7 +88,7 @@ var _ = Describe("Stage", func() {
 		var module *stage.Module
 		var s *node.ProgramState
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			module = stage.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{
@@ -123,7 +119,7 @@ var _ = Describe("Stage", func() {
 			s = node.New(analyzed)
 		})
 
-		It("Should call ActivateStage when receiving activation signal (1)", func() {
+		It("Should call ActivateStage when receiving activation signal (1)", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
 				State: s.Node("test_seq_test_stage_entry"),
@@ -152,13 +148,13 @@ var _ = Describe("Stage", func() {
 	})
 
 	Describe("SymbolResolver", func() {
-		It("Should resolve stage_entry symbol", func() {
+		It("Should resolve stage_entry symbol", func(ctx SpecContext) {
 			sym, ok := stage.SymbolResolver["stage_entry"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("stage_entry"))
 		})
 
-		It("Should have correct input type", func() {
+		It("Should have correct input type", func(ctx SpecContext) {
 			sym := stage.SymbolResolver["stage_entry"]
 			fnType := sym.Type
 			Expect(fnType.Kind).To(Equal(types.KindFunction))

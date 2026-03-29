@@ -36,9 +36,9 @@ var _ = Describe("Channel", Ordered, func() {
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -46,7 +46,7 @@ var _ = Describe("Channel", Ordered, func() {
 			})
 
 			Describe("Create", func() {
-				DescribeTable("Validation", func(substring string, channels ...cesium.Channel) {
+				DescribeTable("Validation", func(ctx SpecContext, substring string, channels ...cesium.Channel) {
 					Expect(db.CreateChannel(ctx, channels...)).To(MatchError(ContainSubstring(substring)))
 				},
 					Entry("ChannelKey has no datatype",
@@ -84,20 +84,20 @@ var _ = Describe("Channel", Ordered, func() {
 					),
 				)
 				Describe("DB Closed", func() {
-					It("Should not allow creating a channel", func() {
+					It("Should not allow creating a channel", func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(sub)
+						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
 						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
-					It("Should not allow retrieving channels", func() {
+					It("Should not allow retrieving channels", func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(sub)
+						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Lebron",
@@ -118,7 +118,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 			Describe("Retrieve", func() {
 				var k1, k2, k3 cesium.ChannelKey
-				BeforeEach(func() {
+				BeforeEach(func(ctx SpecContext) {
 					k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, []cesium.Channel{
 						{Name: "Christian", Key: k1, DataType: telem.TimeStampT, IsIndex: true},
@@ -126,14 +126,14 @@ var _ = Describe("Channel", Ordered, func() {
 						{Name: "Bohmer", Key: k3, DataType: telem.Int8T, Index: k1},
 					}...)).To(Succeed())
 				})
-				It("Should retrieve multiple channels", func() {
+				It("Should retrieve multiple channels", func(ctx SpecContext) {
 					chs := MustSucceed(db.RetrieveChannels(ctx, k1, k2, k3))
 					Expect(chs).To(HaveLen(3))
 					Expect(chs[0].Key).To(Equal(k1))
 					Expect(chs[1].Key).To(Equal(k2))
 					Expect(chs[2].Key).To(Equal(k3))
 				})
-				It("Should fail if one retrieval fails", func() {
+				It("Should fail if one retrieval fails", func(ctx SpecContext) {
 					chs, err := db.RetrieveChannels(ctx, k1, k2, math.MaxUint32)
 					Expect(chs).To(HaveLen(0))
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -172,10 +172,10 @@ var _ = Describe("Channel", Ordered, func() {
 						{Name: "Keaton", Key: errorKey2, Virtual: true, DataType: telem.Int64T},
 					}
 				)
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 				})
-				It("Should rekey a unary channel into another", func() {
+				It("Should rekey a unary channel into another", func(ctx SpecContext) {
 					By("Writing some data into the channel")
 					series1 := telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)
 					series2 := telem.NewSeriesSecondsTSV(5, 6, 7, 8, 9)
@@ -215,7 +215,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 				})
 
-				It("Should rekey a virtual channel into another", func() {
+				It("Should rekey a virtual channel into another", func(ctx SpecContext) {
 					By("Re-keying the channel")
 					Expect(db.RekeyChannel(ctx, virtualKey, virtualKeyNew)).To(Succeed())
 
@@ -240,7 +240,7 @@ var _ = Describe("Channel", Ordered, func() {
 					})
 				})
 
-				It("Should rekey an index channel", func() {
+				It("Should rekey an index channel", func(ctx SpecContext) {
 					By("Writing some data into the channel")
 					indexSeries1 := telem.NewSeriesSecondsTSV(2, 3, 5, 7, 11)
 					dataSeries1 := telem.NewSeriesV[int64](2, 3, 5, 7, 11)
@@ -296,7 +296,7 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 
 				Describe("Rekey of channel with a writer", func() {
-					Specify("Unary", func() {
+					Specify("Unary", func(ctx SpecContext) {
 						By("Opening a writer")
 						w := MustSucceed(db.OpenWriter(
 							ctx,
@@ -343,7 +343,7 @@ var _ = Describe("Channel", Ordered, func() {
 						})
 					})
 
-					Specify("Virtual", func() {
+					Specify("Virtual", func(ctx SpecContext) {
 						By("Opening writers")
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))
 
@@ -378,14 +378,14 @@ var _ = Describe("Channel", Ordered, func() {
 					})
 				})
 
-				It("Should do nothing for a channel that does not exist", func() {
+				It("Should do nothing for a channel that does not exist", func(ctx SpecContext) {
 					By("Trying to rekey")
 					Expect(db.RekeyChannel(ctx, errorKey3, errorKey3New)).To(Succeed())
 				})
 			})
 
 			Describe("Rename", func() {
-				It("Should rename a channel into a different name while channel is being used", func() {
+				It("Should rename a channel into a different name while channel is being used", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}}))
@@ -417,7 +417,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(codec.Decode(ctx, buf, &newCh)).To(Succeed())
 					Expect(newCh.Name).To(Equal("laplace"))
 				})
-				It("Should correctly rename multiple channels", func() {
+				It("Should correctly rename multiple channels", func(ctx SpecContext) {
 					key1 := GenerateChannelKey()
 					key2 := GenerateChannelKey()
 					key3 := GenerateChannelKey()
@@ -441,7 +441,7 @@ var _ = Describe("Channel", Ordered, func() {
 					ch = MustSucceed(db.RetrieveChannel(ctx, key4))
 					Expect(ch.Name).To(Equal("descartes5"))
 				})
-				It("Should correctly rename if a channel is provided twice", func() {
+				It("Should correctly rename if a channel is provided twice", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "1", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 					Expect(db.RenameChannels(ctx,
@@ -452,7 +452,7 @@ var _ = Describe("Channel", Ordered, func() {
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("5"))
 				})
-				It("Should error if the channel is not found", func() {
+				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.RenameChannel(ctx, key, "new_name")).To(HaveOccurredAs(cesium.ErrChannelNotFound))
 				})

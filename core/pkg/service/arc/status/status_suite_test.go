@@ -10,7 +10,6 @@
 package status_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +30,6 @@ func TestStatus(t *testing.T) {
 }
 
 var (
-	ctx      context.Context
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	groupSvc *group.Service
@@ -39,10 +37,7 @@ var (
 	statSvc  *status.Service
 )
 
-var _ = BeforeEach(func() { ctx = context.Background() })
-
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB: db,
@@ -68,7 +63,7 @@ var _ = BeforeSuite(func() {
 	}))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(statSvc.Close()).To(Succeed())
 	Expect(labelSvc.Close()).To(Succeed())
 	Expect(groupSvc.Close()).To(Succeed())

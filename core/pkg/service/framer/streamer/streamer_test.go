@@ -40,7 +40,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(ctx)
 		searchIdx := MustSucceed(search.Open())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
@@ -105,12 +105,12 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(builder.Close()).To(Succeed())
 	})
 
 	Describe("Happy Path", func() {
-		It("Should stream data", func() {
+		It("Should stream data", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "test",
 				DataType: telem.Float32T,
@@ -146,7 +146,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			dataCh1 *channel.Channel
 			dataCh2 *channel.Channel
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			indexCh = &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -168,7 +168,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		})
 
-		It("Should receive calculated values", func() {
+		It("Should receive calculated values", func(ctx SpecContext) {
 			calculation := &channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
@@ -207,7 +207,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
-		It("Should allow the user to dynamically update the channels being calculated", func() {
+		It("Should allow the user to dynamically update the channels being calculated", func(ctx SpecContext) {
 			calculation := &channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
@@ -248,7 +248,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
-		It("Should compute when inputs with different indexes arrive in separate frames", func() {
+		It("Should compute when inputs with different indexes arrive in separate frames", func(ctx SpecContext) {
 			idxA := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -334,7 +334,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Downsampling", func() {
-		It("Should correctly downsample a factor of 2", func() {
+		It("Should correctly downsample a factor of 2", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -366,7 +366,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should handle invalid downsampling factors", func() {
+		It("Should handle invalid downsampling factors", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -383,7 +383,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(err).To(MatchError(ContainSubstring("downsample_factor: must be greater than or equal to 0")))
 		})
 
-		It("Should correctly combine downsampling with calculations", func() {
+		It("Should correctly combine downsampling with calculations", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -452,7 +452,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		})
 	})
 	Describe("Throttling", func() {
-		It("Should accumulate and throttle frames", func() {
+		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -492,7 +492,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should not throttle when rate is 0", func() {
+		It("Should not throttle when rate is 0", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -530,7 +530,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should combine throttling and downsampling", func() {
+		It("Should combine throttling and downsampling", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -571,7 +571,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Throttling", func() {
-		It("Should accumulate and throttle frames", func() {
+		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -611,7 +611,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should not throttle when rate is 0", func() {
+		It("Should not throttle when rate is 0", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -649,7 +649,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should combine throttling and downsampling", func() {
+		It("Should combine throttling and downsampling", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,

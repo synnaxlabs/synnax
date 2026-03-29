@@ -35,7 +35,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		)
 
 		Context("FS: "+fsName, func() {
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
 				dbKey = testutil.GenerateChannelKey()
 				db = MustSucceed(virtual.Open(ctx, virtual.Config{
@@ -56,13 +56,13 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			Describe("RenameChannel", func() {
-				It("Should rename the channel and persist it", func() {
+				It("Should rename the channel and persist it", func(ctx SpecContext) {
 					Expect(db.RenameChannel(ctx, "new_name")).To(Succeed())
 					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Name).To(Equal("new_name"))
 				})
 
-				It("Should be a no-op when the name is the same", func() {
+				It("Should be a no-op when the name is the same", func(ctx SpecContext) {
 					Expect(db.RenameChannel(ctx, "test")).To(Succeed())
 					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Name).To(Equal("test"))
@@ -70,14 +70,14 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			Describe("SetChannelKeyInMeta", func() {
-				It("Should change the channel key and persist it", func() {
+				It("Should change the channel key and persist it", func(ctx SpecContext) {
 					newKey := testutil.GenerateChannelKey()
 					Expect(db.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
 					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Key).To(Equal(newKey))
 				})
 
-				It("Should be a no-op when the key is the same", func() {
+				It("Should be a no-op when the key is the same", func(ctx SpecContext) {
 					Expect(db.SetChannelKeyInMeta(ctx, dbKey)).To(Succeed())
 					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Key).To(Equal(dbKey))
@@ -89,7 +89,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
 
-				It("Should return the leading control state when there are writers open on the DB", func() {
+				It("Should return the leading control state when there are writers open on the DB", func(ctx SpecContext) {
 					w, transfer := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 						Start:     10 * telem.SecondTS,
 						Authority: control.AuthorityAbsolute,
@@ -109,7 +109,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	Describe("Close", func() {
 		var db *virtual.DB
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			db = MustSucceed(virtual.Open(ctx, virtual.Config{
 				FS:        fs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
@@ -122,13 +122,13 @@ var _ = Describe("DB Metadata Operations", func() {
 			}))
 		})
 
-		It("Should return an error when methods are called on a closed DB", func() {
+		It("Should return an error when methods are called on a closed DB", func(ctx SpecContext) {
 			Expect(db.Close()).To(Succeed())
 			Expect(db.RenameChannel(ctx, "new_name")).To(MatchError(virtual.ErrDBClosed))
 			Expect(db.SetChannelKeyInMeta(ctx, testutil.GenerateChannelKey())).To(MatchError(virtual.ErrDBClosed))
 		})
 
-		It("Should return an error when a DB is closed while writers are still accessing it", func() {
+		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
 			db := MustSucceed(virtual.Open(ctx, virtual.Config{
 				FS:        fs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},

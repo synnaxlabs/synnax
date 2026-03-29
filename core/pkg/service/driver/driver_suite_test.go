@@ -37,7 +37,6 @@ var (
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
 	hostProvider = mock.StaticHostKeyProvider(1)
-	ctx          context.Context
 )
 
 func TestDriver(t *testing.T) {
@@ -45,8 +44,7 @@ func TestDriver(t *testing.T) {
 	RunSpecs(t, "Driver Suite")
 }
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
 	dist = distB.Provision(ctx)
 	db = dist.DB

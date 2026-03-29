@@ -83,6 +83,5 @@ service DeleteService {
 
 message DeleteRequest {
   repeated uint32 keys = 1;
-  repeated string names = 2;
-  x.telem.pb.TimeRange bounds = 3;
+  x.telem.pb.TimeRange bounds = 2;
 }

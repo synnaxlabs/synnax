@@ -10,7 +10,6 @@
 package metrics_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,9 +38,8 @@ func TestMetrics(t *testing.T) {
 	RunSpecs(t, "Metrics Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	builder = mock.NewCluster()
-	ctx := context.Background()
 	dist = builder.Provision(ctx)
 	searchIdx := MustSucceed(search.Open())
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
@@ -98,7 +96,7 @@ var _ = BeforeSuite(func() {
 	}))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(channelSvc.Close()).To(Succeed())
 	Expect(framerSvc.Close()).To(Succeed())
 	Expect(builder.Close()).To(Succeed())

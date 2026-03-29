@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -23,8 +25,8 @@ const internalChannelCount = 1
 
 var _ = Describe("Retrieve", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func() {
-		mockCluster = mock.ProvisionCluster(ctx, 2)
+	BeforeAll(func(ctx SpecContext) {
+		mockCluster = mock.ProvisionCluster(context.Background(), 2)
 		for _, n := range mockCluster.Nodes {
 			Expect(n.Search.Initialize(ctx)).To(Succeed())
 		}
@@ -33,7 +35,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("Retrieve", func() {
-		It("Should correctly retrieve a set of channels", func() {
+		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -68,7 +70,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 
 		})
-		It("Should correctly retrieve a channel by its key", func() {
+		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -92,7 +94,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
-		It("Should correctly retrieve a channel by its name", func() {
+		It("Should correctly retrieve a channel by its name", func(ctx SpecContext) {
 			n := channel.NewRandomName()
 			created := []channel.Channel{
 				{
@@ -112,7 +114,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
-		It("Should correctly retrieve channels by regex expression", func() {
+		It("Should correctly retrieve channels by regex expression", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -135,7 +137,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(2))
 		})
-		It("Should return a well formatted error if a channel cannot be found by its key", func() {
+		It("Should return a well formatted error if a channel cannot be found by its key", func(ctx SpecContext) {
 			var resChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
@@ -143,7 +145,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
 		})
-		It("Should correctly filter channels by search term", func() {
+		It("Should correctly filter channels by search term", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -169,7 +171,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			}).Should(Succeed())
 		})
 
-		It("Should return an error when retrieving a channel with a key of 0", func() {
+		It("Should return an error when retrieving a channel with a key of 0", func(ctx SpecContext) {
 			var resChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
@@ -180,7 +182,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 	})
 	Describe("WhereCalculated", func() {
-		It("Should only return calculated channels", func() {
+		It("Should only return calculated channels", func(ctx SpecContext) {
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,
@@ -209,8 +211,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 			))
 		})
 
-		It("Should return empty when no calculated channels exist in a fresh cluster", func() {
-			freshCluster := mock.ProvisionCluster(ctx, 1)
+		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
+			freshCluster := mock.ProvisionCluster(context.Background(), 1)
 			defer func() { Expect(freshCluster.Close()).To(Succeed()) }()
 			base := channel.Channel{
 				Virtual:  true,
@@ -230,7 +232,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	})
 
 	Describe("Exists", func() {
-		It("Should return true if a channel exists", func() {
+		It("Should return true if a channel exists", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
 					Virtual:  true,

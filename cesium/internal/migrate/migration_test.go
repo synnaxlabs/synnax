@@ -35,7 +35,7 @@ var _ = Describe("Migration Test", func() {
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
-			Specify("V1 to V2", func() {
+			Specify("V1 to V2", func(ctx SpecContext) {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs

@@ -24,11 +24,10 @@ import (
 )
 
 var (
-	ctx         = context.Background()
 	fileSystems = testutil.FileSystems
 )
 
-func openDBOnFS(fs xfs.FS) *cesium.DB {
+func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
 	return MustSucceed(cesium.Open(ctx,
 		"",
 		cesium.WithFS(fs),
