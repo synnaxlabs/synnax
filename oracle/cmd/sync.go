@@ -23,6 +23,7 @@ import (
 	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
+	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -179,5 +180,6 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
 	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
 	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
+	_ = registry.Register(goactions.New(goactions.DefaultOptions()))
 	return registry
 }

@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -100,6 +91,18 @@ func (s *BaseOracleParserListener) EnterStructBody(ctx *StructBodyContext) {}
 
 // ExitStructBody is called when production structBody is exited.
 func (s *BaseOracleParserListener) ExitStructBody(ctx *StructBodyContext) {}
+
+// EnterActionDef is called when production actionDef is entered.
+func (s *BaseOracleParserListener) EnterActionDef(ctx *ActionDefContext) {}
+
+// ExitActionDef is called when production actionDef is exited.
+func (s *BaseOracleParserListener) ExitActionDef(ctx *ActionDefContext) {}
+
+// EnterActionBody is called when production actionBody is entered.
+func (s *BaseOracleParserListener) EnterActionBody(ctx *ActionBodyContext) {}
+
+// ExitActionBody is called when production actionBody is exited.
+func (s *BaseOracleParserListener) ExitActionBody(ctx *ActionBodyContext) {}
 
 // EnterFieldOmit is called when production fieldOmit is entered.
 func (s *BaseOracleParserListener) EnterFieldOmit(ctx *FieldOmitContext) {}

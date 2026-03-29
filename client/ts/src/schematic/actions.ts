@@ -1,0 +1,95 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Schematic } from "@/schematic/types.gen";
+import {
+  type Action,
+  type AddNodePayload,
+  type RemoveEdgePayload,
+  type RemoveNodePayload,
+  type SetEdgePayload,
+  type SetNodePositionPayload,
+} from "@/schematic/actions.gen";
+
+export type { Action } from "@/schematic/actions.gen";
+export {
+  actionZ,
+  ACTION_TYPES,
+  setNodePosition,
+  addNode,
+  removeNode,
+  setEdge,
+  removeEdge,
+} from "@/schematic/actions.gen";
+
+const handleSetNodePosition = (
+  state: Schematic,
+  payload: SetNodePositionPayload,
+): void => {
+  const node = state.nodes.find((n) => n.key === payload.key);
+  if (node != null) node.position = payload.position;
+};
+
+const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
+  state.nodes.push(payload.node);
+  if (payload.props != null) {
+    if (state.props == null) state.props = {};
+    state.props[payload.node.key] = payload.props;
+  }
+};
+
+const handleRemoveNode = (
+  state: Schematic,
+  payload: RemoveNodePayload,
+): void => {
+  const i = state.nodes.findIndex((n) => n.key === payload.key);
+  if (i !== -1) state.nodes.splice(i, 1);
+  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+  delete state.props[payload.key];
+};
+
+const handleSetEdge = (state: Schematic, payload: SetEdgePayload): void => {
+  const i = state.edges.findIndex((e) => e.key === payload.edge.key);
+  if (i !== -1) state.edges[i] = payload.edge;
+  else state.edges.push(payload.edge);
+};
+
+const handleRemoveEdge = (
+  state: Schematic,
+  payload: RemoveEdgePayload,
+): void => {
+  const i = state.edges.findIndex((e) => e.key === payload.key);
+  if (i !== -1) state.edges.splice(i, 1);
+};
+
+export const reduce = (state: Schematic, action: Action): Schematic => {
+  switch (action.type) {
+    case "set_node_position":
+      handleSetNodePosition(state, action.set_node_position);
+      break;
+    case "add_node":
+      handleAddNode(state, action.add_node);
+      break;
+    case "remove_node":
+      handleRemoveNode(state, action.remove_node);
+      break;
+    case "set_edge":
+      handleSetEdge(state, action.set_edge);
+      break;
+    case "remove_edge":
+      handleRemoveEdge(state, action.remove_edge);
+      break;
+  }
+  return state;
+};
+
+export const reduceAll = (state: Schematic, actions: Action[]): Schematic => {
+  for (const action of actions) state = reduce(state, action);
+  return state;
+};

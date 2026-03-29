@@ -11,6 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, actionZ } from "@/schematic/actions";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -53,6 +54,7 @@ const createReqZ = z.object({
 const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
+const dispatchReqZ = z.object({ key: keyZ, actions: actionZ.array() });
 const emptyResZ = z.object({});
 
 export class Client {
@@ -114,6 +116,16 @@ export class Client {
       "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
+      emptyResZ,
+    );
+  }
+
+  async dispatch(key: Key, actions: Action[]): Promise<void> {
+    await sendRequired(
+      this.client,
+      "/schematic/dispatch",
+      { key, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }

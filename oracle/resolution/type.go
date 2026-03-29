@@ -30,6 +30,7 @@ type TypeForm interface {
 
 type StructForm struct {
 	Fields        []Field
+	Actions       []Action
 	TypeParams    []TypeParam
 	Extends       []TypeRef
 	OmittedFields []string
@@ -92,6 +93,13 @@ type BuiltinGenericForm struct {
 }
 
 func (BuiltinGenericForm) typeForm() {}
+
+type Action struct {
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Fields  []Field
+}
 
 type Field struct {
 	AST            any

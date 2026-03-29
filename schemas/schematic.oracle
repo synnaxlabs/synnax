@@ -167,6 +167,28 @@ Schematic struct {
         @ts preserve_case
     }
 
+    action SetNodePosition {
+        key      string
+        position spatial.XY
+    }
+
+    action AddNode {
+        node  Node
+        props record?
+    }
+
+    action RemoveNode {
+        key string
+    }
+
+    action SetEdge {
+        edge Edge
+    }
+
+    action RemoveEdge {
+        key string
+    }
+
     @doc value     """
         is a visual diagram editor component for drawing system schematics,
         control flows, and process diagrams. Schematics support interactive

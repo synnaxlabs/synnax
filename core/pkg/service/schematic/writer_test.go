@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 var _ = Describe("Writer", func() {
@@ -37,6 +38,77 @@ var _ = Describe("Writer", func() {
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
+		})
+	})
+	Describe("Dispatch", func() {
+		It("Should apply a SetNodePosition action", func(ctx SpecContext) {
+			s := schematic.Schematic{
+				Name: "dispatch-test",
+				Nodes: []schematic.Node{
+					{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
+				},
+				Props: map[string]any{},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, []schematic.Action{
+				schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+					Key:      "n1",
+					Position: spatial.XY{X: 100, Y: 200},
+				}),
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Nodes).To(HaveLen(1))
+			Expect(res.Nodes[0].Position).To(Equal(spatial.XY{X: 100, Y: 200}))
+		})
+		It("Should apply multiple actions in sequence", func(ctx SpecContext) {
+			s := schematic.Schematic{
+				Name:  "dispatch-multi",
+				Props: map[string]any{},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, []schematic.Action{
+				schematic.NewAddNodeAction(schematic.AddNode{
+					Node: schematic.Node{Key: "a", Position: spatial.XY{X: 10, Y: 20}},
+				}),
+				schematic.NewAddNodeAction(schematic.AddNode{
+					Node: schematic.Node{Key: "b", Position: spatial.XY{X: 30, Y: 40}},
+				}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "a"}),
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Nodes).To(HaveLen(1))
+			Expect(res.Nodes[0].Key).To(Equal("b"))
+		})
+		It("Should apply SetEdge and RemoveEdge actions", func(ctx SpecContext) {
+			s := schematic.Schematic{
+				Name: "dispatch-edges",
+				Edges: []schematic.Edge{
+					{Key: "e1", Source: "n1", Target: "n2"},
+				},
+				Props: map[string]any{},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, []schematic.Action{
+				schematic.NewSetEdgeAction(schematic.SetEdge{
+					Edge: schematic.Edge{Key: "e1", Source: "n1", Target: "n3"},
+				}),
+				schematic.NewSetEdgeAction(schematic.SetEdge{
+					Edge: schematic.Edge{Key: "e2", Source: "n2", Target: "n3"},
+				}),
+				schematic.NewRemoveEdgeAction(schematic.RemoveEdge{Key: "e1"}),
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Edges).To(HaveLen(1))
+			Expect(res.Edges[0].Key).To(Equal("e2"))
+		})
+		It("Should return an error when dispatching on a nonexistent key", func(ctx SpecContext) {
+			err := svc.NewWriter(tx).Dispatch(ctx, uuid.New(), []schematic.Action{
+				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
+			})
+			Expect(err).To(HaveOccurred())
 		})
 	})
 	Describe("Copy", func() {

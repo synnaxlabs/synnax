@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 )
 
 // Writer is used to create, update, and delete logs within Synnax. The writer
@@ -23,10 +24,11 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Schematic]
+	tx             gorp.Tx
+	otgWriter      ontology.Writer
+	otg            *ontology.Ontology
+	table          *gorp.Table[uuid.UUID, Schematic]
+	actionObserver observe.Observer[ScopedAction]
 }
 
 // Create creates the given log within the workspace provided. If the log does not
@@ -132,6 +134,24 @@ func (w Writer) Copy(
 		ontology.RelationshipTypeParentOf,
 		OntologyID(newKey),
 	)
+}
+
+// Dispatch applies a sequence of actions to the schematic with the given key.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key uuid.UUID,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().WhereKeys(key).
+		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
+			return ReduceAll(s, actions)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver != nil {
+		w.actionObserver.Notify(ctx, ScopedAction{Key: key, Actions: actions})
+	}
+	return nil
 }
 
 // Delete deletes the logs with the given keys.

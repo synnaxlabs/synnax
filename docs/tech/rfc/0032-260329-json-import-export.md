@@ -386,24 +386,25 @@ Implement missing zyn types:
 - Client library support (Go, TypeScript, Python)
 - Console UI for import/export (file picker, validation preview)
 
-# 7 - Open Questions
+# 7 - Decisions
 
-1. **Bulk export.** Should export support multiple resources in a single file (e.g., an
-   entire workspace with all its schematics and line plots)? This adds complexity around
-   inter-resource references but is the natural user expectation.
+1. **One resource per file.** No bulk export. Each export contains a single data
+   structure in a single envelope. Users export/import resources individually.
 
-2. **Partial import.** If a resource references sub-resources (a workspace references
-   schematics), should import create missing sub-resources or require them to exist?
+2. **Dangling references are fine.** Import does not validate or resolve references to
+   sub-resources (channels, devices, other layouts). They remain as-is in the imported
+   struct. The caller is responsible for fixing up references after import.
 
-3. **Key generation on import.** Should imported resources keep their original keys or
-   get new ones? Keeping keys risks collisions. New keys break internal references.
-   Possible middle ground: new keys with a remapping pass over internal references.
+3. **New key on import.** Imported resources get a new key assigned by the server. The
+   original key from the export is ignored. This matches the existing Console behavior
+   and avoids key collisions.
 
-4. **TypeScript/Python zyn equivalents.** The Console currently does client-side
-   migration for some visualization types. Should Oracle generate zod schemas (TS) or
-   pydantic models (Python) for the same validation? This would enable client-side
-   import validation.
+4. **Metadata-only.** Exported JSON contains configuration and layout data only. No raw
+   telemetry. Files are small enough to read entirely into memory.
 
-5. **Streaming import for large files.** A workspace export with embedded telemetry
-   snapshots could be large. Should import support streaming, or is the assumption that
-   exported JSON is metadata-only (no raw telemetry data)?
+# 8 - Open Questions
+
+1. **TypeScript/Python zyn equivalents.** The Console currently does client-side
+   import/export with its own ad-hoc validation. Should Oracle generate zod schemas (TS)
+   or pydantic models (Python) for cross-language validation parity? Not blocking for the
+   initial Go implementation, but worth considering for long-term consistency.
