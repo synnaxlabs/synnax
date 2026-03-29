@@ -103,10 +103,6 @@ var _ = Describe("Verification", func() {
 		})
 	})
 	Describe("Service", func() {
-		var ctx context.Context
-		BeforeEach(func(c SpecContext) {
-			ctx = c
-		})
 		Describe("Normal DB usage", func() {
 			var db kv.DB
 			BeforeEach(func() {
@@ -115,10 +111,10 @@ var _ = Describe("Verification", func() {
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
 			})
-			It("should fail to open with invalid config", func() {
+			It("should fail to open with invalid config", func(ctx SpecContext) {
 				Expect(verification.OpenService(ctx)).Error().To(HaveOccurred())
 			})
-			It("should open with no verifier", func() {
+			It("should open with no verifier", func(ctx SpecContext) {
 				svc := MustSucceed(
 					verification.OpenService(ctx, verification.ServiceConfig{DB: db}),
 				)
@@ -129,7 +125,7 @@ var _ = Describe("Verification", func() {
 					To(MatchError(verification.ErrFree))
 				Expect(svc.Close()).To(Succeed())
 			})
-			DescribeTable("Invalid verifier", func(v string) {
+			DescribeTable("Invalid verifier", func(ctx SpecContext, v string) {
 				Expect(verification.OpenService(
 					ctx,
 					verification.ServiceConfig{DB: db, Verifier: v},
@@ -147,7 +143,7 @@ var _ = Describe("Verification", func() {
 				),
 			)
 			Describe("Valid verifier", func() {
-				It("should open with a valid verifier", func() {
+				It("should open with a valid verifier", func(ctx SpecContext) {
 					svc := MustSucceed(verification.OpenService(
 						ctx,
 						verification.ServiceConfig{
@@ -163,7 +159,7 @@ var _ = Describe("Verification", func() {
 					Expect(svc.IsOverflowed(101)).To(MatchError(verification.ErrTooMany))
 					Expect(svc.Close()).To(Succeed())
 				})
-				It("should load a verifier from the DB", func() {
+				It("should load a verifier from the DB", func(ctx SpecContext) {
 					svc := MustSucceed(verification.OpenService(
 						ctx,
 						verification.ServiceConfig{
@@ -186,7 +182,7 @@ var _ = Describe("Verification", func() {
 				})
 			})
 			Describe("Stale verifier", func() {
-				It("should allow loading a stale verifier", func() {
+				It("should allow loading a stale verifier", func(ctx SpecContext) {
 					svc := MustSucceed(verification.OpenService(
 						ctx,
 						verification.ServiceConfig{
@@ -205,7 +201,7 @@ var _ = Describe("Verification", func() {
 			})
 		})
 		Describe("DB errors", func() {
-			It("should propagate DB errors to the service", func() {
+			It("should propagate DB errors to the service", func(ctx SpecContext) {
 				db := newDB()
 				svc := MustSucceed(verification.OpenService(
 					ctx,

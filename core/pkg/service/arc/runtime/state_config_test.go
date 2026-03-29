@@ -30,7 +30,7 @@ import (
 var _ = Describe("StateConfig", Ordered, func() {
 	var dist mock.Node
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
 		dist = distB.Provision(context.Background())
 	})

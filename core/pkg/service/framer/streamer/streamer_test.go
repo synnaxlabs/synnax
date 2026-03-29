@@ -40,8 +40,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,

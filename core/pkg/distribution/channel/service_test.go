@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Service", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		mockCluster = mock.ProvisionCluster(context.Background(), 1)
 	})
 	AfterAll(func() {

@@ -10,7 +10,6 @@
 package ranger_test
 
 import (
-	"context"
 	"io"
 
 	"github.com/google/uuid"
@@ -38,8 +37,7 @@ var _ = Describe("Ranger", Ordered, func() {
 		closer   io.Closer
 		labelSvc *label.Service
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,

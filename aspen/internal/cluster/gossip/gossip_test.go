@@ -48,6 +48,8 @@ var _ = Describe("OperationSender", func() {
 			nodesTwo[3] = node.Node{Key: 3, Address: t3.Address, State: node.StateDead}
 			sTwo := store.New(context.Background())
 			sTwo.SetState(context.Background(), store.State{Nodes: nodesTwo, HostKey: 2})
+			// gossipCtx is derived from context.Background() because it is stored
+			// in a shared var and used by It blocks, so it must outlive BeforeEach.
 			gossipCtx, cancel = signal.WithCancel(context.Background())
 			g1 = MustSucceed(gossip.New(gossip.Config{
 				Instrumentation: PanicLogger(),

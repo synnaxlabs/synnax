@@ -10,7 +10,6 @@
 package label_test
 
 import (
-	"context"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,8 +32,7 @@ var _ = Describe("Label", Ordered, func() {
 		otg *ontology.Ontology
 		tx  gorp.Tx
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))

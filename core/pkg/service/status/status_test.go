@@ -38,8 +38,7 @@ var _ = Describe("Status", Ordered, func() {
 		tx       gorp.Tx
 		closer   io.Closer
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,

@@ -38,8 +38,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		iteratorSvc *iterator.Service
 		arcSvc      *arc.Service
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,

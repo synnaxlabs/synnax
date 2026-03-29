@@ -10,7 +10,6 @@
 package signals_test
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -43,8 +42,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		responses     confluence.Outlet[framer.StreamerResponse]
 		closeStreamer io.Closer
 	)
-	BeforeEach(func() {
-		ctx := context.Background()
+	BeforeEach(func(ctx SpecContext) {
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
 		cfg = signals.ObservablePublisherConfig{
 			SetChannel:    channel.Channel{Name: publisherSetChannelName, DataType: telem.UUIDT},

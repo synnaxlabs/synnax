@@ -42,8 +42,7 @@ var _ = Describe("Rack", Ordered, func() {
 		stat   *status.Service
 	)
 
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))

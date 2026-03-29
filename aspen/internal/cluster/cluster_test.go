@@ -30,6 +30,8 @@ var _ = Describe("Cluster", func() {
 		clusterCtx signal.Context
 		shutdown   context.CancelFunc
 	)
+	// clusterCtx is derived from context.Background() because it is stored
+	// in a shared var and used by It blocks, so it must outlive BeforeEach.
 	BeforeEach(func() {
 		clusterCtx, shutdown = signal.WithCancel(context.Background())
 		builder = clustermock.NewBuilder(cluster.Config{

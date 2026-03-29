@@ -10,7 +10,6 @@
 package auth_test
 
 import (
-	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -28,8 +27,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		invalidPassCreds auth.InsecureCredentials
 		invalidUserCreds auth.InsecureCredentials
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		authenticator = MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
 		creds = auth.InsecureCredentials{Username: "username", Password: "password"}

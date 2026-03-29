@@ -73,6 +73,8 @@ var _ = Describe("Freighter Transport", func() {
 		}
 	}
 
+	// ctx is derived from context.Background() because it is stored in a shared
+	// var and used by helper functions and a goroutine, so it must outlive BeforeEach.
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 		server = MustSucceed(lsp.New(lsp.Config{

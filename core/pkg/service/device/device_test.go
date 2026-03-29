@@ -10,8 +10,6 @@
 package device_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -39,8 +37,7 @@ var _ = Describe("Device", func() {
 		tx       gorp.Tx
 		w        device.Writer
 	)
-	BeforeEach(func() {
-		ctx := context.Background()
+	BeforeEach(func(ctx SpecContext) {
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustSucceed(
 			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),

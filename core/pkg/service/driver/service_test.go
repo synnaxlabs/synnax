@@ -84,8 +84,7 @@ var _ = Describe("Config", Ordered, func() {
 		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
@@ -214,8 +213,7 @@ var _ = Describe("Driver", Ordered, func() {
 		}
 	}
 
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
 		dist = distB.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(
@@ -905,8 +903,7 @@ var _ = Describe("Context", Ordered, func() {
 		statusSvc *status.Service
 	)
 
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
 		dist = distB.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(

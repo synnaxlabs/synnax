@@ -86,6 +86,8 @@ var _ = Describe("Metrics", func() {
 			svc   *metrics.Service
 			names []string
 		)
+		// context.Background() is used because svc is stored in a shared var
+		// used by It blocks, so the context must outlive JustBeforeEach.
 		JustBeforeEach(func() {
 			svc = MustSucceed(metrics.OpenService(context.Background(), metrics.ServiceConfig{
 				Channel:            channelSvc,
@@ -353,6 +355,8 @@ var _ = Describe("Metrics", func() {
 			requests  confluence.Inlet[framer.StreamerRequest]
 			responses confluence.Outlet[framer.StreamerResponse]
 		)
+		// context.Background() is used because svc, streamer, etc. are stored in
+		// shared vars used by It blocks, so the context must outlive BeforeEach.
 		BeforeEach(func() {
 			ctx := context.Background()
 			// Write some data to cesium so disk size metrics are non-zero

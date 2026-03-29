@@ -10,7 +10,6 @@
 package ranger_test
 
 import (
-	"context"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,8 +35,7 @@ var _ = Describe("Migrate", func() {
 		closer io.Closer
 		gSvc   *group.Service
 	)
-	BeforeEach(func() {
-		ctx := context.Background()
+	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,

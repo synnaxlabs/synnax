@@ -33,10 +33,9 @@ var (
 	statusSvc *status.Service
 )
 
-var _ = BeforeSuite(func() {
-	ctx := context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
@@ -1015,8 +1014,7 @@ var _ = Describe("Graph", func() {
 				top          channel.Channel
 			)
 
-			BeforeAll(func() {
-				ctx := context.Background()
+			BeforeAll(func(ctx SpecContext) {
 				openGraph(ctx)
 				base1 = channel.Channel{Name: "topo_dia_b1", DataType: telem.Int64T, Virtual: true}
 				base2 = channel.Channel{Name: "topo_dia_b2", DataType: telem.Int64T, Virtual: true}
@@ -1067,8 +1065,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		Context("Long Chain With Mid-Chain Deletion", func() {
-			BeforeAll(func() {
-				ctx := context.Background()
+			BeforeAll(func(ctx SpecContext) {
 				openGraph(ctx)
 			})
 			It("Should only error the immediate dependent of a deleted node", func(ctx SpecContext) {

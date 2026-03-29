@@ -32,12 +32,8 @@ func (e *errSenderCloser) Send(_ int) error { return e.sendErr }
 func (e *errSenderCloser) CloseSend() error { return nil }
 
 var _ = Describe("Sender", func() {
-	var (
-		ctx context.Context
-		net *mock.Network[int, int]
-	)
+	var net *mock.Network[int, int]
 	BeforeEach(func() {
-		ctx = context.Background()
 		net = mock.NewNetwork[int, int]()
 	})
 	Context("Single Stream", func() {
@@ -158,7 +154,7 @@ var _ = Describe("Sender", func() {
 			clientSender    freightfluence.MapTargetedSender[int]
 		)
 		BeforeEach(func() {
-			sCtx, cancel = signal.WithCancel(ctx)
+			sCtx, cancel = signal.WithCancel(context.Background())
 			senderStream = confluence.NewStream[int](nStreams)
 			clientTransport := net.StreamClient(1)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)

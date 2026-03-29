@@ -33,9 +33,8 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		mockCluster *mock.Cluster
 		dist        *distribution.Layer
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
-		mockCluster = mock.ProvisionCluster(ctx, 1)
+	BeforeAll(func(ctx SpecContext) {
+		mockCluster = mock.ProvisionCluster(context.Background(), 1)
 		dist = mockCluster.Nodes[1].Layer
 	})
 	AfterAll(func() {

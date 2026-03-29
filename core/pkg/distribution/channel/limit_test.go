@@ -40,6 +40,8 @@ var _ = Describe("Limit", Ordered, func() {
 		mockCluster *mock.Cluster
 		dist        mock.Node
 	)
+	// context.Background() is used because Provision creates resources stored in
+	// shared vars that are used by It blocks, so the context must outlive BeforeEach.
 	BeforeEach(func() {
 		mockCluster = mock.NewCluster()
 		dist = mockCluster.Provision(context.Background(), distribution.LayerConfig{

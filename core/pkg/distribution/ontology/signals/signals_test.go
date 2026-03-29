@@ -75,7 +75,7 @@ var _ = Describe("Signals", Ordered, func() {
 		dist    mock.Node
 		svc     *changeService
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		builder = mock.NewCluster()
 		dist = builder.Provision(context.Background())
 		svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}

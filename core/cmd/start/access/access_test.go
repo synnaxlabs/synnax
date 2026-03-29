@@ -31,8 +31,7 @@ var _ = Describe("Access", Ordered, func() {
 		tx    gorp.Tx
 		roles access.ProvisionResult
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		roles = MustSucceed(access.Provision(ctx, tx, svc.RBAC))
 	})

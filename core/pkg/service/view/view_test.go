@@ -10,7 +10,6 @@
 package view_test
 
 import (
-	"context"
 	"io"
 
 	"github.com/google/uuid"
@@ -33,8 +32,7 @@ var _ = Describe("View", func() {
 		tx     gorp.Tx
 		closer io.Closer
 	)
-	BeforeEach(func() {
-		ctx := context.Background()
+	BeforeEach(func(ctx SpecContext) {
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: new(true),
@@ -151,8 +149,7 @@ var _ = Describe("View", func() {
 
 	Describe("Retrieve", func() {
 		var views []view.View
-		BeforeEach(func() {
-			ctx := context.Background()
+		BeforeEach(func(ctx SpecContext) {
 			views = []view.View{
 				{
 					Name: "View A",

@@ -10,7 +10,6 @@
 package user_test
 
 import (
-	"context"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,8 +29,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		userKey uuid.UUID
 		otg     *ontology.Ontology
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))

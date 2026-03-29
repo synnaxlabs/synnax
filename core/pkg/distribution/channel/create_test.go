@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Create", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		mockCluster = mock.ProvisionCluster(context.Background(), 2)
 	})
 	AfterAll(func() {
@@ -571,7 +571,7 @@ var _ = Describe("Create", Ordered, func() {
 var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var mockCluster *mock.Cluster
-		BeforeAll(func() {
+		BeforeAll(func(ctx SpecContext) {
 			mockCluster = mock.ProvisionCluster(context.Background(), 1, distribution.LayerConfig{
 				ValidateChannelNames: new(false),
 			})

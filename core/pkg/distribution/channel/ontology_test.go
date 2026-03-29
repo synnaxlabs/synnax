@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Ontology", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func() { mockCluster = mock.ProvisionCluster(context.Background(), 1) })
+	BeforeAll(func(ctx SpecContext) { mockCluster = mock.ProvisionCluster(context.Background(), 1) })
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})

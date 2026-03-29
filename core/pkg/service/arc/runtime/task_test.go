@@ -55,8 +55,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	ShouldNotLeakGoroutinesBeforeEach()
 
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
 		dist = distB.Provision(context.Background())
 		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{

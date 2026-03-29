@@ -35,8 +35,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		arcSvc *arc.Service
 		dist   mock.Node
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
 		dist = distB.Provision(context.Background())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{

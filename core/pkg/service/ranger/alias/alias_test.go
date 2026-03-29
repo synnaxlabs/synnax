@@ -10,7 +10,6 @@
 package alias_test
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -39,8 +38,7 @@ var _ = Describe("Alias", Ordered, func() {
 		tx        gorp.Tx
 		closer    io.Closer
 	)
-	BeforeAll(func() {
-		ctx := context.Background()
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
