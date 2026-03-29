@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package deleter provides a service for deleting data from a Synnax cluster through
+// deleting certain time ranges from channels.
 package deleter
 
 import (

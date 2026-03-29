@@ -48,7 +48,7 @@ func (lp *leaseProxy) deleteTimeRange(
 	for nodeKey, entries := range batch.Peers {
 		sCtx.Go(func(ctx context.Context) error {
 			return lp.deleteTimeRangeRemote(ctx, nodeKey, entries, tr)
-		})
+		}, signal.CancelOnFail())
 	}
 	sCtx.Go(func(ctx context.Context) error {
 		return lp.deleteTimeRangeGateway(ctx, batch.Gateway, tr)

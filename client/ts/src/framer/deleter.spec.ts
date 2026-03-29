@@ -49,21 +49,6 @@ describe("Deleter", () => {
     expect(deletedRes.data.length).toEqual(8);
     expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
-  test("Client - delete name not found", async () => {
-    const [indexCh, dataCh] = await newIndexedPair(client);
-    const data = randomSeries(10, dataCh.dataType);
-    await client.write(TimeStamp.seconds(5), {
-      [indexCh.key]: secondsLinspace(5, 10),
-      [dataCh.key]: data,
-    });
-
-    await expect(
-      client.delete(["nonexistent_channel_name", dataCh.name], TimeRange.MAX),
-    ).rejects.toThrow(NotFoundError);
-
-    const res = await client.read(TimeRange.MAX, dataCh.key);
-    expect(res.data).toEqual(data);
-  });
   test("Client - delete key not found", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = randomSeries(10, dataCh.dataType);

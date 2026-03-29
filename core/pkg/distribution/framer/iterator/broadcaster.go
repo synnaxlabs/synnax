@@ -21,7 +21,7 @@ type broadcaster struct {
 }
 
 func newBroadcaster() *broadcaster {
-	b := &broadcaster{seqNum: 1}
+	b := &broadcaster{}
 	b.Transform = b.transform
 	return b
 }

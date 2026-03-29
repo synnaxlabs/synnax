@@ -49,7 +49,7 @@ type Request struct {
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 	// DownsampleFactor should only be set when opening the Iterator.
 	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
-	// SeqNum is the sequence number of the request (starting at 1). This is used to
+	// SeqNum is the sequence number of the request (starting at 0). This is used to
 	// match responses to requests. Each request should increment the sequence number
 	// by 1.
 	SeqNum int

@@ -75,16 +75,20 @@ func (s *Service) Delete(
 	ctx context.Context,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	keys := make(channel.Keys, 0, len(req.Keys)+len(req.Names))
-	keys = append(keys, req.Keys...)
-	if len(req.Names) > 0 {
-		resolved, err := s.channel.ResolveNames(ctx, req.Names)
-		if err != nil {
-			return types.Nil{}, err
-		}
-		keys = append(keys, resolved...)
+	var (
+		resChannels []channel.Channel
+		q           = s.channel.NewRetrieve().Entries(&resChannels)
+	)
+	if len(req.Keys) > 0 {
+		q = q.WhereKeys(req.Keys...)
 	}
-	keys = keys.Unique()
+	if len(req.Names) > 0 {
+		q = q.WhereNames(req.Names...)
+	}
+	if err := q.Exec(ctx, nil); err != nil {
+		return types.Nil{}, err
+	}
+	keys := channel.KeysFromChannels(resChannels)
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,

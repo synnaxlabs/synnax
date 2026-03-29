@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -130,23 +129,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		otg:                       s.otg,
 		validateRetrievedChannels: s.validateChannels,
 	}
-}
-
-// ResolveNames resolves a list of channel names to their keys. Returns
-// query.ErrNotFound if no channels are found. If some names do exist but others do not,
-// ResolveNames will return the keys of the existing channels without an error.
-func (s *Service) ResolveNames(ctx context.Context, names []string) (Keys, error) {
-	var channels []Channel
-	if err := s.NewRetrieve().
-		Entries(&channels).
-		WhereNames(names...).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	if len(channels) == 0 {
-		return nil, query.ErrNotFound
-	}
-	return KeysFromChannels(channels), nil
 }
 
 // CountExternalNonVirtual returns the number of external non-virtual channels in the

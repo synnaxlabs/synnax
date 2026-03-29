@@ -59,17 +59,6 @@ class TestDeleter:
             sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
         )
 
-    def test_delete_channel_not_found_name(
-        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
-        idx_ch, _ = indexed_pair
-        client.write(0, idx_ch.key, seconds_linspace(1, 50))
-        with pytest.raises(sy.NotFoundError):
-            client.delete([random_name()], sy.TimeRange.MAX)
-
-        data = idx_ch.read(sy.TimeRange.MAX)
-        assert data.size == 50 * 8
-
     def test_delete_channel_not_found_key(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
