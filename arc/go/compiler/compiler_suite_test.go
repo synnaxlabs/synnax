@@ -10,18 +10,11 @@
 package compiler_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-var ctx context.Context
-
-var _ = BeforeEach(func(sc SpecContext) {
-	ctx = sc
-})
 
 func TestCompiler(t *testing.T) {
 	RegisterFailHandler(Fail)

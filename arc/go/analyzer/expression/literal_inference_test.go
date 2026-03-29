@@ -179,63 +179,63 @@ var _ = Describe("Literal Type Inference", func() {
 			}
 		})
 
-		It("Should accept integer literal minus f32 channel with f32 return type", func() {
-			expectSuccess(bCtx, `
+		It("Should accept integer literal minus f32 channel with f32 return type", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 1000 - f32_ch
 				}
 			`, testResolver)
 		})
 
-		It("Should accept float literal divided by f32 channel with f32 return type", func() {
-			expectSuccess(bCtx, `
+		It("Should accept float literal divided by f32 channel with f32 return type", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 1000.0 / f32_ch
 				}
 			`, testResolver)
 		})
 
-		It("Should accept integer literal divided by f32 channel with f32 return type", func() {
-			expectSuccess(bCtx, `
+		It("Should accept integer literal divided by f32 channel with f32 return type", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 1000 / f32_ch
 				}
 			`, testResolver)
 		})
 
-		It("Should accept float literal minus f32 channel with f32 return type", func() {
-			expectSuccess(bCtx, `
+		It("Should accept float literal minus f32 channel with f32 return type", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 1000.0 - f32_ch
 				}
 			`, testResolver)
 		})
 
-		It("Should accept float literal divided by expression of f32 channels", func() {
-			expectSuccess(bCtx, `
+		It("Should accept float literal divided by expression of f32 channels", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 1000.0 / (f32_ch + abc)
 				}
 			`, testResolver)
 		})
 
-		It("Should reject mixed f32 and f64 channels with literal on left", func() {
-			expectFailure(bCtx, `
+		It("Should reject mixed f32 and f64 channels with literal on left", func(ctx SpecContext) {
+			expectFailure(ctx, `
 				func test{} () f64 {
 					return 1000.0 - f32_ch + f64_ch
 				}
 			`, testResolver, "type mismatch")
 		})
 
-		It("Should infer f32 return type for literal-left expression in type inference mode", func() {
+		It("Should infer f32 return type for literal-left expression in type inference mode", func(ctx SpecContext) {
 			program := MustSucceed(parser.Parse(`
 				func test{} () f32 {
 					return 1000 - f32_ch
 				}
 			`))
-			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			aCtx := acontext.CreateRoot(ctx, program, testResolver)
+			analyzer.AnalyzeProgram(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 		})
 	})
 

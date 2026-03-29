@@ -22,12 +22,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var bCtx context.Context
-
-var _ = BeforeEach(func(sc SpecContext) {
-	bCtx = sc
-})
-
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Expression Analyzer Suite")

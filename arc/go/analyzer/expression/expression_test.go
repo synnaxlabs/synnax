@@ -783,7 +783,7 @@ var _ = Describe("Expressions", func() {
 			`, "cannot call non-function"),
 		)
 
-		It("Should record a call edge when a function calls another function", func() {
+		It("Should record a call edge when a function calls another function", func(specCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
@@ -795,7 +795,7 @@ var _ = Describe("Expressions", func() {
 					callee()
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(specCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.CallEdges).To(HaveLen(1))
@@ -803,7 +803,7 @@ var _ = Describe("Expressions", func() {
 			Expect((*ctx.CallEdges)[0].Callee.Name).To(Equal("callee"))
 		})
 
-		It("Should not record a call edge when no enclosing function exists", func() {
+		It("Should not record a call edge when no enclosing function exists", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 				"interval": {
