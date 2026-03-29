@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -83,7 +84,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
 		return nil, err
 	}
-	s.table, err = gorp.OpenTable[uuid.UUID, View](ctx, s.cfg.DB)
+	s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{DB: s.cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +95,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		s.cfg.Signals,
-		signals.GorpPublisherConfigUUID[View](s.cfg.DB),
+		signals.GorpPublisherConfigUUID[View](s.table.Observe()),
 	); err != nil {
 		return nil, err
 	}
@@ -105,10 +106,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // is not safe to call concurrently with any other service methods (including Writer(s)
 // and Retrieve(s)).
 func (s *Service) Close() error {
+	var err error
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		err = s.shutdownSignals.Close()
 	}
-	return nil
+	return errors.Join(err, s.table.Close())
 }
 
 // NewWriter opens a new Writer to create, update, and delete views. If tx is not nil,
@@ -120,13 +122,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		group:     s.group,
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new Retrieve query to fetch views from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, View](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
 	}

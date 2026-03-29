@@ -539,7 +539,7 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -566,7 +566,7 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -576,7 +576,7 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -601,7 +601,7 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -612,7 +612,7 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []status.Status[any]
-			Expect(gorp.NewRetrieve[string, status.Status[any]]().
+			Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 				WhereKeys(statusKey).
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
@@ -620,7 +620,7 @@ var _ = Describe("Driver", func() {
 
 			Consistently(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -84,7 +85,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Status[any]](ctx, cfg.DB)
+	table, err := gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[Status[any]]{DB: cfg.DB},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Status[any]](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[Status[any]](s.table.Observe())
 	signalsCfg.SetName = "sy_status_set"
 	signalsCfg.DeleteName = "sy_status_delete"
 	if s.shutdownSignals, err = signals.PublishFromGorp(
@@ -121,6 +125,11 @@ func (s *Service) Close() error {
 	return errors.Join(err, s.table.Close())
 }
 
+// Observe returns an observable that notifies callers of changes to status entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[string, Status[any]]] {
+	return s.table.Observe()
+}
+
 // NewWriter opens a new Writer to create, update, and delete statuses. If tx is not
 // nil, the writer will use it to execute all operations. If tx is nil, the writer will
 // execute all operations directly against the underlying gorp.DB.
@@ -135,12 +144,13 @@ func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		group:     s.group,
+		codec:     s.table.Codec(),
 	}
 }
 
 func NewRetrieve[D any](s *Service) Retrieve[D] {
 	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[string, Status[D]](),
+		gorp:   gorp.NewRetrieve[string, Status[D]](s.table.Codec()),
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
 		label:  s.cfg.Label,
