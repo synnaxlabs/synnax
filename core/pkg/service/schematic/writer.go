@@ -137,9 +137,11 @@ func (w Writer) Copy(
 }
 
 // Dispatch applies a sequence of actions to the schematic with the given key.
+// The sessionID identifies the originating client for broadcast deduplication.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key uuid.UUID,
+	sessionKey string,
 	actions []Action,
 ) error {
 	if err := w.table.NewUpdate().WhereKeys(key).
@@ -149,7 +151,7 @@ func (w Writer) Dispatch(
 		return err
 	}
 	if w.actionObserver != nil {
-		w.actionObserver.Notify(ctx, ScopedAction{Key: key, Actions: actions})
+		w.actionObserver.Notify(ctx, ScopedAction{Key: key, SessionKey: sessionKey, Actions: actions})
 	}
 	return nil
 }

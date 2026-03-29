@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, type schematic } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -202,6 +202,159 @@ describe("schematic queries", () => {
       await waitFor(() => {
         expect(result.current.retrieve.data?.name).toEqual("cache_renamed");
       });
+    });
+  });
+
+  describe("useDispatch", () => {
+    it("should dispatch setNodePosition and update the flux store", async () => {
+      const workspace = await client.workspaces.create({
+        name: "dispatch_pos_workspace",
+        layout: {},
+      });
+      const s = await client.schematics.create(
+        workspace.key,
+        newSchematic({
+          name: "dispatch_pos",
+          nodes: [{ key: "n1", position: { x: 0, y: 0 }, selected: false, zIndex: 0, type: "" }],
+        }),
+      );
+
+      const { result } = renderHook(
+        () => ({
+          retrieve: Schematic.useRetrieve({ key: s.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+
+      await act(async () => {
+        await result.current.dispatch.updateAsync({
+          key: s.key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
+        });
+      });
+
+      await waitFor(() => {
+        const node = result.current.retrieve.data?.nodes.find((n) => n.key === "n1");
+        expect(node?.position).toEqual({ x: 100, y: 200 });
+      });
+
+      const retrieved = await client.schematics.retrieve({ key: s.key });
+      expect(retrieved.nodes[0].position).toEqual({ x: 100, y: 200 });
+    });
+
+    it("should dispatch multiple actions in sequence", async () => {
+      const workspace = await client.workspaces.create({
+        name: "dispatch_multi_workspace",
+        layout: {},
+      });
+      const s = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "dispatch_multi" }),
+      );
+
+      const { result } = renderHook(
+        () => ({
+          retrieve: Schematic.useRetrieve({ key: s.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+
+      await act(async () => {
+        await result.current.dispatch.updateAsync({
+          key: s.key,
+          actions: [
+            schematic.addNode({
+              node: { key: "a", position: { x: 10, y: 20 }, selected: false, zIndex: 0, type: "" },
+            }),
+            schematic.addNode({
+              node: { key: "b", position: { x: 30, y: 40 }, selected: false, zIndex: 0, type: "" },
+            }),
+            schematic.removeNode({ key: "a" }),
+          ],
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.nodes).toHaveLength(1);
+        expect(result.current.retrieve.data?.nodes[0].key).toEqual("b");
+      });
+    });
+
+    it("should dispatch edge actions", async () => {
+      const workspace = await client.workspaces.create({
+        name: "dispatch_edge_workspace",
+        layout: {},
+      });
+      const s = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "dispatch_edges" }),
+      );
+
+      const { result } = renderHook(
+        () => ({
+          retrieve: Schematic.useRetrieve({ key: s.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+
+      await act(async () => {
+        await result.current.dispatch.updateAsync({
+          key: s.key,
+          actions: [
+            schematic.setEdge({
+              edge: { key: "e1", source: "n1", target: "n2", id: "e1", selected: false },
+            }),
+            schematic.setEdge({
+              edge: { key: "e2", source: "n2", target: "n3", id: "e2", selected: false },
+            }),
+            schematic.removeEdge({ key: "e1" }),
+          ],
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.edges).toHaveLength(1);
+        expect(result.current.retrieve.data?.edges[0].key).toEqual("e2");
+      });
+    });
+
+    it("should persist dispatched actions to the server", async () => {
+      const workspace = await client.workspaces.create({
+        name: "dispatch_persist_workspace",
+        layout: {},
+      });
+      const s = await client.schematics.create(
+        workspace.key,
+        newSchematic({ name: "dispatch_persist" }),
+      );
+
+      const { result } = renderHook(
+        () => ({
+          retrieve: Schematic.useRetrieve({ key: s.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+
+      await act(async () => {
+        await result.current.dispatch.updateAsync({
+          key: s.key,
+          actions: schematic.addNode({
+            node: { key: "persisted", position: { x: 5, y: 10 }, selected: false, zIndex: 0, type: "" },
+          }),
+        });
+      });
+
+      const retrieved = await client.schematics.retrieve({ key: s.key });
+      expect(retrieved.nodes).toHaveLength(1);
+      expect(retrieved.nodes[0].key).toEqual("persisted");
     });
   });
 

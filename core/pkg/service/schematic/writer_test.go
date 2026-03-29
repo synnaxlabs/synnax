@@ -50,7 +50,7 @@ var _ = Describe("Writer", func() {
 				Props: map[string]any{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, []schematic.Action{
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "test-session", []schematic.Action{
 				schematic.NewSetNodePositionAction(schematic.SetNodePosition{
 					Key:      "n1",
 					Position: spatial.XY{X: 100, Y: 200},
@@ -67,7 +67,7 @@ var _ = Describe("Writer", func() {
 				Props: map[string]any{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, []schematic.Action{
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "test-session", []schematic.Action{
 				schematic.NewAddNodeAction(schematic.AddNode{
 					Node: schematic.Node{Key: "a", Position: spatial.XY{X: 10, Y: 20}},
 				}),
@@ -90,7 +90,7 @@ var _ = Describe("Writer", func() {
 				Props: map[string]any{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, []schematic.Action{
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "test-session", []schematic.Action{
 				schematic.NewSetEdgeAction(schematic.SetEdge{
 					Edge: schematic.Edge{Key: "e1", Source: "n1", Target: "n3"},
 				}),
@@ -105,7 +105,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Edges[0].Key).To(Equal("e2"))
 		})
 		It("Should return an error when dispatching on a nonexistent key", func(ctx SpecContext) {
-			err := svc.NewWriter(tx).Dispatch(ctx, uuid.New(), []schematic.Action{
+			err := svc.NewWriter(tx).Dispatch(ctx, uuid.New(), "test-session", []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
 			})
 			Expect(err).To(HaveOccurred())

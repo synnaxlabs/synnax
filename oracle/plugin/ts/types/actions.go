@@ -175,7 +175,7 @@ export const ACTION_TYPES = {
 
 export const actionZ = z.discriminatedUnion("type", [
 {{- range .Actions}}
-  z.object({ type: z.literal("{{ .TypeName }}"), {{ .TypeName }}: {{ camelCase .Name }}PayloadZ }),
+  z.object({ type: z.literal("{{ .TypeName }}"), {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ }),
 {{- end}}
 ]);
 
@@ -183,7 +183,7 @@ export type Action = z.infer<typeof actionZ>;
 {{range .Actions}}
 export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
   type: "{{ .TypeName }}",
-  {{ .TypeName }}: payload,
+  {{ camelCase .Name }}: payload,
 });
 {{end -}}
 `))

@@ -26,18 +26,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("EdgeData", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.EdgeData{Segments: []schematic.Segment{schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}}, Variant: schematic.EdgeVariant("pipe"), Color: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeEdgeData(w, &original)).To(Succeed())
-			var decoded schematic.EdgeData
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeEdgeData(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Segment", func() {
 		It("should round-trip encode and decode", func() {
 			original := schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}
@@ -98,6 +86,18 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
+	Describe("EdgeData", func() {
+		It("should round-trip encode and decode", func() {
+			original := schematic.EdgeData{Segments: []schematic.Segment{schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}}, Variant: schematic.EdgeVariant("pipe"), Color: "test"}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(schematic.EncodeEdgeData(w, &original)).To(Succeed())
+			var decoded schematic.EdgeData
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(schematic.DecodeEdgeData(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("SchematicCodec", func() {
 		It("should round-trip through the Codec interface", func() {
 			original := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Snapshot: true, Editable: true, FitViewOnResize: true, Authority: 5, Viewport: spatial.Viewport{Zoom: 2.5, Position: spatial.XY{X: 2.5, Y: 2.5}}, Legend: schematic.Legend{Visible: true, Position: spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}, Colors: map[string]string{"test": "test"}}, Nodes: []schematic.Node{schematic.Node{Key: "test", Position: spatial.XY{X: 2.5, Y: 2.5}, Selected: true, ZIndex: 3, Type: "test"}}, Edges: []schematic.Edge{schematic.Edge{Key: "test", Source: "test", Target: "test", ID: "test", Selected: true, SourceHandle: "test", TargetHandle: "test", Data: schematic.EdgeData{Segments: []schematic.Segment{schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}}, Variant: schematic.EdgeVariant("pipe"), Color: "test"}}}, Props: map[string]interface{}{"key": "value"}}
@@ -110,23 +110,6 @@ var _ = Describe("Codec", func() {
 		})
 	})
 })
-
-func BenchmarkEncodeDecodeEdgeData(b *testing.B) {
-	s := schematic.EdgeData{Segments: []schematic.Segment{schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}}, Variant: schematic.EdgeVariant("pipe"), Color: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := schematic.EncodeEdgeData(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.EdgeData
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := schematic.DecodeEdgeData(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeSegment(b *testing.B) {
 	s := schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}
@@ -208,6 +191,23 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := schematic.DecodeEdge(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeEdgeData(b *testing.B) {
+	s := schematic.EdgeData{Segments: []schematic.Segment{schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}}, Variant: schematic.EdgeVariant("pipe"), Color: "test"}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := schematic.EncodeEdgeData(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.EdgeData
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := schematic.DecodeEdgeData(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

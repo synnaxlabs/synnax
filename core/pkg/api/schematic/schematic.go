@@ -118,8 +118,9 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 }
 
 type DispatchRequest struct {
-	Key     uuid.UUID          `json:"key" msgpack:"key"`
-	Actions []schematic.Action `json:"actions" msgpack:"actions"`
+	Key        uuid.UUID          `json:"key" msgpack:"key"`
+	SessionKey string             `json:"session_key" msgpack:"session_key"`
+	Actions    []schematic.Action `json:"actions" msgpack:"actions"`
 }
 
 func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
@@ -131,7 +132,7 @@ func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.Actions)
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.SessionKey, req.Actions)
 	})
 }
 

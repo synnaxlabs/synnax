@@ -15,6 +15,54 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
+func EncodeViewport(w *xbinary.Writer, s *Viewport) error {
+	w.Float64(float64(s.Zoom))
+	if err := EncodeXY(w, &s.Position); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeViewport(r *xbinary.Reader, s *Viewport) error {
+	var err error
+	if s.Zoom, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = DecodeXY(r, &s.Position); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeStickyXY(w *xbinary.Writer, s *StickyXY) error {
+	w.Float64(float64(s.X))
+	w.Float64(float64(s.Y))
+	if err := EncodeCorner(w, &s.Root); err != nil {
+		return err
+	}
+	if err := EncodeStickyUnits(w, &s.Units); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeStickyXY(r *xbinary.Reader, s *StickyXY) error {
+	var err error
+	if s.X, err = r.Float64(); err != nil {
+		return err
+	}
+	if s.Y, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = DecodeCorner(r, &s.Root); err != nil {
+		return err
+	}
+	if err = DecodeStickyUnits(r, &s.Units); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeCorner(w *xbinary.Writer, s *Corner) error {
 	w.String(s.X)
 	w.String(s.Y)
@@ -61,54 +109,6 @@ func DecodeXY(r *xbinary.Reader, s *XY) error {
 		return err
 	}
 	if s.Y, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeViewport(w *xbinary.Writer, s *Viewport) error {
-	w.Float64(float64(s.Zoom))
-	if err := EncodeXY(w, &s.Position); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeViewport(r *xbinary.Reader, s *Viewport) error {
-	var err error
-	if s.Zoom, err = r.Float64(); err != nil {
-		return err
-	}
-	if err = DecodeXY(r, &s.Position); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeStickyXY(w *xbinary.Writer, s *StickyXY) error {
-	w.Float64(float64(s.X))
-	w.Float64(float64(s.Y))
-	if err := EncodeCorner(w, &s.Root); err != nil {
-		return err
-	}
-	if err := EncodeStickyUnits(w, &s.Units); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeStickyXY(r *xbinary.Reader, s *StickyXY) error {
-	var err error
-	if s.X, err = r.Float64(); err != nil {
-		return err
-	}
-	if s.Y, err = r.Float64(); err != nil {
-		return err
-	}
-	if err = DecodeCorner(r, &s.Root); err != nil {
-		return err
-	}
-	if err = DecodeStickyUnits(r, &s.Units); err != nil {
 		return err
 	}
 	return nil

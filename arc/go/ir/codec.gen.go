@@ -16,22 +16,11 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeBody(w *xbinary.Writer, s *Body) error {
-	w.String(s.Raw)
-	return nil
-}
-
-func DecodeBody(r *xbinary.Reader, s *Body) error {
-	var err error
-	if s.Raw, err = r.String(); err != nil {
+func EncodeFunction(w *xbinary.Writer, s *Function) error {
+	w.String(s.Key)
+	if err := EncodeBody(w, &s.Body); err != nil {
 		return err
 	}
-	return nil
-}
-
-func EncodeNode(w *xbinary.Writer, s *Node) error {
-	w.String(s.Key)
-	w.String(s.Type)
 	if s.Config != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Config)))
@@ -71,12 +60,12 @@ func EncodeNode(w *xbinary.Writer, s *Node) error {
 	return nil
 }
 
-func DecodeNode(r *xbinary.Reader, s *Node) error {
+func DecodeFunction(r *xbinary.Reader, s *Function) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
 	}
-	if s.Type, err = r.String(); err != nil {
+	if err = DecodeBody(r, &s.Body); err != nil {
 		return err
 	}
 	{
@@ -145,6 +134,19 @@ func DecodeNode(r *xbinary.Reader, s *Node) error {
 	return nil
 }
 
+func EncodeBody(w *xbinary.Writer, s *Body) error {
+	w.String(s.Raw)
+	return nil
+}
+
+func DecodeBody(r *xbinary.Reader, s *Body) error {
+	var err error
+	if s.Raw, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeEdge(w *xbinary.Writer, s *Edge) error {
 	if err := EncodeHandle(w, &s.Source); err != nil {
 		return err
@@ -187,6 +189,94 @@ func DecodeHandle(r *xbinary.Reader, s *Handle) error {
 	}
 	if s.Param, err = r.String(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func EncodeSequence(w *xbinary.Writer, s *Sequence) error {
+	w.String(s.Key)
+	w.Uint32(uint32(len(s.Stages)))
+	for i := range s.Stages {
+		if err := EncodeStage(w, &s.Stages[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DecodeSequence(r *xbinary.Reader, s *Sequence) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Stages = make([]Stage, n)
+		for i := range s.Stages {
+			if err = DecodeStage(r, &s.Stages[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func EncodeStage(w *xbinary.Writer, s *Stage) error {
+	w.String(s.Key)
+	w.Uint32(uint32(len(s.Nodes)))
+	for i := range s.Nodes {
+		w.String(s.Nodes[i])
+	}
+	w.Uint32(uint32(len(s.Strata)))
+	for i := range s.Strata {
+		w.Uint32(uint32(len(s.Strata[i])))
+		for j := range s.Strata[i] {
+			w.String(s.Strata[i][j])
+		}
+	}
+	return nil
+}
+
+func DecodeStage(r *xbinary.Reader, s *Stage) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Nodes = make([]string, n)
+		for i := range s.Nodes {
+			if s.Nodes[i], err = r.String(); err != nil {
+				return err
+			}
+		}
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Strata = make([][]string, n)
+		for i := range s.Strata {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Strata[i] = make([]string, n)
+				for j := range s.Strata[i] {
+					if s.Strata[i][j], err = r.String(); err != nil {
+						return err
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -371,162 +461,9 @@ func DecodeIR(r *xbinary.Reader, s *IR) error {
 	return nil
 }
 
-func EncodeSequence(w *xbinary.Writer, s *Sequence) error {
+func EncodeNode(w *xbinary.Writer, s *Node) error {
 	w.String(s.Key)
-	w.Uint32(uint32(len(s.Stages)))
-	for i := range s.Stages {
-		if err := EncodeStage(w, &s.Stages[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func DecodeSequence(r *xbinary.Reader, s *Sequence) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Stages = make([]Stage, n)
-		for i := range s.Stages {
-			if err = DecodeStage(r, &s.Stages[i]); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func EncodeStage(w *xbinary.Writer, s *Stage) error {
-	w.String(s.Key)
-	w.Uint32(uint32(len(s.Nodes)))
-	for i := range s.Nodes {
-		w.String(s.Nodes[i])
-	}
-	w.Uint32(uint32(len(s.Strata)))
-	for i := range s.Strata {
-		w.Uint32(uint32(len(s.Strata[i])))
-		for j := range s.Strata[i] {
-			w.String(s.Strata[i][j])
-		}
-	}
-	return nil
-}
-
-func DecodeStage(r *xbinary.Reader, s *Stage) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Nodes = make([]string, n)
-		for i := range s.Nodes {
-			if s.Nodes[i], err = r.String(); err != nil {
-				return err
-			}
-		}
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Strata = make([][]string, n)
-		for i := range s.Strata {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Strata[i] = make([]string, n)
-				for j := range s.Strata[i] {
-					if s.Strata[i][j], err = r.String(); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func EncodeAuthorities(w *xbinary.Writer, s *Authorities) error {
-	if s.Default != nil {
-		w.Bool(true)
-		w.Uint8(uint8((*s.Default)))
-	} else {
-		w.Bool(false)
-	}
-	if s.Channels != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Channels)))
-		for key, val := range s.Channels {
-			w.Uint32(uint32(key))
-			w.Uint8(uint8(val))
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func DecodeAuthorities(r *xbinary.Reader, s *Authorities) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v uint8
-			if v, err = r.Uint8(); err != nil {
-				return err
-			}
-			s.Default = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Channels = make(map[uint32]uint8, n)
-				for range n {
-					var key uint32
-					var val uint8
-					if key, err = r.Uint32(); err != nil {
-						return err
-					}
-					if val, err = r.Uint8(); err != nil {
-						return err
-					}
-					s.Channels[key] = val
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func EncodeFunction(w *xbinary.Writer, s *Function) error {
-	w.String(s.Key)
-	if err := EncodeBody(w, &s.Body); err != nil {
-		return err
-	}
+	w.String(s.Type)
 	if s.Config != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Config)))
@@ -566,12 +503,12 @@ func EncodeFunction(w *xbinary.Writer, s *Function) error {
 	return nil
 }
 
-func DecodeFunction(r *xbinary.Reader, s *Function) error {
+func DecodeNode(r *xbinary.Reader, s *Node) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
 	}
-	if err = DecodeBody(r, &s.Body); err != nil {
+	if s.Type, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -636,6 +573,69 @@ func DecodeFunction(r *xbinary.Reader, s *Function) error {
 	}
 	if err = types.DecodeChannels(r, &s.Channels); err != nil {
 		return err
+	}
+	return nil
+}
+
+func EncodeAuthorities(w *xbinary.Writer, s *Authorities) error {
+	if s.Default != nil {
+		w.Bool(true)
+		w.Uint8(uint8((*s.Default)))
+	} else {
+		w.Bool(false)
+	}
+	if s.Channels != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Channels)))
+		for key, val := range s.Channels {
+			w.Uint32(uint32(key))
+			w.Uint8(uint8(val))
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func DecodeAuthorities(r *xbinary.Reader, s *Authorities) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v uint8
+			if v, err = r.Uint8(); err != nil {
+				return err
+			}
+			s.Default = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Channels = make(map[uint32]uint8, n)
+				for range n {
+					var key uint32
+					var val uint8
+					if key, err = r.Uint32(); err != nil {
+						return err
+					}
+					if val, err = r.Uint8(); err != nil {
+						return err
+					}
+					s.Channels[key] = val
+				}
+			}
+		}
 	}
 	return nil
 }

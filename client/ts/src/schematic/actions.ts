@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Schematic } from "@/schematic/types.gen";
+import { z } from "zod";
+
+import { type Schematic, keyZ } from "@/schematic/types.gen";
 import {
   type Action,
+  actionZ,
   type AddNodePayload,
   type RemoveEdgePayload,
   type RemoveNodePayload,
@@ -27,6 +30,14 @@ export {
   setEdge,
   removeEdge,
 } from "@/schematic/actions.gen";
+
+export const scopedActionZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
+
+export type ScopedAction = z.infer<typeof scopedActionZ>;
 
 const handleSetNodePosition = (
   state: Schematic,
@@ -71,19 +82,19 @@ const handleRemoveEdge = (
 export const reduce = (state: Schematic, action: Action): Schematic => {
   switch (action.type) {
     case "set_node_position":
-      handleSetNodePosition(state, action.set_node_position);
+      handleSetNodePosition(state, action.setNodePosition);
       break;
     case "add_node":
-      handleAddNode(state, action.add_node);
+      handleAddNode(state, action.addNode);
       break;
     case "remove_node":
-      handleRemoveNode(state, action.remove_node);
+      handleRemoveNode(state, action.removeNode);
       break;
     case "set_edge":
-      handleSetEdge(state, action.set_edge);
+      handleSetEdge(state, action.setEdge);
       break;
     case "remove_edge":
-      handleRemoveEdge(state, action.remove_edge);
+      handleRemoveEdge(state, action.removeEdge);
       break;
   }
   return state;

@@ -22,27 +22,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-func EncodeSegment(w *xbinary.Writer, s *Segment) error {
-	w.String(string(s.Direction))
-	w.Float64(float64(s.Length))
-	return nil
-}
-
-func DecodeSegment(r *xbinary.Reader, s *Segment) error {
-	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Direction = spatial.Direction(v)
-	}
-	if s.Length, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -295,6 +274,27 @@ func DecodeEdgeData(r *xbinary.Reader, s *EdgeData) error {
 		s.Variant = EdgeVariant(v)
 	}
 	if s.Color, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeSegment(w *xbinary.Writer, s *Segment) error {
+	w.String(string(s.Direction))
+	w.Float64(float64(s.Length))
+	return nil
+}
+
+func DecodeSegment(r *xbinary.Reader, s *Segment) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Direction = spatial.Direction(v)
+	}
+	if s.Length, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

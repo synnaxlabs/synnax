@@ -23,38 +23,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func EncodeOperation(w *xbinary.Writer, s *Operation) error {
-	w.String(string(s.Type))
-	w.Uint32(uint32(s.ResetChannel))
-	w.Int64(int64(s.Duration))
-	return nil
-}
-
-func DecodeOperation(r *xbinary.Reader, s *Operation) error {
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = OperationType(v)
-	}
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.ResetChannel = Key(v)
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Duration = telem.TimeSpan(v)
-	}
-	return nil
-}
-
 func EncodeChannel(w *xbinary.Writer, s *Channel) error {
 	w.String(s.Name)
 	w.Uint16(uint16(s.Leaseholder))
@@ -138,6 +106,38 @@ func DecodeChannel(r *xbinary.Reader, s *Channel) error {
 	}
 	if s.Expression, err = r.String(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func EncodeOperation(w *xbinary.Writer, s *Operation) error {
+	w.String(string(s.Type))
+	w.Uint32(uint32(s.ResetChannel))
+	w.Int64(int64(s.Duration))
+	return nil
+}
+
+func DecodeOperation(r *xbinary.Reader, s *Operation) error {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = OperationType(v)
+	}
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.ResetChannel = Key(v)
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Duration = telem.TimeSpan(v)
 	}
 	return nil
 }

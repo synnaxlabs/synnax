@@ -23,6 +23,57 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Channels", func() {
+		It("should round-trip encode and decode", func() {
+			original := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(types.EncodeChannels(w, &original)).To(Succeed())
+			var decoded types.Channels
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(types.DecodeChannels(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("Param", func() {
+		It("should round-trip encode and decode", func() {
+			original := types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
+				v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
+					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+					return &v
+				}(), Unit: func() *types.Unit {
+					v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
+					return &v
+				}(), Constraint: func() *types.Type {
+					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+					return &v
+				}(), ChanDirection: types.ChanDirection(0)}
+				return &v
+			}(), Unit: func() *types.Unit {
+				v := types.Unit{Dimensions: types.Dimensions{Length: 1, Mass: 1, Time: 1, Current: 1, Temperature: 1, Angle: 1, Count: 1, Data: 1}, Scale: 2.5, Name: "test"}
+				return &v
+			}(), Constraint: func() *types.Type {
+				v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
+					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+					return &v
+				}(), Unit: func() *types.Unit {
+					v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
+					return &v
+				}(), Constraint: func() *types.Type {
+					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+					return &v
+				}(), ChanDirection: types.ChanDirection(0)}
+				return &v
+			}(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(types.EncodeParam(w, &original)).To(Succeed())
+			var decoded types.Param
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(types.DecodeParam(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("Type", func() {
 		It("should round-trip encode and decode", func() {
 			original := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
@@ -188,58 +239,68 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
-	Describe("Channels", func() {
-		It("should round-trip encode and decode", func() {
-			original := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(types.EncodeChannels(w, &original)).To(Succeed())
-			var decoded types.Channels
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(types.DecodeChannels(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
-	Describe("Param", func() {
-		It("should round-trip encode and decode", func() {
-			original := types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
-				v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
-					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-					return &v
-				}(), Unit: func() *types.Unit {
-					v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
-					return &v
-				}(), Constraint: func() *types.Type {
-					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-					return &v
-				}(), ChanDirection: types.ChanDirection(0)}
-				return &v
-			}(), Unit: func() *types.Unit {
-				v := types.Unit{Dimensions: types.Dimensions{Length: 1, Mass: 1, Time: 1, Current: 1, Temperature: 1, Angle: 1, Count: 1, Data: 1}, Scale: 2.5, Name: "test"}
-				return &v
-			}(), Constraint: func() *types.Type {
-				v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
-					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-					return &v
-				}(), Unit: func() *types.Unit {
-					v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
-					return &v
-				}(), Constraint: func() *types.Type {
-					v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-					return &v
-				}(), ChanDirection: types.ChanDirection(0)}
-				return &v
-			}(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(types.EncodeParam(w, &original)).To(Succeed())
-			var decoded types.Param
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(types.DecodeParam(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 })
+
+func BenchmarkEncodeDecodeChannels(b *testing.B) {
+	s := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := types.EncodeChannels(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded types.Channels
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := types.DecodeChannels(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeParam(b *testing.B) {
+	s := types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
+		v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
+			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+			return &v
+		}(), Unit: func() *types.Unit {
+			v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
+			return &v
+		}(), Constraint: func() *types.Type {
+			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+			return &v
+		}(), ChanDirection: types.ChanDirection(0)}
+		return &v
+	}(), Unit: func() *types.Unit {
+		v := types.Unit{Dimensions: types.Dimensions{Length: 1, Mass: 1, Time: 1, Current: 1, Temperature: 1, Angle: 1, Count: 1, Data: 1}, Scale: 2.5, Name: "test"}
+		return &v
+	}(), Constraint: func() *types.Type {
+		v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
+			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+			return &v
+		}(), Unit: func() *types.Unit {
+			v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
+			return &v
+		}(), Constraint: func() *types.Type {
+			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
+			return &v
+		}(), ChanDirection: types.ChanDirection(0)}
+		return &v
+	}(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := types.EncodeParam(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded types.Param
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := types.DecodeParam(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeType(b *testing.B) {
 	s := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
@@ -421,67 +482,6 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeDimensions(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	s := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := types.EncodeChannels(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded types.Channels
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := types.DecodeChannels(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeParam(b *testing.B) {
-	s := types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
-		v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
-			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-			return &v
-		}(), Unit: func() *types.Unit {
-			v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
-			return &v
-		}(), Constraint: func() *types.Type {
-			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-			return &v
-		}(), ChanDirection: types.ChanDirection(0)}
-		return &v
-	}(), Unit: func() *types.Unit {
-		v := types.Unit{Dimensions: types.Dimensions{Length: 1, Mass: 1, Time: 1, Current: 1, Temperature: 1, Angle: 1, Count: 1, Data: 1}, Scale: 2.5, Name: "test"}
-		return &v
-	}(), Constraint: func() *types.Type {
-		v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
-			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-			return &v
-		}(), Unit: func() *types.Unit {
-			v := types.Unit{Dimensions: types.Dimensions{}, Scale: 2.5, Name: "test"}
-			return &v
-		}(), Constraint: func() *types.Type {
-			v := types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{types.Param{}}, Outputs: []types.Param{types.Param{}}, Config: []types.Param{types.Param{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}
-			return &v
-		}(), ChanDirection: types.ChanDirection(0)}
-		return &v
-	}(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := types.EncodeParam(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded types.Param
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := types.DecodeParam(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

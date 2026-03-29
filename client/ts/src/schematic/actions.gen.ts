@@ -56,37 +56,37 @@ export const ACTION_TYPES = {
 export const actionZ = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("set_node_position"),
-    set_node_position: setNodePositionPayloadZ,
+    setNodePosition: setNodePositionPayloadZ,
   }),
-  z.object({ type: z.literal("add_node"), add_node: addNodePayloadZ }),
-  z.object({ type: z.literal("remove_node"), remove_node: removeNodePayloadZ }),
-  z.object({ type: z.literal("set_edge"), set_edge: setEdgePayloadZ }),
-  z.object({ type: z.literal("remove_edge"), remove_edge: removeEdgePayloadZ }),
+  z.object({ type: z.literal("add_node"), addNode: addNodePayloadZ }),
+  z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
+  z.object({ type: z.literal("set_edge"), setEdge: setEdgePayloadZ }),
+  z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
 
 export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
   type: "set_node_position",
-  set_node_position: payload,
+  setNodePosition: payload,
 });
 
 export const addNode = (payload: AddNodePayload): Action => ({
   type: "add_node",
-  add_node: payload,
+  addNode: payload,
 });
 
 export const removeNode = (payload: RemoveNodePayload): Action => ({
   type: "remove_node",
-  remove_node: payload,
+  removeNode: payload,
 });
 
 export const setEdge = (payload: SetEdgePayload): Action => ({
   type: "set_edge",
-  set_edge: payload,
+  setEdge: payload,
 });
 
 export const removeEdge = (payload: RemoveEdgePayload): Action => ({
   type: "remove_edge",
-  remove_edge: payload,
+  removeEdge: payload,
 });

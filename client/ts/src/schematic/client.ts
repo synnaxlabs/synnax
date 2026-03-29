@@ -54,7 +54,11 @@ const createReqZ = z.object({
 const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
-const dispatchReqZ = z.object({ key: keyZ, actions: actionZ.array() });
+const dispatchReqZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
 const emptyResZ = z.object({});
 
 export class Client {
@@ -120,11 +124,11 @@ export class Client {
     );
   }
 
-  async dispatch(key: Key, actions: Action[]): Promise<void> {
+  async dispatch(key: Key, actions: Action[], sessionKey: string): Promise<void> {
     await sendRequired(
       this.client,
       "/schematic/dispatch",
-      { key, actions },
+      { key, sessionKey, actions },
       dispatchReqZ,
       emptyResZ,
     );

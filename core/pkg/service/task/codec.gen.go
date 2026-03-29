@@ -22,6 +22,65 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+	w.Uint64(uint64(s.Task))
+	w.Bool(s.Running)
+	w.String(s.Cmd)
+	if s.Data != nil {
+		w.Bool(true)
+		{
+			b, err := json.Marshal(s.Data)
+			if err != nil {
+				return err
+			}
+			w.Uint32(uint32(len(b)))
+			w.Write(b)
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+	var err error
+	{
+		v, err := r.Uint64()
+		if err != nil {
+			return err
+		}
+		s.Task = Key(v)
+	}
+	if s.Running, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.Cmd, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				b := make([]byte, n)
+				if _, err = r.Read(b); err != nil {
+					return err
+				}
+				if err = json.Unmarshal(b, &s.Data); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func EncodeTask(w *xbinary.Writer, s *Task) error {
 	w.Uint64(uint64(s.Key))
 	w.String(s.Name)
@@ -92,65 +151,6 @@ func DecodeTask(r *xbinary.Reader, s *Task) error {
 				return err
 			}
 			s.Status = &v
-		}
-	}
-	return nil
-}
-
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
-	w.Uint64(uint64(s.Task))
-	w.Bool(s.Running)
-	w.String(s.Cmd)
-	if s.Data != nil {
-		w.Bool(true)
-		{
-			b, err := json.Marshal(s.Data)
-			if err != nil {
-				return err
-			}
-			w.Uint32(uint32(len(b)))
-			w.Write(b)
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
-	var err error
-	{
-		v, err := r.Uint64()
-		if err != nil {
-			return err
-		}
-		s.Task = Key(v)
-	}
-	if s.Running, err = r.Bool(); err != nil {
-		return err
-	}
-	if s.Cmd, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				b := make([]byte, n)
-				if _, err = r.Read(b); err != nil {
-					return err
-				}
-				if err = json.Unmarshal(b, &s.Data); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil

@@ -16,11 +16,26 @@ import { Ontology } from "@/ontology";
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
 
+const ACTION_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  typeof schematic.scopedActionZ
+> = {
+  channel: "sy_schematic_set",
+  schema: schematic.scopedActionZ,
+  onChange: ({ changed, store, client }) => {
+    if (client != null && changed.sessionKey === client.key) return;
+    const current = store.schematics.get(changed.key);
+    if (current == null) return;
+    const next = schematic.reduceAll(structuredClone(current), changed.actions);
+    store.schematics.set(changed.key, next);
+  },
+};
+
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
   schematic.Key,
   schematic.Schematic
-> = { listeners: [] };
+> = { listeners: [ACTION_LISTENER] };
 
 export interface FluxStore extends Flux.UnaryStore<
   schematic.Key,
@@ -139,6 +154,30 @@ export const { useUpdate: useSnapshot } = Flux.createUpdate<
       }),
     );
     await client.ontology.addChildren(parentID, ...ids);
+    return data;
+  },
+});
+
+export interface DispatchParams {
+  key: schematic.Key;
+  actions: schematic.Action | schematic.Action[];
+}
+
+export const { useUpdate: useDispatch } = Flux.createUpdate<
+  DispatchParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, actions } = data;
+    const actionArray = Array.isArray(actions) ? actions : [actions];
+    const current = store.schematics.get(key);
+    if (current != null) {
+      const next = schematic.reduceAll(structuredClone(current), actionArray);
+      rollbacks.push(store.schematics.set(key, next));
+    }
+    await client.schematics.dispatch(key, actionArray, client.key);
     return data;
   },
 });

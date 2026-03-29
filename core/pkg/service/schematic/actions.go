@@ -11,10 +11,13 @@ package schematic
 
 import "github.com/google/uuid"
 
-// ScopedAction wraps an action payload with the schematic key for broadcast.
+// ScopedAction wraps an action payload with the schematic key and originating
+// session ID for broadcast. Clients use the session ID to skip their own
+// broadcasts (self-dedup).
 type ScopedAction struct {
-	Key     uuid.UUID `json:"key" msgpack:"key"`
-	Actions []Action  `json:"actions" msgpack:"actions"`
+	Key        uuid.UUID `json:"key" msgpack:"key"`
+	SessionKey string    `json:"session_key" msgpack:"session_key"`
+	Actions    []Action  `json:"actions" msgpack:"actions"`
 }
 
 func (s SetNodePosition) Handle(state Schematic) (Schematic, error) {
