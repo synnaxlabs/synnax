@@ -10,7 +10,6 @@
 package role_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,7 +25,6 @@ import (
 )
 
 var (
-	ctx       = context.Background()
 	db        *gorp.DB
 	otg       *ontology.Ontology
 	g         *group.Service
