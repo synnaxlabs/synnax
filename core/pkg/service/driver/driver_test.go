@@ -17,207 +17,41 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type mockFactory struct {
-	configureFunc func(t task.Task) (driver.Task, bool, error)
-	name          string
-}
-
-func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task, bool, error) {
-	if f.configureFunc != nil {
-		return f.configureFunc(t)
+var _ = Describe("Driver", func() {
+	embeddedRackKey := func() rack.Key {
+		var r rack.Rack
+		Expect(rackService.NewRetrieve().
+			WhereEmbedded(true).
+			WhereName("Node 1").
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		return r.Key
 	}
-	return nil, false, nil
-}
-
-func (f *mockFactory) Name() string { return f.name }
-
-type mockTask struct {
-	execFunc func(cmd task.Command) error
-	stopFunc func() error
-	key      task.Key
-}
-
-func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
-	if t.execFunc != nil {
-		return t.execFunc(cmd)
-	}
-	return nil
-}
-
-func (t *mockTask) Stop(_ bool) error {
-	if t.stopFunc != nil {
-		return t.stopFunc()
-	}
-	return nil
-}
-
-func (t *mockTask) Key() task.Key { return t.key }
-
-var _ = Describe("Config", Ordered, func() {
-	var (
-		db           *gorp.DB
-		rackService  *rack.Service
-		taskService  *task.Service
-		framerSvc    *framer.Service
-		channelSvc   *channel.Service
-		factory      driver.Factory
-		hostProvider = mock.StaticHostKeyProvider(1)
-	)
-
-	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.Open())
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    g,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
-		taskService = MustSucceed(task.OpenService(
-			ctx,
-			task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackService,
-				Status:   stat,
-				Search:   searchIdx,
-			}),
-		)
-		factory = &mockFactory{name: "test"}
-		ShouldNotLeakGoroutines()
-
-		DeferCleanup(func() {
-			Expect(db.Close()).To(Succeed())
-		})
-	})
-
-	Describe("Validate", func() {
-		It("should fail when DB is nil", func() {
-			cfg := driver.Config{
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
-			}
-			Expect(cfg.Validate()).To(HaveOccurred())
-		})
-
-		It("should fail when Rack is nil", func() {
-			cfg := driver.Config{
-				DB:      db,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
-			}
-			Expect(cfg.Validate()).To(HaveOccurred())
-		})
-
-		It("should fail when Task is nil", func() {
-			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
-			}
-			Expect(cfg.Validate()).To(HaveOccurred())
-		})
-
-		It("should fail when Factory is nil", func() {
-			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Host:    hostProvider,
-			}
-			Expect(cfg.Validate()).To(HaveOccurred())
-		})
-
-		It("should fail when Host is zero", func() {
-			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-			}
-			Expect(cfg.Validate()).To(HaveOccurred())
-		})
-	})
-})
-
-var _ = Describe("Driver", Ordered, func() {
-	var (
-		dist         mock.Node
-		rackService  *rack.Service
-		taskService  *task.Service
-		channelSvc   *channel.Service
-		framerSvc    *framer.Service
-		statusSvc    *status.Service
-		hostProvider = mock.StaticHostKeyProvider(1)
-	)
 
 	openDriver := func(factory driver.Factory) *driver.Driver {
 		driver := MustSucceed(driver.Open(ctx, driver.Config{
-			DB:      dist.DB,
-			Rack:    rackService,
-			Task:    taskService,
-			Framer:  framerSvc,
-			Channel: channelSvc,
-			Status:  statusSvc,
-			Factory: factory,
-			Host:    hostProvider,
+			DB:        dist.DB,
+			Rack:      rackService,
+			Task:      taskService,
+			Framer:    framerSvc,
+			Channel:   channelSvc,
+			Status:    statusSvc,
+			Factories: []driver.Factory{factory},
+			Host:      hostProvider,
 		}))
 		DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 		return driver
@@ -232,69 +66,30 @@ var _ = Describe("Driver", Ordered, func() {
 		}
 	}
 
-	BeforeAll(func() {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
-		searchIdx := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		labelSvc := MustSucceed(label.OpenService(
-			ctx,
-			label.ServiceConfig{
-				DB:       dist.DB,
-				Ontology: dist.Ontology,
-				Group:    dist.Group,
-				Search:   searchIdx,
-			}),
-		)
-		statusSvc = MustSucceed(status.OpenService(
-			ctx,
-			status.ServiceConfig{
-				Ontology: dist.Ontology,
-				DB:       dist.DB,
-				Group:    dist.Group,
-				Label:    labelSvc,
-				Search:   searchIdx,
-			}),
-		)
-		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-			Search:       searchIdx,
+	writeCommand := func(cmd task.Command) {
+		w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+			Keys:  channel.Keys{taskService.CommandChannelKey()},
+			Start: telem.Now(),
 		}))
-		channelSvc = channel.Wrap(dist.Channel)
-		framerSvc = dist.Framer
-		taskService = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Channel:  dist.Channel,
-			Search:   searchIdx,
-		}))
-
-		DeferCleanup(func() {
-			Expect(dist.Close()).To(Succeed())
-		})
-	})
+		defer func() { Expect(w.Close()).To(Succeed()) }()
+		Expect(w.Write(frame.NewUnary(
+			taskService.CommandChannelKey(),
+			MustSucceed(telem.NewJSONSeriesV(cmd)),
+		))).To(BeTrue())
+	}
 
 	Describe("Open", func() {
 		It("should create driver with valid config", func() {
 			driver := openDriver(&mockFactory{name: "test"})
 			Expect(driver).ToNot(BeNil())
-			Expect(driver.RackKey()).ToNot(BeZero())
+			Expect(embeddedRackKey()).ToNot(BeZero())
 		})
 
 		It("should create rack in rack service", func() {
-			driver := openDriver(&mockFactory{name: "test"})
+			openDriver(&mockFactory{name: "test"})
 			var racks []rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereKeys(driver.RackKey()).
+				WhereKeys(embeddedRackKey()).
 				Entries(&racks).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(racks).To(HaveLen(1))
@@ -312,19 +107,22 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredTask atomic.Value
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					mt := &mockTask{key: t.Key}
 					configuredTask.Store(mt)
-					return mt, true, nil
+					return mt, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
 			Eventually(func() bool { return configuredTask.Load() != nil }).Should(BeTrue())
-			Expect(configuredTask.Load().(*mockTask).Key()).To(Equal(t.Key))
+			Expect(configuredTask.Load().(*mockTask).key).To(Equal(t.Key))
 		})
 
 		It("should stop existing task before reconfiguration", func() {
@@ -335,7 +133,10 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -345,11 +146,11 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
-			driver := openDriver(factory)
-			t := newTask(driver.RackKey())
+			openDriver(factory)
+			t := newTask(embeddedRackKey())
 			taskKey.Store(t.Key)
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
@@ -369,9 +170,12 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configuredCount.Add(1)
-					return &mockTask{key: t.Key}, true, nil
+					return &mockTask{key: t.Key}, nil
 				},
 			}
 			openDriver(factory)
@@ -395,17 +199,20 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(initialReady) })
 					return &mockTask{
 						key:      t.Key,
 						stopFunc: func() error { stopped.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
 
@@ -416,6 +223,39 @@ var _ = Describe("Driver", Ordered, func() {
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 		})
 
+		It("should handle stop error gracefully during deletion", func() {
+			var (
+				stopCalled  atomic.Bool
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						stopFunc: func() error {
+							stopCalled.Store(true)
+							return errors.New("stop failed")
+						},
+					}, nil
+				},
+			}
+			openDriver(factory)
+
+			t := newTask(embeddedRackKey())
+			w := taskService.NewWriter(nil)
+			Expect(w.Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			Expect(w.Delete(ctx, t.Key, false)).To(Succeed())
+			Eventually(func() bool { return stopCalled.Load() }).Should(BeTrue())
+		})
+
 		It("should not configure task when factory returns not handled", func() {
 			var (
 				configureCalled atomic.Bool
@@ -423,14 +263,17 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configureCalled.Store(true)
-					return nil, false, nil
+					return nil, driver.ErrTaskNotHandled
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
 
@@ -447,14 +290,14 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(driver.Context, task.Task) (driver.Task, error) {
 					configCalled.Store(true)
-					return nil, true, errors.New("factory configuration failed")
+					return nil, errors.New("factory configuration failed")
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			w := taskService.NewWriter(nil)
 			Expect(w.Create(ctx, &t)).To(Succeed())
 
@@ -472,7 +315,10 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -482,12 +328,12 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return errors.New("stop failed")
 						},
-					}, true, nil
+					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			taskKey.Store(t.Key)
 			w := taskService.NewWriter(nil)
 			countBeforeCreate := configCount.Load()
@@ -506,23 +352,26 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					configuredTasks.Store(t.Key, true)
-					return &mockTask{key: t.Key}, true, nil
+					return &mockTask{key: t.Key}, nil
 				},
 			}
 
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
-			rackKey := d1.RackKey()
+			rackKey := embeddedRackKey()
 
 			t1 := task.Task{
 				Key:  task.NewKey(rackKey, taskCounter.Add(1)),
@@ -547,18 +396,18 @@ var _ = Describe("Driver", Ordered, func() {
 			configuredTasks = sync.Map{}
 
 			d2 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
 
-			Expect(d2.RackKey()).To(Equal(rackKey))
+			Expect(embeddedRackKey()).To(Equal(rackKey))
 			Eventually(func() bool {
 				_, ok1 := configuredTasks.Load(t1.Key)
 				_, ok2 := configuredTasks.Load(t2.Key)
@@ -580,7 +429,10 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
 						if configCount.Add(1) == expectedTasks {
 							closeOnce.Do(func() { close(allConfigured) })
@@ -594,23 +446,23 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 
 			for range expectedTasks {
-				t := newTask(driver.RackKey())
+				t := newTask(embeddedRackKey())
 				testTaskKeys.Store(t.Key, true)
 				Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			}
@@ -630,27 +482,30 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key:      t.Key,
 						stopFunc: func() error { stopCalled.Store(true); return errors.New("stop failed") },
-					}, true, nil
+					}, nil
 				},
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
 			Eventually(configReady).Should(BeClosed())
@@ -675,13 +530,13 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 
-			statusKey := rack.OntologyID(driver.RackKey()).String()
+			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
 				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
@@ -701,13 +556,13 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 
-			statusKey := rack.OntologyID(driver.RackKey()).String()
+			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
@@ -738,12 +593,12 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := rack.OntologyID(driver.RackKey()).String()
+			statusKey := rack.OntologyID(embeddedRackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
 				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
@@ -775,20 +630,44 @@ var _ = Describe("Driver", Ordered, func() {
 	})
 
 	Describe("Command Processing", func() {
-		// writeCommand writes a command to the task command channel via the framer.
-		writeCommand := func(cmd task.Command) {
+		It("should handle malformed command JSON without crashing", func() {
+			var execCalled atomic.Bool
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					}, nil
+				},
+			}
+			openDriver(factory)
+			time.Sleep(50 * time.Millisecond)
+
+			// Write valid JSON that won't unmarshal into task.Command
+			// (task field expects a number, not a string).
 			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
 				Keys:  channel.Keys{taskService.CommandChannelKey()},
 				Start: telem.Now(),
 			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewUnary(
 				taskService.CommandChannelKey(),
-				MustSucceed(telem.NewJSONSeriesV(cmd)),
+				MustSucceed(telem.NewJSONSeriesV(
+					map[string]any{"task": "not-a-number", "type": "start"},
+				)),
 			))).To(BeTrue())
-		}
+			Expect(w.Close()).To(Succeed())
 
-		// Catches the bug: with inverted condition, Exec is never called on known tasks.
+			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").
+				Should(BeFalse())
+		})
+
 		It("should execute command on configured task", func() {
 			var (
 				execCalled  atomic.Bool
@@ -798,23 +677,26 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
-						execFunc: func(cmd task.Command) error {
+						execFunc: func(_ context.Context, cmd task.Command) error {
 							execCalled.Store(true)
 							receivedCmd.Store(cmd)
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 			// Allow streamer to boot up
 			time.Sleep(50 * time.Millisecond)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			Eventually(configReady).Should(BeClosed())
 
@@ -831,22 +713,27 @@ var _ = Describe("Driver", Ordered, func() {
 			Expect(stored.Key).To(Equal("cmd-1"))
 		})
 
-		// Verifies commands for unknown tasks are ignored without crashing.
 		It("should ignore commands for unknown tasks", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					return &mockTask{
-						key:      t.Key,
-						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
-					}, true, nil
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 			time.Sleep(50 * time.Millisecond)
 
-			unknownTaskKey := task.NewKey(driver.RackKey(), 99999)
+			unknownTaskKey := task.NewKey(embeddedRackKey(), 99999)
 			cmd := task.Command{
 				Task: unknownTaskKey,
 				Type: "start",
@@ -857,16 +744,21 @@ var _ = Describe("Driver", Ordered, func() {
 			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
 		})
 
-		// Verifies commands for tasks on other racks are filtered out.
 		It("should ignore commands for tasks on other racks", func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					return &mockTask{
-						key:      t.Key,
-						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
-					}, true, nil
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					}, nil
 				},
 			}
 			openDriver(factory)
@@ -894,21 +786,24 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
-						execFunc: func(cmd task.Command) error {
+						execFunc: func(context.Context, task.Command) error {
 							execCalled.Store(true)
 							return errors.New("execution failed")
 						},
-					}, true, nil
+					}, nil
 				},
 			}
-			driver := openDriver(factory)
+			openDriver(factory)
 			time.Sleep(5 * time.Millisecond)
 
-			t := newTask(driver.RackKey())
+			t := newTask(embeddedRackKey())
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			Eventually(configReady).Should(BeClosed())
 
@@ -921,131 +816,209 @@ var _ = Describe("Driver", Ordered, func() {
 
 			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
 		})
-	})
-})
 
-var _ = Describe("Context", Ordered, func() {
-	var (
-		dist      mock.Node
-		statusSvc *status.Service
-	)
+		It("should log warning for unsupported command without crashing", func() {
+			var (
+				execCalled  atomic.Bool
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return driver.ErrUnsupportedCommand
+						},
+					}, nil
+				},
+			}
+			openDriver(factory)
+			time.Sleep(50 * time.Millisecond)
 
-	BeforeAll(func() {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
-		searchIdx := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		labelSvc := MustSucceed(label.OpenService(
-			ctx,
-			label.ServiceConfig{
-				DB:       dist.DB,
-				Ontology: dist.Ontology,
-				Group:    dist.Group,
-				Search:   searchIdx,
-			}),
-		)
-		statusSvc = MustSucceed(status.OpenService(
-			ctx,
-			status.ServiceConfig{
-				Ontology: dist.Ontology,
-				DB:       dist.DB,
-				Group:    dist.Group,
-				Label:    labelSvc,
-				Search:   searchIdx,
-			}),
-		)
+			t := newTask(embeddedRackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
 
-		DeferCleanup(func() {
-			Expect(dist.Close()).To(Succeed())
-		})
-	})
+			cmd := task.Command{
+				Task: t.Key,
+				Type: "unsupported",
+				Key:  "cmd-unsupported",
+			}
+			writeCommand(cmd)
 
-	Describe("NewContext", func() {
-		It("should create a context with the given status service", func() {
-			driverCtx := driver.NewContext(ctx, statusSvc)
-			Expect(driverCtx.Context).To(Equal(ctx))
+			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
 		})
 	})
 
-	Describe("SetStatus", func() {
-		It("should set a status", func() {
-			driverCtx := driver.NewContext(ctx, statusSvc)
-			stat := task.Status{
-				Key:     "test-status-1",
-				Variant: xstatus.VariantSuccess,
-				Time:    telem.Now(),
+	Describe("Timeouts", func() {
+		It("should pass timeouts to ConfigureTask", func() {
+			var (
+				configureStarted = make(chan struct{})
+				startOnce        sync.Once
+				timedOut         atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					dCtx driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					startOnce.Do(func() { close(configureStarted) })
+					// Block until context is canceled (simulates a well-behaved but
+					// slow implementation that respects cancellation).
+					<-dCtx.Done()
+					timedOut.Store(true)
+					return nil, dCtx.Err()
+				},
 			}
-			Expect(driverCtx.SetStatus(stat)).To(Succeed())
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:          dist.DB,
+				Rack:        rackService,
+				Task:        taskService,
+				Framer:      framerSvc,
+				Channel:     channelSvc,
+				Status:      statusSvc,
+				Factories:   []driver.Factory{factory},
+				Host:        hostProvider,
+				TaskTimeout: 50 * time.Millisecond,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
 
-			var statuses []status.Status[task.StatusDetails]
-			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]](nil).
-				WhereKeys("test-status-1").
-				Entries(&statuses).
-				Exec(ctx, dist.DB)).To(Succeed())
-			Expect(statuses).To(HaveLen(1))
-			Expect(statuses[0].Variant).To(Equal(xstatus.VariantSuccess))
+			t := newTask(embeddedRackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+
+			Eventually(configureStarted, "1s").Should(BeClosed())
+			// The goroutine should receive context cancellation after the timeout.
+			Eventually(func() bool { return timedOut.Load() }).Should(BeTrue())
 		})
 
-		It("should auto-fill time when zero", func() {
-			driverCtx := driver.NewContext(ctx, statusSvc)
-			beforeTime := telem.Now()
-			stat := task.Status{
-				Key:     "test-status-2",
-				Variant: xstatus.VariantInfo,
-				Time:    0,
+		It("should timeout a hanging Exec", func() {
+			var (
+				execStarted = make(chan struct{}, 1)
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(eCtx context.Context, _ task.Command) error {
+							select {
+							case execStarted <- struct{}{}:
+							default:
+							}
+							// Block until context is canceled by the timeout.
+							<-eCtx.Done()
+							return eCtx.Err()
+						},
+					}, nil
+				},
 			}
-			Expect(driverCtx.SetStatus(stat)).To(Succeed())
-			afterTime := telem.Now()
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:          dist.DB,
+				Rack:        rackService,
+				Task:        taskService,
+				Framer:      framerSvc,
+				Channel:     channelSvc,
+				Status:      statusSvc,
+				Factories:   []driver.Factory{factory},
+				Host:        hostProvider,
+				TaskTimeout: 50 * time.Millisecond,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+			time.Sleep(50 * time.Millisecond)
 
-			var statuses []status.Status[task.StatusDetails]
-			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]](nil).
-				WhereKeys("test-status-2").
-				Entries(&statuses).
-				Exec(ctx, dist.DB)).To(Succeed())
-			Expect(statuses).To(HaveLen(1))
-			Expect(statuses[0].Time).To(BeNumerically(">=", beforeTime))
-			Expect(statuses[0].Time).To(BeNumerically("<=", afterTime))
+			t := newTask(embeddedRackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			writeCommand(task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(execStarted).Should(Receive())
 		})
+	})
 
-		It("should preserve provided time", func() {
-			driverCtx := driver.NewContext(ctx, statusSvc)
-			providedTime := telem.TimeStamp(1000000000)
-			stat := task.Status{
-				Key:     "test-status-3",
-				Variant: xstatus.VariantWarning,
-				Time:    providedTime,
+	Describe("Parallelism", func() {
+		It("should configure existing tasks in parallel on startup", func() {
+			var (
+				configCount  atomic.Int32
+				allConfiging = make(chan struct{})
+				configGate   = make(chan struct{})
+			)
+			const numTasks = 3
+
+			// Pre-create tasks before opening the driver.
+			d1 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{&mockFactory{name: "noop"}},
+				Host:      hostProvider,
+			}))
+			rackKey := embeddedRackKey()
+			for range numTasks {
+				t := task.Task{
+					Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+					Name: "Parallel Task",
+					Type: "test",
+				}
+				Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 			}
-			Expect(driverCtx.SetStatus(stat)).To(Succeed())
+			Expect(d1.Close()).To(Succeed())
 
-			var statuses []status.Status[task.StatusDetails]
-			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]](nil).
-				WhereKeys("test-status-3").
-				Entries(&statuses).
-				Exec(ctx, dist.DB)).To(Succeed())
-			Expect(statuses).To(HaveLen(1))
-			Expect(statuses[0].Time).To(Equal(providedTime))
-		})
-
-		It("should fail with empty key", func() {
-			driverCtx := driver.NewContext(ctx, statusSvc)
-			stat := task.Status{
-				Key:     "",
-				Variant: xstatus.VariantSuccess,
-				Time:    telem.Now(),
+			// Open a new driver with a factory that blocks until all tasks are being
+			// configured concurrently.
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					if configCount.Add(1) == numTasks {
+						close(allConfiging)
+					}
+					<-configGate
+					return &mockTask{key: t.Key}, nil
+				},
 			}
-			Expect(driverCtx.SetStatus(stat)).To(MatchError(ContainSubstring("key")))
-		})
 
-		It("should fail with empty variant", func() {
-			driverCtx := driver.NewContext(ctx, statusSvc)
-			stat := task.Status{
-				Key:     "test-status-invalid",
-				Variant: "",
-				Time:    telem.Now(),
-			}
-			Expect(driverCtx.SetStatus(stat)).To(MatchError(ContainSubstring("variant")))
+			openDone := make(chan *driver.Driver, 1)
+			go func() {
+				defer GinkgoRecover()
+				d := MustSucceed(driver.Open(ctx, driver.Config{
+					DB:        dist.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{factory},
+					Host:      hostProvider,
+				}))
+				openDone <- d
+			}()
+
+			// If sequential, only 1 would be configuring at a time — never reaching
+			// numTasks.
+			Eventually(allConfiging).Should(BeClosed())
+			close(configGate)
+
+			d2 := <-openDone
+			Expect(d2.Close()).To(Succeed())
 		})
 	})
 })
