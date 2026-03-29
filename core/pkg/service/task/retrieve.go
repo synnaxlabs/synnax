@@ -14,13 +14,14 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retrieve struct {
 	baseTX     gorp.Tx
-	otg        *ontology.Ontology
+	search     *search.Index
 	gorp       gorp.Retrieve[Key, Task]
 	searchTerm string
 }
@@ -92,8 +93,8 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if r.searchTerm == "" {
 		return r, nil
 	}
-	ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-		Type: ontology.TypeTask,
+	ids, err := r.search.Search(ctx, search.Request{
+		Type: ontology.ResourceTypeTask,
 		Term: r.searchTerm,
 	})
 	if err != nil {

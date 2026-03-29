@@ -109,6 +109,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Search:   dist.Search,
 		}))
 		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
@@ -116,6 +117,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
+			Search:   dist.Search,
 		}))
 		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
@@ -123,6 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       dist.Search,
 		}))
 		DeferCleanup(func() {
 			Expect(rackService.Close()).To(Succeed())
@@ -133,6 +136,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
+			Search:   dist.Search,
 		}))
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
@@ -143,6 +147,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DB:       dist.DB,
 			Signals:  dist.Signals,
 			Task:     taskSvc,
+			Search:   dist.Search,
 		}))
 		DeferCleanup(func() {
 			Expect(arcSvc.Close()).To(Succeed())

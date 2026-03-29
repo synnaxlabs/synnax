@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,7 +26,7 @@ import (
 
 // OntologyID returns the unique ID for the device within the ontology.
 func OntologyID(key string) ontology.ID {
-	return ontology.ID{Type: ontology.TypeDevice, Key: key}
+	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: key}
 }
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
@@ -63,12 +64,16 @@ func newResource(d Device) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
 }
 
-var _ ontology.Service = (*Service)(nil)
+var (
+	_ ontology.Service      = (*Service)(nil)
+	_ search.Service        = (*Service)(nil)
+	_ search.FieldsProvider = (*Service)(nil)
+)
 
 type change = xchange.Change[string, Device]
 
 // Type returns the type of the device ontology service.
-func (s *Service) Type() ontology.Type { return ontology.TypeDevice }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
 
 // Schema returns the schema for the device ontology service.
 func (s *Service) Schema() zyn.Schema { return schema }

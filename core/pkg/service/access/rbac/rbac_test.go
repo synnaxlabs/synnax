@@ -33,6 +33,7 @@ var _ = Describe("Service", func() {
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
+				Search:   searchIdx,
 			}))
 			Expect(s).ToNot(BeNil())
 			Expect(s.Policy).ToNot(BeNil())

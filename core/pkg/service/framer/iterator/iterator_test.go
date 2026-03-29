@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -39,12 +40,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		arcSvc      *arc.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = builder.Provision(context.Background())
+		dist = builder.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(labelSvc.Close()).To(Succeed())
@@ -55,6 +58,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(statusSvc.Close()).To(Succeed())
@@ -65,6 +69,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(rackService.Close()).To(Succeed())
@@ -75,6 +80,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
@@ -84,6 +90,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			Task:     taskSvc,
+			Search:   searchIdx,
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,

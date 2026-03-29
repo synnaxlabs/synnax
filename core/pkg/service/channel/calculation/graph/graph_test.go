@@ -41,6 +41,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() { Expect(labelSvc.Close()).To(Succeed()) })
 	statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
@@ -49,6 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() { Expect(statusSvc.Close()).To(Succeed()) })
 })

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
@@ -37,21 +38,28 @@ var _ = Describe("Migrate", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
 		}))
-		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
+			Search:   searchIdx,
 		}))
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
 			Label:    lab,
+			Search:   searchIdx,
 		}))
 		closer = xio.MultiCloser{db, otg, gSvc}
 	})
@@ -92,12 +100,14 @@ var _ = Describe("Migrate", func() {
 		Expect(svc.Close()).To(Succeed())
 
 		// Reopen the service to run the migration
+		searchIdx2 := MustSucceed(search.Open())
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:             db,
 			Ontology:       otg,
 			Group:          gSvc,
 			Label:          lab,
 			ForceMigration: new(true),
+			Search:         searchIdx2,
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted
@@ -123,7 +133,7 @@ var _ = Describe("Migrate", func() {
 		Expect(otg.NewRetrieve().
 			WhereIDs(parentRange.OntologyID()).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.TypeRange).
+			WhereTypes(ontology.ResourceTypeRange).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())
 		var childNames []string

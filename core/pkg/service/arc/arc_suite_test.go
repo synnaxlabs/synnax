@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -51,9 +52,12 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		EnableSearch: new(false),
-		DB:           db,
+		DB: db,
 	}))
+	searchIdx := MustSucceed(search.Open())
+	DeferCleanup(func() {
+		Expect(searchIdx.Close()).To(Succeed())
+	})
 
 	// Use mock distribution for simplified testing
 	distB := mock.NewCluster()
@@ -62,17 +66,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	statSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
+		Search:   searchIdx,
 	}))
 	rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
@@ -81,6 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider:        mock.StaticHostKeyProvider(1),
 		Status:              statSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
+		Search:              searchIdx,
 	}))
 	taskSvc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
@@ -88,6 +96,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Rack:     rackSvc,
 		Status:   statSvc,
+		Search:   searchIdx,
 	}))
 	testRack = &rack.Rack{Name: "Test Rack"}
 	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -97,6 +106,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Channel:  dist.Channel,
 		Task:     taskSvc,
+		Search:   searchIdx,
 	}))
 })
 

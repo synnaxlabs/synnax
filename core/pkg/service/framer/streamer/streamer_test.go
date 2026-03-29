@@ -10,7 +10,6 @@
 package streamer_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -41,12 +41,14 @@ var _ = Describe("Streamer", Ordered, func() {
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = builder.Provision(context.Background())
+		dist = builder.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Search:   searchIdx,
 		}))
 		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
@@ -54,6 +56,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
@@ -61,6 +64,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(rackService.Close()).To(Succeed())
@@ -71,6 +75,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
@@ -81,6 +86,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:       dist.DB,
 			Signals:  dist.Signals,
 			Task:     taskSvc,
+			Search:   searchIdx,
 		}))
 
 		channelSvc := svcchannel.Wrap(dist.Channel)

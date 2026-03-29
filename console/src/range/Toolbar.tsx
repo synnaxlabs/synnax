@@ -41,13 +41,12 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
-  const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
+  const canViewRanges = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
-      message="No ranges loaded."
-      action={canCreateRange ? "Create a range" : undefined}
-      onClick={handleLinkClick}
+      message="No favorited ranges."
+      action={canViewRanges ? "Open Range Explorer" : undefined}
+      onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
 };
@@ -169,35 +168,43 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   );
 });
 
-const Content = (): ReactElement => {
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canCreateRange = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canViewRanges = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+  if (!canCreateRange && !canViewRanges) return null;
   return (
-    <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Toolbar.Actions>
-          {canCreateRange && (
-            <Toolbar.Action
-              tooltip="Create range"
-              onClick={() => placeLayout(CREATE_LAYOUT)}
-            >
-              <Icon.Add />
-            </Toolbar.Action>
-          )}
-          <Toolbar.Action
-            tooltip="Open Range Explorer"
-            onClick={() => placeLayout(EXPLORER_LAYOUT)}
-            variant="filled"
-          >
-            <Icon.Explore />
-          </Toolbar.Action>
-        </Toolbar.Actions>
-      </Toolbar.Header>
-      <List />
-    </Toolbar.Content>
+    <Toolbar.Actions>
+      {canCreateRange && (
+        <Toolbar.Action
+          tooltip="Create range"
+          onClick={() => placeLayout(CREATE_LAYOUT)}
+        >
+          <Icon.Add />
+        </Toolbar.Action>
+      )}
+      {canViewRanges && (
+        <Toolbar.Action
+          tooltip="Open Range Explorer"
+          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          variant="filled"
+        >
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
+    </Toolbar.Actions>
   );
 };
+
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header padded>
+      <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <List />
+  </Toolbar.Content>
+);
 
 export const TOOLBAR: Layout.NavDrawerItem = {
   key: "range",

@@ -12,22 +12,36 @@ package search_test
 import (
 	"context"
 	"fmt"
+	"io"
+	"iter"
 	"testing"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/search"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 )
 
-func makeResources(n int) []resource.Resource {
-	resources := make([]resource.Resource, n)
+type benchService struct {
+	observe.Noop[iter.Seq[ontology.Change]]
+}
+
+func (s *benchService) Type() ontology.ResourceType { return "bench" }
+
+func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return func(func(ontology.Resource) bool) {}, xio.NopCloser, nil
+}
+
+func makeResources(n int) []ontology.Resource {
+	resources := make([]ontology.Resource, n)
 	names := []string{
 		"gse_ai_%d", "DAQ_PT_%d", "sensor_temp_%d",
 		"October %d Run", "valve_ctrl_%d",
 	}
 	for i := range n {
 		name := fmt.Sprintf(names[i%len(names)], i)
-		resources[i] = resource.Resource{
-			ID:   resource.ID{Type: "bench", Key: fmt.Sprintf("%d", i)},
+		resources[i] = ontology.Resource{
+			ID:   ontology.ID{Type: "bench", Key: fmt.Sprintf("%d", i)},
 			Name: name,
 		}
 	}
@@ -36,11 +50,15 @@ func makeResources(n int) []resource.Resource {
 
 func newBenchIndex(b *testing.B) *search.Index {
 	b.Helper()
-	idx, err := search.New()
+	idx, err := search.Open()
 	if err != nil {
 		b.Fatal(err)
 	}
-	idx.Register(context.Background(), "bench")
+	svc := &benchService{}
+	idx.RegisterService(svc)
+	if err := idx.Initialize(context.Background()); err != nil {
+		b.Fatal(err)
+	}
 	return idx
 }
 
@@ -52,7 +70,7 @@ func BenchmarkIndex(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				idx := newBenchIndex(b)
-				if err := idx.Index(resources); err != nil {
+				if err := idx.IndexResources(resources); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -62,18 +80,18 @@ func BenchmarkIndex(b *testing.B) {
 
 func BenchmarkReindex(b *testing.B) {
 	idx := newBenchIndex(b)
-	r := resource.Resource{
-		ID:   resource.ID{Type: "bench", Key: "0"},
+	r := ontology.Resource{
+		ID:   ontology.ID{Type: "bench", Key: "0"},
 		Name: "gse_ai_0",
 	}
-	if err := idx.Index([]resource.Resource{r}); err != nil {
+	if err := idx.IndexResources([]ontology.Resource{r}); err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r.Name = fmt.Sprintf("gse_ai_%d", i)
-		if err := idx.Index([]resource.Resource{r}); err != nil {
+		if err := idx.IndexResources([]ontology.Resource{r}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -91,7 +109,7 @@ func BenchmarkSearch(b *testing.B) {
 		} {
 			b.Run(fmt.Sprintf("resources=%d/%s", count, queryType.name), func(b *testing.B) {
 				idx := newBenchIndex(b)
-				if err := idx.Index(makeResources(count)); err != nil {
+				if err := idx.IndexResources(makeResources(count)); err != nil {
 					b.Fatal(err)
 				}
 				ctx := context.Background()
@@ -112,7 +130,7 @@ func BenchmarkSearchMiss(b *testing.B) {
 	for _, count := range []int{100, 1000, 5000} {
 		b.Run(fmt.Sprintf("resources=%d", count), func(b *testing.B) {
 			idx := newBenchIndex(b)
-			if err := idx.Index(makeResources(count)); err != nil {
+			if err := idx.IndexResources(makeResources(count)); err != nil {
 				b.Fatal(err)
 			}
 			ctx := context.Background()

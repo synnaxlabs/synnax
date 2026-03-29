@@ -70,114 +70,114 @@ func IDSFromPB(pbs []*ID) ([]ontology.ID, error) {
 	return result, nil
 }
 
-// ResourceTypeToPB converts ontology.Type to ResourceType.
-func ResourceTypeToPB(v ontology.Type) (ResourceType, error) {
+// ResourceTypeToPB converts ontology.ResourceType to ResourceType.
+func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 	switch v {
-	case ontology.TypeArc:
+	case ontology.ResourceTypeArc:
 		return ResourceType_RESOURCE_TYPE_ARC, nil
-	case ontology.TypeBuiltin:
+	case ontology.ResourceTypeBuiltin:
 		return ResourceType_RESOURCE_TYPE_BUILTIN, nil
-	case ontology.TypeChannel:
+	case ontology.ResourceTypeChannel:
 		return ResourceType_RESOURCE_TYPE_CHANNEL, nil
-	case ontology.TypeCluster:
+	case ontology.ResourceTypeCluster:
 		return ResourceType_RESOURCE_TYPE_CLUSTER, nil
-	case ontology.TypeDevice:
+	case ontology.ResourceTypeDevice:
 		return ResourceType_RESOURCE_TYPE_DEVICE, nil
-	case ontology.TypeFramer:
+	case ontology.ResourceTypeFramer:
 		return ResourceType_RESOURCE_TYPE_FRAMER, nil
-	case ontology.TypeGroup:
+	case ontology.ResourceTypeGroup:
 		return ResourceType_RESOURCE_TYPE_GROUP, nil
-	case ontology.TypeLabel:
+	case ontology.ResourceTypeLabel:
 		return ResourceType_RESOURCE_TYPE_LABEL, nil
-	case ontology.TypeLineplot:
+	case ontology.ResourceTypeLineplot:
 		return ResourceType_RESOURCE_TYPE_LINEPLOT, nil
-	case ontology.TypeLog:
+	case ontology.ResourceTypeLog:
 		return ResourceType_RESOURCE_TYPE_LOG, nil
-	case ontology.TypeNode:
+	case ontology.ResourceTypeNode:
 		return ResourceType_RESOURCE_TYPE_NODE, nil
-	case ontology.TypePolicy:
+	case ontology.ResourceTypePolicy:
 		return ResourceType_RESOURCE_TYPE_POLICY, nil
-	case ontology.TypeRack:
+	case ontology.ResourceTypeRack:
 		return ResourceType_RESOURCE_TYPE_RACK, nil
-	case ontology.TypeRange:
+	case ontology.ResourceTypeRange:
 		return ResourceType_RESOURCE_TYPE_RANGE, nil
-	case ontology.TypeRangeAlias:
+	case ontology.ResourceTypeRangeAlias:
 		return ResourceType_RESOURCE_TYPE_RANGE_ALIAS, nil
-	case ontology.TypeRole:
+	case ontology.ResourceTypeRole:
 		return ResourceType_RESOURCE_TYPE_ROLE, nil
-	case ontology.TypeSchematic:
+	case ontology.ResourceTypeSchematic:
 		return ResourceType_RESOURCE_TYPE_SCHEMATIC, nil
-	case ontology.TypeSchematicSymbol:
+	case ontology.ResourceTypeSchematicSymbol:
 		return ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL, nil
-	case ontology.TypeStatus:
+	case ontology.ResourceTypeStatus:
 		return ResourceType_RESOURCE_TYPE_STATUS, nil
-	case ontology.TypeTable:
+	case ontology.ResourceTypeTable:
 		return ResourceType_RESOURCE_TYPE_TABLE, nil
-	case ontology.TypeTask:
+	case ontology.ResourceTypeTask:
 		return ResourceType_RESOURCE_TYPE_TASK, nil
-	case ontology.TypeUser:
+	case ontology.ResourceTypeUser:
 		return ResourceType_RESOURCE_TYPE_USER, nil
-	case ontology.TypeView:
+	case ontology.ResourceTypeView:
 		return ResourceType_RESOURCE_TYPE_VIEW, nil
-	case ontology.TypeWorkspace:
+	case ontology.ResourceTypeWorkspace:
 		return ResourceType_RESOURCE_TYPE_WORKSPACE, nil
 	default:
-		return 0, errors.Newf("unrecognized ontology.Type value: %v", v)
+		return 0, errors.Newf("unrecognized ontology.ResourceType value: %v", v)
 	}
 }
 
-// ResourceTypeFromPB converts ResourceType to ontology.Type.
-func ResourceTypeFromPB(v ResourceType) (ontology.Type, error) {
+// ResourceTypeFromPB converts ResourceType to ontology.ResourceType.
+func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 	switch v {
 	case ResourceType_RESOURCE_TYPE_ARC:
-		return ontology.TypeArc, nil
+		return ontology.ResourceTypeArc, nil
 	case ResourceType_RESOURCE_TYPE_BUILTIN:
-		return ontology.TypeBuiltin, nil
+		return ontology.ResourceTypeBuiltin, nil
 	case ResourceType_RESOURCE_TYPE_CHANNEL:
-		return ontology.TypeChannel, nil
+		return ontology.ResourceTypeChannel, nil
 	case ResourceType_RESOURCE_TYPE_CLUSTER:
-		return ontology.TypeCluster, nil
+		return ontology.ResourceTypeCluster, nil
 	case ResourceType_RESOURCE_TYPE_DEVICE:
-		return ontology.TypeDevice, nil
+		return ontology.ResourceTypeDevice, nil
 	case ResourceType_RESOURCE_TYPE_FRAMER:
-		return ontology.TypeFramer, nil
+		return ontology.ResourceTypeFramer, nil
 	case ResourceType_RESOURCE_TYPE_GROUP:
-		return ontology.TypeGroup, nil
+		return ontology.ResourceTypeGroup, nil
 	case ResourceType_RESOURCE_TYPE_LABEL:
-		return ontology.TypeLabel, nil
+		return ontology.ResourceTypeLabel, nil
 	case ResourceType_RESOURCE_TYPE_LINEPLOT:
-		return ontology.TypeLineplot, nil
+		return ontology.ResourceTypeLineplot, nil
 	case ResourceType_RESOURCE_TYPE_LOG:
-		return ontology.TypeLog, nil
+		return ontology.ResourceTypeLog, nil
 	case ResourceType_RESOURCE_TYPE_NODE:
-		return ontology.TypeNode, nil
+		return ontology.ResourceTypeNode, nil
 	case ResourceType_RESOURCE_TYPE_POLICY:
-		return ontology.TypePolicy, nil
+		return ontology.ResourceTypePolicy, nil
 	case ResourceType_RESOURCE_TYPE_RACK:
-		return ontology.TypeRack, nil
+		return ontology.ResourceTypeRack, nil
 	case ResourceType_RESOURCE_TYPE_RANGE:
-		return ontology.TypeRange, nil
+		return ontology.ResourceTypeRange, nil
 	case ResourceType_RESOURCE_TYPE_RANGE_ALIAS:
-		return ontology.TypeRangeAlias, nil
+		return ontology.ResourceTypeRangeAlias, nil
 	case ResourceType_RESOURCE_TYPE_ROLE:
-		return ontology.TypeRole, nil
+		return ontology.ResourceTypeRole, nil
 	case ResourceType_RESOURCE_TYPE_SCHEMATIC:
-		return ontology.TypeSchematic, nil
+		return ontology.ResourceTypeSchematic, nil
 	case ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL:
-		return ontology.TypeSchematicSymbol, nil
+		return ontology.ResourceTypeSchematicSymbol, nil
 	case ResourceType_RESOURCE_TYPE_STATUS:
-		return ontology.TypeStatus, nil
+		return ontology.ResourceTypeStatus, nil
 	case ResourceType_RESOURCE_TYPE_TABLE:
-		return ontology.TypeTable, nil
+		return ontology.ResourceTypeTable, nil
 	case ResourceType_RESOURCE_TYPE_TASK:
-		return ontology.TypeTask, nil
+		return ontology.ResourceTypeTask, nil
 	case ResourceType_RESOURCE_TYPE_USER:
-		return ontology.TypeUser, nil
+		return ontology.ResourceTypeUser, nil
 	case ResourceType_RESOURCE_TYPE_VIEW:
-		return ontology.TypeView, nil
+		return ontology.ResourceTypeView, nil
 	case ResourceType_RESOURCE_TYPE_WORKSPACE:
-		return ontology.TypeWorkspace, nil
+		return ontology.ResourceTypeWorkspace, nil
 	default:
-		return ontology.Type(""), errors.Newf("unrecognized ResourceType value: %v", v)
+		return ontology.ResourceType(""), errors.Newf("unrecognized ResourceType value: %v", v)
 	}
 }

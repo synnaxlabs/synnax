@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -36,7 +37,15 @@ var _ = Describe("Group", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		svc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		src := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(src.Close()).To(Succeed())
+		})
+		svc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   src,
+		}))
 		w = svc.NewWriter(nil)
 	})
 
@@ -159,11 +168,8 @@ var _ = Describe("Group", Ordered, func() {
 
 		It("Should allow deleting nested hierarchy when ordered leaf to root", func(ctx SpecContext) {
 			root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
-
 			level1 := MustSucceed(w.Create(ctx, "level1-nested", group.OntologyID(root.Key)))
-
 			level2 := MustSucceed(w.Create(ctx, "level2-nested", group.OntologyID(level1.Key)))
-
 			level3 := MustSucceed(w.Create(ctx, "level3-nested", group.OntologyID(level2.Key)))
 
 			Expect(w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key)).To(Succeed())

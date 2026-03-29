@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -39,19 +40,24 @@ var _ = Describe("Device", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc = MustSucceed(
-			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),
-		)
+		searchIdx := MustSucceed(search.Open())
+		groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
+			Search:   searchIdx,
 		}))
 		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
 			Label:    label,
+			Search:   searchIdx,
 		}))
 		rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
@@ -59,6 +65,7 @@ var _ = Describe("Device", func() {
 			Group:        groupSvc,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Search:       searchIdx,
 		}))
 		svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
@@ -66,6 +73,7 @@ var _ = Describe("Device", func() {
 			Group:    groupSvc,
 			Status:   stat,
 			Rack:     rackSvc,
+			Search:   searchIdx,
 		}))
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
@@ -666,17 +674,24 @@ var _ = Describe("Device", func() {
 		It("Should propagate rack warning status to devices on that rack", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			searchIdx := MustSucceed(search.Open())
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
 			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
+				Search:   searchIdx,
 			}))
 			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    groupSvc,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}))
 			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:                  db,
@@ -685,6 +700,7 @@ var _ = Describe("Device", func() {
 				HostProvider:        mock.StaticHostKeyProvider(1),
 				Status:              stat,
 				HealthCheckInterval: 10 * telem.Millisecond,
+				Search:              searchIdx,
 			}))
 			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
@@ -692,6 +708,7 @@ var _ = Describe("Device", func() {
 				Group:    groupSvc,
 				Status:   stat,
 				Rack:     rackSvc,
+				Search:   searchIdx,
 			}))
 			DeferCleanup(func() {
 				Expect(svc.Close()).To(Succeed())
@@ -731,17 +748,24 @@ var _ = Describe("Device", func() {
 		It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			searchIdx := MustSucceed(search.Open())
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
 			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
+				Search:   searchIdx,
 			}))
 			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    groupSvc,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}))
 			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -749,6 +773,7 @@ var _ = Describe("Device", func() {
 				Group:        groupSvc,
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
+				Search:       searchIdx,
 			}))
 			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
@@ -756,6 +781,7 @@ var _ = Describe("Device", func() {
 				Group:    groupSvc,
 				Status:   stat,
 				Rack:     rackSvc,
+				Search:   searchIdx,
 			}))
 			d := device.Device{
 				Key:      "migration-device",
@@ -777,6 +803,7 @@ var _ = Describe("Device", func() {
 				Group:    groupSvc,
 				Status:   stat,
 				Rack:     rackSvc,
+				Search:   searchIdx,
 			}))
 			var restoredStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).

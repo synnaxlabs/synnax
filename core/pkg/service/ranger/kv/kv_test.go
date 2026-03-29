@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -37,22 +38,30 @@ var _ = Describe("KV", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustSucceed(search.Open())
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
+		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
 		rangerSvc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Label:    lab,
+			Search:   searchIdx,
 		}))
 		kvSvc = MustSucceed(kv.OpenService(ctx, kv.ServiceConfig{
 			DB: db,
 		}))
-		closer = xio.MultiCloser{db, otg, g, rangerSvc, kvSvc}
+		closer = xio.MultiCloser{db, otg, searchIdx, g, rangerSvc, kvSvc}
 	})
 	AfterAll(func() {
 		Expect(closer.Close()).To(Succeed())
