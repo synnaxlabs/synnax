@@ -174,9 +174,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Menu.Item
             size="small"
             itemKey="deleteRow"
-            onClick={() =>
-              syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys)))
-            }
+            onClick={() => syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys)))}
           >
             <Icon.Delete />
             Delete row
@@ -184,9 +182,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Menu.Item
             size="small"
             itemKey="deleteCol"
-            onClick={() =>
-              syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys)))
-            }
+            onClick={() => syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys)))}
           >
             <Icon.Delete />
             Delete column

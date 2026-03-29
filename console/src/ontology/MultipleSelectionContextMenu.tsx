@@ -21,7 +21,12 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   return (
     <ContextMenu.Menu>
-      <Group.ContextMenuItem ids={ids} shape={shape} rootID={rootID} onClick={() => group(props)} />
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={() => group(props)}
+      />
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
