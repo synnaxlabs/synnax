@@ -34,7 +34,6 @@ func EncodeWorkspace(w *xbinary.Writer, s *Workspace) error {
 		w.Uint32(uint32(len(b)))
 		w.Write(b)
 	}
-	w.String(s.Description)
 	return nil
 }
 
@@ -61,9 +60,6 @@ func DecodeWorkspace(r *xbinary.Reader, s *Workspace) error {
 		if err = json.Unmarshal(b, &s.Layout); err != nil {
 			return err
 		}
-	}
-	if s.Description, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

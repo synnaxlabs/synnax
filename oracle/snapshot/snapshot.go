@@ -23,14 +23,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Ensure the import path has .oracle extension.
-func ensureOracleExt(p string) string {
-	if strings.HasSuffix(p, ".oracle") {
-		return p
-	}
-	return p + ".oracle"
-}
-
 // Create copies all .oracle files from schemasDir into snapshotsDir/v{version}/,
 // preserving subdirectory structure. Skips the .snapshots directory itself.
 func Create(schemasDir, snapshotsDir string, version int) error {

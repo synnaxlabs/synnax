@@ -28,7 +28,7 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Workspace", func() {
 		It("should round-trip encode and decode", func() {
-			original := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}, Description: "test"}
+			original := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}}
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(workspace.EncodeWorkspace(w, &original)).To(Succeed())
 			var decoded workspace.Workspace
@@ -39,7 +39,7 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("WorkspaceCodec", func() {
 		It("should round-trip through the Codec interface", func() {
-			original := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}, Description: "test"}
+			original := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}}
 			ctx := context.Background()
 			data, err := workspace.WorkspaceCodec.Encode(ctx, original)
 			Expect(err).ToNot(HaveOccurred())
@@ -51,7 +51,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeWorkspace(b *testing.B) {
-	s := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}, Description: "test"}
+	s := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}}
 	w := xbinary.NewWriter(0, binary.BigEndian)
 	for i := 0; i < b.N; i++ {
 		w.Reset()

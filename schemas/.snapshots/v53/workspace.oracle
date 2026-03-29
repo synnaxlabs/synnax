@@ -16,27 +16,24 @@ Key = uuid {
 }
 
 Workspace struct {
-    key         Key     {
+    key    Key    {
         @doc value "is the unique identifier for this workspace."
         @key
     }
-    name        string  {
+    name   string {
         @doc value         "is a human-readable name for the workspace."
         @validate required
     }
-    author      uuid?   {
+    author uuid?  {
         @doc value "is the UUID of the user who created this workspace."
     }
-    layout      record  {
+    layout record {
         @doc value        """
             is the mosaic tree structure that defines how visualizations are
             arranged. Contains tab layout, split configurations, and window
             positions.
         """
         @ts preserve_case
-    }
-    description string? {
-        @doc value "is an optional human-readable description of the workspace."
     }
 
     @doc value     """

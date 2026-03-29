@@ -103,12 +103,6 @@ Param struct {
     value       any?    {
         @doc value "is an optional default value."
     }
-    description string? {
-        @doc value "is an optional description of the parameter."
-    }
-    priority    int32?  {
-        @doc value "is the display ordering priority."
-    }
 
     @doc value    "is a named, typed parameter with optional default value."
     @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"

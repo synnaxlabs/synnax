@@ -570,14 +570,10 @@ func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set
 		if keyFieldGoName == "" {
 			continue
 		}
-		buf.WriteString(fmt.Sprintf(
-			"\nfunc (e %s) GorpKey() Key { return e.%s }\n",
-			goName, keyFieldGoName,
-		))
-		buf.WriteString(fmt.Sprintf(
-			"\nfunc (e %s) SetOptions() []any { return nil }\n",
-			goName,
-		))
+		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) GorpKey() Key { return e.%s }\n",
+			goName, keyFieldGoName)
+		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) SetOptions() []any { return nil }\n",
+			goName)
 	}
 	return buf.Bytes()
 }

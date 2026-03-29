@@ -86,7 +86,7 @@ func findMigrationVersions(migrationsDir string) ([]int, error) {
 	return versions, nil
 }
 
-func runMigrateCreate(name string) error {
+func runMigrateCreate(name string) (err error) {
 	printBanner()
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
@@ -140,9 +140,9 @@ func runMigrateCreate(name string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to create %s", outPath)
 	}
-	defer f.Close()
+	defer func() { err = errors.Combine(err, f.Close()) }()
 
-	if err := migrationScaffoldTmpl.Execute(f, struct {
+	if err = migrationScaffoldTmpl.Execute(f, struct {
 		Version    int
 		Name       string
 		PascalName string

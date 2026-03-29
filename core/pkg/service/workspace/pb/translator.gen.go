@@ -24,11 +24,10 @@ func WorkspaceToPB(r workspace.Workspace) (*Workspace, error) {
 		return nil, err
 	}
 	pb := &Workspace{
-		Name:        r.Name,
-		Description: r.Description,
-		Key:         r.Key.String(),
-		Author:      r.Author.String(),
-		Layout:      layoutVal,
+		Name:   r.Name,
+		Key:    r.Key.String(),
+		Author: r.Author.String(),
+		Layout: layoutVal,
 	}
 	return pb, nil
 }
@@ -51,7 +50,6 @@ func WorkspaceFromPB(pb *Workspace) (workspace.Workspace, error) {
 	}
 	r.Layout = pb.Layout.AsMap()
 	r.Name = pb.Name
-	r.Description = pb.Description
 	return r, nil
 }
 

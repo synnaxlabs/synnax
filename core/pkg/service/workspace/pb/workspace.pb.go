@@ -46,9 +46,7 @@ type Workspace struct {
 	Author string `protobuf:"bytes,3,opt,name=author,proto3" json:"author,omitempty"`
 	// layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
-	Layout *structpb.Struct `protobuf:"bytes,4,opt,name=layout,proto3" json:"layout,omitempty"`
-	// description is an optional human-readable description of the workspace.
-	Description   string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Layout        *structpb.Struct `protobuf:"bytes,4,opt,name=layout,proto3" json:"layout,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -111,24 +109,16 @@ func (x *Workspace) GetLayout() *structpb.Struct {
 	return nil
 }
 
-func (x *Workspace) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
 var File_core_pkg_service_workspace_pb_workspace_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_workspace_pb_workspace_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/workspace/pb/workspace.proto\x12\x14service.workspace.pb\x1a\x1cgoogle/protobuf/struct.proto\"\x9c\x01\n" +
+	"-core/pkg/service/workspace/pb/workspace.proto\x12\x14service.workspace.pb\x1a\x1cgoogle/protobuf/struct.proto\"z\n" +
 	"\tWorkspace\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
 	"\x06author\x18\x03 \x01(\tR\x06author\x12/\n" +
-	"\x06layout\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06layout\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescriptionB\xd3\x01\n" +
+	"\x06layout\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06layoutB\xd3\x01\n" +
 	"\x18com.service.workspace.pbB\x0eWorkspaceProtoP\x01Z5github.com/synnaxlabs/synnax/pkg/service/workspace/pb\xa2\x02\x03SWP\xaa\x02\x14Service.Workspace.Pb\xca\x02\x14Service\\Workspace\\Pb\xe2\x02 Service\\Workspace\\Pb\\GPBMetadata\xea\x02\x16Service::Workspace::Pbb\x06proto3"
 
 var (

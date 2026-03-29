@@ -32,6 +32,4 @@ type Workspace struct {
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
 	Layout binary.MsgpackEncodedJSON `json:"layout" msgpack:"layout"`
-	// Description is an optional human-readable description of the workspace.
-	Description string `json:"description" msgpack:"description"`
 }
