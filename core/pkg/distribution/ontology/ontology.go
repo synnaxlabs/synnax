@@ -115,6 +115,8 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: relationshipTable.Observe(),
 		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
+		RelationshipObserver: relationshipTable.Observe(),
+		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
 		resourceTable:        resourceTable,
 		relationshipTable:    relationshipTable,
 	}

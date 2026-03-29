@@ -10,6 +10,8 @@
 package group_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -170,6 +172,21 @@ var _ = Describe("Group", Ordered, func() {
 				Expect(svc.NewRetrieve().WhereKeys(key).Entry(new(group.Group)).
 					Exec(ctx, nil)).To(HaveOccurred())
 			}
+		})
+	})
+
+	Describe("Observe", func() {
+		It("Should notify when a group is created", func() {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			w := svc.NewWriter(tx)
+			called := false
+			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[uuid.UUID, group.Group]) {
+				called = true
+			})
+			MustSucceed(w.Create(ctx, "observe-test", ontology.RootID))
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(called).To(BeTrue())
 		})
 	})
 })

@@ -159,7 +159,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	baseObs := cfg.Observable
 	var (
 		obs = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
-			Observable: baseObs,
+			Observable: cfg.Observable,
 			Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
 				var out []change.Change[[]byte, struct{}]
 				for c := range r {

@@ -532,9 +532,8 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		var allRacks []rack.Rack
-		Expect(svc.NewRetrieve().Entries(&allRacks).Exec(ctx, db)).To(Succeed())
-		Expect(allRacks).To(HaveLen(1))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		Expect(count).To(Equal(1))
 	})
 
 	It("Should not match an embedded rack with a mismatched name", func() {
@@ -558,9 +557,8 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		var allRacks []rack.Rack
-		Expect(svc.NewRetrieve().Entries(&allRacks).Exec(ctx, db)).To(Succeed())
-		Expect(allRacks).To(HaveLen(2))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		Expect(count).To(Equal(2))
 	})
 
 	It("Should reuse an existing v2 embedded rack with the correct name", func() {
@@ -584,8 +582,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		var allRacks []rack.Rack
-		Expect(svc.NewRetrieve().Entries(&allRacks).Exec(ctx, db)).To(Succeed())
-		Expect(allRacks).To(HaveLen(1))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		Expect(count).To(Equal(1))
 	})
 })
