@@ -30,13 +30,11 @@ import (
 
 var _ = Describe("FramerCodec", Ordered, func() {
 	var (
-		ctx         context.Context
 		mockCluster *mock.Cluster
 		dist        *distribution.Layer
 	)
-	BeforeAll(func() {
-		ctx = context.Background()
-		mockCluster = mock.ProvisionCluster(ctx, 1)
+	BeforeAll(func(ctx SpecContext) {
+		mockCluster = mock.ProvisionCluster(context.Background(), 1)
 		dist = mockCluster.Nodes[1].Layer
 	})
 	AfterAll(func() {
@@ -44,7 +42,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("Frame Write Request", func() {
-		It("Should encode and decode single channel int32", func() {
+		It("Should encode and decode single channel int32", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
@@ -66,7 +64,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
-		It("Should encode and decode multiple channels", func() {
+		It("Should encode and decode multiple channels", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2, 3}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"int32", "float32", "uint64"}),
@@ -92,7 +90,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Payload.Frame.SeriesAt(2)).To(telem.MatchSeriesData(telem.NewSeriesV[uint64](100, 200)))
 		})
 
-		It("Should encode and decode open command", func() {
+		It("Should encode and decode open command", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -122,7 +120,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Payload.Config.Keys).To(Equal(keys))
 		})
 
-		It("Should encode and decode open message", func() {
+		It("Should encode and decode open message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
@@ -134,7 +132,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeOpen))
 		})
 
-		It("Should encode and decode close message", func() {
+		It("Should encode and decode close message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
@@ -148,7 +146,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 	})
 
 	Describe("Frame Writer Response", func() {
-		It("Should encode and decode response", func() {
+		It("Should encode and decode response", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
@@ -165,7 +163,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 	})
 
 	Describe("Frame Streamer Request", func() {
-		It("Should encode and decode request", func() {
+		It("Should encode and decode request", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -196,7 +194,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 	})
 
 	Describe("Frame Stream Response", func() {
-		It("Should encode and decode single channel int32", func() {
+		It("Should encode and decode single channel int32", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
@@ -216,7 +214,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
-		It("Should encode and decode multiple channels", func() {
+		It("Should encode and decode multiple channels", func(ctx SpecContext) {
 			keys := channel.Keys{1, 2}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"float64", "int64"}),
@@ -237,7 +235,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5, 3.5)))
 			Expect(resMsg.Payload.Frame.SeriesAt(1)).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1000, 2000, 3000)))
 		})
-		It("Should encode and decode empty frame", func() {
+		It("Should encode and decode empty frame", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
@@ -251,7 +249,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Payload.Frame.Empty()).To(BeTrue())
 		})
 
-		It("Should encode and decode open message", func() {
+		It("Should encode and decode open message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
@@ -263,7 +261,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeOpen))
 		})
 
-		It("Should encode and decode close message", func() {
+		It("Should encode and decode close message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},

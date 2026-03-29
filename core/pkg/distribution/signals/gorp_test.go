@@ -10,8 +10,6 @@
 package signals_test
 
 import (
-	"context"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -52,13 +50,12 @@ func (t testStringEntry) SetOptions() []any { return nil }
 var _ = Describe("GorpPublisherConfig", func() {
 	var (
 		db          *gorp.DB
-		ctx         = context.Background()
 		uuidTable   *gorp.Table[uuid.UUID, testUUIDEntry]
 		numTable    *gorp.Table[uint32, testNumericEntry]
 		stringTable *gorp.Table[string, testStringEntry]
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		uuidTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testUUIDEntry]{DB: db}))
 		numTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testNumericEntry]{DB: db}))

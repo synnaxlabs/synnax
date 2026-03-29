@@ -10,8 +10,6 @@
 package symbol_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -25,7 +23,7 @@ import (
 
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
-		It("Should create a service with minimal configuration", func() {
+		It("Should create a service with minimal configuration", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
@@ -44,7 +42,7 @@ var _ = Describe("Service", func() {
 			Expect(testDB.Close()).To(Succeed())
 		})
 
-		It("Should create a service with group configuration", func() {
+		It("Should create a service with group configuration", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testSearchIdx := MustSucceed(search.Open())
@@ -72,15 +70,18 @@ var _ = Describe("Service", func() {
 			Expect(testDB.Close()).To(Succeed())
 		})
 
-		It("Should fail with invalid configuration", func() {
-			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{DB: nil})).
-				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
+		It("Should fail with invalid configuration", func(ctx SpecContext) {
+			_, err := symbol.OpenService(ctx, symbol.ServiceConfig{
+				DB: nil,
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("db: must be non-nil"))
 
 			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{Ontology: otg})).
 				Error().To(MatchError(ContainSubstring("db")))
 		})
 
-		It("Should handle configuration override correctly", func() {
+		It("Should handle configuration override correctly", func(ctx SpecContext) {
 			testDB1 := gorp.Wrap(memkv.New())
 			testDB2 := gorp.Wrap(memkv.New())
 			testOtg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
@@ -116,26 +117,26 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewWriter", func() {
-		It("Should create a writer with transaction", func() {
+		It("Should create a writer with transaction", func(ctx SpecContext) {
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
 		})
 
-		It("Should create a writer without transaction", func() {
+		It("Should create a writer without transaction", func(ctx SpecContext) {
 			writer := svc.NewWriter(nil)
 			Expect(writer).ToNot(BeNil())
 		})
 	})
 
 	Describe("NewRetrieve", func() {
-		It("Should create a retrieve query builder", func() {
+		It("Should create a retrieve query builder", func(ctx SpecContext) {
 			retrieve := svc.NewRetrieve()
 			Expect(retrieve).ToNot(BeNil())
 		})
 	})
 
 	Describe("Close", func() {
-		It("Should close the service cleanly", func() {
+		It("Should close the service cleanly", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
@@ -158,7 +159,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Integration", func() {
-		It("Should handle concurrent operations", func() {
+		It("Should handle concurrent operations", func(ctx SpecContext) {
 			done := make(chan bool, 3)
 
 			// Writer goroutine
@@ -169,8 +170,8 @@ var _ = Describe("Service", func() {
 						Name: "concurrent-write",
 						Data: map[string]any{"svg": "<svg>...</svg>"},
 					}
-					Expect(svc.NewWriter(nil).Create(context.Background(), &sym, ws.OntologyID())).To(Succeed())
-					Expect(svc.NewWriter(nil).Delete(context.Background(), sym.Key)).To(Succeed())
+					Expect(svc.NewWriter(nil).Create(ctx, &sym, ws.OntologyID())).To(Succeed())
+					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 				}
 				done <- true
 			}()
@@ -180,7 +181,7 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(context.Background(), nil)
+					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
 				}
 				done <- true
 			}()
@@ -190,7 +191,7 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(context.Background(), nil)
+					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
 				}
 				done <- true
 			}()

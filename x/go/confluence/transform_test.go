@@ -19,7 +19,7 @@ import (
 )
 
 var _ = Describe("transform", func() {
-	It("Should transform values correctly", func() {
+	It("Should transform values correctly", func(ctx SpecContext) {
 		inlet := NewStream[int](3)
 		outlet := NewStream[int](4)
 		square := &LinearTransform[int, int]{}
@@ -28,13 +28,13 @@ var _ = Describe("transform", func() {
 		}
 		square.InFrom(inlet)
 		square.OutTo(outlet)
-		ctx, cancel := signal.WithCancel(context.Background())
-		square.Flow(ctx)
+		sCtx, cancel := signal.WithCancel(ctx)
+		square.Flow(sCtx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2
 		Expect(<-outlet.Outlet()).To(Equal(1))
 		Expect(<-outlet.Outlet()).To(Equal(4))
 		cancel()
-		Expect(errors.Is(ctx.Wait(), context.Canceled)).To(BeTrue())
+		Expect(errors.Is(sCtx.Wait(), context.Canceled)).To(BeTrue())
 	})
 })

@@ -184,13 +184,9 @@ func (c structpbCodec) DecodeStream(_ context.Context, r io.Reader, value any) e
 var _ binary.Codec = structpbCodec{}
 
 var _ = Describe("Gorp", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 	Describe("GorpRunner", func() {
 		Describe("Basic migration execution", func() {
-			It("Should run a single migration successfully", func() {
+			It("Should run a single migration successfully", func(ctx SpecContext) {
 				executed := false
 				runner := gorp.Migrator{
 					Key: "test_migration_version",
@@ -212,7 +208,7 @@ var _ = Describe("Gorp", func() {
 				Expect(closer.Close()).To(Succeed())
 				Expect(version).To(Equal([]byte{1}))
 			})
-			It("Should run multiple migrations in order", func() {
+			It("Should run multiple migrations in order", func(ctx SpecContext) {
 				var executionOrder []int
 				runner := gorp.Migrator{
 					Key: "test_migration_version_2",
@@ -249,7 +245,7 @@ var _ = Describe("Gorp", func() {
 				Expect(version).To(Equal([]byte{3}))
 			})
 
-			It("Should not run migrations that are already completed", func() {
+			It("Should not run migrations that are already completed", func(ctx SpecContext) {
 				executionCount := 0
 				runner := gorp.Migrator{
 					Key: "test_migration_version_3",
@@ -271,7 +267,7 @@ var _ = Describe("Gorp", func() {
 				Expect(executionCount).To(Equal(1))
 			})
 
-			It("Should only run new migrations after partial completion", func() {
+			It("Should only run new migrations after partial completion", func(ctx SpecContext) {
 				var executed []string
 				runner := gorp.Migrator{
 					Key: "test_migration_version_4",
@@ -314,7 +310,7 @@ var _ = Describe("Gorp", func() {
 				Expect(version).To(Equal([]byte{3}))
 			})
 
-			It("Should handle empty migration list", func() {
+			It("Should handle empty migration list", func(ctx SpecContext) {
 				runner := gorp.Migrator{
 					Key:        "test_migration_version_5",
 					Migrations: []gorp.MigrationSpec{},
@@ -328,7 +324,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Error handling", func() {
-			It("Should return error when migration fails", func() {
+			It("Should return error when migration fails", func(ctx SpecContext) {
 				runner := gorp.Migrator{
 					Key: "test_migration_version_6",
 					Migrations: []gorp.MigrationSpec{
@@ -350,7 +346,7 @@ var _ = Describe("Gorp", func() {
 					To(MatchError(query.ErrNotFound))
 			})
 
-			It("Should fail when migration count exceeds 255", func() {
+			It("Should fail when migration count exceeds 255", func(ctx SpecContext) {
 				migrations := make([]gorp.MigrationSpec, 256)
 				for i := range migrations {
 					migrations[i] = gorp.MigrationSpec{
@@ -368,7 +364,7 @@ var _ = Describe("Gorp", func() {
 					To(MatchError(gorp.ErrMigrationCountExceeded))
 			})
 
-			It("Should stop at first failing migration", func() {
+			It("Should stop at first failing migration", func(ctx SpecContext) {
 				var executed []string
 				runner := gorp.Migrator{
 					Key: "test_migration_version_8",
@@ -407,7 +403,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Force flag", func() {
-			It("Should rerun all migrations when Force is true", func() {
+			It("Should rerun all migrations when Force is true", func(ctx SpecContext) {
 				executionCount := 0
 				runner := gorp.Migrator{
 					Key: "test_migration_version_9",
@@ -443,7 +439,7 @@ var _ = Describe("Gorp", func() {
 				Expect(version).To(Equal([]byte{2}))
 			})
 
-			It("Should run all migrations with Force even if some completed", func() {
+			It("Should run all migrations with Force even if some completed", func(ctx SpecContext) {
 				var executed []string
 				runner := gorp.Migrator{
 					Key: "test_migration_version_10",
@@ -476,7 +472,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Version tracking", func() {
-			It("Should increment version after each successful migration", func() {
+			It("Should increment version after each successful migration", func(ctx SpecContext) {
 				runner := gorp.Migrator{
 					Key: "test_migration_version_12",
 					Migrations: []gorp.MigrationSpec{
@@ -524,7 +520,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Transaction behavior", func() {
-			It("Should rollback all changes when a migration fails", func() {
+			It("Should rollback all changes when a migration fails", func(ctx SpecContext) {
 				runner := gorp.Migrator{
 					Key: "test_migration_version_13",
 					Migrations: []gorp.MigrationSpec{
@@ -552,7 +548,7 @@ var _ = Describe("Gorp", func() {
 					To(MatchError(query.ErrNotFound))
 			})
 
-			It("Should commit all changes when all migrations succeed", func() {
+			It("Should commit all changes when all migrations succeed", func(ctx SpecContext) {
 				runner := gorp.Migrator{
 					Key: "test_migration_version_14",
 					Migrations: []gorp.MigrationSpec{
@@ -595,7 +591,7 @@ var _ = Describe("Gorp", func() {
 	})
 
 	Describe("Codec", func() {
-		It("Should use Codec.Marshal when a codec is provided to the table", func() {
+		It("Should use Codec.Marshal when a codec is provided to the table", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
@@ -610,7 +606,7 @@ var _ = Describe("Gorp", func() {
 			Expect(result.Data).To(Equal("hello"))
 		})
 
-		It("Should fall back to DB codec when no table codec is provided", func() {
+		It("Should fall back to DB codec when no table codec is provided", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entry](testDB, testDB)
@@ -621,7 +617,7 @@ var _ = Describe("Gorp", func() {
 			Expect(result.Data).To(Equal("hello"))
 		})
 
-		It("Should use Codec.Unmarshal in Iterator.Value via table reader", func() {
+		It("Should use Codec.Unmarshal in Iterator.Value via table reader", func(ctx SpecContext) {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
@@ -639,7 +635,7 @@ var _ = Describe("Gorp", func() {
 
 	Describe("Migration Interface", func() {
 		Describe("TypedMigration", func() {
-			It("Should transform entries from one schema to another", func() {
+			It("Should transform entries from one schema to another", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -661,7 +657,7 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two_migrated"))
 			})
 
-			It("Should call PostMigrateFunc after auto migration", func() {
+			It("Should call PostMigrateFunc after auto migration", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -681,7 +677,7 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("post:one"))
 			})
 
-			It("Should handle cross-type migration with manually seeded data", func() {
+			It("Should handle cross-type migration with manually seeded data", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				codec := &binary.MsgPackCodec{}
@@ -715,7 +711,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("RawMigration", func() {
-			It("Should provide a working gorp.Tx for read/write", func() {
+			It("Should provide a working gorp.Tx for read/write", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -740,7 +736,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Version tracking", func() {
-			It("Should store applied migration names", func() {
+			It("Should store applied migration names", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				migration := gorp.NewRawMigration(
@@ -757,7 +753,7 @@ var _ = Describe("Gorp", func() {
 				Expect(string(b)).To(Equal("noop"))
 			})
 
-			It("Should skip already-completed migrations on re-run", func() {
+			It("Should skip already-completed migrations on re-run", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				executionCount := 0
@@ -778,7 +774,7 @@ var _ = Describe("Gorp", func() {
 				Expect(executionCount).To(Equal(1))
 			})
 
-			It("Should only run new migrations after partial completion", func() {
+			It("Should only run new migrations after partial completion", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				var executed []string
@@ -804,7 +800,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Sequential execution / chaining", func() {
-			It("Should chain two TypedMigrations sequentially", func() {
+			It("Should chain two TypedMigrations sequentially", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -831,7 +827,7 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("chain_v2_v3"))
 			})
 
-			It("Should chain a TypedMigration with a RawMigration", func() {
+			It("Should chain a TypedMigration with a RawMigration", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -860,7 +856,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Error handling", func() {
-			It("Should not commit when a migration fails", func() {
+			It("Should not commit when a migration fails", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -885,7 +881,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("CodecTransitionMigration", func() {
-			It("Should re-encode entries from default codec to custom codec", func() {
+			It("Should re-encode entries from default codec to custom codec", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -906,7 +902,7 @@ var _ = Describe("Gorp", func() {
 				Expect(r2.Data).To(Equal("two"))
 			})
 
-			It("Should produce bytes in the target codec format", func() {
+			It("Should produce bytes in the target codec format", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -929,7 +925,7 @@ var _ = Describe("Gorp", func() {
 				Expect(parsed["data"]).To(Equal("verify"))
 			})
 
-			It("Should be a no-op on second run", func() {
+			It("Should be a no-op on second run", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -948,7 +944,7 @@ var _ = Describe("Gorp", func() {
 				Expect(result.Data).To(Equal("hello"))
 			})
 
-			It("Should handle empty DB", func() {
+			It("Should handle empty DB", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
@@ -960,7 +956,7 @@ var _ = Describe("Gorp", func() {
 				}))
 			})
 
-			It("Should migrate many entries correctly", func() {
+			It("Should migrate many entries correctly", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -981,7 +977,7 @@ var _ = Describe("Gorp", func() {
 				}
 			})
 
-			It("Should return an error when source data cannot be decoded", func() {
+			It("Should return an error when source data cannot be decoded", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				prefix := "__gorp__//jsonEntry"
@@ -998,7 +994,7 @@ var _ = Describe("Gorp", func() {
 				})).Error().To(MatchError(ContainSubstring("failed to decode")))
 			})
 
-			It("Should return an error when target codec fails to marshal", func() {
+			It("Should return an error when target codec fails to marshal", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -1012,7 +1008,7 @@ var _ = Describe("Gorp", func() {
 				})).Error().To(MatchError(ContainSubstring("marshal failed")))
 			})
 
-			It("Should work in a migration chain with a preceding RawMigration", func() {
+			It("Should work in a migration chain with a preceding RawMigration", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -1035,7 +1031,7 @@ var _ = Describe("Gorp", func() {
 				Expect(result.Data).To(Equal("chain_raw"))
 			})
 
-			It("Should not commit when migration fails", func() {
+			It("Should not commit when migration fails", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -1053,7 +1049,7 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("original"))
 			})
 
-			It("Should re-encode MsgpackEncodedJSON fields through structpb", func() {
+			It("Should re-encode MsgpackEncodedJSON fields through structpb", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, mapEntry](testDB, testDB)
@@ -1105,7 +1101,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Zero-migration case", func() {
-			It("Should run key re-encoding only when no migrations are provided", func() {
+			It("Should run key re-encoding only when no migrations are provided", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1119,7 +1115,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Idempotent key migration", func() {
-			It("Should run key re-encoding even when versioned migrations are at latest", func() {
+			It("Should run key re-encoding even when versioned migrations are at latest", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				migration := gorp.NewRawMigration(
@@ -1140,7 +1136,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("WithDependencies", func() {
-			It("Should order migrations respecting declared dependencies", func() {
+			It("Should order migrations respecting declared dependencies", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				var order []string
@@ -1169,7 +1165,7 @@ var _ = Describe("Gorp", func() {
 				Expect(order).To(Equal([]string{"alpha", "beta", "gamma"}))
 			})
 
-			It("Should treat already-applied dependencies as satisfied", func() {
+			It("Should treat already-applied dependencies as satisfied", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				var order []string
@@ -1196,7 +1192,7 @@ var _ = Describe("Gorp", func() {
 				Expect(order).To(Equal([]string{"first", "second"}))
 			})
 
-			It("Should detect cyclic dependencies", func() {
+			It("Should detect cyclic dependencies", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				m1 := gorp.WithDependencies(
@@ -1215,7 +1211,7 @@ var _ = Describe("Gorp", func() {
 				Expect(err).To(MatchError(ContainSubstring("cyclic dependency")))
 			})
 
-			It("Should return error for missing dependency", func() {
+			It("Should return error for missing dependency", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				m1 := gorp.WithDependencies(
@@ -1231,7 +1227,7 @@ var _ = Describe("Gorp", func() {
 				Expect(err).To(MatchError(ContainSubstring("nonexistent")))
 			})
 
-			It("Should work with migrations that do not declare dependencies", func() {
+			It("Should work with migrations that do not declare dependencies", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				var order []string
@@ -1251,7 +1247,7 @@ var _ = Describe("Gorp", func() {
 			})
 
 			It("Should preserve insertion order for migrations without dependencies "+
-				"when mixed with dependency-declaring migrations", func() {
+				"when mixed with dependency-declaring migrations", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				var order []string
@@ -1275,7 +1271,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("MigrationDep", func() {
-			It("Should inject and retrieve a dependency via context", func() {
+			It("Should inject and retrieve a dependency via context", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1300,7 +1296,7 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("original_enriched"))
 			})
 
-			It("Should support multiple dependencies of different types", func() {
+			It("Should support multiple dependencies of different types", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1333,20 +1329,20 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("pre_base_post"))
 			})
 
-			It("Should panic when a required dependency is missing", func() {
+			It("Should panic when a required dependency is missing", func(ctx SpecContext) {
 				type MissingService struct{}
 				Expect(func() {
 					gorp.MigrationDep[*MissingService](ctx)
 				}).To(PanicWith(ContainSubstring("missing migration dependency")))
 			})
 
-			It("Should return false from MigrationDepOpt when dependency is missing", func() {
+			It("Should return false from MigrationDepOpt when dependency is missing", func(ctx SpecContext) {
 				type OptionalService struct{}
 				_, ok := gorp.MigrationDepOpt[*OptionalService](ctx)
 				Expect(ok).To(BeFalse())
 			})
 
-			It("Should return the dependency from MigrationDepOpt when present", func() {
+			It("Should return the dependency from MigrationDepOpt when present", func(ctx SpecContext) {
 				type OptionalService struct {
 					Value string
 				}
@@ -1356,7 +1352,7 @@ var _ = Describe("Gorp", func() {
 				Expect(svc.Value).To(Equal("here"))
 			})
 
-			It("Should work with RawMigration", func() {
+			It("Should work with RawMigration", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1384,7 +1380,7 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("renamed"))
 			})
 
-			It("Should work with interface types", func() {
+			It("Should work with interface types", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1410,7 +1406,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("EntryCounter", func() {
-			It("Should track entries processed by TypedMigration", func() {
+			It("Should track entries processed by TypedMigration", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1433,7 +1429,7 @@ var _ = Describe("Gorp", func() {
 				Expect(ec.EntriesProcessed()).To(Equal(5))
 			})
 
-			It("Should track entries processed by CodecTransition", func() {
+			It("Should track entries processed by CodecTransition", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, jsonEntry](testDB, testDB)
@@ -1453,7 +1449,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Error context", func() {
-			It("Should include entry key in transform error", func() {
+			It("Should include entry key in transform error", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1474,7 +1470,7 @@ var _ = Describe("Gorp", func() {
 				Expect(err.Error()).To(ContainSubstring("transform"))
 			})
 
-			It("Should include raw key in decode error", func() {
+			It("Should include raw key in decode error", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				prefix := "__gorp__//entryV1"
@@ -1507,7 +1503,7 @@ var _ = Describe("Gorp", func() {
 				return alamos.New("test", alamos.WithLogger(logger)), logs
 			}
 
-			It("Should log starting and completion messages for pending migrations", func() {
+			It("Should log starting and completion messages for pending migrations", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB, testDB)
@@ -1539,7 +1535,7 @@ var _ = Describe("Gorp", func() {
 				Expect(done.All()[0].ContextMap()["migrations"]).To(BeNumerically("==", 1))
 			})
 
-			It("Should not log when all migrations are already applied", func() {
+			It("Should not log when all migrations are already applied", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				migration := gorp.NewRawMigration(
@@ -1557,7 +1553,7 @@ var _ = Describe("Gorp", func() {
 				Expect(logs.Len()).To(Equal(0))
 			})
 
-			It("Should log already applied migrations at debug level", func() {
+			It("Should log already applied migrations at debug level", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				m1 := gorp.NewRawMigration("first", func(context.Context, gorp.Tx) error { return nil })
@@ -1577,7 +1573,7 @@ var _ = Describe("Gorp", func() {
 				Expect(applied.All()[0].Level).To(Equal(zapcore.DebugLevel))
 			})
 
-			It("Should log migration failed on error", func() {
+			It("Should log migration failed on error", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				ins, logs := newObservedIns()
@@ -1601,7 +1597,7 @@ var _ = Describe("Gorp", func() {
 		})
 
 		Describe("Backward compatibility", func() {
-			It("Should convert old uint16 format to name-based tracking", func() {
+			It("Should convert old uint16 format to name-based tracking", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				versionKey := []byte("__gorp_migration__//entryV1")

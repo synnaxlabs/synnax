@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Log", func() {
+		It("Should create a Log", func(ctx SpecContext) {
 			l := log.Log{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -28,7 +28,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a Log", func() {
+		It("Should rename a Log", func(ctx SpecContext) {
 			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, l.Key, "test2")).To(Succeed())
@@ -38,7 +38,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a Log", func() {
+		It("Should set the data of a Log", func(ctx SpecContext) {
 			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, map[string]any{"key": "data2"})).To(Succeed())

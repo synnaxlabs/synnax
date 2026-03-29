@@ -32,7 +32,7 @@ var _ = Describe("Codec", func() {
 	Describe("Rack", func() {
 		It("should round-trip encode and decode", func() {
 			original := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
-				v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
+				v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
 				return &v
 			}()}
 			w := xbinary.NewWriter(0, binary.BigEndian)
@@ -59,7 +59,7 @@ var _ = Describe("Codec", func() {
 	Describe("RackCodec", func() {
 		It("should round-trip through the Codec interface", func() {
 			original := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
-				v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
+				v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
 				return &v
 			}()}
 			ctx := context.Background()
@@ -74,7 +74,7 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeRack(b *testing.B) {
 	s := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
-		v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
+		v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
 		return &v
 	}()}
 	w := xbinary.NewWriter(0, binary.BigEndian)

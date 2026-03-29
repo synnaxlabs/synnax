@@ -45,9 +45,9 @@ var _ = Describe("Streamer Behavior", func() {
 				cleanUp    func() error
 				controlKey cesium.ChannelKey = 5
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())
 			})
 			AfterAll(func() {
@@ -56,7 +56,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Happy Path", func() {
-				It("Should subscribe to written frames for the given channels", func() {
+				It("Should subscribe to written frames for the given channels", func(ctx SpecContext) {
 					var basic1 cesium.ChannelKey = 1
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -92,7 +92,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Writer is in PersistOnly mode", func() {
-				It("Should not receive any frames", func() {
+				It("Should not receive any frames", func(ctx SpecContext) {
 					var basic2 cesium.ChannelKey = 3
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -126,7 +126,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Virtual Channels", func() {
-				It("Should subscribe to written frames for virtual channels", func() {
+				It("Should subscribe to written frames for virtual channels", func(ctx SpecContext) {
 					var basic2 cesium.ChannelKey = 4
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -162,7 +162,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Control Updates", func() {
-				It("Should forward control updates to the streamer", func() {
+				It("Should forward control updates to the streamer", func(ctx SpecContext) {
 					var basic3 cesium.ChannelKey = 6
 					Expect(db.CreateChannel(
 						ctx,
@@ -207,7 +207,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Group Propagation", func() {
-				It("Should propagate the writer's group to the streamer response", func() {
+				It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
 					var groupCh cesium.ChannelKey = 7
 					Expect(db.CreateChannel(
 						ctx,
@@ -238,7 +238,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 				})
-				It("Should set group to zero when the writer has no group", func() {
+				It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
 					var noGroupCh cesium.ChannelKey = 8
 					Expect(db.CreateChannel(
 						ctx,
@@ -271,10 +271,10 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Closed", func() {
-				It("Should not allow opening a streamer on a closed db", func() {
+				It("Should not allow opening a streamer on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Einstein",

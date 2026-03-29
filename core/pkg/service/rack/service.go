@@ -290,8 +290,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-func (s *Service) newKey() (Key, error) {
-	n, err := s.localKeyCounter.Add(1)
+func (s *Service) newKey(ctx context.Context) (Key, error) {
+	n, err := s.localKeyCounter.Add(ctx, 1)
 	return NewKey(s.HostProvider.HostKey(), uint16(n)), err
 }
 

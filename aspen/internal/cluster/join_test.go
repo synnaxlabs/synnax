@@ -40,7 +40,7 @@ var _ = Describe("Open", func() {
 
 		Context("Name Cluster", func() {
 
-			It("Should correctly join the Cluster", func() {
+			It("Should correctly join the Cluster", func(ctx SpecContext) {
 
 				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
@@ -95,7 +95,7 @@ var _ = Describe("Open", func() {
 
 		Context("Existing Cluster in Storage", func() {
 
-			It("Should restart Cluster activities using the persisted state", func() {
+			It("Should restart Cluster activities using the persisted state", func(ctx SpecContext) {
 
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)

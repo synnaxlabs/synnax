@@ -31,7 +31,7 @@ type Writer struct {
 	// group is the base group that racks will be created under.
 	group group.Group
 	// newKey returns a new key for a rack.
-	newKey func() (Key, error)
+	newKey func(context.Context) (Key, error)
 	// newTaskKey returns a new key for a task within the rack.
 	newTaskKey func(context.Context, Key) (uint32, error)
 	// status is used to write status updates.
@@ -63,7 +63,7 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if r.Key.IsZero() {
-		r.Key, err = w.newKey()
+		r.Key, err = w.newKey(ctx)
 		if err != nil {
 			return
 		}

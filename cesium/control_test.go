@@ -48,8 +48,8 @@ var _ = Describe("Control", func() {
 
 			Describe("Nominal", func() {
 				var db *cesium.DB
-				BeforeAll(func() {
-					db = openDBOnFS(fs)
+				BeforeAll(func(ctx SpecContext) {
+					db = openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
 				})
 				AfterAll(func() {
@@ -57,7 +57,7 @@ var _ = Describe("Control", func() {
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {
-					It("Should correctly manage control authority between two writers", func() {
+					It("Should correctly manage control authority between two writers", func(ctx SpecContext) {
 						var (
 							indexChKey = GenerateChannelKey()
 							dataChKey  = GenerateChannelKey()
@@ -90,10 +90,10 @@ var _ = Describe("Control", func() {
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
 						}))
-						ctx, cancel := signal.Isolated()
+						sCtx, cancel := signal.Isolated()
 						defer cancel()
 						stIn, stOut := confluence.Attach(streamer, 2)
-						streamer.Flow(ctx)
+						streamer.Flow(sCtx)
 						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Writing to the first writer")
@@ -135,7 +135,7 @@ var _ = Describe("Control", func() {
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 						stIn.Close()
-						Expect(ctx.Wait()).To(Succeed())
+						Expect(sCtx.Wait()).To(Succeed())
 
 						By("Reading the data")
 						f := MustSucceed(db.Read(
@@ -147,7 +147,7 @@ var _ = Describe("Control", func() {
 						Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 					})
 
-					It("Should correctly hand off control authority when a writer is force closed via context cancellation", func() {
+					It("Should correctly hand off control authority when a writer is force closed via context cancellation", func(ctx SpecContext) {
 						var (
 							indexChKey = GenerateChannelKey()
 							dataChKey  = GenerateChannelKey()
@@ -275,7 +275,7 @@ var _ = Describe("Control", func() {
 						dataStreamerOut, controlStreamerOut confluence.Outlet[cesium.StreamerResponse]
 						shutdown                            io.Closer
 					)
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
 						dataChKey = GenerateChannelKey()
 						virtualChKey = GenerateChannelKey()
@@ -397,7 +397,7 @@ var _ = Describe("Control", func() {
 				// Specs testing the control digest system correctly propagates control
 				// changes between contending writers.
 				Describe("Control digests", func() {
-					It("Should propagate the control states of channels", func() {
+					It("Should propagate the control states of channels", func(ctx SpecContext) {
 						var k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 						Expect(db.CreateChannel(ctx,
 							cesium.Channel{Name: "Seattle", Key: k1, Virtual: true, DataType: telem.StringT},
@@ -432,14 +432,14 @@ var _ = Describe("Control", func() {
 			})
 
 			Describe("Error paths", func() {
-				It("Should not allow control channel with key 0", func() {
-					db := openDBOnFS(fs)
+				It("Should not allow control channel with key 0", func(ctx SpecContext) {
+					db := openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, 0, "cat")).To(MatchError(ContainSubstring("key: must be positive")))
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should not allow configuring a control channel with datatype not string", func() {
-					db := openDBOnFS(fs)
+				It("Should not allow configuring a control channel with datatype not string", func(ctx SpecContext) {
+					db := openDBOnFS(ctx, fs)
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{
 						Name:     "Deshon",

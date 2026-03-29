@@ -21,22 +21,6 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
-	w.Uint32(uint32(s.Rack))
-	return nil
-}
-
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Rack = Key(v)
-	}
-	return nil
-}
-
 func EncodeRack(w *xbinary.Writer, s *Rack) error {
 	w.Uint32(uint32(s.Key))
 	w.String(s.Name)
@@ -83,6 +67,22 @@ func DecodeRack(r *xbinary.Reader, s *Rack) error {
 			}
 			s.Status = &v
 		}
+	}
+	return nil
+}
+
+func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+	w.Uint32(uint32(s.Rack))
+	return nil
+}
+
+func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Rack = Key(v)
 	}
 	return nil
 }

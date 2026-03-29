@@ -30,7 +30,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		userKey uuid.UUID
 		otg     *ontology.Ontology
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -50,12 +50,12 @@ var _ = Describe("Ontology", Ordered, func() {
 			Search:   searchIdx,
 		}))
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Schema", func() {
-		It("Should return the ontology schema", func() {
+		It("Should return the ontology schema", func(ctx SpecContext) {
 			schema := svc.Schema().Shape()
 			Expect(schema.DataType()).To(Equal(zyn.ObjectT))
 			fields := schema.Fields()
@@ -64,7 +64,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		})
 	})
 	Describe("retrieveResource", func() {
-		It("Should retrieve a users schema entity by its key", func() {
+		It("Should retrieve a users schema entity by its key", func(ctx SpecContext) {
 			u := user.User{Username: "test", Key: userKey}
 			w := svc.NewWriter(nil)
 			Expect(w.Create(ctx, &u)).To(Succeed())

@@ -10,7 +10,6 @@
 package ranger_test
 
 import (
-	"context"
 	"io"
 
 	"github.com/google/uuid"
@@ -32,7 +31,6 @@ import (
 var _ = Describe("Migrate", func() {
 	var (
 		db        *gorp.DB
-		ctx       context.Context
 		svc       *ranger.Service
 		otg       *ontology.Ontology
 		closer    io.Closer
@@ -40,9 +38,8 @@ var _ = Describe("Migrate", func() {
 		searchIdx *search.Index
 		lab       *label.Service
 	)
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx = MustSucceed(search.Open())
 		DeferCleanup(func() {
@@ -64,7 +61,7 @@ var _ = Describe("Migrate", func() {
 	AfterEach(func() {
 		Expect(closer.Close()).To(Succeed())
 	})
-	It("should migrate subgroups to parent ranges and delete groups", func() {
+	It("should migrate subgroups to parent ranges and delete groups", func(ctx SpecContext) {
 		// Open a bare Range table with only the codec transition migration.
 		// This simulates the state of the DB before the range_groups migration
 		// was added.

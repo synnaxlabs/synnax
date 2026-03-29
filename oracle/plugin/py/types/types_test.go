@@ -10,7 +10,6 @@
 package types_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -71,13 +70,11 @@ var _ = Describe("PyFormatter", func() {
 
 var _ = Describe("Python Types Plugin", func() {
 	var (
-		ctx         context.Context
 		loader      *MockFileLoader
 		typesPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		typesPlugin = types.New(types.DefaultOptions())
 	})
@@ -102,7 +99,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("basic struct generation", func() {
-			It("Should generate Pydantic model for simple struct", func() {
+			It("Should generate Pydantic model for simple struct", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -130,7 +127,7 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
-		It("Should handle optional and array types", func() {
+		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -157,7 +154,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
 
-		It("Should apply validation rules with Field constraints", func() {
+		It("Should apply validation rules with Field constraints", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -188,7 +185,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`age: int = Field(ge=0, le=150)`))
 		})
 
-		It("Should generate IntEnum for integer enums", func() {
+		It("Should generate IntEnum for integer enums", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -221,7 +218,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`state: TaskState`))
 		})
 
-		It("Should generate Literal type for string enums", func() {
+		It("Should generate Literal type for string enums", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -253,7 +250,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
 		})
 
-		It("Should generate screaming snake case for multi-word enum names", func() {
+		It("Should generate screaming snake case for multi-word enum names", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -285,7 +282,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Python type",
-				func(oracleType, expectedPyType string) {
+				func(ctx SpecContext, oracleType, expectedPyType string) {
 					source := `
 						@py output "out"
 
@@ -315,7 +312,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		})
 
-		It("Should handle optional key and password fields", func() {
+		It("Should handle optional key and password fields", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -346,7 +343,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`last_name: str | None = None`))
 		})
 
-		It("Should handle soft optional types (?)", func() {
+		It("Should handle soft optional types (?)", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -371,7 +368,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`status: str | None = None`))
 		})
 
-		It("Should handle hard optional types (??)", func() {
+		It("Should handle hard optional types (??)", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -398,7 +395,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`description: str | None = None`))
 		})
 
-		It("Should handle optional arrays", func() {
+		It("Should handle optional arrays", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -425,7 +422,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`actions: list[str] | None = None`))
 		})
 
-		It("Should handle default values", func() {
+		It("Should handle default values", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -449,7 +446,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
 		})
 
-		It("Should wrap int defaults in distinct type constructor", func() {
+		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -464,7 +461,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`timeout: Duration = Field(default=Duration(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
-		It("Should wrap int defaults in cross-namespace distinct type constructor", func() {
+		It("Should wrap int defaults in cross-namespace distinct type constructor", func(ctx SpecContext) {
 			loader.Add("schemas/telem", `
 				@py output "client/py/synnax/telem"
 
@@ -486,7 +483,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
-		It("Should generate class inheritance for basic struct extension", func() {
+		It("Should generate class inheritance for basic struct extension", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -520,7 +517,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`email: str`))
 		})
 
-		It("Should inline parent fields when child makes required fields optional", func() {
+		It("Should inline parent fields when child makes required fields optional", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -551,7 +548,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`age: int = Field(ge=-2147483648, le=2147483647)`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
-		It("Should inline all parent fields when multiple fields are overridden as optional", func() {
+		It("Should inline all parent fields when multiple fields are overridden as optional", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -580,7 +577,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`extra: str`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
-		It("Should still inherit when child only adds fields without overriding", func() {
+		It("Should still inherit when child only adds fields without overriding", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -601,7 +598,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`active: bool`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
-		It("Should generate multiple inheritance for multiple extends", func() {
+		It("Should generate multiple inheritance for multiple extends", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -633,7 +630,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: bool`))
 		})
 
-		It("Should handle field omission with multiple extends", func() {
+		It("Should handle field omission with multiple extends", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -669,7 +666,7 @@ var _ = Describe("Python Types Plugin", func() {
 			// Note: Python inheritance doesn't explicitly omit, but the field shouldn't be redefined
 		})
 
-		It("Should handle three extends with multiple inheritance", func() {
+		It("Should handle three extends with multiple inheritance", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -705,7 +702,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: float`))
 		})
 
-		It("Should preserve struct declaration order", func() {
+		It("Should preserve struct declaration order", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -739,7 +736,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
 
-		It("Should preserve field declaration order", func() {
+		It("Should preserve field declaration order", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -768,7 +765,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @py omit directive", func() {
+			It("Should skip types with @py omit directive", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -788,7 +785,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @py omit directive", func() {
+			It("Should skip enums with @py omit directive", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -811,7 +808,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("type aliases", func() {
-			It("Should generate TypeAlias for simple type alias", func() {
+			It("Should generate TypeAlias for simple type alias", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -823,7 +820,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`UserID: TypeAlias = UUID`))
 			})
 
-			It("Should generate TypeAlias for distinct type", func() {
+			It("Should generate TypeAlias for distinct type", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -837,7 +834,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("field omission in extensions", func() {
-			It("Should handle field omission with minus prefix", func() {
+			It("Should handle field omission with minus prefix", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -861,7 +858,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`email: str`))
 			})
 
-			It("Should handle multiple field omissions", func() {
+			It("Should handle multiple field omissions", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -886,7 +883,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate docstrings and comments from doc domain", func() {
+			It("Should generate docstrings and comments from doc domain", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -914,7 +911,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("generic structs", func() {
-			It("Should generate Generic[T] for struct with type parameter", func() {
+			It("Should generate Generic[T] for struct with type parameter", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -935,7 +932,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should generate constrained TypeVar for bounded type param", func() {
+			It("Should generate constrained TypeVar for bounded type param", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -952,7 +949,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should skip type params with defaults in Generic[]", func() {
+			It("Should skip type params with defaults in Generic[]", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -966,7 +963,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`config: dict[str, Any]`))
 			})
 
-			It("Should generate extends with generic parent and type args", func() {
+			It("Should generate extends with generic parent and type args", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -987,7 +984,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`task_key: UUID`,
 					)
 			})
-			It("Should propagate type args to fields referencing generic structs", func() {
+			It("Should propagate type args to fields referencing generic structs", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1013,7 +1010,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should skip defaulted type args for non-generic structs", func() {
+			It("Should skip defaulted type args for non-generic structs", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1049,7 +1046,7 @@ var _ = Describe("Python Types Plugin", func() {
 				`)
 			})
 
-			It("Should import cross-namespace struct reference", func() {
+			It("Should import cross-namespace struct reference", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
 
@@ -1068,7 +1065,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should import cross-namespace enum reference", func() {
+			It("Should import cross-namespace enum reference", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
 
@@ -1087,7 +1084,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should alias module import when it conflicts with a field name", func() {
+			It("Should alias module import when it conflicts with a field name", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
 
@@ -1108,7 +1105,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("reserved keywords", func() {
-			It("Should escape Python reserved keyword field names with alias", func() {
+			It("Should escape Python reserved keyword field names with alias", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1127,7 +1124,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should escape required keyword field", func() {
+			It("Should escape required keyword field", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1147,7 +1144,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("typedef with non-primitive base", func() {
-			It("Should generate TypeAlias for distinct typedef referencing another typedef", func() {
+			It("Should generate TypeAlias for distinct typedef referencing another typedef", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1163,7 +1160,7 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
-			It("Should generate TypeAlias referencing another distinct type in same namespace", func() {
+			It("Should generate TypeAlias referencing another distinct type in same namespace", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1181,7 +1178,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("generic alias with nil type argument", func() {
-			It("Should generate TypeAlias with None for nil type arg", func() {
+			It("Should generate TypeAlias with None for nil type arg", func(ctx SpecContext) {
 				loader.Add("schemas/status", `
 @py output "client/py/synnax/status"
 
@@ -1208,7 +1205,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("fixed-size arrays", func() {
-			It("Should generate Tuple type for fixed-size arrays", func() {
+			It("Should generate Tuple type for fixed-size arrays", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1223,7 +1220,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("@py name directive", func() {
-			It("Should override struct name in Python output", func() {
+			It("Should override struct name in Python output", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1239,7 +1236,7 @@ ChannelStatus = status.Status<nil>
 					ToNotContain(`class GoTask`)
 			})
 
-			It("Should apply name override to self-referential fields", func() {
+			It("Should apply name override to self-referential fields", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1262,7 +1259,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("string default values", func() {
-			It("Should generate Field with string default", func() {
+			It("Should generate Field with string default", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1277,7 +1274,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("constrained type param with enum", func() {
-			It("Should use enum name as TypeVar bound", func() {
+			It("Should use enum name as TypeVar bound", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1302,7 +1299,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("constrained type param with struct", func() {
-			It("Should use struct name as TypeVar bound", func() {
+			It("Should use struct name as TypeVar bound", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1324,7 +1321,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("constrained type param with comparable", func() {
-			It("Should not emit a bound and should not import Any", func() {
+			It("Should not emit a bound and should not import Any", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1344,7 +1341,7 @@ ChannelStatus = status.Status<nil>
 		})
 
 		Context("enum variant defaults", func() {
-			It("Should generate default for same-namespace enum variant", func() {
+			It("Should generate default for same-namespace enum variant", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1362,7 +1359,7 @@ ChannelStatus = status.Status<nil>
 					ToContain(`mode: Mode = Field(default=Mode.automatic)`)
 			})
 
-			It("Should generate default for cross-namespace enum variant", func() {
+			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@py output "client/py/synnax/x/control"
 

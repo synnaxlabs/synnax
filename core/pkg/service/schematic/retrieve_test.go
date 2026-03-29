@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
-	It("Should retrieve a Schematic", func() {
+	It("Should retrieve a Schematic", func(ctx SpecContext) {
 		s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 		var res schematic.Schematic

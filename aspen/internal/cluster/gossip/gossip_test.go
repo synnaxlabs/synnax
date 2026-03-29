@@ -42,13 +42,15 @@ var _ = Describe("OperationSender", func() {
 		BeforeEach(func() {
 			t1, t2, t3 = net.UnaryServer(""), net.UnaryServer(""), net.UnaryServer("")
 			nodes = node.Group{1: {Key: 1, Address: t1.Address}, 2: {Key: 2, Address: t2.Address}}
-			sOne = store.New(ctx)
-			sOne.SetState(ctx, store.State{Nodes: nodes, HostKey: 1})
+			sOne = store.New(context.Background())
+			sOne.SetState(context.Background(), store.State{Nodes: nodes, HostKey: 1})
 			nodesTwo = nodes.Copy()
 			nodesTwo[3] = node.Node{Key: 3, Address: t3.Address, State: node.StateDead}
-			sTwo := store.New(ctx)
-			sTwo.SetState(ctx, store.State{Nodes: nodesTwo, HostKey: 2})
-			gossipCtx, cancel = signal.WithCancel(ctx)
+			sTwo := store.New(context.Background())
+			sTwo.SetState(context.Background(), store.State{Nodes: nodesTwo, HostKey: 2})
+			// gossipCtx is derived from context.Background() because it is stored
+			// in a shared var and used by It blocks, so it must outlive BeforeEach.
+			gossipCtx, cancel = signal.WithCancel(context.Background())
 			g1 = MustSucceed(gossip.New(gossip.Config{
 				Instrumentation: PanicLogger(),
 				Store:           sOne,

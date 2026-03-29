@@ -10,7 +10,6 @@
 package unary_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/synnaxlabs/x/binary"
@@ -21,7 +20,6 @@ import (
 )
 
 var (
-	ctx         = context.Background()
 	fileSystems = FileSystems
 	codec       = &binary.JSONCodec{}
 )
