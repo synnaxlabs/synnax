@@ -8,3 +8,5 @@
 // included in the file licenses/APL.txt.
 
 /// <reference types="astro/client" />
+
+declare module "@fontsource/geist-mono";
