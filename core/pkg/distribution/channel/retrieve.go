@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -27,7 +28,7 @@ import (
 type Retrieve struct {
 	tx                        gorp.Tx
 	gorp                      gorp.Retrieve[Key, Channel]
-	otg                       *ontology.Ontology
+	search                    *search.Index
 	validateRetrievedChannels func([]Channel) ([]Channel, error)
 	searchTerm                string
 	keys                      Keys
@@ -141,8 +142,8 @@ func (r Retrieve) Offset(offset int) Retrieve { r.gorp = r.gorp.Offset(offset); 
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: ontology.TypeChannel,
+		ids, err := r.search.Search(ctx, search.Request{
+			Type: ontology.ResourceTypeChannel,
 			Term: r.searchTerm,
 		})
 		if err != nil {

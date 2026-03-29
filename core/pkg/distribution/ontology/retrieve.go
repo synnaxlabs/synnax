@@ -13,14 +13,13 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
 type clause struct {
-	gorp.Retrieve[string, resource.Resource]
+	gorp.Retrieve[string, Resource]
 	traverser        Traverser
 	excludeFieldData bool
 }
@@ -28,13 +27,15 @@ type clause struct {
 // Retrieve implements a set of methods for retrieving resources and traversing their
 // relationships in teh ontology.
 type Retrieve struct {
-	clauses   []clause
-	registrar serviceRegistrar
-	tx        gorp.Tx
+	clauses           []clause
+	registrar         serviceRegistrar
+	tx                gorp.Tx
+	resourceTable     *gorp.Table[string, Resource]
+	relationshipTable *gorp.Table[[]byte, Relationship]
 }
 
 func (r Retrieve) nextClause() Retrieve {
-	c := clause{Retrieve: gorp.NewRetrieve[string, Resource]()}
+	c := clause{Retrieve: r.resourceTable.NewRetrieve()}
 	r.clauses = append(r.clauses, c)
 	return r
 }
@@ -50,12 +51,21 @@ func (r Retrieve) setCurrentClause(c clause) Retrieve {
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
 // from the underlying ontology.
-func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.registrar, o.DB) }
+func (o *Ontology) NewRetrieve() Retrieve {
+	return newRetrieve(o.registrar, o.DB, o.resourceTable, o.relationshipTable)
+}
 
-func newRetrieve(registrar serviceRegistrar, tx gorp.Tx) Retrieve {
+func newRetrieve(
+	registrar serviceRegistrar,
+	tx gorp.Tx,
+	resourceTable *gorp.Table[string, Resource],
+	relationshipTable *gorp.Table[[]byte, Relationship],
+) Retrieve {
 	r := Retrieve{
-		registrar: registrar,
-		tx:        tx,
+		registrar:         registrar,
+		tx:                tx,
+		resourceTable:     resourceTable,
+		relationshipTable: relationshipTable,
 	}
 	return r.nextClause()
 }
@@ -74,7 +84,7 @@ func (r Retrieve) Where(filter gorp.FilterFunc[string, Resource]) Retrieve {
 	return r.setCurrentClause(c)
 }
 
-func (r Retrieve) WhereTypes(types ...Type) Retrieve {
+func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	c := r.currentClause()
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
@@ -201,7 +211,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
-			nextIDs = lo.Must(resource.ParseIDs(cls.GetWhereKeys()))
+			nextIDs = lo.Must(ParseIDs(cls.GetWhereKeys()))
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,
@@ -278,7 +288,7 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (r Retrieve) extractIDs(clause gorp.Retrieve[string, resource.Resource]) []ID {
+func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
 	entries := clause.GetEntries()
 	resources := entries.All()
 	ids := make([]ID, 0, len(resources))
@@ -312,7 +322,7 @@ func (r Retrieve) traverseByPrefix(
 	relationships := make([]Relationship, 0, 16)
 	for _, id := range ids {
 		relationships = relationships[:0]
-		if err := gorp.NewRetrieve[[]byte, Relationship]().
+		if err := r.relationshipTable.NewRetrieve().
 			WherePrefix(traverse.Prefix(id)).
 			Entries(&relationships).
 			Exec(ctx, tx); err != nil {
@@ -335,7 +345,7 @@ func (r Retrieve) traverseByScan(
 		nextIDs       = make([]ID, 0, len(ids)*4)
 		relationships []Relationship
 	)
-	if err := gorp.NewRetrieve[[]byte, Relationship]().
+	if err := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
 		Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {

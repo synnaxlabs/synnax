@@ -26,8 +26,8 @@ import (
 )
 
 type Config struct {
-	// Factory is the factory for creating tasks.
-	Factory Factory
+	// Factories are the factories for creating tasks.
+	Factories []Factory
 	// Host is the node key of the current host.
 	Host cluster.HostProvider
 	// DB is the gorp database for observing task changes.
@@ -44,12 +44,17 @@ type Config struct {
 	Status *status.Service
 	// HeartbeatInterval is the interval at which the driver reports its health.
 	HeartbeatInterval time.Duration
+	// TaskTimeout is the maximum duration for task operations (configure, exec).
+	TaskTimeout time.Duration
 	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
+	DefaultConfig                       = Config{
+		HeartbeatInterval: 1 * time.Second,
+		TaskTimeout:       30 * time.Second,
+	}
 )
 
 func (c Config) Override(other Config) Config {
@@ -60,9 +65,10 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Factory = override.Nil(c.Factory, other.Factory)
+	c.Factories = override.Slice(c.Factories, other.Factories)
 	c.Host = override.Nil(c.Host, other.Host)
 	c.HeartbeatInterval = override.Numeric(c.HeartbeatInterval, other.HeartbeatInterval)
+	c.TaskTimeout = override.Numeric(c.TaskTimeout, other.TaskTimeout)
 	return c
 }
 
@@ -75,7 +81,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "factory", c.Factory)
+	validate.NotEmptySlice(v, "factories", c.Factories)
 	validate.NotNil(v, "host", c.Host)
 	return v.Error()
 }
