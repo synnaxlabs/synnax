@@ -169,6 +169,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
@@ -178,6 +179,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Signals:  cfg.Distribution.Signals,
 		Group:    cfg.Distribution.Group,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -199,6 +201,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Label) {
@@ -207,6 +210,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 		Label:    l.Label,
@@ -216,6 +220,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 		Signals:         cfg.Distribution.Signals,
 		ParentRetriever: l.Ranger,
 	}); !ok(err, l.Alias) {
@@ -230,6 +235,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
@@ -238,6 +244,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Schematic) {
@@ -246,18 +253,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -268,6 +278,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
+			Search:          cfg.Distribution.Search,
 			Group:           cfg.Distribution.Group,
 			Label:           l.Label,
 		},
@@ -278,6 +289,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("rack"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		HostProvider:    cfg.Distribution.Cluster,
 		Signals:         cfg.Distribution.Signals,
@@ -288,6 +300,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 		Status:   l.Status,
@@ -299,6 +312,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		Signals:         cfg.Distribution.Signals,
 		Channel:         cfg.Distribution.Channel,
@@ -313,6 +327,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
+			Search:          cfg.Distribution.Search,
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Task:            l.Task,
@@ -336,6 +351,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
+			Search:          cfg.Distribution.Search,
 			Group:           cfg.Distribution.Group,
 		},
 	); !ok(err, l.View) {

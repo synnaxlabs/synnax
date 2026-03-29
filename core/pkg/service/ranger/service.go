@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
@@ -46,6 +47,9 @@ type ServiceConfig struct {
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
+	// Search is the search index for fuzzy searching ranges.
+	// [REQUIRED]
+	Search *search.Index
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -64,6 +68,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
 	validate.NotNil(v, "force_migration", c.ForceMigration)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -75,6 +80,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
@@ -101,6 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if err := s.migrate(ctx); err != nil {
 		return nil, err
 	}
@@ -148,7 +155,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		label:  s.cfg.Label,
 	}
 }
@@ -165,7 +172,7 @@ func (s *Service) RetrieveParentKey(
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeRange).
+		WhereTypes(ontology.ResourceTypeRange).
 		ExcludeFieldData(true).
 		Entries(&resources).
 		Exec(ctx, tx); err != nil {

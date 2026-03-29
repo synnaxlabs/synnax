@@ -248,7 +248,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(cpuChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.TypeGroup).
+				WhereTypes(ontology.ResourceTypeGroup).
 				Entries(&parents).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -272,7 +272,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(cpuChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.TypeGroup).
+				WhereTypes(ontology.ResourceTypeGroup).
 				Entries(&parentsAfterReopen).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -317,7 +317,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(memChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.TypeGroup).
+				WhereTypes(ontology.ResourceTypeGroup).
 				Entries(&parentsBefore).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -340,7 +340,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(memChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.TypeGroup).
+				WhereTypes(ontology.ResourceTypeGroup).
 				Entries(&parentsAfterReopen).
 				Exec(ctx, nil),
 			).To(Succeed())

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -49,12 +50,14 @@ var _ = BeforeSuite(func() {
 	distB := mock.NewCluster()
 	dist = distB.Provision(ctx)
 	db = dist.DB
+	searchIdx := MustSucceed(search.Open())
 	labelSvc := MustSucceed(label.OpenService(
 		ctx,
 		label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
+			Search:   searchIdx,
 		}),
 	)
 	statusSvc = MustSucceed(status.OpenService(
@@ -64,6 +67,7 @@ var _ = BeforeSuite(func() {
 			DB:       dist.DB,
 			Group:    dist.Group,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}),
 	)
 	rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
@@ -72,6 +76,7 @@ var _ = BeforeSuite(func() {
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       searchIdx,
 	}))
 	channelSvc = channel.Wrap(dist.Channel)
 	framerSvc = dist.Framer
@@ -82,6 +87,7 @@ var _ = BeforeSuite(func() {
 		Rack:     rackService,
 		Status:   statusSvc,
 		Channel:  dist.Channel,
+		Search:   searchIdx,
 	}))
 })
 

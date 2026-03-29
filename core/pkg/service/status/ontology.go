@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -24,7 +25,7 @@ import (
 )
 
 // OntologyID returns the unique ID to identify the status within the Synnax ontology.
-func OntologyID(k string) ontology.ID { return ontology.ID{Type: ontology.TypeStatus, Key: k} }
+func OntologyID(k string) ontology.ID { return ontology.ID{Type: ontology.ResourceTypeStatus, Key: k} }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
 func OntologyIDs(keys []string) []ontology.ID {
@@ -49,11 +50,14 @@ func newResource(s Status[any]) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
 }
 
-var _ ontology.Service = (*Service)(nil)
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
 
 type change = xchange.Change[string, Status[any]]
 
-func (s *Service) Type() ontology.Type { return ontology.TypeStatus }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeStatus }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

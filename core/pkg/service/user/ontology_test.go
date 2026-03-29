@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -33,8 +34,21 @@ var _ = Describe("Ontology", Ordered, func() {
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{DB: db, Ontology: otg, Group: g}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
 	})
 	AfterAll(func() {
 		Expect(otg.Close()).To(Succeed())

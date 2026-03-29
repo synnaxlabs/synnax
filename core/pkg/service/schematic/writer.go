@@ -70,7 +70,7 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeWorkspace).
+		WhereTypes(ontology.ResourceTypeWorkspace).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return uuid.Nil, false, err

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -43,7 +44,15 @@ func TestAccess(t *testing.T) {
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+	searchIdx := MustSucceed(search.Open())
+	DeferCleanup(func() {
+		Expect(searchIdx.Close()).To(Succeed())
+	})
+	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	dist = &distribution.Layer{
 		DB:       db,
 		Ontology: otg,
@@ -53,11 +62,13 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	rbacSvc := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	svc = &service.Layer{
 		User: userSvc,
