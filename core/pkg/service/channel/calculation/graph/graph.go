@@ -104,7 +104,7 @@ func Open(
 	if err = s.hydrate(ctx); err != nil {
 		return nil, err
 	}
-	s.disconnect = cfg.Channel.NewObservable().OnChange(s.handleChanges)
+	s.disconnect = cfg.Channel.Observe().OnChange(s.handleChanges)
 	return s, nil
 }
 

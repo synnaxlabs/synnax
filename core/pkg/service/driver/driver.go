@@ -69,7 +69,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 
 	if err = cfg.Rack.NewRetrieve().
 		WhereEmbedded(true, gorp.Required()).
-		WhereName(fmt.Sprintf("Node %s", cfg.Host.HostKey()), gorp.Required()).
+		WhereName(fmt.Sprintf("Node %d", cfg.Host.HostKey()), gorp.Required()).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
 			Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
@@ -85,8 +85,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
-	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
-	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
+	d.disconnectObserver = cfg.Task.Observe().OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
 		return nil, err
 	}
@@ -172,9 +171,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				d.cfg.TaskTimeout,
 				signal.WithInstrumentation(d.cfg.Instrumentation),
 			)
-			defer cancel()
 			sCtx.Go(func(ctx context.Context) error { return t.Exec(ctx, cmd) })
-			if err := sCtx.Wait(); err != nil {
+			err := sCtx.Wait()
+			cancel()
+			if err != nil {
 				if errors.Is(err, ErrUnsupportedCommand) {
 					d.cfg.L.Warn(
 						"unsupported command",
@@ -239,12 +239,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	d.mu.Unlock()
 
 	if hadExisting {
-		sCtx, cancel := signal.WithTimeout(
-			ctx, d.cfg.TaskTimeout, signal.WithInstrumentation(d.cfg.Instrumentation),
-		)
-		defer cancel()
-		sCtx.Go(func(context.Context) error { return existing.Stop() })
-		if err := sCtx.Wait(); err != nil {
+		if err := existing.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t),
 				zap.Error(err),

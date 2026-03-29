@@ -152,7 +152,7 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.AccessAssignRole = fnoop.UnaryServer[access.AssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[access.UnassignRoleRequest, types.Nil]{}
 
-	// ARC LSP (streaming, not implemented via gRPC yet)
+	// ARC LSP
 	a.ArcLSP = fnoop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	// VIEW

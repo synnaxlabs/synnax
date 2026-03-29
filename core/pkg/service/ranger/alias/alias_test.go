@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -44,23 +45,25 @@ var _ = Describe("Alias", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+			DB: db,
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
+		searchIdx := MustSucceed(search.Open())
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
+		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g, Search: searchIdx}))
 		rangerSvc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Label:    lab,
+			Search:   searchIdx,
 		}))
 		aliasSvc = MustSucceed(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              db,
 			Ontology:        otg,
 			ParentRetriever: rangerSvc,
+			Search:          searchIdx,
 		}))
-		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 		closer = xio.MultiCloser{db, otg, g, rangerSvc, aliasSvc}
 	})
 	AfterAll(func() {
@@ -84,7 +87,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -102,7 +105,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -120,7 +123,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			_, err := aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())
@@ -137,7 +140,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias")).To(Succeed())
@@ -165,7 +168,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -186,7 +189,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -204,7 +207,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -222,7 +225,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias")).To(Succeed())
@@ -248,7 +251,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias")).To(Succeed())
@@ -276,7 +279,7 @@ var _ = Describe("Alias", Ordered, func() {
 		}
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 		ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-		Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+		Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 			Entry(&ch).
 			Exec(ctx, tx)).To(Succeed())
 		Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -297,7 +300,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
@@ -315,7 +318,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, parent.Key, ch.Key(), "Alias")).To(Succeed())
@@ -343,7 +346,7 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+			Expect(gorp.NewCreate[channel.Key, channel.Channel](nil).
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())

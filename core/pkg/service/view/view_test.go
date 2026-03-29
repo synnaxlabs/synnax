@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -37,16 +38,17 @@ var _ = Describe("View", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+			DB: db,
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		searchIdx := MustSucceed(search.Open())
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
 		svc = MustSucceed(view.OpenService(ctx, view.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
+			Search:   searchIdx,
 		}))
-		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 		closer = xio.MultiCloser{otg, g, svc}
 	})
 	AfterEach(func() {

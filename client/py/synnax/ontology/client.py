@@ -22,7 +22,7 @@ class RetrieveReq(BaseModel):
     parents: bool = False
     include_schema: bool = False
     exclude_field_data: bool = False
-    term: str | None = None
+    search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
     types: list[str] | None = None

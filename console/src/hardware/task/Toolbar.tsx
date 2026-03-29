@@ -198,7 +198,10 @@ const Content = () => {
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           {canCreateTask && (
             <Toolbar.Actions>
-              <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
+              <Toolbar.Action
+                tooltip="Create task"
+                onClick={() => placeLayout(SELECTOR_LAYOUT)}
+              >
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>

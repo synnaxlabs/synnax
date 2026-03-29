@@ -36,7 +36,7 @@ const item = Component.renderProp(Item);
 const contextMenu = Component.renderProp(ContextMenu);
 
 export const Explorer: Layout.Renderer = () => (
-  <View.Frame resourceType="range">
+  <View.Frame resourceType="range" icon="Range">
     <Internal />
   </View.Frame>
 );

@@ -32,7 +32,7 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
 const item = Component.renderProp(Item);
 
 export const Explorer: Layout.Renderer = () => (
-  <View.Frame resourceType="status">
+  <View.Frame resourceType="status" icon="Status">
     <Internal />
   </View.Frame>
 );

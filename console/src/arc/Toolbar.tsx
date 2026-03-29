@@ -23,11 +23,12 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/arc/ContextMenu";
 import { Editor } from "@/arc/editor";
+import { EXPLORER_LAYOUT } from "@/arc/Explorer";
 import { useTask } from "@/arc/hooks";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Toolbar } from "@/components";
@@ -40,7 +41,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const canCreateArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing Arcs."
@@ -58,7 +59,6 @@ const Content = () => {
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
-  const canCreateArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -129,13 +129,7 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
-          {canCreateArc && (
-            <Toolbar.Actions>
-              <Toolbar.Action onClick={handleCreate}>
-                <Icon.Add />
-              </Toolbar.Action>
-            </Toolbar.Actions>
-          )}
+          <Actions handleCreate={handleCreate} />
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -165,6 +159,35 @@ const Content = () => {
         </Select.Frame>
       </Toolbar.Content>
     </Menu.ContextMenu>
+  );
+};
+
+interface ActionsProps {
+  handleCreate: () => void;
+}
+
+const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
+  const placeLayout = Layout.usePlacer();
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const canViewArcs = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
+  if (!canCreateArc && !canViewArcs) return null;
+  return (
+    <Toolbar.Actions>
+      {canCreateArc && (
+        <Toolbar.Action tooltip="Create Arc" onClick={handleCreate}>
+          <Icon.Add />
+        </Toolbar.Action>
+      )}
+      {canViewArcs && (
+        <Toolbar.Action
+          tooltip="Open Arc Explorer"
+          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          variant="filled"
+        >
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
+    </Toolbar.Actions>
   );
 };
 
@@ -230,4 +253,3 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
     </Select.ListItem>
   );
 };
-

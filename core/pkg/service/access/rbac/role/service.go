@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -27,6 +28,7 @@ import (
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	Search   *search.Index
 	Signals  *signals.Provider
 	Group    *group.Service
 }
@@ -40,6 +42,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
 	return c
@@ -51,14 +54,15 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
-	table   *gorp.Table[uuid.UUID, Role]
 	group   group.Group
+	table   *gorp.Table[uuid.UUID, Role]
 }
 
 func (s *Service) Close() error {
@@ -74,7 +78,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Role](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Role]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +86,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
+	cfg.Search.RegisterService(s)
 	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
 		return nil, err
 	}
@@ -89,7 +94,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[Role](cfg.DB),
+			signals.GorpPublisherConfigUUID[Role](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}
@@ -105,9 +110,10 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 		otg:           s.cfg.Ontology.NewWriter(tx),
 		group:         s.group,
 		allowInternal: allowInternal,
+		table:         s.table,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTx: s.cfg.DB, gorp: gorp.NewRetrieve[uuid.UUID, Role]()}
+	return Retrieve{baseTx: s.cfg.DB, gorp: s.table.NewRetrieve()}
 }

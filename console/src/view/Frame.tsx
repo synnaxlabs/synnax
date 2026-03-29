@@ -42,9 +42,10 @@ import { Context, type StaticView, useContext, type View } from "@/view/context"
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: ontology.ResourceType;
+  icon: string;
 }
 
-export const Frame = ({ resourceType, children }: FrameProps): ReactElement => {
+export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
   const staticViewKey = useMemo(() => uuid.create(), []);
   const staticViews = useMemo<StaticView[]>(
     () => [
@@ -101,6 +102,7 @@ export const Frame = ({ resourceType, children }: FrameProps): ReactElement => {
     <Flex.Box full="y" empty>
       <Context value={contextValue}>
         <Selector
+          icon={icon}
           showEditButton={staticViewKeys.includes(selected) ? true : canUpdateView}
           editable={editable}
           onEditableClick={() => setEditable((prev) => !prev)}
@@ -127,6 +129,7 @@ interface SelectorProps {
   selected: view.Key;
   listProps: List.FrameProps<view.Key, View>;
   onFetchMore: () => void;
+  icon: string;
 }
 
 const Selector = ({
@@ -138,6 +141,7 @@ const Selector = ({
   onSelect,
   listProps,
   selected,
+  icon,
 }: SelectorProps): ReactElement => {
   const { getItem } = listProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
@@ -149,7 +153,7 @@ const Selector = ({
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
         const name = await renameModal(
           { initialValue: `View for ${plural(resourceType)}` },
-          { name: "View.Create" },
+          { name: "View.Create", icon },
         );
         if (name == null) return false;
         const newKey = uuid.create();
@@ -157,7 +161,7 @@ const Selector = ({
         rollbacks.push(() => onSelect(previousSelected));
         return { ...data, name, key: newKey };
       },
-      [renameModal, resourceType, selected],
+      [renameModal, resourceType, selected, icon],
     ),
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<view.New>) => {

@@ -82,7 +82,7 @@ var _ = Describe("Access", Ordered, func() {
 			Expect(originalActions).ToNot(BeEmpty())
 
 			// Remove an object from the policy to simulate a stale DB
-			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
+			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy](nil).
 				WhereKeys(ownerPolicy.Key).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
@@ -130,12 +130,12 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects: []ontology.ID{
-						{Type: ontology.TypeUser},
+						{Type: ontology.ResourceTypeUser},
 						{Type: "policy"},
 					},
 					Actions: []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&adminPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -154,7 +154,7 @@ var _ = Describe("Access", Ordered, func() {
 					},
 					Actions: []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -179,7 +179,7 @@ var _ = Describe("Access", Ordered, func() {
 					Objects:  []ontology.ID{{Type: "schematic"}},
 					Actions:  []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -243,13 +243,13 @@ var _ = Describe("Access", Ordered, func() {
 					Objects:  []ontology.ID{{Type: "schematic"}},
 					Actions:  []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&legacyPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
 				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				var policies []access.LegacyPolicy
-				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy](nil).
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())
 				legacyPolicies := make([]access.LegacyPolicy, 0)
@@ -274,7 +274,7 @@ func userHasSpecificRole(
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeRole).
+		WhereTypes(ontology.ResourceTypeRole).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {
 		return false

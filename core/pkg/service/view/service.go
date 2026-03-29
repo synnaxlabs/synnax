@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -35,6 +37,9 @@ type ServiceConfig struct {
 	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching views.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -48,6 +53,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -58,6 +64,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -83,18 +90,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
 		return nil, err
 	}
-	s.table, err = gorp.OpenTable[uuid.UUID, View](ctx, s.cfg.DB)
+	s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{DB: s.cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	s.cfg.Ontology.RegisterService(s)
+	s.cfg.Search.RegisterService(s)
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		s.cfg.Signals,
-		signals.GorpPublisherConfigUUID[View](s.cfg.DB),
+		signals.GorpPublisherConfigUUID[View](s.table.Observe()),
 	); err != nil {
 		return nil, err
 	}
@@ -105,10 +113,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // is not safe to call concurrently with any other service methods (including Writer(s)
 // and Retrieve(s)).
 func (s *Service) Close() error {
+	var err error
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		err = s.shutdownSignals.Close()
 	}
-	return nil
+	return errors.Join(err, s.table.Close())
 }
 
 // NewWriter opens a new Writer to create, update, and delete views. If tx is not nil,
@@ -120,14 +129,15 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		group:     s.group,
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new Retrieve query to fetch views from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, View](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 	}
 }
