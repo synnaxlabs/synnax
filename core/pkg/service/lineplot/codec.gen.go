@@ -12,7 +12,6 @@
 package lineplot
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -89,7 +88,7 @@ func (c linePlotCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 func (linePlotCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*LinePlot)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeLinePlot(r, s)
 	readerPool.Put(r)
 	return err

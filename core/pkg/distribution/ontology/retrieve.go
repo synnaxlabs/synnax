@@ -392,11 +392,12 @@ func (r Retrieve) traverseByScan(
 		nextIDs       = make([]ID, 0, len(ids)*4)
 		relationships []Relationship
 	)
+	var res Resource
 	q := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
 		Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {
-				res := Resource{ID: id}
+				res.ID = id
 				if traverse.Filter(&res, rel) {
 					nextIDs = append(nextIDs, traverse.Direction.GetID(rel))
 				}

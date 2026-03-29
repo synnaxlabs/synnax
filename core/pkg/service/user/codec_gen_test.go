@@ -12,7 +12,6 @@
 package user_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/google/uuid"
@@ -32,7 +31,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(user.EncodeUser(w, &original)).To(Succeed())
 			var decoded user.User
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(user.DecodeUser(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -59,7 +59,8 @@ func BenchmarkEncodeDecodeUser(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded user.User
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := user.DecodeUser(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

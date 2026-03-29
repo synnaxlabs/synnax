@@ -12,7 +12,6 @@
 package program_test
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -33,7 +32,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(program.EncodeProgram(w, &original)).To(Succeed())
 			var decoded program.Program
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(program.DecodeProgram(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -49,7 +49,8 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded program.Program
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := program.DecodeProgram(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

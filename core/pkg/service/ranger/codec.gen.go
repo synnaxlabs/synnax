@@ -12,7 +12,6 @@
 package ranger
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -81,7 +80,7 @@ func (c rangeValCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 func (rangeValCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Range)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeRange(r, s)
 	readerPool.Put(r)
 	return err

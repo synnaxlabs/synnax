@@ -12,7 +12,6 @@
 package rack_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/google/uuid"
@@ -39,7 +38,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(rack.EncodeRack(w, &original)).To(Succeed())
 			var decoded rack.Rack
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(rack.DecodeRack(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -50,7 +50,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(rack.EncodeStatusDetails(w, &original)).To(Succeed())
 			var decoded rack.StatusDetails
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(rack.DecodeStatusDetails(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -83,7 +84,8 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded rack.Rack
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeRack(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -99,7 +101,8 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded rack.StatusDetails
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

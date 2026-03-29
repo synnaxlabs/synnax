@@ -12,7 +12,6 @@
 package user
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -79,7 +78,7 @@ func (c userCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 func (userCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*User)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeUser(r, s)
 	readerPool.Put(r)
 	return err

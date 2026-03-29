@@ -12,7 +12,6 @@
 package types_test
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -24,6 +23,18 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Channels", func() {
+		It("should round-trip encode and decode", func() {
+			original := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(types.EncodeChannels(w, &original)).To(Succeed())
+			var decoded types.Channels
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(types.DecodeChannels(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("Param", func() {
 		It("should round-trip encode and decode", func() {
 			original := types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{}}, Outputs: []types.Param{{}}, Config: []types.Param{{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{}}, Outputs: []types.Param{{}}, Config: []types.Param{{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{}}, Outputs: []types.Param{{}}, Config: []types.Param{{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
@@ -57,7 +68,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(types.EncodeParam(w, &original)).To(Succeed())
 			var decoded types.Param
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(types.DecodeParam(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -158,7 +170,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(types.EncodeType(w, &original)).To(Succeed())
 			var decoded types.Type
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(types.DecodeType(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -196,7 +209,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(types.EncodeFunctionProperties(w, &original)).To(Succeed())
 			var decoded types.FunctionProperties
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(types.DecodeFunctionProperties(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -207,7 +221,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(types.EncodeUnit(w, &original)).To(Succeed())
 			var decoded types.Unit
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(types.DecodeUnit(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -218,23 +233,30 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(types.EncodeDimensions(w, &original)).To(Succeed())
 			var decoded types.Dimensions
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(types.DecodeDimensions(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
-	Describe("Channels", func() {
-		It("should round-trip encode and decode", func() {
-			original := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(types.EncodeChannels(w, &original)).To(Succeed())
-			var decoded types.Channels
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
-			Expect(types.DecodeChannels(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 })
+
+func BenchmarkEncodeDecodeChannels(b *testing.B) {
+	s := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := types.EncodeChannels(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded types.Channels
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := types.DecodeChannels(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeParam(b *testing.B) {
 	s := types.Param{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{}}, Outputs: []types.Param{{}}, Config: []types.Param{{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{}}, Outputs: []types.Param{{}}, Config: []types.Param{{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}, Config: []types.Param{{Name: "test", Type: types.Type{FunctionProperties: types.FunctionProperties{Inputs: []types.Param{{}}, Outputs: []types.Param{{}}, Config: []types.Param{{}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type { v := types.Type{}; return &v }(), Unit: func() *types.Unit { v := types.Unit{}; return &v }(), Constraint: func() *types.Type { v := types.Type{}; return &v }(), ChanDirection: types.ChanDirection(0)}, Value: map[string]interface{}{"key": "value"}}}}, Kind: types.Kind(0), Name: "test", Elem: func() *types.Type {
@@ -272,7 +294,8 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded types.Param
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := types.DecodeParam(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -378,7 +401,8 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded types.Type
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := types.DecodeType(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -421,7 +445,8 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded types.FunctionProperties
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := types.DecodeFunctionProperties(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -437,7 +462,8 @@ func BenchmarkEncodeDecodeUnit(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded types.Unit
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := types.DecodeUnit(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -453,24 +479,9 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded types.Dimensions
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := types.DecodeDimensions(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	s := types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := types.EncodeChannels(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded types.Channels
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
-		if err := types.DecodeChannels(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

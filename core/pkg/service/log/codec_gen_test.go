@@ -12,7 +12,6 @@
 package log_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/google/uuid"
@@ -32,7 +31,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(log.EncodeLog(w, &original)).To(Succeed())
 			var decoded log.Log
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(log.DecodeLog(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -59,7 +59,8 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded log.Log
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := log.DecodeLog(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

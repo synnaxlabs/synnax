@@ -12,7 +12,6 @@
 package text_test
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -30,7 +29,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(text.EncodeText(w, &original)).To(Succeed())
 			var decoded text.Text
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(text.DecodeText(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -46,7 +46,8 @@ func BenchmarkEncodeDecodeText(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded text.Text
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := text.DecodeText(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

@@ -12,7 +12,6 @@
 package lineplot_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/google/uuid"
@@ -32,7 +31,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(lineplot.EncodeLinePlot(w, &original)).To(Succeed())
 			var decoded lineplot.LinePlot
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(lineplot.DecodeLinePlot(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -59,7 +59,8 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded lineplot.LinePlot
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := lineplot.DecodeLinePlot(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

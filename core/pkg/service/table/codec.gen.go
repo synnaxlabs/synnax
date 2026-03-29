@@ -12,7 +12,6 @@
 package table
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -89,7 +88,7 @@ func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 func (tableCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Table)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeTable(r, s)
 	readerPool.Put(r)
 	return err

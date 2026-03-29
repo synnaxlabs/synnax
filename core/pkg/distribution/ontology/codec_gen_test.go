@@ -12,7 +12,6 @@
 package ontology_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"testing"
@@ -31,7 +30,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(ontology.EncodeID(w, &original)).To(Succeed())
 			var decoded ontology.ID
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(ontology.DecodeID(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -42,7 +42,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(ontology.EncodeResource(w, &original)).To(Succeed())
 			var decoded ontology.Resource
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(ontology.DecodeResource(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -53,7 +54,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(ontology.EncodeRelationship(w, &original)).To(Succeed())
 			var decoded ontology.Relationship
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(ontology.DecodeRelationship(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -91,7 +93,8 @@ func BenchmarkEncodeDecodeID(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ontology.ID
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeID(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -107,7 +110,8 @@ func BenchmarkEncodeDecodeResource(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ontology.Resource
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeResource(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -123,7 +127,8 @@ func BenchmarkEncodeDecodeRelationship(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ontology.Relationship
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeRelationship(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

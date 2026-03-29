@@ -12,7 +12,7 @@
 package channel_test
 
 import (
-	"bytes"
+	"context"
 	"encoding/binary"
 	"testing"
 
@@ -33,7 +33,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(channel.EncodeChannel(w, &original)).To(Succeed())
 			var decoded channel.Channel
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(channel.DecodeChannel(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -44,8 +45,20 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(channel.EncodeOperation(w, &original)).To(Succeed())
 			var decoded channel.Operation
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(channel.DecodeOperation(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("ChannelCodec", func() {
+		It("should round-trip through the Codec interface", func() {
+			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
+			ctx := context.Background()
+			data, err := channel.ChannelCodec.Encode(ctx, original)
+			Expect(err).ToNot(HaveOccurred())
+			var decoded channel.Channel
+			Expect(channel.ChannelCodec.Decode(ctx, data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -60,7 +73,8 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded channel.Channel
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := channel.DecodeChannel(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -76,7 +90,8 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded channel.Operation
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := channel.DecodeOperation(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

@@ -220,16 +220,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
-		Instrumentation: cfg.Child("alias"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Signals:         cfg.Distribution.Signals,
-		ParentRetriever: l.Ranger,
-	}); !ok(err, l.Alias) {
-		return nil, err
-	}
+
 	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
 		Instrumentation: cfg.Child("kv"),
 		DB:              cfg.Distribution.DB,
@@ -353,6 +344,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Distribution:    cfg.Distribution.Channel,
 		Status:          l.Status,
 	}); !ok(err, l.Channel) {
+		return nil, err
+	}
+	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
+		Instrumentation: cfg.Child("alias"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Signals:         cfg.Distribution.Signals,
+		ParentRetriever: l.Ranger,
+	}); !ok(err, l.Alias) {
 		return nil, err
 	}
 	if l.View, err = view.OpenService(

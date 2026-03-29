@@ -12,7 +12,6 @@
 package ontology
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -141,7 +140,7 @@ func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Resource)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeResource(r, s)
 	readerPool.Put(r)
 	return err
@@ -181,7 +180,7 @@ func (c relationshipCodec) EncodeStream(ctx context.Context, w io.Writer, value 
 func (relationshipCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Relationship)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeRelationship(r, s)
 	readerPool.Put(r)
 	return err

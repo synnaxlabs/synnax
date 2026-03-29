@@ -12,7 +12,6 @@
 package device
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -179,7 +178,7 @@ func (c deviceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) e
 func (deviceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Device)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeDevice(r, s)
 	readerPool.Put(r)
 	return err

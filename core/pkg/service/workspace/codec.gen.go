@@ -12,7 +12,6 @@
 package workspace
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -93,7 +92,7 @@ func (c workspaceCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 func (workspaceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Workspace)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeWorkspace(r, s)
 	readerPool.Put(r)
 	return err

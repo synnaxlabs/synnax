@@ -12,7 +12,6 @@
 package label_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/google/uuid"
@@ -33,7 +32,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(label.EncodeLabel(w, &original)).To(Succeed())
 			var decoded label.Label
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(label.DecodeLabel(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -60,7 +60,8 @@ func BenchmarkEncodeDecodeLabel(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded label.Label
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := label.DecodeLabel(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

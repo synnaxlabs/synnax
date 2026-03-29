@@ -12,6 +12,11 @@
 package channel
 
 import (
+	"context"
+	"encoding/binary"
+	"io"
+	"sync"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
@@ -135,4 +140,47 @@ func DecodeOperation(r *xbinary.Reader, s *Operation) error {
 		s.Duration = telem.TimeSpan(v)
 	}
 	return nil
+}
+
+var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
+var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+
+type channelCodec struct{}
+
+var ChannelCodec xbinary.Codec = channelCodec{}
+
+func (channelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	s := value.(Channel)
+	w := writerPool.Get().(*xbinary.Writer)
+	w.Reset()
+	err := EncodeChannel(w, &s)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
+}
+
+func (c channelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (channelCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Channel)
+	r := readerPool.Get().(*xbinary.Reader)
+	r.ResetBytes(data)
+	err := DecodeChannel(r, s)
+	readerPool.Put(r)
+	return err
+}
+
+func (c channelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
 }

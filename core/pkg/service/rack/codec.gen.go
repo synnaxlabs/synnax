@@ -12,7 +12,6 @@
 package rack
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -21,6 +20,22 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/status"
 )
+
+func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+	w.Uint32(uint32(s.Rack))
+	return nil
+}
+
+func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Rack = Key(v)
+	}
+	return nil
+}
 
 func EncodeRack(w *xbinary.Writer, s *Rack) error {
 	w.Uint32(uint32(s.Key))
@@ -72,22 +87,6 @@ func DecodeRack(r *xbinary.Reader, s *Rack) error {
 	return nil
 }
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
-	w.Uint32(uint32(s.Rack))
-	return nil
-}
-
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Rack = Key(v)
-	}
-	return nil
-}
-
 var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
 var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
 
@@ -117,7 +116,7 @@ func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 func (rackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Rack)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeRack(r, s)
 	readerPool.Put(r)
 	return err

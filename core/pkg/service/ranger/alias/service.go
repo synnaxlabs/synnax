@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -42,6 +43,7 @@ type ServiceConfig struct {
 	DB              *gorp.DB
 	Ontology        *ontology.Ontology
 	Search          *search.Index
+	Channel         *channel.Service
 	Signals         *signals.Provider
 	ParentRetriever ParentRetriever
 	alamos.Instrumentation
@@ -58,6 +60,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "parent_retriever", c.ParentRetriever)
 	return v.Error()
 }
@@ -68,6 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ParentRetriever = override.Nil(c.ParentRetriever, other.ParentRetriever)
 	return c
@@ -122,6 +126,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		channel:   s.cfg.Channel,
 		table:     s.table,
 	}
 }

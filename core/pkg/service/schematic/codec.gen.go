@@ -12,7 +12,6 @@
 package schematic
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -93,7 +92,7 @@ func (c schematicCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 func (schematicCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Schematic)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeSchematic(r, s)
 	readerPool.Put(r)
 	return err

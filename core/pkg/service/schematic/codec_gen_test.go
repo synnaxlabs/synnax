@@ -12,7 +12,6 @@
 package schematic_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/google/uuid"
@@ -32,7 +31,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(schematic.EncodeSchematic(w, &original)).To(Succeed())
 			var decoded schematic.Schematic
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(schematic.DecodeSchematic(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -59,7 +59,8 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.Schematic
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := schematic.DecodeSchematic(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

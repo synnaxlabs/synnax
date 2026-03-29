@@ -492,7 +492,6 @@ const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.
 package {{.Package}}_test
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 {{- if .Adapters}}
@@ -520,7 +519,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect({{$.Package}}.Encode{{.GoName}}(w, &original)).To(Succeed())
 			var decoded {{$.Package}}.{{.GoName}}
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect({{$.Package}}.Decode{{.GoName}}(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -550,7 +550,8 @@ func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := {{$.Package}}.Decode{{.GoName}}(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

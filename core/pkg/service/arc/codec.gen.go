@@ -12,7 +12,6 @@
 package arc
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -146,7 +145,7 @@ func (c arcCodec) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 func (arcCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Arc)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeArc(r, s)
 	readerPool.Put(r)
 	return err

@@ -990,7 +990,6 @@ package {{.Package}}
 
 import (
 {{- if .Adapters}}
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -1061,7 +1060,7 @@ func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writ
 func ({{lowerFirst .GoName}}Codec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*{{.GoName}})
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := Decode{{.GoName}}(r, s)
 	readerPool.Put(r)
 	return err

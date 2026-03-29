@@ -12,7 +12,6 @@
 package log
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -89,7 +88,7 @@ func (c logCodec) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 func (logCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Log)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeLog(r, s)
 	readerPool.Put(r)
 	return err

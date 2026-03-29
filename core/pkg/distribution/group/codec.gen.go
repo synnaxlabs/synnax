@@ -12,7 +12,6 @@
 package group
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -67,7 +66,7 @@ func (c groupCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 func (groupCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Group)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeGroup(r, s)
 	readerPool.Put(r)
 	return err

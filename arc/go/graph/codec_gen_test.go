@@ -12,7 +12,6 @@
 package graph_test
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -33,7 +32,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(graph.EncodeGraph(w, &original)).To(Succeed())
 			var decoded graph.Graph
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(graph.DecodeGraph(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -44,7 +44,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(graph.EncodeViewport(w, &original)).To(Succeed())
 			var decoded graph.Viewport
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -55,7 +56,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(graph.EncodeNode(w, &original)).To(Succeed())
 			var decoded graph.Node
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(graph.DecodeNode(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -71,7 +73,8 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded graph.Graph
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeGraph(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -87,7 +90,8 @@ func BenchmarkEncodeDecodeViewport(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded graph.Viewport
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeViewport(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
@@ -103,7 +107,8 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded graph.Node
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeNode(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

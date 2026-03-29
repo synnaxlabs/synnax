@@ -12,7 +12,6 @@
 package device_test
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -31,7 +30,8 @@ var _ = Describe("Codec", func() {
 			w := xbinary.NewWriter(0, binary.BigEndian)
 			Expect(device.EncodeStatusDetails(w, &original)).To(Succeed())
 			var decoded device.StatusDetails
-			r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
 			Expect(device.DecodeStatusDetails(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
@@ -47,7 +47,8 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded device.StatusDetails
-		r := xbinary.NewReader(bytes.NewReader(w.Bytes()), binary.BigEndian)
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
 		if err := device.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}

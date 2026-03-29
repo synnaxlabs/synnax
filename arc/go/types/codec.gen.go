@@ -17,46 +17,6 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeParam(w *xbinary.Writer, s *Param) error {
-	w.String(s.Name)
-	if err := EncodeType(w, &s.Type); err != nil {
-		return err
-	}
-	{
-		b, err := json.Marshal(s.Value)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	return nil
-}
-
-func DecodeParam(r *xbinary.Reader, s *Param) error {
-	var err error
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeType(r, &s.Type); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func EncodeType(w *xbinary.Writer, s *Type) error {
 	if s.Inputs != nil {
 		w.Bool(true)
@@ -456,6 +416,46 @@ func DecodeChannels(r *xbinary.Reader, s *Channels) error {
 				return err
 			}
 			s.Write[key] = val
+		}
+	}
+	return nil
+}
+
+func EncodeParam(w *xbinary.Writer, s *Param) error {
+	w.String(s.Name)
+	if err := EncodeType(w, &s.Type); err != nil {
+		return err
+	}
+	{
+		b, err := json.Marshal(s.Value)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	return nil
+}
+
+func DecodeParam(r *xbinary.Reader, s *Param) error {
+	var err error
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeType(r, &s.Type); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Value); err != nil {
+			return err
 		}
 	}
 	return nil

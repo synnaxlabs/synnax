@@ -12,7 +12,6 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -186,7 +185,7 @@ func (c taskCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 func (taskCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Task)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeTask(r, s)
 	readerPool.Put(r)
 	return err

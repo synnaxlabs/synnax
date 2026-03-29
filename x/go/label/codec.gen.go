@@ -12,7 +12,6 @@
 package label
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -74,7 +73,7 @@ func (c labelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 func (labelCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Label)
 	r := readerPool.Get().(*xbinary.Reader)
-	r.Reset(bytes.NewReader(data))
+	r.ResetBytes(data)
 	err := DecodeLabel(r, s)
 	readerPool.Put(r)
 	return err
