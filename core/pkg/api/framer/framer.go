@@ -78,11 +78,18 @@ func (s *Service) Delete(
 	var (
 		resChannels []channel.Channel
 		q           = s.channel.NewRetrieve().Entries(&resChannels)
+		hasKeys     = len(req.Keys) > 0
+		hasNames    = len(req.Names) > 0
 	)
-	if len(req.Keys) > 0 {
+	// Early return for safety if a caller passes nothing, that way there is no
+	// accidental deletion of all data.
+	if !hasKeys && !hasNames {
+		return types.Nil{}, nil
+	}
+	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
-	if len(req.Names) > 0 {
+	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
 	if err := q.Exec(ctx, nil); err != nil {
