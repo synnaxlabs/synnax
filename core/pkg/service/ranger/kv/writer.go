@@ -18,25 +18,26 @@ import (
 
 // Writer is used to create and delete key-value pairs.
 type Writer struct {
-	tx gorp.Tx
+	tx    gorp.Tx
+	table *gorp.Table[string, Pair]
 }
 
 // Set sets a key-value pair on the specified range.
 func (w Writer) Set(ctx context.Context, rng uuid.UUID, key, value string) error {
-	return gorp.NewCreate[string, Pair]().
+	return w.table.NewCreate().
 		Entry(&Pair{Range: rng, Key: key, Value: value}).
 		Exec(ctx, w.tx)
 }
 
 // SetMany sets multiple key-value pairs on the specified range.
 func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
-	return gorp.NewCreate[string, Pair]().Entries(&pairs).Exec(ctx, w.tx)
+	return w.table.NewCreate().Entries(&pairs).Exec(ctx, w.tx)
 }
 
 // Delete deletes a key-value pair from the specified range. Delete is
 // idempotent and will not return an error if the key does not exist.
 func (w Writer) Delete(ctx context.Context, rng uuid.UUID, key string) error {
-	return gorp.NewDelete[string, Pair]().
+	return w.table.NewDelete().
 		WhereKeys(Pair{Range: rng, Key: key}.GorpKey()).
 		Exec(ctx, w.tx)
 }

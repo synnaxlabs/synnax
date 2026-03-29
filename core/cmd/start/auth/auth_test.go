@@ -127,14 +127,14 @@ func userHasRole(
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeRole).
+		WhereTypes(ontology.ResourceTypeRole).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {
 		return false
 	}
 	for _, r := range roles {
 		var rl role.Role
-		if err := gorp.NewRetrieve[uuid.UUID, role.Role]().
+		if err := gorp.NewRetrieve[uuid.UUID, role.Role](nil).
 			WhereKeys(uuid.MustParse(r.ID.Key)).
 			Entry(&rl).
 			Exec(ctx, tx); err != nil {

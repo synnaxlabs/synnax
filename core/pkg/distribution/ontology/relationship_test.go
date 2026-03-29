@@ -21,10 +21,10 @@ var _ = Describe("Relationship", func() {
 	Describe("ParseRelationship", func() {
 		It("Should parse a relationship from a string", func() {
 			r := MustSucceed(ontology.ParseRelationship([]byte("foo:qux->parent->bar:baz")))
-			Expect(r.From.Type).To(Equal(ontology.Type("foo")))
+			Expect(r.From.Type).To(Equal(ontology.ResourceType("foo")))
 			Expect(r.From.Key).To(Equal("qux"))
 			Expect(r.Type).To(Equal(ontology.RelationshipTypeParentOf))
-			Expect(r.To.Type).To(Equal(ontology.Type("bar")))
+			Expect(r.To.Type).To(Equal(ontology.ResourceType("bar")))
 			Expect(r.To.Key).To(Equal("baz"))
 		})
 		It("Should return an error if the relationship has an invalid structure", func() {

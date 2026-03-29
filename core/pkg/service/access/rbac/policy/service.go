@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -26,6 +27,7 @@ import (
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	Search   *search.Index
 	Signals  *signals.Provider
 }
 
@@ -39,6 +41,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -47,6 +50,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -61,7 +65,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Policy](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Policy]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -70,12 +74,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[Policy](cfg.DB),
+			signals.GorpPublisherConfigUUID[Policy](s.table.Observe()),
 		); err != nil {
 			return nil, err
 		}
 	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -93,13 +98,14 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 		tx:            tx,
 		otg:           s.cfg.Ontology.NewWriter(tx),
 		allowInternal: allowInternal,
+		table:         s.table,
 	}
 }
 
 func (s *Service) NewRetrieve() Retriever {
 	return Retriever{
 		baseTx:   s.cfg.DB,
-		gorp:     gorp.NewRetrieve[uuid.UUID, Policy](),
+		gorp:     s.table.NewRetrieve(),
 		ontology: s.cfg.Ontology,
 	}
 }

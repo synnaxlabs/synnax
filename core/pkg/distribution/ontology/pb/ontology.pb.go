@@ -145,11 +145,18 @@ func (ResourceType) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP(), []int{0}
 }
 
-// ID is a unique identifier for a resource in the ontology system, composed of its type
-// and key.
+// ID ID is a unique identifier for a Resource. An example:
+//
+// userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
+//
+// The ID has two elements for several reasons. First, by storing the Type we know which
+// service to query for additional info on the Resource. Second, while a Key may be
+// unique for a particular resource (e.g. channel), it might not be unique across all
+// resources. We need something universally unique across the entire Synnax Core.
 type ID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// type is the type of the resource.
+	// type defines the type of resource the key refers to. For example, a channel is a
+	// resource of type "channel". A user is a resource of type "user".
 	Type ResourceType `protobuf:"varint,1,opt,name=type,proto3,enum=distribution.ontology.pb.ResourceType" json:"type,omitempty"`
 	// key is the unique key identifying the resource within its type.
 	Key           string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`

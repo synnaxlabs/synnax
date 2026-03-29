@@ -281,7 +281,7 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(len(r)).To(BeNumerically(">=", 2))
-			types := lo.Map(r, func(res ontology.Resource, _ int) ontology.Type {
+			types := lo.Map(r, func(res ontology.Resource, _ int) ontology.ResourceType {
 				return res.ID.Type
 			})
 			for _, t := range types {
@@ -291,7 +291,7 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return empty results when filtering by non-existent type", func() {
 			Expect(w.DefineResource(ctx, newSampleType("type-filter-C"))).To(Succeed())
-			nonExistentType := ontology.Type("nonexistent")
+			nonExistentType := ontology.ResourceType("nonexistent")
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
 				WhereTypes(nonExistentType).
@@ -306,7 +306,7 @@ var _ = Describe("Retrieve", func() {
 			b := newSampleType("multi-type-B")
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
 			Expect(w.DefineResource(ctx, b)).To(Succeed())
-			otherType := ontology.Type("other")
+			otherType := ontology.ResourceType("other")
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
 				WhereTypes(sampleOntologyType, otherType).
@@ -323,7 +323,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, newSampleType("multi-type-none"))).To(Succeed())
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
-				WhereTypes(ontology.Type("foo"), ontology.Type("bar")).
+				WhereTypes(ontology.ResourceType("foo"), ontology.ResourceType("bar")).
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -356,7 +356,7 @@ var _ = Describe("Retrieve", func() {
 			// Use multiple types to trigger filter function path (not prefix matching)
 			Expect(w.NewRetrieve().
 				WhereIDs(a).
-				WhereTypes(ontology.Type("different"), ontology.Type("another")).
+				WhereTypes(ontology.ResourceType("different"), ontology.ResourceType("another")).
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -383,7 +383,7 @@ var _ = Describe("Retrieve", func() {
 			}
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
-				WhereTypes(sampleOntologyType, ontology.Type("other")).
+				WhereTypes(sampleOntologyType, ontology.ResourceType("other")).
 				Limit(3).
 				Entries(&r).
 				Exec(ctx, tx),

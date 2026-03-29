@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -29,6 +30,9 @@ type ServiceConfig struct {
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Search is the search index for fuzzy searching line plots.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -42,6 +46,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -50,6 +55,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("lineplot")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -67,12 +73,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[LinePlot]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -87,15 +94,16 @@ func (s *Service) Close() error {
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:  tx,
-		otg: s.Ontology.NewWriter(tx),
+		tx:    tx,
+		otg:   s.Ontology.NewWriter(tx),
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new query builder for retrieving line plots from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, LinePlot](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 	}
 }

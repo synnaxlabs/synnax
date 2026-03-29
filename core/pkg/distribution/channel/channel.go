@@ -91,7 +91,7 @@ func KeysFromUint32(keys []uint32) Keys {
 func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
 	keys := make(Keys, 0, len(ids))
 	for _, id := range ids {
-		if id.Type != ontology.TypeChannel {
+		if id.Type != ontology.ResourceTypeChannel {
 			continue
 		}
 		key, err := ParseKey(id.Key)

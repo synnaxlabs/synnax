@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -87,15 +88,32 @@ var _ = Describe("Config", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{Ontology: otg, DB: db, Group: g, Label: labelSvc}))
+		searchIdx := MustSucceed(search.Open())
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    g,
+			Label:    labelSvc,
+			Search:   searchIdx,
+		}))
 		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Search:       searchIdx,
 		}))
 		taskService = MustSucceed(task.OpenService(
 			ctx,
@@ -105,6 +123,7 @@ var _ = Describe("Config", Ordered, func() {
 				Group:    g,
 				Rack:     rackService,
 				Status:   stat,
+				Search:   searchIdx,
 			}),
 		)
 		factory = &mockFactory{name: "test"}
@@ -216,12 +235,17 @@ var _ = Describe("Driver", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
 		labelSvc := MustSucceed(label.OpenService(
 			ctx,
 			label.ServiceConfig{
 				DB:       dist.DB,
 				Ontology: dist.Ontology,
 				Group:    dist.Group,
+				Search:   searchIdx,
 			}),
 		)
 		statusSvc = MustSucceed(status.OpenService(
@@ -231,6 +255,7 @@ var _ = Describe("Driver", Ordered, func() {
 				DB:       dist.DB,
 				Group:    dist.Group,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}),
 		)
 		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
@@ -239,6 +264,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       searchIdx,
 		}))
 		channelSvc = channel.Wrap(dist.Channel)
 		framerSvc = dist.Framer
@@ -249,6 +275,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Rack:     rackService,
 			Status:   statusSvc,
 			Channel:  dist.Channel,
+			Search:   searchIdx,
 		}))
 
 		DeferCleanup(func() {
@@ -657,7 +684,7 @@ var _ = Describe("Driver", Ordered, func() {
 			statusKey := rack.OntologyID(driver.RackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -684,7 +711,7 @@ var _ = Describe("Driver", Ordered, func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -694,7 +721,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -719,7 +746,7 @@ var _ = Describe("Driver", Ordered, func() {
 			statusKey := rack.OntologyID(driver.RackKey()).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -730,7 +757,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []status.Status[any]
-			Expect(gorp.NewRetrieve[string, status.Status[any]]().
+			Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 				WhereKeys(statusKey).
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
@@ -738,7 +765,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 			Consistently(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]](nil).
 					WhereKeys(statusKey).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
@@ -906,12 +933,17 @@ var _ = Describe("Context", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
 		labelSvc := MustSucceed(label.OpenService(
 			ctx,
 			label.ServiceConfig{
 				DB:       dist.DB,
 				Ontology: dist.Ontology,
 				Group:    dist.Group,
+				Search:   searchIdx,
 			}),
 		)
 		statusSvc = MustSucceed(status.OpenService(
@@ -921,6 +953,7 @@ var _ = Describe("Context", Ordered, func() {
 				DB:       dist.DB,
 				Group:    dist.Group,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}),
 		)
 
@@ -947,7 +980,7 @@ var _ = Describe("Context", Ordered, func() {
 			Expect(driverCtx.SetStatus(stat)).To(Succeed())
 
 			var statuses []status.Status[task.StatusDetails]
-			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]]().
+			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]](nil).
 				WhereKeys("test-status-1").
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
@@ -967,7 +1000,7 @@ var _ = Describe("Context", Ordered, func() {
 			afterTime := telem.Now()
 
 			var statuses []status.Status[task.StatusDetails]
-			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]]().
+			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]](nil).
 				WhereKeys("test-status-2").
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
@@ -987,7 +1020,7 @@ var _ = Describe("Context", Ordered, func() {
 			Expect(driverCtx.SetStatus(stat)).To(Succeed())
 
 			var statuses []status.Status[task.StatusDetails]
-			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]]().
+			Expect(gorp.NewRetrieve[string, status.Status[task.StatusDetails]](nil).
 				WhereKeys("test-status-3").
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())

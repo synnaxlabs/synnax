@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -34,6 +35,9 @@ type ServiceConfig struct {
 	// Group is used to create the top level "Users" group that will be the default
 	// parent of all users.
 	Group *group.Service
+	// Search is the search index for fuzzy searching users.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]
@@ -50,6 +54,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -60,6 +65,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -77,18 +83,19 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	table, err := gorp.OpenTable[uuid.UUID, User](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[User]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 
 	if cfg.Signals != nil {
 		cdcS, err := signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[User](cfg.DB),
+			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
 		)
 		s.shutdownSignals = cdcS
 		if err != nil {
@@ -102,23 +109,24 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // writer operates within the given transaction tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.cfg.DB, tx),
-		otg: s.cfg.Ontology.NewWriter(tx),
-		svc: s,
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		svc:   s,
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new retrieve query capable of retrieving Users.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, User](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 	}
 }
 
 // UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
-	return gorp.NewRetrieve[uuid.UUID, User]().
+	return s.table.NewRetrieve().
 		Where(func(_ gorp.Context, u *User) (bool, error) {
 			return u.Username == username, nil
 		}).
