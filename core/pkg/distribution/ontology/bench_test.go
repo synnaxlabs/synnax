@@ -237,7 +237,7 @@ func BenchmarkSearch(b *testing.B) {
 			env := newBenchEnv(b)
 			defer env.close(b)
 			env.populate(b, count)
-			if err := env.searchIdx.InitializeIndex(env.ctx); err != nil {
+			if err := env.searchIdx.Initialize(env.ctx); err != nil {
 				b.Fatalf("failed to initialize search index: %v", err)
 			}
 			b.ReportAllocs()

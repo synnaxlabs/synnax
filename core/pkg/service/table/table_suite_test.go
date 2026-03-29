@@ -57,7 +57,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
-		Search: searchIdx,
+		Search:   searchIdx,
 	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,

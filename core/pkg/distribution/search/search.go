@@ -113,7 +113,7 @@ func (i *Index) Close() error {
 }
 
 // RegisterService registers a service for search indexing. The service's resources
-// will be indexed when InitializeIndex is called.
+// will be indexed when Initialize is called.
 func (i *Index) RegisterService(svc Service) {
 	i.services = append(i.services, svc)
 }
@@ -142,11 +142,11 @@ func (i *Index) IndexResources(resources []ontology.Resource) error {
 	return t.Commit()
 }
 
-// InitializeIndex registers search schemas for all registered services, indexes
+// Initialize registers search schemas for all registered services, indexes
 // all existing resources, and hooks OnChange for live sync. This method should be
 // called AFTER all services have been registered via RegisterService. It blocks
 // until all resources have been indexed.
-func (i *Index) InitializeIndex(ctx context.Context) error {
+func (i *Index) Initialize(ctx context.Context) error {
 	for _, svc := range i.services {
 		var extraFields []string
 		if provider, ok := svc.(FieldsProvider); ok {

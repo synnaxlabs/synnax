@@ -56,7 +56,7 @@ func newBenchIndex(b *testing.B) *search.Index {
 	}
 	svc := &benchService{}
 	idx.RegisterService(svc)
-	if err := idx.InitializeIndex(context.Background()); err != nil {
+	if err := idx.Initialize(context.Background()); err != nil {
 		b.Fatal(err)
 	}
 	return idx

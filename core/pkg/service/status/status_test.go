@@ -59,7 +59,7 @@ var _ = Describe("Status", Ordered, func() {
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		Expect(searchIdx.InitializeIndex(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})

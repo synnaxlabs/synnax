@@ -63,7 +63,7 @@ var _ = Describe("Alias", Ordered, func() {
 			ParentRetriever: rangerSvc,
 			Search:          searchIdx,
 		}))
-		Expect(searchIdx.InitializeIndex(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 		closer = xio.MultiCloser{db, otg, g, rangerSvc, aliasSvc}
 	})
 	AfterAll(func() {

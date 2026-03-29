@@ -59,7 +59,7 @@ func newIndex(svcs ...*mockService) *search.Index {
 	for _, svc := range svcs {
 		idx.RegisterService(svc)
 	}
-	Expect(idx.InitializeIndex(context.Background())).To(Succeed())
+	Expect(idx.Initialize(context.Background())).To(Succeed())
 	return idx
 }
 
@@ -322,7 +322,7 @@ var _ = Describe("Search", func() {
 		Entry("Scream Case with Underscore", "TEST_TEST", []string{"TEST", "TEST"}),
 		Entry("Scream Case with Space", "TEST TEST", []string{"TEST", "TEST"}),
 	)
-	Describe("InitializeIndex", func() {
+	Describe("Initialize", func() {
 		var ctx context.Context
 		BeforeEach(func() { ctx = context.Background() })
 		It("Should index existing resources from OpenNexter", func() {
@@ -337,7 +337,7 @@ var _ = Describe("Search", func() {
 			}
 			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
-			Expect(idx.InitializeIndex(ctx)).To(Succeed())
+			Expect(idx.Initialize(ctx)).To(Succeed())
 			res := MustSucceed(idx.Search(ctx, search.Request{
 				Type: "widget",
 				Term: "Alpha",
@@ -356,7 +356,7 @@ var _ = Describe("Search", func() {
 			}
 			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
-			Expect(idx.InitializeIndex(ctx)).To(Succeed())
+			Expect(idx.Initialize(ctx)).To(Succeed())
 			res := MustSucceed(idx.Search(ctx, search.Request{Term: "Temperature"}))
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("b"))
@@ -379,7 +379,7 @@ var _ = Describe("Search", func() {
 			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc1)
 			idx.RegisterService(svc2)
-			Expect(idx.InitializeIndex(ctx)).To(Succeed())
+			Expect(idx.Initialize(ctx)).To(Succeed())
 			chRes := MustSucceed(idx.Search(ctx, search.Request{Term: "gse_ai"}))
 			Expect(chRes).To(HaveLen(1))
 			Expect(chRes[0].Key).To(Equal("ch1"))
@@ -402,7 +402,7 @@ var _ = Describe("Search", func() {
 			}
 			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
-			Expect(idx.InitializeIndex(ctx)).To(Succeed())
+			Expect(idx.Initialize(ctx)).To(Succeed())
 			res := MustSucceed(idx.Search(ctx, search.Request{Term: "cDAQ"}))
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal("1"))
@@ -415,7 +415,7 @@ var _ = Describe("Search", func() {
 			}
 			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
-			Expect(idx.InitializeIndex(ctx)).To(Succeed())
+			Expect(idx.Initialize(ctx)).To(Succeed())
 			Expect(idx.Search(ctx, search.Request{Term: "MyTask"})).To(BeEmpty())
 			svc.Notify(ctx, slices.Values([]ontology.Change{
 				{
@@ -441,7 +441,7 @@ var _ = Describe("Search", func() {
 			}
 			idx := MustSucceed(search.Open())
 			idx.RegisterService(svc)
-			Expect(idx.InitializeIndex(ctx)).To(Succeed())
+			Expect(idx.Initialize(ctx)).To(Succeed())
 			Expect(idx.Search(ctx, search.Request{Term: "DeleteMe"})).To(HaveLen(1))
 			svc.Notify(ctx, slices.Values([]ontology.Change{
 				{

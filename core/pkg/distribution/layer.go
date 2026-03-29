@@ -174,6 +174,7 @@ type Layer struct {
 	// in Synnax.
 	Ontology *ontology.Ontology
 	// Search is the full-text search index for ontology resources.
+	// [REQUIRED]
 	Search *search.Index
 	// Signals are for propagating changes to data structures through channels in
 	// Synnax.
