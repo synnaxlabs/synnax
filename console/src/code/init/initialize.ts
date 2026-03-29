@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type * as monacoT from "@codingame/monaco-vscode-editor-api";
 import { type destructor } from "@synnaxlabs/x";
-import type * as monacoT from "monaco-editor";
 
 const codingameImports = Promise.all([
   import("@codingame/monaco-vscode-theme-defaults-default-extension"),
@@ -21,7 +21,10 @@ const codingameImports = Promise.all([
 const WORKER_LOADERS: Partial<Record<string, () => Worker>> = {
   TextEditorWorker: () =>
     new Worker(
-      new URL("monaco-editor/esm/vs/editor/editor.worker.js", import.meta.url),
+      new URL(
+        "@codingame/monaco-vscode-editor-api/esm/vs/editor/editor.worker.js",
+        import.meta.url,
+      ),
       { type: "module" },
     ),
   TextMateWorker: () =>
@@ -78,7 +81,7 @@ const doInitialize = async ({
     ...getThemeServiceOverride(),
     ...getLanguagesServiceOverride(),
   });
-  const monaco = await import("monaco-editor");
+  const monaco = await import("@codingame/monaco-vscode-editor-api");
   const destructors = await Promise.all(services.map(async (s) => await s()));
   const dest: destructor.Async = async () => {
     await Promise.all(destructors.map((d) => d()));

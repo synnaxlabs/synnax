@@ -138,8 +138,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       width: maxLabelLength * 7 + 48,
       position: this.state.position,
       draw: (i, b) => {
-        let label = "";
-        let value = "";
+        let label: string;
+        let value: string;
         let color = this.state.textColor;
         if (i === 0) {
           label = "Time";
