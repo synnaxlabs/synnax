@@ -9,13 +9,12 @@
 
 import "@/arc/Toolbar.css";
 
-import { arc, UnexpectedError } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import {
   Access,
   Arc,
   Button,
   Flex,
-  type Flux,
   Icon,
   List,
   Menu,
@@ -24,17 +23,15 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/arc/ContextMenu";
 import { Editor } from "@/arc/editor";
 import { EXPLORER_LAYOUT } from "@/arc/Explorer";
-import { useTask } from "@/arc/hooks";
+import { useRename, useTask } from "@/arc/hooks";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 
 interface EmptyContentProps {
   onCreate: () => void;
@@ -54,44 +51,14 @@ const EmptyContent = ({ onCreate }: EmptyContentProps) => {
 const Content = () => {
   const [selected, setSelected] = useState<arc.Key[]>([]);
   const addStatus = Status.useAdder();
-  const confirm = Modals.useConfirm();
   const menuProps = Menu.useContextMenu();
   const placeLayout = Layout.usePlacer();
-  const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
-  const { update: handleRename } = Arc.useRename({
-    beforeUpdate: useCallback(
-      async ({
-        data,
-        rollbacks,
-        store,
-        client,
-      }: Flux.BeforeUpdateParams<Arc.RenameParams, false, Arc.FluxSubStore>) => {
-        const { key, name } = data;
-        const tsk = await Arc.retrieveTask({ store, client, query: { arcKey: key } });
-        const arc = getItem(key);
-        if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
-        const oldName = arc.name;
-        if (tsk?.status?.details.running === true) {
-          const confirmed = await confirm({
-            message: `Are you sure you want to rename ${arc.name} to ${name}?`,
-            description: `This will cause ${arc.name} to stop and be reconfigured.`,
-            cancel: { label: "Cancel" },
-            confirm: { label: "Rename", variant: "error" },
-          });
-          if (!confirmed) return false;
-        }
-        dispatch(Layout.rename({ key, name }));
-        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
-        return data;
-      },
-      [dispatch, getItem],
-    ),
-  });
+  const { update: handleRename } = useRename(getItem);
 
   const handleEdit = useCallback(
     (key: arc.Key) => {

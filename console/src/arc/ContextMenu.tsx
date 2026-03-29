@@ -11,6 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Arc, Icon, type List, Menu, Status } from "@synnaxlabs/pluto";
 
 import { Editor } from "@/arc/editor";
+import { useRename } from "@/arc/hooks";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
@@ -35,7 +36,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const handleError = Status.useErrorHandler();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const renameModal = Modals.useRename();
-  const { update: renameArc } = Arc.useRename();
+  const { update: renameArc } = useRename(getItem);
   const confirm = useConfirmDelete({
     type: "Arc",
     description: "Deleting this arc will permanently remove it.",
@@ -91,10 +92,6 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
             Edit
           </Menu.Item>
           <Menu.Divider />
-        </>
-      )}
-      {canEdit && isSingle && (
-        <>
           <CMenu.RenameItem onClick={handleRename} />
           <Menu.Divider />
         </>
