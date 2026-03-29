@@ -37,10 +37,11 @@ import { removeFavorites } from "@/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No favorited statuses."
-      action="Open Status Explorer"
+      action={canViewStatuses ? "Open Status Explorer" : undefined}
       onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
@@ -123,33 +124,41 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
 
 const listItem = Component.renderProp(ListItem);
 
-const Content = (): ReactElement => {
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header padded>
+      <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <List />
+  </Toolbar.Content>
+);
+
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  if (!canCreate && !canViewStatuses) return null;
   return (
-    <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
-        <Toolbar.Actions>
-          {canEdit && (
-            <Toolbar.Action
-              tooltip="Create status"
-              onClick={() => placeLayout(CREATE_LAYOUT)}
-            >
-              <Icon.Add />
-            </Toolbar.Action>
-          )}
-          <Toolbar.Action
-            tooltip="Open Status Explorer"
-            onClick={() => placeLayout(EXPLORER_LAYOUT)}
-            variant="filled"
-          >
-            <Icon.Explore />
-          </Toolbar.Action>
-        </Toolbar.Actions>
-      </Toolbar.Header>
-      <List />
-    </Toolbar.Content>
+    <Toolbar.Actions>
+      {canCreate && (
+        <Toolbar.Action
+          tooltip="Create status"
+          onClick={() => placeLayout(CREATE_LAYOUT)}
+        >
+          <Icon.Add />
+        </Toolbar.Action>
+      )}
+      {canViewStatuses && (
+        <Toolbar.Action
+          tooltip="Open Status Explorer"
+          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          variant="filled"
+        >
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
+    </Toolbar.Actions>
   );
 };
 

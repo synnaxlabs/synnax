@@ -24,6 +24,8 @@ import (
 
 // ServiceConfig is the configuration for opening a log service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the log service will store logs in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -33,8 +35,6 @@ type ServiceConfig struct {
 	// Search is the search index for fuzzy searching logs.
 	// [REQUIRED]
 	Search *search.Index
-	// Instrumentation for logging, tracing, and metrics.
-	alamos.Instrumentation
 }
 
 var (

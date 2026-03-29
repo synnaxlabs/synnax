@@ -33,6 +33,7 @@ var _ = Describe("Migrate", func() {
 	var (
 		db        *gorp.DB
 		ctx       context.Context
+		svc       *ranger.Service
 		otg       *ontology.Ontology
 		closer    io.Closer
 		gSvc      *group.Service
@@ -119,14 +120,13 @@ var _ = Describe("Migrate", func() {
 		Expect(tx.Close()).To(Succeed())
 		Expect(bareTable.Close()).To(Succeed())
 
-		// Open the full service — the range_groups migration runs because the
-		// bare table was opened without it.
-		svc := MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    gSvc,
-			Label:    lab,
-			Search:   searchIdx,
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:             db,
+			Ontology:       otg,
+			Group:          gSvc,
+			Label:          lab,
+			ForceMigration: new(true),
+			Search:         searchIdx,
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted.

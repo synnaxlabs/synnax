@@ -24,6 +24,8 @@ import (
 
 // ServiceConfig is the configuration for opening a line plot service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the line plot service will store line plots in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -34,8 +36,6 @@ type ServiceConfig struct {
 	// Search is the search index for fuzzy searching line plots.
 	// [REQUIRED]
 	Search *search.Index
-	// Instrumentation for logging, tracing, and metrics.
-	alamos.Instrumentation
 }
 
 var (
