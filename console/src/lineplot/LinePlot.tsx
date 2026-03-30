@@ -111,14 +111,6 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
-  iso: "Failed to copy ISO time range",
-  python: "Failed to copy Python time range",
-  typescript: "Failed to copy TypeScript time range",
-  range: "Failed to create range from selection",
-  download: "Failed to download region as CSV",
-};
-
 interface RangeAnnotationContextMenuProps {
   lines: Channel.LineProps[];
   range: ranger.Payload;
@@ -382,56 +374,66 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
     const downloadAsCSV = useDownloadAsCSV();
 
-    const createHandler = (key: string) => () => {
+    const handleCopyISO = () =>
       handleError(async () => {
         const tr = await getTimeRange();
         if (tr == null) return;
-        switch (key) {
-          case "iso":
-            await navigator.clipboard.writeText(
-              `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
-            );
-            break;
-          case "python":
-            await navigator.clipboard.writeText(
-              `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-            );
-            break;
-          case "typescript":
-            await navigator.clipboard.writeText(
-              `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-            );
-            break;
-          case "range":
-            placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
-            break;
-          case "download":
-            if (client == null) return;
-            downloadAsCSV({ timeRanges: [tr], lines, name });
-            break;
-        }
-      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
-    };
+        await navigator.clipboard.writeText(
+          `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
+        );
+      }, "Failed to copy ISO time range");
+
+    const handleCopyPython = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        await navigator.clipboard.writeText(
+          `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+        );
+      }, "Failed to copy Python time range");
+
+    const handleCopyTypeScript = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        await navigator.clipboard.writeText(
+          `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+        );
+      }, "Failed to copy TypeScript time range");
+
+    const handleCreateRange = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
+      }, "Failed to create range from selection");
+
+    const handleDownloadCSV = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        downloadAsCSV({ timeRanges: [tr], lines, name });
+      }, "Failed to download region as CSV");
 
     return (
       <ContextMenu.Menu>
         {!box.areaIsZero(selection) && (
           <>
-            <Menu.Item itemKey="iso" onClick={createHandler("iso")}>
+            <Menu.Item itemKey="iso" onClick={handleCopyISO}>
               <Icon.Range /> Copy ISO time range
             </Menu.Item>
-            <Menu.Item itemKey="python" onClick={createHandler("python")}>
+            <Menu.Item itemKey="python" onClick={handleCopyPython}>
               <Icon.Python /> Copy Python time range
             </Menu.Item>
-            <Menu.Item itemKey="typescript" onClick={createHandler("typescript")}>
+            <Menu.Item itemKey="typescript" onClick={handleCopyTypeScript}>
               <Icon.TypeScript /> Copy TypeScript time range
             </Menu.Item>
             <Menu.Divider />
-            <Menu.Item itemKey="range" onClick={createHandler("range")}>
+            <Menu.Item itemKey="range" onClick={handleCreateRange}>
               <Ranger.CreateIcon /> Create range from selection
             </Menu.Item>
             <Menu.Divider />
-            <Menu.Item itemKey="download" onClick={createHandler("download")}>
+            <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
               <Icon.CSV /> Download region as CSV
             </Menu.Item>
             <Menu.Divider />
@@ -489,7 +491,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
           measureMode={vis.measure.mode}
-          onMeasureModeChange={hasUpdatePermission ? handleMeasureModeChange : undefined}
+          onMeasureModeChange={
+            hasUpdatePermission ? handleMeasureModeChange : undefined
+          }
         >
           {!focused && <Controls layoutKey={layoutKey} />}
         </Channel.LinePlot>
