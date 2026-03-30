@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { Indicator } from "@/status/base/Indicator";
 import { VARIANT_DATA } from "@/status/variantData";
 
 type Entry = Select.StaticEntry<status.Variant>;
@@ -49,6 +50,7 @@ export const SelectVariantMultiple = (
       onSearch={search}
       virtual={false}
       resourceName="variant"
+      icon={<Indicator variant="success" />}
     >
       {listItem}
     </Select.Multiple>
