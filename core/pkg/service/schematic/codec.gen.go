@@ -44,7 +44,7 @@ func DecodeSchematic(r *orc.Reader, s *Schematic) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}

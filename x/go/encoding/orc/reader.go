@@ -19,11 +19,16 @@ import (
 // ErrRecursionDepth is returned when decoding exceeds the maximum recursion depth.
 var ErrRecursionDepth = errors.New("[orc] recursion depth exceeded")
 
-// MaxStringLen is the maximum length of a string that can be decoded. In direct
-// mode (ResetBytes), the backing slice provides a natural bound. In io.Reader
-// mode, this limit prevents a corrupt length prefix from causing a massive
-// allocation. Defaults to 128 MB.
+// MaxStringLen is the maximum byte length of a string that can be decoded. In
+// direct mode (ResetBytes), the backing slice provides a natural bound. In
+// io.Reader mode, this limit prevents a corrupt length prefix from causing a
+// massive allocation. Defaults to 128 MB.
 var MaxStringLen uint32 = 128 << 20
+
+// MaxCollectionLen is the maximum number of elements that can be decoded for a
+// slice, map, or byte array. This prevents a corrupt length prefix from causing
+// a massive allocation or an effectively infinite loop. Defaults to 10 million.
+var MaxCollectionLen uint32 = 10_000_000
 
 // Reader reads primitive data types using big-endian byte order. It supports two
 // modes: direct byte-slice mode (via ResetBytes) for zero-copy decoding from
@@ -194,6 +199,22 @@ func (r *Reader) String() (string, error) {
 		return "", err
 	}
 	return string(buf), nil
+}
+
+// CollectionLen reads a uint32 element count and validates it against
+// MaxCollectionLen. Use this instead of Uint32 when the value controls a
+// slice, map, or byte array allocation.
+func (r *Reader) CollectionLen() (uint32, error) {
+	n, err := r.Uint32()
+	if err != nil {
+		return 0, err
+	}
+	if n > MaxCollectionLen {
+		return 0, errors.Newf(
+			"orc: collection length %d exceeds maximum %d", n, MaxCollectionLen,
+		)
+	}
+	return n, nil
 }
 
 // Read reads exactly len(data) bytes into the provided buffer.

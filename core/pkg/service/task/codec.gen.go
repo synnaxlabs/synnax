@@ -62,7 +62,7 @@ func DecodeTask(r *orc.Reader, s *Task) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 		}
 		if present {
 			{
-				n, err := r.Uint32()
+				n, err := r.CollectionLen()
 				if err != nil {
 					return err
 				}

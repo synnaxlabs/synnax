@@ -18,102 +18,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-func EncodeGraph(w *orc.Writer, s *Graph) error {
-	if err := EncodeViewport(w, &s.Viewport); err != nil {
-		return err
-	}
-	w.Bool(s.Functions != nil)
-	if s.Functions != nil {
-		w.Uint32(uint32(len(s.Functions)))
-		for i := range s.Functions {
-			if err := ir.EncodeFunction(w, &s.Functions[i]); err != nil {
-				return err
-			}
-		}
-	}
-	w.Bool(s.Edges != nil)
-	if s.Edges != nil {
-		w.Uint32(uint32(len(s.Edges)))
-		for i := range s.Edges {
-			if err := ir.EncodeEdge(w, &s.Edges[i]); err != nil {
-				return err
-			}
-		}
-	}
-	w.Bool(s.Nodes != nil)
-	if s.Nodes != nil {
-		w.Uint32(uint32(len(s.Nodes)))
-		for i := range s.Nodes {
-			if err := EncodeNode(w, &s.Nodes[i]); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func DecodeGraph(r *orc.Reader, s *Graph) error {
-	var err error
-	if err = DecodeViewport(r, &s.Viewport); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			s.Functions = make([]ir.Function, n)
-			for i := range s.Functions {
-				if err = ir.DecodeFunction(r, &s.Functions[i]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			s.Edges = make([]ir.Edge, n)
-			for i := range s.Edges {
-				if err = ir.DecodeEdge(r, &s.Edges[i]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			s.Nodes = make([]Node, n)
-			for i := range s.Nodes {
-				if err = DecodeNode(r, &s.Nodes[i]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func EncodeViewport(w *orc.Writer, s *Viewport) error {
 	if err := spatial.EncodeXY(w, &s.Position); err != nil {
 		return err
@@ -159,7 +63,7 @@ func DecodeNode(r *orc.Reader, s *Node) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}
@@ -173,6 +77,102 @@ func DecodeNode(r *orc.Reader, s *Node) error {
 	}
 	if err = spatial.DecodeXY(r, &s.Position); err != nil {
 		return err
+	}
+	return nil
+}
+
+func EncodeGraph(w *orc.Writer, s *Graph) error {
+	if err := EncodeViewport(w, &s.Viewport); err != nil {
+		return err
+	}
+	w.Bool(s.Functions != nil)
+	if s.Functions != nil {
+		w.Uint32(uint32(len(s.Functions)))
+		for i := range s.Functions {
+			if err := ir.EncodeFunction(w, &s.Functions[i]); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(s.Edges != nil)
+	if s.Edges != nil {
+		w.Uint32(uint32(len(s.Edges)))
+		for i := range s.Edges {
+			if err := ir.EncodeEdge(w, &s.Edges[i]); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(s.Nodes != nil)
+	if s.Nodes != nil {
+		w.Uint32(uint32(len(s.Nodes)))
+		for i := range s.Nodes {
+			if err := EncodeNode(w, &s.Nodes[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func DecodeGraph(r *orc.Reader, s *Graph) error {
+	var err error
+	if err = DecodeViewport(r, &s.Viewport); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Functions = make([]ir.Function, n)
+			for i := range s.Functions {
+				if err = ir.DecodeFunction(r, &s.Functions[i]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Edges = make([]ir.Edge, n)
+			for i := range s.Edges {
+				if err = ir.DecodeEdge(r, &s.Edges[i]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Nodes = make([]Node, n)
+			for i := range s.Nodes {
+				if err = DecodeNode(r, &s.Nodes[i]); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

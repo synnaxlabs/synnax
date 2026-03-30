@@ -12,8 +12,8 @@
 package channel_test
 
 import (
+	"bytes"
 	"context"
-	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
-					{
+					channel.Operation{
 						Type:         channel.OperationType("min"),
 						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
@@ -129,7 +129,7 @@ var _ = Describe("Codec", func() {
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
-					{
+					channel.Operation{
 						Type:         channel.OperationType("min"),
 						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
@@ -179,7 +179,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Concurrency: control.Concurrency(0),
 		Internal:    true,
 		Operations: []channel.Operation{
-			{
+			channel.Operation{
 				Type:         channel.OperationType("min"),
 				ResetChannel: channel.Key(13),
 				Duration:     telem.TimeSpan(14),
@@ -236,7 +236,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Concurrency: control.Concurrency(0),
 			Internal:    true,
 			Operations: []channel.Operation{
-				{
+				channel.Operation{
 					Type:         channel.OperationType("min"),
 					ResetChannel: channel.Key(13),
 					Duration:     telem.TimeSpan(14),
@@ -297,17 +297,21 @@ func FuzzDecodeChannel(f *testing.F) {
 		if err := channel.DecodeChannel(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := channel.EncodeChannel(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := channel.EncodeChannel(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded channel.Channel
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := channel.DecodeChannel(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := channel.EncodeChannel(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }
@@ -344,17 +348,21 @@ func FuzzDecodeOperation(f *testing.F) {
 		if err := channel.DecodeOperation(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := channel.EncodeOperation(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := channel.EncodeOperation(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded channel.Operation
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := channel.DecodeOperation(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := channel.EncodeOperation(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }

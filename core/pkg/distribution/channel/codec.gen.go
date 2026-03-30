@@ -22,6 +22,38 @@ import (
 	"sync"
 )
 
+func EncodeOperation(w *orc.Writer, s *Operation) error {
+	w.String(string(s.Type))
+	w.Uint32(uint32(s.ResetChannel))
+	w.Int64(int64(s.Duration))
+	return nil
+}
+
+func DecodeOperation(r *orc.Reader, s *Operation) error {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = OperationType(v)
+	}
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.ResetChannel = Key(v)
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Duration = telem.TimeSpan(v)
+	}
+	return nil
+}
+
 func EncodeChannel(w *orc.Writer, s *Channel) error {
 	w.String(s.Name)
 	w.Uint16(uint16(s.Leaseholder))
@@ -100,7 +132,7 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 			return err
 		}
 		if present {
-			n, err := r.Uint32()
+			n, err := r.CollectionLen()
 			if err != nil {
 				return err
 			}
@@ -114,38 +146,6 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 	}
 	if s.Expression, err = r.String(); err != nil {
 		return err
-	}
-	return nil
-}
-
-func EncodeOperation(w *orc.Writer, s *Operation) error {
-	w.String(string(s.Type))
-	w.Uint32(uint32(s.ResetChannel))
-	w.Int64(int64(s.Duration))
-	return nil
-}
-
-func DecodeOperation(r *orc.Reader, s *Operation) error {
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = OperationType(v)
-	}
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.ResetChannel = Key(v)
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Duration = telem.TimeSpan(v)
 	}
 	return nil
 }

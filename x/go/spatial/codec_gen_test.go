@@ -12,7 +12,7 @@
 package spatial_test
 
 import (
-	"reflect"
+	"bytes"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -81,17 +81,21 @@ func FuzzDecodeXY(f *testing.F) {
 		if err := spatial.DecodeXY(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := spatial.EncodeXY(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := spatial.EncodeXY(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded spatial.XY
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := spatial.DecodeXY(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := spatial.EncodeXY(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }

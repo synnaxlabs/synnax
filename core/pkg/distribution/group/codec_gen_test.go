@@ -12,9 +12,9 @@
 package group_test
 
 import (
+	"bytes"
 	"context"
 	"github.com/google/uuid"
-	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -109,17 +109,21 @@ func FuzzDecodeGroup(f *testing.F) {
 		if err := group.DecodeGroup(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := group.EncodeGroup(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := group.EncodeGroup(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded group.Group
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := group.DecodeGroup(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := group.EncodeGroup(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }

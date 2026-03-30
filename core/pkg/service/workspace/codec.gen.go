@@ -47,7 +47,7 @@ func DecodeWorkspace(r *orc.Reader, s *Workspace) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}

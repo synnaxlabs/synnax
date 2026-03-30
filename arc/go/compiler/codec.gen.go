@@ -39,7 +39,7 @@ func DecodeOutput(r *orc.Reader, s *Output) error {
 			return err
 		}
 		if present {
-			n, err := r.Uint32()
+			n, err := r.CollectionLen()
 			if err != nil {
 				return err
 			}
@@ -55,7 +55,7 @@ func DecodeOutput(r *orc.Reader, s *Output) error {
 			return err
 		}
 		if present {
-			n, err := r.Uint32()
+			n, err := r.CollectionLen()
 			if err != nil {
 				return err
 			}

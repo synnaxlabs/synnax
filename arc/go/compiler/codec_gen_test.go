@@ -12,7 +12,7 @@
 package compiler_test
 
 import (
-	"reflect"
+	"bytes"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -99,17 +99,21 @@ func FuzzDecodeOutput(f *testing.F) {
 		if err := compiler.DecodeOutput(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := compiler.EncodeOutput(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := compiler.EncodeOutput(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded compiler.Output
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := compiler.DecodeOutput(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := compiler.EncodeOutput(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }

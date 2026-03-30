@@ -43,7 +43,7 @@ func DecodeLinePlot(r *orc.Reader, s *LinePlot) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}

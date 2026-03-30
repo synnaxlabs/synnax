@@ -87,7 +87,7 @@ func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails 
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}

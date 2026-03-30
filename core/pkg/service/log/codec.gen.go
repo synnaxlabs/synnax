@@ -43,7 +43,7 @@ func DecodeLog(r *orc.Reader, s *Log) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}

@@ -124,7 +124,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -150,7 +150,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -176,7 +176,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -202,7 +202,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -214,7 +214,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 								return err
 							}
 							if present {
-								n, err := r.Uint32()
+								n, err := r.CollectionLen()
 								if err != nil {
 									return err
 								}
@@ -243,7 +243,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -266,7 +266,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			return err
 		}
 		if present {
-			n, err := r.Uint32()
+			n, err := r.CollectionLen()
 			if err != nil {
 				return err
 			}
@@ -282,7 +282,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			return err
 		}
 		if present {
-			n, err := r.Uint32()
+			n, err := r.CollectionLen()
 			if err != nil {
 				return err
 			}

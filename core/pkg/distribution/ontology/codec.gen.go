@@ -20,27 +20,6 @@ import (
 	"sync"
 )
 
-func EncodeID(w *orc.Writer, s *ID) error {
-	w.String(string(s.Type))
-	w.String(s.Key)
-	return nil
-}
-
-func DecodeID(r *orc.Reader, s *ID) error {
-	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = ResourceType(v)
-	}
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeResource(w *orc.Writer, s *Resource) error {
 	if err := EncodeID(w, &s.ID); err != nil {
 		return err
@@ -66,7 +45,7 @@ func DecodeResource(r *orc.Reader, s *Resource) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}
@@ -105,6 +84,27 @@ func DecodeRelationship(r *orc.Reader, s *Relationship) error {
 		s.Type = RelationshipType(v)
 	}
 	if err = DecodeID(r, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeID(w *orc.Writer, s *ID) error {
+	w.String(string(s.Type))
+	w.String(s.Key)
+	return nil
+}
+
+func DecodeID(r *orc.Reader, s *ID) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = ResourceType(v)
+	}
+	if s.Key, err = r.String(); err != nil {
 		return err
 	}
 	return nil

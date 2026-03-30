@@ -16,118 +16,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeChannels(w *orc.Writer, s *Channels) error {
-	w.Bool(s.Read != nil)
-	if s.Read != nil {
-		w.Uint32(uint32(len(s.Read)))
-		for key, val := range s.Read {
-			w.Uint32(uint32(key))
-			w.String(val)
-		}
-	}
-	w.Bool(s.Write != nil)
-	if s.Write != nil {
-		w.Uint32(uint32(len(s.Write)))
-		for key, val := range s.Write {
-			w.Uint32(uint32(key))
-			w.String(val)
-		}
-	}
-	return nil
-}
-
-func DecodeChannels(r *orc.Reader, s *Channels) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			s.Read = make(map[uint32]string, n)
-			for range n {
-				var key uint32
-				var val string
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.String(); err != nil {
-					return err
-				}
-				s.Read[key] = val
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			s.Write = make(map[uint32]string, n)
-			for range n {
-				var key uint32
-				var val string
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.String(); err != nil {
-					return err
-				}
-				s.Write[key] = val
-			}
-		}
-	}
-	return nil
-}
-
-func EncodeParam(w *orc.Writer, s *Param) error {
-	w.String(s.Name)
-	if err := EncodeType(w, &s.Type); err != nil {
-		return err
-	}
-	{
-		b, err := json.Marshal(s.Value)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	return nil
-}
-
-func DecodeParam(r *orc.Reader, s *Param) error {
-	var err error
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeType(r, &s.Type); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func EncodeType(w *orc.Writer, s *Type) error {
 	if s.Inputs != nil {
 		w.Bool(true)
@@ -215,7 +103,7 @@ func DecodeType(r *orc.Reader, s *Type) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -241,7 +129,7 @@ func DecodeType(r *orc.Reader, s *Type) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -267,7 +155,7 @@ func DecodeType(r *orc.Reader, s *Type) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -399,7 +287,7 @@ func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -425,7 +313,7 @@ func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -451,7 +339,7 @@ func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 					return err
 				}
 				if present {
-					n, err := r.Uint32()
+					n, err := r.CollectionLen()
 					if err != nil {
 						return err
 					}
@@ -528,6 +416,118 @@ func DecodeDimensions(r *orc.Reader, s *Dimensions) error {
 	}
 	if s.Data, err = r.Int8(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func EncodeChannels(w *orc.Writer, s *Channels) error {
+	w.Bool(s.Read != nil)
+	if s.Read != nil {
+		w.Uint32(uint32(len(s.Read)))
+		for key, val := range s.Read {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
+	}
+	w.Bool(s.Write != nil)
+	if s.Write != nil {
+		w.Uint32(uint32(len(s.Write)))
+		for key, val := range s.Write {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
+	}
+	return nil
+}
+
+func DecodeChannels(r *orc.Reader, s *Channels) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Read = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				s.Read[key] = val
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Write = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				s.Write[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+func EncodeParam(w *orc.Writer, s *Param) error {
+	w.String(s.Name)
+	if err := EncodeType(w, &s.Type); err != nil {
+		return err
+	}
+	{
+		b, err := json.Marshal(s.Value)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	return nil
+}
+
+func DecodeParam(r *orc.Reader, s *Param) error {
+	var err error
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeType(r, &s.Type); err != nil {
+		return err
+	}
+	{
+		n, err := r.CollectionLen()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Value); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -640,7 +640,7 @@ func (b *encoderBuilder) processArray(
 		ind+fmt.Sprintf("\tfor %s := range %s {", idx, getPath),
 	)
 	b.decodeLines = append(b.decodeLines,
-		ind+"\tn, err := r.Uint32(); if err != nil { return err }",
+		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make([]%s, n)", setPath, goType),
 		ind+fmt.Sprintf("\tfor %s := range %s {", idx, setPath),
 	)
@@ -697,7 +697,7 @@ func (b *encoderBuilder) processMap(
 		ind+fmt.Sprintf("\tfor key, val := range %s {", getPath),
 	)
 	b.decodeLines = append(b.decodeLines,
-		ind+"\tn, err := r.Uint32(); if err != nil { return err }",
+		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
 		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
@@ -762,7 +762,7 @@ func (b *encoderBuilder) processLeaf(
 			ind+"\tw.Write(b) }",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+			ind+"{ n, err := r.CollectionLen(); if err != nil { return err }",
 			ind+"\tb := make([]byte, n)",
 			ind+"\tif _, err = r.Read(b); err != nil { return err }",
 			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err } }", setPath),
@@ -780,7 +780,7 @@ func (b *encoderBuilder) processLeaf(
 		b.decodeLines = append(b.decodeLines,
 			ind+"{ present, err := r.Bool(); if err != nil { return err }",
 			ind+"if present {",
-			ind+"\tn, err := r.Uint32(); if err != nil { return err }",
+			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 			ind+fmt.Sprintf("\t%s = make([]byte, n)", setPath),
 			ind+fmt.Sprintf("\tif _, err = r.Read(%s); err != nil { return err }", setPath),
 			ind+"} }",

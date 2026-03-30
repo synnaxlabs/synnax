@@ -12,7 +12,7 @@
 package graph_test
 
 import (
-	"reflect"
+	"bytes"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +26,21 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Viewport", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original graph.Viewport) {
+				w := orc.NewWriter(0)
+				Expect(graph.EncodeViewport(w, &original)).To(Succeed())
+				var decoded graph.Viewport
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}),
+			Entry("zero values", graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}),
+		)
+	})
 	Describe("Node", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original graph.Node) {
@@ -65,17 +80,17 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", graph.Graph{
 				Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 				Functions: []ir.Function{
-					{
+					ir.Function{
 						Key:  "test_7",
 						Body: ir.Body{Raw: "test_9"},
 						Config: []types.Param{
-							{
+							types.Param{
 								Name: "test_11",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
+										Inputs:  []types.Param{types.Param{}},
+										Outputs: []types.Param{types.Param{}},
+										Config:  []types.Param{types.Param{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_17",
@@ -88,13 +103,13 @@ var _ = Describe("Codec", func() {
 							},
 						},
 						Inputs: []types.Param{
-							{
+							types.Param{
 								Name: "test_24",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
+										Inputs:  []types.Param{types.Param{}},
+										Outputs: []types.Param{types.Param{}},
+										Config:  []types.Param{types.Param{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_30",
@@ -107,13 +122,13 @@ var _ = Describe("Codec", func() {
 							},
 						},
 						Outputs: []types.Param{
-							{
+							types.Param{
 								Name: "test_37",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
+										Inputs:  []types.Param{types.Param{}},
+										Outputs: []types.Param{types.Param{}},
+										Config:  []types.Param{types.Param{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_43",
@@ -132,14 +147,14 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Edges: []ir.Edge{
-					{
+					ir.Edge{
 						Source: ir.Handle{Node: "test_54", Param: "test_55"},
 						Target: ir.Handle{Node: "test_57", Param: "test_58"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
 				Nodes: []graph.Node{
-					{
+					graph.Node{
 						Key:      "test_61",
 						Type:     "test_62",
 						Config:   map[string]interface{}{"key_63": "value_63"},
@@ -161,22 +176,24 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("Viewport", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original graph.Viewport) {
-				w := orc.NewWriter(0)
-				Expect(graph.EncodeViewport(w, &original)).To(Succeed())
-				var decoded graph.Viewport
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}),
-			Entry("zero values", graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}),
-		)
-	})
 })
+
+func BenchmarkEncodeDecodeViewport(b *testing.B) {
+	s := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
+	w := orc.NewWriter(0)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := graph.EncodeViewport(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded graph.Viewport
+		r := orc.NewReader(nil)
+		r.ResetBytes(w.Bytes())
+		if err := graph.DecodeViewport(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
 	s := graph.Node{
@@ -204,17 +221,17 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	s := graph.Graph{
 		Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 		Functions: []ir.Function{
-			{
+			ir.Function{
 				Key:  "test_7",
 				Body: ir.Body{Raw: "test_9"},
 				Config: []types.Param{
-					{
+					types.Param{
 						Name: "test_11",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
+								Inputs:  []types.Param{types.Param{}},
+								Outputs: []types.Param{types.Param{}},
+								Config:  []types.Param{types.Param{}},
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_17",
@@ -227,13 +244,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					},
 				},
 				Inputs: []types.Param{
-					{
+					types.Param{
 						Name: "test_24",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
+								Inputs:  []types.Param{types.Param{}},
+								Outputs: []types.Param{types.Param{}},
+								Config:  []types.Param{types.Param{}},
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_30",
@@ -246,13 +263,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					},
 				},
 				Outputs: []types.Param{
-					{
+					types.Param{
 						Name: "test_37",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
+								Inputs:  []types.Param{types.Param{}},
+								Outputs: []types.Param{types.Param{}},
+								Config:  []types.Param{types.Param{}},
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_43",
@@ -271,14 +288,14 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 			},
 		},
 		Edges: []ir.Edge{
-			{
+			ir.Edge{
 				Source: ir.Handle{Node: "test_54", Param: "test_55"},
 				Target: ir.Handle{Node: "test_57", Param: "test_58"},
 				Kind:   ir.EdgeKind(0),
 			},
 		},
 		Nodes: []graph.Node{
-			{
+			graph.Node{
 				Key:      "test_61",
 				Type:     "test_62",
 				Config:   map[string]interface{}{"key_63": "value_63"},
@@ -301,21 +318,47 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeViewport(b *testing.B) {
-	s := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := graph.EncodeViewport(w, &s); err != nil {
-			b.Fatal(err)
+func FuzzDecodeViewport(f *testing.F) {
+	{
+		seed := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
+		w := orc.NewWriter(0)
+		if err := graph.EncodeViewport(w, &seed); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}
+		w := orc.NewWriter(0)
+		if err := graph.EncodeViewport(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded graph.Viewport
 		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(data)
 		if err := graph.DecodeViewport(r, &decoded); err != nil {
-			b.Fatal(err)
+			return
 		}
-	}
+		w1 := orc.NewWriter(len(data))
+		if err := graph.EncodeViewport(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded graph.Viewport
+		r.ResetBytes(w1.Bytes())
+		if err := graph.DecodeViewport(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := graph.EncodeViewport(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }
 
 func FuzzDecodeNode(f *testing.F) {
@@ -352,17 +395,21 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := graph.DecodeNode(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := graph.EncodeNode(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := graph.EncodeNode(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded graph.Node
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := graph.DecodeNode(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := graph.EncodeNode(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }
@@ -372,17 +419,17 @@ func FuzzDecodeGraph(f *testing.F) {
 		seed := graph.Graph{
 			Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 			Functions: []ir.Function{
-				{
+				ir.Function{
 					Key:  "test_7",
 					Body: ir.Body{Raw: "test_9"},
 					Config: []types.Param{
-						{
+						types.Param{
 							Name: "test_11",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
+									Inputs:  []types.Param{types.Param{}},
+									Outputs: []types.Param{types.Param{}},
+									Config:  []types.Param{types.Param{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_17",
@@ -395,13 +442,13 @@ func FuzzDecodeGraph(f *testing.F) {
 						},
 					},
 					Inputs: []types.Param{
-						{
+						types.Param{
 							Name: "test_24",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
+									Inputs:  []types.Param{types.Param{}},
+									Outputs: []types.Param{types.Param{}},
+									Config:  []types.Param{types.Param{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_30",
@@ -414,13 +461,13 @@ func FuzzDecodeGraph(f *testing.F) {
 						},
 					},
 					Outputs: []types.Param{
-						{
+						types.Param{
 							Name: "test_37",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
+									Inputs:  []types.Param{types.Param{}},
+									Outputs: []types.Param{types.Param{}},
+									Config:  []types.Param{types.Param{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_43",
@@ -439,14 +486,14 @@ func FuzzDecodeGraph(f *testing.F) {
 				},
 			},
 			Edges: []ir.Edge{
-				{
+				ir.Edge{
 					Source: ir.Handle{Node: "test_54", Param: "test_55"},
 					Target: ir.Handle{Node: "test_57", Param: "test_58"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
 			Nodes: []graph.Node{
-				{
+				graph.Node{
 					Key:      "test_61",
 					Type:     "test_62",
 					Config:   map[string]interface{}{"key_63": "value_63"},
@@ -493,56 +540,21 @@ func FuzzDecodeGraph(f *testing.F) {
 		if err := graph.DecodeGraph(r, &decoded); err != nil {
 			return
 		}
-		w := orc.NewWriter(len(data))
-		if err := graph.EncodeGraph(w, &decoded); err != nil {
+		w1 := orc.NewWriter(len(data))
+		if err := graph.EncodeGraph(w1, &decoded); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded graph.Graph
-		r.ResetBytes(w.Bytes())
+		r.ResetBytes(w1.Bytes())
 		if err := graph.DecodeGraph(r, &redecoded); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		w2 := orc.NewWriter(w1.Len())
+		if err := graph.EncodeGraph(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
 		}
-	})
-}
-
-func FuzzDecodeViewport(f *testing.F) {
-	{
-		seed := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
-		w := orc.NewWriter(0)
-		if err := graph.EncodeViewport(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}
-		w := orc.NewWriter(0)
-		if err := graph.EncodeViewport(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded graph.Viewport
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := graph.DecodeViewport(r, &decoded); err != nil {
-			return
-		}
-		w := orc.NewWriter(len(data))
-		if err := graph.EncodeViewport(w, &decoded); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded graph.Viewport
-		r.ResetBytes(w.Bytes())
-		if err := graph.DecodeViewport(r, &redecoded); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch after fuzz decode")
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
 		}
 	})
 }
