@@ -106,6 +106,38 @@ TEST(RackTests, testCreateRackWithStatus) {
     ASSERT_EQ(r2.status->message, "Rack is healthy");
 }
 
+/// @brief it should create a rack with integrations and retrieve them.
+TEST(RackTests, testCreateRackWithIntegrations) {
+    const auto client = new_test_client();
+    auto r = Rack{
+        .name = "test_rack_with_integrations",
+        .integrations = {"ni", "opc", "modbus"},
+    };
+    ASSERT_NIL(client.racks.create(r));
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(r2.integrations.size(), 3);
+    ASSERT_EQ(r2.integrations[0], "ni");
+    ASSERT_EQ(r2.integrations[1], "opc");
+    ASSERT_EQ(r2.integrations[2], "modbus");
+}
+
+/// @brief it should update integrations on upsert.
+TEST(RackTests, testUpdateIntegrationsOnUpsert) {
+    const auto client = new_test_client();
+    auto r = Rack{
+        .name = "test_rack_upsert_integrations",
+        .integrations = {"ni"},
+    };
+    ASSERT_NIL(client.racks.create(r));
+    r.integrations = {"ni", "opc", "arc"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(r2.integrations.size(), 3);
+    ASSERT_EQ(r2.integrations[0], "ni");
+    ASSERT_EQ(r2.integrations[1], "opc");
+    ASSERT_EQ(r2.integrations[2], "arc");
+}
+
 /// @brief it should correctly parse StatusDetails from JSON.
 TEST(StatusDetailsTests, testParseFromJSON) {
     x::json::json j = {{"rack", 54321}};

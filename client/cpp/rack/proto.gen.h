@@ -44,6 +44,8 @@ inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() c
     pb.set_name(this->name);
     pb.set_task_counter(this->task_counter);
     pb.set_embedded(this->embedded);
+    for (const auto &item: this->integrations)
+        pb.add_integrations(item);
     if (this->status.has_value()) {
         auto [v, err] = this->status->to_proto();
         if (err) return {{}, err};
@@ -59,6 +61,8 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     cpp.name = pb.name();
     cpp.task_counter = pb.task_counter();
     cpp.embedded = pb.embedded();
+    for (const auto &item: pb.integrations())
+        cpp.integrations.push_back(item);
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
