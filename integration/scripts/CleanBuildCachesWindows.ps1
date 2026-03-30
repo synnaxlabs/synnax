@@ -57,33 +57,24 @@ $diskBefore = Get-DiskUsedMB
 Write-Output "=== Build Cache Cleanup (max age: ${MaxAgeHours}h) ==="
 Write-Output ""
 
-Write-Output "Bazel (clean only if no recent builds within ${MaxAgeHours}h):"
+Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $bazelBase = "C:\_bazel"
-if (Test-Path $bazelBase) {
-    $recentFile = Get-ChildItem -Path $bazelBase -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.DirectoryName -like "*bazel-out*" -and $_.LastWriteTime -gt $cutoff } |
-        Select-Object -First 1
-    if ($recentFile) {
-        Write-Output ("  {0,-35} skipped (recent build found)" -f "bazel clean")
-    } elseif (Test-Path $repoRoot) {
-        $beforeBazel = [math]::Round(
-            ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
-                Measure-Object -Property Length -Sum).Sum / 1MB), 0)
-        Push-Location $repoRoot
-        bazel clean 2>$null
-        Pop-Location
-        $afterBazel = [math]::Round(
-            ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
-                Measure-Object -Property Length -Sum).Sum / 1MB), 0)
-        $freedBazel = $beforeBazel - $afterBazel
-        $script:totalFreed += $freedBazel
-        Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f "bazel clean", $beforeBazel, $afterBazel, $freedBazel)
-    } else {
-        Write-Output ("  {0,-35} skipped (repo not found)" -f "bazel clean")
-    }
+if ((Test-Path $bazelBase) -and (Test-Path $repoRoot)) {
+    $beforeBazel = [math]::Round(
+        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    Push-Location $repoRoot
+    bazel clean 2>$null
+    Pop-Location
+    $afterBazel = [math]::Round(
+        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    $freedBazel = $beforeBazel - $afterBazel
+    $script:totalFreed += $freedBazel
+    Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f "bazel clean", $beforeBazel, $afterBazel, $freedBazel)
 } else {
-    Write-Output ("  {0,-35} skipped (not found)" -f $bazelBase)
+    Write-Output ("  {0,-35} skipped (not found)" -f "bazel clean")
 }
 Write-Output ""
 
