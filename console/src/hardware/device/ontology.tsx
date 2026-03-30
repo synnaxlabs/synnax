@@ -42,8 +42,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
@@ -55,20 +55,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <ContextMenu.Menu>
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={() => group(props)}
-      />
-      {canEdit && singleResource && <ContextMenu.RenameItem onClick={rename} />}
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => group(props)}
+        />
+      )}
+      {hasUpdatePermission && singleResource && <ContextMenu.RenameItem onClick={rename} />}
       {customMenuItems != null && (
         <>
           <Menu.Divider />
           {customMenuItems}
         </>
       )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
           <Menu.Divider />
           <ContextMenu.DeleteItem onClick={handleDelete} />

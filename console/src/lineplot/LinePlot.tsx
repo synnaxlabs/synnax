@@ -166,7 +166,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -465,19 +465,19 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           lines={propsLines}
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={hasEditPermission ? handleTitleChange : undefined}
+          onTitleChange={hasUpdatePermission ? handleTitleChange : undefined}
           visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
-          onLineChange={hasEditPermission ? handleLineChange : undefined}
-          onRuleChange={hasEditPermission ? handleRuleChange : undefined}
-          onAxisChannelDrop={hasEditPermission ? handleChannelAxisDrop : undefined}
-          onAxisChange={hasEditPermission ? handleAxisChange : undefined}
+          onLineChange={hasUpdatePermission ? handleLineChange : undefined}
+          onRuleChange={hasUpdatePermission ? handleRuleChange : undefined}
+          onAxisChannelDrop={hasUpdatePermission ? handleChannelAxisDrop : undefined}
+          onAxisChange={hasUpdatePermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
           onLegendPositionChange={
-            hasEditPermission ? handleLegendPositionChange : undefined
+            hasUpdatePermission ? handleLegendPositionChange : undefined
           }
           legendPosition={legendPosition}
           viewportTriggers={triggers}
@@ -485,11 +485,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={hasEditPermission ? handleSelectRule : undefined}
+          onSelectRule={hasUpdatePermission ? handleSelectRule : undefined}
           onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
           measureMode={vis.measure.mode}
-          onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
+          onMeasureModeChange={hasUpdatePermission ? handleMeasureModeChange : undefined}
         >
           {!focused && <Controls layoutKey={layoutKey} />}
         </Channel.LinePlot>

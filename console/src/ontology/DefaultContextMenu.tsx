@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { group, type ontology } from "@synnaxlabs/client";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/components";
@@ -25,12 +25,15 @@ export const DefaultContextMenu = ({
   state,
 }: DefaultContextMenuProps): ReactElement => {
   const createGroup = Group.useCreateEmpty({ parent: root, state, root });
+  const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   return (
     <ContextMenu.Menu>
-      <Menu.Item itemKey="newGroup" onClick={createGroup}>
-        <Icon.Group />
-        New group
-      </Menu.Item>
+      {hasCreatePermission && (
+        <Menu.Item itemKey="newGroup" onClick={createGroup}>
+          <Icon.Group />
+          New group
+        </Menu.Item>
+      )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>

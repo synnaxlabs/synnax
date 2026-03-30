@@ -48,7 +48,7 @@ const Internal = () => {
   });
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
-  const canCreate = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>
       <View.Toolbar>
@@ -57,7 +57,7 @@ const Internal = () => {
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
-        {canCreate && (
+        {hasCreatePermission && (
           <Button.Button
             onClick={handleCreate}
             tooltipLocation={location.BOTTOM_LEFT}

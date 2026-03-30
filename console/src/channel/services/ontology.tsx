@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
@@ -208,9 +208,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
 
-  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  const canDelete = Access.useDeleteGranted(
+  const hasUpdatePermission = Access.useUpdateGranted(
     ids.map((id) => channel.ontologyID(Number(id.key))),
+  );
+  const hasDeletePermission = Access.useDeleteGranted(
+    ids.map((id) => channel.ontologyID(Number(id.key))),
+  );
+  const hasAliasCreatePermission = Access.useCreateGranted(
+    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
+  );
+  const hasAliasDeletePermission = Access.useDeleteGranted(
+    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
   );
   const handleRename = useRename(props);
 
@@ -222,14 +230,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <ContextMenu.Menu>
-      {singleResource && canCreate && <ContextMenu.RenameItem onClick={handleRename} />}
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={() => groupFromSelection(props)}
-      />
-      {isCalc && canCreate && (
+      {singleResource && hasUpdatePermission && (
+        <ContextMenu.RenameItem onClick={handleRename} />
+      )}
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => groupFromSelection(props)}
+        />
+      )}
+      {isCalc && hasUpdatePermission && (
         <>
           <Menu.Divider />
           <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
@@ -241,16 +253,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {activeRange != null &&
         activeRange.persisted &&
         (singleResource || showDeleteAlias) &&
-        canCreate && (
+        (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
             <Menu.Divider />
-            {singleResource && (
+            {singleResource && hasAliasCreatePermission && (
               <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}
               </Menu.Item>
             )}
-            {showDeleteAlias && (
+            {showDeleteAlias && hasAliasDeletePermission && (
               <Menu.Item itemKey="deleteAlias" onClick={handleDeleteAlias}>
                 <Icon.Delete />
                 Remove alias under {activeRange.name}
@@ -259,7 +271,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             <Menu.Divider />
           </>
         )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
           <ContextMenu.DeleteItem onClick={handleDelete} />
           <Menu.Divider />

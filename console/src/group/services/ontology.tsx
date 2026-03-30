@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
+import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
@@ -31,6 +31,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state,
   } = props;
   const { getResource, nodes, shape } = state;
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty({ parent: ids[0], state, root: rootID });
   const createFromSelection = useCreateFromSelection();
@@ -51,25 +53,29 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <ContextMenu.Menu>
       {isSingle && (
         <>
-          {!isZeroDepth && (
+          {hasUpdatePermission && !isZeroDepth && (
             <>
               <ContextMenu.RenameItem onClick={rename} />
               <Menu.Divider />
             </>
           )}
-          <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
-            <Icon.Group />
-            New group
-          </Menu.Item>
+          {hasUpdatePermission && (
+            <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
+              <Icon.Group />
+              New group
+            </Menu.Item>
+          )}
         </>
       )}
-      <ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={() => createFromSelection(props)}
-      />
-      {!isZeroDepth && (
+      {hasUpdatePermission && (
+        <ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => createFromSelection(props)}
+        />
+      )}
+      {hasDeletePermission && !isZeroDepth && (
         <>
           <Menu.Item itemKey="ungroup" onClick={() => ungroup.update(props)}>
             {ungroupIcon}

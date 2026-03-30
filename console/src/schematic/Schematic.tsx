@@ -209,9 +209,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
-  const hasEditPermission =
+  const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
-  const canEdit = hasEditPermission && state.editable;
+  const canEdit = hasUpdatePermission && state.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -415,7 +415,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
-              {hasEditPermission && (
+              {hasUpdatePermission && (
                 <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
               )}
               {!state.snapshot && <ControlToggleButton control={state.control} />}
@@ -453,12 +453,12 @@ export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -470,7 +470,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 

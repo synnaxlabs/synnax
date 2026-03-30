@@ -67,9 +67,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     () => ids.map((id) => rack.ontologyID(Number(id.key))),
     [ids],
   );
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
-  const canEditArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const rename = useRename(props);
@@ -86,17 +86,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isSingle = ids.length === 1;
   return (
     <ContextMenu.Menu>
-      <Group.ContextMenuItem
-        ids={ids}
-        rootID={rootID}
-        shape={shape}
-        showBottomDivider
-        onClick={() => group(props)}
-      />
-      {canEdit && isSingle && (
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          rootID={rootID}
+          shape={shape}
+          showBottomDivider
+          onClick={() => group(props)}
+        />
+      )}
+      {hasUpdatePermission && isSingle && (
         <>
           <ContextMenu.RenameItem onClick={rename} />
-          {canEditArc && (
+          {hasArcCreatePermission && (
             <Menu.Item itemKey="createArc" onClick={createArc}>
               <CreateArcIcon />
               Create Arc automation
@@ -105,7 +107,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      {canDelete && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
       {isSingle && (
         <>

@@ -121,8 +121,8 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
-  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
-  const canEdit = hasEditPermission && state.graph.editable;
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasUpdatePermission && state.graph.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -297,7 +297,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
         <Diagram.Background />
         <BaseControls x>
           <Diagram.FitViewControl />
-          {hasEditPermission && <Diagram.ToggleEditControl />}
+          {hasUpdatePermission && <Diagram.ToggleEditControl />}
         </BaseControls>
       </Base.Arc>
       <Controls state={state} />

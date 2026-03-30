@@ -55,25 +55,26 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = Table.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const canEdit = Access.useUpdateGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const firstID = ids[0];
   const first = getResource(firstID);
   const isSingle = ids.length === 1;
   return (
     <ContextMenu.Menu>
-      {canEdit && (
+      {hasUpdatePermission && (
         <>
           <ContextMenu.RenameItem onClick={rename} />
-          <ContextMenu.DeleteItem onClick={handleDelete} />
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
             rootID={rootID}
             onClick={() => group(props)}
           />
-          <Menu.Divider />
         </>
       )}
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />

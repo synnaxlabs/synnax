@@ -37,11 +37,11 @@ import { removeFavorites } from "@/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No favorited statuses."
-      action={canViewStatuses ? "Open Status Explorer" : undefined}
+      action={hasRetrievePermission ? "Open Status Explorer" : undefined}
       onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
@@ -136,12 +136,12 @@ const Content = (): ReactElement => (
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreate = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
-  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
-  if (!canCreate && !canViewStatuses) return null;
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {canCreate && (
+      {hasCreatePermission && (
         <Toolbar.Action
           tooltip="Create status"
           onClick={() => placeLayout(CREATE_LAYOUT)}
@@ -149,7 +149,7 @@ const Actions = (): ReactElement | null => {
           <Icon.Add />
         </Toolbar.Action>
       )}
-      {canViewStatuses && (
+      {hasRetrievePermission && (
         <Toolbar.Action
           tooltip="Open Status Explorer"
           onClick={() => placeLayout(EXPLORER_LAYOUT)}

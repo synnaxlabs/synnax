@@ -7,8 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type ontology, workspace } from "@synnaxlabs/client";
 import {
+  DisconnectedError,
+  lineplot,
+  log,
+  type ontology,
+  schematic,
+  table,
+  workspace,
+} from "@synnaxlabs/client";
+import {
+  Access,
   Icon,
   LinePlot as PLinePlot,
   Log as PLog,
@@ -199,45 +208,65 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const resources = getResource(ids);
   const first = resources[0];
   const singleResource = resources.length === 1;
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const hasLinePlotCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const hasLogCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
+  const hasTableCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
+  const hasSchematicCreatePermission = Access.useCreateGranted(
+    schematic.TYPE_ONTOLOGY_ID,
+  );
   return (
     <ContextMenu.Menu>
-      {singleResource && (
+      {hasUpdatePermission && singleResource && (
         <>
           <ContextMenu.RenameItem onClick={handleRename} />
           <Menu.Divider />
         </>
       )}
-      <ContextMenu.DeleteItem onClick={handleDelete} />
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={() => group(props)}
-      />
-      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => group(props)}
+        />
+      )}
+      {hasUpdatePermission || (hasDeletePermission && <Menu.Divider />)}
       {singleResource && (
         <>
-          <Menu.Item itemKey="createPlot" onClick={createPlot}>
-            <PLinePlot.CreateIcon />
-            Create line plot
-          </Menu.Item>
-          <Menu.Item itemKey="createLog" onClick={createLog}>
-            <PLog.CreateIcon />
-            Create log
-          </Menu.Item>
-          <Menu.Item itemKey="createTable" onClick={createTable}>
-            <PTable.CreateIcon />
-            Create table
-          </Menu.Item>
-          <Menu.Item itemKey="createSchematic" onClick={createSchematic}>
-            <PSchematic.CreateIcon />
-            Create schematic
-          </Menu.Item>
+          {hasLinePlotCreatePermission && (
+            <Menu.Item itemKey="createPlot" onClick={createPlot}>
+              <PLinePlot.CreateIcon />
+              Create line plot
+            </Menu.Item>
+          )}
+          {hasLogCreatePermission && (
+            <Menu.Item itemKey="createLog" onClick={createLog}>
+              <PLog.CreateIcon />
+              Create log
+            </Menu.Item>
+          )}
+          {hasTableCreatePermission && (
+            <Menu.Item itemKey="createTable" onClick={createTable}>
+              <PTable.CreateIcon />
+              Create table
+            </Menu.Item>
+          )}
+          {hasSchematicCreatePermission && (
+            <Menu.Item itemKey="createSchematic" onClick={createSchematic}>
+              <PSchematic.CreateIcon />
+              Create schematic
+            </Menu.Item>
+          )}
           <Menu.Divider />
-          <Menu.Item itemKey="import" onClick={() => importComponent(firstID.key)}>
-            <Icon.Import />
-            Import component(s)
-          </Menu.Item>
+          {hasUpdatePermission && (
+            <Menu.Item itemKey="import" onClick={() => importComponent(firstID.key)}>
+              <Icon.Import />
+              Import component(s)
+            </Menu.Item>
+          )}
           <Menu.Divider />
           <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
           <Link.CopyContextMenuItem

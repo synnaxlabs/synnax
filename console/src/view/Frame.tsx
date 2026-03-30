@@ -71,8 +71,8 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
   const [selected, setSelected] = useState(staticViews[0].key);
-  const canUpdateView = Access.useUpdateGranted(view.ontologyID(selected));
-  const [editable, setEditable] = useState(canUpdateView);
+  const hasUpdatePermission = Access.useUpdateGranted(view.ontologyID(selected));
+  const [editable, setEditable] = useState(hasUpdatePermission);
   const getInitialView = useCallback(() => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
@@ -90,12 +90,12 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     () => ({
       resourceType,
       selected,
-      editable: editable && canUpdateView,
+      editable: editable && hasUpdatePermission,
       staticViews: staticViewKeys,
       select: setSelected,
       getInitialView,
     }),
-    [resourceType, selected, editable, canUpdateView, staticViewKeys, getInitialView],
+    [resourceType, selected, editable, hasUpdatePermission, staticViewKeys, getInitialView],
   );
 
   return (
@@ -103,7 +103,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={staticViewKeys.includes(selected) ? true : canUpdateView}
+          showEditButton={staticViewKeys.includes(selected) ? true : hasUpdatePermission}
           editable={editable}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
@@ -146,7 +146,7 @@ const Selector = ({
   const { getItem } = listProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const contextMenuProps = Menu.useContextMenu();
-  const canCreate = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
   const renameModal = Modals.useRename();
   const { update: create } = PView.useCreate({
     beforeUpdate: useCallback(
@@ -183,7 +183,7 @@ const Selector = ({
       onFetchMore={onFetchMore}
     >
       <Controls x>
-        {canCreate && editable && (
+        {hasCreatePermission && editable && (
           <Button.Button
             onClick={handleCreate}
             tooltip="Create a view"

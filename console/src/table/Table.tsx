@@ -108,8 +108,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
   const editMode = useSelectEditable(layoutKey);
-  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
-  const canEdit = hasEditPermission && editMode;
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
+  const canEdit = hasUpdatePermission && editMode;
 
   const handleAddRow = () => {
     syncDispatch(addRow({ key: layoutKey }));
@@ -312,13 +312,13 @@ interface TableControls {
 const TableControls = ({ tableKey }: TableControls) => {
   const dispatch = useDispatch();
   const editMode = useSelectEditable(tableKey);
-  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(tableKey));
-  const canEdit = hasEditPermission && editMode;
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(tableKey));
+  const canEdit = hasUpdatePermission && editMode;
   const handleEdit = useCallback(() => {
     dispatch(setEditable({ key: tableKey }));
   }, []);
 
-  if (!hasEditPermission) return null;
+  if (!hasUpdatePermission) return null;
 
   return (
     <Controls>
@@ -406,12 +406,12 @@ export const create =
   };
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -423,7 +423,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
 
 interface ColResizerProps {
   tableKey: string;

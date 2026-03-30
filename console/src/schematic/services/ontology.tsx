@@ -127,9 +127,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
-  const canDelete = Access.useDeleteGranted(ids);
+  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
-  const canEdit = Access.useUpdateGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Schematic.useExport();
@@ -141,8 +142,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const first = resources[0];
   return (
     <ContextMenu.Menu>
-      {canDelete && <ContextMenu.DeleteItem onClick={handleDelete} />}
-      {canEdit && (
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {hasUpdatePermission && (
         <>
           <ContextMenu.RenameItem onClick={rename} />
           <Group.ContextMenuItem
@@ -154,15 +155,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      {resources.every((r) => r.data?.snapshot === false) && canEdit && (
+      {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
-          {canEdit && (
-            <Menu.Item itemKey="copy" onClick={handleCopy}>
-              <Icon.Copy />
-              Copy
-            </Menu.Item>
-          )}
+          <Menu.Item itemKey="copy" onClick={handleCopy}>
+            <Icon.Copy />
+            Copy
+          </Menu.Item>
           <Menu.Divider />
         </>
       )}

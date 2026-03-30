@@ -47,11 +47,11 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
-  const canCreateTask = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing tasks."
-      action={canCreateTask ? "Create a task" : undefined}
+      action={hasCreatePermission ? "Create a task" : undefined}
       onClick={handleClick}
     />
   );
@@ -73,7 +73,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const canCreateTask = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -196,7 +196,7 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          {canCreateTask && (
+          {hasCreatePermission && (
             <Toolbar.Actions>
               <Toolbar.Action
                 tooltip="Create task"
@@ -258,7 +258,7 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
-  const hasEditPermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
   const icon = getIcon(task_?.type ?? "");
@@ -282,7 +282,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               value={task_?.name ?? ""}
-              onChange={hasEditPermission ? onRename : undefined}
+              onChange={hasUpdatePermission ? onRename : undefined}
               allowDoubleClick={false}
               overflow="ellipsis"
               weight={500}
@@ -293,7 +293,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
-      {hasEditPermission && (
+      {hasUpdatePermission && (
         <Button.Button
           variant="outlined"
           status={isLoading ? "loading" : undefined}
@@ -332,8 +332,9 @@ const ContextMenu = ({
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -384,7 +385,7 @@ const ContextMenu = ({
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <CMenu.Menu>
-      {canEdit && (
+      {hasUpdatePermission && (
         <>
           {canStart && (
             <Menu.Item itemKey="start" onClick={() => onStart(keys)}>
@@ -420,32 +421,36 @@ const ContextMenu = ({
           {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
           {isSingle && (
             <>
-              <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
-                <Icon.Edit />
-                Edit configuration
-              </Menu.Item>
-              <Menu.Divider />
               <CMenu.RenameItem onClick={() => Text.edit(`text-${keys[0]}`)} />
               <Menu.Divider />
             </>
           )}
-          {showSnapshotToActiveRange && (
-            <>
-              <Range.SnapshotMenuItem
-                range={activeRange}
-                key="snapshot"
-                onClick={() =>
-                  snapshotToActiveRange({
-                    tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
-                      key,
-                      name,
-                    })),
-                  })
-                }
-              />
-              <Menu.Divider />
-            </>
-          )}
+        </>
+      )}
+      {isSingle && (
+        <>
+          <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
+            <Icon.Edit />
+            Edit configuration
+          </Menu.Item>
+          <Menu.Divider />
+        </>
+      )}
+      {hasCreatePermission && showSnapshotToActiveRange && (
+        <>
+          <Range.SnapshotMenuItem
+            range={activeRange}
+            key="snapshot"
+            onClick={() =>
+              snapshotToActiveRange({
+                tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+                  key,
+                  name,
+                })),
+              })
+            }
+          />
+          <Menu.Divider />
         </>
       )}
       {isSingle && (
@@ -455,7 +460,7 @@ const ContextMenu = ({
           <Menu.Divider />
         </>
       )}
-      {canDelete && someSelected && (
+      {hasDeletePermission && someSelected && (
         <>
           <CMenu.DeleteItem onClick={() => onDelete(keys)} />
           <Menu.Divider />

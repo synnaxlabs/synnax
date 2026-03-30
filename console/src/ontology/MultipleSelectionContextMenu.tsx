@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/pluto";
+import { Access, Menu } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/components";
 import { Group } from "@/group";
@@ -18,15 +18,18 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
     selection: { ids, rootID },
     state: { shape },
   } = props;
-  const group = Group.useCreateFromSelection();
+  const groupFromSelection = Group.useCreateFromSelection();
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
   return (
     <ContextMenu.Menu>
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={() => group(props)}
-      />
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => groupFromSelection(props)}
+        />
+      )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>

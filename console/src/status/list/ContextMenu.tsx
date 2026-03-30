@@ -23,8 +23,8 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
-  const canEdit = Access.useUpdateGranted(ids);
-  const canDelete = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
 
   const confirm = useConfirmDelete({
     type: "Status",
@@ -69,7 +69,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
         onUnfavorite={() => dispatch(removeFavorites(keys))}
       />
       {(anyFavorited || anyNotFavorited) && <Menu.Divider />}
-      {canDelete && !isEmpty && (
+      {hasDeletePermission && !isEmpty && (
         <CMenu.DeleteItem
           onClick={() => {
             handleError(async () => {
@@ -79,7 +79,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           }}
         />
       )}
-      {canEdit && isSingle && (
+      {hasUpdatePermission && isSingle && (
         <CMenu.RenameItem onClick={() => rename.update(statuses[0])} />
       )}
     </CMenu.Menu>

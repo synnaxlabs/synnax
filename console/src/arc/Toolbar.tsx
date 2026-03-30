@@ -38,11 +38,11 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing Arcs."
-      action={canCreateArc ? "Create an Arc" : undefined}
+      action={hasCreatePermission ? "Create an Arc" : undefined}
       onClick={onCreate}
     />
   );
@@ -135,17 +135,17 @@ interface ActionsProps {
 
 const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const canViewArcs = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
-  if (!canCreateArc && !canViewArcs) return null;
+  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {canCreateArc && (
+      {hasCreatePermission && (
         <Toolbar.Action tooltip="Create Arc" onClick={handleCreate}>
           <Icon.Add />
         </Toolbar.Action>
       )}
-      {canViewArcs && (
+      {hasRetrievePermission && (
         <Toolbar.Action
           tooltip="Open Arc Explorer"
           onClick={() => placeLayout(EXPLORER_LAYOUT)}
@@ -178,7 +178,7 @@ interface ArcListItemProps extends List.ItemProps<arc.Key> {
 const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
   const {
     running,
     onStartStop,
@@ -198,7 +198,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
-            onChange={hasEditPermission ? onRename : undefined}
+            onChange={hasUpdatePermission ? onRename : undefined}
             allowDoubleClick={false}
             overflow="ellipsis"
             weight={500}
@@ -208,7 +208,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
           {statusMessage}
         </Text.Text>
       </Flex.Box>
-      {hasEditPermission && (
+      {hasUpdatePermission && (
         <Button.Button
           variant="outlined"
           onClick={onStartStop}

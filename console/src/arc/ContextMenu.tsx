@@ -27,8 +27,8 @@ export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
 
 export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const ids = arc.ontologyID(keys);
-  const canDelete = Access.useDeleteGranted(ids);
-  const canEdit = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
   const someSelected = keys.length > 0;
   const isSingle = keys.length === 1;
 
@@ -89,7 +89,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
 
   return (
     <CMenu.Menu>
-      {canEdit && isSingle && (
+      {hasUpdatePermission && isSingle && (
         <>
           <Menu.Item itemKey="edit" onClick={handleEdit}>
             <Icon.Edit />
@@ -100,7 +100,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
           <Menu.Divider />
         </>
       )}
-      {canDelete && someSelected && (
+      {hasDeletePermission && someSelected && (
         <>
           <CMenu.DeleteItem onClick={handleDelete} />
           <Menu.Divider />

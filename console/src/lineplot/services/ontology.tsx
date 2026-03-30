@@ -56,14 +56,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = LinePlot.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const canDelete = Access.useDeleteGranted(ids);
-  const canEdit = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
   const first = getResource(firstID);
   return (
     <ContextMenu.Menu>
-      {canEdit && (
+      {hasUpdatePermission && (
         <>
           {isSingle && (
             <>
@@ -77,10 +77,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             rootID={rootID}
             onClick={() => group(props)}
           />
-          {canDelete && <ContextMenu.DeleteItem onClick={handleDelete} />}
-          <Menu.Divider />
         </>
       )}
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />

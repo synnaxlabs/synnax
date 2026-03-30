@@ -66,8 +66,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
-  const canEdit = Access.useUpdateGranted(ids);
-  const canDelete = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
@@ -77,7 +77,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <ContextMenu.Menu>
-      {canEdit && singleResource && isNotCurrentUser && (
+      {hasUpdatePermission && singleResource && isNotCurrentUser && (
         <>
           <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />
@@ -86,7 +86,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      {canEdit && singleResource && !isRootUser && isNotCurrentUser && (
+      {hasUpdatePermission && singleResource && !isRootUser && isNotCurrentUser && (
         <>
           <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
             <Icon.Role />
@@ -95,7 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
           <ContextMenu.DeleteItem onClick={handleDelete} />
           <Menu.Divider />

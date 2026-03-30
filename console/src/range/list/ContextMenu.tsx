@@ -30,8 +30,9 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
   const ids = ranger.ontologyID(keys);
-  const canEditAccess = Access.useUpdateGranted(ids);
-  const canDeleteAccess = Access.useDeleteGranted(ids);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
@@ -88,14 +89,12 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
             <Icon.Details />
             View details
           </Menu.Item>
-          {canEditAccess && (
-            <>
-              <CMenu.RenameItem onClick={handleRename} />
-              <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
-                <CreateChildRangeIcon key="plot" />
-                Create child range
-              </Menu.Item>
-            </>
+          {hasUpdatePermission && <CMenu.RenameItem onClick={handleRename} />}
+          {hasCreatePermission && (
+            <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
+              <CreateChildRangeIcon key="plot" />
+              Create child range
+            </Menu.Item>
           )}
           <Divider.Divider x />
         </>
@@ -107,7 +106,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
         onUnfavorite={handleUnfavorite}
       />
       {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
-      {canDeleteAccess && isNotEmpty && (
+      {hasDeletePermission && isNotEmpty && (
         <>
           <CMenu.DeleteItem onClick={handleDelete} />
           <Divider.Divider x />

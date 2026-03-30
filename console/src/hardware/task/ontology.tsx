@@ -88,8 +88,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
   const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const handleEdit = () =>
     handleSelect({
       ...props,
@@ -103,7 +104,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <ContextMenu.Menu>
-      {canEdit && (
+      {hasUpdatePermission && (
         <>
           <Group.ContextMenuItem
             ids={ids}
@@ -111,30 +112,35 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             rootID={rootID}
             onClick={() => group(props)}
           />
-          {hasNoSnapshots && range?.persisted === true && (
-            <>
-              <Range.SnapshotMenuItem
-                key="snapshot"
-                range={range}
-                onClick={() =>
-                  snap({
-                    tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
-                  })
-                }
-              />
-              <Menu.Divider />
-            </>
-          )}
           {singleResource && (
             <>
-              <Menu.Item itemKey="edit" onClick={handleEdit}>
-                <Icon.Edit />
-                {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
-              </Menu.Item>
               <ContextMenu.RenameItem onClick={rename} />
               <Menu.Divider />
             </>
           )}
+        </>
+      )}
+      {hasCreatePermission && hasNoSnapshots && range?.persisted === true && (
+        <>
+          <Range.SnapshotMenuItem
+            key="snapshot"
+            range={range}
+            onClick={() =>
+              snap({
+                tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
+              })
+            }
+          />
+          <Menu.Divider />
+        </>
+      )}
+      {singleResource && (
+        <>
+          <Menu.Item itemKey="edit" onClick={handleEdit}>
+            <Icon.Edit />
+            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+          </Menu.Item>
+          <Menu.Divider />
         </>
       )}
       {singleResource && (
@@ -148,7 +154,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
           <ContextMenu.DeleteItem onClick={handleDelete} />
           <Menu.Divider />
