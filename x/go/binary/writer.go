@@ -9,60 +9,78 @@
 
 package binary
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
-// Writer encodes primitive data types into a growable byte buffer using a
-// configurable byte order. Methods append to the internal buffer, which grows
-// as needed. Use Reset to reuse the buffer across operations and Resize to
-// pre-allocate capacity.
+// Writer makes it easy to writer various primitive data types to binary using a given
+// byte order.
 type Writer struct {
-	order binary.AppendByteOrder
-	buf   []byte
+	byteOrder binary.ByteOrder
+	buf       []byte
+	offset    int
 }
 
-// NewWriter creates a new Writer with the given initial capacity and byte order.
-// The order must implement binary.AppendByteOrder (both binary.BigEndian and
-// binary.LittleEndian satisfy this).
-func NewWriter(cap int, order binary.ByteOrder) *Writer {
-	ao, ok := order.(binary.AppendByteOrder)
-	if !ok {
-		panic("binary.Writer: byte order must implement binary.AppendByteOrder")
-	}
-	return &Writer{order: ao, buf: make([]byte, 0, cap)}
+// NewWriter creates a new writer with the given size, starting offset, and byte order.
+func NewWriter(size int, order binary.ByteOrder) *Writer {
+	return &Writer{buf: make([]byte, size), byteOrder: order}
 }
 
-// Reset clears the buffer for reuse without releasing the underlying memory.
-func (w *Writer) Reset() { w.buf = w.buf[:0] }
+// Reset resets the writer to reuse the underlying buffer.
+func (w *Writer) Reset() { w.offset = 0 }
 
-// Resize ensures the buffer has at least the given capacity. Existing data is
-// preserved. If the current capacity is sufficient, Resize is a no-op.
+// Resize resizes the writer's buffer to the given capacity.
 func (w *Writer) Resize(size int) {
-	if cap(w.buf) >= size {
-		return
+	if size < len(w.buf) {
+		w.buf = w.buf[0:size]
+		if size < w.offset {
+			w.offset = size
+		}
+	} else if size > len(w.buf) {
+		w.buf = append(w.buf, make([]byte, size-len(w.buf))...)
 	}
-	nb := make([]byte, len(w.buf), size)
-	copy(nb, w.buf)
-	w.buf = nb
 }
 
-// Uint8 appends a single byte.
-func (w *Writer) Uint8(v uint8) { w.buf = append(w.buf, v) }
+// Uint8 writes a new Uint8 to the buffer. If the buffer is already at capacity, Uint8
+// returns 0. Otherwise, Uint8 returns 1.
+func (w *Writer) Uint8(value uint8) int {
+	if w.offset+1 > len(w.buf) {
+		return 0
+	}
+	w.buf[w.offset] = value
+	w.offset += 1
+	return 1
+}
 
-// Uint16 appends a 16-bit unsigned integer.
-func (w *Writer) Uint16(v uint16) { w.buf = w.order.AppendUint16(w.buf, v) }
+// Uint32 writes a new Uint32 to the buffer. If the buffer is at capacity, Uint32 returns 0.
+// Otherwise, Uint32 returns 4.
+func (w *Writer) Uint32(value uint32) int {
+	if w.offset+4 > len(w.buf) {
+		return 0
+	}
+	w.byteOrder.PutUint32(w.buf[w.offset:w.offset+4], value)
+	w.offset += 4
+	return 4
+}
 
-// Uint32 appends a 32-bit unsigned integer.
-func (w *Writer) Uint32(v uint32) { w.buf = w.order.AppendUint32(w.buf, v) }
+// Uint64 writes a new Uint64 to the buffer. If the buffer is at capacity, Uint64 returns 0.
+// Otherwise, Uint64 returns 8.
+func (w *Writer) Uint64(value uint64) int {
+	if w.offset+8 > len(w.buf) {
+		return 0
+	}
+	w.byteOrder.PutUint64(w.buf[w.offset:w.offset+8], value)
+	w.offset += 8
+	return 8
+}
 
-// Uint64 appends a 64-bit unsigned integer.
-func (w *Writer) Uint64(v uint64) { w.buf = w.order.AppendUint64(w.buf, v) }
+// Write writes the given data to the buffer. Returns the number of bytes written,
+// which is the min of len(data) and the remaining available buffer capacity.
+func (w *Writer) Write(data []byte) int {
+	count := copy(w.buf[w.offset:], data)
+	w.offset += count
+	return count
+}
 
-// Write appends raw bytes without any length prefix.
-func (w *Writer) Write(data []byte) { w.buf = append(w.buf, data...) }
-
-// Bytes returns the encoded bytes. The returned slice is only valid until the
-// next call to Reset or any write method that triggers growth.
-func (w *Writer) Bytes() []byte { return w.buf }
-
-// Len returns the number of bytes written so far.
-func (w *Writer) Len() int { return len(w.buf) }
+// Bytes returns the underlying binary buffer.
+func (w *Writer) Bytes() []byte { return w.buf[:w.offset] }

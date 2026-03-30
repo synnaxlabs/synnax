@@ -14,22 +14,26 @@ import (
 	"io"
 )
 
-// Reader reads primitive data types from an io.Reader using a given byte order.
+// Reader makes it easy to read various primitive data types from binary using a given
+// byte order. Unlike encoding/binary.Read, this avoids reflection overhead by using
+// direct byte operations.
 type Reader struct {
 	r         io.Reader
 	byteOrder binary.ByteOrder
-	buf       [8]byte
+	buf       [8]byte // reusable buffer for reading primitives
 }
 
-// NewReader creates a new Reader with the given byte order.
+// NewReader creates a new reader with the given io.Reader and byte order.
 func NewReader(r io.Reader, order binary.ByteOrder) *Reader {
 	return &Reader{r: r, byteOrder: order}
 }
 
 // Reset resets the reader to use a new io.Reader.
-func (r *Reader) Reset(reader io.Reader) { r.r = reader }
+func (r *Reader) Reset(reader io.Reader) {
+	r.r = reader
+}
 
-// Uint8 reads a single byte.
+// Uint8 reads a Uint8 from the reader.
 func (r *Reader) Uint8() (uint8, error) {
 	if _, err := io.ReadFull(r.r, r.buf[:1]); err != nil {
 		return 0, err
@@ -37,15 +41,7 @@ func (r *Reader) Uint8() (uint8, error) {
 	return r.buf[0], nil
 }
 
-// Uint16 reads a 16-bit unsigned integer.
-func (r *Reader) Uint16() (uint16, error) {
-	if _, err := io.ReadFull(r.r, r.buf[:2]); err != nil {
-		return 0, err
-	}
-	return r.byteOrder.Uint16(r.buf[:2]), nil
-}
-
-// Uint32 reads a 32-bit unsigned integer.
+// Uint32 reads a Uint32 from the reader.
 func (r *Reader) Uint32() (uint32, error) {
 	if _, err := io.ReadFull(r.r, r.buf[:4]); err != nil {
 		return 0, err
@@ -53,7 +49,7 @@ func (r *Reader) Uint32() (uint32, error) {
 	return r.byteOrder.Uint32(r.buf[:4]), nil
 }
 
-// Uint64 reads a 64-bit unsigned integer.
+// Uint64 reads a Uint64 from the reader.
 func (r *Reader) Uint64() (uint64, error) {
 	if _, err := io.ReadFull(r.r, r.buf[:8]); err != nil {
 		return 0, err
@@ -61,7 +57,7 @@ func (r *Reader) Uint64() (uint64, error) {
 	return r.byteOrder.Uint64(r.buf[:8]), nil
 }
 
-// Read reads exactly len(data) bytes into the provided buffer.
+// Read reads len(data) bytes into data. Returns the number of bytes read.
 func (r *Reader) Read(data []byte) (int, error) {
 	return io.ReadFull(r.r, data)
 }
