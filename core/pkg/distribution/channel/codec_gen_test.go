@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
-					channel.Operation{
+					{
 						Type:         channel.OperationType("min"),
 						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
@@ -129,7 +129,7 @@ var _ = Describe("Codec", func() {
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
-					channel.Operation{
+					{
 						Type:         channel.OperationType("min"),
 						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
@@ -179,7 +179,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Concurrency: control.Concurrency(0),
 		Internal:    true,
 		Operations: []channel.Operation{
-			channel.Operation{
+			{
 				Type:         channel.OperationType("min"),
 				ResetChannel: channel.Key(13),
 				Duration:     telem.TimeSpan(14),
@@ -236,7 +236,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Concurrency: control.Concurrency(0),
 			Internal:    true,
 			Operations: []channel.Operation{
-				channel.Operation{
+				{
 					Type:         channel.OperationType("min"),
 					ResetChannel: channel.Key(13),
 					Duration:     telem.TimeSpan(14),
