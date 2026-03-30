@@ -345,7 +345,7 @@ var _ = Describe("Gorp", func() {
 				versionKey := []byte("__gorp_migration__//entryV1")
 				b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
 				Expect(closer.Close()).To(Succeed())
-				Expect(string(b)).To(Equal("noop"))
+				Expect(string(b)).To(Equal("migrate_old_prefix_keys\nnoop\nreencode_keys"))
 			})
 
 			It("Should skip already-completed migrations on re-run", func(ctx SpecContext) {
@@ -443,7 +443,7 @@ var _ = Describe("Gorp", func() {
 				})
 				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
 					DB:         testDB,
-					Migrations: []gorp.Migration{m1, m2},
+					Migrations: []gorp.Migration{m1, gorp.WithDependencies(m2, "typed_transform")},
 				}))
 				r := gorp.WrapReader[int32, entryV1](testDB, testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("mixed_typed_raw"))
@@ -615,7 +615,10 @@ var _ = Describe("Gorp", func() {
 					w := gorp.WrapWriter[int32, jsonEntry](tx, tx)
 					return w.Set(ctx, e)
 				})
-				m2 := gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{})
+				m2 := gorp.WithDependencies(
+					gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					"raw_update",
+				)
 				tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
 					DB:         testDB,
 					Codec:      jsonEntryCodec{},
@@ -1118,16 +1121,20 @@ var _ = Describe("Gorp", func() {
 				}))
 				starting := logs.FilterMessage("starting migrations")
 				Expect(starting.Len()).To(Equal(1))
-				Expect(starting.All()[0].ContextMap()["pending"]).To(BeNumerically("==", 1))
+				// 2 built-in migrations + 1 user migration
+				Expect(starting.All()[0].ContextMap()["pending"]).To(BeNumerically("==", 3))
 
 				complete := logs.FilterMessage("migration complete")
-				Expect(complete.Len()).To(Equal(1))
-				Expect(complete.All()[0].ContextMap()["migration"]).To(Equal("test_migration"))
-				Expect(complete.All()[0].ContextMap()["entries"]).To(BeNumerically("==", 1))
+				Expect(complete.Len()).To(Equal(3))
+				names := make([]string, complete.Len())
+				for i, entry := range complete.All() {
+					names[i] = entry.ContextMap()["migration"].(string)
+				}
+				Expect(names).To(ContainElement("test_migration"))
 
 				done := logs.FilterMessage("migrations complete")
 				Expect(done.Len()).To(Equal(1))
-				Expect(done.All()[0].ContextMap()["migrations"]).To(BeNumerically("==", 1))
+				Expect(done.All()[0].ContextMap()["migrations"]).To(BeNumerically("==", 3))
 			})
 
 			It("Should not log when all migrations are already applied", func(ctx SpecContext) {
