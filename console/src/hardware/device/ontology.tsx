@@ -63,7 +63,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           onClick={() => group(props)}
         />
       )}
-      {hasUpdatePermission && singleResource && <ContextMenu.RenameItem onClick={rename} />}
+      {hasUpdatePermission && singleResource && (
+        <ContextMenu.RenameItem onClick={rename} />
+      )}
       {customMenuItems != null && (
         <>
           <Menu.Divider />

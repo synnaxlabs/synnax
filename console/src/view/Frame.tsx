@@ -95,7 +95,14 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       select: setSelected,
       getInitialView,
     }),
-    [resourceType, selected, editable, hasUpdatePermission, staticViewKeys, getInitialView],
+    [
+      resourceType,
+      selected,
+      editable,
+      hasUpdatePermission,
+      staticViewKeys,
+      getInitialView,
+    ],
   );
 
   return (
@@ -103,7 +110,9 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={staticViewKeys.includes(selected) ? true : hasUpdatePermission}
+          showEditButton={
+            staticViewKeys.includes(selected) ? true : hasUpdatePermission
+          }
           editable={editable}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}

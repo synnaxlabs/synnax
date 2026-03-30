@@ -210,7 +210,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const singleResource = resources.length === 1;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const hasLinePlotCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const hasLinePlotCreatePermission = Access.useCreateGranted(
+    lineplot.TYPE_ONTOLOGY_ID,
+  );
   const hasLogCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
   const hasTableCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
   const hasSchematicCreatePermission = Access.useCreateGranted(

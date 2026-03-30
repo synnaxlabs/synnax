@@ -147,8 +147,12 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasUpdatePermission = Access.useUpdateGranted(id);
   const hasDeletePermission = Access.useDeleteGranted(id);
-  const hasLinePlotUpdatePermission = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  const hasLinePlotCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const hasLinePlotUpdatePermission = Access.useUpdateGranted(
+    lineplot.TYPE_ONTOLOGY_ID,
+  );
+  const hasLinePlotCreatePermission = Access.useCreateGranted(
+    lineplot.TYPE_ONTOLOGY_ID,
+  );
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));
   };
@@ -219,12 +223,16 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             </Menu.Item>
           )}
           <Menu.Divider />
-          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && hasLinePlotUpdatePermission && (
-            <Menu.Item itemKey="addToActivePlot" onClick={() => addToActivePlot([key])}>
-              <AddToActivePlotIcon key="plot" />
-              Add to active plot
-            </Menu.Item>
-          )}
+          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE &&
+            hasLinePlotUpdatePermission && (
+              <Menu.Item
+                itemKey="addToActivePlot"
+                onClick={() => addToActivePlot([key])}
+              >
+                <AddToActivePlotIcon key="plot" />
+                Add to active plot
+              </Menu.Item>
+            )}
           {hasLinePlotCreatePermission && (
             <Menu.Item itemKey="addToNewPlot" onClick={() => addToNewPlot([key])}>
               <AddToNewPlotIcon key="plot" />
