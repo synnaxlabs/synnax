@@ -66,6 +66,9 @@ export const useList = Flux.createList<
     const hasLabelsSet = primitive.isNonZero(query.hasLabels)
       ? new Set(query.hasLabels)
       : undefined;
+    const variantsSet = primitive.isNonZero(query.variants)
+      ? new Set(query.variants)
+      : undefined;
     return store.statuses.get((s) => {
       if (keySet != null && !keySet.has(s.key)) return false;
       if (
@@ -73,16 +76,25 @@ export const useList = Flux.createList<
         (s.labels == null || !s.labels.some((l) => hasLabelsSet.has(l.key)))
       )
         return false;
+      if (variantsSet != null && !variantsSet.has(s.variant)) return false;
       return true;
     });
   },
   retrieve: async ({ client, query }) =>
     await client.statuses.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete, query: { keys, hasLabels } }) => {
+  mountListeners: ({
+    store,
+    onChange,
+    onDelete,
+    query: { keys, hasLabels, variants },
+  }) => {
     const keysSet = primitive.isNonZero(keys) ? new Set(keys) : undefined;
     const hasLabelsSet = primitive.isNonZero(hasLabels)
       ? new Set(hasLabels)
+      : undefined;
+    const variantsSet = primitive.isNonZero(variants)
+      ? new Set(variants)
       : undefined;
     return [
       store.statuses.onSet(async (status) => {
@@ -92,6 +104,7 @@ export const useList = Flux.createList<
           (status.labels == null || !status.labels.some((l) => hasLabelsSet.has(l.key)))
         )
           return;
+        if (variantsSet != null && !variantsSet.has(status.variant)) return;
         onChange(status.key, status, { mode: "prepend" });
       }),
       store.statuses.onDelete(onDelete),
