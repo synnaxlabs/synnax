@@ -12,10 +12,9 @@ import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Status } from "@/status";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
-
-import { SelectVariantMultiple } from "./SelectVariantMultiple";
 
 describe("SelectVariantMultiple", () => {
   beforeAll(() => {
@@ -32,7 +31,7 @@ describe("SelectVariantMultiple", () => {
       };
       return (
         <Triggers.Provider>
-          <SelectVariantMultiple value={value} onChange={handleChange} />
+          <Status.SelectVariantMultiple value={value} onChange={handleChange} />
         </Triggers.Provider>
       );
     };

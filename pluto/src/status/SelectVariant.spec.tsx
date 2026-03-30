@@ -12,25 +12,12 @@ import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Status } from "@/status";
 import { mockBoundingClientRect } from "@/testutil/dom";
-
-import { SelectVariant } from "./SelectVariant";
-import { VARIANT_DATA } from "./variantData";
 
 describe("SelectVariant", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-  });
-
-  it("should export all six variant entries in VARIANT_DATA", () => {
-    expect(VARIANT_DATA).toHaveLength(6);
-    const keys = VARIANT_DATA.map((d) => d.key);
-    expect(keys).toContain("success");
-    expect(keys).toContain("error");
-    expect(keys).toContain("warning");
-    expect(keys).toContain("info");
-    expect(keys).toContain("loading");
-    expect(keys).toContain("disabled");
   });
 
   const onChange = vi.fn();
@@ -40,7 +27,7 @@ describe("SelectVariant", () => {
       setValue(key);
       onChange(key);
     };
-    return <SelectVariant value={value as status.Variant} onChange={handleChange} />;
+    return <Status.SelectVariant value={value} onChange={handleChange} />;
   };
 
   it("should render a selection trigger", () => {

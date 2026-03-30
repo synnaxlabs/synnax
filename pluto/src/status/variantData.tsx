@@ -13,34 +13,10 @@ import { type Select } from "@/select";
 import { Indicator } from "@/status/base/Indicator";
 
 export const VARIANT_DATA: Select.StaticEntry<status.Variant>[] = [
-  {
-    key: "success",
-    name: "Success",
-    icon: <Indicator variant="success" />,
-  },
-  {
-    key: "error",
-    name: "Error",
-    icon: <Indicator variant="error" />,
-  },
-  {
-    key: "warning",
-    name: "Warning",
-    icon: <Indicator variant="warning" />,
-  },
-  {
-    key: "info",
-    name: "Info",
-    icon: <Indicator variant="info" />,
-  },
-  {
-    key: "loading",
-    name: "Loading",
-    icon: <Indicator variant="loading" />,
-  },
-  {
-    key: "disabled",
-    name: "Disabled",
-    icon: <Indicator variant="disabled" />,
-  },
+  { key: "success", name: "Success", icon: <Indicator variant="success" /> },
+  { key: "error", name: "Error", icon: <Indicator variant="error" /> },
+  { key: "warning", name: "Warning", icon: <Indicator variant="warning" /> },
+  { key: "info", name: "Info", icon: <Indicator variant="info" /> },
+  { key: "loading", name: "Loading", icon: <Indicator variant="loading" /> },
+  { key: "disabled", name: "Disabled", icon: <Indicator variant="disabled" /> },
 ];

@@ -50,9 +50,11 @@ export const SelectVariantMultiple = (
       onSearch={search}
       virtual={false}
       resourceName="variant"
-      icon={<Indicator variant="success" />}
+      icon={icon}
     >
       {listItem}
     </Select.Multiple>
   );
 };
+
+const icon = <Indicator variant="success" />;
