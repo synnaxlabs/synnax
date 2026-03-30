@@ -345,7 +345,7 @@ var _ = Describe("Gorp", func() {
 				versionKey := []byte("__gorp_migration__//entryV1")
 				b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
 				Expect(closer.Close()).To(Succeed())
-				Expect(string(b)).To(Equal("migrate_old_prefix_keys\nnoop\nreencode_keys"))
+				Expect(string(b)).To(Equal("noop\nnormalize_keys"))
 			})
 
 			It("Should skip already-completed migrations on re-run", func(ctx SpecContext) {
@@ -1121,11 +1121,11 @@ var _ = Describe("Gorp", func() {
 				}))
 				starting := logs.FilterMessage("starting migrations")
 				Expect(starting.Len()).To(Equal(1))
-				// 2 built-in migrations + 1 user migration
-				Expect(starting.All()[0].ContextMap()["pending"]).To(BeNumerically("==", 3))
+				// 1 built-in migration + 1 user migration
+				Expect(starting.All()[0].ContextMap()["pending"]).To(BeNumerically("==", 2))
 
 				complete := logs.FilterMessage("migration complete")
-				Expect(complete.Len()).To(Equal(3))
+				Expect(complete.Len()).To(Equal(2))
 				names := make([]string, complete.Len())
 				for i, entry := range complete.All() {
 					names[i] = entry.ContextMap()["migration"].(string)
@@ -1134,7 +1134,7 @@ var _ = Describe("Gorp", func() {
 
 				done := logs.FilterMessage("migrations complete")
 				Expect(done.Len()).To(Equal(1))
-				Expect(done.All()[0].ContextMap()["migrations"]).To(BeNumerically("==", 3))
+				Expect(done.All()[0].ContextMap()["migrations"]).To(BeNumerically("==", 2))
 			})
 
 			It("Should not log when all migrations are already applied", func(ctx SpecContext) {

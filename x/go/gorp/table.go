@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"iter"
@@ -66,11 +65,10 @@ func OpenTable[K Key, E Entry[K]](
 	// any codec transitions so that all entries are under the current prefix
 	// and key encoding.
 	builtIn := []Migration{
-		&oldPrefixMigration[K, E]{dbCodec: cfg.DB},
-		&reEncodeKeysMigration[K, E]{dbCodec: cfg.DB},
+		&normalizeKeysMigration[K, E]{dbCodec: cfg.DB},
 	}
-	// Wrap user migrations to depend on reencode_keys so they always run
-	// after the built-in key normalization.
+	// Wrap user migrations to depend on normalize_keys so they always run
+	// after key normalization.
 	wrapped := make([]Migration, len(cfg.Migrations))
 	for i, m := range cfg.Migrations {
 		wrapped[i] = &afterBuiltIn{Migration: m}
@@ -190,106 +188,46 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
 }
 
-// migrateOldPrefixKeys finds entries stored under the old codec-based prefix
-// (e.g. msgpack-encoded type name) and re-writes them under the new prefix
-// format (__gorp__//TypeName).
-// oldPrefixMigration moves entries from the old codec-encoded prefix to the
-// current literal prefix. It copies raw value bytes without decoding them,
-// so it is independent of the value codec.
-type oldPrefixMigration[K Key, E Entry[K]] struct {
+// normalizeKeysMigration moves entries from the old codec-encoded prefix to the
+// current literal prefix and re-encodes key suffixes to use primitive encoding.
+// Values are decoded with the DB's default codec only to extract GorpKey(); raw
+// value bytes are written back without re-encoding.
+type normalizeKeysMigration[K Key, E Entry[K]] struct {
 	dbCodec binary.Codec
 }
 
-func (m *oldPrefixMigration[K, E]) Name() string { return "migrate_old_prefix_keys" }
+func (m *normalizeKeysMigration[K, E]) Name() string { return "normalize_keys" }
 
-func (m *oldPrefixMigration[K, E]) Run(ctx context.Context, tx kv.Tx, _ MigrationConfig) (err error) {
+func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx kv.Tx, _ MigrationConfig) error {
+	kc := newKeyCodec[K, E]()
 	dbTx := WrapTx(tx, m.dbCodec)
 	oldPrefix, err := dbTx.Encode(ctx, types.Name[E]())
 	if err != nil {
 		return err
 	}
-	newKeyCodec := newKeyCodec[K, E]()
-	if string(oldPrefix) == string(newKeyCodec.prefix) {
-		return nil
-	}
-	iter, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	type move struct {
-		oldKey, newKey, rawValue []byte
-	}
-	var moves []move
-	for iter.First(); iter.Valid(); iter.Next() {
-		oldKey := bytes.Clone(iter.Key())
-		rawValue := bytes.Clone(iter.Value())
-		keySuffix := oldKey[len(oldPrefix):]
-		newKey := make([]byte, len(newKeyCodec.prefix)+len(keySuffix))
-		copy(newKey, newKeyCodec.prefix)
-		copy(newKey[len(newKeyCodec.prefix):], keySuffix)
-		moves = append(moves, move{oldKey: oldKey, newKey: newKey, rawValue: rawValue})
-	}
-	for _, mv := range moves {
-		if err = tx.Delete(ctx, mv.oldKey); err != nil {
+	// Phase 1: move entries from old prefix to new prefix + new key encoding.
+	if string(oldPrefix) != string(kc.prefix) {
+		itr, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
+		if err != nil {
 			return err
 		}
-		if err = tx.Set(ctx, mv.newKey, mv.rawValue); err != nil {
-			return err
+		for itr.First(); itr.Valid(); itr.Next() {
+			rawValue := itr.Value()
+			var entry E
+			if err = m.dbCodec.Decode(ctx, rawValue, &entry); err != nil {
+				return errors.Combine(
+					errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key()),
+					itr.Close(),
+				)
+			}
+			if err = tx.Delete(ctx, itr.Key()); err != nil {
+				return errors.Combine(err, itr.Close())
+			}
+			if err = tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
+				return errors.Combine(err, itr.Close())
+			}
 		}
-	}
-	return err
-}
-
-// reEncodeKeysMigration iterates entries under the current prefix and re-writes
-// them to ensure the key portion uses the current primitive encoding. It decodes
-// values with the DB's default codec to extract GorpKey(), but writes the raw
-// value bytes back without re-encoding.
-type reEncodeKeysMigration[K Key, E Entry[K]] struct {
-	dbCodec binary.Codec
-}
-
-func (m *reEncodeKeysMigration[K, E]) Name() string { return "reencode_keys" }
-
-func (m *reEncodeKeysMigration[K, E]) Dependencies() []string {
-	return []string{"migrate_old_prefix_keys"}
-}
-
-func (m *reEncodeKeysMigration[K, E]) Run(ctx context.Context, tx kv.Tx, _ MigrationConfig) (err error) {
-	newKeyCodec := newKeyCodec[K, E]()
-	iter, err := tx.OpenIterator(kv.IterPrefix(newKeyCodec.prefix))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	// Collect all re-key operations first to avoid mutating during iteration.
-	type rekey struct {
-		oldKey   []byte
-		newKey   []byte
-		rawValue []byte
-	}
-	var rekeys []rekey
-	for iter.First(); iter.Valid(); iter.Next() {
-		oldKey := bytes.Clone(iter.Key())
-		rawValue := bytes.Clone(iter.Value())
-		var entry E
-		if err = m.dbCodec.Decode(ctx, rawValue, &entry); err != nil {
-			return errors.Wrapf(err, "reencode_keys: failed to decode entry at key %x", oldKey)
-		}
-		newKey := bytes.Clone(newKeyCodec.encode(entry.GorpKey()))
-		if !bytes.Equal(oldKey, newKey) {
-			rekeys = append(rekeys, rekey{oldKey: oldKey, newKey: newKey, rawValue: rawValue})
-		}
-	}
-	for _, r := range rekeys {
-		if err = tx.Delete(ctx, r.oldKey); err != nil {
-			return err
-		}
-		if err = tx.Set(ctx, r.newKey, r.rawValue); err != nil {
+		if err = itr.Close(); err != nil {
 			return err
 		}
 	}
@@ -308,7 +246,7 @@ func (a *afterBuiltIn) Dependencies() []string {
 	if dd, ok := a.Migration.(DependencyDeclarer); ok {
 		deps = dd.Dependencies()
 	}
-	return append(deps, "reencode_keys")
+	return append(deps, "normalize_keys")
 }
 
 // readAppliedMigrations reads the set of applied migration names from the KV
