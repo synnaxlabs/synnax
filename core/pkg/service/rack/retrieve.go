@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Retrieve struct {
@@ -97,6 +98,23 @@ func (r Retrieve) Limit(limit int) Retrieve {
 // Offset sets the starting index of the entries to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// WhereIntegrations filters for racks that support all of the provided integrations.
+func (r Retrieve) WhereIntegrations(
+	integrations []string,
+	opts ...gorp.FilterOption,
+) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, rack *Rack) (bool, error) {
+		intSet := set.New(rack.Integrations...)
+		for _, i := range integrations {
+			if !intSet.Contains(i) {
+				return false, nil
+			}
+		}
+		return true, nil
+	}, opts...)
 	return r
 }
 

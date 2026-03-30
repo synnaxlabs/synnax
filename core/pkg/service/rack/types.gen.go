@@ -43,6 +43,9 @@ type Rack struct {
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
 	// Embedded is true if this rack is embedded within the Synnax server process.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
+	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
+	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
+	Integrations []string `json:"integrations" msgpack:"integrations"`
 	// Status is the current operational status of the rack.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
