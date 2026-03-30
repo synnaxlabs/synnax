@@ -93,9 +93,7 @@ export const useList = Flux.createList<
     const hasLabelsSet = primitive.isNonZero(hasLabels)
       ? new Set(hasLabels)
       : undefined;
-    const variantsSet = primitive.isNonZero(variants)
-      ? new Set(variants)
-      : undefined;
+    const variantsSet = primitive.isNonZero(variants) ? new Set(variants) : undefined;
     return [
       store.statuses.onSet(async (status) => {
         if (keysSet != null && !keysSet.has(status.key)) return;
