@@ -13,6 +13,7 @@ import (
 	"cmp"
 	"slices"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -82,4 +83,71 @@ func TarjanSCC[T cmp.Ordered](adj map[T][]T) [][]T {
 		slices.Sort(scc)
 	}
 	return sccs
+}
+
+// ErrCyclicDependency is returned by TopoSort when the graph contains a cycle.
+var ErrCyclicDependency = errors.New("cyclic dependency detected")
+
+// ErrMissingDependency is returned by TopoSort when an edge references a node
+// that does not exist in the graph.
+var ErrMissingDependency = errors.New("missing dependency")
+
+// TopoSort returns a topological ordering of the directed acyclic graph
+// represented by the adjacency list adj (where adj[a] = [b, c] means a depends
+// on b and c, i.e. b and c must come before a). Returns ErrCyclicDependency if
+// the graph contains a cycle, or ErrMissingDependency if an edge references a
+// node not present as a key in adj. The output is deterministic: nodes at the
+// same topological level are sorted by their natural ordering.
+func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
+	for node, deps := range adj {
+		for _, dep := range deps {
+			if _, exists := adj[dep]; !exists {
+				return nil, errors.Wrapf(
+					ErrMissingDependency,
+					"%v depends on %v which does not exist",
+					node, dep,
+				)
+			}
+		}
+	}
+
+	inDegree := make(map[T]int, len(adj))
+	dependents := make(map[T][]T, len(adj))
+	for node := range adj {
+		if _, exists := inDegree[node]; !exists {
+			inDegree[node] = 0
+		}
+		for _, dep := range adj[node] {
+			inDegree[node]++
+			dependents[dep] = append(dependents[dep], node)
+		}
+	}
+
+	var queue []T
+	for node, deg := range inDegree {
+		if deg == 0 {
+			queue = append(queue, node)
+		}
+	}
+	slices.Sort(queue)
+
+	var sorted []T
+	for len(queue) > 0 {
+		node := queue[0]
+		queue = queue[1:]
+		sorted = append(sorted, node)
+		next := dependents[node]
+		slices.Sort(next)
+		for _, dep := range next {
+			inDegree[dep]--
+			if inDegree[dep] == 0 {
+				queue = append(queue, dep)
+			}
+		}
+	}
+
+	if len(sorted) != len(adj) {
+		return nil, errors.Wrap(ErrCyclicDependency, "not all nodes could be ordered")
+	}
+	return sorted, nil
 }
