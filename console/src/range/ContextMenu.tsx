@@ -153,9 +153,6 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const hasLinePlotCreatePermission = Access.useCreateGranted(
     lineplot.TYPE_ONTOLOGY_ID,
   );
-  const handleCreate = (key?: string): void => {
-    placeLayout(createCreateLayout({ key }));
-  };
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
@@ -185,12 +182,6 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
 
   return (
     <CMenu.Menu>
-      {hasCreatePermission && (
-        <Menu.Item itemKey="create" onClick={() => handleCreate()}>
-          <Icon.Add />
-          Create new
-        </Menu.Item>
-      )}
       {rangeExists && (
         <>
           {rng.key !== activeRange?.key ? (
