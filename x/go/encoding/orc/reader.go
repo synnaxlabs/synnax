@@ -10,14 +10,14 @@
 package orc
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"math"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // ErrRecursionDepth is returned when decoding exceeds the maximum recursion depth.
-var ErrRecursionDepth = errors.New("orc: recursion depth exceeded")
+var ErrRecursionDepth = errors.New("[orc] recursion depth exceeded")
 
 // MaxStringLen is the maximum length of a string that can be decoded. In direct
 // mode (ResetBytes), the backing slice provides a natural bound. In io.Reader
@@ -185,7 +185,7 @@ func (r *Reader) String() (string, error) {
 		return s, nil
 	}
 	if n > MaxStringLen {
-		return "", fmt.Errorf(
+		return "", errors.Newf(
 			"orc: string length %d exceeds maximum %d", n, MaxStringLen,
 		)
 	}

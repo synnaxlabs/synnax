@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -817,7 +818,7 @@ var _ = Describe("Gorp", func() {
 					Migrations: []gorp.Migration{m1},
 				})
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ContainSubstring("missing migration dependency")))
+				Expect(err).To(MatchError(graph.ErrMissingDependency))
 				Expect(err).To(MatchError(ContainSubstring("nonexistent")))
 			})
 

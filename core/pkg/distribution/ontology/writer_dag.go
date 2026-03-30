@@ -14,8 +14,8 @@ import (
 	"maps"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/graph"
 )
 
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
@@ -30,7 +30,7 @@ type dagWriter struct {
 var _ Writer = dagWriter{}
 
 // ErrCycle is returned when a cycle is created in the graph.
-var ErrCycle = errors.New("[ontology] - cyclic dependency")
+var ErrCycle = graph.ErrCyclicDependency
 
 // DefineResource implements the Writer interface.
 func (d dagWriter) DefineResource(ctx context.Context, tk ID) error {

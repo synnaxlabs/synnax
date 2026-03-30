@@ -1,4 +1,4 @@
-name: Fuzz - Go Codecs
+name: Fuzz - Go
 
 on:
   pull_request:
@@ -15,18 +15,11 @@ jobs:
       matrix:
         include:
           - module: x/go
-            packages: >-
-              ./color/ ./label/ ./spatial/ ./telem/
+            artifact: x-go
           - module: core
-            packages: >-
-              ./pkg/distribution/channel/ ./pkg/distribution/group/
-              ./pkg/distribution/ontology/ ./pkg/service/arc/ ./pkg/service/device/
-              ./pkg/service/lineplot/ ./pkg/service/log/ ./pkg/service/rack/
-              ./pkg/service/ranger/ ./pkg/service/schematic/ ./pkg/service/table/
-              ./pkg/service/user/ ./pkg/service/workspace/
+            artifact: core
           - module: arc/go
-            packages: >-
-              ./compiler/ ./graph/ ./ir/ ./program/ ./text/ ./types/
+            artifact: arc-go
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -41,10 +34,16 @@ jobs:
 
       - name: Fuzz
         working-directory: ${{ matrix.module }}
+        # go test -fuzz requires a single package (cannot use ./...), so we
+        # discover packages containing fuzz targets via grep and iterate.
         run: |
-          for pkg in ${{ matrix.packages }}; do
+          packages=$(grep -rl '^func Fuzz' --include='*_test.go' . | sed 's|/[^/]*$||' | sort -u)
+          if [ -z "$packages" ]; then
+            echo "No fuzz targets found"
+            exit 0
+          fi
+          for pkg in $packages; do
             echo "::group::Fuzzing $pkg"
-            # List all fuzz targets in the package
             targets=$(go test "$pkg" -list '^Fuzz' -run '^$' 2>/dev/null | grep '^Fuzz' || true)
             for target in $targets; do
               echo "--- $target ---"
@@ -57,5 +56,5 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-crashes-${{ matrix.module }}
+          name: fuzz-crashes-${{ matrix.artifact }}
           path: ${{ matrix.module }}/**/testdata/fuzz/
