@@ -39,8 +39,8 @@ inline Rack Rack::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .task_counter = parser.field<std::uint32_t>("task_counter", 0),
         .embedded = parser.field<bool>("embedded", false),
-        .integrations = parser.field<std::vector<std::string>>("integrations"),
         .status = parser.field<std::optional<Status>>("status"),
+        .integrations = parser.field<std::vector<std::string>>("integrations"),
     };
 }
 
@@ -50,8 +50,8 @@ inline x::json::json Rack::to_json() const {
     j["name"] = this->name;
     j["task_counter"] = this->task_counter;
     j["embedded"] = this->embedded;
-    j["integrations"] = this->integrations;
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    j["integrations"] = this->integrations;
     return j;
 }
 

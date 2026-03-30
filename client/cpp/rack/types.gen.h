@@ -63,13 +63,13 @@ struct Rack {
     /// @brief embedded is true if this rack is embedded within the Synnax server
     /// process.
     bool embedded = false;
+    /// @brief status is the current operational status of the rack.
+    std::optional<Status> status;
     /// @brief integrations is the list of hardware integrations this rack supports
     /// (e.g.,
     /// "ni", "opc", "labjack"). An empty or nil list means the rack supports no
     /// integrations.
     std::vector<std::string> integrations;
-    /// @brief status is the current operational status of the rack.
-    std::optional<Status> status;
 
     static Rack parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

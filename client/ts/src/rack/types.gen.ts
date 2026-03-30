@@ -41,13 +41,13 @@ export const payloadZ = z.object({
   taskCounter: z.uint32().optional(),
   /** embedded is true if this rack is embedded within the Synnax server process. */
   embedded: z.boolean().optional(),
+  /** status is the current operational status of the rack. */
+  status: statusZ.optional(),
   /**
    * integrations is the list of hardware integrations this rack supports (e.g., "ni", "opc",
    * "labjack"). An empty or nil list means the rack supports no integrations.
    */
   integrations: zod.nullToUndefined(z.string().array()),
-  /** status is the current operational status of the rack. */
-  status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
