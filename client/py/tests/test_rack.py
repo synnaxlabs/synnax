@@ -91,15 +91,15 @@ class TestRackClient:
         res = client.racks.retrieve(key=rack.key)
         assert res.integrations == ["ni", "opc", "modbus"]
 
-    def test_retrieve_by_integrations(self, client: sy.Synnax):
-        """Should filter racks by supported integrations"""
+    def test_retrieve_by_integration(self, client: sy.Synnax):
+        """Should filter racks by supported integration"""
         r1 = client.racks.create(
             racks=sy.Rack(name="py-ni-rack", integrations=["ni", "opc"])
         )
         r2 = client.racks.create(
             racks=sy.Rack(name="py-modbus-rack", integrations=["modbus"])
         )
-        results = client.racks.retrieve(keys=[r1.key, r2.key], integrations=["ni"])
+        results = client.racks.retrieve(keys=[r1.key, r2.key], integration="ni")
         result_keys = {r.key for r in results}
         assert r1.key in result_keys
         assert r2.key not in result_keys

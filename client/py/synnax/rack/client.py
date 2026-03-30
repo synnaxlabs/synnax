@@ -33,7 +33,7 @@ class _DeleteRequest(BaseModel):
 class _RetrieveRequest(BaseModel):
     keys: list[int] | None = None
     names: list[str] | None = None
-    integrations: list[str] | None = None
+    integration: str | None = None
     search: str | None = None
     embedded: bool | None = None
     host_is_node: bool | None = None
@@ -97,7 +97,7 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         *,
-        integrations: list[str] | None = None,
+        integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
     ) -> Rack: ...
@@ -110,7 +110,7 @@ class Client:
         keys: list[int] | None = None,
         names: list[str] | None = None,
         *,
-        integrations: list[str] | None = None,
+        integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
     ) -> list[Rack]: ...
@@ -122,7 +122,7 @@ class Client:
         keys: list[int] | None = None,
         names: list[str] | None = None,
         *,
-        integrations: list[str] | None = None,
+        integration: str | None = None,
         host_is_node: bool | None = None,
         embedded: bool | None = None,
     ) -> Rack | list[Rack]:
@@ -133,7 +133,7 @@ class Client:
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
-                integrations=integrations,
+                integration=integration,
                 host_is_node=host_is_node,
                 embedded=embedded,
             ),

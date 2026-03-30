@@ -31,7 +31,7 @@ export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
-  integrations: z.string().array().optional(),
+  integration: z.string().optional(),
   searchTerm: z.string().optional(),
   embedded: z.boolean().optional(),
   hostIsNode: z.boolean().optional(),

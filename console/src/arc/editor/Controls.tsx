@@ -86,4 +86,4 @@ export const Controls = ({ state }: ControlsProps) => {
   );
 };
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integrations: ["arc"] };
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };

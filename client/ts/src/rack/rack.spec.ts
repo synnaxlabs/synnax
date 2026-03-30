@@ -88,7 +88,7 @@ describe("Rack", () => {
       const retrieved = await client.racks.retrieve({ key: r.key });
       expect(retrieved.integrations).toEqual(["ni", "opc", "modbus"]);
     });
-    it("should filter racks by integrations", async () => {
+    it("should filter racks by integration", async () => {
       const r1 = await client.racks.create({
         name: "rack-ni-opc",
         integrations: ["ni", "opc"],
@@ -97,7 +97,7 @@ describe("Rack", () => {
         name: "rack-modbus-only",
         integrations: ["modbus"],
       });
-      const results = await client.racks.retrieve({ integrations: ["ni"] });
+      const results = await client.racks.retrieve({ integration: "ni" });
       const keys = results.map((r) => r.key);
       expect(keys).toContain(r1.key);
       expect(keys).not.toContain(r2.key);

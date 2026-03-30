@@ -226,13 +226,13 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res.Name).To(Equal("filter-rack-beta"))
 			})
 		})
-		Describe("WhereIntegrations", func() {
+		Describe("WhereIntegration", func() {
 			It("Should retrieve a rack that supports the requested integration", func(ctx SpecContext) {
 				r := &rack.Rack{Name: "ni-rack", Integrations: []string{"ni", "opc"}}
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegrations([]string{"ni"}).
+					WhereIntegration("ni").
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).ToNot(BeEmpty())
@@ -240,33 +240,16 @@ var _ = Describe("Rack", Ordered, func() {
 					return r.Name == "ni-rack"
 				})).To(BeTrue())
 			})
-			It("Should not return racks missing a requested integration", func(ctx SpecContext) {
+			It("Should not return racks missing the requested integration", func(ctx SpecContext) {
 				r := &rack.Rack{Name: "opc-only-rack", Integrations: []string{"opc"}}
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegrations([]string{"ni"}).
+					WhereIntegration("ni").
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
 					return r.Name == "opc-only-rack"
-				})).To(BeFalse())
-			})
-			It("Should filter by multiple integrations (AND semantics)", func(ctx SpecContext) {
-				r1 := &rack.Rack{Name: "full-rack", Integrations: []string{"ni", "opc", "modbus"}}
-				r2 := &rack.Rack{Name: "partial-rack", Integrations: []string{"ni"}}
-				Expect(writer.Create(ctx, r1)).To(Succeed())
-				Expect(writer.Create(ctx, r2)).To(Succeed())
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					WhereIntegrations([]string{"ni", "opc"}).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
-					return r.Name == "full-rack"
-				})).To(BeTrue())
-				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
-					return r.Name == "partial-rack"
 				})).To(BeFalse())
 			})
 			It("Should not return racks with empty integrations", func(ctx SpecContext) {
@@ -274,7 +257,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegrations([]string{"ni"}).
+					WhereIntegration("ni").
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
@@ -286,7 +269,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegrations([]string{"ni"}).
+					WhereIntegration("ni").
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
