@@ -96,6 +96,7 @@ type (
 		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
 		Keys          []rack.Key `json:"keys" msgpack:"keys"`
 		Names         []string   `json:"names" msgpack:"names"`
+		Integrations  []string   `json:"integrations" msgpack:"integrations"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
@@ -110,12 +111,13 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
-		res       RetrieveResponse
-		hasSearch = len(req.SearchTerm) > 0
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasLimit  = req.Limit > 0
-		hasOffset = req.Offset > 0
+		res             RetrieveResponse
+		hasSearch       = len(req.SearchTerm) > 0
+		hasKeys         = len(req.Keys) > 0
+		hasNames        = len(req.Names) > 0
+		hasLimit        = req.Limit > 0
+		hasOffset       = req.Offset > 0
+		hasIntegrations = len(req.Integrations) > 0
 	)
 	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
 	q := s.rack.NewRetrieve()
@@ -139,6 +141,9 @@ func (s *Service) Retrieve(
 	}
 	if req.HostIsNode != nil {
 		q = q.WhereNodeIsHost(*req.HostIsNode)
+	}
+	if hasIntegrations {
+		q = q.WhereIntegrations(req.Integrations)
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err

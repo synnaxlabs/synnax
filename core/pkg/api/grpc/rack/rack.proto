@@ -39,6 +39,7 @@ message CreateResponse {
 message RetrieveRequest {
   repeated uint32 keys = 1;
   repeated string names = 2;
+  repeated string integrations = 3;
 }
 
 message RetrieveResponse {

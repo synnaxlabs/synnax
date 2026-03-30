@@ -124,6 +124,7 @@ type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	Integrations  []string               `protobuf:"bytes,3,rep,name=integrations,proto3" json:"integrations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -168,6 +169,13 @@ func (x *RetrieveRequest) GetKeys() []uint32 {
 func (x *RetrieveRequest) GetNames() []string {
 	if x != nil {
 		return x.Names
+	}
+	return nil
+}
+
+func (x *RetrieveRequest) GetIntegrations() []string {
+	if x != nil {
+		return x.Integrations
 	}
 	return nil
 }
@@ -268,10 +276,11 @@ const file_core_pkg_api_grpc_rack_rack_proto_rawDesc = "" +
 	"\rCreateRequest\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\";\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"_\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"?\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\x12\"\n" +
+	"\fintegrations\x18\x03 \x03(\tR\fintegrations\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
