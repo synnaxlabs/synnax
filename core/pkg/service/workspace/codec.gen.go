@@ -13,15 +13,14 @@ package workspace
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeWorkspace(w *xbinary.Writer, s *Workspace) error {
+func EncodeWorkspace(w *orc.Writer, s *Workspace) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	w.Write(s.Author[:])
@@ -36,7 +35,7 @@ func EncodeWorkspace(w *xbinary.Writer, s *Workspace) error {
 	return nil
 }
 
-func DecodeWorkspace(r *xbinary.Reader, s *Workspace) error {
+func DecodeWorkspace(r *orc.Reader, s *Workspace) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -63,8 +62,8 @@ func DecodeWorkspace(r *xbinary.Reader, s *Workspace) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type workspaceCodec struct{}
 
@@ -72,7 +71,7 @@ var WorkspaceCodec xbinary.Codec = workspaceCodec{}
 
 func (workspaceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Workspace)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeWorkspace(w, &s)
 	out := w.Copy()
@@ -91,7 +90,7 @@ func (c workspaceCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 
 func (workspaceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Workspace)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeWorkspace(r, s)
 	readerPool.Put(r)

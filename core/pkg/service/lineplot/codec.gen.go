@@ -13,15 +13,14 @@ package lineplot
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeLinePlot(w *xbinary.Writer, s *LinePlot) error {
+func EncodeLinePlot(w *orc.Writer, s *LinePlot) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	{
@@ -35,7 +34,7 @@ func EncodeLinePlot(w *xbinary.Writer, s *LinePlot) error {
 	return nil
 }
 
-func DecodeLinePlot(r *xbinary.Reader, s *LinePlot) error {
+func DecodeLinePlot(r *orc.Reader, s *LinePlot) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -59,8 +58,8 @@ func DecodeLinePlot(r *xbinary.Reader, s *LinePlot) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type linePlotCodec struct{}
 
@@ -68,7 +67,7 @@ var LinePlotCodec xbinary.Codec = linePlotCodec{}
 
 func (linePlotCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(LinePlot)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeLinePlot(w, &s)
 	out := w.Copy()
@@ -87,7 +86,7 @@ func (c linePlotCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 
 func (linePlotCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*LinePlot)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeLinePlot(r, s)
 	readerPool.Put(r)

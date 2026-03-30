@@ -194,7 +194,7 @@ func tpNames(tps []typeParamData) string {
 func encodeArgs(tps []typeParamData) string {
 	parts := make([]string, len(tps))
 	for i, tp := range tps {
-		parts[i] = "encode" + naming.ToPascalCase(tp.Name) + " func(*xbinary.Writer, *" + tp.Name + ") error"
+		parts[i] = "encode" + naming.ToPascalCase(tp.Name) + " func(*orc.Writer, *" + tp.Name + ") error"
 	}
 	return strings.Join(parts, ", ")
 }
@@ -202,7 +202,7 @@ func encodeArgs(tps []typeParamData) string {
 func decodeArgs(tps []typeParamData) string {
 	parts := make([]string, len(tps))
 	for i, tp := range tps {
-		parts[i] = "decode" + naming.ToPascalCase(tp.Name) + " func(*xbinary.Reader, *" + tp.Name + ") error"
+		parts[i] = "decode" + naming.ToPascalCase(tp.Name) + " func(*orc.Reader, *" + tp.Name + ") error"
 	}
 	return strings.Join(parts, ", ")
 }
@@ -624,13 +624,23 @@ func (b *encoderBuilder) processArray(
 		return err
 	}
 
-	idx := b.loopIndex()
+	// Write a presence bit to distinguish nil from empty slices.
 	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
-		ind+fmt.Sprintf("for %s := range %s {", idx, getPath),
+		ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+		ind+fmt.Sprintf("if %s != nil {", getPath),
 	)
 	b.decodeLines = append(b.decodeLines,
-		ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+		ind+"{ present, err := r.Bool(); if err != nil { return err }",
+		ind+"if present {",
+	)
+
+	idx := b.loopIndex()
+	b.encodeLines = append(b.encodeLines,
+		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
+		ind+fmt.Sprintf("\tfor %s := range %s {", idx, getPath),
+	)
+	b.decodeLines = append(b.decodeLines,
+		ind+"\tn, err := r.Uint32(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make([]%s, n)", setPath, goType),
 		ind+fmt.Sprintf("\tfor %s := range %s {", idx, setPath),
 	)
@@ -645,8 +655,8 @@ func (b *encoderBuilder) processArray(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"}")
-	b.decodeLines = append(b.decodeLines, ind+"\t}", ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}", ind+"}")
+	b.decodeLines = append(b.decodeLines, ind+"\t}", ind+"}", ind+"}")
 	return nil
 }
 
@@ -672,12 +682,22 @@ func (b *encoderBuilder) processMap(
 		return err
 	}
 
+	// Write a presence bit to distinguish nil from empty maps.
 	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
-		ind+fmt.Sprintf("for key, val := range %s {", getPath),
+		ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+		ind+fmt.Sprintf("if %s != nil {", getPath),
 	)
 	b.decodeLines = append(b.decodeLines,
-		ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+		ind+"{ present, err := r.Bool(); if err != nil { return err }",
+		ind+"if present {",
+	)
+
+	b.encodeLines = append(b.encodeLines,
+		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
+		ind+fmt.Sprintf("\tfor key, val := range %s {", getPath),
+	)
+	b.decodeLines = append(b.decodeLines,
+		ind+"\tn, err := r.Uint32(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
 		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
@@ -695,11 +715,11 @@ func (b *encoderBuilder) processMap(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}", ind+"}")
 	b.decodeLines = append(b.decodeLines,
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
-		ind+"}",
+		ind+"}", ind+"}",
 	)
 	return nil
 }
@@ -749,14 +769,21 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bytes":
+		// Write a presence bit to distinguish nil from empty byte slices.
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
-			ind+fmt.Sprintf("w.Write(%s)", getPath),
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+			ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
+			ind+fmt.Sprintf("\tw.Write(%s)", getPath),
+			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+			ind+"\tn, err := r.Uint32(); if err != nil { return err }",
 			ind+fmt.Sprintf("\t%s = make([]byte, n)", setPath),
-			ind+fmt.Sprintf("\tif _, err = r.Read(%s); err != nil { return err } }", setPath),
+			ind+fmt.Sprintf("\tif _, err = r.Read(%s); err != nil { return err }", setPath),
+			ind+"} }",
 		)
 
 	case "bool":
@@ -991,7 +1018,6 @@ package {{.Package}}
 import (
 {{- if .Adapters}}
 	"context"
-	"encoding/binary"
 	"io"
 	"sync"
 {{- end}}
@@ -999,18 +1025,21 @@ import (
 	"encoding/json"
 {{- end}}
 
+{{- if .Adapters}}
 	xbinary "github.com/synnaxlabs/x/binary"
+{{- end}}
+	"github.com/synnaxlabs/x/encoding/orc"
 {{- range $path, $alias := .ExtraImports}}
 	{{if $alias}}{{$alias}} {{end}}"{{$path}}"
 {{- end}}
 )
 {{range .ConcreteCodecs}}
-func Encode{{.GoName}}(w *xbinary.Writer, s *{{.GoName}}) error {
+func Encode{{.GoName}}(w *orc.Writer, s *{{.GoName}}) error {
 {{.EncodeBody}}
 	return nil
 }
 
-func Decode{{.GoName}}(r *xbinary.Reader, s *{{.GoName}}) error {
+func Decode{{.GoName}}(r *orc.Reader, s *{{.GoName}}) error {
 {{- if .UsesErr}}
 	var err error
 {{- end}}
@@ -1018,12 +1047,12 @@ func Decode{{.GoName}}(r *xbinary.Reader, s *{{.GoName}}) error {
 	return nil
 }
 {{end}}{{range .GenericCodecs}}
-func Encode{{.GoName}}[{{tpList .TypeParams}}](w *xbinary.Writer, s *{{.GoName}}[{{tpNames .TypeParams}}], {{encodeArgs .TypeParams}}) error {
+func Encode{{.GoName}}[{{tpList .TypeParams}}](w *orc.Writer, s *{{.GoName}}[{{tpNames .TypeParams}}], {{encodeArgs .TypeParams}}) error {
 {{.EncodeBody}}
 	return nil
 }
 
-func Decode{{.GoName}}[{{tpList .TypeParams}}](r *xbinary.Reader, s *{{.GoName}}[{{tpNames .TypeParams}}], {{decodeArgs .TypeParams}}) error {
+func Decode{{.GoName}}[{{tpList .TypeParams}}](r *orc.Reader, s *{{.GoName}}[{{tpNames .TypeParams}}], {{decodeArgs .TypeParams}}) error {
 {{- if .UsesErr}}
 	var err error
 {{- end}}
@@ -1031,8 +1060,8 @@ func Decode{{.GoName}}[{{tpList .TypeParams}}](r *xbinary.Reader, s *{{.GoName}}
 	return nil
 }
 {{end}}{{if .Adapters}}
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 {{range .Adapters}}
 type {{lowerFirst .GoName}}Codec struct{}
 
@@ -1040,7 +1069,7 @@ var {{.GoName}}Codec xbinary.Codec = {{lowerFirst .GoName}}Codec{}
 
 func ({{lowerFirst .GoName}}Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.({{.GoName}})
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := Encode{{.GoName}}(w, &s)
 	out := w.Copy()
@@ -1059,7 +1088,7 @@ func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writ
 
 func ({{lowerFirst .GoName}}Codec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*{{.GoName}})
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := Decode{{.GoName}}(r, s)
 	readerPool.Put(r)

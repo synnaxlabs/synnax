@@ -13,14 +13,13 @@ package user
 
 import (
 	"context"
-	"encoding/binary"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeUser(w *xbinary.Writer, s *User) error {
+func EncodeUser(w *orc.Writer, s *User) error {
 	w.Write(s.Key[:])
 	w.String(s.Username)
 	w.String(s.FirstName)
@@ -29,7 +28,7 @@ func EncodeUser(w *xbinary.Writer, s *User) error {
 	return nil
 }
 
-func DecodeUser(r *xbinary.Reader, s *User) error {
+func DecodeUser(r *orc.Reader, s *User) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -49,8 +48,8 @@ func DecodeUser(r *xbinary.Reader, s *User) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type userCodec struct{}
 
@@ -58,7 +57,7 @@ var UserCodec xbinary.Codec = userCodec{}
 
 func (userCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(User)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeUser(w, &s)
 	out := w.Copy()
@@ -77,7 +76,7 @@ func (c userCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 
 func (userCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*User)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeUser(r, s)
 	readerPool.Put(r)

@@ -12,44 +12,86 @@
 package spatial_test
 
 import (
-	"encoding/binary"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/x/spatial"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("XY", func() {
-		It("should round-trip encode and decode", func() {
-			original := spatial.XY{X: 2.5, Y: 2.5}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(spatial.EncodeXY(w, &original)).To(Succeed())
-			var decoded spatial.XY
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(spatial.DecodeXY(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original spatial.XY) {
+				w := orc.NewWriter(0)
+				Expect(spatial.EncodeXY(w, &original)).To(Succeed())
+				var decoded spatial.XY
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(spatial.DecodeXY(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", spatial.XY{X: 1.5, Y: 2.5}),
+			Entry("zero values", spatial.XY{X: 0, Y: 0}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeXY(b *testing.B) {
-	s := spatial.XY{X: 2.5, Y: 2.5}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := spatial.XY{X: 1.5, Y: 2.5}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := spatial.EncodeXY(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded spatial.XY
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := spatial.DecodeXY(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeXY(f *testing.F) {
+	{
+		seed := spatial.XY{X: 1.5, Y: 2.5}
+		w := orc.NewWriter(0)
+		if err := spatial.EncodeXY(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := spatial.XY{X: 0, Y: 0}
+		w := orc.NewWriter(0)
+		if err := spatial.EncodeXY(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded spatial.XY
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := spatial.DecodeXY(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := spatial.EncodeXY(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded spatial.XY
+		r.ResetBytes(w.Bytes())
+		if err := spatial.DecodeXY(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

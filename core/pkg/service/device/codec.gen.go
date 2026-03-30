@@ -13,18 +13,17 @@ package device
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
-	"io"
-	"sync"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/status"
+	"io"
+	"sync"
 )
 
-func EncodeDevice(w *xbinary.Writer, s *Device) error {
+func EncodeDevice(w *orc.Writer, s *Device) error {
 	w.String(s.Key)
 	w.Uint32(uint32(s.Rack))
 	w.String(s.Location)
@@ -59,7 +58,7 @@ func EncodeDevice(w *xbinary.Writer, s *Device) error {
 	return nil
 }
 
-func DecodeDevice(r *xbinary.Reader, s *Device) error {
+func DecodeDevice(r *orc.Reader, s *Device) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
@@ -128,13 +127,13 @@ func DecodeDevice(r *xbinary.Reader, s *Device) error {
 	return nil
 }
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
 	w.Uint32(uint32(s.Rack))
 	w.String(s.Device)
 	return nil
 }
 
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 	var err error
 	{
 		v, err := r.Uint32()
@@ -149,8 +148,8 @@ func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type deviceCodec struct{}
 
@@ -158,7 +157,7 @@ var DeviceCodec xbinary.Codec = deviceCodec{}
 
 func (deviceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Device)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeDevice(w, &s)
 	out := w.Copy()
@@ -177,7 +176,7 @@ func (c deviceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) e
 
 func (deviceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Device)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeDevice(r, s)
 	readerPool.Put(r)

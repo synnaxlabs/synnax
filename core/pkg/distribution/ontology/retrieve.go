@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -182,24 +183,24 @@ func parentsRawFilter(ids []ID) gorp.RawFilter {
 	}
 	return func(data []byte) bool {
 		// Skip From.Type and From.Key (fields 0, 1)
-		rest := gorp.SkipRawFields(data, 2)
-		if rest == nil {
+		r := orc.Raw(data).SkipStrings(2)
+		if r == nil {
 			return true // malformed, fallback to full decode
 		}
 		// Read Type (field 2)
-		typeVal, rest := gorp.ReadRawField(rest)
-		if rest == nil {
+		typeVal, r := r.ReadString()
+		if r == nil {
 			return true
 		}
 		if !bytes.Equal(typeVal, parentBytes) {
 			return false
 		}
 		// Read To.Type (field 3) and To.Key (field 4)
-		toType, rest := gorp.ReadRawField(rest)
-		if rest == nil {
+		toType, r := r.ReadString()
+		if r == nil {
 			return true
 		}
-		toKey, _ := gorp.ReadRawField(rest)
+		toKey, _ := r.ReadString()
 		if toKey == nil {
 			return true
 		}

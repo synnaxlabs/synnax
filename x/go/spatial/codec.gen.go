@@ -12,16 +12,16 @@
 package spatial
 
 import (
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeXY(w *xbinary.Writer, s *XY) error {
+func EncodeXY(w *orc.Writer, s *XY) error {
 	w.Float64(float64(s.X))
 	w.Float64(float64(s.Y))
 	return nil
 }
 
-func DecodeXY(r *xbinary.Reader, s *XY) error {
+func DecodeXY(r *orc.Reader, s *XY) error {
 	var err error
 	if s.X, err = r.Float64(); err != nil {
 		return err

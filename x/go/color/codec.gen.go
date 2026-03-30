@@ -12,10 +12,10 @@
 package color
 
 import (
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeColor(w *xbinary.Writer, s *Color) error {
+func EncodeColor(w *orc.Writer, s *Color) error {
 	w.Uint8(uint8(s.R))
 	w.Uint8(uint8(s.G))
 	w.Uint8(uint8(s.B))
@@ -23,7 +23,7 @@ func EncodeColor(w *xbinary.Writer, s *Color) error {
 	return nil
 }
 
-func DecodeColor(r *xbinary.Reader, s *Color) error {
+func DecodeColor(r *orc.Reader, s *Color) error {
 	var err error
 	if s.R, err = r.Uint8(); err != nil {
 		return err

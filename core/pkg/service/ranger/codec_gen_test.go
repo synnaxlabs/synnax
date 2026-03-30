@@ -13,13 +13,14 @@ package ranger_test
 
 import (
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
@@ -28,43 +29,157 @@ import (
 
 var _ = Describe("Codec", func() {
 	Describe("Range", func() {
-		It("should round-trip encode and decode", func() {
-			original := ranger.Range{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", TimeRange: telem.TimeRange{Start: telem.TimeStamp(4), End: telem.TimeStamp(4)}, Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(ranger.EncodeRange(w, &original)).To(Succeed())
-			var decoded ranger.Range
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(ranger.DecodeRange(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original ranger.Range) {
+				w := orc.NewWriter(0)
+				Expect(ranger.EncodeRange(w, &original)).To(Succeed())
+				var decoded ranger.Range
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(ranger.DecodeRange(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", ranger.Range{
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:      "test_2",
+				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
+				Color: color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				},
+			}),
+			Entry("zero values", ranger.Range{
+				Key:       uuid.Nil,
+				Name:      "",
+				TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
+			}),
+		)
 	})
 	Describe("RangeCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := ranger.Range{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", TimeRange: telem.TimeRange{Start: telem.TimeStamp(4), End: telem.TimeStamp(4)}, Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}
-			ctx := context.Background()
-			data, err := ranger.RangeCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded ranger.Range
-			Expect(ranger.RangeCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original ranger.Range) {
+				ctx := context.Background()
+				data := MustSucceed(ranger.RangeCodec.Encode(ctx, original))
+				var decoded ranger.Range
+				Expect(ranger.RangeCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", ranger.Range{
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:      "test_2",
+				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
+				Color: color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				},
+			}),
+			Entry("zero values", ranger.Range{
+				Key:       uuid.Nil,
+				Name:      "",
+				TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeRange(b *testing.B) {
-	s := ranger.Range{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", TimeRange: telem.TimeRange{Start: telem.TimeStamp(4), End: telem.TimeStamp(4)}, Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := ranger.Range{
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:      "test_2",
+		TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
+		Color: color.Color{
+			R: 8,
+			G: 9,
+			B: 10,
+			A: 10.5,
+		},
+	}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := ranger.EncodeRange(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ranger.Range
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := ranger.DecodeRange(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeRange(f *testing.F) {
+	{
+		seed := ranger.Range{
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:      "test_2",
+			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
+			Color: color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := ranger.EncodeRange(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := ranger.Range{
+			Key:       uuid.Nil,
+			Name:      "",
+			TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
+			Color: color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := ranger.EncodeRange(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded ranger.Range
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := ranger.DecodeRange(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := ranger.EncodeRange(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded ranger.Range
+		r.ResetBytes(w.Bytes())
+		if err := ranger.DecodeRange(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

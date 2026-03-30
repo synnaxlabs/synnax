@@ -13,16 +13,15 @@ package task
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/status"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/status"
 )
 
-func EncodeTask(w *xbinary.Writer, s *Task) error {
+func EncodeTask(w *orc.Writer, s *Task) error {
 	w.Uint64(uint64(s.Key))
 	w.String(s.Name)
 	w.String(s.Type)
@@ -47,7 +46,7 @@ func EncodeTask(w *xbinary.Writer, s *Task) error {
 	return nil
 }
 
-func DecodeTask(r *xbinary.Reader, s *Task) error {
+func DecodeTask(r *orc.Reader, s *Task) error {
 	var err error
 	{
 		v, err := r.Uint64()
@@ -97,7 +96,7 @@ func DecodeTask(r *xbinary.Reader, s *Task) error {
 	return nil
 }
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
 	w.Uint64(uint64(s.Task))
 	w.Bool(s.Running)
 	w.String(s.Cmd)
@@ -117,7 +116,7 @@ func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
 	return nil
 }
 
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 	var err error
 	{
 		v, err := r.Uint64()
@@ -156,8 +155,8 @@ func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type taskCodec struct{}
 
@@ -165,7 +164,7 @@ var TaskCodec xbinary.Codec = taskCodec{}
 
 func (taskCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Task)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeTask(w, &s)
 	out := w.Copy()
@@ -184,7 +183,7 @@ func (c taskCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 
 func (taskCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Task)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeTask(r, s)
 	readerPool.Put(r)

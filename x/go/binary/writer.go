@@ -9,10 +9,7 @@
 
 package binary
 
-import (
-	"encoding/binary"
-	"math"
-)
+import "encoding/binary"
 
 // Writer encodes primitive data types into a growable byte buffer using a
 // configurable byte order. Methods append to the internal buffer, which grows
@@ -60,43 +57,6 @@ func (w *Writer) Uint32(v uint32) { w.buf = w.order.AppendUint32(w.buf, v) }
 // Uint64 appends a 64-bit unsigned integer.
 func (w *Writer) Uint64(v uint64) { w.buf = w.order.AppendUint64(w.buf, v) }
 
-// Int8 appends a signed 8-bit integer.
-func (w *Writer) Int8(v int8) { w.buf = append(w.buf, byte(v)) }
-
-// Int16 appends a signed 16-bit integer.
-func (w *Writer) Int16(v int16) { w.buf = w.order.AppendUint16(w.buf, uint16(v)) }
-
-// Int32 appends a signed 32-bit integer.
-func (w *Writer) Int32(v int32) { w.buf = w.order.AppendUint32(w.buf, uint32(v)) }
-
-// Int64 appends a signed 64-bit integer.
-func (w *Writer) Int64(v int64) { w.buf = w.order.AppendUint64(w.buf, uint64(v)) }
-
-// Float32 appends a 32-bit float.
-func (w *Writer) Float32(v float32) {
-	w.buf = w.order.AppendUint32(w.buf, math.Float32bits(v))
-}
-
-// Float64 appends a 64-bit float.
-func (w *Writer) Float64(v float64) {
-	w.buf = w.order.AppendUint64(w.buf, math.Float64bits(v))
-}
-
-// Bool appends a single byte: 1 for true, 0 for false.
-func (w *Writer) Bool(v bool) {
-	if v {
-		w.buf = append(w.buf, 1)
-	} else {
-		w.buf = append(w.buf, 0)
-	}
-}
-
-// String appends a length-prefixed string (4-byte length + raw bytes).
-func (w *Writer) String(v string) {
-	w.buf = w.order.AppendUint32(w.buf, uint32(len(v)))
-	w.buf = append(w.buf, v...)
-}
-
 // Write appends raw bytes without any length prefix.
 func (w *Writer) Write(data []byte) { w.buf = append(w.buf, data...) }
 
@@ -106,10 +66,3 @@ func (w *Writer) Bytes() []byte { return w.buf }
 
 // Len returns the number of bytes written so far.
 func (w *Writer) Len() int { return len(w.buf) }
-
-// Copy returns an owned copy of the encoded bytes.
-func (w *Writer) Copy() []byte {
-	out := make([]byte, len(w.buf))
-	copy(out, w.buf)
-	return out
-}

@@ -57,8 +57,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 						"w.String(s.Name)",
 						"w.Int32(int32(s.Age))",
 						"TestCodec xbinary.Codec",
-						"func EncodeTest(w *xbinary.Writer",
-						"func DecodeTest(r *xbinary.Reader",
+						"func EncodeTest(w *orc.Writer",
+						"func DecodeTest(r *orc.Reader",
 					)
 			})
 		})
@@ -218,6 +218,75 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("TestCodec xbinary.Codec")
+			})
+		})
+
+		Context("array field nil preservation", func() {
+			It("Should generate a presence bit before the array length", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name  string
+						items string[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain(
+						"w.Bool(s.Items != nil)",
+						"if s.Items != nil {",
+						"present, err := r.Bool()",
+						"if present {",
+					)
+			})
+		})
+
+		Context("map field nil preservation", func() {
+			It("Should generate a presence bit before the map length", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name   string
+						labels map<string, string>
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain(
+						"w.Bool(s.Labels != nil)",
+						"if s.Labels != nil {",
+						"present, err := r.Bool()",
+						"if present {",
+					)
+			})
+		})
+
+		Context("bytes field nil preservation", func() {
+			It("Should generate a presence bit before the byte slice length", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name string
+						data bytes
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain(
+						"w.Bool(s.Data != nil)",
+						"if s.Data != nil {",
+						"present, err := r.Bool()",
+						"if present {",
+					)
 			})
 		})
 

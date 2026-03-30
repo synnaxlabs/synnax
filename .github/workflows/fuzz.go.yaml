@@ -1,0 +1,76 @@
+name: Fuzz - Go Codecs
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Weekly, Monday 3am UTC
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: x/go
+            packages: >-
+              ./color/
+              ./label/
+              ./spatial/
+              ./telem/
+          - module: core
+            packages: >-
+              ./pkg/distribution/channel/
+              ./pkg/distribution/group/
+              ./pkg/distribution/ontology/
+              ./pkg/service/arc/
+              ./pkg/service/device/
+              ./pkg/service/lineplot/
+              ./pkg/service/log/
+              ./pkg/service/rack/
+              ./pkg/service/ranger/
+              ./pkg/service/schematic/
+              ./pkg/service/table/
+              ./pkg/service/user/
+              ./pkg/service/workspace/
+          - module: arc/go
+            packages: >-
+              ./compiler/
+              ./graph/
+              ./ir/
+              ./program/
+              ./text/
+              ./types/
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.mod
+            ${{ matrix.module }}/go.sum
+
+      - name: Fuzz
+        working-directory: ${{ matrix.module }}
+        run: |
+          for pkg in ${{ matrix.packages }}; do
+            echo "::group::Fuzzing $pkg"
+            # List all fuzz targets in the package
+            targets=$(go test "$pkg" -list '^Fuzz' -run '^$' 2>/dev/null | grep '^Fuzz' || true)
+            for target in $targets; do
+              echo "--- $target ---"
+              go test "$pkg" -fuzz="^${target}$" -fuzztime=60s -run='^$'
+            done
+            echo "::endgroup::"
+          done
+
+      - name: Upload crash corpus
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ matrix.module }}
+          path: ${{ matrix.module }}/**/testdata/fuzz/

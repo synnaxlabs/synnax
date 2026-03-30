@@ -12,12 +12,12 @@
 package status
 
 import (
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
-func EncodeStatus[Details any](w *xbinary.Writer, s *Status[Details], encodeDetails func(*xbinary.Writer, *Details) error) error {
+func EncodeStatus[Details any](w *orc.Writer, s *Status[Details], encodeDetails func(*orc.Writer, *Details) error) error {
 	w.String(s.Key)
 	w.String(s.Name)
 	w.String(string(s.Variant))
@@ -29,10 +29,13 @@ func EncodeStatus[Details any](w *xbinary.Writer, s *Status[Details], encodeDeta
 	}
 	if s.Labels != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Labels)))
-		for j := range s.Labels {
-			if err := label.EncodeLabel(w, &s.Labels[j]); err != nil {
-				return err
+		w.Bool(s.Labels != nil)
+		if s.Labels != nil {
+			w.Uint32(uint32(len(s.Labels)))
+			for j := range s.Labels {
+				if err := label.EncodeLabel(w, &s.Labels[j]); err != nil {
+					return err
+				}
 			}
 		}
 	} else {
@@ -41,7 +44,7 @@ func EncodeStatus[Details any](w *xbinary.Writer, s *Status[Details], encodeDeta
 	return nil
 }
 
-func DecodeStatus[Details any](r *xbinary.Reader, s *Status[Details], decodeDetails func(*xbinary.Reader, *Details) error) error {
+func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails func(*orc.Reader, *Details) error) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
@@ -79,14 +82,20 @@ func DecodeStatus[Details any](r *xbinary.Reader, s *Status[Details], decodeDeta
 		}
 		if present {
 			{
-				n, err := r.Uint32()
+				present, err := r.Bool()
 				if err != nil {
 					return err
 				}
-				s.Labels = make([]label.Label, n)
-				for j := range s.Labels {
-					if err = label.DecodeLabel(r, &s.Labels[j]); err != nil {
+				if present {
+					n, err := r.Uint32()
+					if err != nil {
 						return err
+					}
+					s.Labels = make([]label.Label, n)
+					for j := range s.Labels {
+						if err = label.DecodeLabel(r, &s.Labels[j]); err != nil {
+							return err
+						}
 					}
 				}
 			}

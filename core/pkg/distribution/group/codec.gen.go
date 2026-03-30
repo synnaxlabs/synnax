@@ -13,20 +13,19 @@ package group
 
 import (
 	"context"
-	"encoding/binary"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeGroup(w *xbinary.Writer, s *Group) error {
+func EncodeGroup(w *orc.Writer, s *Group) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	return nil
 }
 
-func DecodeGroup(r *xbinary.Reader, s *Group) error {
+func DecodeGroup(r *orc.Reader, s *Group) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -37,8 +36,8 @@ func DecodeGroup(r *xbinary.Reader, s *Group) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type groupCodec struct{}
 
@@ -46,7 +45,7 @@ var GroupCodec xbinary.Codec = groupCodec{}
 
 func (groupCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Group)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeGroup(w, &s)
 	out := w.Copy()
@@ -65,7 +64,7 @@ func (c groupCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 
 func (groupCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Group)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeGroup(r, s)
 	readerPool.Put(r)

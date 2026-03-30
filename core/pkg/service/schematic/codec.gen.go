@@ -13,15 +13,14 @@ package schematic
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
+func EncodeSchematic(w *orc.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	{
@@ -36,7 +35,7 @@ func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
 	return nil
 }
 
-func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
+func DecodeSchematic(r *orc.Reader, s *Schematic) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -63,8 +62,8 @@ func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type schematicCodec struct{}
 
@@ -72,7 +71,7 @@ var SchematicCodec xbinary.Codec = schematicCodec{}
 
 func (schematicCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Schematic)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeSchematic(w, &s)
 	out := w.Copy()
@@ -91,7 +90,7 @@ func (c schematicCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 
 func (schematicCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Schematic)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeSchematic(r, s)
 	readerPool.Put(r)

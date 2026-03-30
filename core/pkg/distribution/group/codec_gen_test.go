@@ -13,56 +13,113 @@ package group_test
 
 import (
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Group", func() {
-		It("should round-trip encode and decode", func() {
-			original := group.Group{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(group.EncodeGroup(w, &original)).To(Succeed())
-			var decoded group.Group
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(group.DecodeGroup(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original group.Group) {
+				w := orc.NewWriter(0)
+				Expect(group.EncodeGroup(w, &original)).To(Succeed())
+				var decoded group.Group
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(group.DecodeGroup(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", group.Group{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+			}),
+			Entry("zero values", group.Group{Key: uuid.Nil, Name: ""}),
+		)
 	})
 	Describe("GroupCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := group.Group{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test"}
-			ctx := context.Background()
-			data, err := group.GroupCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded group.Group
-			Expect(group.GroupCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original group.Group) {
+				ctx := context.Background()
+				data := MustSucceed(group.GroupCodec.Encode(ctx, original))
+				var decoded group.Group
+				Expect(group.GroupCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", group.Group{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+			}),
+			Entry("zero values", group.Group{Key: uuid.Nil, Name: ""}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeGroup(b *testing.B) {
-	s := group.Group{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := group.Group{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+	}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := group.EncodeGroup(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded group.Group
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := group.DecodeGroup(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeGroup(f *testing.F) {
+	{
+		seed := group.Group{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+		}
+		w := orc.NewWriter(0)
+		if err := group.EncodeGroup(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := group.Group{Key: uuid.Nil, Name: ""}
+		w := orc.NewWriter(0)
+		if err := group.EncodeGroup(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded group.Group
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := group.DecodeGroup(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := group.EncodeGroup(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded group.Group
+		r.ResetBytes(w.Bytes())
+		if err := group.DecodeGroup(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

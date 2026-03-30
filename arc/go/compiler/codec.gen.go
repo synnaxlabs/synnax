@@ -12,47 +12,65 @@
 package compiler
 
 import (
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeOutput(w *xbinary.Writer, s *Output) error {
-	w.Uint32(uint32(len(s.WASM)))
-	w.Write(s.WASM)
-	w.Uint32(uint32(len(s.OutputMemoryBases)))
-	for key, val := range s.OutputMemoryBases {
-		w.String(key)
-		w.Uint32(uint32(val))
+func EncodeOutput(w *orc.Writer, s *Output) error {
+	w.Bool(s.WASM != nil)
+	if s.WASM != nil {
+		w.Uint32(uint32(len(s.WASM)))
+		w.Write(s.WASM)
+	}
+	w.Bool(s.OutputMemoryBases != nil)
+	if s.OutputMemoryBases != nil {
+		w.Uint32(uint32(len(s.OutputMemoryBases)))
+		for key, val := range s.OutputMemoryBases {
+			w.String(key)
+			w.Uint32(uint32(val))
+		}
 	}
 	return nil
 }
 
-func DecodeOutput(r *xbinary.Reader, s *Output) error {
+func DecodeOutput(r *orc.Reader, s *Output) error {
 	{
-		n, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.WASM = make([]byte, n)
-		if _, err = r.Read(s.WASM); err != nil {
-			return err
+		if present {
+			n, err := r.Uint32()
+			if err != nil {
+				return err
+			}
+			s.WASM = make([]byte, n)
+			if _, err = r.Read(s.WASM); err != nil {
+				return err
+			}
 		}
 	}
 	{
-		n, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.OutputMemoryBases = make(map[string]uint32, n)
-		for range n {
-			var key string
-			var val uint32
-			if key, err = r.String(); err != nil {
+		if present {
+			n, err := r.Uint32()
+			if err != nil {
 				return err
 			}
-			if val, err = r.Uint32(); err != nil {
-				return err
+			s.OutputMemoryBases = make(map[string]uint32, n)
+			for range n {
+				var key string
+				var val uint32
+				if key, err = r.String(); err != nil {
+					return err
+				}
+				if val, err = r.Uint32(); err != nil {
+					return err
+				}
+				s.OutputMemoryBases[key] = val
 			}
-			s.OutputMemoryBases[key] = val
 		}
 	}
 	return nil

@@ -13,56 +13,136 @@ package schematic_test
 
 import (
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Schematic", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}, Snapshot: true}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeSchematic(w, &original)).To(Succeed())
-			var decoded schematic.Schematic
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeSchematic(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.Schematic) {
+				w := orc.NewWriter(0)
+				Expect(schematic.EncodeSchematic(w, &original)).To(Succeed())
+				var decoded schematic.Schematic
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(schematic.DecodeSchematic(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Schematic{
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Data:     map[string]interface{}{"key_3": "value_3"},
+				Snapshot: false,
+			}),
+			Entry("zero values", schematic.Schematic{
+				Key:      uuid.Nil,
+				Name:     "",
+				Data:     nil,
+				Snapshot: false,
+			}),
+		)
 	})
 	Describe("SchematicCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}, Snapshot: true}
-			ctx := context.Background()
-			data, err := schematic.SchematicCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded schematic.Schematic
-			Expect(schematic.SchematicCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original schematic.Schematic) {
+				ctx := context.Background()
+				data := MustSucceed(schematic.SchematicCodec.Encode(ctx, original))
+				var decoded schematic.Schematic
+				Expect(schematic.SchematicCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Schematic{
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Data:     map[string]interface{}{"key_3": "value_3"},
+				Snapshot: false,
+			}),
+			Entry("zero values", schematic.Schematic{
+				Key:      uuid.Nil,
+				Name:     "",
+				Data:     nil,
+				Snapshot: false,
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
-	s := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}, Snapshot: true}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := schematic.Schematic{
+		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:     "test_2",
+		Data:     map[string]interface{}{"key_3": "value_3"},
+		Snapshot: false,
+	}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := schematic.EncodeSchematic(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded schematic.Schematic
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := schematic.DecodeSchematic(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeSchematic(f *testing.F) {
+	{
+		seed := schematic.Schematic{
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Data:     map[string]interface{}{"key_3": "value_3"},
+			Snapshot: false,
+		}
+		w := orc.NewWriter(0)
+		if err := schematic.EncodeSchematic(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Schematic{
+			Key:      uuid.Nil,
+			Name:     "",
+			Data:     nil,
+			Snapshot: false,
+		}
+		w := orc.NewWriter(0)
+		if err := schematic.EncodeSchematic(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.Schematic
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := schematic.DecodeSchematic(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := schematic.EncodeSchematic(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.Schematic
+		r.ResetBytes(w.Bytes())
+		if err := schematic.DecodeSchematic(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

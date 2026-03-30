@@ -13,13 +13,14 @@ package arc_test
 
 import (
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
@@ -37,70 +38,611 @@ import (
 
 var _ = Describe("Codec", func() {
 	Describe("Arc", func() {
-		It("should round-trip encode and decode", func() {
-			original := arc.Arc{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Mode: arc.Mode("text"), Graph: graph.Graph{Viewport: graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}, Functions: []ir.Function{{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Nodes: []graph.Node{{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}}}, Text: text.Text{Raw: "test"}, Program: func() *program.Program {
-				v := program.Program{IR: ir.IR{Functions: []ir.Function{{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Nodes: []ir.Node{{Key: "test", Type: "test", Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Strata: [][]string{{"test"}}, Sequences: []ir.Sequence{{Key: "test", Stages: []ir.Stage{{Key: "test", Nodes: []string{"test"}, Strata: [][]string{{"test"}}}}}}, Authorities: ir.Authorities{Default: func() *uint8 { v := uint8(5); return &v }(), Channels: map[uint32]uint8{7: 5}}}, Output: compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{"test": 7}}}
-				return &v
-			}(), Status: func() *status.Status[arc.StatusDetails] {
-				v := status.Status[arc.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: arc.StatusDetails{Running: true}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
-				return &v
-			}()}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(arc.EncodeArc(w, &original)).To(Succeed())
-			var decoded arc.Arc
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(arc.DecodeArc(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original arc.Arc) {
+				w := orc.NewWriter(0)
+				Expect(arc.EncodeArc(w, &original)).To(Succeed())
+				var decoded arc.Arc
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(arc.DecodeArc(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", arc.Arc{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Mode: arc.Mode("text"),
+				Graph: graph.Graph{
+					Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
+					Functions: []ir.Function{
+						{
+							Key:  "test_11",
+							Body: ir.Body{Raw: "test_13"},
+							Config: []types.Param{
+								{
+									Name:  "test_15",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_17": "value_17"},
+								},
+							},
+							Inputs: []types.Param{
+								{
+									Name:  "test_19",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_21": "value_21"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_23",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_25": "value_25"},
+								},
+							},
+							Channels: types.Channels{
+								Read:  map[uint32]string{28: "test_27"},
+								Write: map[uint32]string{29: "test_28"},
+							},
+						},
+					},
+					Edges: []ir.Edge{
+						{
+							Source: ir.Handle{Node: "test_31", Param: "test_32"},
+							Target: ir.Handle{Node: "test_34", Param: "test_35"},
+							Kind:   ir.EdgeKind(0),
+						},
+					},
+					Nodes: []graph.Node{
+						{
+							Key:      "test_38",
+							Type:     "test_39",
+							Config:   map[string]interface{}{"key_40": "value_40"},
+							Position: spatial.XY{X: 42.5, Y: 43.5},
+						},
+					},
+				},
+				Text: text.Text{Raw: "test_45"},
+				Program: func() *program.Program {
+					v := program.Program{
+						IR: ir.IR{
+							Functions: []ir.Function{
+								{
+									Key:  "test_48",
+									Body: ir.Body{Raw: "test_50"},
+									Config: []types.Param{
+										{
+											Name:  "test_52",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_54": "value_54"},
+										},
+									},
+									Inputs: []types.Param{
+										{
+											Name:  "test_56",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_58": "value_58"},
+										},
+									},
+									Outputs: []types.Param{
+										{
+											Name:  "test_60",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_62": "value_62"},
+										},
+									},
+									Channels: types.Channels{
+										Read:  map[uint32]string{65: "test_64"},
+										Write: map[uint32]string{66: "test_65"},
+									},
+								},
+							},
+							Nodes: []ir.Node{
+								{
+									Key:  "test_67",
+									Type: "test_68",
+									Config: []types.Param{
+										{
+											Name:  "test_70",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_72": "value_72"},
+										},
+									},
+									Inputs: []types.Param{
+										{
+											Name:  "test_74",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_76": "value_76"},
+										},
+									},
+									Outputs: []types.Param{
+										{
+											Name:  "test_78",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_80": "value_80"},
+										},
+									},
+									Channels: types.Channels{
+										Read:  map[uint32]string{83: "test_82"},
+										Write: map[uint32]string{84: "test_83"},
+									},
+								},
+							},
+							Edges: []ir.Edge{
+								{
+									Source: ir.Handle{Node: "test_86", Param: "test_87"},
+									Target: ir.Handle{Node: "test_89", Param: "test_90"},
+									Kind:   ir.EdgeKind(0),
+								},
+							},
+							Strata: [][]string{{"test_92"}},
+							Sequences: []ir.Sequence{
+								{
+									Key: "test_94",
+									Stages: []ir.Stage{
+										{
+											Key:    "test_96",
+											Nodes:  []string{"test_97"},
+											Strata: [][]string{{"test_98"}},
+										},
+									},
+								},
+							},
+							Authorities: ir.Authorities{
+								Default:  func() *uint8 { v := uint8(101); return &v }(),
+								Channels: map[uint32]uint8{102: 102},
+							},
+						},
+						Output: compiler.Output{
+							WASM:              []byte{102, 103, 104},
+							OutputMemoryBases: map[string]uint32{"test_103": 104},
+						},
+					}
+					return &v
+				}(),
+				Status: func() *status.Status[arc.StatusDetails] {
+					v := status.Status[arc.StatusDetails]{
+						Key:         "test_105",
+						Name:        "test_106",
+						Variant:     status.Variant("success"),
+						Message:     "test_108",
+						Description: "test_109",
+						Time:        telem.TimeStamp(111),
+						Details:     arc.StatusDetails{Running: false},
+						Labels: []label.Label{
+							{
+								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
+								Name: "test_115",
+								Color: color.Color{
+									R: 118,
+									G: 119,
+									B: 120,
+									A: 120.5,
+								},
+							},
+						},
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", arc.Arc{
+				Key:  uuid.Nil,
+				Name: "",
+				Mode: arc.Mode(""),
+				Graph: graph.Graph{
+					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
+					Functions: nil,
+					Edges:     nil,
+					Nodes:     nil,
+				},
+				Text:    text.Text{Raw: ""},
+				Program: nil,
+				Status:  nil,
+			}),
+		)
 	})
 	Describe("StatusDetails", func() {
-		It("should round-trip encode and decode", func() {
-			original := arc.StatusDetails{Running: true}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
-			var decoded arc.StatusDetails
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original arc.StatusDetails) {
+				w := orc.NewWriter(0)
+				Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
+				var decoded arc.StatusDetails
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", arc.StatusDetails{Running: true}),
+			Entry("zero values", arc.StatusDetails{Running: false}),
+		)
 	})
 	Describe("ArcCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := arc.Arc{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Mode: arc.Mode("text"), Graph: graph.Graph{Viewport: graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}, Functions: []ir.Function{{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Nodes: []graph.Node{{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}}}, Text: text.Text{Raw: "test"}, Program: func() *program.Program {
-				v := program.Program{IR: ir.IR{Functions: []ir.Function{{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Nodes: []ir.Node{{Key: "test", Type: "test", Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Strata: [][]string{{"test"}}, Sequences: []ir.Sequence{{Key: "test", Stages: []ir.Stage{{Key: "test", Nodes: []string{"test"}, Strata: [][]string{{"test"}}}}}}, Authorities: ir.Authorities{Default: func() *uint8 { v := uint8(5); return &v }(), Channels: map[uint32]uint8{7: 5}}}, Output: compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{"test": 7}}}
-				return &v
-			}(), Status: func() *status.Status[arc.StatusDetails] {
-				v := status.Status[arc.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: arc.StatusDetails{Running: true}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
-				return &v
-			}()}
-			ctx := context.Background()
-			data, err := arc.ArcCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded arc.Arc
-			Expect(arc.ArcCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original arc.Arc) {
+				ctx := context.Background()
+				data := MustSucceed(arc.ArcCodec.Encode(ctx, original))
+				var decoded arc.Arc
+				Expect(arc.ArcCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", arc.Arc{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Mode: arc.Mode("text"),
+				Graph: graph.Graph{
+					Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
+					Functions: []ir.Function{
+						{
+							Key:  "test_11",
+							Body: ir.Body{Raw: "test_13"},
+							Config: []types.Param{
+								{
+									Name:  "test_15",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_17": "value_17"},
+								},
+							},
+							Inputs: []types.Param{
+								{
+									Name:  "test_19",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_21": "value_21"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_23",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_25": "value_25"},
+								},
+							},
+							Channels: types.Channels{
+								Read:  map[uint32]string{28: "test_27"},
+								Write: map[uint32]string{29: "test_28"},
+							},
+						},
+					},
+					Edges: []ir.Edge{
+						{
+							Source: ir.Handle{Node: "test_31", Param: "test_32"},
+							Target: ir.Handle{Node: "test_34", Param: "test_35"},
+							Kind:   ir.EdgeKind(0),
+						},
+					},
+					Nodes: []graph.Node{
+						{
+							Key:      "test_38",
+							Type:     "test_39",
+							Config:   map[string]interface{}{"key_40": "value_40"},
+							Position: spatial.XY{X: 42.5, Y: 43.5},
+						},
+					},
+				},
+				Text: text.Text{Raw: "test_45"},
+				Program: func() *program.Program {
+					v := program.Program{
+						IR: ir.IR{
+							Functions: []ir.Function{
+								{
+									Key:  "test_48",
+									Body: ir.Body{Raw: "test_50"},
+									Config: []types.Param{
+										{
+											Name:  "test_52",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_54": "value_54"},
+										},
+									},
+									Inputs: []types.Param{
+										{
+											Name:  "test_56",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_58": "value_58"},
+										},
+									},
+									Outputs: []types.Param{
+										{
+											Name:  "test_60",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_62": "value_62"},
+										},
+									},
+									Channels: types.Channels{
+										Read:  map[uint32]string{65: "test_64"},
+										Write: map[uint32]string{66: "test_65"},
+									},
+								},
+							},
+							Nodes: []ir.Node{
+								{
+									Key:  "test_67",
+									Type: "test_68",
+									Config: []types.Param{
+										{
+											Name:  "test_70",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_72": "value_72"},
+										},
+									},
+									Inputs: []types.Param{
+										{
+											Name:  "test_74",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_76": "value_76"},
+										},
+									},
+									Outputs: []types.Param{
+										{
+											Name:  "test_78",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_80": "value_80"},
+										},
+									},
+									Channels: types.Channels{
+										Read:  map[uint32]string{83: "test_82"},
+										Write: map[uint32]string{84: "test_83"},
+									},
+								},
+							},
+							Edges: []ir.Edge{
+								{
+									Source: ir.Handle{Node: "test_86", Param: "test_87"},
+									Target: ir.Handle{Node: "test_89", Param: "test_90"},
+									Kind:   ir.EdgeKind(0),
+								},
+							},
+							Strata: [][]string{{"test_92"}},
+							Sequences: []ir.Sequence{
+								{
+									Key: "test_94",
+									Stages: []ir.Stage{
+										{
+											Key:    "test_96",
+											Nodes:  []string{"test_97"},
+											Strata: [][]string{{"test_98"}},
+										},
+									},
+								},
+							},
+							Authorities: ir.Authorities{
+								Default:  func() *uint8 { v := uint8(101); return &v }(),
+								Channels: map[uint32]uint8{102: 102},
+							},
+						},
+						Output: compiler.Output{
+							WASM:              []byte{102, 103, 104},
+							OutputMemoryBases: map[string]uint32{"test_103": 104},
+						},
+					}
+					return &v
+				}(),
+				Status: func() *status.Status[arc.StatusDetails] {
+					v := status.Status[arc.StatusDetails]{
+						Key:         "test_105",
+						Name:        "test_106",
+						Variant:     status.Variant("success"),
+						Message:     "test_108",
+						Description: "test_109",
+						Time:        telem.TimeStamp(111),
+						Details:     arc.StatusDetails{Running: false},
+						Labels: []label.Label{
+							{
+								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
+								Name: "test_115",
+								Color: color.Color{
+									R: 118,
+									G: 119,
+									B: 120,
+									A: 120.5,
+								},
+							},
+						},
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", arc.Arc{
+				Key:  uuid.Nil,
+				Name: "",
+				Mode: arc.Mode(""),
+				Graph: graph.Graph{
+					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
+					Functions: nil,
+					Edges:     nil,
+					Nodes:     nil,
+				},
+				Text:    text.Text{Raw: ""},
+				Program: nil,
+				Status:  nil,
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeArc(b *testing.B) {
-	s := arc.Arc{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Mode: arc.Mode("text"), Graph: graph.Graph{Viewport: graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}, Functions: []ir.Function{{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Nodes: []graph.Node{{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}}}, Text: text.Text{Raw: "test"}, Program: func() *program.Program {
-		v := program.Program{IR: ir.IR{Functions: []ir.Function{{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Nodes: []ir.Node{{Key: "test", Type: "test", Config: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Strata: [][]string{{"test"}}, Sequences: []ir.Sequence{{Key: "test", Stages: []ir.Stage{{Key: "test", Nodes: []string{"test"}, Strata: [][]string{{"test"}}}}}}, Authorities: ir.Authorities{Default: func() *uint8 { v := uint8(5); return &v }(), Channels: map[uint32]uint8{7: 5}}}, Output: compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{"test": 7}}}
-		return &v
-	}(), Status: func() *status.Status[arc.StatusDetails] {
-		v := status.Status[arc.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: arc.StatusDetails{Running: true}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
-		return &v
-	}()}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := arc.Arc{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Mode: arc.Mode("text"),
+		Graph: graph.Graph{
+			Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
+			Functions: []ir.Function{
+				{
+					Key:  "test_11",
+					Body: ir.Body{Raw: "test_13"},
+					Config: []types.Param{
+						{
+							Name:  "test_15",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_17": "value_17"},
+						},
+					},
+					Inputs: []types.Param{
+						{
+							Name:  "test_19",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_21": "value_21"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name:  "test_23",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_25": "value_25"},
+						},
+					},
+					Channels: types.Channels{
+						Read:  map[uint32]string{28: "test_27"},
+						Write: map[uint32]string{29: "test_28"},
+					},
+				},
+			},
+			Edges: []ir.Edge{
+				{
+					Source: ir.Handle{Node: "test_31", Param: "test_32"},
+					Target: ir.Handle{Node: "test_34", Param: "test_35"},
+					Kind:   ir.EdgeKind(0),
+				},
+			},
+			Nodes: []graph.Node{
+				{
+					Key:      "test_38",
+					Type:     "test_39",
+					Config:   map[string]interface{}{"key_40": "value_40"},
+					Position: spatial.XY{X: 42.5, Y: 43.5},
+				},
+			},
+		},
+		Text: text.Text{Raw: "test_45"},
+		Program: func() *program.Program {
+			v := program.Program{
+				IR: ir.IR{
+					Functions: []ir.Function{
+						{
+							Key:  "test_48",
+							Body: ir.Body{Raw: "test_50"},
+							Config: []types.Param{
+								{
+									Name:  "test_52",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_54": "value_54"},
+								},
+							},
+							Inputs: []types.Param{
+								{
+									Name:  "test_56",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_58": "value_58"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_60",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_62": "value_62"},
+								},
+							},
+							Channels: types.Channels{
+								Read:  map[uint32]string{65: "test_64"},
+								Write: map[uint32]string{66: "test_65"},
+							},
+						},
+					},
+					Nodes: []ir.Node{
+						{
+							Key:  "test_67",
+							Type: "test_68",
+							Config: []types.Param{
+								{
+									Name:  "test_70",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_72": "value_72"},
+								},
+							},
+							Inputs: []types.Param{
+								{
+									Name:  "test_74",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_76": "value_76"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_78",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_80": "value_80"},
+								},
+							},
+							Channels: types.Channels{
+								Read:  map[uint32]string{83: "test_82"},
+								Write: map[uint32]string{84: "test_83"},
+							},
+						},
+					},
+					Edges: []ir.Edge{
+						{
+							Source: ir.Handle{Node: "test_86", Param: "test_87"},
+							Target: ir.Handle{Node: "test_89", Param: "test_90"},
+							Kind:   ir.EdgeKind(0),
+						},
+					},
+					Strata: [][]string{{"test_92"}},
+					Sequences: []ir.Sequence{
+						{
+							Key: "test_94",
+							Stages: []ir.Stage{
+								{
+									Key:    "test_96",
+									Nodes:  []string{"test_97"},
+									Strata: [][]string{{"test_98"}},
+								},
+							},
+						},
+					},
+					Authorities: ir.Authorities{
+						Default:  func() *uint8 { v := uint8(101); return &v }(),
+						Channels: map[uint32]uint8{102: 102},
+					},
+				},
+				Output: compiler.Output{
+					WASM:              []byte{102, 103, 104},
+					OutputMemoryBases: map[string]uint32{"test_103": 104},
+				},
+			}
+			return &v
+		}(),
+		Status: func() *status.Status[arc.StatusDetails] {
+			v := status.Status[arc.StatusDetails]{
+				Key:         "test_105",
+				Name:        "test_106",
+				Variant:     status.Variant("success"),
+				Message:     "test_108",
+				Description: "test_109",
+				Time:        telem.TimeStamp(111),
+				Details:     arc.StatusDetails{Running: false},
+				Labels: []label.Label{
+					{
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
+						Name: "test_115",
+						Color: color.Color{
+							R: 118,
+							G: 119,
+							B: 120,
+							A: 120.5,
+						},
+					},
+				},
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := arc.EncodeArc(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded arc.Arc
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := arc.DecodeArc(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -110,17 +652,283 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	s := arc.StatusDetails{Running: true}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := arc.EncodeStatusDetails(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded arc.StatusDetails
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeArc(f *testing.F) {
+	{
+		seed := arc.Arc{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Mode: arc.Mode("text"),
+			Graph: graph.Graph{
+				Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
+				Functions: []ir.Function{
+					{
+						Key:  "test_11",
+						Body: ir.Body{Raw: "test_13"},
+						Config: []types.Param{
+							{
+								Name:  "test_15",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_17": "value_17"},
+							},
+						},
+						Inputs: []types.Param{
+							{
+								Name:  "test_19",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_21": "value_21"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name:  "test_23",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_25": "value_25"},
+							},
+						},
+						Channels: types.Channels{
+							Read:  map[uint32]string{28: "test_27"},
+							Write: map[uint32]string{29: "test_28"},
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "test_31", Param: "test_32"},
+						Target: ir.Handle{Node: "test_34", Param: "test_35"},
+						Kind:   ir.EdgeKind(0),
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:      "test_38",
+						Type:     "test_39",
+						Config:   map[string]interface{}{"key_40": "value_40"},
+						Position: spatial.XY{X: 42.5, Y: 43.5},
+					},
+				},
+			},
+			Text: text.Text{Raw: "test_45"},
+			Program: func() *program.Program {
+				v := program.Program{
+					IR: ir.IR{
+						Functions: []ir.Function{
+							{
+								Key:  "test_48",
+								Body: ir.Body{Raw: "test_50"},
+								Config: []types.Param{
+									{
+										Name:  "test_52",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_54": "value_54"},
+									},
+								},
+								Inputs: []types.Param{
+									{
+										Name:  "test_56",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_58": "value_58"},
+									},
+								},
+								Outputs: []types.Param{
+									{
+										Name:  "test_60",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_62": "value_62"},
+									},
+								},
+								Channels: types.Channels{
+									Read:  map[uint32]string{65: "test_64"},
+									Write: map[uint32]string{66: "test_65"},
+								},
+							},
+						},
+						Nodes: []ir.Node{
+							{
+								Key:  "test_67",
+								Type: "test_68",
+								Config: []types.Param{
+									{
+										Name:  "test_70",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_72": "value_72"},
+									},
+								},
+								Inputs: []types.Param{
+									{
+										Name:  "test_74",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_76": "value_76"},
+									},
+								},
+								Outputs: []types.Param{
+									{
+										Name:  "test_78",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_80": "value_80"},
+									},
+								},
+								Channels: types.Channels{
+									Read:  map[uint32]string{83: "test_82"},
+									Write: map[uint32]string{84: "test_83"},
+								},
+							},
+						},
+						Edges: []ir.Edge{
+							{
+								Source: ir.Handle{Node: "test_86", Param: "test_87"},
+								Target: ir.Handle{Node: "test_89", Param: "test_90"},
+								Kind:   ir.EdgeKind(0),
+							},
+						},
+						Strata: [][]string{{"test_92"}},
+						Sequences: []ir.Sequence{
+							{
+								Key: "test_94",
+								Stages: []ir.Stage{
+									{
+										Key:    "test_96",
+										Nodes:  []string{"test_97"},
+										Strata: [][]string{{"test_98"}},
+									},
+								},
+							},
+						},
+						Authorities: ir.Authorities{
+							Default:  func() *uint8 { v := uint8(101); return &v }(),
+							Channels: map[uint32]uint8{102: 102},
+						},
+					},
+					Output: compiler.Output{
+						WASM:              []byte{102, 103, 104},
+						OutputMemoryBases: map[string]uint32{"test_103": 104},
+					},
+				}
+				return &v
+			}(),
+			Status: func() *status.Status[arc.StatusDetails] {
+				v := status.Status[arc.StatusDetails]{
+					Key:         "test_105",
+					Name:        "test_106",
+					Variant:     status.Variant("success"),
+					Message:     "test_108",
+					Description: "test_109",
+					Time:        telem.TimeStamp(111),
+					Details:     arc.StatusDetails{Running: false},
+					Labels: []label.Label{
+						{
+							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
+							Name: "test_115",
+							Color: color.Color{
+								R: 118,
+								G: 119,
+								B: 120,
+								A: 120.5,
+							},
+						},
+					},
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := arc.EncodeArc(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := arc.Arc{
+			Key:  uuid.Nil,
+			Name: "",
+			Mode: arc.Mode(""),
+			Graph: graph.Graph{
+				Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
+				Functions: nil,
+				Edges:     nil,
+				Nodes:     nil,
+			},
+			Text:    text.Text{Raw: ""},
+			Program: nil,
+			Status:  nil,
+		}
+		w := orc.NewWriter(0)
+		if err := arc.EncodeArc(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded arc.Arc
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := arc.DecodeArc(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := arc.EncodeArc(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded arc.Arc
+		r.ResetBytes(w.Bytes())
+		if err := arc.DecodeArc(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
+}
+
+func FuzzDecodeStatusDetails(f *testing.F) {
+	{
+		seed := arc.StatusDetails{Running: true}
+		w := orc.NewWriter(0)
+		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := arc.StatusDetails{Running: false}
+		w := orc.NewWriter(0)
+		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded arc.StatusDetails
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := arc.EncodeStatusDetails(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded arc.StatusDetails
+		r.ResetBytes(w.Bytes())
+		if err := arc.DecodeStatusDetails(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

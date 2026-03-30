@@ -13,15 +13,14 @@ package label
 
 import (
 	"context"
-	"encoding/binary"
-	"io"
-	"sync"
-
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"io"
+	"sync"
 )
 
-func EncodeLabel(w *xbinary.Writer, s *Label) error {
+func EncodeLabel(w *orc.Writer, s *Label) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	if err := color.EncodeColor(w, &s.Color); err != nil {
@@ -30,7 +29,7 @@ func EncodeLabel(w *xbinary.Writer, s *Label) error {
 	return nil
 }
 
-func DecodeLabel(r *xbinary.Reader, s *Label) error {
+func DecodeLabel(r *orc.Reader, s *Label) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -44,8 +43,8 @@ func DecodeLabel(r *xbinary.Reader, s *Label) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type labelCodec struct{}
 
@@ -53,7 +52,7 @@ var LabelCodec xbinary.Codec = labelCodec{}
 
 func (labelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Label)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeLabel(w, &s)
 	out := w.Copy()
@@ -72,7 +71,7 @@ func (c labelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 
 func (labelCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Label)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeLabel(r, s)
 	readerPool.Put(r)

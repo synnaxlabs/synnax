@@ -12,12 +12,12 @@
 package device_test
 
 import (
-	"encoding/binary"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -25,32 +25,74 @@ import (
 
 var _ = Describe("Codec", func() {
 	Describe("StatusDetails", func() {
-		It("should round-trip encode and decode", func() {
-			original := device.StatusDetails{Rack: rack.Key(7), Device: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(device.EncodeStatusDetails(w, &original)).To(Succeed())
-			var decoded device.StatusDetails
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(device.DecodeStatusDetails(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original device.StatusDetails) {
+				w := orc.NewWriter(0)
+				Expect(device.EncodeStatusDetails(w, &original)).To(Succeed())
+				var decoded device.StatusDetails
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(device.DecodeStatusDetails(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}),
+			Entry("zero values", device.StatusDetails{Rack: rack.Key(0), Device: ""}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	s := device.StatusDetails{Rack: rack.Key(7), Device: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := device.EncodeStatusDetails(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded device.StatusDetails
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := device.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeStatusDetails(f *testing.F) {
+	{
+		seed := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
+		w := orc.NewWriter(0)
+		if err := device.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := device.StatusDetails{Rack: rack.Key(0), Device: ""}
+		w := orc.NewWriter(0)
+		if err := device.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded device.StatusDetails
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := device.DecodeStatusDetails(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := device.EncodeStatusDetails(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded device.StatusDetails
+		r.ResetBytes(w.Bytes())
+		if err := device.DecodeStatusDetails(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

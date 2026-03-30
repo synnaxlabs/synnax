@@ -12,44 +12,86 @@
 package telem_test
 
 import (
-	"encoding/binary"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("TimeRange", func() {
-		It("should round-trip encode and decode", func() {
-			original := telem.TimeRange{Start: telem.TimeStamp(4), End: telem.TimeStamp(4)}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(telem.EncodeTimeRange(w, &original)).To(Succeed())
-			var decoded telem.TimeRange
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(telem.DecodeTimeRange(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original telem.TimeRange) {
+				w := orc.NewWriter(0)
+				Expect(telem.EncodeTimeRange(w, &original)).To(Succeed())
+				var decoded telem.TimeRange
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(telem.DecodeTimeRange(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}),
+			Entry("zero values", telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
-	s := telem.TimeRange{Start: telem.TimeStamp(4), End: telem.TimeStamp(4)}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := telem.EncodeTimeRange(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded telem.TimeRange
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := telem.DecodeTimeRange(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeTimeRange(f *testing.F) {
+	{
+		seed := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
+		w := orc.NewWriter(0)
+		if err := telem.EncodeTimeRange(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)}
+		w := orc.NewWriter(0)
+		if err := telem.EncodeTimeRange(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded telem.TimeRange
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := telem.DecodeTimeRange(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := telem.EncodeTimeRange(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded telem.TimeRange
+		r.ResetBytes(w.Bytes())
+		if err := telem.DecodeTimeRange(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

@@ -13,15 +13,14 @@ package rack
 
 import (
 	"context"
-	"encoding/binary"
+	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/status"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/status"
 )
 
-func EncodeRack(w *xbinary.Writer, s *Rack) error {
+func EncodeRack(w *orc.Writer, s *Rack) error {
 	w.Uint32(uint32(s.Key))
 	w.String(s.Name)
 	w.Uint32(uint32(s.TaskCounter))
@@ -37,7 +36,7 @@ func EncodeRack(w *xbinary.Writer, s *Rack) error {
 	return nil
 }
 
-func DecodeRack(r *xbinary.Reader, s *Rack) error {
+func DecodeRack(r *orc.Reader, s *Rack) error {
 	var err error
 	{
 		v, err := r.Uint32()
@@ -71,12 +70,12 @@ func DecodeRack(r *xbinary.Reader, s *Rack) error {
 	return nil
 }
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
 	w.Uint32(uint32(s.Rack))
 	return nil
 }
 
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 	{
 		v, err := r.Uint32()
 		if err != nil {
@@ -87,8 +86,8 @@ func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type rackCodec struct{}
 
@@ -96,7 +95,7 @@ var RackCodec xbinary.Codec = rackCodec{}
 
 func (rackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Rack)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeRack(w, &s)
 	out := w.Copy()
@@ -115,7 +114,7 @@ func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 
 func (rackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Rack)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeRack(r, s)
 	readerPool.Put(r)

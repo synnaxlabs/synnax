@@ -12,44 +12,111 @@
 package color_test
 
 import (
-	"encoding/binary"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/x/color"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Color", func() {
-		It("should round-trip encode and decode", func() {
-			original := color.Color{R: 5, G: 5, B: 5, A: 2.5}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(color.EncodeColor(w, &original)).To(Succeed())
-			var decoded color.Color
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(color.DecodeColor(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original color.Color) {
+				w := orc.NewWriter(0)
+				Expect(color.EncodeColor(w, &original)).To(Succeed())
+				var decoded color.Color
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(color.DecodeColor(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", color.Color{
+				R: 2,
+				G: 3,
+				B: 4,
+				A: 4.5,
+			}),
+			Entry("zero values", color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeColor(b *testing.B) {
-	s := color.Color{R: 5, G: 5, B: 5, A: 2.5}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := color.Color{
+		R: 2,
+		G: 3,
+		B: 4,
+		A: 4.5,
+	}
+	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := color.EncodeColor(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded color.Color
-		r := xbinary.NewReader(nil, binary.BigEndian)
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := color.DecodeColor(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeColor(f *testing.F) {
+	{
+		seed := color.Color{
+			R: 2,
+			G: 3,
+			B: 4,
+			A: 4.5,
+		}
+		w := orc.NewWriter(0)
+		if err := color.EncodeColor(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := color.Color{
+			R: 0,
+			G: 0,
+			B: 0,
+			A: 0,
+		}
+		w := orc.NewWriter(0)
+		if err := color.EncodeColor(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded color.Color
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := color.DecodeColor(r, &decoded); err != nil {
+			return
+		}
+		w := orc.NewWriter(len(data))
+		if err := color.EncodeColor(w, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded color.Color
+		r.ResetBytes(w.Bytes())
+		if err := color.DecodeColor(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch after fuzz decode")
+		}
+	})
 }

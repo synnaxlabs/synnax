@@ -13,18 +13,17 @@ package arc
 
 import (
 	"context"
-	"encoding/binary"
-	"io"
-	"sync"
-
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/status"
+	"io"
+	"sync"
 )
 
-func EncodeArc(w *xbinary.Writer, s *Arc) error {
+func EncodeArc(w *orc.Writer, s *Arc) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	w.String(string(s.Mode))
@@ -53,7 +52,7 @@ func EncodeArc(w *xbinary.Writer, s *Arc) error {
 	return nil
 }
 
-func DecodeArc(r *xbinary.Reader, s *Arc) error {
+func DecodeArc(r *orc.Reader, s *Arc) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {
 		return err
@@ -103,12 +102,12 @@ func DecodeArc(r *xbinary.Reader, s *Arc) error {
 	return nil
 }
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
 	w.Bool(s.Running)
 	return nil
 }
 
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 	var err error
 	if s.Running, err = r.Bool(); err != nil {
 		return err
@@ -116,8 +115,8 @@ func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type arcCodec struct{}
 
@@ -125,7 +124,7 @@ var ArcCodec xbinary.Codec = arcCodec{}
 
 func (arcCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Arc)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
 	w.Reset()
 	err := EncodeArc(w, &s)
 	out := w.Copy()
@@ -144,7 +143,7 @@ func (c arcCodec) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 
 func (arcCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Arc)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
 	r.ResetBytes(data)
 	err := DecodeArc(r, s)
 	readerPool.Put(r)
