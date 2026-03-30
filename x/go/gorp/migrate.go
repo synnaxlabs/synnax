@@ -46,7 +46,25 @@ type EntryCounter interface {
 	EntriesProcessed() int
 }
 
-const migrationProgressInterval = 10000
+const migrationProgressMax = 1000
+
+// shouldLogProgress returns true at logarithmically spaced intervals
+// (1, 10, 100, 1000) then every 1000 entries after that.
+func shouldLogProgress(entries int) bool {
+	if entries <= 0 {
+		return false
+	}
+	if entries >= migrationProgressMax {
+		return entries%migrationProgressMax == 0
+	}
+	for entries >= 10 {
+		if entries%10 != 0 {
+			return false
+		}
+		entries /= 10
+	}
+	return entries == 1
+}
 
 // TransformFunc transforms an old entry of type I into a new entry of type O.
 type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
@@ -105,7 +123,7 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		m.entries++
-		if m.entries%migrationProgressInterval == 0 {
+		if shouldLogProgress(m.entries) {
 			cfg.L.Debug(
 				"migration progress",
 				zap.String("migration", m.name),
@@ -162,7 +180,7 @@ func (m *codecTransitionMigration[K, E]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		m.entries++
-		if m.entries%migrationProgressInterval == 0 {
+		if shouldLogProgress(m.entries) {
 			cfg.L.Debug(
 				"migration progress",
 				zap.String("migration", m.name),
