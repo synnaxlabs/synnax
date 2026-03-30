@@ -79,6 +79,43 @@ describe("Rack", () => {
       expect(retrieved.name).toEqual(name);
     });
   });
+  describe("integrations", () => {
+    it("should create a rack with integrations and retrieve them", async () => {
+      const r = await client.racks.create({
+        name: "rack-with-integrations",
+        integrations: ["ni", "opc", "modbus"],
+      });
+      const retrieved = await client.racks.retrieve({ key: r.key });
+      expect(retrieved.integrations).toEqual(["ni", "opc", "modbus"]);
+    });
+    it("should filter racks by integrations", async () => {
+      const r1 = await client.racks.create({
+        name: "rack-ni-opc",
+        integrations: ["ni", "opc"],
+      });
+      const r2 = await client.racks.create({
+        name: "rack-modbus-only",
+        integrations: ["modbus"],
+      });
+      const results = await client.racks.retrieve({ integrations: ["ni"] });
+      const keys = results.map((r) => r.key);
+      expect(keys).toContain(r1.key);
+      expect(keys).not.toContain(r2.key);
+    });
+    it("should update integrations on upsert", async () => {
+      const r = await client.racks.create({
+        name: "rack-update-integrations",
+        integrations: ["ni"],
+      });
+      await client.racks.create({
+        key: r.key,
+        name: "rack-update-integrations",
+        integrations: ["ni", "opc", "arc"],
+      });
+      const retrieved = await client.racks.retrieve({ key: r.key });
+      expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
+    });
+  });
   describe("tasks", () => {
     it("should list the tasks on a rack", async () => {
       const r = await client.racks.create({ name: "test" });
