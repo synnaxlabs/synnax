@@ -1,0 +1,60 @@
+name: Fuzz - Go
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1" # Weekly, Monday 3am UTC
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: x/go
+            artifact: x-go
+          - module: core
+            artifact: core
+          - module: arc/go
+            artifact: arc-go
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.mod
+            ${{ matrix.module }}/go.sum
+
+      - name: Fuzz
+        working-directory: ${{ matrix.module }}
+        # go test -fuzz requires a single package (cannot use ./...), so we
+        # discover packages containing fuzz targets via grep and iterate.
+        run: |
+          packages=$(grep -rl '^func Fuzz' --include='*_test.go' . | sed 's|/[^/]*$||' | sort -u)
+          if [ -z "$packages" ]; then
+            echo "No fuzz targets found"
+            exit 0
+          fi
+          for pkg in $packages; do
+            echo "::group::Fuzzing $pkg"
+            targets=$(go test "$pkg" -list '^Fuzz' -run '^$' 2>/dev/null | grep '^Fuzz' || true)
+            for target in $targets; do
+              echo "--- $target ---"
+              go test "$pkg" -fuzz="^${target}$" -fuzztime=60s -run='^$'
+            done
+            echo "::endgroup::"
+          done
+
+      - name: Upload crash corpus
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ matrix.artifact }}
+          path: ${{ matrix.module }}/**/testdata/fuzz/
