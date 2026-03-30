@@ -48,7 +48,10 @@ export const DELETE_LAYOUT: Layout.BaseState = {
 
 const formSchema = z.object({
   channels: channel.keyZ.array().min(1, "Select at least one channel"),
-  timeRange: numericTimeRangeZ,
+  timeRange: numericTimeRangeZ.refine(({ start, end }) => start < end, {
+    error: "Start time must be before end time",
+    path: ["start"],
+  }),
 });
 
 const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
