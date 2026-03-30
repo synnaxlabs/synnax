@@ -99,10 +99,8 @@ export const useList = Flux.createList<
         if (keysSet != null && !keysSet.has(status.key)) return;
         const matchesLabels =
           hasLabelsSet == null ||
-          (status.labels != null &&
-            status.labels.some((l) => hasLabelsSet.has(l.key)));
-        const matchesVariants =
-          variantsSet == null || variantsSet.has(status.variant);
+          (status.labels != null && status.labels.some((l) => hasLabelsSet.has(l.key)));
+        const matchesVariants = variantsSet == null || variantsSet.has(status.variant);
         if (!matchesLabels || !matchesVariants) {
           onDelete(status.key);
           return;

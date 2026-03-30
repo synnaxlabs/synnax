@@ -135,7 +135,6 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(1);
       expect(result.current.data).toContain("filter-label-test");
-      //set another status without the label
       await client.statuses.set({
         name: "Unlabeled Status",
         key: "unlabeled-status-test",
@@ -148,7 +147,6 @@ describe("Status queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).not.toContain("unlabeled-status-test");
-      //set a status with the label
       await client.statuses.set({
         name: "Labeled Status",
         key: "labeled-status-test",
@@ -264,7 +262,6 @@ describe("Status queries", () => {
 
     it("should reactively include a status when its variant changes to match the filter", async () => {
       const prefix = `variant-listen-${Date.now()}`;
-      // Create two statuses: one error (matches filter), one warning (does not)
       await client.statuses.set([
         {
           name: "Error Status",
@@ -302,7 +299,6 @@ describe("Status queries", () => {
       expect(result.current.data).toHaveLength(1);
       expect(result.current.data).toContain(`${prefix}-error`);
 
-      // Update the warning status to error variant
       await client.statuses.set({
         name: "Warning Status",
         key: `${prefix}-warning`,
@@ -311,7 +307,6 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      // Re-retrieve to pick up the change
       act(() => {
         result.current.retrieve({
           keys: [`${prefix}-error`, `${prefix}-warning`],
@@ -534,7 +529,6 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.name).toEqual("Original");
 
-      // Update the status
       await act(async () => {
         await client.statuses.set({
           name: "Updated",
