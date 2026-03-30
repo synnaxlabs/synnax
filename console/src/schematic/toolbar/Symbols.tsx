@@ -11,6 +11,7 @@ import "@/schematic/toolbar/Symbols.css";
 
 import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Component,
   Flex,
@@ -342,6 +343,10 @@ const Actions = ({
   const placeLayout = Layout.usePlacer();
   const importSymbol = useImportSymbol(selectedGroup);
   const importGroup = useImportGroup();
+  const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
+  const hasCreateSymbolPermission = Access.useCreateGranted(
+    schematic.symbol.TYPE_ONTOLOGY_ID,
+  );
 
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
@@ -382,40 +387,48 @@ const Actions = ({
 
   return (
     <Flex.Box x>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Create new symbol group"
-        onClick={handleCreateGroup}
-      >
-        <CreateGroupIcon />
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Import symbol group"
-        onClick={importGroup}
-      >
-        <ImportGroupIcon />
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Create new symbol"
-        disabled={!isRemoteGroup}
-        onClick={handleCreateSymbol}
-      >
-        <CreateSymbolIcon />
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Import symbol"
-        disabled={!isRemoteGroup}
-        onClick={importSymbol}
-      >
-        <ImportSymbolIcon />
-      </Button.Button>
+      {hasCreateGroupPermission && (
+        <>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Create new symbol group"
+            onClick={handleCreateGroup}
+          >
+            <CreateGroupIcon />
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Import symbol group"
+            onClick={importGroup}
+          >
+            <ImportGroupIcon />
+          </Button.Button>
+        </>
+      )}
+      {hasCreateSymbolPermission && (
+        <>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Create new symbol"
+            disabled={!isRemoteGroup}
+            onClick={handleCreateSymbol}
+          >
+            <CreateSymbolIcon />
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Import symbol"
+            disabled={!isRemoteGroup}
+            onClick={importSymbol}
+          >
+            <ImportSymbolIcon />
+          </Button.Button>
+        </>
+      )}
     </Flex.Box>
   );
 };
