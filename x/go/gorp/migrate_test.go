@@ -1191,33 +1191,5 @@ var _ = Describe("Gorp", func() {
 			})
 		})
 
-		Describe("Backward compatibility", func() {
-			It("Should convert old uint16 format to name-based tracking", func(ctx SpecContext) {
-				testDB := gorp.Wrap(memkv.New())
-				defer func() { Expect(testDB.Close()).To(Succeed()) }()
-				versionKey := []byte("__gorp_migration__//entryV1")
-				b := make([]byte, 2)
-				stdbinary.BigEndian.PutUint16(b, 2)
-				Expect(testDB.Set(ctx, versionKey, b)).To(Succeed())
-				var order []string
-				m1 := gorp.NewRawMigration("first", func(context.Context, gorp.Tx) error {
-					order = append(order, "first")
-					return nil
-				})
-				m2 := gorp.NewRawMigration("second", func(context.Context, gorp.Tx) error {
-					order = append(order, "second")
-					return nil
-				})
-				m3 := gorp.NewRawMigration("third", func(context.Context, gorp.Tx) error {
-					order = append(order, "third")
-					return nil
-				})
-				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
-					DB:         testDB,
-					Migrations: []gorp.Migration{m1, m2, m3},
-				}))
-				Expect(order).To(Equal([]string{"third"}))
-			})
-		})
 	})
 })

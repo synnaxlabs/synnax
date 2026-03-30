@@ -11,7 +11,6 @@ package gorp
 
 import (
 	"context"
-	stdbinary "encoding/binary"
 	"io"
 	"iter"
 	"sort"
@@ -56,14 +55,14 @@ func (t *Table[K, E]) Close() error {
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
-) (*Table[K, E], error) {
+) (_ *Table[K, E], err error) {
 	codec := resolveCodec(cfg.Codec, cfg.DB)
 	tableName := types.Name[E]()
 	prefix := []byte(magicPrefix + tableName)
 	versionKey := []byte(migrationVersionPrefix + tableName)
 	kvTx := cfg.DB.KV().OpenTx()
 	defer func() {
-		_ = kvTx.Close()
+		err = errors.Combine(err, kvTx.Close())
 	}()
 	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB, L: cfg.L}
 	if len(cfg.Migrations) > 0 {
@@ -266,14 +265,6 @@ func readAppliedMigrations(
 	defer func() {
 		err = errors.Combine(err, closer.Close())
 	}()
-	if len(b) == 2 {
-		count := int(stdbinary.BigEndian.Uint16(b))
-		applied := make(map[string]bool, count)
-		for i := 0; i < count && i < len(migrations); i++ {
-			applied[migrations[i].Name()] = true
-		}
-		return applied, err
-	}
 	names := strings.Split(string(b), "\n")
 	applied := make(map[string]bool, len(names))
 	for _, name := range names {
@@ -296,5 +287,6 @@ func writeAppliedMigrations(
 	for name := range applied {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return kvTx.Set(ctx, key, []byte(strings.Join(names, "\n")))
 }

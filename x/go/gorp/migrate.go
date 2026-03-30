@@ -287,6 +287,9 @@ func MigrationDepOpt[T any](ctx context.Context) (T, bool) {
 func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, error) {
 	byName := make(map[string]Migration, len(migrations))
 	for _, m := range migrations {
+		if _, dup := byName[m.Name()]; dup {
+			return nil, fmt.Errorf("duplicate migration name %q", m.Name())
+		}
 		byName[m.Name()] = m
 	}
 
