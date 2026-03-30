@@ -32,6 +32,8 @@ build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
+# GoogleTest 1.17 headers trigger character-conversion in test compilation units
+build:macos --copt=-Wno-error=character-conversion
 
 # Linux
 build:linux --cxxopt=-std=c++23
