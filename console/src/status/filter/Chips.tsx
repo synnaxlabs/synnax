@@ -21,9 +21,7 @@ export const Chips = (): ReactElement | null => {
   const field = Form.useField<status.Variant[]>("query.variants", {
     optional: true,
   });
-  const variants = Form.useFieldValue<status.Variant[]>("query.variants", {
-    optional: true,
-  });
+  const variants = field?.value;
   if (variants == null || variants.length === 0 || field == null) return null;
   const handleClose = (variant: status.Variant) =>
     field.onChange(variants.filter((v) => v !== variant));

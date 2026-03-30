@@ -322,6 +322,57 @@ describe("Status queries", () => {
       expect(result.current.data).toContain(`${prefix}-warning`);
     });
 
+    it("should reactively remove a status when its variant changes away from the filter", async () => {
+      const prefix = `variant-remove-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Error One",
+          key: `${prefix}-error-1`,
+          variant: "error",
+          message: "first error",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Error Two",
+          key: `${prefix}-error-2`,
+          variant: "error",
+          message: "second error",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const { result } = renderHook(
+        () =>
+          Status.useList({
+            initialQuery: {
+              keys: [`${prefix}-error-1`, `${prefix}-error-2`],
+              variants: ["error"],
+            },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({
+          keys: [`${prefix}-error-1`, `${prefix}-error-2`],
+          variants: ["error"],
+        });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(2);
+
+      await client.statuses.set({
+        name: "Error Two",
+        key: `${prefix}-error-2`,
+        variant: "warning",
+        message: "now a warning",
+        time: TimeStamp.now(),
+      });
+
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data).toContain(`${prefix}-error-1`);
+      expect(result.current.data).not.toContain(`${prefix}-error-2`);
+    });
+
     it("should handle pagination with limit and offset", async () => {
       await Promise.all(
         Array.from({ length: 5 }).map((_, i) =>

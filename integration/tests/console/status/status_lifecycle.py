@@ -133,7 +133,6 @@ class StatusLifecycle(ConsoleCase):
     def test_filter_by_variant(self) -> None:
         """Test filtering statuses by variant in the explorer."""
         self.log("Testing: Filter statuses by variant")
-        # Create a status with 'error' variant via the API so we have mixed variants
         error_status_name = f"ErrorStatus_{self.suffix}"
         self.client.statuses.set(
             sy.Status(
@@ -144,25 +143,20 @@ class StatusLifecycle(ConsoleCase):
         )
         self.console.statuses.open_explorer()
 
-        # Verify the error status exists before filtering
         assert self.console.statuses.exists_in_explorer(
             error_status_name
         ), f"'{error_status_name}' should be visible before filtering"
 
-        # Filter by "Error" variant — only the error status should remain
         self.console.statuses.select_explorer_variant_filter("Error")
 
         assert self.console.statuses.exists_in_explorer(
             error_status_name
         ), f"'{error_status_name}' should remain when filtering by Error variant"
 
-        # The 'success' variant statuses should be hidden
         self.console.statuses.wait_for_removed_from_explorer(self.status_d_name)
 
-        # Clear the filter
         self.console.statuses.clear_explorer_variant_filter("Error")
 
-        # Clean up the error status
         statuses = self.client.statuses.retrieve(search_term=error_status_name)
         if len(statuses) > 0:
             self.client.statuses.delete([s.key for s in statuses])

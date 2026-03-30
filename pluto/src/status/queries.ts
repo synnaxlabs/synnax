@@ -97,12 +97,16 @@ export const useList = Flux.createList<
     return [
       store.statuses.onSet(async (status) => {
         if (keysSet != null && !keysSet.has(status.key)) return;
-        if (
-          hasLabelsSet != null &&
-          (status.labels == null || !status.labels.some((l) => hasLabelsSet.has(l.key)))
-        )
+        const matchesLabels =
+          hasLabelsSet == null ||
+          (status.labels != null &&
+            status.labels.some((l) => hasLabelsSet.has(l.key)));
+        const matchesVariants =
+          variantsSet == null || variantsSet.has(status.variant);
+        if (!matchesLabels || !matchesVariants) {
+          onDelete(status.key);
           return;
-        if (variantsSet != null && !variantsSet.has(status.variant)) return;
+        }
         onChange(status.key, status, { mode: "prepend" });
       }),
       store.statuses.onDelete(onDelete),
