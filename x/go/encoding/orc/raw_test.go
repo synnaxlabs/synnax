@@ -205,6 +205,24 @@ var _ = Describe("Raw", func() {
 		})
 	})
 
+	Describe("ReadFloat32", func() {
+		It("Should read a float32", func() {
+			w := orc.NewWriter(0)
+			w.Float32(3.14)
+			v, _ := orc.Raw(w.Bytes()).ReadFloat32()
+			Expect(v).To(BeNumerically("~", float32(3.14), 1e-6))
+		})
+	})
+
+	Describe("ReadFloat64", func() {
+		It("Should read a float64", func() {
+			w := orc.NewWriter(0)
+			w.Float64(2.718281828)
+			v, _ := orc.Raw(w.Bytes()).ReadFloat64()
+			Expect(v).To(BeNumerically("~", 2.718281828, 1e-9))
+		})
+	})
+
 	Describe("Mixed field navigation", func() {
 		It("Should navigate a record with mixed field types", func() {
 			w := orc.NewWriter(0)
