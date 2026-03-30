@@ -35,7 +35,6 @@ import {
   type AuthType,
   type Device,
   type HealthCheckMethod,
-  MAKE,
   type Properties,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
@@ -435,7 +434,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   );
 };
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: MAKE };
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "http" };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (

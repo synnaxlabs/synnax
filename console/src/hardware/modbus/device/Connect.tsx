@@ -26,12 +26,7 @@ import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
-import {
-  type Device,
-  MAKE,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/hardware/modbus/device/types";
+import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -176,7 +171,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   );
 };
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: MAKE };
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "modbus" };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (

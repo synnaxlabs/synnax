@@ -32,7 +32,6 @@ import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
   type Device,
-  MAKE,
   NO_SECURITY_MODE,
   SCHEMAS,
   type SecurityMode,
@@ -217,7 +216,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   );
 };
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: MAKE };
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "opc" };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
