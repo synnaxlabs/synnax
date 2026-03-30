@@ -12,6 +12,7 @@ import "@/hardware/modbus/device/Connect.css";
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
+  Component,
   Device as PDevice,
   Flex,
   type Flux,
@@ -25,7 +26,12 @@ import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
-import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
+import {
+  type Device,
+  MAKE,
+  SCHEMAS,
+  ZERO_PROPERTIES,
+} from "@/hardware/modbus/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -123,9 +129,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
         <Form.Form<typeof PDevice.formSchema> {...form}>
           <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
-            {({ value, onChange }) => (
-              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
-            )}
+            {selectRackRenderProp}
           </Form.Field>
           <Flex.Box x justify="between">
             <Form.TextField
@@ -171,6 +175,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     </Flex.Box>
   );
 };
+
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integrations: [MAKE] };
+
+const selectRackRenderProp = Component.renderProp(
+  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
+    <Rack.SelectSingle {...props} allowNone={false} initialQuery={INITIAL_RACK_QUERY} />
+  ),
+);
 
 const NAME_INPUT_PROPS = {
   level: "h2",

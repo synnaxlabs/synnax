@@ -12,6 +12,7 @@ import "@/hardware/opc/device/Connect.css";
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
+  Component,
   Device as PDevice,
   Divider,
   Flex,
@@ -31,6 +32,7 @@ import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
   type Device,
+  MAKE,
   NO_SECURITY_MODE,
   SCHEMAS,
   type SecurityMode,
@@ -131,9 +133,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
         <Form.Form<typeof PDevice.formSchema> {...form}>
           <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
-            {({ value, onChange }) => (
-              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
-            )}
+            {selectRackRenderProp}
           </Form.Field>
           <Form.TextField
             path="properties.connection.endpoint"
@@ -216,6 +216,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     </Flex.Box>
   );
 };
+
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integrations: [MAKE] };
+
+const selectRackRenderProp = Component.renderProp(
+  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
+    <Rack.SelectSingle {...props} allowNone={false} initialQuery={INITIAL_RACK_QUERY} />
+  ),
+);
 
 const NAME_INPUT_PROPS = {
   level: "h2",
