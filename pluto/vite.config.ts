@@ -9,14 +9,17 @@
 
 /// <reference types="vitest/config" />
 
+import react from "@vitejs/plugin-react";
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, esmExternalRequirePlugin } from "vite";
 import { copyFileSync, mkdirSync } from "fs";
 
 export default defineConfig({
   base: "/pluto/",
   plugins: [
+    esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
+    react(),
     lib({ name: "pluto" }),
     {
       name: "copy-theme-css",
@@ -57,8 +60,6 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: [
-        "react",
-        "react-dom",
         "react-hook-form",
         "zod",
         "@synnaxlabs/x",
