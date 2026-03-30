@@ -49,22 +49,28 @@ DISK_BEFORE=$(disk_used_mb)
 echo "=== Build Cache Cleanup (max age: ${MAX_AGE_HOURS}h) ==="
 echo ""
 
-echo "Bazel build outputs (preserving external/):"
-for bazel_base in /root/.bazel "$HOME/.bazel"; do
-    [ "$bazel_base" = "$HOME/.bazel" ] && [ "$HOME" = "/root" ] && continue
-    if [ -d "$bazel_base" ]; then
-        found_outputs=false
-        while IFS= read -r output_dir; do
-            clean_dir "$output_dir" "${output_dir#/root/}"
-            found_outputs=true
-        done < <(find "$bazel_base" -type d -name "bazel-out" -not -path "*/external/*" 2> /dev/null)
-        if [ "$found_outputs" = false ]; then
-            printf "  %-35s no bazel-out dirs found\n" "$bazel_base"
-        fi
+echo "Bazel (clean only if no recent builds within ${MAX_AGE_HOURS}h):"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." 2> /dev/null && pwd)"
+BAZEL_BASE="/root/.bazel"
+if [ -d "$BAZEL_BASE" ]; then
+    recent=$(find "$BAZEL_BASE" -name "bazel-out" -type d -exec find {} -type f -mmin -"$MAX_AGE_MINUTES" -print -quit \; 2> /dev/null)
+    if [ -n "$recent" ]; then
+        printf "  %-35s skipped (recent build found)\n" "bazel clean"
+    elif [ -d "$REPO_ROOT" ]; then
+        before_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
+        before_bazel=${before_bazel:-0}
+        cd "$REPO_ROOT" && bazel clean 2> /dev/null
+        after_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
+        after_bazel=${after_bazel:-0}
+        freed_bazel=$((before_bazel - after_bazel))
+        TOTAL_FREED=$((TOTAL_FREED + freed_bazel))
+        printf "  %-35s %6dMB -> %6dMB  (freed %dMB)\n" "bazel clean" "$before_bazel" "$after_bazel" "$freed_bazel"
     else
-        printf "  %-35s skipped (not found)\n" "$bazel_base"
+        printf "  %-35s skipped (repo not found)\n" "bazel clean"
     fi
-done
+else
+    printf "  %-35s skipped (not found)\n" "$BAZEL_BASE"
+fi
 echo ""
 
 echo "Go build cache:"
