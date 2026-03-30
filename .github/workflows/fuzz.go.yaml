@@ -1,6 +1,7 @@
 name: Fuzz - Go Codecs
 
 on:
+  pull_request:
   schedule:
     - cron: "0 3 * * 1" # Weekly, Monday 3am UTC
   workflow_dispatch:
@@ -15,33 +16,17 @@ jobs:
         include:
           - module: x/go
             packages: >-
-              ./color/
-              ./label/
-              ./spatial/
-              ./telem/
+              ./color/ ./label/ ./spatial/ ./telem/
           - module: core
             packages: >-
-              ./pkg/distribution/channel/
-              ./pkg/distribution/group/
-              ./pkg/distribution/ontology/
-              ./pkg/service/arc/
-              ./pkg/service/device/
-              ./pkg/service/lineplot/
-              ./pkg/service/log/
-              ./pkg/service/rack/
-              ./pkg/service/ranger/
-              ./pkg/service/schematic/
-              ./pkg/service/table/
-              ./pkg/service/user/
-              ./pkg/service/workspace/
+              ./pkg/distribution/channel/ ./pkg/distribution/group/
+              ./pkg/distribution/ontology/ ./pkg/service/arc/ ./pkg/service/device/
+              ./pkg/service/lineplot/ ./pkg/service/log/ ./pkg/service/rack/
+              ./pkg/service/ranger/ ./pkg/service/schematic/ ./pkg/service/table/
+              ./pkg/service/user/ ./pkg/service/workspace/
           - module: arc/go
             packages: >-
-              ./compiler/
-              ./graph/
-              ./ir/
-              ./program/
-              ./text/
-              ./types/
+              ./compiler/ ./graph/ ./ir/ ./program/ ./text/ ./types/
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

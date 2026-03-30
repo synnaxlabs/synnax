@@ -38,15 +38,13 @@ var _ = Describe("Reader", func() {
 	It("Should return error on EOF", func() {
 		r := orc.NewReader(bytesReader([]byte{1, 2}))
 		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-		_, err := r.Uint32()
-		Expect(err).To(MatchError(io.ErrUnexpectedEOF))
+		Expect(r.Uint32()).Error().To(MatchError(io.ErrUnexpectedEOF))
 	})
 
 	It("Should return EOF when no data remains", func() {
 		r := orc.NewReader(bytesReader([]byte{1}))
 		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-		_, err := r.Uint8()
-		Expect(err).To(MatchError(io.EOF))
+		Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 	})
 
 	It("Should read arbitrary bytes", func() {
@@ -110,8 +108,7 @@ var _ = Describe("Reader", func() {
 		binary.BigEndian.PutUint32(buf, 100)
 		buf[4], buf[5], buf[6] = 'a', 'b', 'c'
 		r := orc.NewReader(bytesReader(buf))
-		_, err := r.String()
-		Expect(err).To(MatchError(io.ErrUnexpectedEOF))
+		Expect(r.String()).Error().To(MatchError(io.ErrUnexpectedEOF))
 	})
 
 	It("Should reject string exceeding MaxStringLen in io.Reader mode", func() {
@@ -121,9 +118,9 @@ var _ = Describe("Reader", func() {
 		buf := make([]byte, 4)
 		binary.BigEndian.PutUint32(buf, 9)
 		r := orc.NewReader(bytesReader(buf))
-		_, err := r.String()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("exceeds maximum"))
+		Expect(r.String()).Error().To(MatchError(
+			ContainSubstring("exceeds maximum"),
+		))
 	})
 
 	It("Should allow string within MaxStringLen in io.Reader mode", func() {
@@ -140,8 +137,7 @@ var _ = Describe("Reader", func() {
 		It("Should reset to use a new reader", func() {
 			r := orc.NewReader(bytesReader([]byte{1}))
 			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-			_, err := r.Uint8()
-			Expect(err).To(MatchError(io.EOF))
+			Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 			r.Reset(bytesReader([]byte{42, 0, 0, 1, 0}))
 			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(42)))
 			Expect(MustSucceed(r.Uint32())).To(Equal(uint32(256)))
@@ -211,15 +207,13 @@ var _ = Describe("Reader", func() {
 			r := orc.NewReader(nil)
 			r.ResetBytes([]byte{1})
 			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-			_, err := r.Uint8()
-			Expect(err).To(MatchError(io.EOF))
+			Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 		})
 
 		It("Should return ErrUnexpectedEOF on truncated data", func() {
 			r := orc.NewReader(nil)
 			r.ResetBytes([]byte{1, 2})
-			_, err := r.Uint32()
-			Expect(err).To(MatchError(io.ErrUnexpectedEOF))
+			Expect(r.Uint32()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 
 		It("Should read length-prefixed strings", func() {
@@ -240,8 +234,7 @@ var _ = Describe("Reader", func() {
 			buf[4], buf[5], buf[6] = 'a', 'b', 'c'
 			r := orc.NewReader(nil)
 			r.ResetBytes(buf)
-			_, err := r.String()
-			Expect(err).To(MatchError(io.ErrUnexpectedEOF))
+			Expect(r.String()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 
 		It("Should read signed integers and floats", func() {
