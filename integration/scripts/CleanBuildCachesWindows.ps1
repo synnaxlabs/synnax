@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Cleans stale build caches on self-hosted Windows runners to prevent unbounded disk
-# growth. Deletes files older than MaxAgeHours (default 2) from Bazel directories,
-# Go build/module caches, and old core binaries. Safe to run - Bazel rebuilds from
-# S3 remote cache on miss, Go rebuilds on cache miss.
+# Cleans build caches on self-hosted Windows runners to prevent unbounded disk growth.
+# - Bazel: always runs `bazel clean` (unconditional - remote cache serves next build)
+# - Go/binaries: deletes entries older than MaxAgeHours (default 2)
 
 param(
     [int]$MaxAgeHours = 2
@@ -54,7 +53,7 @@ function Clean-StaleFiles {
 }
 
 $diskBefore = Get-DiskUsedMB
-Write-Output "=== Build Cache Cleanup (max age: ${MaxAgeHours}h) ==="
+Write-Output "=== Build Cache Cleanup (Bazel: always, Go/binaries: >${MaxAgeHours}h) ==="
 Write-Output ""
 
 Write-Output "Bazel clean:"

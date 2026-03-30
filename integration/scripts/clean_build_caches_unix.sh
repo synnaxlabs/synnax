@@ -9,10 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Cleans stale build caches on self-hosted Linux runners to prevent unbounded disk
-# growth. Deletes files older than MAX_AGE_HOURS (default 2) from Bazel build outputs,
-# Go build/module caches, and old core binaries. Safe to run — Bazel rebuilds from
-# S3 remote cache on miss, Go rebuilds on cache miss.
+# Cleans build caches on self-hosted Linux runners to prevent unbounded disk growth.
+# - Bazel: always runs `bazel clean` (unconditional — remote cache serves next build)
+# - Go/binaries: deletes entries older than MAX_AGE_HOURS (default 2)
 #
 # This script must never fail the build, so we use set +e (best-effort cleanup).
 
@@ -46,7 +45,7 @@ clean_dir() {
 }
 
 DISK_BEFORE=$(disk_used_mb)
-echo "=== Build Cache Cleanup (max age: ${MAX_AGE_HOURS}h) ==="
+echo "=== Build Cache Cleanup (Bazel: always, Go/binaries: >${MAX_AGE_HOURS}h) ==="
 echo ""
 
 echo "Bazel clean:"
