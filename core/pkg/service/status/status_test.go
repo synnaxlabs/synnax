@@ -328,6 +328,39 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(statuses).To(HaveLen(3))
 			})
 		})
+
+		Describe("WhereVariants", func() {
+			It("Should retrieve statuses with a single variant", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereVariants(xstatus.VariantInfo).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(3))
+				for _, s := range statuses {
+					Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+				}
+			})
+
+			It("Should retrieve statuses with multiple variants", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereVariants(xstatus.VariantInfo, xstatus.VariantWarning).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(5))
+				for _, s := range statuses {
+					Expect(s.Variant).To(SatisfyAny(Equal(xstatus.VariantInfo), Equal(xstatus.VariantWarning)))
+				}
+			})
+
+			It("Should return empty when no statuses match variant", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereVariants(xstatus.VariantSuccess).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(BeEmpty())
+			})
+
+			It("Should retrieve only error variant statuses", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereVariants(xstatus.VariantError).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(1))
+				Expect(statuses[0].Key).To(Equal("retrieve-c"))
+			})
+		})
 	})
 
 	Describe("Generic Type Behavior", func() {

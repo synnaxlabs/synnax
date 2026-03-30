@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 	xlabel "github.com/synnaxlabs/x/label"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/status"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
@@ -67,6 +69,15 @@ func (r Retrieve[D]) WhereKeys(keys ...string) Retrieve[D] {
 func (r Retrieve[D]) WhereKeyPrefix(prefix string) Retrieve[D] {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, s *Status[D]) (bool, error) {
 		return strings.HasPrefix(s.Key, prefix), nil
+	})
+	return r
+}
+
+// WhereVariants filters for statuses with the given variants.
+func (r Retrieve[D]) WhereVariants(variants ...status.Variant) Retrieve[D] {
+	variantSet := set.FromSlice(variants)
+	r.gorp = r.gorp.Where(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return variantSet.Contains(s.Variant), nil
 	})
 	return r
 }
