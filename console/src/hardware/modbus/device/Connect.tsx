@@ -180,7 +180,7 @@ const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: MAKE };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
-    <Rack.SelectSingle {...props} allowNone={false} initialQuery={INITIAL_RACK_QUERY} />
+    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
   ),
 );
 
