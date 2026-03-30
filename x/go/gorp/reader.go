@@ -121,9 +121,14 @@ type Iterator[E any] struct {
 }
 
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
-// for calls to return a valid value.
+// for calls to return a valid value. The returned pointer is reused across calls,
+// so callers must copy the value if they need it to persist.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
-	k.value = new(E)
+	if k.value == nil {
+		k.value = new(E)
+	}
+	var zero E
+	*k.value = zero
 	if err := k.codec.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
 		k.err = err
 		return nil
