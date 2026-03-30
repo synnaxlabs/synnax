@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
@@ -338,4 +339,78 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 		sorted[i] = byName[name]
 	}
 	return sorted, nil
+}
+
+// Deprecated: Use the Migration interface with OpenTable instead.
+var ErrMigrationCountExceeded = errors.New(
+	"migration count is greater than the maximum of 255",
+)
+
+// MigrationSpec defines a single migration that should be run with a transaction.
+//
+// Deprecated: Use the Migration interface with OpenTable instead.
+type MigrationSpec struct {
+	Migrate func(context.Context, Tx) error
+	Name    string
+}
+
+// Migrator executes a series of migrations in order, tracking progress with
+// incrementing versions.
+//
+// Deprecated: Use the Migration interface with OpenTable instead.
+type Migrator struct {
+	Key        string
+	Migrations []MigrationSpec
+	Force      bool
+}
+
+// Run executes all migrations that haven't been completed yet.
+//
+// Deprecated: Use the Migration interface with OpenTable instead.
+func (r Migrator) Run(ctx context.Context, db *DB) error {
+	return db.WithTx(ctx, func(tx Tx) error {
+		migrationCount := len(r.Migrations)
+		if migrationCount > 255 {
+			return errors.Wrapf(
+				ErrMigrationCountExceeded,
+				"migration count is greater than the maximum of 255: %d",
+				migrationCount,
+			)
+		}
+		var currentVersion uint8
+		if !r.Force {
+			versionBytes, closer, err := tx.Get(ctx, []byte(r.Key))
+			if err := errors.Skip(err, query.ErrNotFound); err != nil {
+				return err
+			}
+			if closer != nil {
+				if err := closer.Close(); err != nil {
+					return err
+				}
+			}
+			if len(versionBytes) > 0 {
+				currentVersion = versionBytes[0]
+			}
+		}
+		for i := currentVersion; i < uint8(migrationCount); i++ {
+			migration := r.Migrations[i]
+			newVersion := i + 1
+			if err := migration.Migrate(ctx, tx); err != nil {
+				return errors.Wrapf(
+					err,
+					"migration %d (%s) failed",
+					newVersion,
+					migration.Name,
+				)
+			}
+			if err := tx.Set(ctx, []byte(r.Key), []byte{newVersion}); err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to migrate to version %d",
+					newVersion,
+				)
+			}
+		}
+		return nil
+	})
 }
