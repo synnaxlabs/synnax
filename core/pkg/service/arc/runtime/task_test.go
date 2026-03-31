@@ -81,8 +81,8 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	newContext := func(ctx context.Context) driver.Context {
-		return driver.NewContext(ctx, statusSvc)
+	newContext := func(ctx context.Context, opts ...driver.ContextOption) driver.Context {
+		return driver.NewContext(ctx, append([]driver.ContextOption{driver.WithStatusService(statusSvc)}, opts...)...)
 	}
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
@@ -379,6 +379,56 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task started successfully"))
 			Expect(stat.Details.Running).To(BeTrue())
+		})
+
+		It("Should call Register before emitting configured status", func(ctx SpecContext) {
+			ch := &channel.Channel{
+				Name:     "register_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			var registered driver.Task
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 6),
+				Name:   "test-register",
+				Type:   runtime.TaskType,
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+			}
+			t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+				ConfigureTask(newContext(ctx, driver.WithRegister(func(t driver.Task) {
+					registered = t
+				})), svcTask))
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			Expect(registered).To(Equal(t))
+		})
+
+		It("Should call Register before auto-starting", func(ctx SpecContext) {
+			ch := &channel.Channel{
+				Name:     "register_auto_start_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			var registered driver.Task
+			svcTask := task.Task{
+				Key:  task.NewKey(rack.NewKey(1, 1), 7),
+				Name: "test-register-auto-start",
+				Type: runtime.TaskType,
+				Config: configToMap(runtime.TaskConfig{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}),
+			}
+			t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+				ConfigureTask(newContext(ctx, driver.WithRegister(func(t driver.Task) {
+					registered = t
+				})), svcTask))
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+			Expect(registered).ToNot(BeNil())
+			Expect(registered).To(Equal(t))
 		})
 	})
 

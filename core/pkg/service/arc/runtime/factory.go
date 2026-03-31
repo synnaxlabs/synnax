@@ -124,6 +124,7 @@ func (f *factory) ConfigureTask(
 		cfg:        cfg,
 		prog:       prog,
 	}
+	ctx.Register(arcTask)
 	if cfg.AutoStart {
 		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
 			return nil, err
