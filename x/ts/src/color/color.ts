@@ -352,7 +352,7 @@ export const fromCSS = (cssColor: string): Color | undefined => {
     );
     if (match) {
       const [, r, g, b, a] = match;
-      return [parseInt(r), parseInt(g), parseInt(b), a ? parseFloat(a) : 1];
+      return [parseInt(r, 10), parseInt(g, 10), parseInt(b, 10), a ? parseFloat(a) : 1];
     }
   }
   if (NAMED[trimmed]) return fromHex(NAMED[trimmed]);

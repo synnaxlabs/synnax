@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Cleans stale build caches on self-hosted Windows runners to prevent unbounded disk
-# growth. Deletes files older than MaxAgeHours (default 2) from Bazel directories,
-# Go build/module caches, and old core binaries. Safe to run - Bazel rebuilds from
-# S3 remote cache on miss, Go rebuilds on cache miss.
+# Cleans build caches on self-hosted Windows runners to prevent unbounded disk growth.
+# - Bazel: always runs `bazel clean` (unconditional - remote cache serves next build)
+# - Go/binaries: deletes entries older than MaxAgeHours (default 2)
 
 param(
     [int]$MaxAgeHours = 2
@@ -54,29 +53,29 @@ function Clean-StaleFiles {
 }
 
 $diskBefore = Get-DiskUsedMB
-Write-Output "=== Build Cache Cleanup (max age: ${MaxAgeHours}h) ==="
+Write-Output "=== Build Cache Cleanup (Bazel: always, Go/binaries: >${MaxAgeHours}h) ==="
 Write-Output ""
 
-Write-Output "Bazel build outputs (preserving external/):"
-# Only clean bazel-out/ dirs, skip external/ (fetched deps break if deleted)
-foreach ($bazelBase in @("C:\_bazel", "C:\Users\Administrator\_bazel_Administrator")) {
-    if (Test-Path $bazelBase) {
-        $outputDirs = Get-ChildItem -Path $bazelBase -Recurse -Directory -Filter "bazel-out" -ErrorAction SilentlyContinue |
-            Where-Object { $_.Parent.Parent.Name -ne "external" }
-        if ($outputDirs) {
-            foreach ($dir in $outputDirs) {
-                Clean-StaleFiles $dir.FullName $dir.FullName
-            }
-        } else {
-            Write-Output ("  {0,-30} no bazel-out dirs found" -f $bazelBase)
-        }
-    } else {
-        Write-Output ("  {0,-30} skipped (not found)" -f $bazelBase)
-    }
+Write-Output "Bazel clean:"
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$bazelBase = "C:\_bazel"
+if ((Test-Path $bazelBase) -and (Test-Path $repoRoot)) {
+    $beforeBazel = [math]::Round(
+        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    Push-Location $repoRoot
+    $bazelOutput = bazel clean 2>&1
+    if ($LASTEXITCODE -ne 0) { Write-Output "  bazel clean failed (exit $LASTEXITCODE): $bazelOutput" }
+    Pop-Location
+    $afterBazel = [math]::Round(
+        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    $freedBazel = $beforeBazel - $afterBazel
+    $script:totalFreed += $freedBazel
+    Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f "bazel clean", $beforeBazel, $afterBazel, $freedBazel)
+} else {
+    Write-Output ("  {0,-35} skipped (not found)" -f "bazel clean")
 }
-# Disk cache and repo cache are safe to clean entirely (no external/ deps)
-Clean-StaleFiles "C:\_bazel-disk" "C:\_bazel-disk"
-Clean-StaleFiles "C:\_bazel-repo" "C:\_bazel-repo"
 Write-Output ""
 
 Write-Output "Go build cache:"

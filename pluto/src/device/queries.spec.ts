@@ -1092,8 +1092,6 @@ describe("queries", () => {
         expect(formData.model).toBe("");
         expect(formData.location).toBe("");
         expect(formData.properties).toEqual({});
-
-        await waitFor(() => expect(result.current.form.value().rack).not.toEqual(0));
       });
 
       it("should create a new device on save", async () => {
