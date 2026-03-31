@@ -1,71 +1,96 @@
 name: Test - Migration
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-python/**
-      - .github/workflows/test.migration.yaml
-      - alamos/go/**
-      - alamos/py/**
-      - arc/go/**
-      - aspen/**
-      - cesium/**
-      - client/py/**
-      - core/**
-      - freighter/go/**
-      - freighter/py/**
-      - go.work
-      - go.work.sum
-      - pyproject.toml
-      - uv.lock
-      - uv.toml
-      - x/go/**
-  push:
-    branches:
-      - main
-      - rc
-    paths:
-      - .github/actions/test-python/**
-      - .github/workflows/test.migration.yaml
-      - alamos/go/**
-      - alamos/py/**
-      - arc/go/**
-      - aspen/**
-      - cesium/**
-      - client/py/**
-      - core/**
-      - freighter/go/**
-      - freighter/py/**
-      - go.work
-      - go.work.sum
-      - pyproject.toml
-      - uv.lock
-      - uv.toml
-      - x/go/**
+  workflow_call:
+    inputs:
+      ref_run_id:
+        description: "Reference run ID for downloading build artifacts"
+        type: string
+        required: true
+      os:
+        description: "Runner OS label (e.g., 'ubuntu-latest', 'windows-latest')"
+        type: string
+        required: true
+
   workflow_dispatch:
+    inputs:
+      ref_run_id:
+        description: "Reference run ID for downloading build artifacts"
+        type: string
+        required: true
+      os:
+        description: "Runner OS label"
+        type: string
+        required: false
+        default: "ubuntu-latest"
 
 jobs:
-  test:
-    name: Test
+  setup:
+    name: Generate Migration Matrix
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
+    outputs:
+      MIGRATION_MATRIX: ${{ steps.matrix.outputs.MIGRATION_MATRIX }}
+      PLATFORM: ${{ steps.platform.outputs.PLATFORM }}
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Start Core on main
-        id: start_main
-        run:
-          docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e
-          SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
-          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
-          ghcr.io/synnaxlabs/synnax:latest
+      - name: Map OS to Platform
+        id: platform
+        run: |
+          case "${{ inputs.os }}" in
+            ubuntu-latest) echo "PLATFORM=linux" >> $GITHUB_OUTPUT ;;
+            windows-latest) echo "PLATFORM=windows" >> $GITHUB_OUTPUT ;;
+            *) echo "Unsupported OS: ${{ inputs.os }}" >&2; exit 1 ;;
+          esac
 
-      - name: Checkout main
+      - name: Generate Migration Matrix
+        id: matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: >-
+          integration/scripts/generate_migration_matrix.sh --platform ${{
+          steps.platform.outputs.PLATFORM }}
+
+  test:
+    name: ${{ matrix.name }}
+    needs: setup
+    timeout-minutes: 60
+    runs-on:
+      - self-hosted
+      - ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.MIGRATION_MATRIX) }}
+    steps:
+      - name: Checkout Repository
         uses: actions/checkout@v6
-        with:
-          ref: main
+
+      - name: Force Quit Existing Synnax Processes (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+
+      - name: Force Quit Existing Synnax Processes (Unix)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: integration/scripts/kill_synnax_processes_unix.sh
+
+      - name: Download and Setup Artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ inputs.ref_run_id }}
+        run: integration/scripts/DownloadArtifactsWindows.cmd
+
+      - name: Download and Setup Artifacts (Unix)
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ inputs.ref_run_id }}
+        run: integration/scripts/download_artifacts_unix.sh
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -73,61 +98,42 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version-file: client/py/pyproject.toml
+          python-version-file: integration/pyproject.toml
 
-      - name: Test Python with Core on main
-        run: uv run pytest
-        working-directory: client/py
+      - name: Install Playwright (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: integration
+        run: uv run playwright install --with-deps
 
-      - name: Stop Core on main
-        if: always() && steps.start_main.outcome == 'success'
-        run: |
-          docker logs synnax-main
-          docker stop synnax-main
-          docker rm synnax-main
+      - name: Install Playwright (Unix)
+        if: runner.os == 'Linux'
+        working-directory: integration
+        run: uv run playwright install --with-deps
 
-      - name: Checkout current branch
-        uses: actions/checkout@v6
+      - name: Run Migration Test
+        working-directory: integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: >-
+          uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type "${{
+          matrix.test_type }}" --platform "${{ needs.setup.outputs.PLATFORM }}"
 
-      - name: Login to Github Container registry
-        uses: docker/login-action@v3
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v7
+        if: always()
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          name: migration-results-${{ inputs.os }}-${{ matrix.name }}
+          path: integration/tests/results/*
+          retention-days: 7
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Core on current
-        uses: docker/build-push-action@v6
+      - name: Upload Core Logs
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() || cancelled() }}
         with:
-          context: .
-          file: core/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-          cache-from: type=gha,scope=synnax-docker-cache
-          cache-to: type=inline
-
-      - name: Start Core on current branch
-        id: start_current
-        run:
-          docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090
-          -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
-          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
-          ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
-
-      - name: Test Python with Core on current branch
-        uses: ./.github/actions/test-python
-        with:
-          directory: client/py
-          type_check: false
-          format_check: false
-
-      - name: Stop Core on current branch
-        if: always() && steps.start_current.outcome == 'success'
-        run: |
-          docker logs synnax-current
-          docker stop synnax-current
-          docker rm synnax-current
+          name:
+            migration-core-logs-${{ inputs.os }}-${{ matrix.name }}-attempt-${{
+            github.run_attempt }}
+          path: ~/synnax-data/synnax-core.log
+          retention-days: 7

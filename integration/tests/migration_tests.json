@@ -1,0 +1,14 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "all",
+      "sequence_order": "random",
+      "tests": [
+        { "case": "migration/channels" },
+        { "case": "migration/workspace" },
+        { "case": "migration/task_opc" }
+      ]
+    }
+  ]
+}

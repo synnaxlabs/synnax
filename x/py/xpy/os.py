@@ -120,3 +120,18 @@ def get_memory_info() -> str:
 def get_cpu_cores() -> int:
     """Get the number of CPU cores."""
     return multiprocessing.cpu_count()
+
+
+def get_platform() -> str:
+    """Get the current platform as a lowercase string.
+
+    Returns one of: "linux", "macos", "windows".
+    """
+    system = platform.system()
+    if system == "Linux":
+        return "linux"
+    elif system == "Darwin":
+        return "macos"
+    elif system == "Windows":
+        return "windows"
+    raise RuntimeError(f"Unsupported platform: {system}")

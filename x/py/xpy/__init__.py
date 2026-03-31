@@ -17,7 +17,7 @@ namespace scoping. Python does not, and `import x` is too likely to collide.
 
 from xpy.color import rgb_to_hex
 from xpy.env import is_ci
-from xpy.os import get_cpu_cores, get_machine_info, get_memory_info
+from xpy.os import get_cpu_cores, get_machine_info, get_memory_info, get_platform
 from xpy.strings import get_random_name, validate_and_sanitize_name
 from xpy.version import get_synnax_version
 from xpy.websocket import (
@@ -34,6 +34,7 @@ __all__ = [
     "get_cpu_cores",
     "get_machine_info",
     "get_memory_info",
+    "get_platform",
     "get_random_name",
     "get_synnax_version",
     "ignore_websocket_errors",
