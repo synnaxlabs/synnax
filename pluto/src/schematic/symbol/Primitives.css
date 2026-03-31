@@ -342,10 +342,7 @@
                 margin-top: 1px;
                 margin-bottom: 1px;
                 margin-left: 1px;
-                padding-right: 2.5rem;
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-                padding-left: 1rem;
+                padding: 0.5rem 2.5rem 0.5rem 1rem;
                 background-color: var(--pluto-gray-l0);
                 width: calc(100% - 1px);
                 height: calc(100% - 2px);
