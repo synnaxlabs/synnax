@@ -101,6 +101,30 @@ setup_binaries() {
     ls -la $HOME/synnax-binaries/synnax*
 }
 
+# Download pre-built Python client wheels
+download_client_wheels() {
+    local run_id=$1
+    echo "Downloading client wheels from run: $run_id"
+
+    mkdir -p ./wheels
+    gh run download $run_id -p "synnax-client-wheels" --dir ./wheels || {
+        echo "⚠️ No client wheels artifact found — skipping"
+        return 0
+    }
+
+    # gh run download nests under artifact name — flatten one level
+    if [ -d "./wheels/synnax-client-wheels" ]; then
+        mv ./wheels/synnax-client-wheels/* ./wheels/
+        rmdir ./wheels/synnax-client-wheels
+    fi
+
+    mkdir -p $HOME/synnax-wheels
+    cp -r ./wheels/* $HOME/synnax-wheels/
+
+    echo "✅ Client wheels downloaded:"
+    ls -R $HOME/synnax-wheels/
+}
+
 # Main execution
 main() {
     # Clean up any existing binaries
@@ -131,6 +155,7 @@ main() {
     fi
 
     setup_binaries
+    download_client_wheels "$REF_RUN_ID"
 
     echo "✅ $os_name artifacts setup completed successfully"
 }

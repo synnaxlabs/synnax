@@ -198,4 +198,27 @@ if not exist "%USERPROFILE%\Desktop\synnax.exe" (
 echo ✅ Synnax binary copied to desktop successfully
 dir "%USERPROFILE%\Desktop\synnax*"
 
+rem Download pre-built Python client wheels
+echo Downloading client wheels from run: %REF_RUN_ID%
+if not exist ".\wheels" mkdir ".\wheels"
+"%gh_cmd%" run download %REF_RUN_ID% -p "synnax-client-wheels" --dir .\wheels --repo synnaxlabs/synnax
+if %errorlevel% neq 0 (
+    echo ⚠️ No client wheels artifact found — skipping
+    goto :wheels_done
+)
+
+rem Flatten artifact subdirectory
+if exist ".\wheels\synnax-client-wheels" (
+    xcopy /E /Y ".\wheels\synnax-client-wheels\*" ".\wheels\" >nul
+    rmdir /S /Q ".\wheels\synnax-client-wheels"
+)
+
+if not exist "%USERPROFILE%\synnax-wheels" mkdir "%USERPROFILE%\synnax-wheels"
+xcopy /E /Y ".\wheels\*" "%USERPROFILE%\synnax-wheels\" >nul
+
+echo ✅ Client wheels downloaded:
+dir /S /B "%USERPROFILE%\synnax-wheels\*.whl"
+
+:wheels_done
+
 echo ✅ Windows artifacts setup completed successfully

@@ -43,6 +43,7 @@ KILL_TIMEOUT = 5
 CLEANUP_TIMEOUT = 10
 INTEGRATION_DIR = Path(__file__).parent
 CLIENT_VENV_DIR = Path.home() / "migration-client-env"
+WHEELS_DIR = Path.home() / "synnax-wheels"
 
 # TC framework dependencies needed in client venvs (beyond synnax itself).
 CLIENT_VENV_DEPS = ["numpy", "pydantic", "flask", "psutil"]
@@ -183,37 +184,31 @@ def clean_data() -> None:
 
 
 def _create_client_venv(version: str) -> Path:
-    """Create a venv with the specified synnax client version.
+    """Create a venv and install pre-built client wheels for the given version.
 
-    For old versions, installs synnax from PyPI. For "latest", installs the
-    local workspace packages (client/py, freighter/py, alamos/py) as editable
-    so the venv always has an explicit, known version.
+    Wheels are expected at WHEELS_DIR/<version>/*.whl, placed there by the
+    download_artifacts scripts which fetch the synnax-client-wheels CI artifact.
+    Both old versions and "latest" use the same code path — the only difference
+    is which subdirectory the wheels come from.
 
     Returns the path to the venv's Python executable.
     """
     if CLIENT_VENV_DIR.exists():
         shutil.rmtree(CLIENT_VENV_DIR)
 
-    label = "local workspace" if version == "latest" else f"synnax=={version}"
-    print(f"Creating venv for {label}...")
+    wheel_dir = WHEELS_DIR / version
+    wheels = sorted(wheel_dir.glob("*.whl")) if wheel_dir.exists() else []
+    if not wheels:
+        raise FileNotFoundError(
+            f"No wheels found at {wheel_dir}. "
+            "Ensure the build-clients CI job ran and artifacts were downloaded."
+        )
+
+    print(f"Creating venv for {version}...")
     subprocess.run(["uv", "venv", str(CLIENT_VENV_DIR)], check=True)
 
     python = _venv_python(CLIENT_VENV_DIR)
-    repo_root = INTEGRATION_DIR.parent
-
-    if version == "latest":
-        synnax_packages = [
-            "-e",
-            str(repo_root / "alamos" / "py"),
-            "-e",
-            str(repo_root / "freighter" / "py"),
-            "-e",
-            str(repo_root / "client" / "py"),
-        ]
-    else:
-        synnax_packages = [f"synnax=={version}"]
-
-    packages = synnax_packages + ["-e", str(repo_root / "x" / "py")] + CLIENT_VENV_DEPS
+    packages = [str(w) for w in wheels] + CLIENT_VENV_DEPS
     subprocess.run(
         ["uv", "pip", "install", "--python", str(python)] + packages,
         check=True,
@@ -228,7 +223,8 @@ def _create_client_venv(version: str) -> Path:
     installed_version = installed.stdout.strip() if installed.returncode == 0 else "?"
     print(f"DEBUG: venv python = {python}")
     print(f"DEBUG: installed synnax version = {installed_version}")
-    print(f"Venv ready with {label}")
+    print(f"DEBUG: wheels = {[w.name for w in wheels]}")
+    print(f"Venv ready for {version}")
     return python
 
 
@@ -322,7 +318,7 @@ def main() -> None:
     try:
         success = run(chain)
     finally:
-        for d in [DATA_DIR, BINARY_CACHE_DIR, CLIENT_VENV_DIR]:
+        for d in [DATA_DIR, BINARY_CACHE_DIR, CLIENT_VENV_DIR, WHEELS_DIR]:
             if not d.exists():
                 continue
             start = time.monotonic()

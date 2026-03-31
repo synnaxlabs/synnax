@@ -37,9 +37,45 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: integration/scripts/generate_migration_matrix.sh
 
+  build-clients:
+    name: Build Python Client Wheels
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build latest client wheels
+        run: integration/scripts/build_client_wheels.sh latest wheels/latest
+
+      - name: Build minimum version client wheels
+        run:
+          integration/scripts/build_client_wheels.sh ${{
+          needs.setup.outputs.MINIMUM_VERSION }} wheels/${{
+          needs.setup.outputs.MINIMUM_VERSION }}
+
+      - name: Build previous version client wheels
+        if: needs.setup.outputs.PREVIOUS_VERSION != needs.setup.outputs.MINIMUM_VERSION
+        run:
+          integration/scripts/build_client_wheels.sh ${{
+          needs.setup.outputs.PREVIOUS_VERSION }} wheels/${{
+          needs.setup.outputs.PREVIOUS_VERSION }}
+
+      - name: Upload client wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: synnax-client-wheels
+          path: wheels/
+          retention-days: 7
+
   test:
     name: "From ${{ matrix.version }} (${{ matrix.os }})"
-    needs: setup
+    needs: [setup, build-clients]
     timeout-minutes: 60
     runs-on:
       - self-hosted
