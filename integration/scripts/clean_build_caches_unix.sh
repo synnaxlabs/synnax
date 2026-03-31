@@ -9,10 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Cleans stale build caches on self-hosted Linux runners to prevent unbounded disk
-# growth. Deletes files older than MAX_AGE_HOURS (default 2) from Bazel build outputs,
-# Go build/module caches, and old core binaries. Safe to run — Bazel rebuilds from
-# S3 remote cache on miss, Go rebuilds on cache miss.
+# Cleans build caches on self-hosted Linux runners to prevent unbounded disk growth.
+# - Bazel: always runs `bazel clean` (unconditional — remote cache serves next build)
+# - Go/binaries: deletes entries older than MAX_AGE_HOURS (default 2)
 #
 # This script must never fail the build, so we use set +e (best-effort cleanup).
 
@@ -46,25 +45,24 @@ clean_dir() {
 }
 
 DISK_BEFORE=$(disk_used_mb)
-echo "=== Build Cache Cleanup (max age: ${MAX_AGE_HOURS}h) ==="
+echo "=== Build Cache Cleanup (Bazel: always, Go/binaries: >${MAX_AGE_HOURS}h) ==="
 echo ""
 
-echo "Bazel build outputs (preserving external/):"
-for bazel_base in /root/.bazel "$HOME/.bazel"; do
-    [ "$bazel_base" = "$HOME/.bazel" ] && [ "$HOME" = "/root" ] && continue
-    if [ -d "$bazel_base" ]; then
-        found_outputs=false
-        while IFS= read -r output_dir; do
-            clean_dir "$output_dir" "${output_dir#/root/}"
-            found_outputs=true
-        done < <(find "$bazel_base" -type d -name "bazel-out" -not -path "*/external/*" 2> /dev/null)
-        if [ "$found_outputs" = false ]; then
-            printf "  %-35s no bazel-out dirs found\n" "$bazel_base"
-        fi
-    else
-        printf "  %-35s skipped (not found)\n" "$bazel_base"
-    fi
-done
+echo "Bazel clean:"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." 2> /dev/null && pwd)"
+BAZEL_BASE="/root/.bazel"
+if [ -d "$BAZEL_BASE" ] && [ -d "$REPO_ROOT" ]; then
+    before_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
+    before_bazel=${before_bazel:-0}
+    (cd "$REPO_ROOT" && bazel clean 2>&1) || echo "  bazel clean failed (exit $?)"
+    after_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
+    after_bazel=${after_bazel:-0}
+    freed_bazel=$((before_bazel - after_bazel))
+    TOTAL_FREED=$((TOTAL_FREED + freed_bazel))
+    printf "  %-35s %6dMB -> %6dMB  (freed %dMB)\n" "bazel clean" "$before_bazel" "$after_bazel" "$freed_bazel"
+else
+    printf "  %-35s skipped (not found)\n" "bazel clean"
+fi
 echo ""
 
 echo "Go build cache:"
