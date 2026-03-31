@@ -67,7 +67,6 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes (Unix)
         if: runner.os == 'Linux'
-        continue-on-error: true
         run: integration/scripts/kill_synnax_processes_unix.sh
 
       - name: Download and Setup Artifacts (Windows)
@@ -111,9 +110,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
-        run: >-
-          uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type
-          inplace
+        run: uv run migration-orchestrator --chain "${{ matrix.chain }}"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7

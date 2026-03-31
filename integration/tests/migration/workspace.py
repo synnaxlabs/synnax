@@ -12,6 +12,10 @@
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path
 
+WORKSPACE_NAME = "mig_workspace"
+LINE_PLOT_NAME = "mig_line_plot"
+FIXTURE_PATH = "ImportSpace/Metrics Plot.json"
+
 
 class WorkspacesSetup(ConsoleCase):
     """Create a workspace and import a line plot fixture."""
@@ -22,13 +26,13 @@ class WorkspacesSetup(ConsoleCase):
 
     def test_create_workspace(self) -> None:
         self.log("Testing: Create workspace")
-        self.console.workspace.create("mig_workspace")
+        self.console.workspace.create(WORKSPACE_NAME)
 
     def test_import_page(self) -> None:
         self.log("Testing: Import line plot page")
-        fixture_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        self.console.workspace.import_page(fixture_path, "mig_line_plot")
-        tab = self.console.layout.get_tab("mig_line_plot")
+        fixture_path = get_fixture_path(FIXTURE_PATH)
+        self.console.workspace.import_page(fixture_path, LINE_PLOT_NAME)
+        tab = self.console.layout.get_tab(LINE_PLOT_NAME)
         assert tab.is_visible(), "Imported line plot tab is not visible"
 
 
@@ -41,13 +45,13 @@ class WorkspacesVerify(ConsoleCase):
 
     def test_workspace_exists(self) -> None:
         self.log("Testing: Workspace exists")
-        self.console.workspace.select("mig_workspace")
+        self.console.workspace.select(WORKSPACE_NAME)
         assert self.console.workspace.page_exists(
-            "mig_line_plot"
-        ), "Line plot page 'mig_line_plot' not found after migration"
+            LINE_PLOT_NAME
+        ), f"Page '{LINE_PLOT_NAME}' not found after migration"
 
     def test_page_renders(self) -> None:
         self.log("Testing: Page renders after migration")
-        self.console.workspace.open_page("mig_line_plot")
-        tab = self.console.layout.get_tab("mig_line_plot")
+        self.console.workspace.open_page(LINE_PLOT_NAME)
+        tab = self.console.layout.get_tab(LINE_PLOT_NAME)
         assert tab.is_visible(), "Line plot tab is not visible after opening"

@@ -13,8 +13,7 @@ Manages Core binary lifecycle and invokes test-conductor as subprocesses.
 Does not import any test framework code.
 
 Usage:
-    uv run migration-orchestrator --chain "0.50.0,0.53.0,latest" --test-type inplace --platform linux
-    uv run migration-orchestrator --chain "0.50.0,latest" --test-type export_import --platform windows
+    uv run migration-orchestrator --chain "0.50.0,0.53.0,latest" --platform linux
 """
 
 import argparse
@@ -32,7 +31,6 @@ from xpy import get_platform
 BINARY_CACHE_DIR = Path.home() / "synnax-binary-cache"
 BINARY_DIR = Path.home() / "synnax-binaries"
 DATA_DIR = Path.home() / "synnax-data"
-LOG_DIR = Path.home() / "synnax-logs"
 BINARY_NAME = "synnax.exe" if platform.system() == "Windows" else "synnax"
 REPO = "synnaxlabs/synnax"
 PORT = 9090
@@ -40,15 +38,7 @@ STARTUP_TIMEOUT = 30 * sy.TimeSpan.SECOND
 STARTUP_POLL_INTERVAL = 1 * sy.TimeSpan.SECOND
 STOP_TIMEOUT = 10 * sy.TimeSpan.SECOND
 KILL_TIMEOUT = 5 * sy.TimeSpan.SECOND
-
-
-def asset_name(version: str, plat: str) -> str:
-    suffix = "-windows.exe" if plat == "windows" else f"-{plat}"
-    return f"synnax-v{version}{suffix}"
-
-
-def release_tag(version: str) -> str:
-    return f"synnax-v{version}"
+CLEANUP_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 
 def install_version(version: str, plat: str) -> None:
@@ -65,14 +55,15 @@ def install_version(version: str, plat: str) -> None:
     BINARY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     BINARY_DIR.mkdir(parents=True, exist_ok=True)
 
-    asset = asset_name(version, plat)
+    suffix = "-windows.exe" if plat == "windows" else f"-{plat}"
+    asset = f"synnax-v{version}{suffix}"
     cached = BINARY_CACHE_DIR / asset
     target = BINARY_DIR / BINARY_NAME
 
     if cached.exists():
         print(f"Using cached binary for v{version}")
     else:
-        tag = release_tag(version)
+        tag = f"synnax-v{version}"
         print(f"Downloading {asset} from release {tag}...")
         subprocess.run(
             [
@@ -106,14 +97,15 @@ def start_core() -> subprocess.Popen[bytes]:
     env.setdefault("SYNNAX_LICENSE_KEY", "")
 
     print(f"Starting Core from {binary}...")
-    with open(log_file, "w") as log:
-        proc = subprocess.Popen[bytes](
-            [str(binary), "start", "-i"],
-            cwd=str(DATA_DIR),
-            stdout=log,
-            stderr=log,
-            env=env,
-        )
+    log = open(log_file, "w")
+    proc = subprocess.Popen(
+        [str(binary), "start", "-i"],
+        cwd=str(DATA_DIR),
+        stdout=log,
+        stderr=log,
+        env=env,
+    )
+    log.close()
 
     timer = sy.Timer()
     while timer.elapsed() < STARTUP_TIMEOUT:
@@ -155,7 +147,7 @@ def stop_core(proc: subprocess.Popen[bytes]) -> None:
             print("Core stopped")
             return
 
-    print("Warning: port still in use after Core process exited")
+    raise RuntimeError(f"Port {PORT} still in use after Core process exited")
 
 
 def clean_data() -> None:
@@ -166,7 +158,11 @@ def clean_data() -> None:
 
 
 def run_test_conductor(class_filter: str) -> bool:
-    """Run test-conductor for migration tests, filtering by class name."""
+    """Run test-conductor for migration tests, filtering by class name.
+
+    The -f flag matches against both file paths and class names, so passing
+    "setup" matches classes like ChannelsSetup, WorkspacesSetup, etc.
+    """
     cmd = ["uv", "run", "tc", "migration", "-f", class_filter]
     label = f"uv run tc migration -f {class_filter}"
     print(f"Running: {label}")
@@ -178,50 +174,31 @@ def run_test_conductor(class_filter: str) -> bool:
     return True
 
 
-def run_phase(version: str, plat: str, sequence: str) -> bool:
-    """Install a version, start Core, run a test sequence, and stop Core."""
-    print(f"\n{'=' * 60}")
-    print(f"Phase: {sequence} | Version: {version} | Platform: {plat}")
-    print(f"{'=' * 60}\n")
-    install_version(version, plat)
-    proc = start_core()
-    try:
-        return run_test_conductor(sequence)
-    finally:
-        stop_core(proc)
+def run(chain: list[str], plat: str) -> bool:
+    """Run upgrade test across a version chain.
 
-
-def run_inplace(chain: list[str], plat: str) -> bool:
-    """Run in-place upgrade test across a version chain."""
+    For each version: install the binary, start Core, run the test conductor
+    (setup for the first version, verify for subsequent ones), and stop Core.
+    Data directory persists across all versions so each upgrade verifies
+    against the previous version's data. Caller is responsible for cleaning
+    data before and after.
+    """
     print(f"\n{'#' * 60}")
-    print(f"In-place upgrade chain: {' -> '.join(chain)}")
+    print(f"Upgrade chain: {' -> '.join(chain)}")
     print(f"{'#' * 60}\n")
 
     for i, version in enumerate(chain):
-        if not run_phase(version, plat, "setup" if i == 0 else "verify"):
-            return False
-
-    return True
-
-
-def run_export_import(chain: list[str], plat: str) -> bool:
-    """Run export/import test: export on old version, import on new."""
-    if len(chain) != 2:
-        print(f"Export/import requires exactly 2 versions, got {len(chain)}: {chain}")
-        return False
-
-    old_version, new_version = chain
-    print(f"\n{'#' * 60}")
-    print(f"Export/import: {old_version} -> {new_version}")
-    print(f"{'#' * 60}\n")
-
-    clean_data()
-    if not run_phase(old_version, plat, "export"):
-        return False
-
-    clean_data()
-    if not run_phase(new_version, plat, "import"):
-        return False
+        sequence = "setup" if i == 0 else "verify"
+        print(f"\n{'=' * 60}")
+        print(f"Phase: {sequence} | Version: {version} | Platform: {plat}")
+        print(f"{'=' * 60}\n")
+        install_version(version, plat)
+        proc = start_core()
+        try:
+            if not run_test_conductor(sequence):
+                return False
+        finally:
+            stop_core(proc)
 
     return True
 
@@ -236,12 +213,6 @@ def main() -> None:
         help="Comma-separated version chain (e.g., '0.50.0,0.53.0,latest')",
     )
     parser.add_argument(
-        "--test-type",
-        required=True,
-        choices=["inplace", "export_import"],
-        help="Type of migration test to run",
-    )
-    parser.add_argument(
         "--platform",
         choices=["linux", "windows", "macos"],
         default=None,
@@ -252,32 +223,30 @@ def main() -> None:
     chain = [v.strip() for v in args.chain.split(",")]
     plat = args.platform or get_platform()
 
-    print(f"Migration orchestrator")
-    print(f"  Chain: {chain}")
-    print(f"  Test type: {args.test_type}")
+    print("Migration orchestrator")
+    print(f"  Chain: {' -> '.join(chain)}")
     print(f"  Platform: {plat}")
     print()
 
+    success = False
     clean_data()
 
     try:
-        if args.test_type == "inplace":
-            success = run_inplace(chain, plat)
-        else:
-            success = run_export_import(chain, plat)
+        success = run(chain, plat)
     finally:
-        for d in [DATA_DIR, BINARY_CACHE_DIR, LOG_DIR]:
+        for d in [DATA_DIR, BINARY_CACHE_DIR]:
             if not d.exists():
                 continue
             timer = sy.Timer()
-            while timer.elapsed() < STOP_TIMEOUT:
+            while timer.elapsed() < CLEANUP_TIMEOUT:
                 try:
                     shutil.rmtree(d)
+                    print(f"Cleaned {d}")
                     break
                 except PermissionError:
                     sy.sleep(1)
             else:
-                print(f"Failed to clean {d} after {STOP_TIMEOUT}")
+                print(f"Warning: failed to clean {d} after {CLEANUP_TIMEOUT}")
         print("Cleanup complete")
 
     if success:

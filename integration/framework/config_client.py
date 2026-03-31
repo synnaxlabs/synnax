@@ -180,6 +180,9 @@ class ConfigClient:
 
                 class_defs = self._expand_test_classes(test_def)
                 for class_def in class_defs:
+                    # -f matches against both the file path (e.g. "migration/channels")
+                    # and the class name (e.g. "ChannelsSetup"), so you can filter into
+                    # individual classes: `tc migration -f setup` matches *Setup classes.
                     if target_filter.case_filter is not None:
                         matches_case = target_filter.matches_case(case_path)
                         matches_class = (

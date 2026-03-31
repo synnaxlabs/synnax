@@ -3,7 +3,6 @@
   "sequences": [
     {
       "sequence_name": "all",
-      "sequence_order": "random",
       "tests": [
         { "case": "migration/channels" },
         { "case": "migration/workspace" },

@@ -14,6 +14,13 @@ import synnax as sy
 
 from framework.test_case import TestCase
 
+IDX_NAME = "mig_channels_idx"
+FLOAT_NAME = "mig_channels_float32"
+INT_NAME = "mig_channels_int64"
+EXPECTED_FLOATS = np.array([1.5, 2.7, 3.14, 4.0, 5.55], dtype=np.float32)
+EXPECTED_INTS = np.array([10, 20, 30, 40, 50], dtype=np.int64)
+SAMPLE_COUNT = len(EXPECTED_FLOATS)
+
 
 class ChannelsSetup(TestCase):
     """Create channels and write known sample data for migration verification."""
@@ -27,19 +34,19 @@ class ChannelsSetup(TestCase):
         client = self.client
 
         self.idx = client.channels.create(
-            name="mig_channels_idx",
+            name=IDX_NAME,
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
             retrieve_if_name_exists=True,
         )
         self.float_ch = client.channels.create(
-            name="mig_channels_float32",
+            name=FLOAT_NAME,
             data_type=sy.DataType.FLOAT32,
             index=self.idx.key,
             retrieve_if_name_exists=True,
         )
         self.int_ch = client.channels.create(
-            name="mig_channels_int64",
+            name=INT_NAME,
             data_type=sy.DataType.INT64,
             index=self.idx.key,
             retrieve_if_name_exists=True,
@@ -49,17 +56,9 @@ class ChannelsSetup(TestCase):
         self.log("Testing: Write sample data")
         start = sy.TimeStamp.now()
         timestamps = np.array(
-            [
-                start,
-                start + 1 * sy.TimeSpan.SECOND,
-                start + 2 * sy.TimeSpan.SECOND,
-                start + 3 * sy.TimeSpan.SECOND,
-                start + 4 * sy.TimeSpan.SECOND,
-            ],
+            [start + i * sy.TimeSpan.SECOND for i in range(SAMPLE_COUNT)],
             dtype=np.int64,
         )
-        float_values = np.array([1.5, 2.7, 3.14, 4.0, 5.55], dtype=np.float32)
-        int_values = np.array([10, 20, 30, 40, 50], dtype=np.int64)
 
         with self.client.open_writer(
             start=start,
@@ -69,8 +68,8 @@ class ChannelsSetup(TestCase):
             writer.write(
                 {
                     self.idx.key: timestamps,
-                    self.float_ch.key: float_values,
-                    self.int_ch.key: int_values,
+                    self.float_ch.key: EXPECTED_FLOATS,
+                    self.int_ch.key: EXPECTED_INTS,
                 }
             )
             writer.commit()
@@ -85,40 +84,47 @@ class ChannelsVerify(TestCase):
 
     def test_channel_types(self) -> None:
         self.log("Testing: Channel types")
-        idx = self.client.channels.retrieve("mig_channels_idx")
+        idx = self.client.channels.retrieve(IDX_NAME)
         assert (
             idx.data_type == sy.DataType.TIMESTAMP
         ), f"Expected TIMESTAMP, got {idx.data_type}"
         assert idx.is_index, "Expected index channel"
-        float_ch = self.client.channels.retrieve("mig_channels_float32")
+
+        float_ch = self.client.channels.retrieve(FLOAT_NAME)
         assert (
             float_ch.data_type == sy.DataType.FLOAT32
         ), f"Expected FLOAT32, got {float_ch.data_type}"
-        int_ch = self.client.channels.retrieve("mig_channels_int64")
+        assert (
+            float_ch.index == idx.key
+        ), f"Expected float index={idx.key}, got {float_ch.index}"
+
+        int_ch = self.client.channels.retrieve(INT_NAME)
         assert (
             int_ch.data_type == sy.DataType.INT64
         ), f"Expected INT64, got {int_ch.data_type}"
+        assert (
+            int_ch.index == idx.key
+        ), f"Expected int index={idx.key}, got {int_ch.index}"
 
     def test_data_integrity(self) -> None:
         self.log("Testing: Data integrity")
-        float_ch = self.client.channels.retrieve("mig_channels_float32")
-        int_ch = self.client.channels.retrieve("mig_channels_int64")
+        float_ch = self.client.channels.retrieve(FLOAT_NAME)
+        int_ch = self.client.channels.retrieve(INT_NAME)
         time_range = sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now())
         frame = self.client.read(time_range, [float_ch.key, int_ch.key])
 
         float_data = frame[float_ch.key].to_numpy()
-        expected_floats = np.array([1.5, 2.7, 3.14, 4.0, 5.55], dtype=np.float32)
         assert (
-            len(float_data) >= 5
-        ), f"Expected at least 5 float samples, got {len(float_data)}"
+            len(float_data) >= SAMPLE_COUNT
+        ), f"Expected >= {SAMPLE_COUNT} float samples, got {len(float_data)}"
         assert np.allclose(
-            float_data[-5:], expected_floats, atol=1e-5
-        ), f"Float data mismatch: {float_data[-5:]} != {expected_floats}"
+            float_data[-SAMPLE_COUNT:], EXPECTED_FLOATS, atol=1e-5
+        ), f"Float data mismatch: {float_data[-SAMPLE_COUNT:]}"
+
         int_data = frame[int_ch.key].to_numpy()
-        expected_ints = np.array([10, 20, 30, 40, 50], dtype=np.int64)
         assert (
-            len(int_data) >= 5
-        ), f"Expected at least 5 int samples, got {len(int_data)}"
+            len(int_data) >= SAMPLE_COUNT
+        ), f"Expected >= {SAMPLE_COUNT} int samples, got {len(int_data)}"
         assert np.array_equal(
-            int_data[-5:], expected_ints
-        ), f"Int data mismatch: {int_data[-5:]} != {expected_ints}"
+            int_data[-SAMPLE_COUNT:], EXPECTED_INTS
+        ), f"Int data mismatch: {int_data[-SAMPLE_COUNT:]}"

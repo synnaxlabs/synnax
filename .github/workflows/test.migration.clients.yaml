@@ -1,10 +1,10 @@
-name: Test - Migration
+name: Test - Migration (Clients)
 
 on:
   pull_request:
     paths:
       - .github/actions/test-python/**
-      - .github/workflows/test.migration.yaml
+      - .github/workflows/test.migration.clients.yaml
       - alamos/go/**
       - alamos/py/**
       - arc/go/**
@@ -24,9 +24,10 @@ on:
     branches:
       - main
       - rc
+      - sy-3970-migration-integration-tests
     paths:
       - .github/actions/test-python/**
-      - .github/workflows/test.migration.yaml
+      - .github/workflows/test.migration.clients.yaml
       - alamos/go/**
       - alamos/py/**
       - arc/go/**
