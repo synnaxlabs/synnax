@@ -269,8 +269,17 @@ def main() -> None:
             success = run_export_import(chain, plat)
     finally:
         for d in [DATA_DIR, BINARY_CACHE_DIR, LOG_DIR]:
-            if d.exists():
-                shutil.rmtree(d)
+            if not d.exists():
+                continue
+            timer = sy.Timer()
+            while timer.elapsed() < STOP_TIMEOUT:
+                try:
+                    shutil.rmtree(d)
+                    break
+                except PermissionError:
+                    sy.sleep(1)
+            else:
+                print(f"Failed to clean {d} after {STOP_TIMEOUT}")
         print("Cleanup complete")
 
     if success:
