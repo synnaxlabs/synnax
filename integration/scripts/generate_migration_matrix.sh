@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-MINIMUM_VERSION="0.50.0"
+MINIMUM_VERSION="0.53.0"
 
 version_gte() {
     [[ "$(printf '%s\n%s' "$1" "$2" | sort -V | head -n1)" == "$2" ]]
