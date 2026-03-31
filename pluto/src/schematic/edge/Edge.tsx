@@ -9,39 +9,20 @@
 
 import "@/schematic/edge/Edge.css";
 
-import { box, color, direction, location, type record, xy } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { color, location, xy } from "@synnaxlabs/x";
 import {
   type ConnectionLineComponentProps,
+  type EdgeProps as RFEdgeProps,
   type Position,
   useReactFlow,
 } from "@xyflow/react";
-import {
-  type DragEvent,
-  Fragment,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { connector } from "@/schematic/edge/connector";
 import { DefaultPath, type EdgeType, PATHS } from "@/schematic/edge/paths";
-import { type Key } from "@/triggers/triggers";
-import { type Diagram } from "@/vis/diagram";
-import { selectNodeBox } from "@/vis/diagram/util";
-
-interface CurrentlyDragging {
-  segments: connector.Segment[];
-  index: number;
-}
-
-export interface EdgeData extends record.Unknown {
-  segments: connector.Segment[];
-  variant?: EdgeType;
-  color?: color.Crude;
-}
+import { route } from "@/schematic/edge/route";
+import { useRetrieve } from "@/schematic/queries";
 
 export const ConnectionLine = ({
   fromX,
@@ -50,7 +31,6 @@ export const ConnectionLine = ({
   toY,
   fromPosition,
   toPosition,
-  fromNode,
   connectionLineStyle,
   connectionStatus,
 }: ConnectionLineComponentProps): ReactElement => {
@@ -60,22 +40,12 @@ export const ConnectionLine = ({
     const res = location.outerZ.safeParse(toNodeHandle[1]);
     if (res.success) toPosition = res.data as Position;
   }
-  const flow = useReactFlow();
-  const conn = connector.buildNew({
-    sourcePos: xy.construct(fromX, fromY),
-    targetPos: xy.construct(toX, toY),
-    sourceOrientation: fromPosition,
-    targetOrientation: toPosition,
-    sourceBox: selectNodeBox(flow, fromNode?.id ?? ""),
-    targetBox: selectNodeBox(flow, fromNode?.id ?? ""),
+  const points = route({
+    source: xy.construct(fromX, fromY),
+    sourceDir: fromPosition as location.Outer,
+    target: xy.construct(toX, toY),
+    targetDir: toPosition as location.Outer,
   });
-  const points = connector.segmentsToPoints(
-    xy.construct(fromX, fromY),
-    conn,
-    flow.getZoom(),
-    false,
-  );
-
   return (
     <DefaultPath
       points={points}
@@ -93,200 +63,63 @@ export const ConnectionLine = ({
   );
 };
 
+interface EdgeInternalProps extends RFEdgeProps {
+  schematicKey: string;
+}
+
 export const Edge = ({
   id,
-  source,
-  target,
   sourcePosition: sourceOrientation,
-  targetHandleId,
   targetPosition: targetOrientation,
-  style,
-  data,
   selected = false,
-  onDataChange,
+  schematicKey,
   ...rest
-}: Diagram.EdgeProps<EdgeData>): ReactElement => {
+}: EdgeInternalProps): ReactElement => {
+  const { data: doc } = useRetrieve({ key: schematicKey });
+  const edgeProps = doc?.props?.[id] as schematic.EdgeProps | undefined;
   const {
-    segments: propsSegments = [],
+    waypoints = [],
     color: edgeColor = "var(--pluto-gray-l11)",
     variant = "pipe",
-  } = data ?? {};
-  const sourcePos = xy.construct(rest.sourceX, rest.sourceY);
-  const sourcePosRef = useRef(sourcePos);
-  const sourcePosEq = xy.equals(sourcePos, sourcePosRef.current);
-
-  const targetPos = xy.construct(rest.targetX, rest.targetY);
-  const targetPosRef = useRef(targetPos);
-  const targetPosEq = xy.equals(targetPos, targetPosRef.current);
+  } = edgeProps ?? {};
 
   const flow = useReactFlow();
+  const sourcePos = xy.construct(rest.sourceX, rest.sourceY);
+  const targetPos = xy.construct(rest.targetX, rest.targetY);
 
-  const segments = useMemo(
+  const points = useMemo(
     () =>
-      propsSegments.length > 0
-        ? propsSegments
-        : connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation,
-            targetOrientation,
-            sourceBox: selectNodeBox(flow, source),
-            targetBox: selectNodeBox(flow, target),
-          }),
-    [propsSegments, sourcePos, targetPos, sourceOrientation, targetOrientation],
+      route({
+        source: sourcePos,
+        sourceDir: sourceOrientation as location.Outer,
+        target: targetPos,
+        targetDir: targetOrientation as location.Outer,
+        waypoints,
+      }),
+    [sourcePos, targetPos, sourceOrientation, targetOrientation, waypoints],
   );
 
-  const dispatchSegments = useCallback(
-    (next: connector.Segment[]) => {
-      onDataChange({ segments: next, color: edgeColor, variant });
-    },
-    [edgeColor, variant, onDataChange],
-  );
-
-  const targetOrientationRef = useRef(targetOrientation);
-  const sourceOrientationRef = useRef(sourceOrientation);
-
-  if (!sourcePosEq || !targetPosEq) {
-    let next: connector.Segment[] = segments;
-    const sourceDelta = xy.translation(sourcePosRef.current, sourcePos);
-    const targetDelta = xy.translation(targetPos, targetPosRef.current);
-    if (xy.equals(sourceDelta, xy.scale(targetDelta, -1), 0.001)) {
-      sourcePosRef.current = sourcePos;
-      targetPosRef.current = targetPos;
-    } else {
-      if (!sourcePosEq) {
-        next = connector.moveSourceNode({ delta: sourceDelta, segments: next });
-        if (sourceOrientationRef.current !== sourceOrientation) {
-          sourceOrientationRef.current = sourceOrientation;
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation,
-            targetOrientation,
-            sourceBox: selectNodeBox(flow, source),
-            targetBox: selectNodeBox(flow, target),
-          });
-        }
-        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation,
-            targetOrientation,
-            sourceBox: selectNodeBox(flow, source),
-            targetBox: selectNodeBox(flow, target),
-          });
-        sourcePosRef.current = sourcePos;
-      } else if (!targetPosEq) {
-        next = connector.moveTargetNode({ delta: targetDelta, segments: next });
-        if (targetOrientationRef.current !== targetOrientation) {
-          targetOrientationRef.current = targetOrientation;
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation,
-            targetOrientation,
-            sourceBox: selectNodeBox(flow, source),
-            targetBox: selectNodeBox(flow, target),
-          });
-        }
-        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation,
-            targetOrientation,
-            sourceBox: selectNodeBox(flow, source),
-            targetBox: selectNodeBox(flow, target),
-          });
-        targetPosRef.current = targetPos;
-      }
-      dispatchSegments(next);
-    }
-  }
-
-  const dragRef = useRef<CurrentlyDragging | null>(null);
-
-  const dragStart = useCursorDrag({
-    onStart: useCallback(
-      (_: xy.XY, __: Key, e: DragEvent) => {
-        dragRef.current = {
-          index: Number(e.currentTarget.id.split("-")[1]),
-          segments: [...segments],
-        };
-      },
-      [segments],
-    ),
-    onMove: useCallback(
-      (b: box.Box) => {
-        if (dragRef.current == null) return;
-        const next = connector.dragSegment({
-          segments: dragRef.current.segments,
-          index: dragRef.current.index,
-          magnitude:
-            box.dim(
-              b,
-              direction.swap(dragRef.current.segments[dragRef.current.index].direction),
-              true,
-            ) / flow.getZoom(),
-        });
-        dispatchSegments(next);
-      },
-      [dispatchSegments],
-    ),
-    onEnd: useCallback(() => {}, []),
-  });
-
-  const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
-
-  const P = PATHS[variant];
+  const P = PATHS[variant as EdgeType] ?? PATHS.pipe;
 
   return (
     <>
       <P points={points} color={edgeColor} />
-      {selected &&
-        calcMidPoints(points).map((p, i) => {
-          const dir = segments[i].direction;
-          const swapped = direction.swap(dir);
-          const dims = {
-            [direction.dimension(dir)]: "18px",
-            [direction.dimension(swapped)]: "4px",
-          };
-          const pos = {
-            [dir]: p[dir] - 9,
-            [swapped]: p[swapped] - 2,
-          };
-          return (
-            <Fragment key={i}>
-              <rect
-                className={CSS.BE("diagram-edge-handle", "background")}
-                fill="var(--pluto-gray-l0)"
-                stroke="var(--pluto-primary-z)"
-                {...dims}
-                {...pos}
-                rx="2px"
-                ry="2px"
-              />
-              <foreignObject x={p.x - 9} y={p.y - 9} width="18px" height="18px">
-                <div
-                  id={`handle-${i}`}
-                  className={CSS(
-                    CSS.BE("diagram-edge-handle", "dragger"),
-                    CSS.dir(dir),
-                  )}
-                  draggable
-                  onDragStart={dragStart}
-                />
-              </foreignObject>
-            </Fragment>
-          );
-        })}
+      {selected && (
+        <g className={CSS.BE("diagram-edge", "handles")}>
+          {points.slice(1, -1).map((p, i) => (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={4 / flow.getZoom()}
+              className={CSS.BE("diagram-edge-handle", "waypoint")}
+              fill="var(--pluto-primary-z)"
+              stroke="var(--pluto-gray-l0)"
+              strokeWidth={1 / flow.getZoom()}
+            />
+          ))}
+        </g>
+      )}
     </>
   );
 };
-
-export const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
-  points.slice(1).map((p, i) => {
-    const prev = points[i];
-    return xy.construct((p.x + prev.x) / 2, (p.y + prev.y) / 2);
-  });

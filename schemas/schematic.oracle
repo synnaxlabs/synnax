@@ -54,17 +54,6 @@ Node struct {
     @doc value "is a diagram node representing a symbol in the schematic."
 }
 
-Segment struct {
-    direction spatial.Direction {
-        @doc value "is the axis of travel for this segment."
-    }
-    length    float64           {
-        @doc value "is the distance to travel along the axis."
-    }
-
-    @doc value "is a connector path segment with a direction and length."
-}
-
 EdgeVariant enum {
     pipe      = "pipe"
     electric  = "electric"
@@ -77,44 +66,48 @@ EdgeVariant enum {
     @doc value "is the visual style of an edge connector."
 }
 
-EdgeData struct {
-    segments Segment[]    {
-        @doc value "contains the connector path segments."
+Handle struct {
+    node  string {
+        @doc value "is the node identifier."
     }
-    variant  EdgeVariant? {
-        @doc value "is the optional visual style of the edge."
+    param string {
+        @doc value "is the connection point identifier on the node."
     }
-    color    string?      {
+
+    @doc value """
+        is a reference to a specific connection point on a specific node.
+        For schematics, param is the symbol handle key (e.g. inlet, outlet).
+    """
+}
+
+EdgeProps struct {
+    waypoints spatial.XY[] {
+        @doc value """
+            contains user-placed intermediate waypoints. Empty array means
+            fully auto-routed. The routing algorithm computes the full path
+            at render time.
+        """
+    }
+    variant   EdgeVariant  {
+        @validate default "pipe"
+        @doc value        "is the visual style of the edge."
+    }
+    color     string?      {
         @doc value "is the optional display color."
     }
 
-    @doc value "contains the visual rendering data for an edge."
+    @doc value "contains visual properties for an edge, stored in schematic props."
 }
 
 Edge struct {
-    key           string    {
+    key    string {
         @doc value "is the unique edge identifier within the schematic."
     }
-    source        string    {
-        @doc value "is the source node key."
+    source Handle {
+        @doc value "is the source endpoint of the edge."
     }
-    target        string    {
-        @doc value "is the target node key."
-    }
-    id            string    {
-        @doc value "is the edge identifier."
-    }
-    selected      bool      {
-        @doc value "is whether the edge is currently selected."
-    }
-    source_handle string?   {
-        @doc value "is the handle id on the source node."
-    }
-    target_handle string?   {
-        @doc value "is the handle id on the target node."
-    }
-    data          EdgeData? {
-        @doc value "contains optional visual rendering data."
+    target Handle {
+        @doc value "is the target endpoint of the edge."
     }
 
     @doc value "is a connection between two nodes in the schematic."
@@ -197,14 +190,9 @@ Schematic struct {
         dimensions spatial.Dimensions
     }
 
-    action SetNodeProps {
+    action SetProps {
         key   string
         props record
-    }
-
-    action SetEdgeData {
-        key  string
-        data EdgeData
     }
 
     @doc value     """

@@ -23,8 +23,7 @@ const (
 	ActionTypeSetEdge           = "set_edge"
 	ActionTypeRemoveEdge        = "remove_edge"
 	ActionTypeSetNodeDimensions = "set_node_dimensions"
-	ActionTypeSetNodeProps      = "set_node_props"
-	ActionTypeSetEdgeData       = "set_edge_data"
+	ActionTypeSetProps          = "set_props"
 )
 
 type SetNodePosition struct {
@@ -48,13 +47,9 @@ type SetNodeDimensions struct {
 	Key        string             `json:"key" msgpack:"key"`
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 }
-type SetNodeProps struct {
+type SetProps struct {
 	Key   string                    `json:"key" msgpack:"key"`
 	Props binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
-}
-type SetEdgeData struct {
-	Key  string   `json:"key" msgpack:"key"`
-	Data EdgeData `json:"data" msgpack:"data"`
 }
 
 // Action is a discriminated union for all Schematic mutations.
@@ -66,8 +61,7 @@ type Action struct {
 	SetEdge           *SetEdge           `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
 	RemoveEdge        *RemoveEdge        `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
 	SetNodeDimensions *SetNodeDimensions `json:"set_node_dimensions,omitempty" msgpack:"set_node_dimensions,omitempty"`
-	SetNodeProps      *SetNodeProps      `json:"set_node_props,omitempty" msgpack:"set_node_props,omitempty"`
-	SetEdgeData       *SetEdgeData       `json:"set_edge_data,omitempty" msgpack:"set_edge_data,omitempty"`
+	SetProps          *SetProps          `json:"set_props,omitempty" msgpack:"set_props,omitempty"`
 }
 
 // Reduce applies the action to the given state.
@@ -85,10 +79,8 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 		return a.RemoveEdge.Handle(state)
 	case ActionTypeSetNodeDimensions:
 		return a.SetNodeDimensions.Handle(state)
-	case ActionTypeSetNodeProps:
-		return a.SetNodeProps.Handle(state)
-	case ActionTypeSetEdgeData:
-		return a.SetEdgeData.Handle(state)
+	case ActionTypeSetProps:
+		return a.SetProps.Handle(state)
 	default:
 		return state, nil
 	}
@@ -136,12 +128,7 @@ func NewSetNodeDimensionsAction(p SetNodeDimensions) Action {
 	return Action{Type: ActionTypeSetNodeDimensions, SetNodeDimensions: &p}
 }
 
-// NewSetNodePropsAction creates an Action that wraps a SetNodeProps payload.
-func NewSetNodePropsAction(p SetNodeProps) Action {
-	return Action{Type: ActionTypeSetNodeProps, SetNodeProps: &p}
-}
-
-// NewSetEdgeDataAction creates an Action that wraps a SetEdgeData payload.
-func NewSetEdgeDataAction(p SetEdgeData) Action {
-	return Action{Type: ActionTypeSetEdgeData, SetEdgeData: &p}
+// NewSetPropsAction creates an Action that wraps a SetProps payload.
+func NewSetPropsAction(p SetProps) Action {
+	return Action{Type: ActionTypeSetProps, SetProps: &p}
 }

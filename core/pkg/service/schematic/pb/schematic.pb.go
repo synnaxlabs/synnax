@@ -251,31 +251,32 @@ func (x *Node) GetMeasured() *pb.Dimensions {
 	return nil
 }
 
-// Segment is a connector path segment with a direction and length.
-type Segment struct {
+// Handle is a reference to a specific connection point on a specific node. For
+// schematics, param is the symbol handle key (e.g. inlet, outlet).
+type Handle struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// direction is the axis of travel for this segment.
-	Direction pb.Direction `protobuf:"varint,1,opt,name=direction,proto3,enum=x.spatial.pb.Direction" json:"direction,omitempty"`
-	// length is the distance to travel along the axis.
-	Length        float64 `protobuf:"fixed64,2,opt,name=length,proto3" json:"length,omitempty"`
+	// node is the node identifier.
+	Node string `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	// param is the connection point identifier on the node.
+	Param         string `protobuf:"bytes,2,opt,name=param,proto3" json:"param,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Segment) Reset() {
-	*x = Segment{}
+func (x *Handle) Reset() {
+	*x = Handle{}
 	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Segment) String() string {
+func (x *Handle) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Segment) ProtoMessage() {}
+func (*Handle) ProtoMessage() {}
 
-func (x *Segment) ProtoReflect() protoreflect.Message {
+func (x *Handle) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -287,31 +288,32 @@ func (x *Segment) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Segment.ProtoReflect.Descriptor instead.
-func (*Segment) Descriptor() ([]byte, []int) {
+// Deprecated: Use Handle.ProtoReflect.Descriptor instead.
+func (*Handle) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Segment) GetDirection() pb.Direction {
+func (x *Handle) GetNode() string {
 	if x != nil {
-		return x.Direction
+		return x.Node
 	}
-	return pb.Direction(0)
+	return ""
 }
 
-func (x *Segment) GetLength() float64 {
+func (x *Handle) GetParam() string {
 	if x != nil {
-		return x.Length
+		return x.Param
 	}
-	return 0
+	return ""
 }
 
-// EdgeData contains the visual rendering data for an edge.
-type EdgeData struct {
+// EdgeProps contains visual properties for an edge, stored in schematic props.
+type EdgeProps struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// segments contains the connector path segments.
-	Segments []*Segment `protobuf:"bytes,1,rep,name=segments,proto3" json:"segments,omitempty"`
-	// variant is the optional visual style of the edge.
+	// waypoints contains user-placed intermediate waypoints. Empty array means fully
+	// auto-routed. The routing algorithm computes the full path at render time.
+	Waypoints []*pb.XY `protobuf:"bytes,1,rep,name=waypoints,proto3" json:"waypoints,omitempty"`
+	// variant is the visual style of the edge.
 	Variant EdgeVariant `protobuf:"varint,2,opt,name=variant,proto3,enum=service.schematic.pb.EdgeVariant" json:"variant,omitempty"`
 	// color is the optional display color.
 	Color         string `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
@@ -319,20 +321,20 @@ type EdgeData struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *EdgeData) Reset() {
-	*x = EdgeData{}
+func (x *EdgeProps) Reset() {
+	*x = EdgeProps{}
 	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *EdgeData) String() string {
+func (x *EdgeProps) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*EdgeData) ProtoMessage() {}
+func (*EdgeProps) ProtoMessage() {}
 
-func (x *EdgeData) ProtoReflect() protoreflect.Message {
+func (x *EdgeProps) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -344,26 +346,26 @@ func (x *EdgeData) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use EdgeData.ProtoReflect.Descriptor instead.
-func (*EdgeData) Descriptor() ([]byte, []int) {
+// Deprecated: Use EdgeProps.ProtoReflect.Descriptor instead.
+func (*EdgeProps) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *EdgeData) GetSegments() []*Segment {
+func (x *EdgeProps) GetWaypoints() []*pb.XY {
 	if x != nil {
-		return x.Segments
+		return x.Waypoints
 	}
 	return nil
 }
 
-func (x *EdgeData) GetVariant() EdgeVariant {
+func (x *EdgeProps) GetVariant() EdgeVariant {
 	if x != nil {
 		return x.Variant
 	}
 	return EdgeVariant_EDGE_VARIANT_PIPE
 }
 
-func (x *EdgeData) GetColor() string {
+func (x *EdgeProps) GetColor() string {
 	if x != nil {
 		return x.Color
 	}
@@ -375,20 +377,10 @@ type Edge struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique edge identifier within the schematic.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// source is the source node key.
-	Source string `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
-	// target is the target node key.
-	Target string `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
-	// id is the edge identifier.
-	Id string `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
-	// selected is whether the edge is currently selected.
-	Selected bool `protobuf:"varint,5,opt,name=selected,proto3" json:"selected,omitempty"`
-	// source_handle is the handle id on the source node.
-	SourceHandle string `protobuf:"bytes,6,opt,name=source_handle,json=sourceHandle,proto3" json:"source_handle,omitempty"`
-	// target_handle is the handle id on the target node.
-	TargetHandle string `protobuf:"bytes,7,opt,name=target_handle,json=targetHandle,proto3" json:"target_handle,omitempty"`
-	// data contains optional visual rendering data.
-	Data          *EdgeData `protobuf:"bytes,8,opt,name=data,proto3" json:"data,omitempty"`
+	// source is the source endpoint of the edge.
+	Source *Handle `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	// target is the target endpoint of the edge.
+	Target        *Handle `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -430,51 +422,16 @@ func (x *Edge) GetKey() string {
 	return ""
 }
 
-func (x *Edge) GetSource() string {
+func (x *Edge) GetSource() *Handle {
 	if x != nil {
 		return x.Source
 	}
-	return ""
+	return nil
 }
 
-func (x *Edge) GetTarget() string {
+func (x *Edge) GetTarget() *Handle {
 	if x != nil {
 		return x.Target
-	}
-	return ""
-}
-
-func (x *Edge) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *Edge) GetSelected() bool {
-	if x != nil {
-		return x.Selected
-	}
-	return false
-}
-
-func (x *Edge) GetSourceHandle() string {
-	if x != nil {
-		return x.SourceHandle
-	}
-	return ""
-}
-
-func (x *Edge) GetTargetHandle() string {
-	if x != nil {
-		return x.TargetHandle
-	}
-	return ""
-}
-
-func (x *Edge) GetData() *EdgeData {
-	if x != nil {
-		return x.Data
 	}
 	return nil
 }
@@ -637,23 +594,18 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\bselected\x18\x03 \x01(\bR\bselected\x12\x17\n" +
 	"\az_index\x18\x04 \x01(\x05R\x06zIndex\x12\x12\n" +
 	"\x04type\x18\x05 \x01(\tR\x04type\x124\n" +
-	"\bmeasured\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"X\n" +
-	"\aSegment\x125\n" +
-	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x16\n" +
-	"\x06length\x18\x02 \x01(\x01R\x06length\"\x98\x01\n" +
-	"\bEdgeData\x129\n" +
-	"\bsegments\x18\x01 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\x12;\n" +
+	"\bmeasured\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"2\n" +
+	"\x06Handle\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
+	"\x05param\x18\x02 \x01(\tR\x05param\"\x8e\x01\n" +
+	"\tEdgeProps\x12.\n" +
+	"\twaypoints\x18\x01 \x03(\v2\x10.x.spatial.pb.XYR\twaypoints\x12;\n" +
 	"\avariant\x18\x02 \x01(\x0e2!.service.schematic.pb.EdgeVariantR\avariant\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\tR\x05color\"\xf2\x01\n" +
+	"\x05color\x18\x03 \x01(\tR\x05color\"\x84\x01\n" +
 	"\x04Edge\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x16\n" +
-	"\x06source\x18\x02 \x01(\tR\x06source\x12\x16\n" +
-	"\x06target\x18\x03 \x01(\tR\x06target\x12\x0e\n" +
-	"\x02id\x18\x04 \x01(\tR\x02id\x12\x1a\n" +
-	"\bselected\x18\x05 \x01(\bR\bselected\x12#\n" +
-	"\rsource_handle\x18\x06 \x01(\tR\fsourceHandle\x12#\n" +
-	"\rtarget_handle\x18\a \x01(\tR\ftargetHandle\x122\n" +
-	"\x04data\x18\b \x01(\v2\x1e.service.schematic.pb.EdgeDataR\x04data\"\xb1\x03\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
+	"\x06source\x18\x02 \x01(\v2\x1c.service.schematic.pb.HandleR\x06source\x124\n" +
+	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\xb1\x03\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -695,32 +647,31 @@ var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(EdgeVariant)(0),        // 0: service.schematic.pb.EdgeVariant
 	(*Legend)(nil),          // 1: service.schematic.pb.Legend
 	(*Node)(nil),            // 2: service.schematic.pb.Node
-	(*Segment)(nil),         // 3: service.schematic.pb.Segment
-	(*EdgeData)(nil),        // 4: service.schematic.pb.EdgeData
+	(*Handle)(nil),          // 3: service.schematic.pb.Handle
+	(*EdgeProps)(nil),       // 4: service.schematic.pb.EdgeProps
 	(*Edge)(nil),            // 5: service.schematic.pb.Edge
 	(*Schematic)(nil),       // 6: service.schematic.pb.Schematic
 	nil,                     // 7: service.schematic.pb.Legend.ColorsEntry
 	(*pb.StickyXY)(nil),     // 8: x.spatial.pb.StickyXY
 	(*pb.XY)(nil),           // 9: x.spatial.pb.XY
 	(*pb.Dimensions)(nil),   // 10: x.spatial.pb.Dimensions
-	(pb.Direction)(0),       // 11: x.spatial.pb.Direction
-	(*pb.Viewport)(nil),     // 12: x.spatial.pb.Viewport
-	(*structpb.Struct)(nil), // 13: google.protobuf.Struct
+	(*pb.Viewport)(nil),     // 11: x.spatial.pb.Viewport
+	(*structpb.Struct)(nil), // 12: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	8,  // 0: service.schematic.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
 	7,  // 1: service.schematic.pb.Legend.colors:type_name -> service.schematic.pb.Legend.ColorsEntry
 	9,  // 2: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
 	10, // 3: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
-	11, // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
-	3,  // 5: service.schematic.pb.EdgeData.segments:type_name -> service.schematic.pb.Segment
-	0,  // 6: service.schematic.pb.EdgeData.variant:type_name -> service.schematic.pb.EdgeVariant
-	4,  // 7: service.schematic.pb.Edge.data:type_name -> service.schematic.pb.EdgeData
-	12, // 8: service.schematic.pb.Schematic.viewport:type_name -> x.spatial.pb.Viewport
+	9,  // 4: service.schematic.pb.EdgeProps.waypoints:type_name -> x.spatial.pb.XY
+	0,  // 5: service.schematic.pb.EdgeProps.variant:type_name -> service.schematic.pb.EdgeVariant
+	3,  // 6: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	3,  // 7: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	11, // 8: service.schematic.pb.Schematic.viewport:type_name -> x.spatial.pb.Viewport
 	1,  // 9: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
 	2,  // 10: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
 	5,  // 11: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	13, // 12: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
+	12, // 12: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name

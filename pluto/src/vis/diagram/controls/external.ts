@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/vis/diagram/aether/types";
-export * from "@/vis/diagram/align";
-export * from "@/vis/diagram/Context";
-export * from "@/vis/diagram/controls";
-export * from "@/vis/diagram/Diagram";
-export * from "@/vis/diagram/useTriggers";
-export * from "@/vis/diagram/util";
+export * from "@/vis/diagram/controls/FitView";
+export * from "@/vis/diagram/controls/SelectViewportMode";
+export * from "@/vis/diagram/controls/ToggleEdit";

@@ -46,19 +46,21 @@ message Node {
   .x.spatial.pb.Dimensions measured = 6;
 }
 
-// Segment is a connector path segment with a direction and length.
-message Segment {
-  // direction is the axis of travel for this segment.
-  .x.spatial.pb.Direction direction = 1;
-  // length is the distance to travel along the axis.
-  double length = 2;
+// Handle is a reference to a specific connection point on a specific node. For
+// schematics, param is the symbol handle key (e.g. inlet, outlet).
+message Handle {
+  // node is the node identifier.
+  string node = 1;
+  // param is the connection point identifier on the node.
+  string param = 2;
 }
 
-// EdgeData contains the visual rendering data for an edge.
-message EdgeData {
-  // segments contains the connector path segments.
-  repeated Segment segments = 1;
-  // variant is the optional visual style of the edge.
+// EdgeProps contains visual properties for an edge, stored in schematic props.
+message EdgeProps {
+  // waypoints contains user-placed intermediate waypoints. Empty array means fully
+  // auto-routed. The routing algorithm computes the full path at render time.
+  repeated .x.spatial.pb.XY waypoints = 1;
+  // variant is the visual style of the edge.
   EdgeVariant variant = 2;
   // color is the optional display color.
   string color = 3;
@@ -68,20 +70,10 @@ message EdgeData {
 message Edge {
   // key is the unique edge identifier within the schematic.
   string key = 1;
-  // source is the source node key.
-  string source = 2;
-  // target is the target node key.
-  string target = 3;
-  // id is the edge identifier.
-  string id = 4;
-  // selected is whether the edge is currently selected.
-  bool selected = 5;
-  // source_handle is the handle id on the source node.
-  string source_handle = 6;
-  // target_handle is the handle id on the target node.
-  string target_handle = 7;
-  // data contains optional visual rendering data.
-  EdgeData data = 8;
+  // source is the source endpoint of the edge.
+  Handle source = 2;
+  // target is the target endpoint of the edge.
+  Handle target = 3;
 }
 
 // Schematic is a visual diagram editor component for drawing system schematics, control

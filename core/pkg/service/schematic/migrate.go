@@ -31,7 +31,6 @@ func MigrateSchematic(_ context.Context, old v53.Schematic) (Schematic, error) {
 		Viewport:        extractViewport(data),
 		Legend:          extractLegend(data),
 		Nodes:           extractNodes(data),
-		Edges:           extractEdges(data),
 	}
 	props := mapRecord(data, "props")
 	if props == nil {
@@ -112,55 +111,54 @@ func extractNodes(data map[string]any) []Node {
 	return nodes
 }
 
-func extractEdges(data map[string]any) []Edge {
-	rawEdges, ok := data["edges"].([]any)
-	if !ok {
-		return nil
-	}
-	edges := make([]Edge, 0, len(rawEdges))
-	for _, raw := range rawEdges {
-		m, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		e := Edge{
-			Key:          mapString(m, "key", ""),
-			Source:       mapString(m, "source", ""),
-			Target:       mapString(m, "target", ""),
-			ID:           mapString(m, "id", ""),
-			Selected:     mapBool(m, "selected", false),
-			SourceHandle: mapString(m, "sourceHandle", ""),
-			TargetHandle: mapString(m, "targetHandle", ""),
-		}
-		if d, ok := m["data"].(map[string]any); ok {
-			e.Data = extractEdgeData(d)
-		}
-		edges = append(edges, e)
-	}
-	return edges
-}
-
-func extractEdgeData(data map[string]any) EdgeData {
-	ed := EdgeData{
-		Variant: EdgeVariant(mapString(data, "variant", "")),
-		Color:   mapString(data, "color", ""),
-	}
-	if rawSegs, ok := data["segments"].([]any); ok {
-		ed.Segments = make([]Segment, 0, len(rawSegs))
-		for _, raw := range rawSegs {
-			m, ok := raw.(map[string]any)
-			if !ok {
-				continue
-			}
-			ed.Segments = append(ed.Segments, Segment{
-				Direction: spatial.Direction(mapString(m, "direction", "")),
-				Length:    mapFloat64(m, "length", 0),
-			})
-		}
-	}
-	return ed
-}
-
+//	func extractEdges(data map[string]any) []Edge {
+//		rawEdges, ok := data["edges"].([]any)
+//		if !ok {
+//			return nil
+//		}
+//		edges := make([]Edge, 0, len(rawEdges))
+//		for _, raw := range rawEdges {
+//			m, ok := raw.(map[string]any)
+//			if !ok {
+//				continue
+//			}
+//			e := Edge{
+//				Key:          mapString(m, "key", ""),
+//				Source:       mapString(m, "source", ""),
+//				Target:       mapString(m, "target", ""),
+//				ID:           mapString(m, "id", ""),
+//				Selected:     mapBool(m, "selected", false),
+//				SourceHandle: mapString(m, "sourceHandle", ""),
+//				TargetHandle: mapString(m, "targetHandle", ""),
+//			}
+//			if d, ok := m["data"].(map[string]any); ok {
+//				e.Data = extractEdgeData(d)
+//			}
+//			edges = append(edges, e)
+//		}
+//		return edges
+//	}
+//
+//	func extractEdgeData(data map[string]any) EdgeData {
+//		ed := EdgeData{
+//			Variant: EdgeVariant(mapString(data, "variant", "")),
+//			Color:   mapString(data, "color", ""),
+//		}
+//		if rawSegs, ok := data["segments"].([]any); ok {
+//			ed.Segments = make([]Segment, 0, len(rawSegs))
+//			for _, raw := range rawSegs {
+//				m, ok := raw.(map[string]any)
+//				if !ok {
+//					continue
+//				}
+//				ed.Segments = append(ed.Segments, Segment{
+//					Direction: spatial.Direction(mapString(m, "direction", "")),
+//					Length:    mapFloat64(m, "length", 0),
+//				})
+//			}
+//		}
+//		return ed
+//	}
 func mapBool(m map[string]any, key string, def bool) bool {
 	v, ok := m[key].(bool)
 	if !ok {

@@ -15,6 +15,40 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
+func EncodeStickyUnits(w *xbinary.Writer, s *StickyUnits) error {
+	w.String(s.X)
+	w.String(s.Y)
+	return nil
+}
+
+func DecodeStickyUnits(r *xbinary.Reader, s *StickyUnits) error {
+	var err error
+	if s.X, err = r.String(); err != nil {
+		return err
+	}
+	if s.Y, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeDimensions(w *xbinary.Writer, s *Dimensions) error {
+	w.Float64(float64(s.Width))
+	w.Float64(float64(s.Height))
+	return nil
+}
+
+func DecodeDimensions(r *xbinary.Reader, s *Dimensions) error {
+	var err error
+	if s.Width, err = r.Float64(); err != nil {
+		return err
+	}
+	if s.Height, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeXY(w *xbinary.Writer, s *XY) error {
 	w.Float64(float64(s.X))
 	w.Float64(float64(s.Y))
@@ -92,40 +126,6 @@ func DecodeCorner(r *xbinary.Reader, s *Corner) error {
 		return err
 	}
 	if s.Y, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeStickyUnits(w *xbinary.Writer, s *StickyUnits) error {
-	w.String(s.X)
-	w.String(s.Y)
-	return nil
-}
-
-func DecodeStickyUnits(r *xbinary.Reader, s *StickyUnits) error {
-	var err error
-	if s.X, err = r.String(); err != nil {
-		return err
-	}
-	if s.Y, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeDimensions(w *xbinary.Writer, s *Dimensions) error {
-	w.Float64(float64(s.Width))
-	w.Float64(float64(s.Height))
-	return nil
-}
-
-func DecodeDimensions(r *xbinary.Reader, s *Dimensions) error {
-	var err error
-	if s.Width, err = r.Float64(); err != nil {
-		return err
-	}
-	if s.Height, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

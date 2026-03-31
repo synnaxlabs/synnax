@@ -15,11 +15,10 @@ import {
   type AddNodePayload,
   type RemoveEdgePayload,
   type RemoveNodePayload,
-  type SetEdgeDataPayload,
   type SetEdgePayload,
   type SetNodeDimensionsPayload,
   type SetNodePositionPayload,
-  type SetNodePropsPayload,
+  type SetPropsPayload,
 } from "@/schematic/actions.gen";
 import { keyZ, type Schematic } from "@/schematic/types.gen";
 
@@ -31,10 +30,9 @@ export {
   removeEdge,
   removeNode,
   setEdge,
-  setEdgeData,
   setNodeDimensions,
   setNodePosition,
-  setNodeProps,
+  setProps,
 } from "@/schematic/actions.gen";
 
 export const scopedActionZ = z.object({
@@ -64,7 +62,6 @@ const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
 const handleRemoveNode = (state: Schematic, payload: RemoveNodePayload): void => {
   const i = state.nodes.findIndex((n) => n.key === payload.key);
   if (i !== -1) state.nodes.splice(i, 1);
-
   delete state.props[payload.key];
 };
 
@@ -77,6 +74,7 @@ const handleSetEdge = (state: Schematic, payload: SetEdgePayload): void => {
 const handleRemoveEdge = (state: Schematic, payload: RemoveEdgePayload): void => {
   const i = state.edges.findIndex((e) => e.key === payload.key);
   if (i !== -1) state.edges.splice(i, 1);
+  delete state.props[payload.key];
 };
 
 const handleSetNodeDimensions = (
@@ -87,14 +85,9 @@ const handleSetNodeDimensions = (
   if (node != null) node.measured = payload.dimensions;
 };
 
-const handleSetNodeProps = (state: Schematic, payload: SetNodePropsPayload): void => {
+const handleSetProps = (state: Schematic, payload: SetPropsPayload): void => {
   state.props ??= {};
   state.props[payload.key] = payload.props;
-};
-
-const handleSetEdgeData = (state: Schematic, payload: SetEdgeDataPayload): void => {
-  const edge = state.edges.find((e) => e.key === payload.key);
-  if (edge != null) edge.data = payload.data;
 };
 
 export const reduce = (state: Schematic, action: Action): Schematic => {
@@ -117,11 +110,8 @@ export const reduce = (state: Schematic, action: Action): Schematic => {
     case "set_node_dimensions":
       handleSetNodeDimensions(state, action.setNodeDimensions);
       break;
-    case "set_node_props":
-      handleSetNodeProps(state, action.setNodeProps);
-      break;
-    case "set_edge_data":
-      handleSetEdgeData(state, action.setEdgeData);
+    case "set_props":
+      handleSetProps(state, action.setProps);
       break;
   }
   return state;

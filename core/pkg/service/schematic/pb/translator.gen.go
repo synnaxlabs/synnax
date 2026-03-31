@@ -144,40 +144,32 @@ func NodesFromPB(pbs []*Node) ([]schematic.Node, error) {
 	return result, nil
 }
 
-// SegmentToPB converts Segment to Segment.
-func SegmentToPB(r schematic.Segment) (*Segment, error) {
-	directionVal, err := spatialpb.DirectionToPB(r.Direction)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Segment{
-		Length:    r.Length,
-		Direction: directionVal,
+// HandleToPB converts Handle to Handle.
+func HandleToPB(r schematic.Handle) (*Handle, error) {
+	pb := &Handle{
+		Node:  r.Node,
+		Param: r.Param,
 	}
 	return pb, nil
 }
 
-// SegmentFromPB converts Segment to Segment.
-func SegmentFromPB(pb *Segment) (schematic.Segment, error) {
-	var r schematic.Segment
+// HandleFromPB converts Handle to Handle.
+func HandleFromPB(pb *Handle) (schematic.Handle, error) {
+	var r schematic.Handle
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	r.Direction, err = spatialpb.DirectionFromPB(pb.Direction)
-	if err != nil {
-		return schematic.Segment{}, err
-	}
-	r.Length = pb.Length
+	r.Node = pb.Node
+	r.Param = pb.Param
 	return r, nil
 }
 
-// SegmentsToPB converts a slice of Segment to Segment.
-func SegmentsToPB(rs []schematic.Segment) ([]*Segment, error) {
-	result := make([]*Segment, len(rs))
+// HandlesToPB converts a slice of Handle to Handle.
+func HandlesToPB(rs []schematic.Handle) ([]*Handle, error) {
+	result := make([]*Handle, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SegmentToPB(rs[i])
+		result[i], err = HandleToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -185,12 +177,12 @@ func SegmentsToPB(rs []schematic.Segment) ([]*Segment, error) {
 	return result, nil
 }
 
-// SegmentsFromPB converts a slice of Segment to Segment.
-func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
-	result := make([]schematic.Segment, len(pbs))
+// HandlesFromPB converts a slice of Handle to Handle.
+func HandlesFromPB(pbs []*Handle) ([]schematic.Handle, error) {
+	result := make([]schematic.Handle, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SegmentFromPB(pb)
+		result[i], err = HandleFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -198,9 +190,9 @@ func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
 	return result, nil
 }
 
-// EdgeDataToPB converts EdgeData to EdgeData.
-func EdgeDataToPB(r schematic.EdgeData) (*EdgeData, error) {
-	segmentsVal, err := SegmentsToPB(r.Segments)
+// EdgePropsToPB converts EdgeProps to EdgeProps.
+func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
+	waypointsVal, err := spatialpb.XYsToPB(r.Waypoints)
 	if err != nil {
 		return nil, err
 	}
@@ -208,39 +200,39 @@ func EdgeDataToPB(r schematic.EdgeData) (*EdgeData, error) {
 	if err != nil {
 		return nil, err
 	}
-	pb := &EdgeData{
-		Color:    r.Color,
-		Segments: segmentsVal,
-		Variant:  variantVal,
+	pb := &EdgeProps{
+		Color:     r.Color,
+		Waypoints: waypointsVal,
+		Variant:   variantVal,
 	}
 	return pb, nil
 }
 
-// EdgeDataFromPB converts EdgeData to EdgeData.
-func EdgeDataFromPB(pb *EdgeData) (schematic.EdgeData, error) {
-	var r schematic.EdgeData
+// EdgePropsFromPB converts EdgeProps to EdgeProps.
+func EdgePropsFromPB(pb *EdgeProps) (schematic.EdgeProps, error) {
+	var r schematic.EdgeProps
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Segments, err = SegmentsFromPB(pb.Segments)
+	r.Waypoints, err = spatialpb.XYsFromPB(pb.Waypoints)
 	if err != nil {
-		return schematic.EdgeData{}, err
+		return schematic.EdgeProps{}, err
 	}
 	r.Variant, err = EdgeVariantFromPB(pb.Variant)
 	if err != nil {
-		return schematic.EdgeData{}, err
+		return schematic.EdgeProps{}, err
 	}
 	r.Color = pb.Color
 	return r, nil
 }
 
-// EdgeDatasToPB converts a slice of EdgeData to EdgeData.
-func EdgeDatasToPB(rs []schematic.EdgeData) ([]*EdgeData, error) {
-	result := make([]*EdgeData, len(rs))
+// EdgePropsListToPB converts a slice of EdgeProps to EdgeProps.
+func EdgePropsListToPB(rs []schematic.EdgeProps) ([]*EdgeProps, error) {
+	result := make([]*EdgeProps, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = EdgeDataToPB(rs[i])
+		result[i], err = EdgePropsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -248,12 +240,12 @@ func EdgeDatasToPB(rs []schematic.EdgeData) ([]*EdgeData, error) {
 	return result, nil
 }
 
-// EdgeDatasFromPB converts a slice of EdgeData to EdgeData.
-func EdgeDatasFromPB(pbs []*EdgeData) ([]schematic.EdgeData, error) {
-	result := make([]schematic.EdgeData, len(pbs))
+// EdgePropsListFromPB converts a slice of EdgeProps to EdgeProps.
+func EdgePropsListFromPB(pbs []*EdgeProps) ([]schematic.EdgeProps, error) {
+	result := make([]schematic.EdgeProps, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = EdgeDataFromPB(pb)
+		result[i], err = EdgePropsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -263,19 +255,18 @@ func EdgeDatasFromPB(pbs []*EdgeData) ([]schematic.EdgeData, error) {
 
 // EdgeToPB converts Edge to Edge.
 func EdgeToPB(r schematic.Edge) (*Edge, error) {
-	dataVal, err := EdgeDataToPB(r.Data)
+	sourceVal, err := HandleToPB(r.Source)
+	if err != nil {
+		return nil, err
+	}
+	targetVal, err := HandleToPB(r.Target)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Edge{
-		Key:          r.Key,
-		Source:       r.Source,
-		Target:       r.Target,
-		Id:           r.ID,
-		Selected:     r.Selected,
-		SourceHandle: r.SourceHandle,
-		TargetHandle: r.TargetHandle,
-		Data:         dataVal,
+		Key:    r.Key,
+		Source: sourceVal,
+		Target: targetVal,
 	}
 	return pb, nil
 }
@@ -287,17 +278,15 @@ func EdgeFromPB(pb *Edge) (schematic.Edge, error) {
 		return r, nil
 	}
 	var err error
-	r.Data, err = EdgeDataFromPB(pb.Data)
+	r.Source, err = HandleFromPB(pb.Source)
+	if err != nil {
+		return schematic.Edge{}, err
+	}
+	r.Target, err = HandleFromPB(pb.Target)
 	if err != nil {
 		return schematic.Edge{}, err
 	}
 	r.Key = pb.Key
-	r.Source = pb.Source
-	r.Target = pb.Target
-	r.ID = pb.Id
-	r.Selected = pb.Selected
-	r.SourceHandle = pb.SourceHandle
-	r.TargetHandle = pb.TargetHandle
 	return r, nil
 }
 

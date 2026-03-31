@@ -11,7 +11,7 @@
 import { record, spatial, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { edgeDataZ, edgeZ, nodeZ } from "./types.gen";
+import { edgeZ, nodeZ } from "./types.gen";
 
 export const setNodePositionPayloadZ = z.object({
   key: z.string(),
@@ -52,19 +52,12 @@ export const setNodeDimensionsPayloadZ = z.object({
 
 export type SetNodeDimensionsPayload = z.infer<typeof setNodeDimensionsPayloadZ>;
 
-export const setNodePropsPayloadZ = z.object({
+export const setPropsPayloadZ = z.object({
   key: z.string(),
   props: record.nullishToEmpty(),
 });
 
-export type SetNodePropsPayload = z.infer<typeof setNodePropsPayloadZ>;
-
-export const setEdgeDataPayloadZ = z.object({
-  key: z.string(),
-  data: edgeDataZ,
-});
-
-export type SetEdgeDataPayload = z.infer<typeof setEdgeDataPayloadZ>;
+export type SetPropsPayload = z.infer<typeof setPropsPayloadZ>;
 
 export const ACTION_TYPES = {
   set_node_position: "set_node_position",
@@ -73,8 +66,7 @@ export const ACTION_TYPES = {
   set_edge: "set_edge",
   remove_edge: "remove_edge",
   set_node_dimensions: "set_node_dimensions",
-  set_node_props: "set_node_props",
-  set_edge_data: "set_edge_data",
+  set_props: "set_props",
 } as const;
 
 export const actionZ = z.discriminatedUnion("type", [
@@ -90,8 +82,7 @@ export const actionZ = z.discriminatedUnion("type", [
     type: z.literal("set_node_dimensions"),
     setNodeDimensions: setNodeDimensionsPayloadZ,
   }),
-  z.object({ type: z.literal("set_node_props"), setNodeProps: setNodePropsPayloadZ }),
-  z.object({ type: z.literal("set_edge_data"), setEdgeData: setEdgeDataPayloadZ }),
+  z.object({ type: z.literal("set_props"), setProps: setPropsPayloadZ }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
@@ -126,12 +117,7 @@ export const setNodeDimensions = (payload: SetNodeDimensionsPayload): Action => 
   setNodeDimensions: payload,
 });
 
-export const setNodeProps = (payload: SetNodePropsPayload): Action => ({
-  type: "set_node_props",
-  setNodeProps: payload,
-});
-
-export const setEdgeData = (payload: SetEdgeDataPayload): Action => ({
-  type: "set_edge_data",
-  setEdgeData: payload,
+export const setProps = (payload: SetPropsPayload): Action => ({
+  type: "set_props",
+  setProps: payload,
 });

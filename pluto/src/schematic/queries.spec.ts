@@ -333,19 +333,15 @@ describe("schematic queries", () => {
             schematic.setEdge({
               edge: {
                 key: "e1",
-                source: "n1",
-                target: "n2",
-                id: "e1",
-                selected: false,
+                source: { node: "n1", param: "out" },
+                target: { node: "n2", param: "in" },
               },
             }),
             schematic.setEdge({
               edge: {
                 key: "e2",
-                source: "n2",
-                target: "n3",
-                id: "e2",
-                selected: false,
+                source: { node: "n2", param: "out" },
+                target: { node: "n3", param: "in" },
               },
             }),
             schematic.removeEdge({ key: "e1" }),

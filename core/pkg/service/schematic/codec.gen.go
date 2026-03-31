@@ -22,6 +22,23 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+func EncodeHandle(w *xbinary.Writer, s *Handle) error {
+	w.String(s.Node)
+	w.String(s.Param)
+	return nil
+}
+
+func DecodeHandle(r *xbinary.Reader, s *Handle) error {
+	var err error
+	if s.Node, err = r.String(); err != nil {
+		return err
+	}
+	if s.Param, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -205,13 +222,10 @@ func DecodeNode(r *xbinary.Reader, s *Node) error {
 
 func EncodeEdge(w *xbinary.Writer, s *Edge) error {
 	w.String(s.Key)
-	w.String(s.Source)
-	w.String(s.Target)
-	w.String(s.ID)
-	w.Bool(s.Selected)
-	w.String(s.SourceHandle)
-	w.String(s.TargetHandle)
-	if err := EncodeEdgeData(w, &s.Data); err != nil {
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
 		return err
 	}
 	return nil
@@ -222,85 +236,10 @@ func DecodeEdge(r *xbinary.Reader, s *Edge) error {
 	if s.Key, err = r.String(); err != nil {
 		return err
 	}
-	if s.Source, err = r.String(); err != nil {
+	if err = DecodeHandle(r, &s.Source); err != nil {
 		return err
 	}
-	if s.Target, err = r.String(); err != nil {
-		return err
-	}
-	if s.ID, err = r.String(); err != nil {
-		return err
-	}
-	if s.Selected, err = r.Bool(); err != nil {
-		return err
-	}
-	if s.SourceHandle, err = r.String(); err != nil {
-		return err
-	}
-	if s.TargetHandle, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeEdgeData(r, &s.Data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeEdgeData(w *xbinary.Writer, s *EdgeData) error {
-	w.Uint32(uint32(len(s.Segments)))
-	for i := range s.Segments {
-		if err := EncodeSegment(w, &s.Segments[i]); err != nil {
-			return err
-		}
-	}
-	w.String(string(s.Variant))
-	w.String(s.Color)
-	return nil
-}
-
-func DecodeEdgeData(r *xbinary.Reader, s *EdgeData) error {
-	var err error
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Segments = make([]Segment, n)
-		for i := range s.Segments {
-			if err = DecodeSegment(r, &s.Segments[i]); err != nil {
-				return err
-			}
-		}
-	}
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Variant = EdgeVariant(v)
-	}
-	if s.Color, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeSegment(w *xbinary.Writer, s *Segment) error {
-	w.String(string(s.Direction))
-	w.Float64(float64(s.Length))
-	return nil
-}
-
-func DecodeSegment(r *xbinary.Reader, s *Segment) error {
-	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Direction = spatial.Direction(v)
-	}
-	if s.Length, err = r.Float64(); err != nil {
+	if err = DecodeHandle(r, &s.Target); err != nil {
 		return err
 	}
 	return nil

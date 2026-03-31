@@ -11,11 +11,11 @@ import "@/schematic/Schematic.css";
 
 import { schematic } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type EdgeProps as RFEdgeProps } from "@xyflow/react";
+import { type ReactElement, useCallback } from "react";
 
-import { Component } from "@/component";
 import { CSS } from "@/css";
-import { ConnectionLine, Edge, type EdgeData } from "@/schematic/edge";
+import { ConnectionLine, Edge } from "@/schematic/edge";
 import { useDispatch, useRetrieve } from "@/schematic/queries";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { Diagram } from "@/vis/diagram";
@@ -30,15 +30,14 @@ export interface SchematicProps extends Omit<
   | "nodeRenderer"
   | "edgeRenderer"
   | "connectionLineComponent"
+  | "selected"
+  | "onSelectionChange"
 > {
   schematicKey: string;
-  selectedNodes?: string[];
-  selectedEdges?: string[];
-  onSelectionChange?: (nodes: string[], edges: string[]) => void;
+  selected?: string[];
+  onSelectionChange?: (selected: string[]) => void;
   nodeRenderer: Diagram.DiagramProps["nodeRenderer"];
 }
-
-const edgeRendererProp = Component.renderProp(Edge) as Diagram.DiagramProps["edgeRenderer"];
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
@@ -53,24 +52,25 @@ const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null
         key: change.key,
         dimensions: change.dimensions,
       });
-    case "select":
+    default:
       return null;
   }
 };
 
-const edgeChangeToAction = (change: Diagram.EdgeChange): schematic.Action | null => {
+const edgeChangeToActions = (change: Diagram.EdgeChange): schematic.Action[] => {
   switch (change.type) {
     case "add":
-      return schematic.setEdge({ edge: change.edge as schematic.Edge });
+      return [
+        schematic.setEdge({ edge: change.edge as schematic.Edge }),
+        schematic.setProps({
+          key: change.edge.key,
+          props: { waypoints: [], variant: "pipe" },
+        }),
+      ];
     case "remove":
-      return schematic.removeEdge({ key: change.key });
-    case "data":
-      return schematic.setEdgeData({
-        key: change.key,
-        data: change.data as schematic.EdgeData,
-      });
-    case "select":
-      return null;
+      return [schematic.removeEdge({ key: change.key })];
+    default:
+      return [];
   }
 };
 
@@ -78,69 +78,33 @@ export const Schematic = ({
   className,
   children,
   schematicKey,
-  selectedNodes = [],
-  selectedEdges = [],
-  onSelectionChange,
   nodeRenderer,
   ...props
 }: SchematicProps): ReactElement | null => {
   const { data: doc } = useRetrieve({ key: schematicKey });
   const { update: dispatch } = useDispatch();
 
-  const nodes = useMemo(() => {
-    const srcNodes = doc?.nodes ?? [];
-    const selectedSet = new Set(selectedNodes);
-    return srcNodes.map((n) => ({ ...n, selected: selectedSet.has(n.key) }));
-  }, [doc, selectedNodes]);
-
-  const edges = useMemo(() => {
-    const srcEdges = doc?.edges ?? [];
-    const selectedSet = new Set(selectedEdges);
-    return srcEdges.map((e) => ({ ...e, selected: selectedSet.has(e.key) }));
-  }, [doc, selectedEdges]);
-
   const handleNodesChange = useCallback(
     (changes: Diagram.NodeChange[]) => {
-      const selChanges = changes.filter(
-        (c): c is Diagram.NodeChange & { type: "select" } => c.type === "select",
-      );
-      if (selChanges.length > 0 && onSelectionChange != null) {
-        const current = new Set(selectedNodes);
-        for (const c of selChanges)
-          if (c.selected) current.add(c.key);
-          else current.delete(c.key);
-
-        onSelectionChange([...current], selectedEdges);
-      }
-
       const actions = changes
         .map(nodeChangeToAction)
         .filter((a): a is schematic.Action => a != null);
       if (actions.length > 0) dispatch({ key: schematicKey, actions });
     },
-    [schematicKey, dispatch, selectedNodes, selectedEdges, onSelectionChange],
+    [schematicKey, dispatch],
   );
 
   const handleEdgesChange = useCallback(
     (changes: Diagram.EdgeChange[]) => {
-      const selChanges = changes.filter(
-        (c): c is Diagram.EdgeChange & { type: "select" } => c.type === "select",
-      );
-      if (selChanges.length > 0 && onSelectionChange != null) {
-        const current = new Set(selectedEdges);
-        for (const c of selChanges)
-          if (c.selected) current.add(c.key);
-          else current.delete(c.key);
-
-        onSelectionChange(selectedNodes, [...current]);
-      }
-
-      const actions = changes
-        .map(edgeChangeToAction)
-        .filter((a): a is schematic.Action => a != null);
+      const actions = changes.flatMap(edgeChangeToActions);
       if (actions.length > 0) dispatch({ key: schematicKey, actions });
     },
-    [schematicKey, dispatch, selectedNodes, selectedEdges, onSelectionChange],
+    [schematicKey, dispatch],
+  );
+
+  const edgeRenderer = useCallback(
+    (rfProps: RFEdgeProps) => <Edge schematicKey={schematicKey} {...rfProps} />,
+    [schematicKey],
   );
 
   return (
@@ -148,12 +112,12 @@ export const Schematic = ({
       className={CSS(CSS.B("schematic"), className)}
       dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
       autoRenderInterval={AUTO_RENDER_INTERVAL}
-      nodes={nodes}
-      edges={edges}
+      nodes={doc?.nodes ?? []}
+      edges={doc?.edges ?? []}
       onNodesChange={handleNodesChange}
       onEdgesChange={handleEdgesChange}
       nodeRenderer={nodeRenderer}
-      edgeRenderer={edgeRendererProp}
+      edgeRenderer={edgeRenderer}
       connectionLineComponent={ConnectionLine}
       {...props}
     >

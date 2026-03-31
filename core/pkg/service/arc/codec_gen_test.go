@@ -36,18 +36,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("StatusDetails", func() {
-		It("should round-trip encode and decode", func() {
-			original := arc.StatusDetails{Running: true}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
-			var decoded arc.StatusDetails
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Arc", func() {
 		It("should round-trip encode and decode", func() {
 			original := arc.Arc{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Mode: arc.Mode("text"), Graph: graph.Graph{Viewport: graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}, Functions: []ir.Function{ir.Function{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{ir.Edge{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Nodes: []graph.Node{graph.Node{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}}}, Text: text.Text{Raw: "test"}, Program: func() *program.Program {
@@ -63,6 +51,18 @@ var _ = Describe("Codec", func() {
 			r := xbinary.NewReader(nil, binary.BigEndian)
 			r.ResetBytes(w.Bytes())
 			Expect(arc.DecodeArc(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("StatusDetails", func() {
+		It("should round-trip encode and decode", func() {
+			original := arc.StatusDetails{Running: true}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
+			var decoded arc.StatusDetails
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -85,23 +85,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	s := arc.StatusDetails{Running: true}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := arc.EncodeStatusDetails(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded arc.StatusDetails
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeArc(b *testing.B) {
 	s := arc.Arc{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Mode: arc.Mode("text"), Graph: graph.Graph{Viewport: graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}, Functions: []ir.Function{ir.Function{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{ir.Edge{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Nodes: []graph.Node{graph.Node{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}}}, Text: text.Text{Raw: "test"}, Program: func() *program.Program {
 		v := program.Program{IR: ir.IR{Functions: []ir.Function{ir.Function{Key: "test", Body: ir.Body{Raw: "test"}, Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Nodes: []ir.Node{ir.Node{Key: "test", Type: "test", Config: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Inputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Outputs: []types.Param{types.Param{Name: "test", Type: types.Type{}, Value: map[string]interface{}{"key": "value"}}}, Channels: types.Channels{Read: map[uint32]string{7: "test"}, Write: map[uint32]string{7: "test"}}}}, Edges: []ir.Edge{ir.Edge{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}}, Strata: [][]string{[]string{"test"}}, Sequences: []ir.Sequence{ir.Sequence{Key: "test", Stages: []ir.Stage{ir.Stage{Key: "test", Nodes: []string{"test"}, Strata: [][]string{[]string{"test"}}}}}}, Authorities: ir.Authorities{Default: func() *uint8 { v := uint8(5); return &v }(), Channels: map[uint32]uint8{7: 5}}}, Output: compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{"test": 7}}}
@@ -120,6 +103,23 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := arc.DecodeArc(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
+	s := arc.StatusDetails{Running: true}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := arc.EncodeStatusDetails(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded arc.StatusDetails
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

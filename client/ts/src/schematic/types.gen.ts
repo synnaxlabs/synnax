@@ -54,47 +54,44 @@ export const nodeZ = z.object({
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
-/** Segment is a connector path segment with a direction and length. */
-export const segmentZ = z.object({
-  /** direction is the axis of travel for this segment. */
-  direction: spatial.directionZ,
-  /** length is the distance to travel along the axis. */
-  length: z.number(),
+/**
+ * Handle is a reference to a specific connection point on a specific node.
+ * For schematics, param is the symbol handle key (e.g. inlet, outlet).
+ */
+export const handleZ = z.object({
+  /** node is the node identifier. */
+  node: z.string(),
+  /** param is the connection point identifier on the node. */
+  param: z.string(),
 });
-export interface Segment extends z.infer<typeof segmentZ> {}
+export interface Handle extends z.infer<typeof handleZ> {}
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
-/** EdgeData contains the visual rendering data for an edge. */
-export const edgeDataZ = z.object({
-  /** segments contains the connector path segments. */
-  segments: array.nullishToEmpty(segmentZ),
-  /** variant is the optional visual style of the edge. */
-  variant: edgeVariantZ.optional(),
+/** EdgeProps contains visual properties for an edge, stored in schematic props. */
+export const edgePropsZ = z.object({
+  /**
+   * waypoints contains user-placed intermediate waypoints. Empty array means
+   * fully auto-routed. The routing algorithm computes the full path
+   * at render time.
+   */
+  waypoints: array.nullishToEmpty(spatial.xyZ),
+  /** variant is the visual style of the edge. */
+  variant: edgeVariantZ.default("pipe"),
   /** color is the optional display color. */
   color: z.string().optional(),
 });
-export interface EdgeData extends z.infer<typeof edgeDataZ> {}
+export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
 
 /** Edge is a connection between two nodes in the schematic. */
 export const edgeZ = z.object({
   /** key is the unique edge identifier within the schematic. */
   key: z.string(),
-  /** source is the source node key. */
-  source: z.string(),
-  /** target is the target node key. */
-  target: z.string(),
-  /** id is the edge identifier. */
-  id: z.string(),
-  /** selected is whether the edge is currently selected. */
-  selected: z.boolean(),
-  /** sourceHandle is the handle id on the source node. */
-  sourceHandle: z.string().optional(),
-  /** targetHandle is the handle id on the target node. */
-  targetHandle: z.string().optional(),
-  /** data contains optional visual rendering data. */
-  data: edgeDataZ.optional(),
+  /** source is the source endpoint of the edge. */
+  source: handleZ,
+  /** target is the target endpoint of the edge. */
+  target: handleZ,
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
 

@@ -59,19 +59,21 @@ type Node struct {
 	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
-// Segment is a connector path segment with a direction and length.
-type Segment struct {
-	// Direction is the axis of travel for this segment.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Length is the distance to travel along the axis.
-	Length float64 `json:"length" msgpack:"length"`
+// Handle is a reference to a specific connection point on a specific node. For
+// schematics, param is the symbol handle key (e.g. inlet, outlet).
+type Handle struct {
+	// Node is the node identifier.
+	Node string `json:"node" msgpack:"node"`
+	// Param is the connection point identifier on the node.
+	Param string `json:"param" msgpack:"param"`
 }
 
-// EdgeData contains the visual rendering data for an edge.
-type EdgeData struct {
-	// Segments contains the connector path segments.
-	Segments []Segment `json:"segments" msgpack:"segments"`
-	// Variant is the optional visual style of the edge.
+// EdgeProps contains visual properties for an edge, stored in schematic props.
+type EdgeProps struct {
+	// Waypoints contains user-placed intermediate waypoints. Empty array means fully
+	// auto-routed. The routing algorithm computes the full path at render time.
+	Waypoints []spatial.XY `json:"waypoints" msgpack:"waypoints"`
+	// Variant is the visual style of the edge.
 	Variant EdgeVariant `json:"variant" msgpack:"variant"`
 	// Color is the optional display color.
 	Color string `json:"color" msgpack:"color"`
@@ -81,20 +83,10 @@ type EdgeData struct {
 type Edge struct {
 	// Key is the unique edge identifier within the schematic.
 	Key string `json:"key" msgpack:"key"`
-	// Source is the source node key.
-	Source string `json:"source" msgpack:"source"`
-	// Target is the target node key.
-	Target string `json:"target" msgpack:"target"`
-	// ID is the edge identifier.
-	ID string `json:"id" msgpack:"id"`
-	// Selected is whether the edge is currently selected.
-	Selected bool `json:"selected" msgpack:"selected"`
-	// SourceHandle is the handle id on the source node.
-	SourceHandle string `json:"source_handle" msgpack:"source_handle"`
-	// TargetHandle is the handle id on the target node.
-	TargetHandle string `json:"target_handle" msgpack:"target_handle"`
-	// Data contains optional visual rendering data.
-	Data EdgeData `json:"data" msgpack:"data"`
+	// Source is the source endpoint of the edge.
+	Source Handle `json:"source" msgpack:"source"`
+	// Target is the target endpoint of the edge.
+	Target Handle `json:"target" msgpack:"target"`
 }
 
 // Schematic is a visual diagram editor component for drawing system schematics, control

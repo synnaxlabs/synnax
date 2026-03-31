@@ -10,16 +10,13 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, location, type record, type xy } from "@synnaxlabs/x";
+import { box, type xy } from "@synnaxlabs/x";
 import {
-  Background as RFBackground,
   type Connection as RFConnection,
   type ConnectionLineComponent,
   ConnectionMode,
-  type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
-  type FitViewOptions as RFFitViewOptions,
   type IsValidConnection,
   type Node as RFNode,
   type NodeChange as RFNodeChange,
@@ -45,15 +42,10 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
-import { context } from "@/context";
 import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
-import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
-import { Select } from "@/select";
-import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
@@ -71,19 +63,13 @@ import {
   translateViewportForward,
   type Viewport,
 } from "@/vis/diagram/aether/types";
+import { Context } from "@/vis/diagram/Context";
 
 export interface SymbolProps {
   symbolKey: string;
   position: xy.XY;
   selected: boolean;
   draggable: boolean;
-}
-
-export interface UseProps {
-  allowEdit?: boolean;
-  initialEdges: Edge[];
-  initialNodes: Node[];
-  initialViewport?: Viewport;
 }
 
 const isValidConnection: IsValidConnection = (): boolean => true;
@@ -93,6 +79,8 @@ export interface UseReturn {
   nodes: Node[];
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
+  selected?: string[];
+  onSelectionChange?: (selected: string[]) => void;
   editable: boolean;
   onEditableChange: (v: boolean) => void;
   onViewportChange: (vp: Viewport) => void;
@@ -129,12 +117,6 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   reconnectRadius: 0,
 };
 
-const FIT_VIEW_OPTIONS: FitViewOptions = {
-  maxZoom: 1,
-  minZoom: 0.5,
-  padding: 0.05,
-};
-
 const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
@@ -152,41 +134,9 @@ export interface DiagramProps
   triggers?: BaseViewport.UseTriggers;
   dragHandleSelector?: string;
   nodeRenderer: RenderProp<SymbolProps>;
-  edgeRenderer?: RenderProp<EdgeProps<record.Unknown>>;
+  edgeRenderer?: RenderProp<RFEdgeProps>;
   connectionLineComponent?: ConnectionLineComponent<RFNode>;
 }
-
-interface ContextValue {
-  editable: boolean;
-  visible: boolean;
-  onEditableChange: (v: boolean) => void;
-  viewportMode: BaseViewport.Mode;
-  onViewportModeChange: (v: BaseViewport.Mode) => void;
-  fitViewOnResize: boolean;
-  setFitViewOnResize: (v: boolean) => void;
-  fitViewOptions: FitViewOptions;
-}
-
-const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: {
-    editable: true,
-    fitViewOnResize: false,
-    fitViewOptions: FIT_VIEW_OPTIONS,
-    onEditableChange: () => {},
-    onViewportModeChange: () => {},
-    setFitViewOnResize: () => {},
-    viewportMode: "select",
-    visible: true,
-  },
-  displayName: "Diagram.Context",
-});
-export { useContext };
-
-export interface EdgeProps<D extends record.Unknown> extends RFEdgeProps<RFEdge<D>> {
-  onDataChange: (data: D) => void;
-}
-
-export type FitViewOptions = RFFitViewOptions;
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
@@ -196,6 +146,8 @@ const Base = ({
   onEdgesChange,
   nodes,
   edges,
+  selected,
+  onSelectionChange,
   onEditableChange,
   editable,
   viewport,
@@ -204,7 +156,7 @@ const Base = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
-  fitViewOptions = FIT_VIEW_OPTIONS,
+  fitViewOptions = diagram.FIT_VIEW_OPTIONS,
   className,
   dragHandleSelector,
   snapGrid,
@@ -251,8 +203,6 @@ const Base = ({
     [pTriggers],
   );
 
-  // For some reason, react flow repeatedly calls onViewportChange with the same
-  // parameters, so we do a need equality check to prevent unnecessary re-renders.
   const viewportRef = useRef<RFViewport | null>(null);
   const handleViewport = useCallback(
     (vp: RFViewport): void => {
@@ -273,6 +223,8 @@ const Base = ({
     onEnd: handleViewport,
   });
 
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+
   const nodeTypes = useMemo(
     () => ({
       custom: ({
@@ -287,67 +239,74 @@ const Base = ({
     [nodeRenderer],
   );
 
-  const onEdgesChangeRef = useRef(onEdgesChange);
-  onEdgesChangeRef.current = onEdgesChange;
-
-  const handleDataChange = useCallback(
-    (id: string, data: record.Unknown) =>
-      onEdgesChangeRef.current([{ type: "data", key: id, data }]),
-    [],
-  );
-
   const edgeTypes = useMemo(() => {
     if (edgeRenderer == null) return undefined;
-    return {
-      default: (rfProps: RFEdgeProps<RFEdge<record.Unknown>>) =>
-        edgeRenderer({
-          ...rfProps,
-          onDataChange: (data) => handleDataChange(rfProps.id, data),
-        }),
-    };
-  }, [edgeRenderer, handleDataChange]);
+    return { default: (rfProps: RFEdgeProps) => edgeRenderer(rfProps) };
+  }, [edgeRenderer]);
 
-  const edges_ = useMemo<RFEdge<record.Unknown>[]>(
-    () => translateEdgesForward(edges),
-    [edges],
+  const edges_ = useMemo(
+    () => translateEdgesForward(edges, selectedSet),
+    [edges, selectedSet],
   );
   const nodes_ = useMemo(
-    () => translateNodesForward(nodes, dragHandleSelector),
-    [nodes, dragHandleSelector],
+    () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
+    [nodes, selectedSet, dragHandleSelector],
   );
+
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
 
   const handleNodesChange = useCallback(
     (changes: RFNodeChange[]) => {
-      const translated = changes
-        .map(translateNodeChangeForward)
-        .filter((c): c is NodeChange => c != null);
-      if (translated.length > 0) onNodesChange(translated);
+      const selChanges: Array<{ key: string; selected: boolean }> = [];
+      const mutations: NodeChange[] = [];
+      for (const change of changes) {
+        const translated = translateNodeChangeForward(change);
+        if (translated == null) continue;
+        if (translated.type === "select") selChanges.push(translated);
+        else mutations.push(translated);
+      }
+      if (selChanges.length > 0) {
+        const next = new Set(selectedRef.current);
+        for (const c of selChanges)
+          if (c.selected) next.add(c.key);
+          else next.delete(c.key);
+        onSelectionChange?.([...next]);
+      }
+      if (mutations.length > 0) onNodesChange(mutations);
     },
-    [onNodesChange],
+    [onNodesChange, onSelectionChange],
   );
 
   const handleEdgesChange = useCallback(
     (changes: RFEdgeChange[]) => {
-      const translated = changes
-        .map(translateEdgeChangeForward)
-        .filter((c): c is EdgeChange => c != null);
-      if (translated.length > 0) onEdgesChange(translated);
+      const selChanges: Array<{ key: string; selected: boolean }> = [];
+      const mutations: EdgeChange[] = [];
+      for (const change of changes) {
+        const translated = translateEdgeChangeForward(change);
+        if (translated == null) continue;
+        if (translated.type === "select") selChanges.push(translated);
+        else mutations.push(translated);
+      }
+      if (selChanges.length > 0) {
+        const next = new Set(selectedRef.current);
+        for (const c of selChanges)
+          if (c.selected) next.add(c.key);
+          else next.delete(c.key);
+        onSelectionChange?.([...next]);
+      }
+      if (mutations.length > 0) onEdgesChange(mutations);
     },
-    [onEdgesChange],
+    [onEdgesChange, onSelectionChange],
   );
 
   const handleConnect = useCallback(
     (conn: RFConnection) => {
-      const id = `${conn.source}-${conn.sourceHandle ?? ""}-${conn.target}-${conn.targetHandle ?? ""}`;
+      const key = `${conn.source}-${conn.sourceHandle ?? ""}-${conn.target}-${conn.targetHandle ?? ""}`;
       const edge: Edge = {
-        key: id,
-        source: conn.source,
-        target: conn.target,
-        id,
-        selected: false,
-        sourceHandle: conn.sourceHandle ?? undefined,
-        targetHandle: conn.targetHandle ?? undefined,
-        data: { segments: [], variant: "pipe" },
+        key,
+        source: { node: conn.source, param: conn.sourceHandle ?? "" },
+        target: { node: conn.target, param: conn.targetHandle ?? "" },
       };
       onEdgesChange([{ type: "add", edge }]);
     },
@@ -383,7 +342,7 @@ const Base = ({
   const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
 
   const handleInit = useCallback(
-    (i: ReactFlowInstance<RFNode, RFEdge<record.Unknown>>) => {
+    (i: ReactFlowInstance) => {
       void i.fitView(fitViewOptions);
     },
     [fitViewOptions],
@@ -412,9 +371,7 @@ const Base = ({
   );
 
   const defaultEdgeOptions = useMemo(
-    () => ({
-      type: edgeRenderer == null ? "smoothstep" : "default",
-    }),
+    () => ({ type: edgeRenderer != null ? "default" : "smoothstep" }),
     [edgeRenderer],
   );
 
@@ -427,7 +384,7 @@ const Base = ({
     <Context value={ctxValue}>
       <Aether.Composite path={path}>
         {visible && (
-          <ReactFlow<RFNode, RFEdge<record.Unknown>>
+          <ReactFlow
             {...triggerProps}
             className={CSS(
               className,
@@ -467,96 +424,6 @@ const Base = ({
         )}
       </Aether.Composite>
     </Context>
-  );
-};
-
-export const Background = (): ReactElement | null => {
-  const { editable } = useContext();
-  return editable ? <RFBackground /> : null;
-};
-
-export interface ToggleEditControlProps extends Omit<
-  Button.ToggleProps,
-  "value" | "onChange" | "children"
-> {}
-
-export const ToggleEditControl = ({
-  onClick,
-  ...rest
-}: ToggleEditControlProps): ReactElement => {
-  const { editable, onEditableChange } = useContext();
-  return (
-    <Button.Toggle
-      tooltipLocation={location.BOTTOM_LEFT}
-      size="small"
-      tooltip={`${editable ? "Disable" : "Enable"} editing`}
-      {...rest}
-      onChange={() => onEditableChange(!editable)}
-      value={editable}
-    >
-      {editable ? <Icon.EditOff /> : <Icon.Edit />}
-    </Button.Toggle>
-  );
-};
-
-export interface FitViewControlProps extends Omit<
-  Button.ToggleProps,
-  "children" | "onChange" | "value"
-> {}
-
-export const FitViewControl = ({
-  onClick,
-  ...rest
-}: FitViewControlProps): ReactElement => {
-  const { fitView } = useReactFlow();
-  const { fitViewOnResize, setFitViewOnResize } = useContext();
-  return (
-    <Button.Toggle
-      onClick={(e) => {
-        void fitView(FIT_VIEW_OPTIONS);
-        onClick?.(e);
-      }}
-      tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
-      tooltipLocation={location.BOTTOM_LEFT}
-      size="small"
-      {...rest}
-      value={fitViewOnResize}
-      onChange={setFitViewOnResize}
-    >
-      <Icon.Expand />
-    </Button.Toggle>
-  );
-};
-
-export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
-const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
-const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
-
-export const SelectViewportModeControl = (): ReactElement => {
-  const { viewportMode, onViewportModeChange } = useContext();
-  return (
-    <Select.Buttons
-      keys={VIEWPORT_MODES}
-      value={viewportMode}
-      onChange={onViewportModeChange}
-    >
-      <Select.Button
-        itemKey="pan"
-        size="small"
-        tooltip={<BaseViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
-        tooltipLocation={location.BOTTOM_LEFT}
-      >
-        <Icon.Pan />
-      </Select.Button>
-      <Select.Button
-        itemKey="select"
-        size="small"
-        tooltip={<BaseViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
-        tooltipLocation={location.BOTTOM_LEFT}
-      >
-        <Icon.Selection />
-      </Select.Button>
-    </Select.Buttons>
   );
 };
 
