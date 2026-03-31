@@ -13,12 +13,11 @@ import "@xyflow/react/dist/base.css";
 import { box, type xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
-  type ConnectionLineComponent,
+  type ConnectionLineComponentProps as RFConnectionLineProps,
   ConnectionMode,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
   type IsValidConnection,
-  type Node as RFNode,
   type NodeChange as RFNodeChange,
   type NodeProps as RFNodeProps,
   type ProOptions,
@@ -33,6 +32,7 @@ import {
 } from "@xyflow/react";
 import {
   type ComponentPropsWithoutRef,
+  type FC,
   type ReactElement,
   useCallback,
   useEffect,
@@ -65,31 +65,20 @@ import {
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
 
-export interface SymbolProps {
-  symbolKey: string;
+export interface NodeProps {
+  nodeKey: string;
   position: xy.XY;
   selected: boolean;
   draggable: boolean;
 }
 
-const isValidConnection: IsValidConnection = (): boolean => true;
-
-export interface UseReturn {
-  edges: Edge[];
-  nodes: Node[];
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
-  selected?: string[];
-  onSelectionChange?: (selected: string[]) => void;
-  editable: boolean;
-  onEditableChange: (v: boolean) => void;
-  onViewportChange: (vp: Viewport) => void;
-  viewport: Viewport;
-  fitViewOnResize: boolean;
-  setFitViewOnResize: (v: boolean) => void;
-  viewportMode: BaseViewport.Mode;
-  onViewportModeChange: (v: BaseViewport.Mode) => void;
+export interface RendererConfig {
+  node: RenderProp<NodeProps, ReactElement>;
+  edge?: RenderProp<diagram.EdgeProps, ReactElement>;
+  connectionLine?: RenderProp<diagram.ConnectionLineProps, ReactElement>;
 }
+
+const isValidConnection: IsValidConnection = (): boolean => true;
 
 const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
@@ -123,7 +112,6 @@ const PRO_OPTIONS: ProOptions = {
 
 export interface DiagramProps
   extends
-    UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
@@ -131,304 +119,348 @@ export interface DiagramProps
       ReactFlowProps,
       "minZoom" | "maxZoom" | "fitViewOptions" | "snapGrid" | "snapToGrid"
     > {
+  edges: Edge[];
+  nodes: Node[];
+  onNodesChange: (changes: NodeChange[]) => void;
+  onEdgesChange: (changes: EdgeChange[]) => void;
+  selected?: string[];
+  onSelectionChange?: (selected: string[]) => void;
+  editable: boolean;
+  onEditableChange: (v: boolean) => void;
+  onViewportChange: (vp: Viewport) => void;
+  viewport: Viewport;
+  fitViewOnResize: boolean;
+  setFitViewOnResize: (v: boolean) => void;
+  viewportMode: BaseViewport.Mode;
+  onViewportModeChange: (v: BaseViewport.Mode) => void;
   triggers?: BaseViewport.UseTriggers;
   dragHandleSelector?: string;
-  nodeRenderer: RenderProp<SymbolProps>;
-  edgeRenderer?: RenderProp<RFEdgeProps>;
-  connectionLineComponent?: ConnectionLineComponent<RFNode>;
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
-const Base = ({
-  aetherKey,
-  onNodesChange,
-  onEdgesChange,
-  nodes,
-  edges,
-  selected,
-  onSelectionChange,
-  onEditableChange,
-  editable,
-  viewport,
-  triggers: pTriggers,
-  onViewportChange,
-  fitViewOnResize,
-  setFitViewOnResize,
-  visible,
-  fitViewOptions = diagram.FIT_VIEW_OPTIONS,
-  className,
-  dragHandleSelector,
-  snapGrid,
-  snapToGrid = false,
-  viewportMode,
-  onViewportModeChange,
-  autoRenderInterval,
-  nodeRenderer,
-  edgeRenderer,
-  connectionLineComponent,
-  ...rest
-}: DiagramProps): ReactElement => {
-  const memoProps = useMemoDeepEqual({ visible, autoRenderInterval });
-  const [{ path }, , setState] = Aether.use({
-    aetherKey,
-    type: diagram.Diagram.TYPE,
-    schema: diagram.diagramStateZ,
-    initialState: {
-      position: viewport.position,
-      region: box.ZERO,
-      zoom: viewport.zoom,
-      ...memoProps,
-    },
-  });
-  const { fitView } = useReactFlow();
-  const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
-    fitView,
-  ]);
-
-  const resizeRef = Canvas.useRegion(
-    useCallback(
-      (b) => {
-        if (fitViewOnResize) debouncedFitView(fitViewOptions);
-        setState((prev) => ({ ...prev, region: b }));
-      },
-      [setState, debouncedFitView, fitViewOnResize],
-    ),
-  );
-  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-
-  const triggers = useMemoCompare(
-    () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
-    Triggers.compareModeConfigs,
-    [pTriggers],
-  );
-
-  const viewportRef = useRef<RFViewport | null>(null);
-  const handleViewport = useCallback(
-    (vp: RFViewport): void => {
-      const prev = viewportRef.current;
-      if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
-        return;
-      viewportRef.current = vp;
-      if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
-      setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
-      onViewportChange(translateViewportBackward(vp));
-    },
-    [setState, onViewportChange],
-  );
-
-  useRFOnViewportChange({
-    onStart: handleViewport,
-    onChange: handleViewport,
-    onEnd: handleViewport,
-  });
-
-  const selectedSet = useMemo(() => new Set(selected), [selected]);
-
-  const nodeTypes = useMemo(
-    () => ({
-      custom: ({
-        id,
-        positionAbsoluteX: x,
-        positionAbsoluteY: y,
-        selected = false,
-        draggable = true,
-      }: RFNodeProps) =>
-        nodeRenderer({ symbolKey: id, position: { x, y }, selected, draggable }),
-    }),
-    [nodeRenderer],
-  );
-
-  const edgeTypes = useMemo(() => {
-    if (edgeRenderer == null) return undefined;
-    return { default: (rfProps: RFEdgeProps) => edgeRenderer(rfProps) };
-  }, [edgeRenderer]);
-
-  const edges_ = useMemo(
-    () => translateEdgesForward(edges, selectedSet),
-    [edges, selectedSet],
-  );
-  const nodes_ = useMemo(
-    () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
-    [nodes, selectedSet, dragHandleSelector],
-  );
-
-  const selectedRef = useRef(selected);
-  selectedRef.current = selected;
-
-  const handleNodesChange = useCallback(
-    (changes: RFNodeChange[]) => {
-      const selChanges: Array<{ key: string; selected: boolean }> = [];
-      const mutations: NodeChange[] = [];
-      for (const change of changes) {
-        const translated = translateNodeChangeForward(change);
-        if (translated == null) continue;
-        if (translated.type === "select") selChanges.push(translated);
-        else mutations.push(translated);
-      }
-      if (selChanges.length > 0) {
-        const next = new Set(selectedRef.current);
-        for (const c of selChanges)
-          if (c.selected) next.add(c.key);
-          else next.delete(c.key);
-        onSelectionChange?.([...next]);
-      }
-      if (mutations.length > 0) onNodesChange(mutations);
-    },
-    [onNodesChange, onSelectionChange],
-  );
-
-  const handleEdgesChange = useCallback(
-    (changes: RFEdgeChange[]) => {
-      const selChanges: Array<{ key: string; selected: boolean }> = [];
-      const mutations: EdgeChange[] = [];
-      for (const change of changes) {
-        const translated = translateEdgeChangeForward(change);
-        if (translated == null) continue;
-        if (translated.type === "select") selChanges.push(translated);
-        else mutations.push(translated);
-      }
-      if (selChanges.length > 0) {
-        const next = new Set(selectedRef.current);
-        for (const c of selChanges)
-          if (c.selected) next.add(c.key);
-          else next.delete(c.key);
-        onSelectionChange?.([...next]);
-      }
-      if (mutations.length > 0) onEdgesChange(mutations);
-    },
-    [onEdgesChange, onSelectionChange],
-  );
-
-  const handleConnect = useCallback(
-    (conn: RFConnection) => {
-      const key = `${conn.source}-${conn.sourceHandle ?? ""}-${conn.target}-${conn.targetHandle ?? ""}`;
-      const edge: Edge = {
-        key,
-        source: { node: conn.source, param: conn.sourceHandle ?? "" },
-        target: { node: conn.target, param: conn.targetHandle ?? "" },
-      };
-      onEdgesChange([{ type: "add", edge }]);
-    },
-    [onEdgesChange],
-  );
-
-  const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
-
-  const triggerRef = useRef<HTMLElement>(null);
-  Triggers.use({
-    triggers: triggers.zoomReset,
-    callback: useCallback(
-      ({ stage, cursor }: Triggers.UseEvent) => {
-        const reg = triggerRef.current;
-        if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-        void fitView();
-      },
-      [fitView],
-    ),
-  });
-
-  const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
-  const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
-  const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
-  const triggerProps: Partial<ReactFlowProps> = {
-    selectionOnDrag: selectTriggers == null,
-    panOnDrag: panTriggers == null,
-    selectionKeyCode: selectTriggers,
-    panActivationKeyCode: panTriggers,
-    zoomActivationKeyCode: zoomTriggers,
+export const create = ({
+  node: nodeRenderer,
+  edge: edgeRenderer,
+  connectionLine: connectionLineRenderer,
+}: RendererConfig): FC<DiagramProps> => {
+  const nodeTypes = {
+    custom: ({
+      id,
+      positionAbsoluteX: x,
+      positionAbsoluteY: y,
+      selected = false,
+      draggable = true,
+    }: RFNodeProps) =>
+      nodeRenderer({ nodeKey: id, position: { x, y }, selected, draggable }),
   };
 
-  const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
+  const edgeTypes =
+    edgeRenderer != null
+      ? {
+          default: (rf: RFEdgeProps): ReactElement =>
+            edgeRenderer({
+              edgeKey: rf.id,
+              source: diagram.createEndpoint(
+                rf.sourceX,
+                rf.sourceY,
+                rf.sourcePosition,
+              ),
+              target: diagram.createEndpoint(
+                rf.targetX,
+                rf.targetY,
+                rf.targetPosition,
+              ),
+              selected: rf.selected ?? false,
+            }),
+        }
+      : undefined;
 
-  const handleInit = useCallback(
-    (i: ReactFlowInstance) => {
-      void i.fitView(fitViewOptions);
-    },
-    [fitViewOptions],
+  const connectionLineComponent =
+    connectionLineRenderer != null
+      ? (rf: RFConnectionLineProps): ReactElement =>
+          connectionLineRenderer({
+            source: diagram.createEndpoint(rf.fromX, rf.fromY, rf.fromPosition),
+            target: diagram.createEndpoint(rf.toX, rf.toY, rf.toPosition),
+            status: rf.connectionStatus,
+            style: rf.connectionLineStyle ?? {},
+          })
+      : undefined;
+
+  const defaultEdgeOptions = {
+    type: edgeRenderer != null ? "default" : "smoothstep",
+  };
+
+  const Base = ({
+    aetherKey,
+    onNodesChange,
+    onEdgesChange,
+    nodes,
+    edges,
+    selected,
+    onSelectionChange,
+    onEditableChange,
+    editable,
+    viewport,
+    triggers: pTriggers,
+    onViewportChange,
+    fitViewOnResize,
+    setFitViewOnResize,
+    visible,
+    fitViewOptions = diagram.FIT_VIEW_OPTIONS,
+    className,
+    dragHandleSelector,
+    snapToGrid = false,
+    viewportMode,
+    onViewportModeChange,
+    autoRenderInterval,
+    ...rest
+  }: DiagramProps): ReactElement => {
+    const memoProps = useMemoDeepEqual({ visible, autoRenderInterval });
+    const [{ path }, , setState] = Aether.use({
+      aetherKey,
+      type: diagram.Diagram.TYPE,
+      schema: diagram.diagramStateZ,
+      initialState: {
+        position: viewport.position,
+        region: box.ZERO,
+        zoom: viewport.zoom,
+        ...memoProps,
+      },
+    });
+    const { fitView } = useReactFlow();
+    const debouncedFitView = useDebouncedCallback(
+      (args) => void fitView(args),
+      50,
+      [fitView],
+    );
+
+    const resizeRef = Canvas.useRegion(
+      useCallback(
+        (b) => {
+          if (fitViewOnResize) debouncedFitView(fitViewOptions);
+          setState((prev) => ({ ...prev, region: b }));
+        },
+        [setState, debouncedFitView, fitViewOnResize],
+      ),
+    );
+    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+
+    const triggers = useMemoCompare(
+      () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
+      Triggers.compareModeConfigs,
+      [pTriggers],
+    );
+
+    const viewportRef = useRef<RFViewport | null>(null);
+    const handleViewport = useCallback(
+      (vp: RFViewport): void => {
+        const prev = viewportRef.current;
+        if (
+          prev != null &&
+          prev.x === vp.x &&
+          prev.y === vp.y &&
+          prev.zoom === vp.zoom
+        )
+          return;
+        viewportRef.current = vp;
+        if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
+        setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
+        onViewportChange(translateViewportBackward(vp));
+      },
+      [setState, onViewportChange],
+    );
+
+    useRFOnViewportChange({
+      onStart: handleViewport,
+      onChange: handleViewport,
+      onEnd: handleViewport,
+    });
+
+    const selectedSet = useMemo(() => new Set(selected), [selected]);
+
+    const edges_ = useMemo(
+      () => translateEdgesForward(edges, selectedSet),
+      [edges, selectedSet],
+    );
+    const nodes_ = useMemo(
+      () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
+      [nodes, selectedSet, dragHandleSelector],
+    );
+
+    const selectedRef = useRef(selected);
+    selectedRef.current = selected;
+
+    const handleNodesChange = useCallback(
+      (changes: RFNodeChange[]) => {
+        const selChanges: Array<{ key: string; selected: boolean }> = [];
+        const mutations: NodeChange[] = [];
+        for (const change of changes) {
+          const translated = translateNodeChangeForward(change);
+          if (translated == null) continue;
+          if (translated.type === "select") selChanges.push(translated);
+          else mutations.push(translated);
+        }
+        if (selChanges.length > 0) {
+          const next = new Set(selectedRef.current);
+          for (const c of selChanges)
+            if (c.selected) next.add(c.key);
+            else next.delete(c.key);
+          onSelectionChange?.([...next]);
+        }
+        if (mutations.length > 0) onNodesChange(mutations);
+      },
+      [onNodesChange, onSelectionChange],
+    );
+
+    const handleEdgesChange = useCallback(
+      (changes: RFEdgeChange[]) => {
+        const selChanges: Array<{ key: string; selected: boolean }> = [];
+        const mutations: EdgeChange[] = [];
+        for (const change of changes) {
+          const translated = translateEdgeChangeForward(change);
+          if (translated == null) continue;
+          if (translated.type === "select") selChanges.push(translated);
+          else mutations.push(translated);
+        }
+        if (selChanges.length > 0) {
+          const next = new Set(selectedRef.current);
+          for (const c of selChanges)
+            if (c.selected) next.add(c.key);
+            else next.delete(c.key);
+          onSelectionChange?.([...next]);
+        }
+        if (mutations.length > 0) onEdgesChange(mutations);
+      },
+      [onEdgesChange, onSelectionChange],
+    );
+
+    const handleConnect = useCallback(
+      (conn: RFConnection) => {
+        const key = `${conn.source}-${conn.sourceHandle ?? ""}-${conn.target}-${conn.targetHandle ?? ""}`;
+        const edge: Edge = {
+          key,
+          source: { node: conn.source, param: conn.sourceHandle ?? "" },
+          target: { node: conn.target, param: conn.targetHandle ?? "" },
+        };
+        onEdgesChange([{ type: "add", edge }]);
+      },
+      [onEdgesChange],
+    );
+
+    const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
+
+    const triggerRef = useRef<HTMLElement>(null);
+    Triggers.use({
+      triggers: triggers.zoomReset,
+      callback: useCallback(
+        ({ stage, cursor }: Triggers.UseEvent) => {
+          const reg = triggerRef.current;
+          if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
+          void fitView();
+        },
+        [fitView],
+      ),
+    });
+
+    const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
+    const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
+    const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
+    const triggerProps: Partial<ReactFlowProps> = {
+      selectionOnDrag: selectTriggers == null,
+      panOnDrag: panTriggers == null,
+      selectionKeyCode: selectTriggers,
+      panActivationKeyCode: panTriggers,
+      zoomActivationKeyCode: zoomTriggers,
+    };
+
+    const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
+
+    const handleInit = useCallback(
+      (i: ReactFlowInstance) => {
+        void i.fitView(fitViewOptions);
+      },
+      [fitViewOptions],
+    );
+
+    const ctxValue = useMemo(
+      () => ({
+        visible,
+        editable,
+        onEditableChange,
+        fitViewOnResize,
+        setFitViewOnResize,
+        fitViewOptions,
+        viewportMode,
+        onViewportModeChange,
+      }),
+      [
+        editable,
+        visible,
+        onEditableChange,
+        fitViewOnResize,
+        fitViewOptions,
+        viewportMode,
+        onViewportModeChange,
+      ],
+    );
+
+    const style = useMemo(
+      () => ({ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }),
+      [viewport.zoom, rest.style],
+    );
+
+    return (
+      <Context value={ctxValue}>
+        <Aether.Composite path={path}>
+          {visible && (
+            <ReactFlow
+              {...triggerProps}
+              className={CSS(
+                className,
+                CSS.B("diagram"),
+                CSS.editable(editable),
+                CSS.BE("symbol", "container"),
+              )}
+              nodes={nodes_}
+              edges={edges_}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              ref={combinedRefs}
+              fitView
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={handleConnect}
+              connectionLineComponent={connectionLineComponent}
+              defaultViewport={translateViewportForward(viewport)}
+              elevateEdgesOnSelect
+              defaultEdgeOptions={defaultEdgeOptions}
+              minZoom={fitViewOptions.minZoom}
+              maxZoom={fitViewOptions.maxZoom}
+              isValidConnection={isValidConnection}
+              connectionMode={ConnectionMode.Loose}
+              fitViewOptions={fitViewOptions}
+              selectionMode={SelectionMode.Partial}
+              proOptions={PRO_OPTIONS}
+              deleteKeyCode={DELETE_KEY_CODES}
+              snapToGrid={snapToGrid}
+              {...rest}
+              style={style}
+              {...editableProps}
+              nodesDraggable={editable}
+              onInit={handleInit}
+            />
+          )}
+        </Aether.Composite>
+      </Context>
+    );
+  };
+
+  const Diagram: FC<DiagramProps> = (props) => (
+    <ReactFlowProvider>
+      <Base {...props} />
+    </ReactFlowProvider>
   );
 
-  const ctxValue = useMemo(
-    () => ({
-      visible,
-      editable,
-      onEditableChange,
-      fitViewOnResize,
-      setFitViewOnResize,
-      fitViewOptions,
-      viewportMode,
-      onViewportModeChange,
-    }),
-    [
-      editable,
-      visible,
-      onEditableChange,
-      fitViewOnResize,
-      fitViewOptions,
-      viewportMode,
-      onViewportModeChange,
-    ],
-  );
-
-  const defaultEdgeOptions = useMemo(
-    () => ({ type: edgeRenderer != null ? "default" : "smoothstep" }),
-    [edgeRenderer],
-  );
-
-  const style = useMemo(
-    () => ({ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }),
-    [viewport.zoom, rest.style],
-  );
-
-  return (
-    <Context value={ctxValue}>
-      <Aether.Composite path={path}>
-        {visible && (
-          <ReactFlow
-            {...triggerProps}
-            className={CSS(
-              className,
-              CSS.B("diagram"),
-              CSS.editable(editable),
-              CSS.BE("symbol", "container"),
-            )}
-            nodes={nodes_}
-            edges={edges_}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            ref={combinedRefs}
-            fitView
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={handleConnect}
-            connectionLineComponent={connectionLineComponent}
-            defaultViewport={translateViewportForward(viewport)}
-            elevateEdgesOnSelect
-            defaultEdgeOptions={defaultEdgeOptions}
-            minZoom={fitViewOptions.minZoom}
-            maxZoom={fitViewOptions.maxZoom}
-            isValidConnection={isValidConnection}
-            connectionMode={ConnectionMode.Loose}
-            fitViewOptions={fitViewOptions}
-            selectionMode={SelectionMode.Partial}
-            proOptions={PRO_OPTIONS}
-            deleteKeyCode={DELETE_KEY_CODES}
-            snapGrid={snapGrid}
-            snapToGrid={snapToGrid}
-            {...rest}
-            style={style}
-            {...editableProps}
-            nodesDraggable={editable}
-            onInit={handleInit}
-          />
-        )}
-      </Aether.Composite>
-    </Context>
-  );
+  return Diagram;
 };
-
-export const Diagram = (props: DiagramProps): ReactElement => (
-  <ReactFlowProvider>
-    <Base {...props} />
-  </ReactFlowProvider>
-);

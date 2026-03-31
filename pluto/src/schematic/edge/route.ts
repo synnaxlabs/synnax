@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location, xy } from "@synnaxlabs/x";
+import { type location, type xy } from "@synnaxlabs/x";
+
+import { type diagram } from "@/vis/diagram/aether";
 
 type Dir = location.Outer;
 
@@ -136,13 +138,9 @@ const inferDirection = (from: xy.XY, to: xy.XY): Dir => {
 
 export interface RouteProps {
   /** Position of the source handle. */
-  source: xy.XY;
-  /** Direction the source handle faces. */
-  sourceDir: Dir;
+  source: diagram.EdgeEndpoint;
   /** Position of the target handle. */
-  target: xy.XY;
-  /** Direction the target handle faces. */
-  targetDir: Dir;
+  target: diagram.EdgeEndpoint;
   /** Optional user-placed intermediate waypoints. */
   waypoints?: xy.XY[];
   /** Stump length in pixels. Default 20. */
@@ -161,33 +159,56 @@ export interface RouteProps {
  */
 export const route = ({
   source,
-  sourceDir,
   target,
-  targetDir,
   waypoints = [],
   stumpLength = STUMP_LENGTH,
 }: RouteProps): xy.XY[] => {
-  if (waypoints.length === 0) return routeDirect(source, sourceDir, target, targetDir, stumpLength);
+  if (waypoints.length === 0)
+    return routeDirect(
+      source.position,
+      source.orientation,
+      target.position,
+      target.orientation,
+      stumpLength,
+    );
 
   const allPoints: xy.XY[] = [];
 
   // Source -> first waypoint
-  const wp0Dir = opposite(inferDirection(waypoints[0], source));
-  const seg0 = routeDirect(source, sourceDir, waypoints[0], wp0Dir, stumpLength);
+  const wp0Dir = opposite(inferDirection(waypoints[0], source.position));
+  const seg0 = routeDirect(
+    source.position,
+    source.orientation,
+    waypoints[0],
+    wp0Dir,
+    stumpLength,
+  );
   allPoints.push(...seg0.slice(0, -1));
 
   // Waypoint -> waypoint
   for (let i = 0; i < waypoints.length - 1; i++) {
     const fromDir = inferDirection(waypoints[i], waypoints[i + 1]);
     const toDir = opposite(inferDirection(waypoints[i + 1], waypoints[i]));
-    const seg = routeDirect(waypoints[i], fromDir, waypoints[i + 1], toDir, stumpLength);
+    const seg = routeDirect(
+      waypoints[i],
+      fromDir,
+      waypoints[i + 1],
+      toDir,
+      stumpLength,
+    );
     allPoints.push(...seg.slice(0, -1));
   }
 
   // Last waypoint -> target
   const lastWp = waypoints[waypoints.length - 1];
-  const lastWpDir = inferDirection(lastWp, target);
-  const segN = routeDirect(lastWp, lastWpDir, target, targetDir, stumpLength);
+  const lastWpDir = inferDirection(lastWp, target.position);
+  const segN = routeDirect(
+    lastWp,
+    lastWpDir,
+    target.position,
+    target.orientation,
+    stumpLength,
+  );
   allPoints.push(...segN);
 
   return simplify(allPoints);

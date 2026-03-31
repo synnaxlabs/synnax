@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x";
+import { type location, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
+import type React from "react";
 import { z } from "zod/v4";
 
 export const viewportZ = z.object({
@@ -168,3 +169,31 @@ export const translateEdgeChangeForward = (
 };
 
 export type FitViewOptions = rf.FitViewOptions;
+
+export interface EdgeEndpoint {
+  position: xy.XY;
+  orientation: location.Outer;
+}
+
+export interface EdgeProps {
+  edgeKey: string;
+  source: EdgeEndpoint;
+  target: EdgeEndpoint;
+  selected: boolean;
+}
+
+export interface ConnectionLineProps {
+  source: EdgeEndpoint;
+  target: EdgeEndpoint;
+  status: "valid" | "invalid" | null;
+  style: React.CSSProperties;
+}
+
+export const createEndpoint = (
+  x: number,
+  y: number,
+  position: string,
+): EdgeEndpoint => ({
+  position: { x, y },
+  orientation: position as location.Outer,
+});

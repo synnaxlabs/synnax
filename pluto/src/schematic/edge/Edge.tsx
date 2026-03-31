@@ -10,51 +10,37 @@
 import "@/schematic/edge/Edge.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { color, location, xy } from "@synnaxlabs/x";
-import {
-  type ConnectionLineComponentProps,
-  type EdgeProps as RFEdgeProps,
-  type Position,
-  useReactFlow,
-} from "@xyflow/react";
+import { color, location } from "@synnaxlabs/x";
+import { useReactFlow } from "@xyflow/react";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { DefaultPath, type EdgeType, PATHS } from "@/schematic/edge/paths";
+import { useKey } from "@/schematic/Context";
+import { DefaultPath, PATHS } from "@/schematic/edge/paths";
 import { route } from "@/schematic/edge/route";
 import { useRetrieve } from "@/schematic/queries";
+import { type diagram } from "@/vis/diagram/aether";
 
 export const ConnectionLine = ({
-  fromX,
-  fromY,
-  toX,
-  toY,
-  fromPosition,
-  toPosition,
-  connectionLineStyle,
-  connectionStatus,
-}: ConnectionLineComponentProps): ReactElement => {
+  source,
+  target,
+  style,
+  status,
+}: diagram.ConnectionLineProps): ReactElement => {
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
   if (toNodeHandle != null) {
     const res = location.outerZ.safeParse(toNodeHandle[1]);
-    if (res.success) toPosition = res.data as Position;
+    if (res.success) source.orientation = res.data;
   }
-  const points = route({
-    source: xy.construct(fromX, fromY),
-    sourceDir: fromPosition as location.Outer,
-    target: xy.construct(toX, toY),
-    targetDir: toPosition as location.Outer,
-  });
+  const points = route({ source, target });
   return (
     <DefaultPath
       points={points}
       style={{
-        ...connectionLineStyle,
+        ...style,
         stroke: color.cssString(
-          connectionStatus === "invalid"
-            ? "var(--pluto-error-z)"
-            : "var(--pluto-gray-l11)",
+          status === "invalid" ? "var(--pluto-error-z)" : "var(--pluto-gray-l11)",
         ),
         strokeWidth: 2,
         fill: "none",
@@ -63,47 +49,33 @@ export const ConnectionLine = ({
   );
 };
 
-interface EdgeInternalProps extends RFEdgeProps {
-  schematicKey: string;
-}
-
 export const Edge = ({
-  id,
-  sourcePosition: sourceOrientation,
-  targetPosition: targetOrientation,
+  edgeKey,
+  source,
+  target,
   selected = false,
-  schematicKey,
-  ...rest
-}: EdgeInternalProps): ReactElement => {
-  const { data: doc } = useRetrieve({ key: schematicKey });
-  const edgeProps = doc?.props?.[id] as schematic.EdgeProps | undefined;
+}: diagram.EdgeProps): ReactElement => {
+  const key = useKey();
+  const { data: doc } = useRetrieve({ key });
+  const edgeProps = doc?.props?.[edgeKey] as schematic.EdgeProps | undefined;
   const {
     waypoints = [],
-    color: edgeColor = "var(--pluto-gray-l11)",
+    color = "var(--pluto-gray-l11)",
     variant = "pipe",
   } = edgeProps ?? {};
 
   const flow = useReactFlow();
-  const sourcePos = xy.construct(rest.sourceX, rest.sourceY);
-  const targetPos = xy.construct(rest.targetX, rest.targetY);
 
   const points = useMemo(
-    () =>
-      route({
-        source: sourcePos,
-        sourceDir: sourceOrientation as location.Outer,
-        target: targetPos,
-        targetDir: targetOrientation as location.Outer,
-        waypoints,
-      }),
-    [sourcePos, targetPos, sourceOrientation, targetOrientation, waypoints],
+    () => route({ source, target, waypoints }),
+    [source, target, waypoints],
   );
 
-  const P = PATHS[variant as EdgeType] ?? PATHS.pipe;
+  const P = PATHS[variant] ?? PATHS.pipe;
 
   return (
     <>
-      <P points={points} color={edgeColor} />
+      <P points={points} color={color} />
       {selected && (
         <g className={CSS.BE("diagram-edge", "handles")}>
           {points.slice(1, -1).map((p, i) => (

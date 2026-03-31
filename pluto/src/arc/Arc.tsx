@@ -9,12 +9,12 @@
 
 import "@/arc/Arc.css";
 
-import { type ReactElement } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Diagram } from "@/vis/diagram";
 
-export interface ArcProps extends Diagram.DiagramProps {}
+export type ArcProps = Diagram.DiagramProps;
 
 const FIT_VIEW_OPTIONS: Diagram.FitViewOptions = {
   minZoom: 0.5,
@@ -22,12 +22,16 @@ const FIT_VIEW_OPTIONS: Diagram.FitViewOptions = {
   padding: 0.1,
 };
 
-export const Arc = ({ className, ...props }: ArcProps): ReactElement => (
-  <Diagram.Diagram
-    className={CSS(className, CSS.B("arc"))}
-    fitViewOptions={FIT_VIEW_OPTIONS}
-    snapGrid={[2, 2]}
-    snapToGrid
-    {...props}
-  />
-);
+export const create = (renderers: Diagram.RendererConfig): FC<ArcProps> => {
+  const Base = Diagram.create(renderers);
+  const Arc = ({ className, ...props }: ArcProps): ReactElement => (
+    <Base
+      className={CSS(className, CSS.B("arc"))}
+      fitViewOptions={FIT_VIEW_OPTIONS}
+      snapGrid={[2, 2]}
+      snapToGrid
+      {...props}
+    />
+  );
+  return Arc;
+};
