@@ -233,7 +233,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           <Menu.Divider />
           <Menu.Item itemKey="remove" onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
-            Remove from favorites
+            Unfavorite
           </Menu.Item>
           {rng.persisted ? (
             <>
