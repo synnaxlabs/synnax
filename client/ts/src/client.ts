@@ -24,6 +24,7 @@ import { label } from "@/label";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ontology } from "@/ontology";
+import { project } from "@/project";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { alias } from "@/ranger/alias";
@@ -71,6 +72,7 @@ export default class Synnax extends framer.Client {
   readonly access: access.Client;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
+  readonly projects: project.Client;
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly statuses: status.Client;
@@ -159,6 +161,7 @@ export default class Synnax extends framer.Client {
     );
     this.access = new access.Client(this.transport.unary);
     this.users = new user.Client(this.transport.unary);
+    this.projects = new project.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
     this.tasks = new task.Client(
       this.transport.unary,

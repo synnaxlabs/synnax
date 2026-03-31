@@ -24,6 +24,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Project } from "@/project";
 import { Rack } from "@/rack";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
@@ -66,6 +67,7 @@ export interface FluxStore extends Flux.Store {
   [Device.FLUX_STORE_KEY]: Device.FluxStore;
   [Task.FLUX_STORE_KEY]: Task.FluxStore;
   [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
+  [Project.FLUX_STORE_KEY]: Project.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -92,6 +94,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
   [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,
   [Task.FLUX_STORE_KEY]: Task.FLUX_STORE_CONFIG,
   [Workspace.FLUX_STORE_KEY]: Workspace.FLUX_STORE_CONFIG,
+  [Project.FLUX_STORE_KEY]: Project.FLUX_STORE_CONFIG,
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_FLUX_STORE_CONFIG,
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,

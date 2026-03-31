@@ -37,4 +37,5 @@ constexpr const char *RESOURCE_TYPE_TASK = "task";
 constexpr const char *RESOURCE_TYPE_USER = "user";
 constexpr const char *RESOURCE_TYPE_VIEW = "view";
 constexpr const char *RESOURCE_TYPE_WORKSPACE = "workspace";
+constexpr const char *RESOURCE_TYPE_PROJECT = "project";
 }

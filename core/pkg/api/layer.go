@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
@@ -104,6 +105,11 @@ type Transport struct {
 	WorkspaceDelete    freighter.UnaryServer[workspace.DeleteRequest, types.Nil]
 	WorkspaceRename    freighter.UnaryServer[workspace.RenameRequest, types.Nil]
 	WorkspaceSetLayout freighter.UnaryServer[workspace.SetLayoutRequest, types.Nil]
+	// PROJECT
+	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
+	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
+	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, types.Nil]
+	ProjectRename   freighter.UnaryServer[project.RenameRequest, types.Nil]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -182,6 +188,7 @@ type Transport struct {
 // implementations should use this struct during instantiation.
 type Layer struct {
 	Workspace    *workspace.Service
+	Project      *project.Service
 	LinePlot     *lineplot.Service
 	User         *user.Service
 	Framer       *framer.Service
@@ -285,6 +292,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.WorkspaceRetrieve,
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
+
+		// PROJECT
+		t.ProjectCreate,
+		t.ProjectRetrieve,
+		t.ProjectDelete,
+		t.ProjectRename,
 
 		// SCHEMATIC
 		t.SchematicCreate,
@@ -432,6 +445,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.WorkspaceRename.BindHandler(l.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(l.Workspace.SetLayout)
 
+	// PROJECT
+	t.ProjectCreate.BindHandler(l.Project.Create)
+	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
+	t.ProjectDelete.BindHandler(l.Project.Delete)
+	t.ProjectRename.BindHandler(l.Project.Rename)
+
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
@@ -560,6 +579,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Project, err = project.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(cfg); err != nil {

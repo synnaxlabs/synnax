@@ -61,6 +61,8 @@ RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 
 RESOURCE_TYPE_WORKSPACE: Literal["workspace"] = "workspace"
 
+RESOURCE_TYPE_PROJECT: Literal["project"] = "project"
+
 
 ResourceType = Literal[
     "arc",
@@ -87,4 +89,5 @@ ResourceType = Literal[
     "user",
     "view",
     "workspace",
+    "project",
 ]

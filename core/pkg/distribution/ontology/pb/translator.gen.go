@@ -121,6 +121,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_VIEW, nil
 	case ontology.ResourceTypeWorkspace:
 		return ResourceType_RESOURCE_TYPE_WORKSPACE, nil
+	case ontology.ResourceTypeProject:
+		return ResourceType_RESOURCE_TYPE_PROJECT, nil
 	default:
 		return 0, errors.Newf("unrecognized ontology.ResourceType value: %v", v)
 	}
@@ -177,6 +179,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeView, nil
 	case ResourceType_RESOURCE_TYPE_WORKSPACE:
 		return ontology.ResourceTypeWorkspace, nil
+	case ResourceType_RESOURCE_TYPE_PROJECT:
+		return ontology.ResourceTypeProject, nil
 	default:
 		return ontology.ResourceType(""), errors.Newf("unrecognized ResourceType value: %v", v)
 	}

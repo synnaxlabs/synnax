@@ -38,6 +38,7 @@ ResourceType enum {
     user             = "user"
     view             = "view"
     workspace        = "workspace"
+    project          = "project"
 
     @doc value "is the type of the resource."
     @go output "core/pkg/distribution/ontology"

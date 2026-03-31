@@ -50,6 +50,7 @@ export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";
+export { project } from "@/project";
 export { workspace } from "@/workspace";
 export {
   type CrudeDataType,

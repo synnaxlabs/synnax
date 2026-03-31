@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -115,6 +116,8 @@ type Layer struct {
 	KV *kv.Service
 	// Workspace is for working with Workspaces.
 	Workspace *workspace.Service
+	// Project is for working with Projects.
+	Project *project.Service
 	// Schematic is for working with schematic visualizations.
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
@@ -239,6 +242,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
+		return nil, err
+	}
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
+	}); !ok(err, l.Project) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{

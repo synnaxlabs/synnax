@@ -64,6 +64,7 @@ for organizing system configurations.
 ### Top Bar
 
 Left to right:
+
 - **Window controls** (macOS traffic lights)
 - **Logo**
 - **Workspace Selector** - Dropdown showing current workspace name or "No workspace."
@@ -78,26 +79,27 @@ Left to right:
 A vertical strip of icons. Single-press previews a drawer, double-press opens it fully.
 Each icon opens a drawer panel to the right of the rail:
 
-| Key | Trigger | Drawer Content |
-|-----|---------|----------------|
-| **Channels** | C | Ontology tree of all channels in groups. Create channels and calculated channels. Drag channels to visualizations. |
-| **Ranges** | R | Favorited time ranges. Drop target for ranges. Shows stage icon, time duration, labels. |
-| **Workspaces** | W | Ontology tree of workspace groups. Create workspaces. Browsing only, switching via top-bar selector. |
-| **Devices** | D | Ontology tree of hardware devices (LabJack, NI, Modbus, OPC, HTTP, EtherCAT). |
-| **Tasks** | T | Flat list of all DAQ tasks with status, start/stop, type labels. Edit config, enable/disable data saving, rename, delete, export. |
-| **Users** | U | Ontology tree of users. Create new users (admin only). |
-| **Arc** | A | List of Arc programs with status, start/stop. Create, edit, rename, delete. |
-| **Status** | S | Status entries with severity, messages, timestamps. Filter by labels. |
+| Key            | Trigger | Drawer Content                                                                                                                    |
+| -------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Channels**   | C       | Ontology tree of all channels in groups. Create channels and calculated channels. Drag channels to visualizations.                |
+| **Ranges**     | R       | Favorited time ranges. Drop target for ranges. Shows stage icon, time duration, labels.                                           |
+| **Workspaces** | W       | Ontology tree of workspace groups. Create workspaces. Browsing only, switching via top-bar selector.                              |
+| **Devices**    | D       | Ontology tree of hardware devices (LabJack, NI, Modbus, OPC, HTTP, EtherCAT).                                                     |
+| **Tasks**      | T       | Flat list of all DAQ tasks with status, start/stop, type labels. Edit config, enable/disable data saving, rename, delete, export. |
+| **Users**      | U       | Ontology tree of users. Create new users (admin only).                                                                            |
+| **Arc**        | A       | List of Arc programs with status, start/stop. Create, edit, rename, delete.                                                       |
+| **Status**     | S       | Status entries with severity, messages, timestamps. Filter by labels.                                                             |
 
 ### Bottom Drawer Rail
 
-| Key | Trigger | Drawer Content |
-|-----|---------|----------------|
-| **Visualization** | V | Context-sensitive toolbar for the active visualization. Different controls by type: Line Plot (data, lines, axes, properties, rules), Table (cell properties), Schematic (tools), Log (tools), Arc Editor (tools). "No visualization selected" if nothing active. |
+| Key               | Trigger | Drawer Content                                                                                                                                                                                                                                                    |
+| ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Visualization** | V       | Context-sensitive toolbar for the active visualization. Different controls by type: Line Plot (data, lines, axes, properties, rules), Table (cell properties), Schematic (tools), Log (tools), Arc Editor (tools). "No visualization selected" if nothing active. |
 
 ### Main Content Area (Mosaic)
 
 The central tiled workspace. A tree of resizable split panes, each containing tabs.
+
 - **Tabs** represent open visualizations (line plots, schematics, tables, logs, arc
   editors)
 - **"+" button** or **Ctrl+T** opens a visualization type selector (Line Plot,
@@ -109,6 +111,7 @@ The central tiled workspace. A tree of resizable split panes, each containing ta
 ### Visualization Creation Paths (Current)
 
 All of these create permanent workspace resources:
+
 1. **Command palette**: "Create a line plot" etc. Creates with default name "Line Plot"
 2. **Ctrl+T / "+" button**: Opens type selector grid, click a type to create
 3. **Right-click channel -> plot**: Creates plot with that channel
@@ -170,10 +173,12 @@ story.
 ### Q1: What is a project? What is a workspace?
 
 **Naming decision**: We use two terms:
+
 - **Project** = the big container (new concept). Represents a physical system, facility,
   or analytical context.
-- **Workspace** = a console layout within a project (existing concept, mostly unchanged).
-  What users currently call "workspaces" stays as "workspaces." They just get a parent.
+- **Workspace** = a console layout within a project (existing concept, mostly
+  unchanged). What users currently call "workspaces" stays as "workspaces." They just
+  get a parent.
 
 **Project**: A project is a long-lived, named, saved, shared collection of configuration
 and visualizations. Most commonly it represents a physical system or facility ("Test
@@ -191,6 +196,7 @@ tabs, windows, and visualizations an operator sees. A project can have multiple
 workspaces for different operator roles.
 
 Example: Project "Hotfire Test Stand" has:
+
 - Workspace "Propulsion Operator": P&ID schematic, propulsion plot, command table
 - Workspace "Electrical Operator": Electrical schematic, power monitoring, logs
 - Workspace "Test Director": Overview dashboard, all-channel table, sequence status
@@ -199,17 +205,20 @@ Example: Project "Hotfire Test Stand" has:
 layout in your IDE for that repo.
 
 **Examples**:
+
 - Orbex: "Denmark Hotfire Stand" is one project. "Scotland Structures Facility" is
   another. Vehicle versions are snapshots within the project's history.
 - Rigetti: Each fridge is its own project (Fridge #1, Fridge #2, ... Fridge #20),
   stamped from a common template project.
 - Honeywell: Each test cell is a project. Switching test articles = modifying the
   project config (maybe 15% changes) and snapshotting the previous state.
-- Data review: "Q1 Hotfire Analysis" is a project containing comparison plots and
-  tables that reference ranges from across the cluster. No hardware config.
+- Data review: "Q1 Hotfire Analysis" is a project containing comparison plots and tables
+  that reference ranges from across the cluster. No hardware config.
 
 **Key properties of a project**:
-1. Long-lived, usually represents a physical system but can also be an analytical context
+
+1. Long-lived, usually represents a physical system but can also be an analytical
+   context
 2. Contains everything relevant to its purpose: hardware config, visualizations,
    workspaces, arc programs (operational) or just visualizations and data queries
    (analytical)
@@ -222,6 +231,7 @@ layout in your IDE for that repo.
    generator models on the same test cell) without linear snapshot rollback
 
 **The system has two top-level concepts, not more**:
+
 - **Project**: the shared system/analysis configuration (lives on server)
 - **Workspace**: a named console layout within a project (what users already know)
 
@@ -231,63 +241,48 @@ in the console, outside any project.)
 Fleet management (templates, inheritance) is a relationship between projects, not a
 third concept. Like GitHub forks: a fork is just a repo with a link to an upstream repo.
 
-
-
 ---
 
-### Q2: What is scratch?
+### Q2: Is there a scratch concept?
 
-**Answer (in progress)**: Scratch is the console's personal space. It lives in the
-console app, not in any project or workspace. Scratch tabs auto-save locally (survive
-restart) but never touch the project or the server. The project resource tree stays
-clean because scratch never enters it.
+**Answer**: No. There is no scratch, no orphan, no special mode.
 
-Scratch is Figma's "Drafts" equivalent: a personal area for exploration that doesn't
-pollute shared spaces.
+The user is **always** in a project + workspace. A project always has at least one
+workspace. On first launch, Synnax auto-creates a default project ("My Project") with a
+default workspace ("Default"). The user can rename these, add more, but they can never
+be in an ambiguous "no project" state.
 
-**Key design direction**: The default action for quick data exploration should create
-scratch, not project resources. Where you initiate the action determines what you get:
+Every visualization is always a child of the current workspace. "Plot this channel" from
+anywhere creates a visualization in the current workspace. If it turns out to be
+throwaway, the user just closes and deletes the tab. No orphan lifecycle, no dual
+persistence, no promote flow.
 
-- From channel list, command palette, keyboard shortcut → scratch (exploring)
-- From within a project resource tree → project resource (building)
+**Defaults:**
 
-A scratch plot is lightweight: instant, no name required, doesn't appear in any resource
-tree. Visual treatment communicates "this is temporary."
+- First launch: auto-create "My Project" with workspace "Default"
+- Creating a new project: comes with one workspace "Default"
+- Can't delete the last workspace in a project
 
-**Promote flow**: When scratch turns out to be useful, user can promote it to a
-project via right-click → "Save to project" or drag into project tree.
+**The soup problem is solved by:**
 
-**Open questions**:
-- Is there a case where defaulting to scratch is annoying and the user genuinely wants
-  a permanent resource from the start?
-- Should scratch tabs have a lifespan? (Auto-clean after N days? Or persist until
-  manually closed?)
-- What's the visual treatment? Subtle badge? Different background? No title?
-- Can you have scratch tabs open alongside workspace tabs in the same console?
-  (Probably yes.)
+1. Always having a home for everything (no lost work)
+2. Users can close/delete throwaway visualizations from their workspace
+3. The default personal project absorbs casual exploration without polluting shared
+   operational projects
 
 ---
 
 ### Q3: How do we solve the visualization soup problem?
 
-**Answer**: The soup problem comes from both creation paths (right-click "plot this
-channel" AND "new line plot" from menu) creating permanent named workspace resources
-when the user's intent is usually temporary.
+**Answer**: The user is always in a project + workspace. Every visualization is always a
+child of the current workspace. There are no orphans, no special scratch mode.
 
-The fix: both paths default to scratch tabs (see Q2). Project resources are only
-created when explicitly initiated from within a project context. This means:
-- "Plot this channel" → scratch tab (exploring)
-- "New Line Plot" from menu/palette → scratch tab (exploring)
-- Right-click in project tree → "Add Line Plot" → project resource (building)
-- Promote from scratch → project resource (keeping)
+The soup problem was caused by visualizations being created with no clear home. Now
+every creation path puts the visualization in the current workspace.
 
-The soup disappears because throwaway visualizations never enter the project.
-
-**Open questions (to pick up next session)**:
-- Should workspace visualizations require naming on creation? (Probably yes, to
-  encourage intentionality.)
-- What about the common flow where you open 5 scratch plots, then want to keep 2 of
-  them? Batch promote?
+The remaining soup risk is accumulation within a workspace: user creates 50 quick plots
+over a week and never cleans up. This is a UX polish problem (better delete/cleanup
+flows, maybe a "recently created" filter) rather than an architectural problem.
 
 ---
 
@@ -302,11 +297,10 @@ Named snapshots (Figma's Cmd+S model) provide the safety net for workspace conte
 you break something, restore a named checkpoint.
 
 **Open questions (to pick up next session)**:
+
 - Visible save indicator? (Figma: cloud icon showing sync status)
 - Conflict handling when two people edit the same workspace simultaneously?
 - Undo history per-visualization beyond auto-save?
-
-
 
 ---
 
@@ -317,6 +311,7 @@ layout: a configuration of tabs, windows, and visualizations. This IS the curren
 "workspace" concept, unchanged. It just lives inside a project now.
 
 Example: Project "Hotfire Test Stand" has:
+
 - Workspace "Propulsion Operator": P&ID schematic, propulsion plot, command table
 - Workspace "Electrical Operator": Electrical schematic, power monitoring, logs
 - Workspace "Test Director": Overview dashboard, all-channel table, sequence status
@@ -328,21 +323,22 @@ workspaces is possible but rare. Operators typically sit at the same position ev
 **First-time setup**: Pick a project, pick a workspace. After that, it just opens.
 
 **Open questions**:
+
 - Can two people be in the same workspace simultaneously? (Not constrained for now.)
-
-
 
 ---
 
 ### Q6: What does a project own vs. reference? What about workspaces?
 
 **Definitions**:
+
 - **Project** = the configuration of a hardware system. Tasks, channels, devices, arcs,
   calibrations. Shared, objective, represents the physical reality.
 - **Workspace** = a user's preferred view into that system. A saved layout that
   references project-level resources. Fundamentally about presentation, not config.
 
 **Project contains** (scoped via ontology relationships):
+
 - Tasks (DAQ configurations, project-scoped)
 - Arc programs (automation sequences)
 - Profiles (e.g., Gen A config, Gen B config)
@@ -350,6 +346,7 @@ workspaces is possible but rare. Operators typically sit at the same position ev
 - Visualizations (can be children of the project or of specific workspaces)
 
 **Global resources** (exist independently at cluster level, referenced by projects):
+
 - Channels (shared across projects)
 - Devices (physical hardware)
 - Ranges (any project can reference any range, critical for data review)
@@ -365,13 +362,14 @@ reference and display it in their layout. The P&ID schematic that took 40 hours 
 isn't locked inside one workspace. It's reusable across workspaces within the project.
 
 Two kinds of workspace-to-visualization relationships:
+
 - **Owns** (parent-of): created here, shows in this workspace's subtree
 - **References** (displayed-in): borrowed from another workspace or project level,
   appears in layout but lives elsewhere
 
 **The global-but-scoped model**: All resources live in the global namespace. A project
-is an ontology node with relationships to its resources. Being "in a project" means
-the UI filters the global graph by those relationships.
+is an ontology node with relationships to its resources. Being "in a project" means the
+UI filters the global graph by those relationships.
 
 **Unsolved tension: project-scoped configuration.** Some resource state needs to vary
 per-project or per-profile. Example: a derived channel's calibration curve might be
@@ -386,10 +384,9 @@ deep-copying resource state into the snapshot, or versioning every resource indi
 and recording which version the snapshot references. TBD.
 
 **Open questions**:
+
 - What is the exact mechanism for project-scoped resource configuration?
 - How do calculated/derived channels work across profiles?
-
-
 
 ---
 
@@ -401,25 +398,24 @@ as rollback points AND as permanent configuration records tied to test history.
 - Every change auto-saves (no user action needed).
 - Users can explicitly create a named snapshot at any time ("Pre-hotfire config",
   "Turbine X - Final", "Added vibe cart for Campaign 3").
-- Snapshots are immutable and permanent. They capture the complete workspace state:
-  all visualizations, task configs, views, arc programs.
+- Snapshots are immutable and permanent. They capture the complete workspace state: all
+  visualizations, task configs, views, arc programs.
 - Restoring a snapshot creates a new state (non-destructive).
-- Snapshots can be linked to ranges (test data), creating a permanent record:
-  "This is the exact configuration that produced Hotfire #47."
+- Snapshots can be linked to ranges (test data), creating a permanent record: "This is
+  the exact configuration that produced Hotfire #47."
 
 This is critical for traceability. When an engineer asks "what was the system configured
 as when we ran that test last March?", the answer is a snapshot.
 
-For teams that want Git-based workflows, the export format should be human-readable
-and diffable.
+For teams that want Git-based workflows, the export format should be human-readable and
+diffable.
 
 **Open questions**:
+
 - What granularity? Whole workspace snapshots, or per-visualization history?
 - How long do auto-save checkpoints last vs. named snapshots? (Figma: auto-checkpoints
   expire after 30 days, named snapshots live forever.)
 - Is comparing two snapshots important? (Probably yes for config review.)
-
-
 
 ---
 
@@ -433,19 +429,19 @@ at the UI:
 3. **What's the state?** - Is everything saved? Am I in scratch? Are others editing?
 
 Concrete ideas:
+
 - Persistent breadcrumb: `Hotfire Test Stand > Operator 1 > Propulsion P&ID`
 - Workspace color/theme (subtle tint so different workspaces feel visually distinct)
 - Clear "scratch mode" indicator (like Figma's drafts having a different background)
 - Resource tree scoped to current workspace by default, with option to browse all
 
 **Open questions**:
+
 - How prominent should the workspace identity be? Always visible? Minimal until needed?
 - Should switching workspaces feel like switching apps, or switching tabs?
 - How do we handle the resource tree? Workspace-scoped vs. global?
 
 **Discussion**:
-
-
 
 ---
 
@@ -468,13 +464,12 @@ Concrete ideas:
 8. Both operators now see their respective layouts, sharing the same underlying data.
 
 **Open questions**:
+
 - Step 2 feels heavy. Should workspace creation happen earlier? Should hardware setup
   happen inside a workspace?
 - Is there a "getting started" wizard, or is it all progressive discovery?
 
 **Discussion**:
-
-
 
 ---
 
@@ -485,13 +480,13 @@ Concrete ideas:
 1. Operator opens console. It remembers last project + workspace. Loads instantly.
 2. They're in Project "Engine Test Stand A", Workspace "Propulsion Operator".
 3. Live data streaming, all visualizations active.
-4. During the test, they might open a quick scratch plot to investigate an anomaly.
-   This doesn't pollute the project.
+4. During the test, they might open a quick scratch plot to investigate an anomaly. This
+   doesn't pollute the project.
 5. Test completes. Arc program captures a range. The workspace's time context shifts
    from "live" to the test range for quick review. Same layout, same plots, now showing
    historical data from the test.
-6. Operator does quick review: checks key parameters, marks pass/fail, adds notes.
-   These annotations attach to the range.
+6. Operator does quick review: checks key parameters, marks pass/fail, adds notes. These
+   annotations attach to the range.
 7. Operator or Arc shifts time context back to "live" for the next test.
 8. At end of campaign, test director creates a named snapshot of the project config.
 9. For deep analysis across multiple tests, someone creates a separate analysis project
@@ -524,42 +519,38 @@ support smooth transitions between live and historical time contexts.
 profiles within a project (if the visualizations change per phase) or Arc workflow
 states (if it's about what the operator should be doing). This is Arc's domain.
 
-
-
 ---
 
 ### Q12: Factory floor / replicated setups?
 
-**Answer**: Projects can be created from other projects, either as independent copies
-or as linked instances with live inheritance. This is a creation mode, not a separate
+**Answer**: Projects can be created from other projects, either as independent copies or
+as linked instances with live inheritance. This is a creation mode, not a separate
 concept.
 
-For Rigetti's fleet of 20 mostly-identical fridges: one project is the reference
-config. The other 20 are linked instances that inherit from it. Changes to the reference
+For Rigetti's fleet of 20 mostly-identical fridges: one project is the reference config.
+The other 20 are linked instances that inherit from it. Changes to the reference
 propagate automatically. Per-fridge overrides (extra sensor, different calibration) are
 marked as local and protected from propagation. The research points to Unity's prefab
 variant model as the gold standard here: per-property override granularity with clear
 visual indicators (inherited vs. overridden vs. locally added).
 
-For the rare fridge that needs to fully diverge: "detach" severs the link, making it
-an independent project. This is one-way, like Figma's detach or GitHub's relationship
+For the rare fridge that needs to fully diverge: "detach" severs the link, making it an
+independent project. This is one-way, like Figma's detach or GitHub's relationship
 between a fork and its upstream.
 
 For very little divergence (which is Rigetti's actual case): changes propagate
 automatically with no per-instance review step. Local overrides are explicit and sticky.
 Everything else flows from the reference.
 
-For Honeywell's production cell testing different generator models: profiles within
-a single project, not separate linked projects. The cell is the project. Gen A and Gen B
-configs are profiles. Switching profiles swaps the model-specific overrides while keeping
-the cell infrastructure stable.
+For Honeywell's production cell testing different generator models: profiles within a
+single project, not separate linked projects. The cell is the project. Gen A and Gen B
+configs are profiles. Switching profiles swaps the model-specific overrides while
+keeping the cell infrastructure stable.
 
 **Key research finding**: Ignition (Inductive Automation) has the most relevant prior
 art. Their project inheritance model uses resource-level inheritance with clear visual
 indicators for inherited vs. overridden vs. locally added resources. Live propagation,
 "local wins" conflict resolution, granular revert-to-inherited per resource.
-
-
 
 ---
 
@@ -567,23 +558,24 @@ indicators for inherited vs. overridden vs. locally added resources. Live propag
 
 **Answer**: No separate "data review" concept. Two patterns:
 
-**Quick review (same project, same workspace):**
-The workspace has a time context. During live operations, time context = live. When a
-test completes (either manually or via Arc), time context shifts to the captured range.
-The same plots and schematics now show historical data. The operator reviews, annotates,
-marks pass/fail. Then shifts back to live for the next test. No mode switch, no project
-switch. Just a time context change.
+**Quick review (same project, same workspace):** The workspace has a time context.
+During live operations, time context = live. When a test completes (either manually or
+via Arc), time context shifts to the captured range. The same plots and schematics now
+show historical data. The operator reviews, annotates, marks pass/fail. Then shifts back
+to live for the next test. No mode switch, no project switch. Just a time context
+change.
 
-**Deep analysis (separate analysis project):**
-An engineer creates a project like "Q1 Hotfire Analysis." It contains comparison
-visualizations that reference ranges from across the cluster. Streamlined creation flow:
-select multiple ranges, right-click, "Compare in new analysis." Synnax creates a project
-pre-populated with those ranges and sensible default comparison views.
+**Deep analysis (separate analysis project):** An engineer creates a project like "Q1
+Hotfire Analysis." It contains comparison visualizations that reference ranges from
+across the cluster. Streamlined creation flow: select multiple ranges, right-click,
+"Compare in new analysis." Synnax creates a project pre-populated with those ranges and
+sensible default comparison views.
 
 The analysis project is a regular project. No special type. It just happens to have no
 tasks or hardware config.
 
 **Open questions**:
+
 - What does the streamlined "compare these ranges" creation flow actually look like?
 - What are the default comparison views? (Overlaid plots for shared channels? Summary
   table of key metrics?)
@@ -611,14 +603,14 @@ Once we agree on answers to the above, we write concrete end-to-end scenarios:
 These are the design principles we're converging on. We'll refine as we answer the
 questions above.
 
-1. **Two concepts: Project + Workspace.** Project = shared system/analysis config.
-   Workspace = console layout within a project (existing concept, kept as-is). Fleet
+1. **Two concepts: Project + Workspace.** Project = hardware system config. Workspace =
+   user's preferred view into a project (existing concept, kept as-is). Fleet
    management, templates, and profiles are features of projects, not separate concepts.
 2. **Everything auto-saves. Always.** No save button, no "did I lose my work?"
-3. **Scratch is first-class and default.** Quick exploration creates scratch (console-
-   local). Project resources require intentional creation. This kills the soup.
-4. **A project is a named collection of related configuration.** Usually a physical
-   system, but can also be an analytical context. Not just a console layout.
+3. **Always in a project + workspace.** No ambiguous "no project" state. Default
+   personal project created on first launch. Every visualization has a parent.
+4. **A project is the configuration of a hardware system.** Tasks, arcs, device refs,
+   calibrations. Can also be an analytical context (no hardware config).
 5. **All resources are global, scoped by relationships.** The ontology graph defines
    what belongs to a project. "Being in a project" = filtering the global graph.
 6. **You always know where you are.** Spatial awareness is a core UX requirement.
@@ -634,13 +626,14 @@ questions above.
 ## 7. Status & Open Questions
 
 ### What's decided:
+
 - Two top-level concepts: Project + Workspace
 - Project = long-lived config container (operational or analytical)
 - Workspace = named console layout within a project (existing concept unchanged)
 - Console app remembers last project + workspace, scratch lives outside any project
 - Project history with named immutable snapshots tied to test ranges
-- Fleet/template = project-to-project relationships (linked copy with inheritance),
-  not a third concept. Research supports Ignition/Unity prefab model for inheritance UX.
+- Fleet/template = project-to-project relationships (linked copy with inheritance), not
+  a third concept. Research supports Ignition/Unity prefab model for inheritance UX.
 - Profiles within project for temporal config switching (Gen A / Gen B)
 - Tasks are project-scoped (not global)
 - Schematic symbols are a shared library (global)
@@ -648,22 +641,28 @@ questions above.
 - Auto-save everywhere, scratch defaults for quick exploration
 
 ### What's decided (session 2, 2025-03-30):
-- Naming: **Project** (big container) + **Workspace** (console layout, existing concept)
+
+- Naming: **Project** (hardware system config) + **Workspace** (user's view, existing
+  concept)
 - Tasks are project-scoped, not global
 - Schematic symbols are a shared library (global)
-- No separate "data review mode." Workspace has a time context (live or range).
-  Quick review = same workspace, time context shifts to a range. Deep analysis =
-  separate analysis project.
-- Operational phases are not a workspace concept. They're Arc workflow states or
-  project profiles.
+- No separate "data review mode." Workspace has a time context (live or range). Quick
+  review = same workspace, time context shifts to a range. Deep analysis = separate
+  analysis project.
+- Operational phases are not a workspace concept. They're Arc workflow states or project
+  profiles.
 - Guided production workflows (test, review, pass/fail, next) are Arc's job.
+- User is always in a project + workspace. No ambiguous empty state. Default personal
+  project + workspace created on first launch.
+- No orphan/scratch concept. Every visualization is a child of the current workspace.
+  Soup solved by always having a home + delete on close for throwaway tabs.
 
 ### What's unsolved:
-- **Project-scoped resource configuration**: How do derived channels, calibrations,
-  and calculations vary per-project or per-profile when resources are global?
+
+- **Project-scoped resource configuration**: How do derived channels, calibrations, and
+  calculations vary per-project or per-profile when resources are global?
 - **Snapshot depth**: What exactly does a snapshot capture? Deep copy of state vs.
   versioned resource references?
 - **Data review creation flow**: The "compare these 47 ranges" streamlined entry point
-- **Scratch details**: Visual treatment, lifespan, promote flow, edge cases
 - **Spatial awareness**: Breadcrumb design, resource tree filtering, project identity
 - **Conflict resolution**: Two people editing same project simultaneously

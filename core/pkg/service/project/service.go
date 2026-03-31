@@ -1,0 +1,118 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package project
+
+import (
+	"context"
+	"io"
+
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
+	Signals  *signals.Provider
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
+	Group    *group.Service
+	Search   *search.Index
+}
+
+var (
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
+	c.Signals = override.Nil(c.Signals, other.Signals)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("project")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
+	return v.Error()
+}
+
+type Service struct {
+	cfg             ServiceConfig
+	shutdownSignals io.Closer
+	table           *gorp.Table[uuid.UUID, Project]
+	group           group.Group
+}
+
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Project]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Projects", ontology.RootID)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, group: g, table: table}
+	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
+	if cfg.Signals == nil {
+		return s, nil
+	}
+	if s.shutdownSignals, err = signals.PublishFromGorp(
+		ctx,
+		cfg.Signals,
+		signals.GorpPublisherConfigUUID[Project](s.table.Observe()),
+	); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *Service) Close() error {
+	err := s.shutdownSignals.Close()
+	return errors.Join(err, s.table.Close())
+}
+
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		group: s.group,
+		table: s.table,
+	}
+}
+
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		search: s.cfg.Search,
+		baseTX: s.cfg.DB,
+		gorp:   s.table.NewRetrieve(),
+	}
+}

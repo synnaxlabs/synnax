@@ -60,6 +60,7 @@ const (
 	ResourceType_RESOURCE_TYPE_USER             ResourceType = 21
 	ResourceType_RESOURCE_TYPE_VIEW             ResourceType = 22
 	ResourceType_RESOURCE_TYPE_WORKSPACE        ResourceType = 23
+	ResourceType_RESOURCE_TYPE_PROJECT          ResourceType = 24
 )
 
 // Enum value maps for ResourceType.
@@ -89,6 +90,7 @@ var (
 		21: "RESOURCE_TYPE_USER",
 		22: "RESOURCE_TYPE_VIEW",
 		23: "RESOURCE_TYPE_WORKSPACE",
+		24: "RESOURCE_TYPE_PROJECT",
 	}
 	ResourceType_value = map[string]int32{
 		"RESOURCE_TYPE_ARC":              0,
@@ -115,6 +117,7 @@ var (
 		"RESOURCE_TYPE_USER":             21,
 		"RESOURCE_TYPE_VIEW":             22,
 		"RESOURCE_TYPE_WORKSPACE":        23,
+		"RESOURCE_TYPE_PROJECT":          24,
 	}
 )
 
@@ -215,7 +218,7 @@ const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
 	"0core/pkg/distribution/ontology/pb/ontology.proto\x12\x18distribution.ontology.pb\"R\n" +
 	"\x02ID\x12:\n" +
 	"\x04type\x18\x01 \x01(\x0e2&.distribution.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\x82\x05\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\x9d\x05\n" +
 	"\fResourceType\x12\x15\n" +
 	"\x11RESOURCE_TYPE_ARC\x10\x00\x12\x19\n" +
 	"\x15RESOURCE_TYPE_BUILTIN\x10\x01\x12\x19\n" +
@@ -241,7 +244,8 @@ const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
 	"\x12RESOURCE_TYPE_TASK\x10\x14\x12\x16\n" +
 	"\x12RESOURCE_TYPE_USER\x10\x15\x12\x16\n" +
 	"\x12RESOURCE_TYPE_VIEW\x10\x16\x12\x1b\n" +
-	"\x17RESOURCE_TYPE_WORKSPACE\x10\x17B\xea\x01\n" +
+	"\x17RESOURCE_TYPE_WORKSPACE\x10\x17\x12\x19\n" +
+	"\x15RESOURCE_TYPE_PROJECT\x10\x18B\xea\x01\n" +
 	"\x1ccom.distribution.ontology.pbB\rOntologyProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb\xa2\x02\x03DOP\xaa\x02\x18Distribution.Ontology.Pb\xca\x02\x18Distribution\\Ontology\\Pb\xe2\x02$Distribution\\Ontology\\Pb\\GPBMetadata\xea\x02\x1aDistribution::Ontology::Pbb\x06proto3"
 
 var (

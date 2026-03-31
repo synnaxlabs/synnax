@@ -60,6 +60,8 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_VIEW, ::distribution::ontology::pb::RESOURCE_TYPE_VIEW},
             {RESOURCE_TYPE_WORKSPACE,
              ::distribution::ontology::pb::RESOURCE_TYPE_WORKSPACE},
+            {RESOURCE_TYPE_PROJECT,
+             ::distribution::ontology::pb::RESOURCE_TYPE_PROJECT},
         };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -118,6 +120,8 @@ resource_type_from_pb(::distribution::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_VIEW, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_WORKSPACE:
             return {RESOURCE_TYPE_WORKSPACE, x::errors::NIL};
+        case ::distribution::ontology::pb::RESOURCE_TYPE_PROJECT:
+            return {RESOURCE_TYPE_PROJECT, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
     }

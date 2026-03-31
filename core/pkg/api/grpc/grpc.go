@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -98,6 +99,12 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.WorkspaceDelete = fnoop.UnaryServer[workspace.DeleteRequest, types.Nil]{}
 	a.WorkspaceRename = fnoop.UnaryServer[workspace.RenameRequest, types.Nil]{}
 	a.WorkspaceSetLayout = fnoop.UnaryServer[workspace.SetLayoutRequest, types.Nil]{}
+
+	// PROJECT
+	a.ProjectCreate = fnoop.UnaryServer[project.CreateRequest, project.CreateResponse]{}
+	a.ProjectRetrieve = fnoop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
+	a.ProjectDelete = fnoop.UnaryServer[project.DeleteRequest, types.Nil]{}
+	a.ProjectRename = fnoop.UnaryServer[project.RenameRequest, types.Nil]{}
 
 	// SCHEMATIC
 	a.SchematicCreate = fnoop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}

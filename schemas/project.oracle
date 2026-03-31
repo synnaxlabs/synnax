@@ -1,0 +1,46 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/project"
+@go output "core/pkg/service/project"
+@pb
+
+Key = uuid {
+    @doc value "is a unique identifier for a project, represented as a UUID."
+}
+
+Project struct {
+    key  Key    {
+        @doc value "is the unique identifier for this project."
+        @key
+    }
+    name string {
+        @doc value         "is a human-readable name for the project."
+        @validate required
+    }
+
+    @doc value     """
+        is the top-level organizational container in Synnax. A project represents the
+        configuration of a hardware system (tasks, arcs, device references, calibrations)
+        or an analytical context. Projects contain one or more workspaces, which define
+        how individual operators view the system.
+    """
+    @ontology type "project"
+}
+
+New struct extends Project {
+    key Key? {
+        @doc value "is an optional key for the project. If not provided, one will be automatically assigned."
+    }
+
+    @doc value    "contains parameters for creating a new project."
+    @ts use_input
+    @go omit
+    @pb omit
+}

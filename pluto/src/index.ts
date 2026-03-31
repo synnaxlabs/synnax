@@ -50,6 +50,7 @@ export { OS } from "@/os";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
 export { Progress } from "@/progress";
+export { Project } from "@/project";
 export { Rack } from "@/rack";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";

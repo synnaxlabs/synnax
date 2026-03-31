@@ -39,6 +39,7 @@ const (
 	ResourceTypeUser            ResourceType = "user"
 	ResourceTypeView            ResourceType = "view"
 	ResourceTypeWorkspace       ResourceType = "workspace"
+	ResourceTypeProject         ResourceType = "project"
 )
 
 // ID ID is a unique identifier for a Resource. An example:

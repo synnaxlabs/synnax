@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
@@ -106,6 +107,12 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 		WorkspaceDelete:    fhttp.UnaryServer[workspace.DeleteRequest, types.Nil](router, "/api/v1/workspace/delete"),
 		WorkspaceRename:    fhttp.UnaryServer[workspace.RenameRequest, types.Nil](router, "/api/v1/workspace/rename"),
 		WorkspaceSetLayout: fhttp.UnaryServer[workspace.SetLayoutRequest, types.Nil](router, "/api/v1/workspace/set-layout"),
+
+		// PROJECT
+		ProjectCreate:   fhttp.UnaryServer[project.CreateRequest, project.CreateResponse](router, "/api/v1/project/create"),
+		ProjectRetrieve: fhttp.UnaryServer[project.RetrieveRequest, project.RetrieveResponse](router, "/api/v1/project/retrieve"),
+		ProjectDelete:   fhttp.UnaryServer[project.DeleteRequest, types.Nil](router, "/api/v1/project/delete"),
+		ProjectRename:   fhttp.UnaryServer[project.RenameRequest, types.Nil](router, "/api/v1/project/rename"),
 
 		// SCHEMATIC
 		SchematicCreate:   fhttp.UnaryServer[schematic.CreateRequest, schematic.CreateResponse](router, "/api/v1/schematic/create"),
