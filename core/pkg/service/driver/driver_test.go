@@ -96,6 +96,68 @@ var _ = Describe("Driver", func() {
 			Expect(racks[0].Embedded).To(BeTrue())
 		})
 
+		It("should set integrations on the rack from factory names", func(ctx SpecContext) {
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:      dist.DB,
+				Rack:    rackService,
+				Task:    taskService,
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				Status:  statusSvc,
+				Factories: []driver.Factory{
+					&mockFactory{name: "arc"},
+					&mockFactory{name: "opc"},
+				},
+				Host: hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				WhereEmbedded(true).
+				WhereName("Node 1").
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
+		})
+
+		It("should update integrations on existing rack when reopened with different factories", func(ctx SpecContext) {
+			d1 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{&mockFactory{name: "arc"}},
+				Host:      hostProvider,
+			}))
+			Expect(d1.Close()).To(Succeed())
+
+			d2 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:      dist.DB,
+				Rack:    rackService,
+				Task:    taskService,
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				Status:  statusSvc,
+				Factories: []driver.Factory{
+					&mockFactory{name: "arc"},
+					&mockFactory{name: "ni"},
+					&mockFactory{name: "opc"},
+				},
+				Host: hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
+
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				WhereEmbedded(true).
+				WhereName("Node 1").
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
+		})
+
 		It("should fail with invalid config", func(ctx SpecContext) {
 			_, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())

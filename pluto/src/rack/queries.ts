@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, rack } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -75,10 +75,23 @@ const retrieveSingle = async ({
 
 export interface ListQuery extends rack.RetrieveMultipleParams {}
 
+const rackSupportsIntegration = (
+  r: rack.Payload,
+  integration: string | undefined,
+): boolean =>
+  integration == null ||
+  (r.integrations != null && r.integrations.includes(integration));
+
 export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSubStore>(
   {
     name: PLURAL_RESOURCE_NAME,
-    retrieveCached: ({ store }) => store.racks.list(),
+    retrieveCached: ({ store, query }) => {
+      const keySet = primitive.isNonZero(query.keys) ? new Set(query.keys) : undefined;
+      return store.racks.get((r) => {
+        if (keySet != null && !keySet.has(r.key)) return false;
+        return rackSupportsIntegration(r, query.integration);
+      });
+    },
     retrieve: async ({ client, query, store }) => {
       const racks = await client.racks.retrieve({ ...BASE_QUERY, ...query });
       store.racks.set(racks);
@@ -88,18 +101,25 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSu
     },
     retrieveByKey: async ({ client, key, store }) =>
       await retrieveSingle({ client, query: { key }, store }),
-    mountListeners: ({ store, onChange, onDelete }) => [
-      store.racks.onSet((rack) => onChange(rack.key, rack)),
-      store.racks.onDelete(onDelete),
-      store.statuses.onSet((s) => {
-        const stat = rack.statusZ.safeParse(s);
-        if (!stat.success) return;
-        onChange(
-          stat.data.details.rack,
-          state.skipNull((p) => ({ ...p, status: stat.data })),
-        );
-      }),
-    ],
+    mountListeners: ({ store, onChange, onDelete, query: { keys, integration } }) => {
+      const keySet = primitive.isNonZero(keys) ? new Set(keys) : undefined;
+      return [
+        store.racks.onSet((r) => {
+          if (keySet != null && !keySet.has(r.key)) return;
+          if (!rackSupportsIntegration(r, integration)) return onDelete(r.key);
+          onChange(r.key, r);
+        }),
+        store.racks.onDelete(onDelete),
+        store.statuses.onSet((s) => {
+          const stat = rack.statusZ.safeParse(s);
+          if (!stat.success) return;
+          onChange(
+            stat.data.details.rack,
+            state.skipNull((p) => ({ ...p, status: stat.data })),
+          );
+        }),
+      ];
+    },
   },
 );
 
