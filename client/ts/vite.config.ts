@@ -17,6 +17,13 @@ import packageJSON from "./package.json";
 export default defineConfig({
   define: { __VERSION__: JSON.stringify(packageJSON.version) },
   plugins: [lib({ name: "client" })],
-  build: { rollupOptions: { external: ["zod"] } },
-  test: { globals: true, environment: "jsdom" },
+  build: { rolldownOptions: { external: ["zod"] } },
+  test: {
+    globals: true,
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    coverage: {
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+    },
+  },
 });

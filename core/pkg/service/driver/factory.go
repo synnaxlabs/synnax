@@ -19,7 +19,8 @@ type Factory interface {
 	// ConfigureTask creates a task instance if this factory handles the task type.
 	// ConfigureTask should return ErrNotHandled if it does not handle the task type.
 	ConfigureTask(Context, task.Task) (Task, error)
-	// Name returns the factory name for logging.
+	// Name returns the integration name of this factory. This is used to identify the
+	// integrations allowed on the rack.
 	Name() string
 }
 

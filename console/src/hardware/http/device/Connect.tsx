@@ -12,6 +12,7 @@ import "@/hardware/http/device/Connect.css";
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
+  Component,
   Device as PDevice,
   Divider,
   Flex,
@@ -240,13 +241,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           <Flex.Box gap="small">
             <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
             <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {({ value, onChange }) => (
-                <Rack.SelectSingle
-                  value={value}
-                  onChange={onChange}
-                  allowNone={false}
-                />
-              )}
+              {selectRackRenderProp}
             </Form.Field>
             <Flex.Box x align="end">
               <Form.TextField
@@ -438,6 +433,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     </Flex.Box>
   );
 };
+
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "http" };
+
+const selectRackRenderProp = Component.renderProp(
+  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
+    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
+  ),
+);
 
 const NAME_INPUT_PROPS = {
   level: "h2",
