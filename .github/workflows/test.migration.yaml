@@ -16,57 +16,64 @@ on:
         required: true
 
 jobs:
-  setup-ubuntu:
-    name: Generate Migration Matrix (ubuntu)
+  setup:
+    name: Generate Migration Chain
     runs-on: ubuntu-latest
     outputs:
-      MIGRATION_MATRIX: ${{ steps.matrix.outputs.MIGRATION_MATRIX }}
+      CHAIN: ${{ steps.chain.outputs.MIGRATION_CHAIN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Generate Migration Matrix
-        id: matrix
+      - name: Reference Run ID
+        run: echo "Reference run ID:${{ inputs.ref_run_id }}"
+
+      - name: Generate Migration Chain
+        id: chain
         env:
           GH_TOKEN: ${{ github.token }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: integration/scripts/generate_migration_matrix.sh --platform linux
 
-  setup-windows:
-    name: Generate Migration Matrix (windows)
-    runs-on: ubuntu-latest
-    outputs:
-      MIGRATION_MATRIX: ${{ steps.matrix.outputs.MIGRATION_MATRIX }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Generate Migration Matrix
-        id: matrix
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
-        run: integration/scripts/generate_migration_matrix.sh --platform windows
-
-  test-ubuntu:
-    name: ${{ matrix.name }} (ubuntu)
-    needs: setup-ubuntu
+  test:
+    name: Migration (${{ matrix.os }})
+    needs: setup
     timeout-minutes: 60
     runs-on:
       - self-hosted
-      - ubuntu-latest
+      - ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.setup-ubuntu.outputs.MIGRATION_MATRIX) }}
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Force Quit Existing Synnax Processes
+      - name: Force Quit Existing Synnax Processes (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+
+      - name: Force Quit Existing Synnax Processes (Unix)
+        if: runner.os == 'Linux'
         continue-on-error: true
         run: integration/scripts/kill_synnax_processes_unix.sh
 
-      - name: Download and Setup Artifacts
+      - name: Download and Setup Artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ inputs.ref_run_id }}
+        run: integration/scripts/DownloadArtifactsWindows.cmd
+
+      - name: Download and Setup Artifacts (Unix)
+        if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
@@ -80,7 +87,14 @@ jobs:
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Install Playwright
+      - name: Install Playwright (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: integration
+        run: uv run playwright install --with-deps
+
+      - name: Install Playwright (Unix)
+        if: runner.os == 'Linux'
         working-directory: integration
         run: uv run playwright install --with-deps
 
@@ -90,14 +104,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: >-
-          uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type "${{
-          matrix.test_type }}" --platform linux
+          uv run migration-orchestrator --chain "${{ needs.setup.outputs.CHAIN }}"
+          --test-type inplace --platform "${{ matrix.platform }}"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: migration-results-ubuntu-${{ matrix.name }}
+          name: migration-results-${{ matrix.os }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -105,73 +119,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
-          name:
-            migration-core-logs-ubuntu-${{ matrix.name }}-attempt-${{ github.run_attempt
-            }}
-          path: ~/synnax-data/synnax-core.log
-          retention-days: 7
-
-  test-windows:
-    name: ${{ matrix.name }} (windows)
-    needs: setup-windows
-    timeout-minutes: 60
-    runs-on:
-      - self-hosted
-      - windows-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup-windows.outputs.MIGRATION_MATRIX) }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Force Quit Existing Synnax Processes
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
-
-      - name: Download and Setup Artifacts
-        shell: cmd
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: integration/pyproject.toml
-
-      - name: Install Playwright
-        shell: cmd
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Run Migration Test
-        working-directory: integration
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: >-
-          uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type "${{
-          matrix.test_type }}" --platform windows
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: migration-results-windows-${{ matrix.name }}
-          path: integration/tests/results/*
-          retention-days: 7
-
-      - name: Upload Core Logs
-        uses: actions/upload-artifact@v7
-        if: ${{ failure() || cancelled() }}
-        with:
-          name:
-            migration-core-logs-windows-${{ matrix.name }}-attempt-${{
-            github.run_attempt }}
+          name: migration-core-logs-${{ matrix.os }}-attempt-${{ github.run_attempt }}
           path: ~/synnax-data/synnax-core.log
           retention-days: 7
