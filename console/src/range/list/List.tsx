@@ -13,11 +13,13 @@ import { ranger } from "@synnaxlabs/client";
 import {
   Access,
   Button,
+  Component,
   Flex,
   type Flux,
   Icon,
   Input,
   List as PList,
+  Menu,
   Select,
   type state,
 } from "@synnaxlabs/pluto";
@@ -26,6 +28,7 @@ import { type ReactElement, type ReactNode, useCallback, useState } from "react"
 import { EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
@@ -72,6 +75,7 @@ export const List = ({
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
+  const menuProps = Menu.useContextMenu();
   const handleRequestChange = useCallback(
     (setter: state.SetArg<ranger.RetrieveRequest>, opts?: Flux.AsyncListOptions) => {
       retrieve(setter, opts);
@@ -144,7 +148,12 @@ export const List = ({
             )}
           </Flex.Box>
         )}
-        <PList.Items<string> emptyContent={emptyContent} grow>
+        <Menu.ContextMenu menu={contextMenu} {...menuProps} />
+        <PList.Items<string>
+          emptyContent={emptyContent}
+          grow
+          onContextMenu={menuProps.open}
+        >
           {({ key, ...rest }) => (
             <Item
               key={key}
@@ -160,6 +169,10 @@ export const List = ({
     </Flex.Box>
   );
 };
+
+const contextMenu = Component.renderProp<Menu.ContextMenuMenuProps>((p) => (
+  <ContextMenu {...p} />
+));
 
 const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
