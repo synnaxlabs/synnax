@@ -147,9 +147,9 @@ mkdir -p ~/synnax-data && cd ~/synnax-data
 
 # 5. Run tests via test conductor
 cd integration
-uv run tc console              # all console tests
-uv run tc console/.../label    # filter by case name
-uv run tc driver/modbus        # driver tests matching "modbus"
+uv run tc console           # all console tests
+uv run tc console/.../label # filter by case name
+uv run tc driver/modbus     # driver tests matching "modbus"
 ```
 
 The `-tags=console` build tag activates `core/pkg/console/enabled.go`, which uses
@@ -161,20 +161,20 @@ The test conductor (`uv run tc`) supports flexible target filtering:
 
 ```bash
 # 1-part: run all tests in a file
-uv run tc console                    # all console_tests.json
+uv run tc console # all console_tests.json
 
 # 2-part: file + case substring filter
-uv run tc console/label              # cases matching "label"
+uv run tc console/label # cases matching "label"
 
 # 3-part: file + sequence + case filter
-uv run tc console/channel/calc       # sequence "channel", cases "calc"
+uv run tc console/channel/calc # sequence "channel", cases "calc"
 
 # Global filter across all test files
-uv run tc -f modbus                  # all files, cases matching "modbus"
+uv run tc -f modbus # all files, cases matching "modbus"
 
 # Options
-uv run tc console --headed           # run Playwright in headed mode
-uv run tc driver -d my_rack          # specify driver rack name
+uv run tc console --headed  # run Playwright in headed mode
+uv run tc driver -d my_rack # specify driver rack name
 ```
 
 ### Test Organization
