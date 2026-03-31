@@ -304,6 +304,13 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
       <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
+      <Form.NumericField
+        label="Activation Delay"
+        path="onClickDelay"
+        inputProps={ACTIVATION_DELAY_INPUT_PROPS}
+        hideIfNull
+        padHelpText={false}
+      />
       <Form.SwitchField
         path="control.show"
         label="Show Control Chip"
@@ -313,6 +320,8 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
     </FormWrapper>
   );
 };
+
+const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = { endContent: "ms" };
 
 const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },
