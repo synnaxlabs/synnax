@@ -7,10 +7,6 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
-      os:
-        description: "Runner OS label (e.g., 'ubuntu-latest', 'windows-latest')"
-        type: string
-        required: true
 
   workflow_dispatch:
     inputs:
@@ -18,75 +14,59 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
-      os:
-        description: "Runner OS label"
-        type: string
-        required: false
-        default: "ubuntu-latest"
 
 jobs:
-  setup:
-    name: Generate Migration Matrix
+  setup-ubuntu:
+    name: Generate Migration Matrix (ubuntu)
     runs-on: ubuntu-latest
     outputs:
       MIGRATION_MATRIX: ${{ steps.matrix.outputs.MIGRATION_MATRIX }}
-      PLATFORM: ${{ steps.platform.outputs.PLATFORM }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-
-      - name: Map OS to Platform
-        id: platform
-        run: |
-          case "${{ inputs.os }}" in
-            ubuntu-latest) echo "PLATFORM=linux" >> $GITHUB_OUTPUT ;;
-            windows-latest) echo "PLATFORM=windows" >> $GITHUB_OUTPUT ;;
-            *) echo "Unsupported OS: ${{ inputs.os }}" >&2; exit 1 ;;
-          esac
 
       - name: Generate Migration Matrix
         id: matrix
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
-        run: >-
-          integration/scripts/generate_migration_matrix.sh --platform ${{
-          steps.platform.outputs.PLATFORM }}
+        run: integration/scripts/generate_migration_matrix.sh --platform linux
 
-  test:
-    name: ${{ matrix.name }}
-    needs: setup
-    timeout-minutes: 60
-    runs-on:
-      - self-hosted
-      - ${{ inputs.os }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.MIGRATION_MATRIX) }}
+  setup-windows:
+    name: Generate Migration Matrix (windows)
+    runs-on: ubuntu-latest
+    outputs:
+      MIGRATION_MATRIX: ${{ steps.matrix.outputs.MIGRATION_MATRIX }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Force Quit Existing Synnax Processes (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+      - name: Generate Migration Matrix
+        id: matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: integration/scripts/generate_migration_matrix.sh --platform windows
 
-      - name: Force Quit Existing Synnax Processes (Unix)
-        if: runner.os == 'Linux'
+  test-ubuntu:
+    name: ${{ matrix.name }} (ubuntu)
+    needs: setup-ubuntu
+    timeout-minutes: 60
+    runs-on:
+      - self-hosted
+      - ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup-ubuntu.outputs.MIGRATION_MATRIX) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Force Quit Existing Synnax Processes
         continue-on-error: true
         run: integration/scripts/kill_synnax_processes_unix.sh
 
-      - name: Download and Setup Artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
-
-      - name: Download and Setup Artifacts (Unix)
-        if: runner.os == 'Linux'
+      - name: Download and Setup Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
@@ -100,14 +80,7 @@ jobs:
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Install Playwright (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Install Playwright (Unix)
-        if: runner.os == 'Linux'
+      - name: Install Playwright
         working-directory: integration
         run: uv run playwright install --with-deps
 
@@ -118,13 +91,13 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: >-
           uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type "${{
-          matrix.test_type }}" --platform "${{ needs.setup.outputs.PLATFORM }}"
+          matrix.test_type }}" --platform linux
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: migration-results-${{ inputs.os }}-${{ matrix.name }}
+          name: migration-results-ubuntu-${{ matrix.name }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -133,7 +106,72 @@ jobs:
         if: ${{ failure() || cancelled() }}
         with:
           name:
-            migration-core-logs-${{ inputs.os }}-${{ matrix.name }}-attempt-${{
+            migration-core-logs-ubuntu-${{ matrix.name }}-attempt-${{ github.run_attempt
+            }}
+          path: ~/synnax-data/synnax-core.log
+          retention-days: 7
+
+  test-windows:
+    name: ${{ matrix.name }} (windows)
+    needs: setup-windows
+    timeout-minutes: 60
+    runs-on:
+      - self-hosted
+      - windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup-windows.outputs.MIGRATION_MATRIX) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Force Quit Existing Synnax Processes
+        shell: cmd
+        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+
+      - name: Download and Setup Artifacts
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ inputs.ref_run_id }}
+        run: integration/scripts/DownloadArtifactsWindows.cmd
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: integration/pyproject.toml
+
+      - name: Install Playwright
+        shell: cmd
+        working-directory: integration
+        run: uv run playwright install --with-deps
+
+      - name: Run Migration Test
+        working-directory: integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: >-
+          uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type "${{
+          matrix.test_type }}" --platform windows
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: migration-results-windows-${{ matrix.name }}
+          path: integration/tests/results/*
+          retention-days: 7
+
+      - name: Upload Core Logs
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() || cancelled() }}
+        with:
+          name:
+            migration-core-logs-windows-${{ matrix.name }}-attempt-${{
             github.run_attempt }}
           path: ~/synnax-data/synnax-core.log
           retention-days: 7

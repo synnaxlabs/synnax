@@ -204,8 +204,8 @@ jobs:
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
-  migration-ubuntu:
-    name: Migration (ubuntu)
+  migration:
+    name: Migration
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
@@ -213,17 +213,4 @@ jobs:
     uses: ./.github/workflows/test.migration.yaml
     with:
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-latest
-    secrets: inherit
-
-  migration-windows:
-    name: Migration (windows)
-    needs: [setup, build]
-    if:
-      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') && github.base_ref == 'main' }}
-    uses: ./.github/workflows/test.migration.yaml
-    with:
-      ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-latest
     secrets: inherit
