@@ -20,6 +20,7 @@
             calc(var(--pluto-diagram-zoom, 1) * -50%)
         );
     }
+
     &.pluto--location-bottom svg,
     & svg.pluto--location-bottom {
         & > g {
@@ -44,12 +45,12 @@
         }
     }
 
-    &:not(.pluto-symbol--custom) svg {
-        stroke-width: 2px;
-    }
-
     & svg {
         overflow: visible;
+    }
+
+    &:not(.pluto-symbol--custom) svg {
+        stroke-width: 2px;
     }
 
     &:not(.pluto-symbol-primitive-toggle) svg {
@@ -60,22 +61,25 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
-            stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
+            fill: rgb(var(--pluto-symbol-color) / 15%) !important;
+            stroke: rgb(var(--pluto-symbol-color) / 75%) !important;
         }
+
         &.pluto--enabled svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
+            stroke: rgb(var(--pluto-symbol-color) / 80%) !important;
+            fill: rgb(var(--pluto-symbol-color) / 85%) !important;
         }
     }
+
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
-            stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
+            fill: rgb(var(--pluto-symbol-color) / 25%) !important;
+            stroke: rgb(var(--pluto-symbol-color) / 90%) !important;
         }
+
         &.pluto--enabled svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
+            stroke: rgb(var(--pluto-symbol-color) / 70%) !important;
+            fill: rgb(var(--pluto-symbol-color) / 75%) !important;
         }
     }
 }
@@ -113,7 +117,7 @@
         height: 100%;
         width: 0%;
         z-index: 1;
-        background: rgb(var(--pluto-symbol-color) / 0.2);
+        background: rgb(var(--pluto-symbol-color) / 20%);
         pointer-events: none;
     }
 
@@ -126,17 +130,19 @@
 .pluto-solenoid-valve.pluto--normally-open {
     &:hover {
         & svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.95) !important;
+            stroke: rgb(var(--pluto-symbol-color) / 95%) !important;
+            fill: rgb(var(--pluto-symbol-color) / 95%) !important;
         }
+
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            fill: rgb(var(--pluto-symbol-color) / 25%) !important;
         }
     }
 
     & .pluto-body {
         fill: rgb(var(--pluto-symbol-color));
     }
+
     &.pluto--enabled {
         & .pluto-body {
             fill: none;
@@ -147,7 +153,7 @@
 .pluto-text-box {
     justify-content: center;
     padding: 2px;
-    width: "fit-content";
+    width: fit-content;
     white-space: nowrap;
     text-overflow: ellipsis;
     text-wrap: wrap;
@@ -155,6 +161,7 @@
     &.pluto--location-top {
         writing-mode: vertical-rl;
     }
+
     &.pluto--location-bottom {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
@@ -162,7 +169,7 @@
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
+    stroke: rgb(var(--pluto-symbol-color-contrast) / 90%) !important;
 }
 
 .pluto-tank {
@@ -213,12 +220,15 @@
 
 .pluto-setpoint {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     .pluto-input {
         width: min-content;
     }
+
     input {
         min-width: 12rem;
     }
+
     &.pluto-setpoint--preview {
         input {
             flex-grow: 1;
@@ -229,12 +239,15 @@
 
 .pluto-input-symbol {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     .pluto-input {
         width: min-content;
     }
+
     input {
         min-width: 25rem;
     }
+
     &.pluto-input-symbol--preview {
         input {
             flex-grow: 1;
@@ -245,21 +258,26 @@
 
 .pluto-select-symbol {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     display: flex;
     align-items: center;
     gap: 0;
+
     .pluto-input {
         width: min-content;
     }
+
     .pluto-dialog__frame {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
     }
+
     .pluto-dialog__trigger {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
     }
+
     svg.pluto-caret-animated {
         color: var(--pluto-gray-l9);
         fill: currentColor;
@@ -286,18 +304,23 @@
     &.pluto--location-top {
         transform: rotate(-90deg);
     }
+
     &.pluto--location-bottom {
         transform: rotate(90deg);
     }
+
     &.pluto--location-left {
         transform: rotate(180deg);
+
         .pluto-text {
             transform: rotate(180deg);
         }
     }
+
     .wrapper {
         display: inline-block;
         filter: url("#goo");
+
         .outline {
             padding: 1px;
             clip-path: polygon(
