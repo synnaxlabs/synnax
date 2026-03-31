@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/actions/test-python/**
+      - .github/actions/test-typescript/**
       - .github/workflows/test.migration.clients.yaml
       - alamos/go/**
       - alamos/py/**
@@ -11,15 +12,20 @@ on:
       - aspen/**
       - cesium/**
       - client/py/**
+      - client/ts/**
       - core/**
       - freighter/go/**
       - freighter/py/**
+      - freighter/ts/**
       - go.work
       - go.work.sum
+      - package.json
+      - pnpm-lock.yaml
       - pyproject.toml
       - uv.lock
       - uv.toml
       - x/go/**
+      - x/ts/**
   push:
     branches:
       - main
@@ -27,6 +33,7 @@ on:
       - sy-3970-migration-integration-tests
     paths:
       - .github/actions/test-python/**
+      - .github/actions/test-typescript/**
       - .github/workflows/test.migration.clients.yaml
       - alamos/go/**
       - alamos/py/**
@@ -34,15 +41,20 @@ on:
       - aspen/**
       - cesium/**
       - client/py/**
+      - client/ts/**
       - core/**
       - freighter/go/**
       - freighter/py/**
+      - freighter/ts/**
       - go.work
       - go.work.sum
+      - package.json
+      - pnpm-lock.yaml
       - pyproject.toml
       - uv.lock
       - uv.toml
       - x/go/**
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
@@ -79,6 +91,12 @@ jobs:
       - name: Test Python with Core on main
         run: uv run pytest
         working-directory: client/py
+
+      - name: Test TypeScript with Core on main
+        uses: ./.github/actions/test-typescript
+        with:
+          package: client
+          lint: false
 
       - name: Stop Core on main
         if: always() && steps.start_main.outcome == 'success'
@@ -125,6 +143,12 @@ jobs:
           directory: client/py
           type_check: false
           format_check: false
+
+      - name: Test TypeScript with Core on current branch
+        uses: ./.github/actions/test-typescript
+        with:
+          package: client
+          lint: false
 
       - name: Stop Core on current branch
         if: always() && steps.start_current.outcome == 'success'
