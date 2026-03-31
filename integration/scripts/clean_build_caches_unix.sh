@@ -54,7 +54,7 @@ BAZEL_BASE="/root/.bazel"
 if [ -d "$BAZEL_BASE" ] && [ -d "$REPO_ROOT" ]; then
     before_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
     before_bazel=${before_bazel:-0}
-    cd "$REPO_ROOT" && bazel clean 2> /dev/null
+    (cd "$REPO_ROOT" && bazel clean 2>&1) || echo "  bazel clean failed (exit $?)"
     after_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
     after_bazel=${after_bazel:-0}
     freed_bazel=$((before_bazel - after_bazel))

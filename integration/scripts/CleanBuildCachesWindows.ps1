@@ -64,7 +64,8 @@ if ((Test-Path $bazelBase) -and (Test-Path $repoRoot)) {
         ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
             Measure-Object -Property Length -Sum).Sum / 1MB), 0)
     Push-Location $repoRoot
-    bazel clean 2>$null
+    $bazelOutput = bazel clean 2>&1
+    if ($LASTEXITCODE -ne 0) { Write-Output "  bazel clean failed (exit $LASTEXITCODE): $bazelOutput" }
     Pop-Location
     $afterBazel = [math]::Round(
         ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
