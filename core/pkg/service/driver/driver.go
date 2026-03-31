@@ -264,7 +264,15 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	defer cancel()
 
 	sCtx.Go(func(ctx context.Context) error {
-		taskCtx := NewContext(ctx, d.cfg.Status)
+		taskCtx := NewContext(
+			ctx,
+			WithStatusService(d.cfg.Status),
+			WithRegister(func(task Task) {
+				d.mu.Lock()
+				d.mu.tasks[t.Key] = task
+				d.mu.Unlock()
+			}),
+		)
 		for _, f := range d.cfg.Factories {
 			newTask, err := f.ConfigureTask(taskCtx, t)
 			if errors.Is(err, ErrTaskNotHandled) {
@@ -273,9 +281,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 			if err != nil {
 				return err
 			}
-			d.mu.Lock()
-			d.mu.tasks[t.Key] = newTask
-			d.mu.Unlock()
+			taskCtx.Register(newTask)
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
 		}

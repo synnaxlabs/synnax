@@ -25,14 +25,41 @@ import (
 var _ = Describe("Context", func() {
 	Describe("NewContext", func() {
 		It("should create a context with the given status service", func(ctx context.Context) {
-			driverCtx := driver.NewContext(ctx, statusSvc)
+			driverCtx := driver.NewContext(ctx, driver.WithStatusService(statusSvc))
 			Expect(driverCtx.Context).To(Equal(ctx))
 		})
 	})
 
+	Describe("Register", func() {
+		It("should be a no-op when no register function is set", func(ctx context.Context) {
+			driverCtx := driver.NewContext(ctx)
+			driverCtx.Register(&mockTask{})
+		})
+
+		It("should call the register function with the task", func(ctx context.Context) {
+			var registered driver.Task
+			driverCtx := driver.NewContext(ctx, driver.WithRegister(func(t driver.Task) {
+				registered = t
+			}))
+			mt := &mockTask{key: 42}
+			driverCtx.Register(mt)
+			Expect(registered).To(Equal(mt))
+		})
+	})
+
 	Describe("SetStatus", func() {
+		It("should return nil when status service is nil", func(ctx context.Context) {
+			driverCtx := driver.NewContext(ctx)
+			stat := task.Status{
+				Key:     "test-nil-svc",
+				Variant: xstatus.VariantSuccess,
+				Time:    telem.Now(),
+			}
+			Expect(driverCtx.SetStatus(stat)).To(Succeed())
+		})
+
 		It("should set a status", func(ctx context.Context) {
-			driverCtx := driver.NewContext(ctx, statusSvc)
+			driverCtx := driver.NewContext(ctx, driver.WithStatusService(statusSvc))
 			stat := task.Status{
 				Key:     "test-status-1",
 				Variant: xstatus.VariantSuccess,
@@ -50,7 +77,7 @@ var _ = Describe("Context", func() {
 		})
 
 		It("should auto-fill time when zero", func(ctx context.Context) {
-			driverCtx := driver.NewContext(ctx, statusSvc)
+			driverCtx := driver.NewContext(ctx, driver.WithStatusService(statusSvc))
 			beforeTime := telem.Now()
 			stat := task.Status{
 				Key:     "test-status-2",
@@ -71,7 +98,7 @@ var _ = Describe("Context", func() {
 		})
 
 		It("should preserve provided time", func(ctx context.Context) {
-			driverCtx := driver.NewContext(ctx, statusSvc)
+			driverCtx := driver.NewContext(ctx, driver.WithStatusService(statusSvc))
 			providedTime := telem.TimeStamp(1000000000)
 			stat := task.Status{
 				Key:     "test-status-3",
@@ -90,7 +117,7 @@ var _ = Describe("Context", func() {
 		})
 
 		It("should fail with empty key", func(ctx context.Context) {
-			driverCtx := driver.NewContext(ctx, statusSvc)
+			driverCtx := driver.NewContext(ctx, driver.WithStatusService(statusSvc))
 			stat := task.Status{
 				Variant: xstatus.VariantSuccess,
 				Time:    telem.Now(),
@@ -99,7 +126,7 @@ var _ = Describe("Context", func() {
 		})
 
 		It("should fail with empty variant", func(ctx context.Context) {
-			driverCtx := driver.NewContext(ctx, statusSvc)
+			driverCtx := driver.NewContext(ctx, driver.WithStatusService(statusSvc))
 			stat := task.Status{
 				Key:  "test-status-invalid",
 				Time: telem.Now(),

@@ -369,6 +369,47 @@ var _ = Describe("Driver", func() {
 			Consistently(func() bool { return stopCalled.Load() }).Should(BeFalse())
 		})
 
+		It("should continue processing new tasks after a configuration error", func(ctx SpecContext) {
+			var (
+				configCount atomic.Int32
+				execCalled  atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					n := configCount.Add(1)
+					if n == 1 {
+						return nil, errors.New("first task fails")
+					}
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					}, nil
+				},
+			}
+			openDriver(ctx, factory)
+
+			// First task: configuration fails.
+			t1 := newTask(embeddedRackKey(ctx))
+			Expect(taskService.NewWriter(nil).Create(ctx, &t1)).To(Succeed())
+			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(1)))
+
+			// Second task: configuration succeeds, proving the driver
+			// is still functional after the first error.
+			t2 := newTask(embeddedRackKey(ctx))
+			Expect(taskService.NewWriter(nil).Create(ctx, &t2)).To(Succeed())
+			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(2)))
+
+			writeCommand(ctx, task.Command{Task: t2.Key, Type: "start", Key: "cmd-1"})
+			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+		})
+
 		It("should handle task stop error gracefully during reconfiguration", func(ctx SpecContext) {
 			var (
 				stopCalled  atomic.Bool
@@ -1008,6 +1049,89 @@ var _ = Describe("Driver", func() {
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
 			Eventually(execStarted).Should(Receive())
+		})
+	})
+
+	Describe("Register", func() {
+		It("should make task available for commands before ConfigureTask returns", func(ctx SpecContext) {
+			var (
+				targetKey    atomic.Value
+				registered   = make(chan struct{})
+				registerOnce sync.Once
+				configGate   = make(chan struct{})
+				execCalled   atomic.Bool
+			)
+
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					dCtx driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					mt := &mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					}
+					dCtx.Register(mt)
+					// Only block for the target task, not existing tasks.
+					if t.Key == targetKey.Load() {
+						registerOnce.Do(func() { close(registered) })
+						<-configGate
+					}
+					return mt, nil
+				},
+			}
+			openDriver(ctx, factory)
+			t := newTask(embeddedRackKey(ctx))
+			targetKey.Store(t.Key)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+
+			// Wait for the factory to register the task while still inside
+			// ConfigureTask.
+			Eventually(registered).Should(BeClosed())
+
+			// Send a command while ConfigureTask is still running.
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
+
+			close(configGate)
+		})
+
+		It("should keep pre-registered task available when factory returns error", func(ctx SpecContext) {
+			var (
+				configDone = make(chan struct{})
+				doneOnce   sync.Once
+				execCalled atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					dCtx driver.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					dCtx.Register(&mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					})
+					doneOnce.Do(func() { close(configDone) })
+					return nil, errors.New("factory failed after register")
+				},
+			}
+			openDriver(ctx, factory)
+
+			t := newTask(embeddedRackKey(ctx))
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configDone).Should(BeClosed())
+
+			// The registered task should still be reachable for commands.
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
 		})
 	})
 
