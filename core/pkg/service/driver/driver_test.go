@@ -371,6 +371,7 @@ var _ = Describe("Driver", func() {
 
 		It("should continue processing new tasks after a configuration error", func(ctx SpecContext) {
 			var (
+				knownKeys   sync.Map
 				configCount atomic.Int32
 				execCalled  atomic.Bool
 			)
@@ -380,6 +381,9 @@ var _ = Describe("Driver", func() {
 					_ driver.Context,
 					t task.Task,
 				) (driver.Task, error) {
+					if _, ok := knownKeys.Load(t.Key); !ok {
+						return nil, driver.ErrTaskNotHandled
+					}
 					n := configCount.Add(1)
 					if n == 1 {
 						return nil, errors.New("first task fails")
@@ -397,12 +401,14 @@ var _ = Describe("Driver", func() {
 
 			// First task: configuration fails.
 			t1 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t1.Key, true)
 			Expect(taskService.NewWriter(nil).Create(ctx, &t1)).To(Succeed())
 			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(1)))
 
 			// Second task: configuration succeeds, proving the driver is still
 			// functional after the first error.
 			t2 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t2.Key, true)
 			Expect(taskService.NewWriter(nil).Create(ctx, &t2)).To(Succeed())
 			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(2)))
 
