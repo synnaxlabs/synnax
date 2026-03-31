@@ -103,13 +103,9 @@ const useSyncComponent = Workspace.createSyncComponent(
     }
     if (!state.remoteCreated) {
       store.dispatch(setRemoteCreated({ key }));
-      // First sync: create the schematic on the server with initial state
       await client.schematics.create(workspace, {
         key,
         name: layout.name,
-        nodes: state.nodes ?? [],
-        edges: state.edges ?? [],
-        props: state.props ?? {},
         viewport: state.viewport,
         legend: state.legend,
         editable: state.editable,
@@ -119,8 +115,6 @@ const useSyncComponent = Workspace.createSyncComponent(
       });
       return;
     }
-    // Subsequent syncs: only update session state fields.
-    // Document mutations (nodes/edges/props) go through Flux action dispatch.
     await client.schematics.create(workspace, {
       key,
       name: layout.name,
@@ -161,14 +155,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
   const canEdit = hasEditPermission && state.editable;
 
-  // Selection state (session, per-window)
-  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
-  const [selectedEdges, setSelectedEdges] = useState<string[]>([]);
-
-  const handleSelectionChange = useCallback((nodes: string[], edges: string[]) => {
-    setSelectedNodes(nodes);
-    setSelectedEdges(edges);
-  }, []);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const handleViewportChange = useCallback(
     (vp: Diagram.Viewport) =>
@@ -272,32 +259,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
-  const handleSelectAll = useCallback(() => {
-    // Read all node/edge keys from Flux and set them as selected
-    // For now this is a no-op until we wire it properly
-  }, [layoutKey]);
-
-  const handleClearSelection = useCallback(
-    () => handleSelectionChange([], []),
-    [handleSelectionChange],
-  );
+  const handleClearSelection = useCallback(() => setSelected([]), []);
 
   Diagram.useTriggers({
     onCopy: () => {},
     onPaste: () => {},
-    onSelectAll: handleSelectAll,
+    onSelectAll: () => {},
     onClear: handleClearSelection,
     onUndo: () => {},
     onRedo: () => {},
     region: ref,
   });
-
-  const nodeRendererProp = useCallback(
-    (props: Diagram.SymbolProps) => (
-      <SymbolRenderer layoutKey={layoutKey} {...props} />
-    ),
-    [layoutKey],
-  );
 
   return (
     <div
@@ -311,10 +283,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         onStatusChange={handleControlStatusChange}
       >
         <Base.Schematic
-          schematicKey={layoutKey}
-          selectedNodes={selectedNodes}
-          selectedEdges={selectedEdges}
-          onSelectionChange={handleSelectionChange}
+          resourceKey={layoutKey}
+          selected={selected}
+          onSelectionChange={setSelected}
           onViewportChange={handleViewportChange}
           viewportMode={mode}
           onViewportModeChange={handleViewportModeChange}
@@ -326,16 +297,15 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={state.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
-          nodeRenderer={nodeRendererProp}
           {...dropProps}
         >
           <Diagram.Background />
           <Controls x>
-            <Diagram.SelectViewportModeControl />
-            <Diagram.FitViewControl />
+            <Diagram.Controls.SelectViewportMode />
+            <Diagram.Controls.FitView />
             <Flex.Box x pack>
               {hasEditPermission && (
-                <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
+                <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
               )}
               {!state.snapshot && <ControlToggleButton control={state.control} />}
             </Flex.Box>
@@ -352,55 +322,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         )}
       </Control.Controller>
     </div>
-  );
-};
-
-interface SymbolRendererProps extends Diagram.SymbolProps {
-  layoutKey: string;
-}
-
-const SymbolRenderer = ({
-  symbolKey,
-  position,
-  selected,
-  layoutKey,
-}: SymbolRendererProps): ReactElement | null => {
-  const { data: doc } = Base.useRetrieve({ key: layoutKey });
-  const { update: fluxDispatch } = Base.useDispatch();
-  const nodeProps = doc?.props?.[symbolKey] as Record<string, unknown> | undefined;
-  const key = (nodeProps?.key ?? null) as Base.Symbol.Variant | null;
-
-  const handleChange = useCallback(
-    (props: object) => {
-      if (key == null) return;
-      fluxDispatch({
-        key: layoutKey,
-        actions: schematic.setNodeProps({
-          key: symbolKey,
-          props: { key, ...props },
-        }),
-      });
-    },
-    [symbolKey, layoutKey, key, fluxDispatch],
-  );
-
-  if (nodeProps == null || key == null) return null;
-
-  const C = Base.Symbol.REGISTRY[key];
-  if (C == null) throw new Error(`Symbol ${key} not found`);
-
-  const { key: _, ...rest } = nodeProps;
-
-  return (
-    <C.Symbol
-      key={key}
-      id={symbolKey}
-      symbolKey={symbolKey}
-      position={position}
-      selected={selected}
-      onChange={handleChange}
-      {...rest}
-    />
   );
 };
 

@@ -9,6 +9,7 @@
 
 export * from "@/vis/diagram/aether/types";
 export * from "@/vis/diagram/align";
+export * from "@/vis/diagram/Background";
 export * from "@/vis/diagram/Context";
 export * from "@/vis/diagram/controls";
 export * from "@/vis/diagram/Diagram";

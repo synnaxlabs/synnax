@@ -161,22 +161,14 @@ export const create = ({
           default: (rf: RFEdgeProps): ReactElement =>
             edgeRenderer({
               edgeKey: rf.id,
-              source: diagram.createEndpoint(
-                rf.sourceX,
-                rf.sourceY,
-                rf.sourcePosition,
-              ),
-              target: diagram.createEndpoint(
-                rf.targetX,
-                rf.targetY,
-                rf.targetPosition,
-              ),
+              source: diagram.createEndpoint(rf.sourceX, rf.sourceY, rf.sourcePosition),
+              target: diagram.createEndpoint(rf.targetX, rf.targetY, rf.targetPosition),
               selected: rf.selected ?? false,
             }),
         }
       : undefined;
 
-  const connectionLineComponent =
+  const ConnectionLine =
     connectionLineRenderer != null
       ? (rf: RFConnectionLineProps): ReactElement =>
           connectionLineRenderer({
@@ -229,17 +221,15 @@ export const create = ({
       },
     });
     const { fitView } = useReactFlow();
-    const debouncedFitView = useDebouncedCallback(
-      (args) => void fitView(args),
-      50,
-      [fitView],
-    );
+    const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
+      fitView,
+    ]);
 
     const resizeRef = Canvas.useRegion(
       useCallback(
-        (b) => {
+        (region) => {
           if (fitViewOnResize) debouncedFitView(fitViewOptions);
-          setState((prev) => ({ ...prev, region: b }));
+          setState((prev) => ({ ...prev, region }));
         },
         [setState, debouncedFitView, fitViewOnResize],
       ),
@@ -256,12 +246,7 @@ export const create = ({
     const handleViewport = useCallback(
       (vp: RFViewport): void => {
         const prev = viewportRef.current;
-        if (
-          prev != null &&
-          prev.x === vp.x &&
-          prev.y === vp.y &&
-          prev.zoom === vp.zoom
-        )
+        if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
           return;
         viewportRef.current = vp;
         if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
@@ -279,11 +264,11 @@ export const create = ({
 
     const selectedSet = useMemo(() => new Set(selected), [selected]);
 
-    const edges_ = useMemo(
+    const rfEdges = useMemo(
       () => translateEdgesForward(edges, selectedSet),
       [edges, selectedSet],
     );
-    const nodes_ = useMemo(
+    const rfNodes = useMemo(
       () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
       [nodes, selectedSet, dragHandleSelector],
     );
@@ -422,8 +407,8 @@ export const create = ({
                 CSS.editable(editable),
                 CSS.BE("symbol", "container"),
               )}
-              nodes={nodes_}
-              edges={edges_}
+              nodes={rfNodes}
+              edges={rfEdges}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               ref={combinedRefs}
@@ -431,7 +416,7 @@ export const create = ({
               onNodesChange={handleNodesChange}
               onEdgesChange={handleEdgesChange}
               onConnect={handleConnect}
-              connectionLineComponent={connectionLineComponent}
+              connectionLineComponent={ConnectionLine}
               defaultViewport={translateViewportForward(viewport)}
               elevateEdgesOnSelect
               defaultEdgeOptions={defaultEdgeOptions}
