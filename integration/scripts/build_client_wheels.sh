@@ -26,18 +26,34 @@ set -euo pipefail
 
 VERSION="${1:?Usage: build_client_wheels.sh <version> <output_dir>}"
 OUT_DIR="${2:?Usage: build_client_wheels.sh <version> <output_dir>}"
-PACKAGES=("alamos/py" "freighter/py" "x/py" "client/py")
+# Version-sensitive packages — built from the target version's git tag.
+VERSIONED_PACKAGES=("alamos/py" "freighter/py" "client/py")
+
+# Utility packages — always built from the current branch. These are not
+# version-sensitive (xpy is pure helpers with no deps) and may not exist
+# at older tags.
+UTILITY_PACKAGES=("x/py")
 
 mkdir -p "$OUT_DIR"
+
+# Build utility packages from current branch first (before any checkout).
+for pkg in "${UTILITY_PACKAGES[@]}"; do
+    echo "Building $pkg (from current branch)..."
+    uv build "$pkg" --wheel -o "$OUT_DIR"
+done
 
 if [ "$VERSION" != "latest" ]; then
     echo "Checking out synnax-v${VERSION}..."
     git checkout "synnax-v${VERSION}"
 fi
 
-for pkg in "${PACKAGES[@]}"; do
-    echo "Building $pkg..."
-    uv build "$pkg" --wheel -o "$OUT_DIR"
+for pkg in "${VERSIONED_PACKAGES[@]}"; do
+    if [ -d "$pkg" ]; then
+        echo "Building $pkg..."
+        uv build "$pkg" --wheel -o "$OUT_DIR"
+    else
+        echo "Skipping $pkg (does not exist at this version)"
+    fi
 done
 
 if [ "$VERSION" != "latest" ]; then
