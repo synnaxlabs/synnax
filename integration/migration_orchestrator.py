@@ -13,7 +13,7 @@ Manages Core binary lifecycle and invokes test-conductor as subprocesses.
 Does not import any test framework code.
 
 Usage:
-    uv run migration-orchestrator --chain "0.50.0,0.53.0,latest" --platform linux
+    uv run migration-orchestrator --chain "0.50.0,0.53.0,latest"
 """
 
 import argparse
@@ -41,7 +41,7 @@ KILL_TIMEOUT = 5 * sy.TimeSpan.SECOND
 CLEANUP_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 
-def install_version(version: str, plat: str) -> None:
+def install_version(version: str) -> None:
     """Download and install a specific Core version binary."""
     if version == "latest":
         binary = BINARY_DIR / BINARY_NAME
@@ -55,6 +55,7 @@ def install_version(version: str, plat: str) -> None:
     BINARY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     BINARY_DIR.mkdir(parents=True, exist_ok=True)
 
+    plat = get_platform()
     suffix = "-windows.exe" if plat == "windows" else f"-{plat}"
     asset = f"synnax-v{version}{suffix}"
     cached = BINARY_CACHE_DIR / asset
@@ -174,7 +175,7 @@ def run_test_conductor(class_filter: str) -> bool:
     return True
 
 
-def run(chain: list[str], plat: str) -> bool:
+def run(chain: list[str]) -> bool:
     """Run upgrade test across a version chain.
 
     For each version: install the binary, start Core, run the test conductor
@@ -190,9 +191,9 @@ def run(chain: list[str], plat: str) -> bool:
     for i, version in enumerate(chain):
         sequence = "setup" if i == 0 else "verify"
         print(f"\n{'=' * 60}")
-        print(f"Phase: {sequence} | Version: {version} | Platform: {plat}")
+        print(f"Phase: {sequence} | Version: {version}")
         print(f"{'=' * 60}\n")
-        install_version(version, plat)
+        install_version(version)
         proc = start_core()
         try:
             if not run_test_conductor(sequence):
@@ -212,27 +213,18 @@ def main() -> None:
         required=True,
         help="Comma-separated version chain (e.g., '0.50.0,0.53.0,latest')",
     )
-    parser.add_argument(
-        "--platform",
-        choices=["linux", "windows", "macos"],
-        default=None,
-        help="Target platform for binary downloads (auto-detected if omitted)",
-    )
-
     args = parser.parse_args()
     chain = [v.strip() for v in args.chain.split(",")]
-    plat = args.platform or get_platform()
 
     print("Migration orchestrator")
     print(f"  Chain: {' -> '.join(chain)}")
-    print(f"  Platform: {plat}")
     print()
 
     success = False
     clean_data()
 
     try:
-        success = run(chain, plat)
+        success = run(chain)
     finally:
         for d in [DATA_DIR, BINARY_CACHE_DIR]:
             if not d.exists():
