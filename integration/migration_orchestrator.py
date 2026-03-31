@@ -9,8 +9,12 @@
 
 """Migration test orchestrator.
 
-Manages Core binary lifecycle and invokes test-conductor as subprocesses.
-Does not import any test framework code.
+Manages Core binary lifecycle and runs test-conductor for migration tests.
+This module intentionally uses only stdlib imports — no synnax, xpy, or
+framework dependencies — so it can create isolated venvs with different
+synnax client versions for each step in the migration chain. The test
+conductor is invoked as a subprocess so it runs inside the version-specific
+venv (old client for setup, current client for verify).
 
 Usage:
     uv run migration-orchestrator --chain "0.50.0,0.53.0,latest"
@@ -23,10 +27,8 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
-
-import synnax as sy
-from xpy import get_platform
 
 BINARY_CACHE_DIR = Path.home() / "synnax-binary-cache"
 BINARY_DIR = Path.home() / "synnax-binaries"
@@ -34,11 +36,33 @@ DATA_DIR = Path.home() / "synnax-data"
 BINARY_NAME = "synnax.exe" if platform.system() == "Windows" else "synnax"
 REPO = "synnaxlabs/synnax"
 PORT = 9090
-STARTUP_TIMEOUT = 30 * sy.TimeSpan.SECOND
-STARTUP_POLL_INTERVAL = 1 * sy.TimeSpan.SECOND
-STOP_TIMEOUT = 10 * sy.TimeSpan.SECOND
-KILL_TIMEOUT = 5 * sy.TimeSpan.SECOND
-CLEANUP_TIMEOUT = 10 * sy.TimeSpan.SECOND
+STARTUP_TIMEOUT = 30
+STARTUP_POLL_INTERVAL = 1
+STOP_TIMEOUT = 10
+KILL_TIMEOUT = 5
+CLEANUP_TIMEOUT = 10
+INTEGRATION_DIR = Path(__file__).parent
+CLIENT_VENV_DIR = Path.home() / "migration-client-env"
+
+# TC framework dependencies needed in client venvs (beyond synnax itself).
+CLIENT_VENV_DEPS = ["numpy", "pydantic", "flask", "psutil"]
+
+
+# Cannot us utils from `xpy/`. We are testing against the Python client version.
+def _get_platform() -> str:
+    """Map platform.system() to the asset suffix used in release binaries."""
+    return {
+        "Darwin": "macos",
+        "Linux": "linux",
+        "Windows": "windows",
+    }[platform.system()]
+
+
+def _venv_python(venv_dir: Path) -> Path:
+    """Return the path to the Python executable inside a venv."""
+    if platform.system() == "Windows":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
 
 
 def install_version(version: str) -> None:
@@ -55,7 +79,7 @@ def install_version(version: str) -> None:
     BINARY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     BINARY_DIR.mkdir(parents=True, exist_ok=True)
 
-    plat = get_platform()
+    plat = _get_platform()
     suffix = "-windows.exe" if plat == "windows" else f"-{plat}"
     asset = f"synnax-v{version}{suffix}"
     cached = BINARY_CACHE_DIR / asset
@@ -108,14 +132,14 @@ def start_core() -> subprocess.Popen[bytes]:
     )
     log.close()
 
-    timer = sy.Timer()
-    while timer.elapsed() < STARTUP_TIMEOUT:
+    start = time.monotonic()
+    while time.monotonic() - start < STARTUP_TIMEOUT:
         try:
             with socket.create_connection(("localhost", PORT), timeout=1):
                 print(f"Core is ready on port {PORT}")
                 return proc
         except (ConnectionRefusedError, OSError):
-            sy.sleep(STARTUP_POLL_INTERVAL)
+            time.sleep(STARTUP_POLL_INTERVAL)
 
     # Timeout - dump log and fail
     proc.kill()
@@ -133,17 +157,17 @@ def stop_core(proc: subprocess.Popen[bytes]) -> None:
     print("Stopping Core...")
     proc.terminate()
     try:
-        proc.wait(timeout=STOP_TIMEOUT.seconds)
+        proc.wait(timeout=STOP_TIMEOUT)
     except subprocess.TimeoutExpired:
         print("Core did not stop gracefully, killing...")
         proc.kill()
-        proc.wait(timeout=KILL_TIMEOUT.seconds)
+        proc.wait(timeout=KILL_TIMEOUT)
 
-    timer = sy.Timer()
-    while timer.elapsed() < STOP_TIMEOUT:
+    start = time.monotonic()
+    while time.monotonic() - start < STOP_TIMEOUT:
         try:
             with socket.create_connection(("localhost", PORT), timeout=1):
-                sy.sleep(STARTUP_POLL_INTERVAL)
+                time.sleep(STARTUP_POLL_INTERVAL)
         except (ConnectionRefusedError, OSError):
             print("Core stopped")
             return
@@ -158,16 +182,88 @@ def clean_data() -> None:
         print(f"Cleaned data directory: {DATA_DIR}")
 
 
-def run_test_conductor(class_filter: str) -> bool:
+def _create_client_venv(version: str) -> Path:
+    """Create a venv with the specified synnax client version.
+
+    For old versions, installs synnax from PyPI. For "latest", installs the
+    local workspace packages (client/py, freighter/py, alamos/py) as editable
+    so the venv always has an explicit, known version.
+
+    Returns the path to the venv's Python executable.
+    """
+    if CLIENT_VENV_DIR.exists():
+        shutil.rmtree(CLIENT_VENV_DIR)
+
+    label = "local workspace" if version == "latest" else f"synnax=={version}"
+    print(f"Creating venv for {label}...")
+    subprocess.run(["uv", "venv", str(CLIENT_VENV_DIR)], check=True)
+
+    python = _venv_python(CLIENT_VENV_DIR)
+    repo_root = INTEGRATION_DIR.parent
+
+    if version == "latest":
+        synnax_packages = [
+            "-e",
+            str(repo_root / "alamos" / "py"),
+            "-e",
+            str(repo_root / "freighter" / "py"),
+            "-e",
+            str(repo_root / "client" / "py"),
+        ]
+    else:
+        synnax_packages = [f"synnax=={version}"]
+
+    packages = synnax_packages + ["-e", str(repo_root / "x" / "py")] + CLIENT_VENV_DEPS
+    subprocess.run(
+        ["uv", "pip", "install", "--python", str(python)] + packages,
+        check=True,
+    )
+
+    # Verify the installed version so CI logs show exactly what's running.
+    installed = subprocess.run(
+        [str(python), "-c", "import synnax; print(synnax.__version__)"],
+        capture_output=True,
+        text=True,
+    )
+    installed_version = installed.stdout.strip() if installed.returncode == 0 else "?"
+    print(f"DEBUG: venv python = {python}")
+    print(f"DEBUG: installed synnax version = {installed_version}")
+    print(f"Venv ready with {label}")
+    return python
+
+
+def run_test_conductor(version: str, class_filter: str) -> bool:
     """Run test-conductor for migration tests, filtering by class name.
 
-    The -f flag matches against both file paths and class names, so passing
+    The filter matches against both file paths and class names, so passing
     "setup" matches classes like ChannelsSetup, WorkspacesSetup, etc.
+
+    We invoke the test conductor as a subprocess (rather than in-process) so
+    that it runs inside a version-specific venv. This lets us install an older
+    synnax client for the setup phase and the current workspace client for the
+    verify phase, each in an explicitly constructed environment.
     """
-    cmd = ["uv", "run", "tc", "migration", "-f", class_filter]
-    label = f"uv run tc migration -f {class_filter}"
+    python = _create_client_venv(version)
+    label = f"tc migration -f {class_filter} ({version})"
     print(f"Running: {label}")
-    result = subprocess.run(cmd, cwd=str(Path(__file__).parent))
+    print(f"DEBUG: python = {python}")
+    print(f"DEBUG: PYTHONPATH = {INTEGRATION_DIR}")
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(INTEGRATION_DIR)
+    result = subprocess.run(
+        [
+            str(python),
+            "-m",
+            "framework.test_conductor",
+            "migration",
+            "-f",
+            class_filter,
+        ],
+        cwd=str(INTEGRATION_DIR),
+        env=env,
+    )
+
     if result.returncode != 0:
         print(f"FAILED: {label} (exit code {result.returncode})")
         return False
@@ -196,7 +292,7 @@ def run(chain: list[str]) -> bool:
         install_version(version)
         proc = start_core()
         try:
-            if not run_test_conductor(sequence):
+            if not run_test_conductor(version, sequence):
                 return False
         finally:
             stop_core(proc)
@@ -226,19 +322,19 @@ def main() -> None:
     try:
         success = run(chain)
     finally:
-        for d in [DATA_DIR, BINARY_CACHE_DIR]:
+        for d in [DATA_DIR, BINARY_CACHE_DIR, CLIENT_VENV_DIR]:
             if not d.exists():
                 continue
-            timer = sy.Timer()
-            while timer.elapsed() < CLEANUP_TIMEOUT:
+            start = time.monotonic()
+            while time.monotonic() - start < CLEANUP_TIMEOUT:
                 try:
                     shutil.rmtree(d)
                     print(f"Cleaned {d}")
                     break
                 except PermissionError:
-                    sy.sleep(1)
+                    time.sleep(1)
             else:
-                print(f"Warning: failed to clean {d} after {CLEANUP_TIMEOUT}")
+                print(f"Warning: failed to clean {d} after {CLEANUP_TIMEOUT}s")
         print("Cleanup complete")
 
     if success:
