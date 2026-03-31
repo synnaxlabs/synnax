@@ -243,7 +243,7 @@ export const translateEdgeChangeForward = (
           selected: item.selected ?? false,
           sourceHandle: item.sourceHandle ?? undefined,
           targetHandle: item.targetHandle ?? undefined,
-          data: item.data as record.Unknown,
+          data: item.data,
         },
       };
     }

@@ -9,7 +9,6 @@
 
 import { z } from "zod";
 
-import { type Schematic, keyZ } from "@/schematic/types.gen";
 import {
   type Action,
   actionZ,
@@ -22,19 +21,20 @@ import {
   type SetNodePositionPayload,
   type SetNodePropsPayload,
 } from "@/schematic/actions.gen";
+import { keyZ, type Schematic } from "@/schematic/types.gen";
 
 export type { Action } from "@/schematic/actions.gen";
 export {
-  actionZ,
   ACTION_TYPES,
-  setNodePosition,
+  actionZ,
   addNode,
+  removeEdge,
   removeNode,
   setEdge,
-  removeEdge,
-  setNodeDimensions,
-  setNodeProps,
   setEdgeData,
+  setNodeDimensions,
+  setNodePosition,
+  setNodeProps,
 } from "@/schematic/actions.gen";
 
 export const scopedActionZ = z.object({
@@ -56,7 +56,7 @@ const handleSetNodePosition = (
 const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
   state.nodes.push(payload.node);
   if (payload.props != null) {
-    if (state.props == null) state.props = {};
+    state.props ??= {};
     state.props[payload.node.key] = payload.props;
   }
 };
@@ -64,7 +64,7 @@ const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
 const handleRemoveNode = (state: Schematic, payload: RemoveNodePayload): void => {
   const i = state.nodes.findIndex((n) => n.key === payload.key);
   if (i !== -1) state.nodes.splice(i, 1);
-  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
   delete state.props[payload.key];
 };
 
@@ -88,7 +88,7 @@ const handleSetNodeDimensions = (
 };
 
 const handleSetNodeProps = (state: Schematic, payload: SetNodePropsPayload): void => {
-  if (state.props == null) state.props = {};
+  state.props ??= {};
   state.props[payload.key] = payload.props;
 };
 

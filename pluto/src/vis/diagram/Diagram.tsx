@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, location, type record, xy } from "@synnaxlabs/x";
+import { box, location, type record, type xy } from "@synnaxlabs/x";
 import {
   Background as RFBackground,
   type Connection as RFConnection,
@@ -36,13 +36,11 @@ import {
 } from "@xyflow/react";
 import {
   type ComponentPropsWithoutRef,
-  memo,
   type ReactElement,
   useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { type z } from "zod";
 
@@ -153,17 +151,17 @@ export interface DiagramProps
     > {
   triggers?: BaseViewport.UseTriggers;
   dragHandleSelector?: string;
+  nodeRenderer: RenderProp<SymbolProps>;
+  edgeRenderer?: RenderProp<EdgeProps<record.Unknown>>;
+  connectionLineComponent?: ConnectionLineComponent<RFNode>;
 }
 
 interface ContextValue {
   editable: boolean;
   visible: boolean;
   onEditableChange: (v: boolean) => void;
-  registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
-  registerEdgeRenderer: (renderer: RenderProp<EdgeProps<record.Unknown>>) => void;
   viewportMode: BaseViewport.Mode;
   onViewportModeChange: (v: BaseViewport.Mode) => void;
-  registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
   fitViewOptions: FitViewOptions;
@@ -176,9 +174,6 @@ const [Context, useContext] = context.create<ContextValue>({
     fitViewOptions: FIT_VIEW_OPTIONS,
     onEditableChange: () => {},
     onViewportModeChange: () => {},
-    registerConnectionLineComponent: () => {},
-    registerEdgeRenderer: () => {},
-    registerNodeRenderer: () => {},
     setFitViewOnResize: () => {},
     viewportMode: "select",
     visible: true,
@@ -187,49 +182,9 @@ const [Context, useContext] = context.create<ContextValue>({
 });
 export { useContext };
 
-export interface NodeRendererProps {
-  children: RenderProp<SymbolProps>;
-}
-
 export interface EdgeProps<D extends record.Unknown> extends RFEdgeProps<RFEdge<D>> {
   onDataChange: (data: D) => void;
 }
-
-export const NodeRenderer = memo(
-  ({ children }: NodeRendererProps): ReactElement | null => {
-    const { registerNodeRenderer } = useContext();
-    useEffect(() => registerNodeRenderer(children), [registerNodeRenderer, children]);
-    return null;
-  },
-);
-NodeRenderer.displayName = "NodeRenderer";
-
-export interface EdgeRendererProps<D extends record.Unknown> {
-  connectionLineComponent: ConnectionLineComponent<RFNode>;
-  children: RenderProp<EdgeProps<D>>;
-}
-
-const BaseEdgeRenderer = memo(
-  <D extends record.Unknown>({
-    children,
-    connectionLineComponent,
-  }: EdgeRendererProps<D>): ReactElement | null => {
-    const { registerEdgeRenderer, registerConnectionLineComponent } = useContext();
-    useEffect(
-      () => registerEdgeRenderer(children as RenderProp<EdgeProps<record.Unknown>>),
-      [registerEdgeRenderer, children],
-    );
-    useEffect(
-      () => registerConnectionLineComponent(connectionLineComponent),
-      [registerConnectionLineComponent, connectionLineComponent],
-    );
-    return null;
-  },
-);
-BaseEdgeRenderer.displayName = "EdgeRenderer";
-export const EdgeRenderer = BaseEdgeRenderer as <D extends record.Unknown>(
-  props: EdgeRendererProps<D>,
-) => ReactElement | null;
 
 export type FitViewOptions = RFFitViewOptions;
 
@@ -257,6 +212,9 @@ const Base = ({
   viewportMode,
   onViewportModeChange,
   autoRenderInterval,
+  nodeRenderer,
+  edgeRenderer,
+  connectionLineComponent,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqual({ visible, autoRenderInterval });
@@ -315,33 +273,6 @@ const Base = ({
     onEnd: handleViewport,
   });
 
-  const [nodeRenderer, setNodeRenderer] = useState<RenderProp<SymbolProps>>(
-    () => () => null,
-  );
-  const [edgeRenderer, setEdgeRenderer] = useState<RenderProp<
-    EdgeProps<record.Unknown>
-  > | null>(null);
-  const [connectionLineComponent, setConnectionLineComponent] = useState<
-    ConnectionLineComponent<RFNode> | undefined
-  >(undefined);
-
-  const registerNodeRenderer = useCallback(
-    (renderer: RenderProp<SymbolProps>) => setNodeRenderer(() => renderer),
-    [setNodeRenderer],
-  );
-
-  const registerEdgeRenderer = useCallback(
-    (renderer: RenderProp<EdgeProps<record.Unknown>>) =>
-      setEdgeRenderer(() => renderer),
-    [setEdgeRenderer],
-  );
-
-  const registerConnectionLineComponent = useCallback(
-    (component: ConnectionLineComponent<RFNode>) =>
-      setConnectionLineComponent(() => component),
-    [setConnectionLineComponent],
-  );
-
   const nodeTypes = useMemo(
     () => ({
       custom: ({
@@ -368,10 +299,10 @@ const Base = ({
   const edgeTypes = useMemo(() => {
     if (edgeRenderer == null) return undefined;
     return {
-      default: (props: RFEdgeProps<RFEdge<record.Unknown>>) =>
+      default: (rfProps: RFEdgeProps<RFEdge<record.Unknown>>) =>
         edgeRenderer({
-          ...props,
-          onDataChange: (data) => handleDataChange(props.id, data),
+          ...rfProps,
+          onDataChange: (data) => handleDataChange(rfProps.id, data),
         }),
     };
   }, [edgeRenderer, handleDataChange]);
@@ -463,9 +394,6 @@ const Base = ({
       visible,
       editable,
       onEditableChange,
-      registerNodeRenderer,
-      registerEdgeRenderer,
-      registerConnectionLineComponent,
       fitViewOnResize,
       setFitViewOnResize,
       fitViewOptions,
@@ -475,10 +403,7 @@ const Base = ({
     [
       editable,
       visible,
-      registerConnectionLineComponent,
       onEditableChange,
-      registerNodeRenderer,
-      registerEdgeRenderer,
       fitViewOnResize,
       fitViewOptions,
       viewportMode,

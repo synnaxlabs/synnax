@@ -289,9 +289,9 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
         fitViewOnResize={state.graph.fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
+        nodeRenderer={elRenderer}
         {...dropProps}
       >
-        <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
         <BaseControls x>
           <Diagram.FitViewControl />

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -20,7 +19,6 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Base,
-  Theming,
   usePrevious,
   User,
   useSyncedRef,
@@ -40,6 +38,7 @@ import { useDispatch } from "react-redux";
 import { Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { stateFromRemote } from "@/schematic/remote";
 import {
   useSelectLegendVisible,
   useSelectRequired,
@@ -58,10 +57,8 @@ import {
   type State,
   ZERO_STATE,
 } from "@/schematic/slice";
-import { stateFromRemote } from "@/schematic/remote";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
-import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
@@ -295,6 +292,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
+  const nodeRendererProp = useCallback(
+    (props: Diagram.SymbolProps) => (
+      <SymbolRenderer layoutKey={layoutKey} {...props} />
+    ),
+    [layoutKey],
+  );
+
   return (
     <div
       ref={ref}
@@ -322,13 +326,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={state.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
+          nodeRenderer={nodeRendererProp}
           {...dropProps}
         >
-          <Diagram.NodeRenderer>
-            {(props: Diagram.SymbolProps) => (
-              <SymbolRenderer layoutKey={layoutKey} {...props} />
-            )}
-          </Diagram.NodeRenderer>
           <Diagram.Background />
           <Controls x>
             <Diagram.SelectViewportModeControl />

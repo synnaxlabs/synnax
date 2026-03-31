@@ -22,15 +22,23 @@ import { Diagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
   Diagram.DiagramProps,
-  "dragHandleSelector" | "nodes" | "edges" | "onNodesChange" | "onEdgesChange"
+  | "dragHandleSelector"
+  | "nodes"
+  | "edges"
+  | "onNodesChange"
+  | "onEdgesChange"
+  | "nodeRenderer"
+  | "edgeRenderer"
+  | "connectionLineComponent"
 > {
   schematicKey: string;
   selectedNodes?: string[];
   selectedEdges?: string[];
   onSelectionChange?: (nodes: string[], edges: string[]) => void;
+  nodeRenderer: Diagram.DiagramProps["nodeRenderer"];
 }
 
-const edgeRenderer = Component.renderProp(Edge);
+const edgeRendererProp = Component.renderProp(Edge) as Diagram.DiagramProps["edgeRenderer"];
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
@@ -73,6 +81,7 @@ export const Schematic = ({
   selectedNodes = [],
   selectedEdges = [],
   onSelectionChange,
+  nodeRenderer,
   ...props
 }: SchematicProps): ReactElement | null => {
   const { data: doc } = useRetrieve({ key: schematicKey });
@@ -97,10 +106,10 @@ export const Schematic = ({
       );
       if (selChanges.length > 0 && onSelectionChange != null) {
         const current = new Set(selectedNodes);
-        for (const c of selChanges) {
+        for (const c of selChanges)
           if (c.selected) current.add(c.key);
           else current.delete(c.key);
-        }
+
         onSelectionChange([...current], selectedEdges);
       }
 
@@ -119,10 +128,10 @@ export const Schematic = ({
       );
       if (selChanges.length > 0 && onSelectionChange != null) {
         const current = new Set(selectedEdges);
-        for (const c of selChanges) {
+        for (const c of selChanges)
           if (c.selected) current.add(c.key);
           else current.delete(c.key);
-        }
+
         onSelectionChange(selectedNodes, [...current]);
       }
 
@@ -143,11 +152,11 @@ export const Schematic = ({
       edges={edges}
       onNodesChange={handleNodesChange}
       onEdgesChange={handleEdgesChange}
+      nodeRenderer={nodeRenderer}
+      edgeRenderer={edgeRendererProp}
+      connectionLineComponent={ConnectionLine}
       {...props}
     >
-      <Diagram.EdgeRenderer<EdgeData> connectionLineComponent={ConnectionLine}>
-        {edgeRenderer}
-      </Diagram.EdgeRenderer>
       {children}
     </Diagram.Diagram>
   );
