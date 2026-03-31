@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, workspace } from "@synnaxlabs/client";
+import { ontology, project, workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -169,8 +169,13 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   layout: {},
 };
 
+export interface FormQuery {
+  key?: workspace.Key;
+  project?: project.Key;
+}
+
 export const useForm = Flux.createForm<
-  Partial<RetrieveQuery>,
+  FormQuery,
   typeof formSchema,
   FluxSubStore
 >({
@@ -182,9 +187,14 @@ export const useForm = Flux.createForm<
     const res = await retrieveSingle({ client, store, query: { key } });
     reset(res);
   },
-  update: async ({ client, value, set }) => {
+  update: async ({ client, value, set, query }) => {
     const res = await client.workspaces.create(value());
     set("key", res.key);
+    if (query.project != null)
+      await client.ontology.addChildren(
+        project.ontologyID(query.project),
+        workspace.ontologyID(res.key),
+      );
   },
 });
 

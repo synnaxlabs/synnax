@@ -35,12 +35,15 @@ import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
+  Query extends base.Shape,
   Schema extends z.ZodType<base.Shape>,
   ScopedStore extends base.Store = {},
 >
   extends
     Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
-    Omit<Form.UseReturn<Schema>, "setStatus"> {}
+    Omit<Form.UseReturn<Schema>, "setStatus"> {
+  query: Query;
+}
 
 export interface FormRetrieveParams<
   Query extends base.Shape,
@@ -57,7 +60,7 @@ export interface CreateFormParams<
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
-  update: (args: FormUpdateParams<Schema, Store>) => Promise<void>;
+  update: (args: FormUpdateParams<Query, Schema, Store>) => Promise<void>;
   retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
   mountListeners?: (
     args: FormMountListenersParams<Query, Schema, Store>,

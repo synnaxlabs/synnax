@@ -8,51 +8,38 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Input, Nav, Synnax, Workspace } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
-import { useSelectActiveKey } from "@/workspace/selectors";
-import { setActive } from "@/workspace/slice";
 
-export const CREATE_LAYOUT_TYPE = "createWorkspace";
+export const CREATE_LAYOUT_TYPE = "createProject";
 
 export const CREATE_LAYOUT: Layout.BaseState = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  name: "Workspace.Create",
+  name: "Project.Create",
   icon: "Workspace",
   location: "modal",
   window: { resizable: false, size: { height: 225, width: 625 }, navTop: true },
 };
 
-interface CreateArgs {
-  projectKey?: string;
-}
-
-export const Create = ({ onClose, layoutKey }: Layout.RendererProps): ReactElement => {
+export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const active = useSelectActiveKey();
-  const { projectKey } = Layout.useSelectArgs<CreateArgs>(layoutKey);
 
-  const { form, save, variant } = Workspace.useForm({
-    query: { project: projectKey },
-    initialValues: {
-      name: "",
-      layout: Layout.ZERO_SLICE_STATE,
-    },
+  const { form, save, variant } = Project.useForm({
+    query: {},
     afterSave: ({ value }) => {
-      const ws = value();
-      const { key, name, layout } = ws;
-      if (key == null) throw new UnexpectedError("Workspace key is null");
+      const p = value();
+      const { key, name } = p;
+      if (key == null) throw new UnexpectedError("Project key is null");
       dispatch(setActive({ key, name }));
-      if (active != null)
-        dispatch(Layout.setWorkspace({ slice: layout as Layout.SliceState }));
       onClose();
     },
   });
@@ -65,11 +52,11 @@ export const Create = ({ onClose, layoutKey }: Layout.RendererProps): ReactEleme
         justify="center"
         grow
       >
-        <Form.Form<typeof Workspace.formSchema> {...form}>
+        <Form.Form<typeof Project.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
-                placeholder="Workspace Name"
+                placeholder="Project Name"
                 variant="text"
                 autoFocus
                 level="h3"
@@ -85,7 +72,7 @@ export const Create = ({ onClose, layoutKey }: Layout.RendererProps): ReactEleme
           <Button.Button
             type="submit"
             variant="filled"
-            form="create-workspace"
+            form="create-project"
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             onClick={() => save()}

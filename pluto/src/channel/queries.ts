@@ -343,6 +343,7 @@ const updateForm = async ({
   set,
   value,
 }: Flux.FormUpdateParams<
+  FormQuery,
   typeof formSchema | typeof calculatedFormSchema,
   FluxSubStore
 >) => {

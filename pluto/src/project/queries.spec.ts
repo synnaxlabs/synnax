@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, project, workspace } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -219,6 +219,44 @@ describe("queries", () => {
       await waitFor(async () => {
         await expect(client.projects.retrieve(p.key)).rejects.toThrow(NotFoundError);
       });
+    });
+  });
+
+  describe("useListWorkspaces", () => {
+    it("should return workspaces that are children of a project", async () => {
+      const p = await client.projects.create({ name: "testProject" });
+      const ws = await client.workspaces.create({
+        name: "testWorkspace",
+        layout: {},
+      });
+      await client.ontology.addChildren(
+        project.ontologyID(p.key),
+        workspace.ontologyID(ws.key),
+      );
+
+      const { result } = renderHook(
+        () => Project.useListWorkspaces(),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({ parent: p.key });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toContain(ws.key);
+    });
+
+    it("should return empty list when project has no workspaces", async () => {
+      const p = await client.projects.create({ name: "emptyProject" });
+
+      const { result } = renderHook(
+        () => Project.useListWorkspaces(),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({ parent: p.key });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(0);
     });
   });
 });

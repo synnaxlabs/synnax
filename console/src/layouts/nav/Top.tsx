@@ -20,6 +20,7 @@ import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Palette } from "@/palette";
 import { User } from "@/user";
 import { Version } from "@/version";
+import { Project } from "@/project";
 import { Workspace } from "@/workspace";
 
 const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
@@ -39,7 +40,7 @@ export const Top = (): ReactElement | null => {
       <Nav.Bar.Start data-tauri-drag-region gap="large">
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
         {LOGO_LOCATION === "top" && <Logo variant="icon" />}
-        <Workspace.Selector />
+        <Project.Selector />
       </Nav.Bar.Start>
       <Nav.Bar.Center grow justify="center" data-tauri-drag-region>
         <TopPalette />

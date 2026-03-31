@@ -36,6 +36,7 @@ export type ItemProps<
     onSelect?: (key: K) => void;
     selected?: boolean;
     hovered?: boolean;
+    selectOnHover?: boolean;
   };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
@@ -49,6 +50,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   rightAligned = false,
   highlightHovered = false,
   selected = false,
+  selectOnHover = false,
   translate,
   onSelect,
   onClick,
@@ -63,9 +65,10 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     id={itemKey.toString()}
     variant="text"
     onClick={(e: any) => {
-      onSelect?.(itemKey);
+      if (!selectOnHover) onSelect?.(itemKey);
       onClick?.(e);
     }}
+    onMouseEnter={selectOnHover ? () => onSelect?.(itemKey) : undefined}
     className={CSS(
       className,
       CONTEXT_TARGET,
