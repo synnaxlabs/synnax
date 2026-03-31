@@ -98,6 +98,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          PYTHONUNBUFFERED: "1"
         run: >-
           uv run migration-orchestrator --chain "${{ needs.setup.outputs.CHAIN }}"
           --test-type inplace

@@ -9,8 +9,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Discovers the most recent stable release and outputs a migration chain:
-#   previous_version,latest
+# Discovers stable releases and outputs a migration chain:
+#   minimum,intermediate,latest
+#
+# The intermediate is the midpoint between the minimum and most recent release.
 #
 # Usage:
 #   generate_migration_matrix.sh
@@ -47,8 +49,17 @@ fi
 
 echo "Found ${#VERSIONS[@]} versions: ${VERSIONS[*]}"
 
-PREVIOUS="${VERSIONS[-1]}"
-CHAIN="${PREVIOUS},latest"
+MINIMUM="${VERSIONS[0]}"
+
+if [[ ${#VERSIONS[@]} -ge 3 ]]; then
+    MID_IDX=$((${#VERSIONS[@]} / 2))
+    INTERMEDIATE="${VERSIONS[$MID_IDX]}"
+    CHAIN="${MINIMUM},${INTERMEDIATE},latest"
+elif [[ ${#VERSIONS[@]} -eq 2 ]]; then
+    CHAIN="${MINIMUM},${VERSIONS[1]},latest"
+else
+    CHAIN="${MINIMUM},latest"
+fi
 
 echo "Migration chain: $CHAIN"
 echo "MIGRATION_CHAIN=$CHAIN" >> "$GITHUB_OUTPUT"

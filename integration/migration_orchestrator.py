@@ -138,7 +138,7 @@ def start_core() -> subprocess.Popen[bytes]:
 
 
 def stop_core(proc: subprocess.Popen[bytes]) -> None:
-    """Stop Core process. Does NOT delete data directory."""
+    """Stop Core process and wait for port to be released."""
     print("Stopping Core...")
     proc.terminate()
     try:
@@ -147,7 +147,17 @@ def stop_core(proc: subprocess.Popen[bytes]) -> None:
         print("Core did not stop gracefully, killing...")
         proc.kill()
         proc.wait(timeout=KILL_TIMEOUT.seconds)
-    print("Core stopped")
+
+    timer = sy.Timer()
+    while timer.elapsed() < STOP_TIMEOUT:
+        try:
+            with socket.create_connection(("localhost", PORT), timeout=1):
+                sy.sleep(STARTUP_POLL_INTERVAL)
+        except (ConnectionRefusedError, OSError):
+            print("Core stopped")
+            return
+
+    print("Warning: port still in use after Core process exited")
 
 
 def clean_data() -> None:
@@ -190,8 +200,6 @@ def run_inplace(chain: list[str], plat: str) -> bool:
     print(f"{'#' * 60}\n")
 
     for i, version in enumerate(chain):
-        if i == 0:
-            clean_data()
         if not run_phase(version, plat, "setup" if i == 0 else "verify"):
             return False
 
@@ -252,6 +260,8 @@ def main() -> None:
     print(f"  Platform: {plat}")
     print()
 
+    clean_data()
+
     try:
         if args.test_type == "inplace":
             success = run_inplace(chain, plat)
@@ -261,7 +271,7 @@ def main() -> None:
         for d in [DATA_DIR, BINARY_CACHE_DIR, LOG_DIR]:
             if d.exists():
                 shutil.rmtree(d)
-        print("Cleaned up data, binary cache, and logs")
+        print("Cleanup complete")
 
     if success:
         print("\nMigration test PASSED")
