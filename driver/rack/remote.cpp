@@ -57,8 +57,7 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
     if (err) return err;
 
     this->rack.integrations = this->supported_integrations();
-    if (const auto update_err = client.racks.create(this->rack))
-        return update_err;
+    if (const auto update_err = client.racks.create(this->rack)) return update_err;
     return x::errors::NIL;
 }
 }
