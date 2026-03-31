@@ -32,6 +32,7 @@ from xpy import get_platform
 BINARY_CACHE_DIR = Path.home() / "synnax-binary-cache"
 BINARY_DIR = Path.home() / "synnax-binaries"
 DATA_DIR = Path.home() / "synnax-data"
+LOG_DIR = Path.home() / "synnax-logs"
 BINARY_NAME = "synnax.exe" if platform.system() == "Windows" else "synnax"
 REPO = "synnaxlabs/synnax"
 PORT = 9090
@@ -160,9 +161,7 @@ def run_test_conductor(class_filter: str) -> bool:
     """Run test-conductor for migration tests, filtering by class name."""
     cmd = ["uv", "run", "tc", "migration", "-f", class_filter]
     label = f"uv run tc migration -f {class_filter}"
-    print(f"\n{'=' * 60}")
     print(f"Running: {label}")
-    print(f"{'=' * 60}\n")
     result = subprocess.run(cmd, cwd=str(Path(__file__).parent))
     if result.returncode != 0:
         print(f"FAILED: {label} (exit code {result.returncode})")
@@ -173,6 +172,9 @@ def run_test_conductor(class_filter: str) -> bool:
 
 def run_phase(version: str, plat: str, sequence: str) -> bool:
     """Install a version, start Core, run a test sequence, and stop Core."""
+    print(f"\n{'=' * 60}")
+    print(f"Phase: {sequence} | Version: {version} | Platform: {plat}")
+    print(f"{'=' * 60}\n")
     install_version(version, plat)
     proc = start_core()
     try:
@@ -250,10 +252,16 @@ def main() -> None:
     print(f"  Platform: {plat}")
     print()
 
-    if args.test_type == "inplace":
-        success = run_inplace(chain, plat)
-    else:
-        success = run_export_import(chain, plat)
+    try:
+        if args.test_type == "inplace":
+            success = run_inplace(chain, plat)
+        else:
+            success = run_export_import(chain, plat)
+    finally:
+        for d in [DATA_DIR, BINARY_CACHE_DIR, LOG_DIR]:
+            if d.exists():
+                shutil.rmtree(d)
+        print("Cleaned up data, binary cache, and logs")
 
     if success:
         print("\nMigration test PASSED")
