@@ -9,23 +9,39 @@
 
 import { afterAll, beforeAll, vi } from "vitest";
 
+class ResizeObserverMock {
+  callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+  observe = vi.fn((target: Element) => {
+    // Fire the callback so virtualizers see a non-zero container size
+    this.callback(
+      [
+        {
+          target,
+          contentRect: target.getBoundingClientRect(),
+          borderBoxSize: [{ blockSize: 100, inlineSize: 100 }],
+          contentBoxSize: [{ blockSize: 100, inlineSize: 100 }],
+          devicePixelContentBoxSize: [{ blockSize: 100, inlineSize: 100 }],
+        },
+      ],
+      this,
+    );
+  });
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+class IntersectionObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
 beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-    })),
-  );
-  vi.stubGlobal(
-    "IntersectionObserver",
-    vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-    })),
-  );
+  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+  vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
   Element.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
     top: 0,
     left: 0,
