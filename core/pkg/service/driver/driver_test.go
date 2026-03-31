@@ -400,14 +400,14 @@ var _ = Describe("Driver", func() {
 			Expect(taskService.NewWriter(nil).Create(ctx, &t1)).To(Succeed())
 			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(1)))
 
-			// Second task: configuration succeeds, proving the driver
-			// is still functional after the first error.
+			// Second task: configuration succeeds, proving the driver is still
+			// functional after the first error.
 			t2 := newTask(embeddedRackKey(ctx))
 			Expect(taskService.NewWriter(nil).Create(ctx, &t2)).To(Succeed())
 			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(2)))
 
 			writeCommand(ctx, task.Command{Task: t2.Key, Type: "start", Key: "cmd-1"})
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
 		})
 
 		It("should handle task stop error gracefully during reconfiguration", func(ctx SpecContext) {
