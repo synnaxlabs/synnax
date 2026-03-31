@@ -39,26 +39,32 @@ Status = status.Status<StatusDetails> {
 }
 
 Rack struct {
-    key          Key      {
+    key          Key       {
         @doc value "is the composite identifier for this rack."
         @key
     }
-    name         string   {
+    name         string    {
         @doc value         "is a human-readable name for the rack."
         @validate required
     }
-    task_counter uint32?  {
+    task_counter uint32?   {
         @doc value """
             is an internal counter used for generating unique local task keys.
         """
     }
-    embedded     bool?    {
+    embedded     bool?     {
         @doc value """
             is true if this rack is embedded within the Synnax server process.
         """
     }
-    status       Status?? {
+    status       Status??  {
         @doc value "is the current operational status of the rack."
+    }
+    integrations string[]? {
+        @doc value """
+            is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+            "labjack"). An empty or nil list means the rack supports no integrations.
+        """
     }
 
     @doc value     """

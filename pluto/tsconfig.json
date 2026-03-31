@@ -1,8 +1,18 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "composite": true
+    "composite": true,
+    "types": [
+      "d3-scale",
+      "node",
+      "offscreencanvas",
+      "pluralize",
+      "react",
+      "react-dom",
+      "react-color",
+      "webgl2"
+    ],
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*", "eslint.config.ts", "stylelint.config.ts"]
 }

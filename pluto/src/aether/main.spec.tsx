@@ -264,7 +264,6 @@ describe("Aether Main", () => {
       expect(captured.error?.message).toContain("Test error");
     });
     it("should reject async invoke on timeout", async () => {
-      vi.useFakeTimers();
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
       const InvokeLeafC = () => {
@@ -288,13 +287,11 @@ describe("Aether Main", () => {
           <InvokeLeafC />
         </Provider>,
       );
-      await vi.waitFor(() => expect(root.children.length).toBe(1));
+      await expect.poll(() => root.children.length === 1).toBe(true);
       expect(captured.error).toBeNull();
-      await vi.advanceTimersByTimeAsync(5001);
-      expect(captured.error).not.toBeNull();
+      await expect.poll(() => captured.error !== null, { timeout: 6000 }).toBe(true);
       expect(captured.error?.name).toBe("TimeoutError");
-      vi.useRealTimers();
-    });
+    }, 10000);
     it("should abort pending invoke on component unmount", async () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };

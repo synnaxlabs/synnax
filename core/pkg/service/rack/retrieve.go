@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -97,6 +98,17 @@ func (r Retrieve) Limit(limit int) Retrieve {
 // Offset sets the starting index of the entries to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// WhereIntegration filters for racks that support the provided integration.
+func (r Retrieve) WhereIntegration(
+	integration string,
+	opts ...gorp.FilterOption,
+) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, rack *Rack) (bool, error) {
+		return slices.Contains(rack.Integrations, integration), nil
+	}, opts...)
 	return r
 }
 
