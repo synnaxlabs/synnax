@@ -103,7 +103,6 @@ def start_core() -> subprocess.Popen[bytes]:
     log_file = DATA_DIR / "synnax-core.log"
 
     env = os.environ.copy()
-    # Ensure persistent storage (no -m flag)
     env.setdefault("SYNNAX_LICENSE_KEY", "")
 
     print(f"Starting Core from {binary}...")
@@ -116,7 +115,6 @@ def start_core() -> subprocess.Popen[bytes]:
             env=env,
         )
 
-    # Wait for port readiness
     timer = sy.Timer()
     while timer.elapsed() < STARTUP_TIMEOUT:
         try:
@@ -283,10 +281,8 @@ def main() -> None:
         print("Cleanup complete")
 
     if success:
-        print("\nMigration test PASSED")
         sys.exit(0)
     else:
-        print("\nMigration test FAILED")
         sys.exit(1)
 
 

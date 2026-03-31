@@ -17,10 +17,11 @@ on:
 
 jobs:
   setup:
-    name: Generate Migration Chain
+    name: Generate Migration Chains
     runs-on: ubuntu-latest
     outputs:
-      CHAIN: ${{ steps.chain.outputs.MIGRATION_CHAIN }}
+      MINIMUM_CHAIN: ${{ steps.chain.outputs.MINIMUM_CHAIN }}
+      PREVIOUS_CHAIN: ${{ steps.chain.outputs.PREVIOUS_CHAIN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -28,14 +29,14 @@ jobs:
       - name: Reference Run ID
         run: echo "Reference run ID:${{ inputs.ref_run_id }}"
 
-      - name: Generate Migration Chain
+      - name: Generate Migration Chains
         id: chain
         env:
           GH_TOKEN: ${{ github.token }}
         run: integration/scripts/generate_migration_matrix.sh
 
   test:
-    name: Migration (${{ matrix.os }})
+    name: ${{ matrix.chain_name }} (${{ matrix.os }})
     needs: setup
     timeout-minutes: 60
     runs-on:
@@ -45,6 +46,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            chain_name: minimum
+            chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
+          - os: ubuntu-latest
+            chain_name: previous
+            chain: ${{ needs.setup.outputs.PREVIOUS_CHAIN }}
+          - os: windows-latest
+            chain_name: minimum
+            chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
+          - os: windows-latest
+            chain_name: previous
+            chain: ${{ needs.setup.outputs.PREVIOUS_CHAIN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -101,14 +115,14 @@ jobs:
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
         run: >-
-          uv run migration-orchestrator --chain "${{ needs.setup.outputs.CHAIN }}"
-          --test-type inplace
+          uv run migration-orchestrator --chain "${{ matrix.chain }}" --test-type
+          inplace
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: migration-results-${{ matrix.os }}
+          name: migration-results-${{ matrix.chain_name }}-${{ matrix.os }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -116,6 +130,8 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
-          name: migration-core-logs-${{ matrix.os }}-attempt-${{ github.run_attempt }}
+          name:
+            migration-core-logs-${{ matrix.chain_name }}-${{ matrix.os }}-attempt-${{
+            github.run_attempt }}
           path: ~/synnax-data/synnax-core.log
           retention-days: 7

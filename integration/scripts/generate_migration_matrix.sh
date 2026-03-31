@@ -9,10 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Discovers stable releases and outputs a migration chain:
-#   minimum,intermediate,latest
-#
-# The intermediate is the midpoint between the minimum and most recent release.
+# Discovers stable releases and outputs two migration chains:
+#   MINIMUM_CHAIN: minimum_version -> latest (build artifact)
+#   PREVIOUS_CHAIN: most_recent_release -> latest (build artifact)
 #
 # Usage:
 #   generate_migration_matrix.sh
@@ -50,16 +49,13 @@ fi
 echo "Found ${#VERSIONS[@]} versions: ${VERSIONS[*]}"
 
 MINIMUM="${VERSIONS[0]}"
+PREVIOUS="${VERSIONS[-1]}"
 
-if [[ ${#VERSIONS[@]} -ge 3 ]]; then
-    MID_IDX=$((${#VERSIONS[@]} / 2))
-    INTERMEDIATE="${VERSIONS[$MID_IDX]}"
-    CHAIN="${MINIMUM},${INTERMEDIATE},latest"
-elif [[ ${#VERSIONS[@]} -eq 2 ]]; then
-    CHAIN="${MINIMUM},${VERSIONS[1]},latest"
-else
-    CHAIN="${MINIMUM},latest"
-fi
+MINIMUM_CHAIN="${MINIMUM},latest"
+PREVIOUS_CHAIN="${PREVIOUS},latest"
 
-echo "Migration chain: $CHAIN"
-echo "MIGRATION_CHAIN=$CHAIN" >> "$GITHUB_OUTPUT"
+echo "Minimum chain: $MINIMUM_CHAIN"
+echo "Previous chain: $PREVIOUS_CHAIN"
+
+echo "MINIMUM_CHAIN=$MINIMUM_CHAIN" >> "$GITHUB_OUTPUT"
+echo "PREVIOUS_CHAIN=$PREVIOUS_CHAIN" >> "$GITHUB_OUTPUT"
