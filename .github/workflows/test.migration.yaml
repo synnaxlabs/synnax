@@ -22,6 +22,8 @@ jobs:
     outputs:
       MINIMUM_CHAIN: ${{ steps.chain.outputs.MINIMUM_CHAIN }}
       PREVIOUS_CHAIN: ${{ steps.chain.outputs.PREVIOUS_CHAIN }}
+      MINIMUM_VERSION: ${{ steps.chain.outputs.MINIMUM_VERSION }}
+      PREVIOUS_VERSION: ${{ steps.chain.outputs.PREVIOUS_VERSION }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -36,7 +38,7 @@ jobs:
         run: integration/scripts/generate_migration_matrix.sh
 
   test:
-    name: ${{ matrix.chain_name }} (${{ matrix.os }})
+    name: "From ${{ matrix.version }} (${{ matrix.os }})"
     needs: setup
     timeout-minutes: 60
     runs-on:
@@ -46,19 +48,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        chain_name: [minimum, previous]
         include:
-          - os: ubuntu-latest
-            chain_name: minimum
+          - chain_name: minimum
             chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
-          - os: ubuntu-latest
-            chain_name: previous
+            version: ${{ needs.setup.outputs.MINIMUM_VERSION }}
+          - chain_name: previous
             chain: ${{ needs.setup.outputs.PREVIOUS_CHAIN }}
-          - os: windows-latest
-            chain_name: minimum
-            chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
-          - os: windows-latest
-            chain_name: previous
-            chain: ${{ needs.setup.outputs.PREVIOUS_CHAIN }}
+            version: ${{ needs.setup.outputs.PREVIOUS_VERSION }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
