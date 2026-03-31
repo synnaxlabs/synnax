@@ -13,50 +13,17 @@
 #   previous_version,latest
 #
 # Usage:
-#   generate_migration_matrix.sh --platform <linux|windows>
+#   generate_migration_matrix.sh
 
 set -euo pipefail
 
 MINIMUM_VERSION="0.50.0"
 
-# --- Argument parsing ---
-
-PLATFORM=""
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --platform)
-            PLATFORM="$2"
-            shift 2
-            ;;
-        *)
-            echo "Unknown argument: $1" >&2
-            exit 1
-            ;;
-    esac
-done
-
-if [[ -z "$PLATFORM" ]]; then
-    echo "Usage: generate_migration_matrix.sh --platform <linux|windows>" >&2
-    exit 1
-fi
-
-case "$PLATFORM" in
-    linux) ASSET_SUFFIX="-linux" ;;
-    windows) ASSET_SUFFIX="-windows.exe" ;;
-    *)
-        echo "Unsupported platform: $PLATFORM" >&2
-        exit 1
-        ;;
-esac
-
-# --- Discover the most recent stable release ---
-
 version_gte() {
     [[ "$(printf '%s\n%s' "$1" "$2" | sort -V | head -n1)" == "$2" ]]
 }
 
-echo "Discovering releases >= $MINIMUM_VERSION for platform $PLATFORM..."
+echo "Discovering releases >= $MINIMUM_VERSION..."
 
 RELEASES=$(gh release list --repo synnaxlabs/synnax --json tagName --limit 200 --jq '.[].tagName')
 
@@ -65,12 +32,7 @@ for tag in $RELEASES; do
     if [[ "$tag" =~ ^synnax-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
         ver="${BASH_REMATCH[1]}"
         if version_gte "$ver" "$MINIMUM_VERSION"; then
-            asset_name="synnax-v${ver}${ASSET_SUFFIX}"
-            if gh release view "$tag" --repo synnaxlabs/synnax --json assets --jq '.assets[].name' 2> /dev/null | grep -qx "$asset_name"; then
-                VERSIONS+=("$ver")
-            else
-                echo "  Skipping $ver - no $asset_name asset found"
-            fi
+            VERSIONS+=("$ver")
         fi
     fi
 done
@@ -79,9 +41,11 @@ IFS=$'\n' VERSIONS=($(printf '%s\n' "${VERSIONS[@]}" | sort -V))
 unset IFS
 
 if [[ ${#VERSIONS[@]} -lt 1 ]]; then
-    echo "ERROR: No versions found >= $MINIMUM_VERSION with $PLATFORM binaries" >&2
+    echo "ERROR: No versions found >= $MINIMUM_VERSION" >&2
     exit 1
 fi
+
+echo "Found ${#VERSIONS[@]} versions: ${VERSIONS[*]}"
 
 PREVIOUS="${VERSIONS[-1]}"
 CHAIN="${PREVIOUS},latest"

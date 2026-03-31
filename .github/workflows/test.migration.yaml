@@ -32,7 +32,7 @@ jobs:
         id: chain
         env:
           GH_TOKEN: ${{ github.token }}
-        run: integration/scripts/generate_migration_matrix.sh --platform linux
+        run: integration/scripts/generate_migration_matrix.sh
 
   test:
     name: Migration (${{ matrix.os }})
@@ -45,11 +45,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            platform: linux
-          - os: windows-latest
-            platform: windows
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -105,7 +100,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: >-
           uv run migration-orchestrator --chain "${{ needs.setup.outputs.CHAIN }}"
-          --test-type inplace --platform "${{ matrix.platform }}"
+          --test-type inplace
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
