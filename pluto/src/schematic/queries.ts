@@ -26,7 +26,7 @@ const ACTION_LISTENER: Flux.ChannelListener<
     if (client != null && changed.sessionKey === client.key) return;
     const current = store.schematics.get(changed.key);
     if (current == null) return;
-    const next = schematic.reduceAll(structuredClone(current), changed.actions);
+    const next = schematic.reduceAll(current, changed.actions);
     store.schematics.set(changed.key, next);
   },
 };
@@ -72,6 +72,23 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.schematics.onSet(onChange, key),
   ],
+});
+
+export interface SelectPropsArgs {
+  key: schematic.Key;
+  propKey: string;
+}
+
+export const useSelectProps = Flux.createSelector<
+  FluxSubStore,
+  SelectPropsArgs,
+  Record<string, unknown> | undefined
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, propKey }) =>
+    (store.schematics.get(key) as schematic.Schematic | undefined)?.props?.[propKey] as
+      | Record<string, unknown>
+      | undefined,
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];
@@ -174,7 +191,7 @@ export const { useUpdate: useDispatch } = Flux.createUpdate<
     const actionArray = Array.isArray(actions) ? actions : [actions];
     const current = store.schematics.get(key);
     if (current != null) {
-      const next = schematic.reduceAll(structuredClone(current), actionArray);
+      const next = schematic.reduceAll(current, actionArray);
       rollbacks.push(store.schematics.set(key, next));
     }
     await client.schematics.dispatch(key, actionArray, client.key);

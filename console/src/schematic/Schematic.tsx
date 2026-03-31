@@ -19,47 +19,19 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Base,
-  usePrevious,
   User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { useDispatch } from "react-redux";
+import { box, location, uuid, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 import { Controls } from "@/components";
-import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { stateFromRemote } from "@/schematic/remote";
-import {
-  useSelectLegendVisible,
-  useSelectRequired,
-  useSelectRequiredViewportMode,
-  useSelectVersion,
-} from "@/schematic/selectors";
-import {
-  internalCreate,
-  setControlStatus,
-  setEditable,
-  setFitViewOnResize,
-  setLegend,
-  setRemoteCreated,
-  setViewport,
-  setViewportMode,
-  type State,
-  ZERO_STATE,
-} from "@/schematic/slice";
+import { setControlStatus, setSelected, type StoreState } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
-import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
 
@@ -86,47 +58,6 @@ const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElemen
   );
 };
 
-const useSyncComponent = Workspace.createSyncComponent(
-  "Schematic",
-  async ({ key, workspace, store, fluxStore, client }) => {
-    const storeState = store.getState();
-    if (
-      !Access.updateGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
-    )
-      return;
-    const state = storeState.schematic.schematics[key];
-    if (state == null) return;
-    const layout = Layout.selectRequired(storeState, key);
-    if (state.snapshot) {
-      await client.schematics.rename(key, layout.name);
-      return;
-    }
-    if (!state.remoteCreated) {
-      store.dispatch(setRemoteCreated({ key }));
-      await client.schematics.create(workspace, {
-        key,
-        name: layout.name,
-        viewport: state.viewport,
-        legend: state.legend,
-        editable: state.editable,
-        fitViewOnResize: state.fitViewOnResize,
-        authority: state.authority,
-        snapshot: state.snapshot,
-      });
-      return;
-    }
-    await client.schematics.create(workspace, {
-      key,
-      name: layout.name,
-      viewport: state.viewport,
-      legend: state.legend,
-      editable: state.editable,
-      fitViewOnResize: state.fitViewOnResize,
-      authority: state.authority,
-    });
-  },
-);
-
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <PMenu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
@@ -139,49 +70,41 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
   const username = user?.username ?? "";
   const controlName = username.length > 0 ? `${name} (${username})` : name;
-  const state = useSelectRequired(layoutKey);
-  const legendVisible = useSelectLegendVisible(layoutKey);
+
+  const { data: doc } = Base.useRetrieve({ key: layoutKey });
   const dispatch = useDispatch();
-  const syncDispatch = useSyncComponent(layoutKey);
-
-  const viewportRef = useSyncedRef(state.viewport);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey, syncDispatch]);
 
   const hasEditPermission =
-    Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
-  const canEdit = hasEditPermission && state.editable;
+    Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
+    !(doc?.snapshot ?? false);
+  const editable = hasEditPermission && (doc?.editable ?? true);
 
-  const [selected, setSelected] = useState<string[]>([]);
-
-  const handleViewportChange = useCallback(
-    (vp: Diagram.Viewport) =>
-      syncDispatch(setViewport({ key: layoutKey, viewport: vp })),
-    [layoutKey, syncDispatch],
+  const selected = useSelector(
+    (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
+  );
+  const control = useSelector(
+    (s: StoreState) => s.schematic.schematics[layoutKey]?.control ?? "released",
+  );
+  const legendState = useSelector(
+    (s: StoreState) => s.schematic.schematics[layoutKey]?.legend,
   );
 
-  const handleEditableChange = useCallback(
-    (cbk: boolean) => syncDispatch(setEditable({ key: layoutKey, editable: cbk })),
-    [layoutKey, syncDispatch],
-  );
-
-  const handleSetFitViewOnResize = useCallback(
-    (v: boolean) =>
-      syncDispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
-    [layoutKey, syncDispatch],
+  const handleSelectionChange = useCallback(
+    (next: string[]) => dispatch(setSelected({ key: layoutKey, selected: next })),
+    [dispatch, layoutKey],
   );
 
   const handleControlStatusChange = useCallback(
-    (control: Control.Status) =>
-      syncDispatch(setControlStatus({ key: layoutKey, control })),
-    [layoutKey, syncDispatch],
+    (next: Control.Status) =>
+      dispatch(setControlStatus({ key: layoutKey, control: next })),
+    [dispatch, layoutKey],
   );
 
-  const ref = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<Viewport.Mode>("select");
 
+  const viewportRef = useSyncedRef(doc?.viewport ?? { position: xy.ZERO, zoom: 1 });
+
+  const ref = useRef<HTMLDivElement>(null);
   const handleAddElement = useAddSymbol(layoutKey);
 
   const calculateCursorPosition = useCallback(
@@ -216,50 +139,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     onDrop: handleDrop,
   });
 
-  const mode = useSelectRequiredViewportMode(layoutKey);
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const handleDoubleClick = useCallback(() => {
-    if (!state.editable) return;
-    syncDispatch(
-      Layout.setNavDrawerVisible({
-        windowKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [windowKey, state.editable, syncDispatch]);
+    if (!editable) return;
+    Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true });
+  }, [windowKey, editable]);
 
-  const [legendPosition, setLegendPosition] = useState<sticky.XY>(
-    state.legend.position,
-  );
-
-  const storeLegendPosition = useCallback(
-    (position: sticky.XY) =>
-      syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
-    [layoutKey, syncDispatch],
-  );
-
-  const handleLegendPositionChange = useCallback(
-    (position: sticky.XY) => {
-      setLegendPosition(position);
-      storeLegendPosition(position);
-    },
-    [storeLegendPosition, setLegendPosition],
-  );
-
-  const handleLegendColorsChange = useCallback(
-    (colors: Record<string, string>) =>
-      syncDispatch(setLegend({ key: layoutKey, legend: { colors } })),
-    [layoutKey, syncDispatch],
-  );
-
-  const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
+  const handleClearSelection = useCallback(
+    () => dispatch(setSelected({ key: layoutKey, selected: [] })),
     [dispatch, layoutKey],
   );
-
-  const handleClearSelection = useCallback(() => setSelected([]), []);
 
   Diagram.useTriggers({
     onCopy: () => {},
@@ -279,23 +169,20 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     >
       <Control.Controller
         name={controlName}
-        authority={state.authority}
+        authority={doc?.authority ?? 1}
         onStatusChange={handleControlStatusChange}
       >
         <Base.Schematic
           resourceKey={layoutKey}
           selected={selected}
-          onSelectionChange={setSelected}
-          onViewportChange={handleViewportChange}
+          onSelectionChange={handleSelectionChange}
           viewportMode={mode}
-          onViewportModeChange={handleViewportModeChange}
-          viewport={{ ...state.viewport, zoom: 1 }}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
+          onViewportModeChange={setMode}
+          viewport={doc?.viewport ?? { position: xy.ZERO, zoom: 1 }}
+          editable={editable}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
-          fitViewOnResize={state.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
+          fitViewOnResize={doc?.fitViewOnResize ?? false}
           visible={visible}
           {...dropProps}
         >
@@ -305,18 +192,16 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             <Diagram.Controls.FitView />
             <Flex.Box x pack>
               {hasEditPermission && (
-                <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
+                <Diagram.Controls.ToggleEdit disabled={control === "acquired"} />
               )}
-              {!state.snapshot && <ControlToggleButton control={state.control} />}
+              {!(doc?.snapshot ?? false) && <ControlToggleButton control={control} />}
             </Flex.Box>
           </Controls>
         </Base.Schematic>
-        {legendVisible && (
+        {legendState?.visible && (
           <Control.Legend
-            position={legendPosition}
-            onPositionChange={handleLegendPositionChange}
-            colors={state.legend.colors}
-            onColorsChange={handleLegendColorsChange}
+            position={legendState.position}
+            colors={doc?.legend?.colors ?? {}}
             allowVisibleChange={false}
           />
         )}
@@ -325,18 +210,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-const useLoadRemote = createLoadRemote<schematic.Schematic>({
-  useRetrieve: Base.useRetrieveObservable,
-  targetVersion: ZERO_STATE.version,
-  useSelectVersion,
-  actionCreator: (v) => internalCreate(stateFromRemote(v)),
-});
-
-export const SchematicComponent: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const loaded = useLoadRemote(layoutKey);
-  if (loaded == null) return null;
-  return <Loaded layoutKey={layoutKey} {...rest} />;
-};
+export const SchematicComponent: Layout.Renderer = (props) => <Loaded {...props} />;
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
@@ -361,16 +235,15 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
 Selectable.type = LAYOUT_TYPE;
 Selectable.useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
 
-export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
+export interface CreateArg extends Partial<Layout.BaseState> {
+  key?: string;
+}
 
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch }) => {
-    const canEditSchematic = true;
-    const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
+  () => {
+    const { name = "Schematic", location = "mosaic", window, tab } = initial;
+    const key = initial.key ?? uuid.create();
     return {
       key,
       location,

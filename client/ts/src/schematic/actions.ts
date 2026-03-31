@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { produce } from "immer";
 import { z } from "zod";
 
 import {
@@ -117,7 +118,7 @@ export const reduce = (state: Schematic, action: Action): Schematic => {
   return state;
 };
 
-export const reduceAll = (state: Schematic, actions: Action[]): Schematic => {
-  for (const action of actions) state = reduce(state, action);
-  return state;
-};
+export const reduceAll = (state: Schematic, actions: Action[]): Schematic =>
+  produce(state, (draft) => {
+    for (const action of actions) reduce(draft, action);
+  });

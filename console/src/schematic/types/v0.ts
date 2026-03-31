@@ -31,7 +31,7 @@ export const labelZ = z.looseObject({
 });
 
 export const nodePropsZ = z.looseObject({
-  key: Schematic.Symbol.variantZ,
+  variant: Schematic.Symbol.variantZ,
   color: color.crudeZ.optional(),
   label: labelZ.optional(),
 });
@@ -60,7 +60,7 @@ export const stateZ = z.object({
     .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ).transform((p) => {
     for (const key in p)
-      if (p[key].key === "value") {
+      if (p[key].variant === "value") {
         p[key].redline = Value.ZERO_READLINE;
         p[key].stalenessTimeout = 5;
         p[key].stalenessColor = color.ZERO;

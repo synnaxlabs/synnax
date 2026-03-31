@@ -98,9 +98,9 @@ const labelGridItem = (
 };
 
 export type SymbolProps<P extends object = record.Unknown> = P & {
-  symbolKey: string;
-  position: xy.XY;
+  nodeKey: string;
   aetherKey: string;
+  position: xy.XY;
   selected: boolean;
   onChange: (value: Partial<P>) => void;
 };
@@ -150,7 +150,7 @@ export const createToggle = <P extends object = record.Unknown>(
   },
 ) => {
   const C = ({
-    symbolKey,
+    nodeKey: symbolKey,
     control,
     source,
     sink,
@@ -222,7 +222,7 @@ export const createLabeled = <P extends object = record.Unknown>(
   overrides?: LabeledOverrides,
 ) => {
   const C = ({
-    symbolKey,
+    nodeKey: symbolKey,
     label,
     onChange,
     selected,
@@ -270,7 +270,7 @@ export const createDummyToggle = <P extends object = record.Unknown>(
   Primitive: FC<P>,
 ) => {
   const DummyToggle = ({
-    symbolKey,
+    nodeKey: symbolKey,
     label,
     onChange,
     selected,
@@ -672,7 +672,7 @@ export interface InputProps
 
 export const Input = ({
   label,
-  symbolKey,
+  nodeKey: symbolKey,
   orientation = "left",
   control,
   color,
@@ -734,7 +734,7 @@ export interface SetpointProps
 
 export const Setpoint = ({
   label,
-  symbolKey,
+  nodeKey: symbolKey,
   orientation = "left",
   control,
   units,
@@ -808,7 +808,7 @@ const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
 const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 
 export const Value = ({
-  symbolKey,
+  nodeKey: symbolKey,
   label,
   level = "p",
   position,
@@ -915,7 +915,7 @@ const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {
 } as const;
 
 export const Gauge = ({
-  symbolKey,
+  nodeKey: symbolKey,
   label,
   level = "p",
   position,
@@ -1040,7 +1040,7 @@ export interface ButtonProps
 }
 
 export const Button = ({
-  symbolKey,
+  nodeKey: symbolKey,
   label,
   orientation = "left",
   sink,
@@ -1096,7 +1096,7 @@ export interface LightProps
 }
 
 export const Light = ({
-  symbolKey,
+  nodeKey: symbolKey,
   label,
   source,
   onChange,
@@ -1183,7 +1183,7 @@ export interface TextBoxProps extends Primitives.TextBoxProps {}
 
 export const TextBox = ({
   onChange,
-  symbolKey,
+  nodeKey: symbolKey,
   color,
   width,
   align,
@@ -1219,7 +1219,7 @@ export interface SelectProps
 
 export const Select = ({
   label,
-  symbolKey,
+  nodeKey: symbolKey,
   orientation = "left",
   control,
   color: colorVal,
@@ -1291,7 +1291,7 @@ export interface StateIndicatorProps
 }
 
 export const StateIndicator = ({
-  symbolKey,
+  nodeKey: symbolKey,
   label,
   source,
   onChange,

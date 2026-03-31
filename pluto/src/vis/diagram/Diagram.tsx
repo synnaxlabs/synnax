@@ -144,29 +144,39 @@ export const create = ({
   edge: edgeRenderer,
   connectionLine: connectionLineRenderer,
 }: RendererConfig): FC<DiagramProps> => {
-  const nodeTypes = {
-    custom: ({
-      id,
-      positionAbsoluteX: x,
-      positionAbsoluteY: y,
-      selected = false,
-      draggable = true,
-    }: RFNodeProps) =>
-      nodeRenderer({ nodeKey: id, position: { x, y }, selected, draggable }),
+  const NodeWrapper = ({
+    id,
+    positionAbsoluteX: x,
+    positionAbsoluteY: y,
+    selected = false,
+    draggable = true,
+  }: RFNodeProps): ReactElement => {
+    const position = useMemo(() => ({ x, y }), [x, y]);
+    return nodeRenderer({ nodeKey: id, position, selected, draggable });
   };
 
-  const edgeTypes =
-    edgeRenderer != null
-      ? {
-          default: (rf: RFEdgeProps): ReactElement =>
-            edgeRenderer({
-              edgeKey: rf.id,
-              source: diagram.createEndpoint(rf.sourceX, rf.sourceY, rf.sourcePosition),
-              target: diagram.createEndpoint(rf.targetX, rf.targetY, rf.targetPosition),
-              selected: rf.selected ?? false,
-            }),
-        }
-      : undefined;
+  const nodeTypes = { custom: NodeWrapper };
+
+  const EdgeWrapper = ({ id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, source, target, selected = false }: RFEdgeProps): ReactElement => {
+    const s = useMemo(
+      () => diagram.createEndpoint(sourceX, sourceY, sourcePosition),
+      [sourceX, sourceY, sourcePosition],
+    );
+    const t = useMemo(
+      () => diagram.createEndpoint(targetX, targetY, targetPosition),
+      [targetX, targetY, targetPosition],
+    );
+    return edgeRenderer!({
+      edgeKey: id,
+      source: s,
+      target: t,
+      sourceNode: source,
+      targetNode: target,
+      selected,
+    });
+  };
+
+  const edgeTypes = edgeRenderer != null ? { default: EdgeWrapper } : undefined;
 
   const ConnectionLine =
     connectionLineRenderer != null

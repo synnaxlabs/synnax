@@ -1,8 +1,8 @@
-import { schematic } from "@synnaxlabs/client";
+import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { useKey } from "@/schematic/Context";
-import { useDispatch, useRetrieve } from "@/schematic/queries";
+import { useDispatch, useSelectProps } from "@/schematic/queries";
 import { Symbol } from "@/schematic/symbol";
 import { type Diagram } from "@/vis/diagram";
 
@@ -11,42 +11,37 @@ export const Node = ({
   position,
   selected,
 }: Diagram.NodeProps): ReactElement | null => {
-  const key = useKey();
-  const { data: doc } = useRetrieve({ key });
+  const schematicKey = useKey();
+  const nodeProps = useSelectProps({ key: schematicKey, propKey: nodeKey });
   const { update: dispatch } = useDispatch();
-  const nodeProps = doc?.props?.[nodeKey] as Record<string, unknown> | undefined;
-  const variant = (nodeProps?.key ?? null) as Symbol.Variant | null;
+  const variant = (nodeProps?.variant ?? null) as Symbol.Variant | null;
 
   const handleChange = useCallback(
     (props: object) => {
       if (variant == null) return;
       dispatch({
-        key,
+        key: schematicKey,
         actions: schematic.setProps({
           key: nodeKey,
-          props: { key: variant, ...props },
+          props: { variant, ...props },
         }),
       });
     },
-    [nodeKey, key, variant, dispatch],
+    [nodeKey, schematicKey, variant, dispatch],
   );
 
   if (nodeProps == null || variant == null) return null;
 
-  const C = Symbol.REGISTRY[variant];
-  if (C == null) throw new Error(`Symbol ${variant} not found`);
-
-  const { key: _, ...rest } = nodeProps;
-
+  const Spec = Symbol.REGISTRY[variant];
+  if (Spec == null) throw new NotFoundError(`Symbol ${variant} not found`);
   return (
-    <C.Symbol
-      key={variant}
-      id={nodeKey}
-      symbolKey={nodeKey}
+    <Spec.Symbol
+      key={nodeKey}
+      nodeKey={nodeKey}
       position={position}
       selected={selected}
       onChange={handleChange}
-      {...rest}
+      {...nodeProps}
     />
   );
 };

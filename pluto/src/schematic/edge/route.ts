@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location, type xy } from "@synnaxlabs/x";
+import { box, type location, type xy } from "@synnaxlabs/x";
 
 import { type diagram } from "@/vis/diagram/aether";
 
@@ -41,6 +41,123 @@ const opposite = (dir: Dir): Dir => {
     case "bottom":
       return "top";
   }
+};
+
+/** Returns the perpendicular direction axis for a given direction. */
+const perpendicular = (dir: Dir): "x" | "y" => (isHorizontal(dir) ? "y" : "x");
+
+/** Returns the primary axis for a given direction. */
+const primaryAxis = (dir: Dir): "x" | "y" => (isHorizontal(dir) ? "x" : "y");
+
+/**
+ * Returns true when the target stump tip lies "behind" the source in its
+ * departure direction, meaning the naive route would cross back through the
+ * source node body.
+ */
+export const needsEscape = (stumpTip: xy.XY, dir: Dir, targetTip: xy.XY): boolean => {
+  const axis = primaryAxis(dir);
+  const delta = targetTip[axis] - stumpTip[axis];
+  switch (dir) {
+    case "right":
+    case "bottom":
+      return delta < 0;
+    case "left":
+    case "top":
+      return delta > 0;
+  }
+};
+
+/**
+ * When a route would clip back through a node, compute escape points that route
+ * around the node box on the perpendicular axis.
+ *
+ * Returns the escaped tip position, the new effective direction for the backbone,
+ * and the intermediate points to add to the path.
+ */
+export const computeEscape = (
+  stumpTip: xy.XY,
+  dir: Dir,
+  nodeBox: box.Box,
+  targetTip: xy.XY,
+  targetDir: Dir,
+  targetBox: box.Box | undefined,
+  stumpLength: number,
+): { escapeTip: xy.XY; escapeDir: Dir; points: xy.XY[] } => {
+  const perpAxis = perpendicular(dir);
+
+  // Decide which edge of the node box to escape toward on the perpendicular axis.
+  // Default: the edge closer to the target on the perpendicular axis.
+  const targetPerpCoord = targetTip[perpAxis];
+  const boxTop = perpAxis === "y" ? box.top(nodeBox) : box.left(nodeBox);
+  const boxBottom = perpAxis === "y" ? box.bottom(nodeBox) : box.right(nodeBox);
+
+  const distToTop = Math.abs(targetPerpCoord - boxTop);
+  const distToBottom = Math.abs(targetPerpCoord - boxBottom);
+  let escapeToward: "top" | "bottom" | "left" | "right" =
+    perpAxis === "y"
+      ? distToTop <= distToBottom
+        ? "top"
+        : "bottom"
+      : distToTop <= distToBottom
+        ? "left"
+        : "right";
+
+  // Special case: if opposing directions and target box is close on the
+  // perpendicular axis, flip to the other edge to avoid clipping through the
+  // target box.
+  if (targetBox != null && dir === opposite(targetDir)) {
+    const targetBoxEdge =
+      perpAxis === "y"
+        ? escapeToward === "top"
+          ? box.bottom(targetBox)
+          : box.top(targetBox)
+        : escapeToward === "left"
+          ? box.right(targetBox)
+          : box.left(targetBox);
+    const nodeBoxEdge =
+      perpAxis === "y"
+        ? escapeToward === "top"
+          ? box.top(nodeBox)
+          : box.bottom(nodeBox)
+        : escapeToward === "left"
+          ? box.left(nodeBox)
+          : box.right(nodeBox);
+    if (Math.abs(nodeBoxEdge - targetBoxEdge) < stumpLength) {
+      escapeToward =
+        perpAxis === "y"
+          ? escapeToward === "top"
+            ? "bottom"
+            : "top"
+          : escapeToward === "left"
+            ? "right"
+            : "left";
+    }
+  }
+
+  // Compute the escape coordinate: node box edge + margin in the escape direction.
+  const nodeEdge =
+    perpAxis === "y"
+      ? escapeToward === "top"
+        ? box.top(nodeBox)
+        : box.bottom(nodeBox)
+      : escapeToward === "left"
+        ? box.left(nodeBox)
+        : box.right(nodeBox);
+  const sign =
+    escapeToward === "top" || escapeToward === "left" ? -stumpLength : stumpLength;
+  const escapeCoord = nodeEdge + sign;
+
+  // Build escape points: move perpendicular to clear the box.
+  const escapeMid: xy.XY =
+    perpAxis === "y"
+      ? { x: stumpTip.x, y: escapeCoord }
+      : { x: escapeCoord, y: stumpTip.y };
+
+  return {
+    escapeTip: escapeMid,
+    escapeDir: escapeToward as Dir,
+    points: [escapeMid],
+  };
 };
 
 /**
@@ -145,6 +262,10 @@ export interface RouteProps {
   waypoints?: xy.XY[];
   /** Stump length in pixels. Default 20. */
   stumpLength?: number;
+  /** Bounding box of the source node (for avoidance). */
+  sourceBox?: box.Box;
+  /** Bounding box of the target node (for avoidance). */
+  targetBox?: box.Box;
 }
 
 /**
@@ -156,12 +277,17 @@ export interface RouteProps {
  *
  * When waypoints are provided, the route passes through each waypoint in order.
  * The routing algorithm runs segment-by-segment between consecutive points.
+ *
+ * When sourceBox/targetBox are provided, the router adds escape segments to
+ * avoid clipping through node bodies.
  */
 export const route = ({
   source,
   target,
   waypoints = [],
   stumpLength = STUMP_LENGTH,
+  sourceBox,
+  targetBox,
 }: RouteProps): xy.XY[] => {
   if (waypoints.length === 0)
     return routeDirect(
@@ -170,11 +296,13 @@ export const route = ({
       target.position,
       target.orientation,
       stumpLength,
+      sourceBox,
+      targetBox,
     );
 
   const allPoints: xy.XY[] = [];
 
-  // Source -> first waypoint
+  // Source -> first waypoint (use sourceBox for avoidance)
   const wp0Dir = opposite(inferDirection(waypoints[0], source.position));
   const seg0 = routeDirect(
     source.position,
@@ -182,10 +310,12 @@ export const route = ({
     waypoints[0],
     wp0Dir,
     stumpLength,
+    sourceBox,
+    undefined,
   );
   allPoints.push(...seg0.slice(0, -1));
 
-  // Waypoint -> waypoint
+  // Waypoint -> waypoint (no box avoidance, user-placed points are trusted)
   for (let i = 0; i < waypoints.length - 1; i++) {
     const fromDir = inferDirection(waypoints[i], waypoints[i + 1]);
     const toDir = opposite(inferDirection(waypoints[i + 1], waypoints[i]));
@@ -199,7 +329,7 @@ export const route = ({
     allPoints.push(...seg.slice(0, -1));
   }
 
-  // Last waypoint -> target
+  // Last waypoint -> target (use targetBox for avoidance)
   const lastWp = waypoints[waypoints.length - 1];
   const lastWpDir = inferDirection(lastWp, target.position);
   const segN = routeDirect(
@@ -208,6 +338,8 @@ export const route = ({
     target.position,
     target.orientation,
     stumpLength,
+    undefined,
+    targetBox,
   );
   allPoints.push(...segN);
 
@@ -221,9 +353,62 @@ const routeDirect = (
   target: xy.XY,
   targetDir: Dir,
   stumpLength: number,
+  sourceBox?: box.Box,
+  targetBox?: box.Box,
 ): xy.XY[] => {
   const a = extend(source, sourceDir, stumpLength);
   const b = extend(target, targetDir, stumpLength);
-  const backbone = computeBackbone(a, b, sourceDir, targetDir);
-  return simplify([source, a, ...backbone, b, target]);
+
+  let srcEscapePoints: xy.XY[] = [];
+  let tgtEscapePoints: xy.XY[] = [];
+  let effectiveA = a;
+  let effectiveSrcDir = sourceDir;
+  let effectiveB = b;
+  let effectiveTgtDir = targetDir;
+
+  if (sourceBox != null && needsEscape(a, sourceDir, b)) {
+    const esc = computeEscape(
+      a,
+      sourceDir,
+      sourceBox,
+      b,
+      targetDir,
+      targetBox,
+      stumpLength,
+    );
+    srcEscapePoints = esc.points;
+    effectiveA = esc.escapeTip;
+    effectiveSrcDir = esc.escapeDir;
+  }
+
+  if (targetBox != null && needsEscape(b, targetDir, effectiveA)) {
+    const esc = computeEscape(
+      b,
+      targetDir,
+      targetBox,
+      effectiveA,
+      effectiveSrcDir,
+      sourceBox,
+      stumpLength,
+    );
+    tgtEscapePoints = esc.points;
+    effectiveB = esc.escapeTip;
+    effectiveTgtDir = esc.escapeDir;
+  }
+
+  const backbone = computeBackbone(
+    effectiveA,
+    effectiveB,
+    effectiveSrcDir,
+    effectiveTgtDir,
+  );
+  return simplify([
+    source,
+    a,
+    ...srcEscapePoints,
+    ...backbone,
+    ...tgtEscapePoints.reverse(),
+    b,
+    target,
+  ]);
 };

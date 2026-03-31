@@ -70,7 +70,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: nodeKey,
-          props: { key: "valve" },
+          props: { variant: "valve" },
           node: { position: { x: 100, y: 100 } },
         }),
       );
@@ -80,7 +80,7 @@ describe("Schematic Slice", () => {
       expect(schematic.nodes).toHaveLength(1);
       expect(schematic.nodes[0].key).toBe(nodeKey);
       expect(schematic.nodes[0].position).toEqual({ x: 100, y: 100 });
-      expect(schematic.props[nodeKey]).toEqual({ key: "valve" });
+      expect(schematic.props[nodeKey]).toEqual({ variant: "valve" });
     });
 
     it("should update node positions", () => {
@@ -92,7 +92,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: node1Key,
-          props: { key: "valve" },
+          props: { variant: "valve" },
           node: { position: { x: 0, y: 0 } },
         }),
       );
@@ -100,7 +100,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: node2Key,
-          props: { key: "valve" },
+          props: { variant: "valve" },
           node: { position: { x: 150, y: 20 } },
         }),
       );

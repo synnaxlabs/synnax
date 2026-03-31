@@ -47,7 +47,7 @@ export const useAddSymbol = (schematicKey: string) => {
         zIndex: spec.zIndex,
       };
       const props: record.Unknown = {
-        key: variant,
+        variant,
         ...initialProps,
         ...parsedData.data,
       };

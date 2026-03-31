@@ -179,6 +179,8 @@ export interface EdgeProps {
   edgeKey: string;
   source: EdgeEndpoint;
   target: EdgeEndpoint;
+  sourceNode: string;
+  targetNode: string;
   selected: boolean;
 }
 
