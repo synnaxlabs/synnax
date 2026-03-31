@@ -93,12 +93,13 @@ jobs:
         working-directory: integration
         run: uv run playwright install --with-deps
 
-      - name: Run Migration Test
+      - name: Migration Test
         working-directory: integration
         env:
           GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
           PYTHONUNBUFFERED: "1"
+          PYTHONIOENCODING: utf-8
         run: >-
           uv run migration-orchestrator --chain "${{ needs.setup.outputs.CHAIN }}"
           --test-type inplace
