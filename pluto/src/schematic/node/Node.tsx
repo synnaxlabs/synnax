@@ -10,6 +10,7 @@ export const Node = ({
   nodeKey,
   position,
   selected,
+  draggable,
 }: Diagram.NodeProps): ReactElement | null => {
   const schematicKey = useKey();
   const nodeProps = useSelectProps({ key: schematicKey, propKey: nodeKey });
@@ -40,8 +41,9 @@ export const Node = ({
       nodeKey={nodeKey}
       position={position}
       selected={selected}
+      draggable={draggable}
       onChange={handleChange}
-      {...nodeProps}
+      data={nodeProps}
     />
   );
 };

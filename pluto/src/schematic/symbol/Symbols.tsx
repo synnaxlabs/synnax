@@ -9,16 +9,7 @@
 
 import "@/schematic/symbol/Symbols.css";
 
-import {
-  type bounds,
-  box,
-  color,
-  direction,
-  location,
-  type record,
-  scale,
-  xy,
-} from "@synnaxlabs/x";
+import { type bounds, box, color, direction, location, scale, xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type FC,
@@ -97,15 +88,16 @@ const labelGridItem = (
   };
 };
 
-export type SymbolProps<P extends object = record.Unknown> = P & {
+export type SymbolProps<P extends object = object> = {
   nodeKey: string;
-  aetherKey: string;
   position: xy.XY;
   selected: boolean;
+  draggable?: boolean;
   onChange: (value: Partial<P>) => void;
+  data: P;
 };
 
-export type PreviewProps<P extends object = record.Unknown> = P & {
+export type PreviewProps<P extends object = object> = P & {
   scale?: number;
 };
 
@@ -143,7 +135,7 @@ export type ToggleProps<T> = T &
     orientation?: location.Outer;
   };
 
-export const createToggle = <P extends object = record.Unknown>(
+export const createToggle = <P extends object = object>(
   BaseSymbol: FC<P>,
   overrides?: {
     grid?: Partial<Omit<GridProps, "editable">>;
@@ -151,16 +143,12 @@ export const createToggle = <P extends object = record.Unknown>(
 ) => {
   const C = ({
     nodeKey: symbolKey,
-    control,
-    source,
-    sink,
-    label,
     onChange,
     selected,
-    orientation = "left",
     position: _,
-    ...rest
+    data,
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
+    const { control, source, sink, label, orientation = "left", ...rest } = data;
     const { enabled, toggle } = Toggle.use({
       aetherKey: symbolKey,
       source,
@@ -208,7 +196,7 @@ export const createToggle = <P extends object = record.Unknown>(
   return C;
 };
 
-type LabeledProps<P extends object = record.Unknown> = P & {
+type LabeledProps<P extends object = object> = P & {
   label?: LabelExtensionProps;
   orientation?: location.Outer;
 };
@@ -217,19 +205,18 @@ interface LabeledOverrides {
   grid: Partial<Omit<GridProps, "editable">>;
 }
 
-export const createLabeled = <P extends object = record.Unknown>(
+export const createLabeled = <P extends object = object>(
   BaseSymbol: FC<P>,
   overrides?: LabeledOverrides,
 ) => {
   const C = ({
     nodeKey: symbolKey,
-    label,
     onChange,
     selected,
     position: _,
-    orientation = "left",
-    ...rest
+    data,
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
+    const { label, orientation = "left", ...rest } = data;
     const gridItems: GridItem[] = [];
     /* @ts-expect-error - typescript with HOCs */
     const labelItem = labelGridItem(label, onChange);
@@ -261,25 +248,26 @@ export const createLabeled = <P extends object = record.Unknown>(
   return C;
 };
 
-type DummyToggleProps<P extends object = record.Unknown> = LabeledProps<P> & {
+type DummyToggleProps<P extends object = object> = LabeledProps<P> & {
   enabled?: boolean;
   clickable?: boolean;
 };
 
-export const createDummyToggle = <P extends object = record.Unknown>(
-  Primitive: FC<P>,
-) => {
+export const createDummyToggle = <P extends object = object>(Primitive: FC<P>) => {
   const DummyToggle = ({
     nodeKey: symbolKey,
-    label,
     onChange,
     selected,
     position: _,
-    orientation = "left",
-    enabled = false,
-    clickable = false,
-    ...rest
+    data,
   }: SymbolProps<DummyToggleProps<P>>): ReactElement => {
+    const {
+      label,
+      orientation = "left",
+      enabled = false,
+      clickable = false,
+      ...rest
+    } = data;
     const gridItems: GridItem[] = [];
     /* @ts-expect-error - typescript with HOCs */
     const labelItem = labelGridItem(label, onChange);
@@ -541,26 +529,45 @@ export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius">
   label?: LabelExtensionProps;
 }
 
-export const Tank = createLabeled(
-  ({
+export const Tank = ({
+  nodeKey: symbolKey,
+  onChange,
+  selected,
+  data,
+}: SymbolProps<TankProps>): ReactElement => {
+  const {
+    label,
+    orientation = "left",
     backgroundColor,
-    onChange,
-    orientation,
     color,
     dimensions,
     borderRadius,
-  }: SymbolProps<TankProps>): ReactElement => (
-    <Primitives.Tank
-      onResize={(dims) => onChange({ dimensions: dims })}
-      orientation={orientation}
-      color={color}
-      dimensions={dimensions}
-      borderRadius={borderRadius}
-      backgroundColor={backgroundColor}
-    />
-  ),
-  { grid: { allowCenter: true, allowRotate: false } },
-);
+  } = data;
+  const gridItems: GridItem[] = [];
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+  return (
+    <Grid
+      allowCenter
+      allowRotate={false}
+      items={gridItems}
+      editable={selected}
+      symbolKey={symbolKey}
+      onLocationChange={(key, loc) => {
+        if (key === "label") onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <Primitives.Tank
+        onResize={(dims) => onChange({ dimensions: dims })}
+        orientation={orientation}
+        color={color}
+        dimensions={dimensions}
+        borderRadius={borderRadius}
+        backgroundColor={backgroundColor}
+      />
+    </Grid>
+  );
+};
 
 export const TankPreview = (props: TankProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} />
@@ -579,7 +586,7 @@ export const Triangle = createLabeled(
     backgroundColor,
     numSides,
     ...rest
-  }: SymbolProps<Primitives.PolygonProps>) => (
+  }: Primitives.PolygonProps) => (
     <Primitives.Polygon
       numSides={3}
       sideLength={sideLength}
@@ -602,7 +609,7 @@ export const PolygonSymbol = createLabeled(
     backgroundColor,
     strokeWidth,
     ...rest
-  }: SymbolProps<Primitives.PolygonProps>) => (
+  }: Primitives.PolygonProps) => (
     <Primitives.Polygon
       numSides={numSides}
       sideLength={sideLength}
@@ -623,7 +630,7 @@ export const Circle = createLabeled(
     backgroundColor,
     strokeWidth,
     ...rest
-  }: SymbolProps<Primitives.CircleShapeProps>) => (
+  }: Primitives.CircleShapeProps) => (
     <Primitives.CircleShape
       radius={radius}
       color={color}
@@ -635,28 +642,47 @@ export const Circle = createLabeled(
   { grid: { allowRotate: false } },
 );
 
-export const Box = createLabeled(
-  ({
+export const Box = ({
+  nodeKey: symbolKey,
+  onChange,
+  selected,
+  data,
+}: SymbolProps<BoxProps>): ReactElement => {
+  const {
+    label,
+    orientation = "left",
     backgroundColor,
     borderRadius,
-    onChange,
-    orientation,
     color,
     dimensions,
     strokeWidth,
-  }: SymbolProps<BoxProps>): ReactElement => (
-    <Primitives.Tank
-      onResize={(dims) => onChange({ dimensions: dims })}
-      orientation={orientation}
-      color={color}
-      dimensions={dimensions}
-      boxBorderRadius={borderRadius}
-      backgroundColor={backgroundColor}
-      strokeWidth={strokeWidth}
-    />
-  ),
-  { grid: { allowCenter: true, allowRotate: false } },
-);
+  } = data;
+  const gridItems: GridItem[] = [];
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+  return (
+    <Grid
+      allowCenter
+      allowRotate={false}
+      items={gridItems}
+      editable={selected}
+      symbolKey={symbolKey}
+      onLocationChange={(key, loc) => {
+        if (key === "label") onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <Primitives.Tank
+        onResize={(dims) => onChange({ dimensions: dims })}
+        orientation={orientation}
+        color={color}
+        dimensions={dimensions}
+        boxBorderRadius={borderRadius}
+        backgroundColor={backgroundColor}
+        strokeWidth={strokeWidth}
+      />
+    </Grid>
+  );
+};
 
 export const BoxPreview = (props: BoxProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} borderRadius={0} />
@@ -671,18 +697,13 @@ export interface InputProps
 }
 
 export const Input = ({
-  label,
   nodeKey: symbolKey,
-  orientation = "left",
-  control,
-  color,
-  sink,
   onChange,
   selected,
-  size,
-  disabled,
   draggable,
+  data,
 }: SymbolProps<InputProps>): ReactElement => {
+  const { label, orientation = "left", control, color, sink, size, disabled } = data;
   const { set } = BaseInput.use({ aetherKey: symbolKey, sink });
   const gridItems: GridItem[] = [];
   const controlItem = controlStateGridItem(control);
@@ -733,20 +754,23 @@ export interface SetpointProps
 }
 
 export const Setpoint = ({
-  label,
   nodeKey: symbolKey,
-  orientation = "left",
-  control,
-  units,
-  source,
-  sink,
-  color,
   onChange,
   selected,
   draggable,
-  size,
-  disabled,
+  data,
 }: SymbolProps<SetpointProps>): ReactElement => {
+  const {
+    label,
+    orientation = "left",
+    control,
+    units,
+    source,
+    sink,
+    color,
+    size,
+    disabled,
+  } = data;
   const { value, set } = BaseSetpoint.use({ aetherKey: symbolKey, source, sink });
   const gridItems: GridItem[] = [];
   const controlItem = controlStateGridItem(control);
@@ -809,22 +833,25 @@ const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 
 export const Value = ({
   nodeKey: symbolKey,
-  label,
-  level = "p",
   position,
-  textColor,
-  color,
-  telem: t,
-  units,
   onChange,
-  inlineSize = 70,
   selected,
   draggable,
-  notation,
-  stalenessColor,
-  stalenessTimeout,
-  redline,
+  data,
 }: SymbolProps<ValueProps>): ReactElement => {
+  const {
+    label,
+    level = "p",
+    textColor,
+    color,
+    telem: t,
+    units,
+    inlineSize = 70,
+    notation,
+    stalenessColor,
+    stalenessTimeout,
+    redline,
+  } = data;
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
   const backgroundTelem = useMemo(() => {
@@ -916,18 +943,21 @@ const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {
 
 export const Gauge = ({
   nodeKey: symbolKey,
-  label,
-  level = "p",
   position,
-  color,
-  telem: t,
-  units,
   onChange,
   selected,
-  notation,
-  bounds: b,
-  barWidth,
+  data,
 }: SymbolProps<GaugeProps>): ReactElement => {
+  const {
+    label,
+    level = "p",
+    color,
+    telem: t,
+    units,
+    notation,
+    bounds: b,
+    barWidth,
+  } = data;
   const baseMultiplier = GAUGE_SIZE_MULTIPLIER[level] ?? 100;
   const gaugeSize = baseMultiplier;
 
@@ -1041,16 +1071,11 @@ export interface ButtonProps
 
 export const Button = ({
   nodeKey: symbolKey,
-  label,
-  orientation = "left",
-  sink,
-  control,
   selected,
-  draggable,
   onChange,
-  mode,
-  ...rest
+  data,
 }: SymbolProps<ButtonProps>) => {
+  const { label, orientation = "left", sink, control, mode, ...rest } = data;
   const { onMouseDown, onMouseUp } = BaseButton.use({
     aetherKey: symbolKey,
     sink,
@@ -1097,12 +1122,11 @@ export interface LightProps
 
 export const Light = ({
   nodeKey: symbolKey,
-  label,
-  source,
   onChange,
   selected,
-  ...rest
+  data,
 }: SymbolProps<LightProps>): ReactElement => {
+  const { label, source, ...rest } = data;
   const { enabled } = BaseLight.use({ aetherKey: symbolKey, source });
   const gridItems: GridItem[] = [];
   const labelItem = labelGridItem(label, onChange);
@@ -1131,20 +1155,25 @@ export interface OffPageReferenceProps extends Omit<
 }
 
 export const OffPageReference = ({
-  label: { label, level },
-  orientation,
-  color,
   onChange,
-}: SymbolProps<OffPageReferenceProps>): ReactElement => (
-  <Primitives.OffPageReference
-    className={DRAG_HANDLE_CLASS}
-    onLabelChange={(label) => onChange({ label: { label, level } })}
-    label={label}
-    level={level}
-    orientation={orientation}
-    color={color}
-  />
-);
+  data,
+}: SymbolProps<OffPageReferenceProps>): ReactElement => {
+  const {
+    label: { label, level },
+    orientation,
+    color,
+  } = data;
+  return (
+    <Primitives.OffPageReference
+      className={DRAG_HANDLE_CLASS}
+      onLabelChange={(label) => onChange({ label: { label, level } })}
+      label={label}
+      level={level}
+      orientation={orientation}
+      color={color}
+    />
+  );
+};
 
 export const OffPageReferencePreview = ({
   label: _,
@@ -1152,27 +1181,43 @@ export const OffPageReferencePreview = ({
 }: OffPageReferenceProps) => (
   <Primitives.OffPageReference label="Off Page" {...rest} orientation="right" />
 );
-export const Cylinder = createLabeled<
-  SymbolProps<Omit<Primitives.CylinderProps, "onChange">>
->(
-  ({
+export const Cylinder = ({
+  nodeKey: symbolKey,
+  onChange,
+  selected,
+  data,
+}: SymbolProps<CylinderProps>): ReactElement => {
+  const {
+    label,
+    orientation = "left",
     backgroundColor,
-    onChange,
-    orientation,
     color,
     dimensions,
     borderRadius,
-  }): ReactElement => (
-    <Primitives.Cylinder
-      onResize={(dimensions) => onChange({ dimensions })}
-      orientation={orientation}
-      color={color}
-      dimensions={dimensions}
-      borderRadius={borderRadius}
-      backgroundColor={backgroundColor}
-    />
-  ),
-);
+  } = data;
+  const gridItems: GridItem[] = [];
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+  return (
+    <Grid
+      items={gridItems}
+      editable={selected}
+      symbolKey={symbolKey}
+      onLocationChange={(key, loc) => {
+        if (key === "label") onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <Primitives.Cylinder
+        onResize={(dimensions) => onChange({ dimensions })}
+        orientation={orientation}
+        color={color}
+        dimensions={dimensions}
+        borderRadius={borderRadius}
+        backgroundColor={backgroundColor}
+      />
+    </Grid>
+  );
+};
 export type CylinderProps = LabeledProps<Omit<Primitives.CylinderProps, "onChange">>;
 
 export const CylinderPreview = (props: CylinderProps): ReactElement => (
@@ -1182,27 +1227,25 @@ export const CylinderPreview = (props: CylinderProps): ReactElement => (
 export interface TextBoxProps extends Primitives.TextBoxProps {}
 
 export const TextBox = ({
-  onChange,
   nodeKey: symbolKey,
-  color,
-  width,
-  align,
-  autoFit,
-  level,
-  value,
-}: SymbolProps<Omit<TextBoxProps, "onChange">>): ReactElement => (
-  <Primitives.TextBox
-    className={DRAG_HANDLE_CLASS}
-    onChange={(v) => onChange({ value: v })}
-    value={value}
-    level={level}
-    color={color}
-    key={symbolKey}
-    width={width}
-    align={align}
-    autoFit={autoFit}
-  />
-);
+  onChange,
+  data,
+}: SymbolProps<Omit<TextBoxProps, "onChange">>): ReactElement => {
+  const { color, width, align, autoFit, level, value } = data;
+  return (
+    <Primitives.TextBox
+      className={DRAG_HANDLE_CLASS}
+      onChange={(v) => onChange({ value: v })}
+      value={value}
+      level={level}
+      color={color}
+      key={symbolKey}
+      width={width}
+      align={align}
+      autoFit={autoFit}
+    />
+  );
+};
 
 export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
   <Primitives.TextBox {...props} autoFit value="Text Box" />
@@ -1218,20 +1261,23 @@ export interface SelectProps
 }
 
 export const Select = ({
-  label,
   nodeKey: symbolKey,
-  orientation = "left",
-  control,
-  color: colorVal,
-  sink,
   onChange,
   selected,
   draggable,
-  options,
-  size,
-  disabled,
-  inlineSize,
+  data,
 }: SymbolProps<SelectProps>): ReactElement => {
+  const {
+    label,
+    orientation = "left",
+    control,
+    color: colorVal,
+    sink,
+    options,
+    size,
+    disabled,
+    inlineSize,
+  } = data;
   const { set } = BaseSetpoint.use({ aetherKey: symbolKey, sink });
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
   const handleSelectionChange = (key: string | null): void =>
@@ -1292,15 +1338,12 @@ export interface StateIndicatorProps
 
 export const StateIndicator = ({
   nodeKey: symbolKey,
-  label,
-  source,
   onChange,
   selected,
   draggable,
-  options,
-  color: colorVal,
-  inlineSize,
+  data,
 }: SymbolProps<StateIndicatorProps>): ReactElement => {
+  const { label, source, options, color: colorVal, inlineSize } = data;
   const { key: matchedOptionKey } = BaseStateIndicator.use({
     aetherKey: symbolKey,
     source,

@@ -8,23 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Breadcrumb,
+  Flex,
+  Icon,
+  Schematic as Base,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { EmptyAction, Toolbar as Base } from "@/components";
+import { EmptyAction, Toolbar as CoreToolbar } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
+import { useSelectControlStatus, useSelectEditable } from "@/schematic/selectors";
 import {
-  useSelectControlStatus,
-  useSelectEditable,
-  useSelectIsSnapshot,
-  useSelectSelectedElementNames,
-  useSelectToolbar,
-} from "@/schematic/selectors";
-import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
+  setActiveToolbarTab,
+  setEditable,
+  type StoreState,
+  type ToolbarTab,
+} from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
@@ -43,7 +49,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const hasEditingPermissions = Access.useUpdateGranted(
     schematic.ontologyID(layoutKey),
   );
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isSnapshot = Base.useSelectSnapshot({ key: layoutKey }) ?? false;
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
@@ -57,9 +63,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
             : "enable editing."
           : undefined
       }
-      onClick={() => {
-        dispatch(setEditable({ key: layoutKey, editable: true }));
-      }}
+      onClick={() => dispatch(setEditable({ key: layoutKey, editable: true }))}
     />
   );
 };
@@ -71,14 +75,19 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectToolbar(layoutKey);
-  const editMode = useSelectEditable(layoutKey) === true;
+  const activeTab = useSelector(
+    (s: StoreState) => s.schematic.schematics[layoutKey]?.activeToolbarTab,
+  );
+  const editable = useSelectEditable(layoutKey);
   const handleExport = useExport();
-  const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const selected = useSelector(
+    (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
+  );
+  const selectedNames = Base.useSelectElementNames({ key: layoutKey, keys: selected });
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isSnapshot = Base.useSelectSnapshot({ key: layoutKey }) ?? false;
   const hasEditPermission = hasUpdatePermission && !isSnapshot;
-  const canEdit = hasEditPermission && editMode;
+  const canEdit = hasEditPermission && editable;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
       if (!canEdit) return <NotEditableContent layoutKey={layoutKey} />;
@@ -102,16 +111,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const value = useMemo(
     () => ({
       tabs: TABS,
-      selected: toolbar?.activeTab,
+      selected: activeTab,
       onSelect: handleTabSelect,
       content,
     }),
-    [toolbar?.activeTab, content, handleTabSelect],
+    [activeTab, content, handleTabSelect],
   );
   return (
     <Tabs.Provider value={value}>
-      <Base.Content>
-        <Base.Header>
+      <CoreToolbar.Content>
+        <CoreToolbar.Header>
           <Breadcrumb.Breadcrumb level="h5">
             <Breadcrumb.Segment weight={500} color={10} level="h5">
               <Icon.Schematic />
@@ -135,9 +144,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
             )}
           </Flex.Box>
-        </Base.Header>
+        </CoreToolbar.Header>
         <Tabs.Content />
-      </Base.Content>
+      </CoreToolbar.Content>
     </Tabs.Provider>
   );
 };

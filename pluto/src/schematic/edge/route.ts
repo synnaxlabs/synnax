@@ -161,36 +161,79 @@ export const computeEscape = (
 };
 
 /**
+ * Clamp a coordinate value so it doesn't fall inside any obstacle box on the
+ * given axis. If the value is inside a box, push it to the nearest edge + margin.
+ * `crossMin`/`crossMax` define the range on the perpendicular axis that the
+ * segment using this coordinate will span. Only boxes that overlap on the
+ * cross-axis are considered.
+ */
+const clampCoord = (
+  value: number,
+  axis: "x" | "y",
+  crossMin: number,
+  crossMax: number,
+  obstacles: box.Box[],
+  margin: number,
+): number => {
+  for (const ob of obstacles) {
+    const obMin = axis === "x" ? box.left(ob) : box.top(ob);
+    const obMax = axis === "x" ? box.right(ob) : box.bottom(ob);
+    const obCrossMin = axis === "x" ? box.top(ob) : box.left(ob);
+    const obCrossMax = axis === "x" ? box.bottom(ob) : box.right(ob);
+    if (value <= obMin || value >= obMax) continue;
+    if (crossMax <= obCrossMin || crossMin >= obCrossMax) continue;
+    const distToMin = value - obMin;
+    const distToMax = obMax - value;
+    if (distToMin <= distToMax) value = obMin - margin;
+    else value = obMax + margin;
+  }
+  return value;
+};
+
+/**
  * Compute the backbone points between two stump endpoints. The stump endpoints
  * are already extended outward from their ports by the stump length.
  *
  * Returns only the intermediate points (not A or B themselves).
+ *
+ * When obstacles are provided, intermediate coordinates are clamped to avoid
+ * routing through any obstacle box.
  */
-const computeBackbone = (a: xy.XY, b: xy.XY, srcDir: Dir, tgtDir: Dir): xy.XY[] => {
+const computeBackbone = (
+  a: xy.XY,
+  b: xy.XY,
+  srcDir: Dir,
+  tgtDir: Dir,
+  obstacles: box.Box[],
+  margin: number,
+): xy.XY[] => {
   const srcH = isHorizontal(srcDir);
   const tgtH = isHorizontal(tgtDir);
 
   if (srcH && tgtH) {
     if (srcDir === opposite(tgtDir)) {
-      // Opposing horizontal (e.g. RIGHT -> LEFT): S-route or U-route
       const goingRight = srcDir === "right";
       const clearance = goingRight ? a.x < b.x : a.x > b.x;
       if (clearance) {
-        const midX = (a.x + b.x) / 2;
+        const yMin = Math.min(a.y, b.y);
+        const yMax = Math.max(a.y, b.y);
+        const midX = clampCoord((a.x + b.x) / 2, "x", yMin, yMax, obstacles, margin);
         return [
           { x: midX, y: a.y },
           { x: midX, y: b.y },
         ];
       }
-      // U-route: pick vertical escape
-      const midY = (a.y + b.y) / 2;
+      const xMin = Math.min(a.x, b.x);
+      const xMax = Math.max(a.x, b.x);
+      const midY = clampCoord((a.y + b.y) / 2, "y", xMin, xMax, obstacles, margin);
       return [
         { x: a.x, y: midY },
         { x: b.x, y: midY },
       ];
     }
-    // Same direction (both RIGHT or both LEFT)
-    const midY = (a.y + b.y) / 2;
+    const xMin = Math.min(a.x, b.x);
+    const xMax = Math.max(a.x, b.x);
+    const midY = clampCoord((a.y + b.y) / 2, "y", xMin, xMax, obstacles, margin);
     return [
       { x: a.x, y: midY },
       { x: b.x, y: midY },
@@ -199,25 +242,28 @@ const computeBackbone = (a: xy.XY, b: xy.XY, srcDir: Dir, tgtDir: Dir): xy.XY[] 
 
   if (!srcH && !tgtH) {
     if (srcDir === opposite(tgtDir)) {
-      // Opposing vertical (e.g. BOTTOM -> TOP)
       const goingDown = srcDir === "bottom";
       const clearance = goingDown ? a.y < b.y : a.y > b.y;
       if (clearance) {
-        const midY = (a.y + b.y) / 2;
+        const xMin = Math.min(a.x, b.x);
+        const xMax = Math.max(a.x, b.x);
+        const midY = clampCoord((a.y + b.y) / 2, "y", xMin, xMax, obstacles, margin);
         return [
           { x: a.x, y: midY },
           { x: b.x, y: midY },
         ];
       }
-      // U-route
-      const midX = (a.x + b.x) / 2;
+      const yMin = Math.min(a.y, b.y);
+      const yMax = Math.max(a.y, b.y);
+      const midX = clampCoord((a.x + b.x) / 2, "x", yMin, yMax, obstacles, margin);
       return [
         { x: midX, y: a.y },
         { x: midX, y: b.y },
       ];
     }
-    // Same direction (both TOP or both BOTTOM)
-    const midX = (a.x + b.x) / 2;
+    const yMin = Math.min(a.y, b.y);
+    const yMax = Math.max(a.y, b.y);
+    const midX = clampCoord((a.x + b.x) / 2, "x", yMin, yMax, obstacles, margin);
     return [
       { x: midX, y: a.y },
       { x: midX, y: b.y },
@@ -243,6 +289,16 @@ const simplify = (points: xy.XY[]): xy.XY[] => {
   }
   result.push(points[points.length - 1]);
   return result;
+};
+
+/**
+ * Create an L-shaped bend between two points. Returns the bend point(s)
+ * connecting `from` to `to` with orthogonal segments. If already axis-aligned,
+ * returns nothing (simplify will handle it).
+ */
+const lBend = (from: xy.XY, to: xy.XY): xy.XY[] => {
+  if (from.x === to.x || from.y === to.y) return [to];
+  return [{ x: to.x, y: from.y }, to];
 };
 
 /** Infer the best departure direction from a point toward a target. */
@@ -300,48 +356,42 @@ export const route = ({
       targetBox,
     );
 
-  const allPoints: xy.XY[] = [];
+  // Build the full chain: source handle → waypoints → target handle.
+  // Only source and target get stumps/escape. Waypoints are simple bend
+  // points connected with L-shaped orthogonal segments.
+  const a = extend(source.position, source.orientation, stumpLength);
+  const lastWp = waypoints[waypoints.length - 1];
+  const b = extend(target.position, target.orientation, stumpLength);
 
-  // Source -> first waypoint (use sourceBox for avoidance)
-  const wp0Dir = opposite(inferDirection(waypoints[0], source.position));
-  const seg0 = routeDirect(
-    source.position,
-    source.orientation,
-    waypoints[0],
-    wp0Dir,
-    stumpLength,
-    sourceBox,
-    undefined,
-  );
-  allPoints.push(...seg0.slice(0, -1));
+  const allPoints: xy.XY[] = [source.position, a];
 
-  // Waypoint -> waypoint (no box avoidance, user-placed points are trusted)
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const fromDir = inferDirection(waypoints[i], waypoints[i + 1]);
-    const toDir = opposite(inferDirection(waypoints[i + 1], waypoints[i]));
-    const seg = routeDirect(
-      waypoints[i],
-      fromDir,
-      waypoints[i + 1],
-      toDir,
+  // Apply source escape if first waypoint is behind source
+  let effectiveA = a;
+  if (sourceBox != null && needsEscape(a, source.orientation, waypoints[0])) {
+    const esc = computeEscape(
+      a,
+      source.orientation,
+      sourceBox,
+      waypoints[0],
+      inferDirection(waypoints[0], a),
+      undefined,
       stumpLength,
     );
-    allPoints.push(...seg.slice(0, -1));
+    allPoints.push(...esc.points);
+    effectiveA = esc.escapeTip;
   }
 
-  // Last waypoint -> target (use targetBox for avoidance)
-  const lastWp = waypoints[waypoints.length - 1];
-  const lastWpDir = inferDirection(lastWp, target.position);
-  const segN = routeDirect(
-    lastWp,
-    lastWpDir,
-    target.position,
-    target.orientation,
-    stumpLength,
-    undefined,
-    targetBox,
-  );
-  allPoints.push(...segN);
+  // Source stump/escape tip → first waypoint: L-bend for orthogonal transition
+  allPoints.push(...lBend(effectiveA, waypoints[0]));
+
+  // Middle waypoints: connect each pair. If consecutive waypoints are axis-aligned,
+  // they stitch directly. Otherwise, insert an L-bend.
+  for (let i = 1; i < waypoints.length; i++)
+    allPoints.push(...lBend(waypoints[i - 1], waypoints[i]));
+
+  // Last waypoint → target stump tip: L-bend for orthogonal transition
+  allPoints.push(...lBend(lastWp, b));
+  allPoints.push(target.position);
 
   return simplify(allPoints);
 };
@@ -396,11 +446,17 @@ const routeDirect = (
     effectiveTgtDir = esc.escapeDir;
   }
 
+  const obstacles: box.Box[] = [];
+  if (sourceBox != null) obstacles.push(sourceBox);
+  if (targetBox != null) obstacles.push(targetBox);
+
   const backbone = computeBackbone(
     effectiveA,
     effectiveB,
     effectiveSrcDir,
     effectiveTgtDir,
+    obstacles,
+    stumpLength,
   );
   return simplify([
     source,

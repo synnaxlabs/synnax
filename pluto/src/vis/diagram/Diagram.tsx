@@ -157,7 +157,18 @@ export const create = ({
 
   const nodeTypes = { custom: NodeWrapper };
 
-  const EdgeWrapper = ({ id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, source, target, selected = false }: RFEdgeProps): ReactElement => {
+  const EdgeWrapper = ({
+    id,
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    source,
+    target,
+    selected = false,
+  }: RFEdgeProps): ReactElement => {
     const s = useMemo(
       () => diagram.createEndpoint(sourceX, sourceY, sourcePosition),
       [sourceX, sourceY, sourcePosition],

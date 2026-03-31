@@ -39,7 +39,7 @@ export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
 export const edgePropsZ = z.object({
   color: color.crudeZ.optional(),
-  variant: Schematic.edgeTypeZ.optional(),
+  variant: Schematic.Edge.edgeTypeZ.optional(),
 });
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 

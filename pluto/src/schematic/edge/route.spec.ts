@@ -39,6 +39,44 @@ const assertValidRoute = (points: xy.XY[], source: xy.XY, target: xy.XY): void =
   }
 };
 
+/**
+ * Assert that no segment of the route passes through the interior of any
+ * provided box. For orthogonal segments only.
+ */
+const assertAvoidsBoxes = (points: xy.XY[], ...boxes: box.Box[]): void => {
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    for (const bx of boxes) {
+      const bLeft = box.left(bx);
+      const bRight = box.right(bx);
+      const bTop = box.top(bx);
+      const bBottom = box.bottom(bx);
+      if (a.y === b.y) {
+        // Horizontal segment: check if y is inside box and x range overlaps
+        const minX = Math.min(a.x, b.x);
+        const maxX = Math.max(a.x, b.x);
+        const clipsY = a.y > bTop && a.y < bBottom;
+        const clipsX = maxX > bLeft && minX < bRight;
+        expect(
+          clipsY && clipsX,
+          `Horizontal segment (${a.x},${a.y})→(${b.x},${b.y}) clips through box (${bLeft},${bTop},${bRight},${bBottom})`,
+        ).toBe(false);
+      } else {
+        // Vertical segment: check if x is inside box and y range overlaps
+        const minY = Math.min(a.y, b.y);
+        const maxY = Math.max(a.y, b.y);
+        const clipsX = a.x > bLeft && a.x < bRight;
+        const clipsY = maxY > bTop && minY < bBottom;
+        expect(
+          clipsX && clipsY,
+          `Vertical segment (${a.x},${a.y})→(${b.x},${b.y}) clips through box (${bLeft},${bTop},${bRight},${bBottom})`,
+        ).toBe(false);
+      }
+    }
+  }
+};
+
 /** Helper to call route with a compact interface. */
 const r = (props: RouteProps): xy.XY[] => route(props);
 
@@ -287,6 +325,7 @@ describe("route", () => {
         sourceBox,
       });
       assertValidRoute(points, { x: 80, y: 20 }, { x: 40, y: 80 });
+      assertAvoidsBoxes(points, sourceBox);
     });
 
     it("target escape when source is behind target node", () => {
@@ -297,6 +336,7 @@ describe("route", () => {
         targetBox,
       });
       assertValidRoute(points, { x: 0, y: 80 }, { x: 50, y: 20 });
+      assertAvoidsBoxes(points, targetBox);
     });
 
     it("both nodes need escape", () => {
@@ -309,6 +349,7 @@ describe("route", () => {
         targetBox,
       });
       assertValidRoute(points, { x: 80, y: 20 }, { x: 40, y: 20 });
+      assertAvoidsBoxes(points, sourceBox, targetBox);
     });
 
     it("no escape needed when target is ahead with clearance", () => {
@@ -322,8 +363,8 @@ describe("route", () => {
         source: ep(40, 20, "right"),
         target: ep(200, 20, "left"),
       });
-      // With clearance, the box shouldn't change the route
       expect(pointsWithBox).toEqual(pointsWithout);
+      assertAvoidsBoxes(pointsWithBox, sourceBox);
     });
 
     it("opposing directions with tight box spacing flips escape", () => {
@@ -336,6 +377,7 @@ describe("route", () => {
         targetBox,
       });
       assertValidRoute(points, { x: 50, y: 25 }, { x: 0, y: 80 });
+      assertAvoidsBoxes(points, sourceBox, targetBox);
     });
   });
 
@@ -370,6 +412,7 @@ describe("route", () => {
         sourceBox,
       });
       assertValidRoute(points, { x: 80, y: 20 }, { x: 200, y: 100 });
+      assertAvoidsBoxes(points, sourceBox);
     });
   });
 

@@ -9,49 +9,10 @@
 
 import { type schematic } from "@synnaxlabs/client";
 
-import { type CreatePayload, type State, ZERO_STATE } from "@/schematic/slice";
+import { type State, ZERO_STATE } from "@/schematic/slice";
 
-export const stateFromRemote = (s: schematic.Schematic): CreatePayload => ({
+export const sessionStateFromRemote = (_s: schematic.Schematic): State => ({
   ...ZERO_STATE,
-  key: s.key,
-  snapshot: s.snapshot,
-  editable: s.editable,
-  fitViewOnResize: s.fitViewOnResize,
-  authority: s.authority,
-  viewport: s.viewport,
-  legend: s.legend,
-  nodes: s.nodes,
-  edges: s.edges,
-  props: s.props as State["props"],
+  legend: { ...ZERO_STATE.legend },
+  selected: [],
 });
-
-export const stateToRemote = (
-  state: State,
-  key: string,
-  name: string,
-): schematic.New => ({
-  key,
-  name,
-  snapshot: state.snapshot,
-  editable: state.editable,
-  fitViewOnResize: state.fitViewOnResize,
-  authority: state.authority,
-  viewport: state.viewport,
-  legend: state.legend,
-  nodes: state.nodes,
-  edges: state.edges as schematic.New["edges"],
-  props: state.props,
-});
-
-export const ZERO_REMOTE: schematic.New = {
-  name: "New Schematic",
-  snapshot: false,
-  editable: ZERO_STATE.editable,
-  fitViewOnResize: ZERO_STATE.fitViewOnResize,
-  authority: ZERO_STATE.authority,
-  viewport: ZERO_STATE.viewport,
-  legend: ZERO_STATE.legend,
-  nodes: ZERO_STATE.nodes,
-  edges: ZERO_STATE.edges as schematic.New["edges"],
-  props: ZERO_STATE.props,
-};

@@ -22,7 +22,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedStateAndRef } from "@/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { useKey } from "@/schematic/Context";
 import { DefaultPath, PATHS } from "@/schematic/edge/paths";
@@ -30,7 +30,6 @@ import { route } from "@/schematic/edge/route";
 import { useDispatch, useSelectProps } from "@/schematic/queries";
 import { type Key } from "@/triggers/triggers";
 import { type diagram } from "@/vis/diagram/aether";
-import { selectNodeBox } from "@/vis/diagram/util";
 
 export const ConnectionLine = ({
   source,
@@ -61,8 +60,12 @@ export const ConnectionLine = ({
 };
 
 interface CurrentlyDragging {
-  index: number;
-  initialWaypoints: xy.XY[];
+  /** Index of the first point of the dragged segment in the interior array. */
+  segStart: number;
+  /** Snapshot of the interior points at drag start. */
+  initialInterior: xy.XY[];
+  /** The perpendicular axis the drag moves along. */
+  dragAxis: direction.Direction;
 }
 
 const segmentDir = (a: xy.XY, b: xy.XY): direction.Direction =>
@@ -78,8 +81,8 @@ export const Edge = ({
   edgeKey,
   source,
   target,
-  sourceNode,
-  targetNode,
+  sourceNode: _sourceNode,
+  targetNode: _targetNode,
   selected = false,
 }: diagram.EdgeProps): ReactElement => {
   const schematicKey = useKey();
@@ -98,32 +101,15 @@ export const Edge = ({
   const [waypoints, setWaypoints, waypointsRef] =
     useCombinedStateAndRef<xy.XY[]>(storedWaypoints);
 
-  // Sync stored waypoints into local state when they change externally.
   const storedRef = useRef(storedWaypoints);
   if (storedWaypoints !== storedRef.current) {
     storedRef.current = storedWaypoints;
     setWaypoints(storedWaypoints);
   }
 
-  const sourceBox = useMemo(() => {
-    try {
-      return selectNodeBox(flow, sourceNode);
-    } catch {
-      return undefined;
-    }
-  }, [sourceNode, source.position.x, source.position.y]);
-
-  const targetBox = useMemo(() => {
-    try {
-      return selectNodeBox(flow, targetNode);
-    } catch {
-      return undefined;
-    }
-  }, [targetNode, target.position.x, target.position.y]);
-
   const points = useMemo(
-    () => route({ source, target, waypoints, sourceBox, targetBox }),
-    [source, target, waypoints, sourceBox, targetBox],
+    () => route({ source, target, waypoints }),
+    [source, target, waypoints],
   );
 
   const persistWaypoints = useCallback(
@@ -139,63 +125,50 @@ export const Edge = ({
     [schematicKey, edgeKey, variant, edgeColor, dispatch],
   );
 
+  // Refs for stable callback access - never in dependency arrays.
+  const pointsRef = useSyncedRef(points);
+  const flowRef = useSyncedRef(flow);
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
-    onStart: useCallback(
-      (_: xy.XY, __: Key, e: DragEvent) => {
-        const segIndex = Number(e.currentTarget.id.split("-")[1]);
-        const currentWaypoints = waypointsRef.current;
-        const currentPoints = route({
-          source,
-          target,
-          waypoints: currentWaypoints,
-          sourceBox,
-          targetBox,
-        });
-        const mid = calcMidPoints(currentPoints)[segIndex];
-        const insertIdx = findWaypointInsertIndex(
-          currentWaypoints,
-          currentPoints,
-          segIndex,
-        );
-        const next = [...currentWaypoints];
-        next.splice(insertIdx, 0, mid);
-        setWaypoints(next);
-        dragRef.current = { index: insertIdx, initialWaypoints: next };
-      },
-      [source, target, sourceBox, targetBox],
-    ),
-    onMove: useCallback(
-      (b: box.Box) => {
-        if (dragRef.current == null) return;
-        const { index, initialWaypoints } = dragRef.current;
-        const wp = initialWaypoints[index];
-        const currentPoints = route({
-          source,
-          target,
-          waypoints: initialWaypoints,
-          sourceBox,
-          targetBox,
-        });
+    onStart: useCallback((_: xy.XY, __: Key, e: DragEvent) => {
+      const segIndex = Number(e.currentTarget.id.split("-")[1]);
+      const currentPoints = pointsRef.current;
 
-        // Find which segment this waypoint sits on to determine the drag axis.
-        const pointIdx = currentPoints.findIndex((p) => xy.equals(p, wp));
-        const dir =
-          pointIdx > 0
-            ? segmentDir(currentPoints[pointIdx - 1], currentPoints[pointIdx])
-            : "x";
-        const dragAxis = direction.swap(dir);
+      // The segment direction tells us which axis is shared and which to drag.
+      const dir = segmentDir(currentPoints[segIndex], currentPoints[segIndex + 1]);
+      const dragAxis = direction.swap(dir);
 
-        const magnitude = box.dim(b, dragAxis, true) / flow.getZoom();
+      // Extract all interior points (everything except source and target).
+      // These become the waypoints that define the route shape.
+      const interior = currentPoints.slice(1, -1).map((p) => ({ ...p }));
 
-        const next = [...initialWaypoints];
-        if (dragAxis === "x") next[index] = { x: wp.x + magnitude, y: wp.y };
-        else next[index] = { x: wp.x, y: wp.y + magnitude };
-        setWaypoints(next);
-      },
-      [source, target, sourceBox, targetBox],
-    ),
+      // The segment at segIndex in the full points array corresponds to
+      // interior indices segIndex-1 and segIndex (shifted by 1 since we
+      // removed the source point).
+      const interiorSegStart = segIndex - 1;
+
+      setWaypoints(interior);
+      dragRef.current = {
+        segStart: interiorSegStart,
+        initialInterior: interior,
+        dragAxis,
+      };
+    }, []),
+    onMove: useCallback((b: box.Box) => {
+      if (dragRef.current == null) return;
+      const { segStart, initialInterior, dragAxis } = dragRef.current;
+      const magnitude = box.dim(b, dragAxis, true) / flowRef.current.getZoom();
+
+      // Adjust the shared coordinate of both endpoints of the dragged segment.
+      const next = initialInterior.map((p) => ({ ...p }));
+      for (const idx of [segStart, segStart + 1]) {
+        if (idx < 0 || idx >= next.length) continue;
+        if (dragAxis === "x") next[idx] = { x: next[idx].x + magnitude, y: next[idx].y };
+        else next[idx] = { x: next[idx].x, y: next[idx].y + magnitude };
+      }
+      setWaypoints(next);
+    }, []),
     onEnd: useCallback(() => {
       persistWaypoints(waypointsRef.current);
       dragRef.current = null;
@@ -250,13 +223,3 @@ export const Edge = ({
   );
 };
 
-const findWaypointInsertIndex = (
-  waypoints: xy.XY[],
-  points: xy.XY[],
-  segIndex: number,
-): number => {
-  let wpIdx = 0;
-  for (let i = 0; i <= segIndex && wpIdx < waypoints.length; i++)
-    if (xy.equals(points[i], waypoints[wpIdx])) wpIdx++;
-  return wpIdx;
-};

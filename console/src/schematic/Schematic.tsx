@@ -25,11 +25,21 @@ import {
 } from "@synnaxlabs/pluto";
 import { box, location, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useSelector, useStore } from "react-redux";
 
 import { Controls } from "@/components";
 import { Layout } from "@/layout";
-import { setControlStatus, setSelected, type StoreState } from "@/schematic/slice";
+import {
+  useSelectEditable,
+  useSelectFitViewOnResize,
+} from "@/schematic/selectors";
+import {
+  setControlStatus,
+  setEditable,
+  setFitViewOnResize,
+  setSelected,
+  type StoreState,
+} from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
 
@@ -73,11 +83,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const { data: doc } = Base.useRetrieve({ key: layoutKey });
   const dispatch = useDispatch();
+  const store = useStore<StoreState>();
 
   const hasEditPermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
     !(doc?.snapshot ?? false);
-  const editable = hasEditPermission && (doc?.editable ?? true);
+  const editableState = useSelectEditable(layoutKey);
+  const editable = hasEditPermission && editableState;
+  const fitViewOnResize = useSelectFitViewOnResize(layoutKey);
 
   const selected = useSelector(
     (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
@@ -97,6 +110,22 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handleControlStatusChange = useCallback(
     (next: Control.Status) =>
       dispatch(setControlStatus({ key: layoutKey, control: next })),
+    [dispatch, layoutKey],
+  );
+
+  const handleEditableChange = useCallback(
+    (v: boolean) => {
+      const before = store.getState().schematic.schematics[layoutKey];
+      console.log("handleEditableChange", { v, before: before?.editable });
+      dispatch(setEditable({ key: layoutKey, editable: v }));
+      const after = store.getState().schematic.schematics[layoutKey];
+      console.log("after dispatch", { editable: after?.editable });
+    },
+    [dispatch, layoutKey, store],
+  );
+
+  const handleFitViewOnResizeChange = useCallback(
+    (v: boolean) => dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
     [dispatch, layoutKey],
   );
 
@@ -179,10 +208,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           viewportMode={mode}
           onViewportModeChange={setMode}
           viewport={doc?.viewport ?? { position: xy.ZERO, zoom: 1 }}
+          onViewportChange={() => {}}
           editable={editable}
+          onEditableChange={handleEditableChange}
+          setFitViewOnResize={handleFitViewOnResizeChange}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
-          fitViewOnResize={doc?.fitViewOnResize ?? false}
+          fitViewOnResize={fitViewOnResize}
           visible={visible}
           {...dropProps}
         >

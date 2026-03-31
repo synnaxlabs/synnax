@@ -61,7 +61,7 @@ const edgeChangeToActions = (change: Diagram.EdgeChange): schematic.Action[] => 
         schematic.setEdge({ edge: change.edge as schematic.Edge }),
         schematic.setProps({
           key: change.edge.key,
-          props: { waypoints: [], variant: "pipe" },
+          props: { waypoints: [], variant: "pipe", color: "#000000" },
         }),
       ];
     case "remove":

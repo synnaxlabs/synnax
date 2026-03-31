@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
+import { type Diagram } from "@/vis/diagram";
 import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -89,6 +90,157 @@ export const useSelectProps = Flux.createSelector<
     (store.schematics.get(key) as schematic.Schematic | undefined)?.props?.[propKey] as
       | Record<string, unknown>
       | undefined,
+});
+
+export interface SelectEdgeArgs {
+  key: schematic.Key;
+  edgeKey: string;
+}
+
+export const useSelectEdge = Flux.createSelector<
+  FluxSubStore,
+  SelectEdgeArgs,
+  Diagram.Edge | undefined
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, edgeKey }) => {
+    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    return s?.edges?.find((e) => e.key === edgeKey);
+  },
+});
+
+export interface ElementDigest {
+  key: string;
+  type: "node" | "edge";
+}
+
+export interface SelectElementDigestsArgs {
+  key: schematic.Key;
+  keys: string[];
+}
+
+export const useSelectElementDigests = Flux.createSelector<
+  FluxSubStore,
+  SelectElementDigestsArgs,
+  ElementDigest[]
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, keys }) => {
+    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    if (s == null || keys.length === 0) return [];
+    const keySet = new Set(keys);
+    const digests: ElementDigest[] = [];
+    for (const node of s.nodes)
+      if (keySet.has(node.key)) digests.push({ key: node.key, type: "node" });
+    for (const edge of s.edges)
+      if (keySet.has(edge.key)) digests.push({ key: edge.key, type: "edge" });
+    return digests;
+  },
+});
+
+export interface NodeElementInfo {
+  key: string;
+  type: "node";
+  node: Diagram.Node;
+  props: Record<string, unknown>;
+}
+
+export interface EdgeElementInfo {
+  key: string;
+  type: "edge";
+  edge: Diagram.Edge;
+}
+
+export type ElementInfo = NodeElementInfo | EdgeElementInfo;
+
+export interface SelectElementsInfoArgs {
+  key: schematic.Key;
+  keys: string[];
+}
+
+export const useSelectElementsInfo = Flux.createSelector<
+  FluxSubStore,
+  SelectElementsInfoArgs,
+  ElementInfo[]
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, keys }) => {
+    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    if (s == null || keys.length === 0) return [];
+    const keySet = new Set(keys);
+    const result: ElementInfo[] = [];
+    for (const node of s.nodes)
+      if (keySet.has(node.key))
+        result.push({
+          key: node.key,
+          type: "node",
+          node,
+          props: (s.props?.[node.key] as Record<string, unknown>) ?? {},
+        });
+    for (const edge of s.edges)
+      if (keySet.has(edge.key)) result.push({ key: edge.key, type: "edge", edge });
+    return result;
+  },
+});
+
+export interface SelectElementNamesArgs {
+  key: schematic.Key;
+  keys: string[];
+}
+
+export const useSelectElementNames = Flux.createSelector<
+  FluxSubStore,
+  SelectElementNamesArgs,
+  (string | null)[]
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, keys }) => {
+    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    if (s == null || keys.length === 0) return [];
+    const keySet = new Set(keys);
+    const result: (string | null)[] = [];
+    for (const node of s.nodes) {
+      if (!keySet.has(node.key)) continue;
+      const p = s.props?.[node.key] as Record<string, unknown> | undefined;
+      const label = (p?.label as Record<string, unknown> | undefined)?.label;
+      result.push(typeof label === "string" ? label : null);
+    }
+    return result;
+  },
+});
+
+export interface SelectFieldArgs {
+  key: schematic.Key;
+}
+
+export const useSelectSnapshot = Flux.createSelector<
+  FluxSubStore,
+  SelectFieldArgs,
+  boolean | undefined
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) =>
+    (store.schematics.get(key) as schematic.Schematic | undefined)?.snapshot,
+});
+
+export const useSelectAuthority = Flux.createSelector<
+  FluxSubStore,
+  SelectFieldArgs,
+  number | undefined
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) =>
+    (store.schematics.get(key) as schematic.Schematic | undefined)?.authority,
+});
+
+export const useSelectViewport = Flux.createSelector<
+  FluxSubStore,
+  SelectFieldArgs,
+  Diagram.Viewport | undefined
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) =>
+    (store.schematics.get(key) as schematic.Schematic | undefined)?.viewport,
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];

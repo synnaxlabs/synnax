@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { type Diagram } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -17,7 +16,6 @@ import {
   SLICE_NAME,
   type StoreState,
   ZERO_SLICE_STATE,
-  ZERO_STATE,
 } from "@/schematic/slice";
 
 describe("Schematic Slice", () => {
@@ -34,520 +32,102 @@ describe("Schematic Slice", () => {
     });
   });
 
-  describe("schematic creation", () => {
-    it("should create a new schematic", () => {
-      const key = "schematic-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-
+  describe("selection", () => {
+    it("should set selected elements and switch to properties tab", () => {
+      store.dispatch(
+        actions.setSelected({ key: "s1", selected: ["node-1", "node-2"] }),
+      );
       const state = store.getState()[SLICE_NAME];
-      expect(state.schematics[key]).toBeDefined();
-      expect(state.schematics[key].key).toBe(key);
-      expect(state.schematics[key].nodes).toEqual([]);
-      expect(state.schematics[key].edges).toEqual([]);
+      expect(state.schematics["s1"].selected).toEqual(["node-1", "node-2"]);
+      expect(state.schematics["s1"].activeToolbarTab).toBe("properties");
     });
 
-    it("should create multiple schematics", () => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-1" }));
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-2" }));
-
+    it("should switch back to symbols tab when selection is cleared", () => {
+      store.dispatch(actions.setSelected({ key: "s1", selected: ["node-1"] }));
+      store.dispatch(actions.setSelected({ key: "s1", selected: [] }));
       const state = store.getState()[SLICE_NAME];
-      expect(Object.keys(state.schematics)).toHaveLength(2);
-      expect(state.schematics["schematic-1"]).toBeDefined();
-      expect(state.schematics["schematic-2"]).toBeDefined();
+      expect(state.schematics["s1"].selected).toEqual([]);
+      expect(state.schematics["s1"].activeToolbarTab).toBe("symbols");
+    });
+
+    it("should auto-create schematic state on first access", () => {
+      store.dispatch(actions.setSelected({ key: "new-schematic", selected: ["a"] }));
+      const state = store.getState()[SLICE_NAME];
+      expect(state.schematics["new-schematic"]).toBeDefined();
+      expect(state.schematics["new-schematic"].control).toBe("released");
     });
   });
 
-  describe("node management", () => {
-    const schematicKey = "test-schematic";
-
-    beforeEach(() => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
-    });
-
-    it("should add a node to schematic", () => {
-      const nodeKey = "valve-1";
-      store.dispatch(
-        actions.addElement({
-          key: schematicKey,
-          elKey: nodeKey,
-          props: { variant: "valve" },
-          node: { position: { x: 100, y: 100 } },
-        }),
-      );
-
+  describe("control status", () => {
+    it("should set control status", () => {
+      store.dispatch(actions.setControlStatus({ key: "s1", control: "acquired" }));
       const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      expect(schematic.nodes).toHaveLength(1);
-      expect(schematic.nodes[0].key).toBe(nodeKey);
-      expect(schematic.nodes[0].position).toEqual({ x: 100, y: 100 });
-      expect(schematic.props[nodeKey]).toEqual({ variant: "valve" });
-    });
-
-    it("should update node positions", () => {
-      const node1Key = "valve-1";
-      const node2Key = "valve-2";
-
-      // Add two nodes
-      store.dispatch(
-        actions.addElement({
-          key: schematicKey,
-          elKey: node1Key,
-          props: { variant: "valve" },
-          node: { position: { x: 0, y: 0 } },
-        }),
-      );
-      store.dispatch(
-        actions.addElement({
-          key: schematicKey,
-          elKey: node2Key,
-          props: { variant: "valve" },
-          node: { position: { x: 150, y: 20 } },
-        }),
-      );
-
-      // Update positions (simulating alignment)
-      store.dispatch(
-        actions.setNodePositions({
-          key: schematicKey,
-          positions: [
-            [node1Key, { x: 0, y: 0 }],
-            [node2Key, { x: 150, y: 0 }], // Aligned vertically
-          ],
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === node1Key);
-      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === node2Key);
-
-      expect(node1?.position).toEqual({ x: 0, y: 0 });
-      expect(node2?.position).toEqual({ x: 150, y: 0 });
-      expect(node1?.position.y).toBe(node2?.position.y); // Aligned
-    });
-
-    it("should set multiple nodes at once", () => {
-      const nodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-        { key: "valve-3", position: { x: 300, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes,
-          mode: "replace",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      expect(schematic.nodes).toHaveLength(3);
-    });
-
-    it("should update nodes without replacing all", () => {
-      // Add initial nodes
-      const initialNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: initialNodes,
-          mode: "replace",
-        }),
-      );
-
-      // Update one node
-      const updatedNode = {
-        key: "valve-1",
-        position: { x: 50, y: 50 },
-        selected: true,
-      };
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: [updatedNode],
-          mode: "update",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      expect(schematic.nodes).toHaveLength(2);
-
-      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
-
-      expect(node1?.position).toEqual({ x: 50, y: 50 });
-      expect(node1?.selected).toBe(true);
-      expect(node2?.position).toEqual({ x: 150, y: 0 });
+      expect(state.schematics["s1"].control).toBe("acquired");
     });
   });
 
-  describe("selection management", () => {
-    const schematicKey = "test-schematic";
-
-    beforeEach(() => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
-
-      // Add some nodes
-      const nodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-        { key: "valve-3", position: { x: 300, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes,
-          mode: "replace",
-        }),
-      );
-    });
-
-    it("should select nodes and switch to properties tab", () => {
-      const selectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: true },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: selectedNodes,
-          mode: "update",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-
-      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
-
-      expect(node1?.selected).toBe(true);
-      expect(node2?.selected).toBe(true);
-      expect(schematic.toolbar.activeTab).toBe("properties");
-    });
-
-    it("should clear selection", () => {
-      // First select some nodes
-      const selectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: true },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: selectedNodes,
-          mode: "update",
-        }),
-      );
-
-      // Then clear selection
-      store.dispatch(actions.clearSelection({ key: schematicKey }));
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-
-      expect(schematic.nodes.every((n: Diagram.Node) => !n.selected)).toBe(true);
-      expect(schematic.toolbar.activeTab).toBe("symbols");
-    });
-
-    it("should switch back to symbols tab when no nodes selected", () => {
-      const unselectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: unselectedNodes,
-          mode: "update",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      expect(schematic.toolbar.activeTab).toBe("symbols");
-    });
-  });
-
-  describe("alignment workflow simulation", () => {
-    const schematicKey = "alignment-test";
-
-    beforeEach(() => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
-    });
-
-    it("should simulate vertical alignment workflow", () => {
-      // Step 1: Add nodes at different Y positions
-      const initialNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 20 }, selected: true },
-        { key: "valve-3", position: { x: 300, y: -10 }, selected: true },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: initialNodes,
-          mode: "replace",
-        }),
-      );
-
-      // Step 2: Simulate alignment (align all to y=0)
-      const alignedNodes = initialNodes.map((node) => ({
-        ...node,
-        position: { ...node.position, y: 0 },
-      }));
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: alignedNodes,
-          mode: "update",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-
-      // Verify all nodes are aligned
-      const yPositions = schematic.nodes.map((n: Diagram.Node) => n.position.y);
-      expect(yPositions.every((y) => y === 0)).toBe(true);
-    });
-
-    it("should simulate horizontal distribution workflow", () => {
-      // Step 1: Add nodes with uneven spacing
-      const initialNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 110, y: 0 }, selected: true },
-        { key: "valve-3", position: { x: 600, y: 0 }, selected: true },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: initialNodes,
-          mode: "replace",
-        }),
-      );
-
-      // Step 2: Simulate distribution (even spacing)
-      // With proper distribution: first at 0, last at 600, middle should be at 300
-      const distributedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 300, y: 0 }, selected: true },
-        { key: "valve-3", position: { x: 600, y: 0 }, selected: true },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: distributedNodes,
-          mode: "update",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-
-      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
-      const node3 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-3");
-
-      // Check that spacing is even
-      const gap1 = (node2?.position.x ?? 0) - (node1?.position.x ?? 0);
-      const gap2 = (node3?.position.x ?? 0) - (node2?.position.x ?? 0);
-      expect(gap1).toBe(gap2);
-    });
-
-    it("should handle vertical alignment followed by horizontal distribution", () => {
-      // Create nodes at different positions
-      const nodes = [
-        { key: "setpoint", position: { x: -210, y: 0 }, selected: true },
-        { key: "threeWayValve", position: { x: -150, y: 0 }, selected: true },
-        { key: "threeWayBall", position: { x: 150, y: -20 }, selected: true },
-        { key: "valve", position: { x: 0, y: 50 }, selected: true },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes,
-          mode: "replace",
-        }),
-      );
-
-      // Step 1: Align Vertical (all same Y)
+  describe("legend", () => {
+    it("should toggle legend visibility", () => {
+      store.dispatch(actions.setLegendVisible({ key: "s1", visible: true }));
       let state = store.getState()[SLICE_NAME];
-      let schematic = state.schematics[schematicKey];
-      const targetY = 0;
-      const alignedVertical = schematic.nodes.map((n: Diagram.Node) => ({
-        ...n,
-        position: { ...n.position, y: targetY },
-      }));
+      expect(state.schematics["s1"].legend.visible).toBe(true);
 
+      store.dispatch(actions.setLegendVisible({ key: "s1", visible: false }));
+      state = store.getState()[SLICE_NAME];
+      expect(state.schematics["s1"].legend.visible).toBe(false);
+    });
+
+    it("should partially update legend", () => {
       store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: alignedVertical,
-          mode: "update",
+        actions.setLegend({
+          key: "s1",
+          legend: { visible: true, position: { x: 100, y: 200 } },
         }),
       );
-
-      state = store.getState()[SLICE_NAME];
-      schematic = state.schematics[schematicKey];
-      expect(schematic.nodes.every((n: Diagram.Node) => n.position.y === targetY)).toBe(
-        true,
-      );
-
-      // Step 2: Distribute Horizontal (even spacing)
-      const sorted = [...schematic.nodes].sort((a, b) => a.position.x - b.position.x);
-      const firstX = sorted[0].position.x;
-      const lastX = sorted[sorted.length - 1].position.x;
-      const totalSpan = lastX - firstX;
-      const gap = totalSpan / (sorted.length - 1);
-
-      const distributedHorizontal = schematic.nodes.map((n: Diagram.Node) => {
-        const sortedIdx = sorted.findIndex((s) => s.key === n.key);
-        return {
-          ...n,
-          position: { ...n.position, x: firstX + gap * sortedIdx },
-        };
+      const state = store.getState()[SLICE_NAME];
+      expect(state.schematics["s1"].legend).toEqual({
+        visible: true,
+        position: { x: 100, y: 200 },
       });
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: distributedHorizontal,
-          mode: "update",
-        }),
-      );
-
-      state = store.getState()[SLICE_NAME];
-      schematic = state.schematics[schematicKey];
-
-      // Verify distribution
-      const sortedAfter = [...schematic.nodes].sort(
-        (a, b) => a.position.x - b.position.x,
-      );
-      expect(sortedAfter.length).toBeGreaterThan(2);
     });
   });
 
-  describe("edge cases", () => {
-    const schematicKey = "test-schematic";
-
-    beforeEach(() => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
+  describe("toolbar", () => {
+    it("should set active toolbar tab", () => {
+      store.dispatch(actions.setActiveToolbarTab({ key: "s1", tab: "properties" }));
+      const state = store.getState()[SLICE_NAME];
+      expect(state.schematics["s1"].activeToolbarTab).toBe("properties");
     });
 
-    it("should handle updating positions for non-existent nodes", () => {
-      store.dispatch(
-        actions.setNodePositions({
-          key: schematicKey,
-          positions: [["non-existent", { x: 100, y: 100 }]],
-        }),
-      );
-
+    it("should set selected symbol group", () => {
+      store.dispatch(actions.setSelectedSymbolGroup({ key: "s1", group: "valves" }));
       const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      expect(schematic.nodes).toHaveLength(0);
-    });
-
-    it("should handle empty node list", () => {
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: [],
-          mode: "replace",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-      expect(schematic.nodes).toEqual([]);
-    });
-
-    it("should preserve unmodified nodes during update", () => {
-      const initialNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-        { key: "valve-3", position: { x: 300, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: initialNodes,
-          mode: "replace",
-        }),
-      );
-
-      // Update only valve-2
-      const updatedNode = {
-        key: "valve-2",
-        position: { x: 200, y: 50 },
-        selected: true,
-      };
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: [updatedNode],
-          mode: "update",
-        }),
-      );
-
-      const state = store.getState()[SLICE_NAME];
-      const schematic = state.schematics[schematicKey];
-
-      const valve1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
-      const valve2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
-      const valve3 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-3");
-
-      expect(valve1?.position).toEqual({ x: 0, y: 0 });
-      expect(valve2?.position).toEqual({ x: 200, y: 50 });
-      expect(valve3?.position).toEqual({ x: 300, y: 0 });
+      expect(state.schematics["s1"].selectedSymbolGroup).toBe("valves");
     });
   });
 
-  describe("schematic removal", () => {
-    it("should remove a schematic", () => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-1" }));
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-2" }));
+  describe("removal", () => {
+    it("should remove schematics", () => {
+      store.dispatch(actions.setSelected({ key: "s1", selected: [] }));
+      store.dispatch(actions.setSelected({ key: "s2", selected: [] }));
+      expect(Object.keys(store.getState()[SLICE_NAME].schematics)).toHaveLength(2);
 
-      let state = store.getState()[SLICE_NAME];
-      expect(Object.keys(state.schematics)).toHaveLength(2);
-
-      store.dispatch(actions.remove({ keys: ["schematic-1"] }));
-
-      state = store.getState()[SLICE_NAME];
+      store.dispatch(actions.remove({ keys: ["s1"] }));
+      const state = store.getState()[SLICE_NAME];
       expect(Object.keys(state.schematics)).toHaveLength(1);
-      expect(state.schematics["schematic-1"]).toBeUndefined();
-      expect(state.schematics["schematic-2"]).toBeDefined();
+      expect(state.schematics["s1"]).toBeUndefined();
+      expect(state.schematics["s2"]).toBeDefined();
     });
 
     it("should remove multiple schematics at once", () => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-1" }));
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-2" }));
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "schematic-3" }));
+      store.dispatch(actions.setSelected({ key: "s1", selected: [] }));
+      store.dispatch(actions.setSelected({ key: "s2", selected: [] }));
+      store.dispatch(actions.setSelected({ key: "s3", selected: [] }));
 
-      store.dispatch(actions.remove({ keys: ["schematic-1", "schematic-3"] }));
-
+      store.dispatch(actions.remove({ keys: ["s1", "s3"] }));
       const state = store.getState()[SLICE_NAME];
       expect(Object.keys(state.schematics)).toHaveLength(1);
-      expect(state.schematics["schematic-2"]).toBeDefined();
+      expect(state.schematics["s2"]).toBeDefined();
     });
   });
 });
