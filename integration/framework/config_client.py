@@ -296,10 +296,9 @@ class ConfigClient:
             return expanded_defs
 
         except Exception as e:
-            self._log(
-                f"Warning: Failed to expand test classes for {test_def.case}: {e}"
-            )
-            return [test_def]
+            raise ImportError(
+                f"Failed to expand test classes for {test_def.case}: {e}"
+            ) from e
 
     # ----- Dynamic class loading -----
 
