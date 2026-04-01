@@ -106,10 +106,7 @@ export const selectSelected = (state: StoreState, layoutKey: string): string[] =
   select(state, layoutKey).graph.selected;
 
 export const useSelectSelected = (layoutKey: string): string[] =>
-  useMemoSelect(
-    (state: StoreState) => selectSelected(state, layoutKey),
-    [layoutKey],
-  );
+  useMemoSelect((state: StoreState) => selectSelected(state, layoutKey), [layoutKey]);
 
 export const selectEdge = (
   state: StoreState,

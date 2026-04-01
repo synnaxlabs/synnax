@@ -171,12 +171,8 @@ export const { actions, reducer } = createSlice({
         const selectedEdges = edges.filter((edge) => selectedSet.has(edge.key));
         copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
         copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
-        selectedNodes.forEach(
-          (node) => (copyBuffer.props[node.key] = props[node.key]),
-        );
-        selectedEdges.forEach(
-          (edge) => (copyBuffer.props[edge.key] = props[edge.key]),
-        );
+        selectedNodes.forEach((node) => (copyBuffer.props[node.key] = props[node.key]));
+        selectedEdges.forEach((edge) => (copyBuffer.props[edge.key] = props[edge.key]));
       });
       const { nodes } = copyBuffer;
       if (nodes.length > 0) {
@@ -345,10 +341,7 @@ export const { actions, reducer } = createSlice({
       const arc = state.arcs[key];
       if (arc != null) arc.mode = mode;
     },
-    applyNodeChanges: (
-      state,
-      { payload }: PayloadAction<ApplyNodeChangesPayload>,
-    ) => {
+    applyNodeChanges: (state, { payload }: PayloadAction<ApplyNodeChangesPayload>) => {
       const { key: layoutKey, changes } = payload;
       const arc = state.arcs[layoutKey];
       for (const change of changes) {
@@ -375,10 +368,7 @@ export const { actions, reducer } = createSlice({
         }
       }
     },
-    applyEdgeChanges: (
-      state,
-      { payload }: PayloadAction<ApplyEdgeChangesPayload>,
-    ) => {
+    applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {
       const { key: layoutKey, changes } = payload;
       const arc = state.arcs[layoutKey];
       for (const change of changes) {

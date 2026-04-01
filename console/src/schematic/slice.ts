@@ -9,53 +9,20 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Control } from "@synnaxlabs/pluto";
-import { type sticky, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+
+import * as latest from "@/schematic/types";
+
+export type State = latest.State;
+export type SliceState = latest.SliceState;
+export type ToolbarTab = latest.ToolbarTab;
+export type LegendState = latest.LegendState;
+export type Viewport = latest.Viewport;
+export const ZERO_STATE = latest.ZERO_STATE;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const migrateSlice = latest.migrateSlice;
+export const migrateState = latest.migrateState;
 
 export const SLICE_NAME = "schematic";
-
-export const toolbarTabZ = z.enum(["symbols", "properties"]);
-export type ToolbarTab = z.infer<typeof toolbarTabZ>;
-
-export interface Viewport {
-  position: xy.XY;
-  zoom: number;
-}
-
-export interface LegendState {
-  visible: boolean;
-  position: sticky.XY;
-}
-
-export interface State {
-  selected: string[];
-  control: Control.Status;
-  legend: LegendState;
-  activeToolbarTab: ToolbarTab;
-  selectedSymbolGroup: string;
-  editable: boolean;
-  fitViewOnResize: boolean;
-  viewport: Viewport;
-}
-
-export const ZERO_STATE: State = {
-  selected: [],
-  control: "released",
-  legend: { visible: false, position: { x: 0, y: 0 } },
-  activeToolbarTab: "symbols",
-  selectedSymbolGroup: "general",
-  editable: true,
-  fitViewOnResize: false,
-  viewport: { position: xy.ZERO, zoom: 1 },
-};
-
-export interface SliceState {
-  schematics: Record<string, State>;
-}
-
-export const ZERO_SLICE_STATE: SliceState = {
-  schematics: {},
-};
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;

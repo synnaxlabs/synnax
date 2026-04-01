@@ -59,15 +59,11 @@ const graphStateZ = z.object({
   selected: z.array(z.string()).default([]),
   nodes: z
     .array(z.any())
-    .transform((nodes) =>
-      nodes.filter((node) => nodeZ.safeParse(node).success),
-    )
+    .transform((nodes) => nodes.filter((node) => nodeZ.safeParse(node).success))
     .pipe(z.array(nodeZ)),
   edges: z
     .array(z.any())
-    .transform((edges) =>
-      edges.filter((edge) => edgeZ.safeParse(edge).success),
-    )
+    .transform((edges) => edges.filter((edge) => edgeZ.safeParse(edge).success))
     .pipe(z.array(edgeZ)),
   props: z.record(z.string(), nodePropsZ),
 });
