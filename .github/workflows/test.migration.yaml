@@ -21,9 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       MINIMUM_CHAIN: ${{ steps.chain.outputs.MINIMUM_CHAIN }}
-      PREVIOUS_CHAIN: ${{ steps.chain.outputs.PREVIOUS_CHAIN }}
+      MAJOR_CHAIN: ${{ steps.chain.outputs.MAJOR_CHAIN }}
+      PATCH_CHAIN: ${{ steps.chain.outputs.PATCH_CHAIN }}
       MINIMUM_VERSION: ${{ steps.chain.outputs.MINIMUM_VERSION }}
-      PREVIOUS_VERSION: ${{ steps.chain.outputs.PREVIOUS_VERSION }}
+      MAJOR_VERSION: ${{ steps.chain.outputs.MAJOR_VERSION }}
+      PATCH_VERSION: ${{ steps.chain.outputs.PATCH_VERSION }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -59,12 +61,21 @@ jobs:
           needs.setup.outputs.MINIMUM_VERSION }} wheels/${{
           needs.setup.outputs.MINIMUM_VERSION }}
 
-      - name: Build previous version client wheels
-        if: needs.setup.outputs.PREVIOUS_VERSION != needs.setup.outputs.MINIMUM_VERSION
+      - name: Build major version client wheels
+        if: needs.setup.outputs.MAJOR_VERSION != needs.setup.outputs.MINIMUM_VERSION
         run:
           integration/scripts/build_client_wheels.sh ${{
-          needs.setup.outputs.PREVIOUS_VERSION }} wheels/${{
-          needs.setup.outputs.PREVIOUS_VERSION }}
+          needs.setup.outputs.MAJOR_VERSION }} wheels/${{
+          needs.setup.outputs.MAJOR_VERSION }}
+
+      - name: Build patch version client wheels
+        if: >-
+          needs.setup.outputs.PATCH_VERSION != needs.setup.outputs.MINIMUM_VERSION &&
+          needs.setup.outputs.PATCH_VERSION != needs.setup.outputs.MAJOR_VERSION
+        run:
+          integration/scripts/build_client_wheels.sh ${{
+          needs.setup.outputs.PATCH_VERSION }} wheels/${{
+          needs.setup.outputs.PATCH_VERSION }}
 
       - name: Upload client wheels
         uses: actions/upload-artifact@v7
@@ -84,14 +95,18 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        chain_name: [minimum, previous]
+        # chain_name: [minimum, major, patch]  # Disabled minimum while latest major == minimum
+        chain_name: [major, patch]
         include:
           - chain_name: minimum
             chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
             version: ${{ needs.setup.outputs.MINIMUM_VERSION }}
-          - chain_name: previous
-            chain: ${{ needs.setup.outputs.PREVIOUS_CHAIN }}
-            version: ${{ needs.setup.outputs.PREVIOUS_VERSION }}
+          - chain_name: major
+            chain: ${{ needs.setup.outputs.MAJOR_CHAIN }}
+            version: ${{ needs.setup.outputs.MAJOR_VERSION }}
+          - chain_name: patch
+            chain: ${{ needs.setup.outputs.PATCH_CHAIN }}
+            version: ${{ needs.setup.outputs.PATCH_VERSION }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6

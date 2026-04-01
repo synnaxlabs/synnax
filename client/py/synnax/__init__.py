@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-__version__ = "0.3.0"
-
 from synnax import color, ethercat, http, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role

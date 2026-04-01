@@ -10,6 +10,8 @@
 """Migration test orchestrator.
 
 Manages Core binary lifecycle and runs test-conductor for migration tests.
+Python selected for cross-platform compatibilty.
+
 This module intentionally uses only stdlib imports — no synnax, xpy, or
 framework dependencies — so it can create isolated venvs with different
 synnax client versions for each step in the migration chain. The test
@@ -237,8 +239,15 @@ def _create_client_venv(version: str) -> Path:
         check=True,
     )
 
+    # Extract client version from the synnax wheel filename (e.g. synnax-0.53.2-...)
+    client_version = "unknown"
+    for w in wheels:
+        if w.name.startswith("synnax-") and not w.name.startswith("synnax_freighter"):
+            client_version = w.name.split("-")[1]
+            break
+
     print(f"Installed wheels: {[w.name for w in wheels]}")
-    print(f"Venv ready for {version}")
+    print(f"Venv ready for {version} (client version: {client_version})")
     return python
 
 
@@ -254,7 +263,7 @@ def run_test_conductor(version: str, class_filter: str) -> bool:
     verify phase, each in an explicitly constructed environment.
     """
     python = _create_client_venv(version)
-    label = f"tc migration -f {class_filter} ({version})"
+    label = f"tc migration -f {class_filter}"
     print(f"Running: {label}")
 
     env = os.environ.copy()
@@ -273,9 +282,8 @@ def run_test_conductor(version: str, class_filter: str) -> bool:
     )
 
     if result.returncode != 0:
-        print(f"FAILED: {label} (exit code {result.returncode})")
+        print(f"FAILED (exit code {result.returncode})")
         return False
-    print(f"PASSED: {label}")
     return True
 
 
@@ -288,15 +296,9 @@ def run(chain: list[str]) -> bool:
     against the previous version's data. Caller is responsible for cleaning
     data before and after.
     """
-    print(f"\n{'#' * 60}")
-    print(f"Upgrade chain: {' -> '.join(chain)}")
-    print(f"{'#' * 60}\n")
 
     for i, version in enumerate(chain):
         sequence = "setup" if i == 0 else "verify"
-        print(f"\n{'=' * 60}")
-        print(f"Phase: {sequence} | Version: {version}")
-        print(f"{'=' * 60}\n")
         install_version(version)
         proc = start_core()
         try:
@@ -322,7 +324,7 @@ def main() -> None:
 
     print("Migration orchestrator")
     print(f"  Chain: {' -> '.join(chain)}")
-    print()
+    print(f"{'#' * 60}\n")
 
     success = False
     clean_data()

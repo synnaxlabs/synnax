@@ -9,9 +9,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Discovers stable releases and outputs two migration chains:
-#   MINIMUM_CHAIN: minimum_version -> latest (build artifact)
-#   PREVIOUS_CHAIN: most_recent_release -> latest (build artifact)
+# Discovers stable releases and outputs three migration chains:
+#   MINIMUM_CHAIN: hardcoded minimum version -> latest
+#   MAJOR_CHAIN:   most recent .0 release -> latest
+#   PATCH_CHAIN:   most recent release overall -> latest
 #
 # Usage:
 #   generate_migration_matrix.sh
@@ -49,17 +50,36 @@ fi
 echo "Found ${#VERSIONS[@]} versions: ${VERSIONS[*]}"
 
 MINIMUM="${VERSIONS[0]}"
-PREVIOUS="${VERSIONS[-1]}"
+
+# Latest major: most recent X.Y.0 release
+MAJOR=""
+for ((i = ${#VERSIONS[@]} - 1; i >= 0; i--)); do
+    if [[ "${VERSIONS[$i]}" =~ ^[0-9]+\.[0-9]+\.0$ ]]; then
+        MAJOR="${VERSIONS[$i]}"
+        break
+    fi
+done
+if [[ -z "$MAJOR" ]]; then
+    echo "ERROR: No .0 release found >= $MINIMUM_VERSION" >&2
+    exit 1
+fi
+
+# Latest patch: most recent release overall
+PATCH="${VERSIONS[-1]}"
 
 MINIMUM_CHAIN="${MINIMUM},latest"
-PREVIOUS_CHAIN="${PREVIOUS},latest"
+MAJOR_CHAIN="${MAJOR},latest"
+PATCH_CHAIN="${PATCH},latest"
 
-echo "Minimum chain: $MINIMUM_CHAIN (from $MINIMUM)"
-echo "Previous chain: $PREVIOUS_CHAIN (from $PREVIOUS)"
+echo "Minimum chain: $MINIMUM_CHAIN"
+echo "Major chain:   $MAJOR_CHAIN"
+echo "Patch chain:   $PATCH_CHAIN"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "MINIMUM_CHAIN=$MINIMUM_CHAIN" >> "$GITHUB_OUTPUT"
-    echo "PREVIOUS_CHAIN=$PREVIOUS_CHAIN" >> "$GITHUB_OUTPUT"
+    echo "MAJOR_CHAIN=$MAJOR_CHAIN" >> "$GITHUB_OUTPUT"
+    echo "PATCH_CHAIN=$PATCH_CHAIN" >> "$GITHUB_OUTPUT"
     echo "MINIMUM_VERSION=$MINIMUM" >> "$GITHUB_OUTPUT"
-    echo "PREVIOUS_VERSION=$PREVIOUS" >> "$GITHUB_OUTPUT"
+    echo "MAJOR_VERSION=$MAJOR" >> "$GITHUB_OUTPUT"
+    echo "PATCH_VERSION=$PATCH" >> "$GITHUB_OUTPUT"
 fi
