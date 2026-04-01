@@ -313,10 +313,6 @@ All matching is case-insensitive substring.
 
     args = parser.parse_args()
 
-    print(f"DEBUG: python = {sys.executable}")
-    print(f"DEBUG: synnax version = {sy.__version__}")
-    print(f"DEBUG: PYTHONPATH = {os.environ.get('PYTHONPATH', '<not set>')}")
-
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
     if args.driver:
         os.environ["SYNNAX_DRIVER_RACK"] = args.driver

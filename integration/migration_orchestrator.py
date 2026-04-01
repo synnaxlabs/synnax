@@ -224,25 +224,20 @@ def _create_client_venv(version: str) -> Path:
         )
 
     print(f"Creating venv for {version}...")
-    subprocess.run(["uv", "venv", str(CLIENT_VENV_DIR)], check=True)
+    subprocess.run(
+        ["uv", "venv", str(CLIENT_VENV_DIR)],
+        check=True,
+        capture_output=True,
+    )
 
     python = _venv_python(CLIENT_VENV_DIR)
     packages = [str(w) for w in wheels] + CLIENT_VENV_DEPS
     subprocess.run(
-        ["uv", "pip", "install", "--python", str(python)] + packages,
+        ["uv", "pip", "install", "--quiet", "--python", str(python)] + packages,
         check=True,
     )
 
-    # Verify the installed version so CI logs show exactly what's running.
-    installed = subprocess.run(
-        [str(python), "-c", "import synnax; print(synnax.__version__)"],
-        capture_output=True,
-        text=True,
-    )
-    installed_version = installed.stdout.strip() if installed.returncode == 0 else "?"
-    print(f"DEBUG: venv python = {python}")
-    print(f"DEBUG: installed synnax version = {installed_version}")
-    print(f"DEBUG: wheels = {[w.name for w in wheels]}")
+    print(f"Installed wheels: {[w.name for w in wheels]}")
     print(f"Venv ready for {version}")
     return python
 
@@ -261,8 +256,6 @@ def run_test_conductor(version: str, class_filter: str) -> bool:
     python = _create_client_venv(version)
     label = f"tc migration -f {class_filter} ({version})"
     print(f"Running: {label}")
-    print(f"DEBUG: python = {python}")
-    print(f"DEBUG: PYTHONPATH = {INTEGRATION_DIR}")
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(INTEGRATION_DIR)
