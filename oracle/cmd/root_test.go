@@ -109,8 +109,7 @@ var _ = Describe("NewRootCmd", func() {
 
 	It("should print help when run with --help", func() {
 		cmd := NewRootCmd()
-		output, err := executeCommand(cmd, "--help")
-		Expect(err).ToNot(HaveOccurred())
+		output := MustSucceed(executeCommand(cmd, "--help"))
 		Expect(output).To(ContainSubstring("Schema-first code generation"))
 	})
 
@@ -141,8 +140,7 @@ var _ = Describe("check command", Ordered, func() {
 
 	It("should validate well-formed schemas", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "check")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "check"))
 	})
 })
 
@@ -177,14 +175,12 @@ var _ = Describe("fmt command", Ordered, func() {
 
 	It("should format schema files without error", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "fmt")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "fmt"))
 	})
 
 	It("should pass check mode when already formatted", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "fmt", "--check")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "fmt", "--check"))
 	})
 })
 
@@ -223,8 +219,7 @@ var _ = Describe("snapshot command", Ordered, func() {
 
 	It("should create a snapshot at the current version", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "snapshot")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "snapshot"))
 
 		snapshotFile := filepath.Join(repoDir, "schemas", ".snapshots", "v53", "user.oracle")
 		Expect(snapshotFile).To(BeAnExistingFile())
@@ -253,9 +248,8 @@ var _ = Describe("migrate create command", Ordered, func() {
 
 	It("should scaffold a migration file", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "migrate", "create", "add_email",
-			"--service", "core/pkg/service/user")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "migrate", "create", "add_email",
+			"--service", "core/pkg/service/user"))
 
 		migrationFile := filepath.Join(repoDir, "core", "pkg", "service", "user",
 			"migrations", "v53", "add_email.go")
@@ -295,9 +289,8 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 
 	It("should depend on the latest existing version", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "migrate", "create", "fix_index",
-			"--service", "core/pkg/service/user")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "migrate", "create", "fix_index",
+			"--service", "core/pkg/service/user"))
 
 		migrationFile := filepath.Join(repoDir, "core", "pkg", "service", "user",
 			"migrations", "v53", "fix_index.go")
@@ -324,20 +317,17 @@ var _ = Describe("expandGlobs", func() {
 	AfterEach(func() { cleanup() })
 
 	It("should expand a valid glob pattern", func() {
-		files, err := expandGlobs([]string{"schemas/*.oracle"}, repoDir)
-		Expect(err).ToNot(HaveOccurred())
+		files := MustSucceed(expandGlobs([]string{"schemas/*.oracle"}, repoDir))
 		Expect(files).To(HaveLen(2))
 	})
 
 	It("should return empty for non-matching globs", func() {
-		files, err := expandGlobs([]string{"nonexistent/*.xyz"}, repoDir)
-		Expect(err).ToNot(HaveOccurred())
+		files := MustSucceed(expandGlobs([]string{"nonexistent/*.xyz"}, repoDir))
 		Expect(files).To(BeEmpty())
 	})
 
 	It("should return sorted results", func() {
-		files, err := expandGlobs([]string{"schemas/*.oracle"}, repoDir)
-		Expect(err).ToNot(HaveOccurred())
+		files := MustSucceed(expandGlobs([]string{"schemas/*.oracle"}, repoDir))
 		for i := 1; i < len(files); i++ {
 			Expect(files[i] >= files[i-1]).To(BeTrue())
 		}
@@ -345,8 +335,7 @@ var _ = Describe("expandGlobs", func() {
 
 	It("should handle absolute patterns", func() {
 		pattern := filepath.Join(repoDir, "schemas", "*.oracle")
-		files, err := expandGlobs([]string{pattern}, repoDir)
-		Expect(err).ToNot(HaveOccurred())
+		files := MustSucceed(expandGlobs([]string{pattern}, repoDir))
 		Expect(files).To(HaveLen(2))
 	})
 })
@@ -362,10 +351,9 @@ var _ = Describe("snapshot command without schemas", Ordered, func() {
 
 	It("should succeed even with no schema files", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "snapshot")
 		// snapshot walks the directory; no .oracle files means nothing copied,
 		// but it should not error.
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "snapshot"))
 	})
 })
 
@@ -382,8 +370,7 @@ var _ = Describe("fmt --diff flag", Ordered, func() {
 
 	It("should report changes without writing in diff mode", func() {
 		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "fmt", "--diff")
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(executeCommand(cmd, "fmt", "--diff"))
 	})
 })
 
