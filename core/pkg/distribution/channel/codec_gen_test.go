@@ -27,18 +27,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Channel", func() {
-		It("should round-trip encode and decode", func() {
-			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(channel.EncodeChannel(w, &original)).To(Succeed())
-			var decoded channel.Channel
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(channel.DecodeChannel(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Operation", func() {
 		It("should round-trip encode and decode", func() {
 			original := channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}
@@ -51,9 +39,21 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
+	Describe("Channel", func() {
+		It("should round-trip encode and decode", func() {
+			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(channel.EncodeChannel(w, &original)).To(Succeed())
+			var decoded channel.Channel
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(channel.DecodeChannel(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("ChannelCodec", func() {
 		It("should round-trip through the Codec interface", func() {
-			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
+			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
 			ctx := context.Background()
 			data, err := channel.ChannelCodec.Encode(ctx, original)
 			Expect(err).ToNot(HaveOccurred())
@@ -63,23 +63,6 @@ var _ = Describe("Codec", func() {
 		})
 	})
 })
-
-func BenchmarkEncodeDecodeChannel(b *testing.B) {
-	s := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := channel.EncodeChannel(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded channel.Channel
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := channel.DecodeChannel(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeOperation(b *testing.B) {
 	s := channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}
@@ -93,6 +76,23 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := channel.DecodeOperation(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeChannel(b *testing.B) {
+	s := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := channel.EncodeChannel(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded channel.Channel
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := channel.DecodeChannel(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

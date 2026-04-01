@@ -44,13 +44,17 @@ func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
 			return err
 		}
 	}
-	{
-		b, err := json.Marshal(s.Props)
-		if err != nil {
-			return err
+	w.Uint32(uint32(len(s.Props)))
+	for key, val := range s.Props {
+		w.String(key)
+		{
+			b, err := json.Marshal(val)
+			if err != nil {
+				return err
+			}
+			w.Uint32(uint32(len(b)))
+			w.Write(b)
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
 	}
 	return nil
 }
@@ -105,12 +109,27 @@ func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
 		if err != nil {
 			return err
 		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Props); err != nil {
-			return err
+		s.Props = make(map[string]interface{}, n)
+		for range n {
+			var key string
+			var val interface{}
+			if key, err = r.String(); err != nil {
+				return err
+			}
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				b := make([]byte, n)
+				if _, err = r.Read(b); err != nil {
+					return err
+				}
+				if err = json.Unmarshal(b, &val); err != nil {
+					return err
+				}
+			}
+			s.Props[key] = val
 		}
 	}
 	return nil

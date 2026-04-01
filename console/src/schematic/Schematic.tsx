@@ -169,8 +169,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!editable) return;
-    Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true });
-  }, [windowKey, editable]);
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+    );
+  }, [windowKey, editable, dispatch]);
 
   const handleClearSelection = useCallback(
     () => dispatch(setSelected({ key: layoutKey, selected: [] })),

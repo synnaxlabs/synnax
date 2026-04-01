@@ -114,32 +114,32 @@ Edge struct {
 }
 
 Schematic struct {
-    key       Key               {
+    key       Key                 {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name      string            {
+    name      string              {
         @doc value "is a human-readable name for the schematic."
     }
-    snapshot  bool              {
+    snapshot  bool                {
         @doc value """
             indicates whether this schematic represents a saved snapshot state.
         """
     }
-    authority control.Authority {
+    authority control.Authority   {
         @validate default 1
         @doc value        "is the control authority level for this schematic."
     }
-    legend    Legend            {
+    legend    Legend              {
         @doc value "is the control legend overlay configuration."
     }
-    nodes     Node[]            {
+    nodes     Node[]              {
         @doc value "contains all diagram nodes in the schematic."
     }
-    edges     Edge[]            {
+    edges     Edge[]              {
         @doc value "contains all connections between nodes."
     }
-    props     record            {
+    props     map<string, record> {
         @doc value """
             contains symbol-specific properties keyed by node key, including
             colors, labels, and other visual configuration.

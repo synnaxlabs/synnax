@@ -15,23 +15,6 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeXY(w *xbinary.Writer, s *XY) error {
-	w.Float64(float64(s.X))
-	w.Float64(float64(s.Y))
-	return nil
-}
-
-func DecodeXY(r *xbinary.Reader, s *XY) error {
-	var err error
-	if s.X, err = r.Float64(); err != nil {
-		return err
-	}
-	if s.Y, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeStickyXY(w *xbinary.Writer, s *StickyXY) error {
 	w.Float64(float64(s.X))
 	w.Float64(float64(s.Y))
@@ -107,6 +90,23 @@ func DecodeDimensions(r *xbinary.Reader, s *Dimensions) error {
 		return err
 	}
 	if s.Height, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeXY(w *xbinary.Writer, s *XY) error {
+	w.Float64(float64(s.X))
+	w.Float64(float64(s.Y))
+	return nil
+}
+
+func DecodeXY(r *xbinary.Reader, s *XY) error {
+	var err error
+	if s.X, err = r.Float64(); err != nil {
+		return err
+	}
+	if s.Y, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

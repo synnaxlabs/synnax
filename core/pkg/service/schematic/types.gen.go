@@ -112,5 +112,5 @@ type Schematic struct {
 	Edges []Edge `json:"edges" msgpack:"edges"`
 	// Props contains symbol-specific properties keyed by node key, including colors,
 	// labels, and other visual configuration.
-	Props binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
+	Props map[string]binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
 }

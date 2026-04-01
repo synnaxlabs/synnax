@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { type schematic } from "@/schematic";
 import { NotFoundError } from "@/errors";
+import { type schematic } from "@/schematic";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -21,7 +21,7 @@ const newSchematic = (overrides: Partial<schematic.New> = {}): schematic.New => 
   legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
   nodes: [],
   edges: [],
-  props: { myProp: "value" },
+  props: { myProp: { cat: "value" } },
   ...overrides,
 });
 
@@ -79,9 +79,9 @@ describe("Schematic", () => {
         newSchematic({
           name: "CaseTest",
           props: {
-            camelCaseKey: "value1",
-            PascalCaseKey: "value2",
-            snake_case_key: "value3",
+            camelCaseKey: { abc: "value1" },
+            PascalCaseKey: { abc: "value2" },
+            snake_case_key: { abc: "value3" },
             nested: {
               innerCamelCase: 123,
               InnerPascalCase: { deepKey: true },
@@ -121,7 +121,7 @@ describe("Schematic", () => {
       });
       const s = await client.schematics.create(
         ws.key,
-        newSchematic({ props: { one: 1 } }),
+        newSchematic({ props: { one: { cat: 1 } } }),
       );
       const s2 = await client.schematics.copy({
         key: s.key,

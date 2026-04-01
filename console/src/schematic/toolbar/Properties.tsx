@@ -132,6 +132,7 @@ const EdgeProperties = ({
 }: EdgePropertiesProps): ReactElement | null => {
   const edge = Base.useSelectEdge({ key: layoutKey, edgeKey });
   const edgeProps = Base.useSelectProps({ key: layoutKey, propKey: edgeKey });
+  console.log(edgeProps, edge);
   const { update: dispatch } = Base.useDispatch();
   if (edge == null) return null;
   const onChange = (key: string, props: Record<string, unknown>): void => {

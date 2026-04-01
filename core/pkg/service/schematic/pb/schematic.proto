@@ -98,5 +98,5 @@ message Schematic {
   repeated Edge edges = 7;
   // props contains symbol-specific properties keyed by node key, including colors,
   // labels, and other visual configuration.
-  google.protobuf.Struct props = 8;
+  map<string, google.protobuf.Struct> props = 8;
 }

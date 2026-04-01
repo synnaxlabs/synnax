@@ -23,11 +23,11 @@ import (
 func MigrateSchematic(_ context.Context, old v53.Schematic) (Schematic, error) {
 	data := old.Data
 	s := Schematic{
-		Key:       old.Key,
-		Name:      old.Name,
-		Snapshot:  old.Snapshot,
-		Legend:    extractLegend(data),
-		Nodes:     extractNodes(data),
+		Key:      old.Key,
+		Name:     old.Name,
+		Snapshot: old.Snapshot,
+		Legend:   extractLegend(data),
+		Nodes:    extractNodes(data),
 	}
 	props := mapRecord(data, "props")
 	if props == nil {

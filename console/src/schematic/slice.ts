@@ -167,6 +167,7 @@ export const { actions, reducer } = createSlice({
       const s = state.schematics[payload.key];
       if (s == null) return;
       s.editable = payload.editable;
+      if (!payload.editable) s.selected = [];
     },
     setFitViewOnResize: (
       state,

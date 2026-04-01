@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // LegendToPB converts Legend to Legend.
@@ -387,19 +386,15 @@ func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
 	if err != nil {
 		return nil, err
 	}
-	propsVal, err := structpb.NewStruct(r.Props)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Schematic{
 		Name:      r.Name,
 		Snapshot:  r.Snapshot,
 		Authority: uint32(r.Authority),
+		Props:     r.Props,
 		Key:       r.Key.String(),
 		Legend:    legendVal,
 		Nodes:     nodesVal,
 		Edges:     edgesVal,
-		Props:     propsVal,
 	}
 	return pb, nil
 }
@@ -428,10 +423,10 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	if err != nil {
 		return schematic.Schematic{}, err
 	}
-	r.Props = pb.Props.AsMap()
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
 	r.Authority = control.Authority(pb.Authority)
+	r.Props = pb.Props
 	return r, nil
 }
 

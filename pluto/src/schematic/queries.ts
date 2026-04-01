@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, caseconv } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -87,8 +87,13 @@ export const useSelectProps = Flux.createSelector<
   Record<string, unknown> | undefined
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, propKey }) =>
-    store.schematics.get(key)?.props?.[propKey] as Record<string, unknown> | undefined,
+  select: (store, { key, propKey }) => {
+    const schem = store.schematics.get(key);
+    if (schem == null) return undefined;
+    const props = schem.props[propKey];
+    if (props != null) return props;
+    return schem.props[caseconv.snakeToCamel(propKey)];
+  },
 });
 
 export interface SelectEdgeArgs {

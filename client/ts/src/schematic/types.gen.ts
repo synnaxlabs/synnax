@@ -118,7 +118,7 @@ export const schematicZ = z.object({
    * props contains symbol-specific properties keyed by node key, including
    * colors, labels, and other visual configuration.
    */
-  props: record.nullishToEmpty(),
+  props: z.record(z.string(), record.unknownZ()),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 
