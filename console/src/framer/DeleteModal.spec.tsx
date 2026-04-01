@@ -154,13 +154,11 @@ describe("DeleteModal", () => {
       expect(c.getByText("This action is irreversible.")).toBeTruthy();
 
       // Press and hold the Delete button past the onClickDelay
-      const deleteButton = c.getByText("Delete").closest("button") as HTMLButtonElement;
-      vi.useFakeTimers();
+      const deleteButton = c.getByText("Delete").closest<HTMLButtonElement>("button");
+      if (deleteButton == null) throw new Error("Delete button not found");
       await act(async () => {
-        fireEvent.mouseDown(deleteButton);
-        vi.advanceTimersByTime(1000);
+        fireEvent.click(deleteButton);
       });
-      vi.useRealTimers();
 
       // Modal should have closed
       expect(onClose).toHaveBeenCalled();

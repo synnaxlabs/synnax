@@ -228,12 +228,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
         </Button.Button>
       </Nav.Bar.Start>
       <Nav.Bar.End>
-        <Button.Button
-          variant="filled"
-          status="error"
-          onClick={handleDelete}
-          onClickDelay={500}
-        >
+        <Button.Button variant="filled" status="error" onClick={handleDelete}>
           <Icon.Delete />
           Delete
         </Button.Button>
