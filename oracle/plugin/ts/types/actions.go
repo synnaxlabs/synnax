@@ -94,9 +94,11 @@ func (p *Plugin) generateActionFile(
 
 	data.addNamedImport("zod", "z")
 	data.addNamedImport("immer", "produce")
-	data.addNamedImport("./types.gen", typ.Name)
+	typesImportPath := calculateImportPath(outputPath, outputPath) + "/types.gen"
+	data.addNamedImport(typesImportPath, typ.Name)
+	actionsImportPath := calculateImportPath(outputPath, outputPath) + "/actions"
 	for _, action := range form.Actions {
-		data.addNamedImport("./handlers", "handle"+lo.PascalCase(action.Name))
+		data.addNamedImport(actionsImportPath, "handle"+lo.PascalCase(action.Name))
 	}
 
 	// Action fields that reference types in the same namespace need explicit
@@ -143,7 +145,8 @@ func (p *Plugin) collectTypeImports(
 	}
 	if resolved.Namespace == data.Namespace {
 		zodName := lo.CamelCase(resolved.Name) + "Z"
-		data.addNamedImport("./types.gen", zodName)
+		importPath := calculateImportPath(data.OutputPath, data.OutputPath) + "/types.gen"
+		data.addNamedImport(importPath, zodName)
 	}
 }
 

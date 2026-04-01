@@ -24,18 +24,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("ID", func() {
-		It("should round-trip encode and decode", func() {
-			original := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(ontology.EncodeID(w, &original)).To(Succeed())
-			var decoded ontology.ID
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(ontology.DecodeID(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Resource", func() {
 		It("should round-trip encode and decode", func() {
 			original := ontology.Resource{ID: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test"}, Name: "test", Data: map[string]interface{}{"key": "value"}}
@@ -57,6 +45,18 @@ var _ = Describe("Codec", func() {
 			r := xbinary.NewReader(nil, binary.BigEndian)
 			r.ResetBytes(w.Bytes())
 			Expect(ontology.DecodeRelationship(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("ID", func() {
+		It("should round-trip encode and decode", func() {
+			original := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test"}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(ontology.EncodeID(w, &original)).To(Succeed())
+			var decoded ontology.ID
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(ontology.DecodeID(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -83,23 +83,6 @@ var _ = Describe("Codec", func() {
 		})
 	})
 })
-
-func BenchmarkEncodeDecodeID(b *testing.B) {
-	s := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := ontology.EncodeID(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ontology.ID
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := ontology.DecodeID(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeResource(b *testing.B) {
 	s := ontology.Resource{ID: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test"}, Name: "test", Data: map[string]interface{}{"key": "value"}}
@@ -130,6 +113,23 @@ func BenchmarkEncodeDecodeRelationship(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeRelationship(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeID(b *testing.B) {
+	s := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test"}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ontology.EncodeID(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded ontology.ID
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := ontology.DecodeID(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

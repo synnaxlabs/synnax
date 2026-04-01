@@ -63,18 +63,6 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
-	Describe("Body", func() {
-		It("should round-trip encode and decode", func() {
-			original := ir.Body{Raw: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(ir.EncodeBody(w, &original)).To(Succeed())
-			var decoded ir.Body
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(ir.DecodeBody(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Edge", func() {
 		It("should round-trip encode and decode", func() {
 			original := ir.Edge{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}
@@ -84,6 +72,30 @@ var _ = Describe("Codec", func() {
 			r := xbinary.NewReader(nil, binary.BigEndian)
 			r.ResetBytes(w.Bytes())
 			Expect(ir.DecodeEdge(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("Sequence", func() {
+		It("should round-trip encode and decode", func() {
+			original := ir.Sequence{Key: "test", Stages: []ir.Stage{ir.Stage{Key: "test", Nodes: []string{"test"}, Strata: [][]string{[]string{"test"}}}}}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(ir.EncodeSequence(w, &original)).To(Succeed())
+			var decoded ir.Sequence
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(ir.DecodeSequence(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
+	Describe("Body", func() {
+		It("should round-trip encode and decode", func() {
+			original := ir.Body{Raw: "test"}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(ir.EncodeBody(w, &original)).To(Succeed())
+			var decoded ir.Body
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(ir.DecodeBody(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -174,18 +186,6 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
-	Describe("Sequence", func() {
-		It("should round-trip encode and decode", func() {
-			original := ir.Sequence{Key: "test", Stages: []ir.Stage{ir.Stage{Key: "test", Nodes: []string{"test"}, Strata: [][]string{[]string{"test"}}}}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(ir.EncodeSequence(w, &original)).To(Succeed())
-			var decoded ir.Sequence
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(ir.DecodeSequence(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 })
 
 func BenchmarkEncodeDecodeFunction(b *testing.B) {
@@ -232,23 +232,6 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeBody(b *testing.B) {
-	s := ir.Body{Raw: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := ir.EncodeBody(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ir.Body
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := ir.DecodeBody(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	s := ir.Edge{Source: ir.Handle{Node: "test", Param: "test"}, Target: ir.Handle{Node: "test", Param: "test"}, Kind: ir.EdgeKind(0)}
 	w := xbinary.NewWriter(0, binary.BigEndian)
@@ -261,6 +244,40 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := ir.DecodeEdge(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSequence(b *testing.B) {
+	s := ir.Sequence{Key: "test", Stages: []ir.Stage{ir.Stage{Key: "test", Nodes: []string{"test"}, Strata: [][]string{[]string{"test"}}}}}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ir.EncodeSequence(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded ir.Sequence
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := ir.DecodeSequence(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBody(b *testing.B) {
+	s := ir.Body{Raw: "test"}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ir.EncodeBody(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded ir.Body
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := ir.DecodeBody(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -373,23 +390,6 @@ func BenchmarkEncodeDecodeAuthorities(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := ir.DecodeAuthorities(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeSequence(b *testing.B) {
-	s := ir.Sequence{Key: "test", Stages: []ir.Stage{ir.Stage{Key: "test", Nodes: []string{"test"}, Strata: [][]string{[]string{"test"}}}}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := ir.EncodeSequence(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ir.Sequence
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := ir.DecodeSequence(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

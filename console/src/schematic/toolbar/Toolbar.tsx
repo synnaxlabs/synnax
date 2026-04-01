@@ -30,11 +30,7 @@ import {
   useSelectEditable,
   useSelectSelected,
 } from "@/schematic/selectors";
-import {
-  setActiveToolbarTab,
-  setEditable,
-  type ToolbarTab,
-} from "@/schematic/slice";
+import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";

@@ -132,10 +132,7 @@ export const { actions, reducer } = createSlice({
       s.selected = payload.selected;
       s.activeToolbarTab = payload.selected.length > 0 ? "properties" : "symbols";
     },
-    setControlStatus: (
-      state,
-      { payload }: PayloadAction<SetControlStatusPayload>,
-    ) => {
+    setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
       s.control = payload.control;
@@ -145,10 +142,7 @@ export const { actions, reducer } = createSlice({
       if (s == null) return;
       s.legend = { ...s.legend, ...payload.legend };
     },
-    setLegendVisible: (
-      state,
-      { payload }: PayloadAction<SetLegendVisiblePayload>,
-    ) => {
+    setLegendVisible: (state, { payload }: PayloadAction<SetLegendVisiblePayload>) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
       s.legend.visible = payload.visible;

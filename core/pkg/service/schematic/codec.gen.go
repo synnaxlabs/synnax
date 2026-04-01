@@ -22,48 +22,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-func EncodeEdge(w *xbinary.Writer, s *Edge) error {
-	w.String(s.Key)
-	if err := EncodeHandle(w, &s.Source); err != nil {
-		return err
-	}
-	if err := EncodeHandle(w, &s.Target); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEdge(r *xbinary.Reader, s *Edge) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Source); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Target); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeHandle(w *xbinary.Writer, s *Handle) error {
-	w.String(s.Node)
-	w.String(s.Param)
-	return nil
-}
-
-func DecodeHandle(r *xbinary.Reader, s *Handle) error {
-	var err error
-	if s.Node, err = r.String(); err != nil {
-		return err
-	}
-	if s.Param, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -226,6 +184,48 @@ func DecodeNode(r *xbinary.Reader, s *Node) error {
 		return err
 	}
 	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeEdge(w *xbinary.Writer, s *Edge) error {
+	w.String(s.Key)
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEdge(r *xbinary.Reader, s *Edge) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Source); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeHandle(w *xbinary.Writer, s *Handle) error {
+	w.String(s.Node)
+	w.String(s.Param)
+	return nil
+}
+
+func DecodeHandle(r *xbinary.Reader, s *Handle) error {
+	var err error
+	if s.Node, err = r.String(); err != nil {
+		return err
+	}
+	if s.Param, err = r.String(); err != nil {
 		return err
 	}
 	return nil

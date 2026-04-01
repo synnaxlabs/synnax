@@ -67,20 +67,24 @@ export const createSelector = <
       const prev = cache.current;
       // If version hasn't changed and args haven't changed since last
       // evaluation, return cached value to maintain referential stability.
-      if (
-        prev !== null &&
-        prev.version === version.current &&
-        prev.args === memoArgs
-      )
+      if (prev !== null && prev.version === version.current && prev.args === memoArgs)
         return prev.selected;
       const nextSelected = params.select(store, memoArgs);
       // Run equality check against the previous selected value to avoid
       // unnecessary re-renders.
       if (prev !== null && equal(nextSelected, prev.selected)) {
-        cache.current = { version: version.current, args: memoArgs, selected: prev.selected };
+        cache.current = {
+          version: version.current,
+          args: memoArgs,
+          selected: prev.selected,
+        };
         return prev.selected;
       }
-      cache.current = { version: version.current, args: memoArgs, selected: nextSelected };
+      cache.current = {
+        version: version.current,
+        args: memoArgs,
+        selected: nextSelected,
+      };
       return nextSelected;
     }, [store, memoArgs]);
 

@@ -7,30 +7,66 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-import { actionZ } from "@/schematic/actions.gen";
-import { keyZ } from "@/schematic/types.gen";
-
-export type { Action } from "@/schematic/actions.gen";
-export {
-  ACTION_TYPES,
-  actionZ,
-  addNode,
-  reduce,
-  reduceAll,
-  removeEdge,
-  removeNode,
-  setEdge,
-  setNodeDimensions,
-  setNodePosition,
-  setProps,
+import {
+  type AddNodePayload,
+  type RemoveEdgePayload,
+  type RemoveNodePayload,
+  type SetEdgePayload,
+  type SetNodeDimensionsPayload,
+  type SetNodePositionPayload,
+  type SetPropsPayload,
 } from "@/schematic/actions.gen";
+import { type Schematic } from "@/schematic/types.gen";
 
-export const scopedActionZ = z.object({
-  key: keyZ,
-  sessionKey: z.string(),
-  actions: actionZ.array(),
-});
+export const handleSetNodePosition = (
+  state: Schematic,
+  payload: SetNodePositionPayload,
+): void => {
+  const node = state.nodes.find((n) => n.key === payload.key);
+  if (node != null) node.position = payload.position;
+};
 
-export type ScopedAction = z.infer<typeof scopedActionZ>;
+export const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
+  state.nodes.push(payload.node);
+  if (payload.props != null) {
+    state.props ??= {};
+    state.props[payload.node.key] = payload.props;
+  }
+};
+
+export const handleRemoveNode = (
+  state: Schematic,
+  payload: RemoveNodePayload,
+): void => {
+  const i = state.nodes.findIndex((n) => n.key === payload.key);
+  if (i !== -1) state.nodes.splice(i, 1);
+  delete state.props[payload.key];
+};
+
+export const handleSetEdge = (state: Schematic, payload: SetEdgePayload): void => {
+  const i = state.edges.findIndex((e) => e.key === payload.edge.key);
+  if (i !== -1) state.edges[i] = payload.edge;
+  else state.edges.push(payload.edge);
+};
+
+export const handleRemoveEdge = (
+  state: Schematic,
+  payload: RemoveEdgePayload,
+): void => {
+  const i = state.edges.findIndex((e) => e.key === payload.key);
+  if (i !== -1) state.edges.splice(i, 1);
+  delete state.props[payload.key];
+};
+
+export const handleSetNodeDimensions = (
+  state: Schematic,
+  payload: SetNodeDimensionsPayload,
+): void => {
+  const node = state.nodes.find((n) => n.key === payload.key);
+  if (node != null) node.measured = payload.dimensions;
+};
+
+export const handleSetProps = (state: Schematic, payload: SetPropsPayload): void => {
+  state.props ??= {};
+  state.props[payload.key] = payload.props;
+};

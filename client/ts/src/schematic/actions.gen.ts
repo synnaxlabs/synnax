@@ -20,8 +20,8 @@ import {
   handleSetNodeDimensions,
   handleSetNodePosition,
   handleSetProps,
-} from "./handlers";
-import { edgeZ, nodeZ,type Schematic } from "./types.gen";
+} from "@/schematic/actions";
+import { edgeZ, nodeZ, type Schematic } from "@/schematic/types.gen";
 
 export const setNodePositionPayloadZ = z.object({
   key: z.string(),

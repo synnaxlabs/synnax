@@ -35,18 +35,14 @@ export const selectSelected = (state: StoreState, key: string): string[] =>
 export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
 
-export const selectControlStatus = (
-  state: StoreState,
-  key: string,
-): Control.Status => selectOptional(state, key)?.control ?? "released";
+export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
+  selectOptional(state, key)?.control ?? "released";
 
 export const useSelectControlStatus = (key: string): Control.Status =>
   useMemoSelect((state: StoreState) => selectControlStatus(state, key), [key]);
 
-export const selectActiveToolbarTab = (
-  state: StoreState,
-  key: string,
-): ToolbarTab => selectOptional(state, key)?.activeToolbarTab ?? "symbols";
+export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
+  selectOptional(state, key)?.activeToolbarTab ?? "symbols";
 
 export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
   useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
@@ -57,18 +53,14 @@ export const selectSelectedSymbolGroup = (state: StoreState, key: string): strin
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
 
-export const selectLegend = (
-  state: StoreState,
-  key: string,
-): LegendState => selectOptional(state, key)?.legend ?? ZERO_STATE.legend;
+export const selectLegend = (state: StoreState, key: string): LegendState =>
+  selectOptional(state, key)?.legend ?? ZERO_STATE.legend;
 
 export const useSelectLegend = (key: string): LegendState =>
   useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
 
-export const selectLegendVisible = (
-  state: StoreState,
-  key: string,
-): boolean => selectOptional(state, key)?.legend.visible ?? false;
+export const selectLegendVisible = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key)?.legend.visible ?? false;
 
 export const useSelectLegendVisible = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);

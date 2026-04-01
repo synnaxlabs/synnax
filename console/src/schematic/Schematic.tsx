@@ -124,8 +124,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleViewportChange = useCallback(
-    (vp: Diagram.Viewport) =>
-      dispatch(setViewport({ key: layoutKey, viewport: vp })),
+    (vp: Diagram.Viewport) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
     [dispatch, layoutKey],
   );
 

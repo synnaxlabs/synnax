@@ -2143,7 +2143,7 @@ var _ = Describe("TS Types Plugin", func() {
 		Describe("Action Generation", func() {
 			It("Should generate reduce and reduceAll for structs with actions", func(ctx SpecContext) {
 				source := `
-					@ts output "out"
+					@ts output "client/ts/src/thing"
 
 					Thing struct {
 						key string
@@ -2165,9 +2165,9 @@ var _ = Describe("TS Types Plugin", func() {
 						`"immer"`,
 						`handleSetValue`,
 						`handleClear`,
-						`"./handlers"`,
+						`"@/thing/actions"`,
 						`Thing`,
-						`"./types.gen"`,
+						`"@/thing/types.gen"`,
 						`export const reduce = (state: Thing, action: Action): Thing =>`,
 						`case "set_value":`,
 						`handleSetValue(state, action.setValue)`,

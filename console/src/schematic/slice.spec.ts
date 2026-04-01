@@ -71,9 +71,7 @@ describe("Schematic Slice", () => {
     });
 
     it("should no-op when schematic does not exist", () => {
-      store.dispatch(
-        actions.setSelected({ key: "nonexistent", selected: ["a"] }),
-      );
+      store.dispatch(actions.setSelected({ key: "nonexistent", selected: ["a"] }));
       const state = store.getState()[SLICE_NAME];
       expect(state.schematics["nonexistent"]).toBeUndefined();
     });

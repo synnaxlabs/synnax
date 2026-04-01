@@ -19,50 +19,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-func EncodeNode(w *xbinary.Writer, s *Node) error {
-	w.String(s.Key)
-	w.String(s.Type)
-	{
-		b, err := json.Marshal(s.Config)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	if err := spatial.EncodeXY(w, &s.Position); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeNode(r *xbinary.Reader, s *Node) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if s.Type, err = r.String(); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Config); err != nil {
-			return err
-		}
-	}
-	if err = spatial.DecodeXY(r, &s.Position); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeGraph(w *xbinary.Writer, s *Graph) error {
 	if err := EncodeViewport(w, &s.Viewport); err != nil {
 		return err
@@ -146,6 +102,50 @@ func DecodeViewport(r *xbinary.Reader, s *Viewport) error {
 		return err
 	}
 	if s.Zoom, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeNode(w *xbinary.Writer, s *Node) error {
+	w.String(s.Key)
+	w.String(s.Type)
+	{
+		b, err := json.Marshal(s.Config)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	if err := spatial.EncodeXY(w, &s.Position); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeNode(r *xbinary.Reader, s *Node) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if s.Type, err = r.String(); err != nil {
+		return err
+	}
+	{
+		n, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Config); err != nil {
+			return err
+		}
+	}
+	if err = spatial.DecodeXY(r, &s.Position); err != nil {
 		return err
 	}
 	return nil

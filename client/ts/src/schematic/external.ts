@@ -7,7 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/schematic/actions";
+import { z } from "zod";
+
+import { actionZ } from "@/schematic/actions.gen";
+import { keyZ } from "@/schematic/types.gen";
+
+export * from "@/schematic/actions.gen";
 export * from "@/schematic/client";
 export * from "@/schematic/symbol";
 export * from "@/schematic/types.gen";
+
+export const scopedActionZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
+
+export type ScopedAction = z.infer<typeof scopedActionZ>;
