@@ -329,15 +329,40 @@ export const FourWayValve = ({
       className={CSS(CSS.B("four-way-valve"), className)}
     >
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation="left" left={12.037} top={50} id="1" />
-        <Handle location="right" orientation="left" left={87.963} top={50} id="2" />
-        <Handle location="top" orientation="left" left={50} top={7.2916} id="3" />
-        <Handle location="bottom" orientation="left" left={50} top={92.6084} id="4" />
+        <Handle
+          location="left"
+          orientation={orientation}
+          left={12.037}
+          top={50}
+          id="1"
+        />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={87.963}
+          top={50}
+          id="2"
+        />
+        <Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={7.2916}
+          id="3"
+        />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={92.6084}
+          id="4"
+        />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 108, height: 96 }}
         color={colorVal}
         scale={scale}
+        orientation={orientation}
       >
         <Path
           d="M3.02937 72.7038C2.50936 73.1041 2.50936 73.8883 3.02937 74.2886L7.14001 77.453C7.79757 77.9592 8.75 77.4904 8.75 76.6606V70.3318C8.75 69.502 7.79757 69.0332 7.14001 69.5394L3.02937 72.7038Z"
