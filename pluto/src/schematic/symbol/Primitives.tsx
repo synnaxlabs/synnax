@@ -238,7 +238,9 @@ const Toggle = ({
   ...rest
 }: ToggleValveButtonProps): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout>(undefined);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {
     if (parsedDelay.isZero) onClick?.(e);
@@ -247,14 +249,10 @@ const Toggle = ({
   const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
     onMouseDown?.(e);
     if (parsedDelay.isZero) return;
-    document.addEventListener(
-      "mouseup",
-      () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
-      { once: true },
-    );
+    document.addEventListener("mouseup", () => clearTimeout(timeoutRef.current));
     timeoutRef.current = setTimeout(() => {
       onClick?.(e);
-      timeoutRef.current = null;
+      timeoutRef.current = undefined;
     }, parsedDelay.milliseconds);
   };
 
