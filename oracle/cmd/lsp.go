@@ -17,16 +17,15 @@ import (
 	xos "github.com/synnaxlabs/x/os"
 )
 
-var lspCmd = &cobra.Command{
-	Use:   "lsp",
-	Short: "Start the language server",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return lsp.New().Serve(context.Background(), xos.StdIO)
-	},
-}
-
-func init() {
-	lspCmd.Flags().Bool("stdio", true, "")
-	_ = lspCmd.Flags().MarkHidden("stdio")
-	rootCmd.AddCommand(lspCmd)
+func newLSPCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "lsp",
+		Short: "Start the language server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return lsp.New().Serve(context.Background(), xos.StdIO)
+		},
+	}
+	cmd.Flags().Bool("stdio", true, "")
+	_ = cmd.Flags().MarkHidden("stdio")
+	return cmd
 }

@@ -22,25 +22,24 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var migrateCreateCmd = &cobra.Command{
-	Use:   "create <name>",
-	Short: "Scaffold a hand-written migration",
-	Long:  "Creates a migration file with boilerplate, pre-wired dependency on the latest schema migration.",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := runMigrateCreate(args[0]); err != nil {
-			printError(err.Error())
-			return err
-		}
-		return nil
-	},
-}
-
 var migrateCreateService string
 
-func init() {
-	migrateCreateCmd.Flags().StringVar(&migrateCreateService, "service", "", "Service output path (e.g. core/pkg/service/ranger)")
-	migrateCmd.AddCommand(migrateCreateCmd)
+func newMigrateCreateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create <name>",
+		Short: "Scaffold a hand-written migration",
+		Long:  "Creates a migration file with boilerplate, pre-wired dependency on the latest schema migration.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runMigrateCreate(args[0]); err != nil {
+				printError(err.Error())
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&migrateCreateService, "service", "", "Service output path (e.g. core/pkg/service/ranger)")
+	return cmd
 }
 
 var migrationScaffoldTmpl = template.Must(template.New("scaffold").Parse(
