@@ -19,6 +19,8 @@ import (
 	"sync"
 
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -64,8 +66,12 @@ func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
 	if s.Snapshot, err = r.Bool(); err != nil {
 		return err
 	}
-	if s.Authority, err = r.Uint8(); err != nil {
-		return err
+	{
+		v, err := r.Uint8()
+		if err != nil {
+			return err
+		}
+		s.Authority = control.Authority(v)
 	}
 	if err = DecodeLegend(r, &s.Legend); err != nil {
 		return err
@@ -118,7 +124,9 @@ func EncodeLegend(w *xbinary.Writer, s *Legend) error {
 	w.Uint32(uint32(len(s.Colors)))
 	for key, val := range s.Colors {
 		w.String(key)
-		w.String(val)
+		if err := color.EncodeColor(w, &val); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -136,14 +144,14 @@ func DecodeLegend(r *xbinary.Reader, s *Legend) error {
 		if err != nil {
 			return err
 		}
-		s.Colors = make(map[string]string, n)
+		s.Colors = make(map[string]color.Color, n)
 		for range n {
 			var key string
-			var val string
+			var val color.Color
 			if key, err = r.String(); err != nil {
 				return err
 			}
-			if val, err = r.String(); err != nil {
+			if err = color.DecodeColor(r, &val); err != nil {
 				return err
 			}
 			s.Colors[key] = val
@@ -157,9 +165,6 @@ func EncodeNode(w *xbinary.Writer, s *Node) error {
 	if err := spatial.EncodeXY(w, &s.Position); err != nil {
 		return err
 	}
-	w.Bool(s.Selected)
-	w.Int32(int32(s.ZIndex))
-	w.String(s.Type)
 	if err := spatial.EncodeDimensions(w, &s.Measured); err != nil {
 		return err
 	}
@@ -172,15 +177,6 @@ func DecodeNode(r *xbinary.Reader, s *Node) error {
 		return err
 	}
 	if err = spatial.DecodeXY(r, &s.Position); err != nil {
-		return err
-	}
-	if s.Selected, err = r.Bool(); err != nil {
-		return err
-	}
-	if s.ZIndex, err = r.Int32(); err != nil {
-		return err
-	}
-	if s.Type, err = r.String(); err != nil {
 		return err
 	}
 	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {

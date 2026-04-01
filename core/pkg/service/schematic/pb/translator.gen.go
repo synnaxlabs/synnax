@@ -14,6 +14,8 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -87,9 +89,6 @@ func NodeToPB(r schematic.Node) (*Node, error) {
 	}
 	pb := &Node{
 		Key:      r.Key,
-		Selected: r.Selected,
-		ZIndex:   r.ZIndex,
-		Type:     r.Type,
 		Position: positionVal,
 		Measured: measuredVal,
 	}
@@ -112,9 +111,6 @@ func NodeFromPB(pb *Node) (schematic.Node, error) {
 		return schematic.Node{}, err
 	}
 	r.Key = pb.Key
-	r.Selected = pb.Selected
-	r.ZIndex = pb.ZIndex
-	r.Type = pb.Type
 	return r, nil
 }
 
@@ -254,10 +250,14 @@ func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
 	if err != nil {
 		return nil, err
 	}
+	colorVal, err := colorpb.ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
 	pb := &EdgeProps{
-		Color:    r.Color,
 		Segments: segmentsVal,
 		Variant:  variantVal,
+		Color:    colorVal,
 	}
 	return pb, nil
 }
@@ -277,7 +277,10 @@ func EdgePropsFromPB(pb *EdgeProps) (schematic.EdgeProps, error) {
 	if err != nil {
 		return schematic.EdgeProps{}, err
 	}
-	r.Color = pb.Color
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
+	if err != nil {
+		return schematic.EdgeProps{}, err
+	}
 	return r, nil
 }
 
@@ -428,7 +431,7 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	r.Props = pb.Props.AsMap()
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
-	r.Authority = uint8(pb.Authority)
+	r.Authority = control.Authority(pb.Authority)
 	return r, nil
 }
 

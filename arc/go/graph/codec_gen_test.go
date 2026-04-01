@@ -26,6 +26,18 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Viewport", func() {
+		It("should round-trip encode and decode", func() {
+			original := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(graph.EncodeViewport(w, &original)).To(Succeed())
+			var decoded graph.Viewport
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("Node", func() {
 		It("should round-trip encode and decode", func() {
 			original := graph.Node{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}
@@ -50,19 +62,24 @@ var _ = Describe("Codec", func() {
 			Expect(decoded).To(Equal(original))
 		})
 	})
-	Describe("Viewport", func() {
-		It("should round-trip encode and decode", func() {
-			original := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(graph.EncodeViewport(w, &original)).To(Succeed())
-			var decoded graph.Viewport
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 })
+
+func BenchmarkEncodeDecodeViewport(b *testing.B) {
+	s := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := graph.EncodeViewport(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded graph.Viewport
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := graph.DecodeViewport(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
 	s := graph.Node{Key: "test", Type: "test", Config: map[string]interface{}{"key": "value"}, Position: spatial.XY{X: 2.5, Y: 2.5}}
@@ -93,23 +110,6 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeGraph(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeViewport(b *testing.B) {
-	s := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 2.5}, Zoom: 2.5}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := graph.EncodeViewport(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded graph.Viewport
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := graph.DecodeViewport(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

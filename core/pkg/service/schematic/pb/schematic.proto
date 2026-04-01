@@ -5,6 +5,7 @@ syntax = "proto3";
 package service.schematic.pb;
 
 import "google/protobuf/struct.proto";
+import "x/go/color/pb/color.proto";
 import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/schematic/pb";
@@ -27,7 +28,7 @@ message Legend {
   // position is the legend position within the schematic.
   .x.spatial.pb.StickyXY position = 2;
   // colors maps control status keys to their display colors.
-  map<string, string> colors = 3;
+  map<string, .x.color.pb.Color> colors = 3;
 }
 
 // Node is a diagram node representing a symbol in the schematic.
@@ -36,14 +37,8 @@ message Node {
   string key = 1;
   // position is the top-left position of the node.
   .x.spatial.pb.XY position = 2;
-  // selected is whether the node is currently selected.
-  bool selected = 3;
-  // z_index is the optional z-index for rendering order.
-  int32 z_index = 4;
-  // type is the optional node type identifier.
-  string type = 5;
   // measured contains the measured dimensions from rendering.
-  .x.spatial.pb.Dimensions measured = 6;
+  .x.spatial.pb.Dimensions measured = 3;
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -70,7 +65,7 @@ message EdgeProps {
   // variant is the visual style of the edge.
   EdgeVariant variant = 2;
   // color is the optional display color.
-  string color = 3;
+  .x.color.pb.Color color = 3;
 }
 
 // Edge is a connection between two nodes in the schematic.

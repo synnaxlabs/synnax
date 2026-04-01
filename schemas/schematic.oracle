@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/spatial"
+import "schemas/color"
+import "schemas/control"
 
 @ts output "client/ts/src/schematic"
 @go output "core/pkg/service/schematic"
@@ -18,13 +20,13 @@ Key = uuid {
 }
 
 Legend struct {
-    visible  bool                {
+    visible  bool                     {
         @doc value "is whether the legend is visible."
     }
-    position spatial.StickyXY    {
+    position spatial.StickyXY         {
         @doc value "is the legend position within the schematic."
     }
-    colors   map<string, string> {
+    colors   map<string, color.Color> {
         @doc value "maps control status keys to their display colors."
     }
 
@@ -37,15 +39,6 @@ Node struct {
     }
     position spatial.XY          {
         @doc value "is the top-left position of the node."
-    }
-    selected bool?               {
-        @doc value "is whether the node is currently selected."
-    }
-    z_index  int32?              {
-        @doc value "is the optional z-index for rendering order."
-    }
-    type     string?             {
-        @doc value "is the optional node type identifier."
     }
     measured spatial.Dimensions? {
         @doc value "contains the measured dimensions from rendering."
@@ -92,14 +85,14 @@ Segment struct {
 }
 
 EdgeProps struct {
-    segments Segment[]   {
+    segments Segment[]    {
         @doc value "defines the orthogonal path segments from source to target."
     }
-    variant  EdgeVariant {
+    variant  EdgeVariant  {
         @validate default "pipe"
         @doc value        "is the visual style of the edge."
     }
-    color    string?     {
+    color    color.Color? {
         @doc value "is the optional display color."
     }
 
@@ -121,32 +114,32 @@ Edge struct {
 }
 
 Schematic struct {
-    key       Key    {
+    key       Key               {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name      string {
+    name      string            {
         @doc value "is a human-readable name for the schematic."
     }
-    snapshot  bool   {
+    snapshot  bool              {
         @doc value """
             indicates whether this schematic represents a saved snapshot state.
         """
     }
-    authority uint8  {
+    authority control.Authority {
         @validate default 1
         @doc value        "is the control authority level for this schematic."
     }
-    legend    Legend {
+    legend    Legend            {
         @doc value "is the control legend overlay configuration."
     }
-    nodes     Node[] {
+    nodes     Node[]            {
         @doc value "contains all diagram nodes in the schematic."
     }
-    edges     Edge[] {
+    edges     Edge[]            {
         @doc value "contains all connections between nodes."
     }
-    props     record {
+    props     record            {
         @doc value """
             contains symbol-specific properties keyed by node key, including
             colors, labels, and other visual configuration.

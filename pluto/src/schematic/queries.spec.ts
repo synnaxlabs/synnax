@@ -218,9 +218,6 @@ describe("schematic queries", () => {
             {
               key: "n1",
               position: { x: 0, y: 0 },
-              selected: false,
-              zIndex: 0,
-              type: "",
             },
           ],
         }),
@@ -281,18 +278,12 @@ describe("schematic queries", () => {
               node: {
                 key: "a",
                 position: { x: 10, y: 20 },
-                selected: false,
-                zIndex: 0,
-                type: "",
               },
             }),
             schematic.addNode({
               node: {
                 key: "b",
                 position: { x: 30, y: 40 },
-                selected: false,
-                zIndex: 0,
-                type: "",
               },
             }),
             schematic.removeNode({ key: "a" }),
@@ -380,9 +371,6 @@ describe("schematic queries", () => {
             node: {
               key: "persisted",
               position: { x: 5, y: 10 },
-              selected: false,
-              zIndex: 0,
-              type: "",
             },
           }),
         });

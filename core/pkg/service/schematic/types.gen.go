@@ -14,6 +14,8 @@ package schematic
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -40,7 +42,7 @@ type Legend struct {
 	// Position is the legend position within the schematic.
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
 	// Colors maps control status keys to their display colors.
-	Colors map[string]string `json:"colors" msgpack:"colors"`
+	Colors map[string]color.Color `json:"colors" msgpack:"colors"`
 }
 
 // Node is a diagram node representing a symbol in the schematic.
@@ -49,12 +51,6 @@ type Node struct {
 	Key string `json:"key" msgpack:"key"`
 	// Position is the top-left position of the node.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// Selected is whether the node is currently selected.
-	Selected bool `json:"selected" msgpack:"selected"`
-	// ZIndex is the optional z-index for rendering order.
-	ZIndex int32 `json:"z_index" msgpack:"z_index"`
-	// Type is the optional node type identifier.
-	Type string `json:"type" msgpack:"type"`
 	// Measured contains the measured dimensions from rendering.
 	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
@@ -83,7 +79,7 @@ type EdgeProps struct {
 	// Variant is the visual style of the edge.
 	Variant EdgeVariant `json:"variant" msgpack:"variant"`
 	// Color is the optional display color.
-	Color string `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msgpack:"color"`
 }
 
 // Edge is a connection between two nodes in the schematic.
@@ -107,7 +103,7 @@ type Schematic struct {
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Authority is the control authority level for this schematic.
-	Authority uint8 `json:"authority" msgpack:"authority"`
+	Authority control.Authority `json:"authority" msgpack:"authority"`
 	// Legend is the control legend overlay configuration.
 	Legend Legend `json:"legend" msgpack:"legend"`
 	// Nodes contains all diagram nodes in the schematic.

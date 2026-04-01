@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb1 "github.com/synnaxlabs/x/color/pb"
 	pb "github.com/synnaxlabs/x/spatial/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -104,7 +105,7 @@ type Legend struct {
 	// position is the legend position within the schematic.
 	Position *pb.StickyXY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
 	// colors maps control status keys to their display colors.
-	Colors        map[string]string `protobuf:"bytes,3,rep,name=colors,proto3" json:"colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Colors        map[string]*pb1.Color `protobuf:"bytes,3,rep,name=colors,proto3" json:"colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -153,7 +154,7 @@ func (x *Legend) GetPosition() *pb.StickyXY {
 	return nil
 }
 
-func (x *Legend) GetColors() map[string]string {
+func (x *Legend) GetColors() map[string]*pb1.Color {
 	if x != nil {
 		return x.Colors
 	}
@@ -167,14 +168,8 @@ type Node struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// position is the top-left position of the node.
 	Position *pb.XY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
-	// selected is whether the node is currently selected.
-	Selected bool `protobuf:"varint,3,opt,name=selected,proto3" json:"selected,omitempty"`
-	// z_index is the optional z-index for rendering order.
-	ZIndex int32 `protobuf:"varint,4,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
-	// type is the optional node type identifier.
-	Type string `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
 	// measured contains the measured dimensions from rendering.
-	Measured      *pb.Dimensions `protobuf:"bytes,6,opt,name=measured,proto3" json:"measured,omitempty"`
+	Measured      *pb.Dimensions `protobuf:"bytes,3,opt,name=measured,proto3" json:"measured,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -221,27 +216,6 @@ func (x *Node) GetPosition() *pb.XY {
 		return x.Position
 	}
 	return nil
-}
-
-func (x *Node) GetSelected() bool {
-	if x != nil {
-		return x.Selected
-	}
-	return false
-}
-
-func (x *Node) GetZIndex() int32 {
-	if x != nil {
-		return x.ZIndex
-	}
-	return 0
-}
-
-func (x *Node) GetType() string {
-	if x != nil {
-		return x.Type
-	}
-	return ""
 }
 
 func (x *Node) GetMeasured() *pb.Dimensions {
@@ -370,7 +344,7 @@ type EdgeProps struct {
 	// variant is the visual style of the edge.
 	Variant EdgeVariant `protobuf:"varint,2,opt,name=variant,proto3,enum=service.schematic.pb.EdgeVariant" json:"variant,omitempty"`
 	// color is the optional display color.
-	Color         string `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color         *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -419,11 +393,11 @@ func (x *EdgeProps) GetVariant() EdgeVariant {
 	return EdgeVariant_EDGE_VARIANT_PIPE
 }
 
-func (x *EdgeProps) GetColor() string {
+func (x *EdgeProps) GetColor() *pb1.Color {
 	if x != nil {
 		return x.Color
 	}
-	return ""
+	return nil
 }
 
 // Edge is a connection between two nodes in the schematic.
@@ -606,31 +580,28 @@ var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescript
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xd3\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xe6\x01\n" +
 	"\x06Legend\x12\x18\n" +
 	"\avisible\x18\x01 \x01(\bR\avisible\x122\n" +
 	"\bposition\x18\x02 \x01(\v2\x16.x.spatial.pb.StickyXYR\bposition\x12@\n" +
-	"\x06colors\x18\x03 \x03(\v2(.service.schematic.pb.Legend.ColorsEntryR\x06colors\x1a9\n" +
+	"\x06colors\x18\x03 \x03(\v2(.service.schematic.pb.Legend.ColorsEntryR\x06colors\x1aL\n" +
 	"\vColorsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc5\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12'\n" +
+	"\x05value\x18\x02 \x01(\v2\x11.x.color.pb.ColorR\x05value:\x028\x01\"|\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x1a\n" +
-	"\bselected\x18\x03 \x01(\bR\bselected\x12\x17\n" +
-	"\az_index\x18\x04 \x01(\x05R\x06zIndex\x12\x12\n" +
-	"\x04type\x18\x05 \x01(\tR\x04type\x124\n" +
-	"\bmeasured\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"2\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x124\n" +
+	"\bmeasured\x18\x03 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"2\n" +
 	"\x06Handle\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
 	"\x05param\x18\x02 \x01(\tR\x05param\"X\n" +
 	"\aSegment\x125\n" +
 	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x16\n" +
-	"\x06length\x18\x02 \x01(\x01R\x06length\"\x99\x01\n" +
+	"\x06length\x18\x02 \x01(\x01R\x06length\"\xac\x01\n" +
 	"\tEdgeProps\x129\n" +
 	"\bsegments\x18\x01 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\x12;\n" +
-	"\avariant\x18\x02 \x01(\x0e2!.service.schematic.pb.EdgeVariantR\avariant\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\tR\x05color\"\x84\x01\n" +
+	"\avariant\x18\x02 \x01(\x0e2!.service.schematic.pb.EdgeVariantR\avariant\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\"\x84\x01\n" +
 	"\x04Edge\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x06source\x18\x02 \x01(\v2\x1c.service.schematic.pb.HandleR\x06source\x124\n" +
@@ -682,7 +653,8 @@ var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(*pb.XY)(nil),           // 10: x.spatial.pb.XY
 	(*pb.Dimensions)(nil),   // 11: x.spatial.pb.Dimensions
 	(pb.Direction)(0),       // 12: x.spatial.pb.Direction
-	(*structpb.Struct)(nil), // 13: google.protobuf.Struct
+	(*pb1.Color)(nil),       // 13: x.color.pb.Color
+	(*structpb.Struct)(nil), // 14: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	9,  // 0: service.schematic.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
@@ -692,17 +664,19 @@ var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	12, // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
 	4,  // 5: service.schematic.pb.EdgeProps.segments:type_name -> service.schematic.pb.Segment
 	0,  // 6: service.schematic.pb.EdgeProps.variant:type_name -> service.schematic.pb.EdgeVariant
-	3,  // 7: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
-	3,  // 8: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	1,  // 9: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
-	2,  // 10: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	6,  // 11: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	13, // 12: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	13, // 7: service.schematic.pb.EdgeProps.color:type_name -> x.color.pb.Color
+	3,  // 8: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	3,  // 9: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	1,  // 10: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
+	2,  // 11: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	6,  // 12: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	14, // 13: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
+	13, // 14: service.schematic.pb.Legend.ColorsEntry.value:type_name -> x.color.pb.Color
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }

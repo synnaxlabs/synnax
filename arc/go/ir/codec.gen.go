@@ -60,6 +60,35 @@ func DecodeBody(r *xbinary.Reader, s *Body) error {
 	return nil
 }
 
+func EncodeEdge(w *xbinary.Writer, s *Edge) error {
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
+		return err
+	}
+	w.Int64(int64(s.Kind))
+	return nil
+}
+
+func DecodeEdge(r *xbinary.Reader, s *Edge) error {
+	var err error
+	if err = DecodeHandle(r, &s.Source); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Target); err != nil {
+		return err
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Kind = EdgeKind(v)
+	}
+	return nil
+}
+
 func EncodeHandle(w *xbinary.Writer, s *Handle) error {
 	w.String(s.Node)
 	w.String(s.Param)
@@ -607,35 +636,6 @@ func DecodeFunction(r *xbinary.Reader, s *Function) error {
 	}
 	if err = types.DecodeChannels(r, &s.Channels); err != nil {
 		return err
-	}
-	return nil
-}
-
-func EncodeEdge(w *xbinary.Writer, s *Edge) error {
-	if err := EncodeHandle(w, &s.Source); err != nil {
-		return err
-	}
-	if err := EncodeHandle(w, &s.Target); err != nil {
-		return err
-	}
-	w.Int64(int64(s.Kind))
-	return nil
-}
-
-func DecodeEdge(r *xbinary.Reader, s *Edge) error {
-	var err error
-	if err = DecodeHandle(r, &s.Source); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Target); err != nil {
-		return err
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Kind = EdgeKind(v)
 	}
 	return nil
 }

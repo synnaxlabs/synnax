@@ -11,6 +11,7 @@ import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
+import { useSyncedRef } from "@/hooks";
 import { useKey } from "@/schematic/Context";
 import { useDispatch, useSelectProps } from "@/schematic/queries";
 import { Symbol } from "@/schematic/symbol";
@@ -24,13 +25,17 @@ export const Node = ({
 }: Diagram.NodeProps): ReactElement | null => {
   const schematicKey = useKey();
   const nodeProps = useSelectProps({ key: schematicKey, propKey: nodeKey });
+  const propsRef = useSyncedRef(nodeProps);
   const { update: dispatch } = useDispatch();
   const variant = nodeProps?.variant as Symbol.Variant | undefined;
   const handleChange = useCallback(
     (props: record.Unknown) =>
       dispatch({
         key: schematicKey,
-        actions: schematic.setProps({ key: nodeKey, props }),
+        actions: schematic.setProps({
+          key: nodeKey,
+          props: { ...propsRef.current, ...props },
+        }),
       }),
     [nodeKey, schematicKey, dispatch],
   );

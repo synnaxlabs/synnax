@@ -29,6 +29,18 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("StatusDetails", func() {
+		It("should round-trip encode and decode", func() {
+			original := rack.StatusDetails{Rack: rack.Key(7)}
+			w := xbinary.NewWriter(0, binary.BigEndian)
+			Expect(rack.EncodeStatusDetails(w, &original)).To(Succeed())
+			var decoded rack.StatusDetails
+			r := xbinary.NewReader(nil, binary.BigEndian)
+			r.ResetBytes(w.Bytes())
+			Expect(rack.DecodeStatusDetails(r, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
+		})
+	})
 	Describe("Rack", func() {
 		It("should round-trip encode and decode", func() {
 			original := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
@@ -41,18 +53,6 @@ var _ = Describe("Codec", func() {
 			r := xbinary.NewReader(nil, binary.BigEndian)
 			r.ResetBytes(w.Bytes())
 			Expect(rack.DecodeRack(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
-	Describe("StatusDetails", func() {
-		It("should round-trip encode and decode", func() {
-			original := rack.StatusDetails{Rack: rack.Key(7)}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(rack.EncodeStatusDetails(w, &original)).To(Succeed())
-			var decoded rack.StatusDetails
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(rack.DecodeStatusDetails(r, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -72,6 +72,23 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
+	s := rack.StatusDetails{Rack: rack.Key(7)}
+	w := xbinary.NewWriter(0, binary.BigEndian)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := rack.EncodeStatusDetails(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded rack.StatusDetails
+		r := xbinary.NewReader(nil, binary.BigEndian)
+		r.ResetBytes(w.Bytes())
+		if err := rack.DecodeStatusDetails(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeRack(b *testing.B) {
 	s := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
 		v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
@@ -87,23 +104,6 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeRack(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	s := rack.StatusDetails{Rack: rack.Key(7)}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := rack.EncodeStatusDetails(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded rack.StatusDetails
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := rack.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}

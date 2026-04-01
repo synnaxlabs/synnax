@@ -17,11 +17,12 @@ import {
   Fragment,
   type ReactElement,
   useCallback,
+  useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { useKey } from "@/schematic/Context";
 import { connector } from "@/schematic/edge/connector";
@@ -85,138 +86,83 @@ export const Edge = ({
   sourceNode,
   targetNode,
   selected = false,
-}: diagram.EdgeProps): ReactElement => {
+}: diagram.EdgeProps): ReactElement | null => {
   const schematicKey = useKey();
   const edgeProps = useSelectProps({ key: schematicKey, propKey: edgeKey }) as
     | schematic.EdgeProps
     | undefined;
   const {
-    segments: propsSegments = [],
+    segments: middleSegments = [],
     color: edgeColor = "var(--pluto-gray-l11)",
     variant = "pipe",
   } = (edgeProps ?? {}) as schematic.EdgeProps;
 
-  const sourcePos = source.position;
-  const sourcePosRef = useRef(sourcePos);
-  const sourcePosEq = xy.equals(sourcePos, sourcePosRef.current);
-
-  const targetPos = target.position;
-  const targetPosRef = useRef(targetPos);
-  const targetPosEq = xy.equals(targetPos, targetPosRef.current);
-
   const flow = useReactFlow();
   const { update: dispatch } = useDispatch();
 
-  const [segments, setSegments, segRef] = useCombinedStateAndRef<connector.Segment[]>(
-    () =>
-      propsSegments.length > 0
-        ? propsSegments
-        : connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation: source.orientation,
-            targetOrientation: target.orientation,
-            sourceBox: selectNodeBox(flow, sourceNode),
-            targetBox: selectNodeBox(flow, targetNode),
-          }),
-  );
+  const visualSegments = useMemo(() => {
+    if (middleSegments.length === 0)
+      return connector.buildNew({
+        sourcePos: source.position,
+        targetPos: target.position,
+        sourceOrientation: source.orientation,
+        targetOrientation: target.orientation,
+        sourceBox: selectNodeBox(flow, sourceNode),
+        targetBox: selectNodeBox(flow, targetNode),
+      });
+    return connector.stitchEdge({
+      sourceOrientation: source.orientation,
+      targetOrientation: target.orientation,
+      sourcePos: source.position,
+      targetPos: target.position,
+      middleSegments,
+    });
+  }, [
+    source.position.x,
+    source.position.y,
+    target.position.x,
+    target.position.y,
+    source.orientation,
+    target.orientation,
+    middleSegments,
+  ]);
 
-  const propsRef = useRef(propsSegments);
-  if (propsSegments !== propsRef.current) {
-    propsRef.current = propsSegments;
-    if (propsSegments.length > 0) setSegments(propsSegments);
-  }
-
-  const targetOrientationRef = useRef(target.orientation);
-  const sourceOrientationRef = useRef(source.orientation);
-
-  const persistSegments = useCallback(
+  const persistMiddle = useCallback(
     (segs: connector.Segment[]) => {
-      console.log("persistSegments", { segs, variant, edgeColor });
+      const middle = connector.extractMiddle(
+        segs,
+        source.orientation,
+        target.orientation,
+      );
       dispatch({
         key: schematicKey,
         actions: schematic.setProps({
           key: edgeKey,
-          props: { segments: segs, variant, color: edgeColor },
+          props: { segments: middle, variant, color: edgeColor },
         }),
       });
     },
     [schematicKey, edgeKey, variant, edgeColor, dispatch],
   );
 
-  const debouncedPersist = useDebouncedCallback(persistSegments, 100, [
-    persistSegments,
-  ]);
+  const [dragOverride, setDragOverride] = useState<connector.Segment[] | null>(null);
+  const dragOverrideRef = useRef(dragOverride);
+  dragOverrideRef.current = dragOverride;
 
-  if (!sourcePosEq || !targetPosEq) {
-    let next: connector.Segment[] = segments;
-    const sourceDelta = xy.translation(sourcePosRef.current, sourcePos);
-    const targetDelta = xy.translation(targetPos, targetPosRef.current);
-    if (xy.equals(sourceDelta, xy.scale(targetDelta, -1), 0.001)) {
-      sourcePosRef.current = sourcePos;
-      targetPosRef.current = targetPos;
-    } else {
-      if (!sourcePosEq) {
-        next = connector.moveSourceNode({ delta: sourceDelta, segments: next });
-        if (sourceOrientationRef.current !== source.orientation) {
-          sourceOrientationRef.current = source.orientation;
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation: source.orientation,
-            targetOrientation: target.orientation,
-            sourceBox: selectNodeBox(flow, sourceNode),
-            targetBox: selectNodeBox(flow, targetNode),
-          });
-        }
-        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation: source.orientation,
-            targetOrientation: target.orientation,
-            sourceBox: selectNodeBox(flow, sourceNode),
-            targetBox: selectNodeBox(flow, targetNode),
-          });
-        sourcePosRef.current = sourcePos;
-      } else if (!targetPosEq) {
-        next = connector.moveTargetNode({ delta: targetDelta, segments: next });
-        if (targetOrientationRef.current !== target.orientation) {
-          targetOrientationRef.current = target.orientation;
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation: source.orientation,
-            targetOrientation: target.orientation,
-            sourceBox: selectNodeBox(flow, sourceNode),
-            targetBox: selectNodeBox(flow, targetNode),
-          });
-        }
-        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
-          next = connector.buildNew({
-            sourcePos,
-            targetPos,
-            sourceOrientation: source.orientation,
-            targetOrientation: target.orientation,
-            sourceBox: selectNodeBox(flow, sourceNode),
-            targetBox: selectNodeBox(flow, targetNode),
-          });
-        targetPosRef.current = targetPos;
-      }
-      debouncedPersist(next);
-      setSegments(next);
-    }
-  }
+  const segments = dragOverride ?? visualSegments;
 
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
-    onStart: useCallback((_: xy.XY, __: Key, e: DragEvent) => {
-      dragRef.current = {
-        index: Number(e.currentTarget.id.split("-")[1]),
-        segments: [...segRef.current],
-      };
-    }, []),
+    onStart: useCallback(
+      (_: xy.XY, __: Key, e: DragEvent) => {
+        dragRef.current = {
+          index: Number(e.currentTarget.id.split("-")[1]),
+          segments: [...segments],
+        };
+      },
+      [segments],
+    ),
     onMove: useCallback((b: box.Box) => {
       if (dragRef.current == null) return;
       const next = connector.dragSegment({
@@ -229,12 +175,24 @@ export const Edge = ({
             true,
           ) / flow.getZoom(),
       });
-      setSegments(next);
+      setDragOverride(next);
     }, []),
-    onEnd: useCallback(() => persistSegments(segRef.current), [persistSegments]),
+    onEnd: useCallback(() => {
+      if (dragOverrideRef.current != null) {
+        persistMiddle(dragOverrideRef.current);
+        setDragOverride(null);
+      }
+    }, [persistMiddle]),
   });
 
-  const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
+  const points = connector.segmentsToPoints(
+    source.position,
+    segments,
+    flow.getZoom(),
+    true,
+  );
+
+  if (segments.length === 0) return null;
 
   const P = PATHS[variant] ?? PATHS.pipe;
 

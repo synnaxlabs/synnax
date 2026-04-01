@@ -16,6 +16,7 @@ import (
 
 	v53 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v53"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -25,7 +26,6 @@ func MigrateSchematic(_ context.Context, old v53.Schematic) (Schematic, error) {
 		Key:       old.Key,
 		Name:      old.Name,
 		Snapshot:  old.Snapshot,
-		Authority: mapUint8(data, "authority", 1),
 		Legend:    extractLegend(data),
 		Nodes:     extractNodes(data),
 	}
@@ -55,7 +55,6 @@ func extractLegend(data map[string]any) Legend {
 	leg := Legend{
 		Visible:  true,
 		Position: spatial.StickyXY{X: 50, Y: 50},
-		Colors:   make(map[string]string),
 	}
 	raw, ok := data["legend"].(map[string]any)
 	if !ok {
@@ -77,7 +76,7 @@ func extractLegend(data map[string]any) Legend {
 	if colors, ok := raw["colors"].(map[string]any); ok {
 		for k, v := range colors {
 			if s, ok := v.(string); ok {
-				leg.Colors[k] = s
+				leg.Colors[k] = color.MustFromHex(s)
 			}
 		}
 	}
@@ -100,9 +99,6 @@ func extractNodes(data map[string]any) []Node {
 			n.Position.X = mapFloat64(pos, "x", 0)
 			n.Position.Y = mapFloat64(pos, "y", 0)
 		}
-		n.Selected = mapBool(m, "selected", false)
-		n.ZIndex = mapInt32(m, "zIndex", 0)
-		n.Type = mapString(m, "type", "")
 		nodes = append(nodes, n)
 	}
 	return nodes
