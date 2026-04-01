@@ -30,7 +30,6 @@ on:
     branches:
       - main
       - rc
-      - sy-3970-migration-integration-tests
     paths:
       - .github/actions/test-python/**
       - .github/actions/test-typescript/**
@@ -137,7 +136,7 @@ jobs:
           docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090
           -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
           SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
-          ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+          ghcr.io/synnaxlabs/synnax:${{ github.sha }}
 
       - name: Test Python with Core on current branch
         uses: ./.github/actions/test-python

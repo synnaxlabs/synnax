@@ -144,6 +144,8 @@ def start_core() -> subprocess.Popen[bytes]:
     env.setdefault("SYNNAX_LICENSE_KEY", "")
 
     print(f"Starting Core from {binary}...")
+    # The Python file handle is closed after Popen returns, but the subprocess
+    # retains its own OS-level file descriptor via fork/spawn inheritance.
     log = open(log_file, "w")
     proc = subprocess.Popen(
         [str(binary), "start", "-i"],
