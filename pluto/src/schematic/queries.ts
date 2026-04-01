@@ -12,6 +12,7 @@ import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { connector } from "@/schematic/edge/connector";
 import { type Diagram } from "@/vis/diagram";
 
 export const FLUX_STORE_KEY = "schematics";
@@ -325,6 +326,39 @@ export interface DispatchParams {
   actions: schematic.Action | schematic.Action[];
 }
 
+const augmentWithEdgeSegments = (
+  current: schematic.Schematic,
+  actions: schematic.Action[],
+): schematic.Action[] => {
+  const changes: connector.NodePositionChange[] = [];
+  for (const action of actions)
+    if (action.type === "set_node_position")
+      changes.push({
+        key: action.setNodePosition.key,
+        newPos: action.setNodePosition.position,
+      });
+  if (changes.length === 0) return actions;
+  const updates = connector.updateSegmentsForPositionChanges({
+    nodes: current.nodes,
+    edges: current.edges,
+    props: current.props,
+    changes,
+  });
+  if (updates.length === 0) return actions;
+  const extra = updates.map((u) => {
+    const edgeProps = current.props[u.key] as schematic.EdgeProps | undefined;
+    return schematic.setProps({
+      key: u.key,
+      props: {
+        segments: u.segments,
+        variant: edgeProps?.variant,
+        color: edgeProps?.color,
+      },
+    });
+  });
+  return [...actions, ...extra];
+};
+
 export const { useUpdate: useDispatch } = Flux.createUpdate<
   DispatchParams,
   FluxSubStore
@@ -333,9 +367,10 @@ export const { useUpdate: useDispatch } = Flux.createUpdate<
   verbs: Flux.UPDATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, actions } = data;
-    const actionArray = Array.isArray(actions) ? actions : [actions];
+    let actionArray = Array.isArray(actions) ? actions : [actions];
     const current = store.schematics.get(key);
     if (current != null) {
+      actionArray = augmentWithEdgeSegments(current, actionArray);
       const next = schematic.reduceAll(current, actionArray);
       rollbacks.push(store.schematics.set(key, next));
     }
