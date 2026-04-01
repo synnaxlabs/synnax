@@ -132,6 +132,7 @@ export const Edge = ({
 
   const persistSegments = useCallback(
     (segs: connector.Segment[]) => {
+      console.log("persistSegments", { segs, variant, edgeColor });
       dispatch({
         key: schematicKey,
         actions: schematic.setProps({

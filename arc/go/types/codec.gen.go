@@ -17,191 +17,6 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeType(w *xbinary.Writer, s *Type) error {
-	if s.Inputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Inputs)))
-		for j := range s.Inputs {
-			if err := EncodeParam(w, &s.Inputs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Outputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Outputs)))
-		for j := range s.Outputs {
-			if err := EncodeParam(w, &s.Outputs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Config)))
-		for j := range s.Config {
-			if err := EncodeParam(w, &s.Config[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	w.Int64(int64(s.Kind))
-	w.String(s.Name)
-	if s.Elem != nil {
-		w.Bool(true)
-		if err := EncodeType(w, &(*s.Elem)); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Unit != nil {
-		w.Bool(true)
-		if err := EncodeUnit(w, &(*s.Unit)); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Constraint != nil {
-		w.Bool(true)
-		if err := EncodeType(w, &(*s.Constraint)); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	w.Int64(int64(s.ChanDirection))
-	return nil
-}
-
-func DecodeType(r *xbinary.Reader, s *Type) error {
-	var err error
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Inputs = make([]Param, n)
-				for j := range s.Inputs {
-					if err = DecodeParam(r, &s.Inputs[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Outputs = make([]Param, n)
-				for j := range s.Outputs {
-					if err = DecodeParam(r, &s.Outputs[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Config = make([]Param, n)
-				for j := range s.Config {
-					if err = DecodeParam(r, &s.Config[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Kind = Kind(v)
-	}
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Type
-			if err = DecodeType(r, &v); err != nil {
-				return err
-			}
-			s.Elem = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Unit
-			if err = DecodeUnit(r, &v); err != nil {
-				return err
-			}
-			s.Unit = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Type
-			if err = DecodeType(r, &v); err != nil {
-				return err
-			}
-			s.Constraint = &v
-		}
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.ChanDirection = ChanDirection(v)
-	}
-	return nil
-}
-
 func EncodeFunctionProperties(w *xbinary.Writer, s *FunctionProperties) error {
 	if s.Inputs != nil {
 		w.Bool(true)
@@ -457,6 +272,191 @@ func DecodeParam(r *xbinary.Reader, s *Param) error {
 		if err = json.Unmarshal(b, &s.Value); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func EncodeType(w *xbinary.Writer, s *Type) error {
+	if s.Inputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Inputs)))
+		for j := range s.Inputs {
+			if err := EncodeParam(w, &s.Inputs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Outputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Outputs)))
+		for j := range s.Outputs {
+			if err := EncodeParam(w, &s.Outputs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Config != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Config)))
+		for j := range s.Config {
+			if err := EncodeParam(w, &s.Config[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Int64(int64(s.Kind))
+	w.String(s.Name)
+	if s.Elem != nil {
+		w.Bool(true)
+		if err := EncodeType(w, &(*s.Elem)); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Unit != nil {
+		w.Bool(true)
+		if err := EncodeUnit(w, &(*s.Unit)); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Constraint != nil {
+		w.Bool(true)
+		if err := EncodeType(w, &(*s.Constraint)); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Int64(int64(s.ChanDirection))
+	return nil
+}
+
+func DecodeType(r *xbinary.Reader, s *Type) error {
+	var err error
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Inputs = make([]Param, n)
+				for j := range s.Inputs {
+					if err = DecodeParam(r, &s.Inputs[j]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Outputs = make([]Param, n)
+				for j := range s.Outputs {
+					if err = DecodeParam(r, &s.Outputs[j]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Config = make([]Param, n)
+				for j := range s.Config {
+					if err = DecodeParam(r, &s.Config[j]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Kind = Kind(v)
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v Type
+			if err = DecodeType(r, &v); err != nil {
+				return err
+			}
+			s.Elem = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v Unit
+			if err = DecodeUnit(r, &v); err != nil {
+				return err
+			}
+			s.Unit = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v Type
+			if err = DecodeType(r, &v); err != nil {
+				return err
+			}
+			s.Constraint = &v
+		}
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.ChanDirection = ChanDirection(v)
 	}
 	return nil
 }

@@ -16,6 +16,166 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 )
 
+func EncodeFunction(w *xbinary.Writer, s *Function) error {
+	w.String(s.Key)
+	if err := EncodeBody(w, &s.Body); err != nil {
+		return err
+	}
+	if s.Config != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Config)))
+		for j := range s.Config {
+			if err := types.EncodeParam(w, &s.Config[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Inputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Inputs)))
+		for j := range s.Inputs {
+			if err := types.EncodeParam(w, &s.Inputs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Outputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Outputs)))
+		for j := range s.Outputs {
+			if err := types.EncodeParam(w, &s.Outputs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if err := types.EncodeChannels(w, &s.Channels); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeFunction(r *xbinary.Reader, s *Function) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeBody(r, &s.Body); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Config = make([]types.Param, n)
+				for j := range s.Config {
+					if err = types.DecodeParam(r, &s.Config[j]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Inputs = make([]types.Param, n)
+				for j := range s.Inputs {
+					if err = types.DecodeParam(r, &s.Inputs[j]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				n, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				s.Outputs = make([]types.Param, n)
+				for j := range s.Outputs {
+					if err = types.DecodeParam(r, &s.Outputs[j]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	if err = types.DecodeChannels(r, &s.Channels); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeBody(w *xbinary.Writer, s *Body) error {
+	w.String(s.Raw)
+	return nil
+}
+
+func DecodeBody(r *xbinary.Reader, s *Body) error {
+	var err error
+	if s.Raw, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeEdge(w *xbinary.Writer, s *Edge) error {
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
+		return err
+	}
+	w.Int64(int64(s.Kind))
+	return nil
+}
+
+func DecodeEdge(r *xbinary.Reader, s *Edge) error {
+	var err error
+	if err = DecodeHandle(r, &s.Source); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Target); err != nil {
+		return err
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Kind = EdgeKind(v)
+	}
+	return nil
+}
+
 func EncodeHandle(w *xbinary.Writer, s *Handle) error {
 	w.String(s.Node)
 	w.String(s.Param)
@@ -449,137 +609,6 @@ func DecodeAuthorities(r *xbinary.Reader, s *Authorities) error {
 	return nil
 }
 
-func EncodeFunction(w *xbinary.Writer, s *Function) error {
-	w.String(s.Key)
-	if err := EncodeBody(w, &s.Body); err != nil {
-		return err
-	}
-	if s.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Config)))
-		for j := range s.Config {
-			if err := types.EncodeParam(w, &s.Config[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Inputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Inputs)))
-		for j := range s.Inputs {
-			if err := types.EncodeParam(w, &s.Inputs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Outputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Outputs)))
-		for j := range s.Outputs {
-			if err := types.EncodeParam(w, &s.Outputs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if err := types.EncodeChannels(w, &s.Channels); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeFunction(r *xbinary.Reader, s *Function) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeBody(r, &s.Body); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Config = make([]types.Param, n)
-				for j := range s.Config {
-					if err = types.DecodeParam(r, &s.Config[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Inputs = make([]types.Param, n)
-				for j := range s.Inputs {
-					if err = types.DecodeParam(r, &s.Inputs[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Outputs = make([]types.Param, n)
-				for j := range s.Outputs {
-					if err = types.DecodeParam(r, &s.Outputs[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	if err = types.DecodeChannels(r, &s.Channels); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeBody(w *xbinary.Writer, s *Body) error {
-	w.String(s.Raw)
-	return nil
-}
-
-func DecodeBody(r *xbinary.Reader, s *Body) error {
-	var err error
-	if s.Raw, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeSequence(w *xbinary.Writer, s *Sequence) error {
 	w.String(s.Key)
 	w.Uint32(uint32(len(s.Stages)))
@@ -607,35 +636,6 @@ func DecodeSequence(r *xbinary.Reader, s *Sequence) error {
 				return err
 			}
 		}
-	}
-	return nil
-}
-
-func EncodeEdge(w *xbinary.Writer, s *Edge) error {
-	if err := EncodeHandle(w, &s.Source); err != nil {
-		return err
-	}
-	if err := EncodeHandle(w, &s.Target); err != nil {
-		return err
-	}
-	w.Int64(int64(s.Kind))
-	return nil
-}
-
-func DecodeEdge(r *xbinary.Reader, s *Edge) error {
-	var err error
-	if err = DecodeHandle(r, &s.Source); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Target); err != nil {
-		return err
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Kind = EdgeKind(v)
 	}
 	return nil
 }

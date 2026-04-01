@@ -2139,5 +2139,44 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`concurrency: control.concurrencyZ.default(control.Concurrency.exclusive)`)
 			})
 		})
+
+		Describe("Action Generation", func() {
+			It("Should generate reduce and reduceAll for structs with actions", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Thing struct {
+						key string
+						value int32
+
+						action SetValue {
+							value int32
+						}
+
+						action Clear {
+							key string
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain(
+						`produce`,
+						`"immer"`,
+						`handleSetValue`,
+						`handleClear`,
+						`"./handlers"`,
+						`Thing`,
+						`"./types.gen"`,
+						`export const reduce = (state: Thing, action: Action): Thing =>`,
+						`case "set_value":`,
+						`handleSetValue(state, action.setValue)`,
+						`case "clear":`,
+						`handleClear(state, action.clear)`,
+						`export const reduceAll = (state: Thing, actions: Action[]): Thing =>`,
+						`produce(state, (draft) => actions.forEach((action) => reduce(draft, action)))`,
+					)
+			})
+		})
 	})
 })
