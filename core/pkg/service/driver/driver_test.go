@@ -170,7 +170,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					mt := &mockTask{key: t.Key}
@@ -196,7 +196,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configCount.Add(1)
@@ -233,7 +233,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configuredCount.Add(1)
@@ -262,7 +262,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(initialReady) })
@@ -294,7 +294,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -326,7 +326,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configureCalled.Store(true)
@@ -352,7 +352,7 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(driver.Context, task.Task) (driver.Task, error) {
+				configureFunc: func(context.Context, task.Task) (driver.Task, error) {
 					configCalled.Store(true)
 					return nil, errors.New("factory configuration failed")
 				},
@@ -378,7 +378,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					if _, ok := knownKeys.Load(t.Key); !ok {
@@ -425,7 +425,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configCount.Add(1)
@@ -462,7 +462,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configuredTasks.Store(t.Key, true)
@@ -539,7 +539,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
@@ -592,7 +592,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -744,7 +744,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					return &mockTask{
@@ -787,7 +787,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -827,7 +827,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					return &mockTask{
@@ -858,7 +858,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					return &mockTask{
@@ -896,7 +896,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -935,7 +935,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -976,15 +976,15 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					dCtx driver.Context,
+					cfgCtx context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					startOnce.Do(func() { close(configureStarted) })
 					// Block until context is canceled (simulates a well-behaved but
 					// slow implementation that respects cancellation).
-					<-dCtx.Done()
+					<-cfgCtx.Done()
 					timedOut.Store(true)
-					return nil, dCtx.Err()
+					return nil, cfgCtx.Err()
 				},
 			}
 			d := MustSucceed(driver.Open(ctx, driver.Config{
@@ -1017,7 +1017,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -1058,89 +1058,6 @@ var _ = Describe("Driver", func() {
 		})
 	})
 
-	Describe("Register", func() {
-		It("should make task available for commands before ConfigureTask returns", func(ctx SpecContext) {
-			var (
-				targetKey    atomic.Value
-				registered   = make(chan struct{})
-				registerOnce sync.Once
-				configGate   = make(chan struct{})
-				execCalled   atomic.Bool
-			)
-
-			factory := &mockFactory{
-				name: "test",
-				configureFunc: func(
-					dCtx driver.Context,
-					t task.Task,
-				) (driver.Task, error) {
-					mt := &mockTask{
-						key: t.Key,
-						execFunc: func(context.Context, task.Command) error {
-							execCalled.Store(true)
-							return nil
-						},
-					}
-					dCtx.Register(mt)
-					// Only block for the target task, not existing tasks.
-					if t.Key == targetKey.Load() {
-						registerOnce.Do(func() { close(registered) })
-						<-configGate
-					}
-					return mt, nil
-				},
-			}
-			openDriver(ctx, factory)
-			t := newTask(embeddedRackKey(ctx))
-			targetKey.Store(t.Key)
-			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
-
-			// Wait for the factory to register the task while still inside
-			// ConfigureTask.
-			Eventually(registered).Should(BeClosed())
-
-			// Send a command while ConfigureTask is still running.
-			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
-			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
-
-			close(configGate)
-		})
-
-		It("should keep pre-registered task available when factory returns error", func(ctx SpecContext) {
-			var (
-				configDone = make(chan struct{})
-				doneOnce   sync.Once
-				execCalled atomic.Bool
-			)
-			factory := &mockFactory{
-				name: "test",
-				configureFunc: func(
-					dCtx driver.Context,
-					t task.Task,
-				) (driver.Task, error) {
-					dCtx.Register(&mockTask{
-						key: t.Key,
-						execFunc: func(context.Context, task.Command) error {
-							execCalled.Store(true)
-							return nil
-						},
-					})
-					doneOnce.Do(func() { close(configDone) })
-					return nil, errors.New("factory failed after register")
-				},
-			}
-			openDriver(ctx, factory)
-
-			t := newTask(embeddedRackKey(ctx))
-			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
-			Eventually(configDone).Should(BeClosed())
-
-			// The registered task should still be reachable for commands.
-			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
-			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
-		})
-	})
-
 	Describe("Parallelism", func() {
 		It("should configure existing tasks in parallel on startup", func(ctx SpecContext) {
 			var (
@@ -1177,7 +1094,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					if configCount.Add(1) == numTasks {

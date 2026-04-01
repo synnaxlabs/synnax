@@ -101,7 +101,7 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 }
 
 func (f *factory) ConfigureTask(
-	ctx driver.Context,
+	ctx context.Context,
 	t task.Task,
 ) (driver.Task, error) {
 	if t.Type != TaskType {
@@ -118,13 +118,11 @@ func (f *factory) ConfigureTask(
 		return nil, err
 	}
 	arcTask := &taskImpl{
-		ctx:        ctx,
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
 		prog:       prog,
 	}
-	ctx.Register(arcTask)
 	if cfg.AutoStart {
 		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
 			return nil, err
@@ -138,7 +136,7 @@ func (f *factory) ConfigureTask(
 }
 
 func (f *factory) setConfigStatus(
-	ctx driver.Context,
+	ctx context.Context,
 	t task.Task,
 	variant xstatus.Variant,
 	message string,
@@ -154,7 +152,9 @@ func (f *factory) setConfigStatus(
 			Running: false,
 		},
 	}
-	if err := ctx.SetStatus(stat); err != nil {
+	if err := status.
+		NewWriter[task.StatusDetails](f.cfg.Status, nil).
+		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
 			zap.Uint64("key", uint64(t.Key)),
