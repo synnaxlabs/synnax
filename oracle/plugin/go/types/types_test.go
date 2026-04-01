@@ -1553,5 +1553,154 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(importCount).To(Equal(1), "Import should appear exactly once, got: %d", importCount)
 			})
 		})
+
+		Context("plugin interface methods", func() {
+			It("Should return nil from Check", func() {
+				Expect(goPlugin.Check(nil)).To(Succeed())
+			})
+		})
+
+		Context("enum starts-at-one optimization", func() {
+			It("Should use iota+1 for enums starting at 1 with sequential values", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Status enum {
+						pending = 1
+						active = 2
+						completed = 3
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("StatusPending Status = iota + 1").
+					ToNotContain("StatusPending Status = 1")
+			})
+
+			It("Should not use iota+1 for enums starting at 1 with non-sequential values", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Status enum {
+						pending = 1
+						active = 3
+						completed = 5
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("StatusPending Status = iota").
+					ToNotContain("iota + 1")
+			})
+		})
+
+		Context("generic distinct types", func() {
+			It("Should generate a generic distinct type with type parameters", func(ctx SpecContext) {
+				source := `
+					@go output "core/wrapper"
+
+					Base struct<T> {
+						value T
+					}
+
+					Wrapper<T> Base<T>
+				`
+				resp := MustGenerate(ctx, source, "wrapper", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type Wrapper[T any]")
+			})
+		})
+
+		Context("generic alias types", func() {
+			It("Should generate a generic alias type with type parameters", func(ctx SpecContext) {
+				source := `
+					@go output "core/container"
+
+					Base struct<T> {
+						value T
+					}
+
+					Container<T> = Base<T>
+				`
+				resp := MustGenerate(ctx, source, "container", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type Container[T any] =")
+			})
+		})
+
+		Context("alias to generic struct with defaulted type params", func() {
+			It("Should handle alias to a generic struct with a defaulted type parameter", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+
+					Config struct<D = record> {
+						data D
+						name string
+					}
+
+					TaskConfig = Config
+				`
+				resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type TaskConfig =")
+			})
+
+			It("Should handle generic struct where defaulted params are skipped in output", func(ctx SpecContext) {
+				source := `
+					@go output "core/container"
+
+					Container struct<T, D = record> {
+						value T
+						data D
+					}
+
+					StringContainer = Container<string>
+				`
+				resp := MustGenerate(ctx, source, "container", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type StringContainer =")
+			})
+		})
+
+		Context("type constraint mappings", func() {
+			It("Should map string constraint to ~string", func(ctx SpecContext) {
+				source := `
+					@go output "core/labeled"
+
+					Labeled struct<S extends string> {
+						label S
+					}
+				`
+				resp := MustGenerate(ctx, source, "labeled", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("~string")
+			})
+
+			It("Should map int constraint to union type", func(ctx SpecContext) {
+				source := `
+					@go output "core/counted"
+
+					Counted struct<N extends int32> {
+						count N
+					}
+				`
+				resp := MustGenerate(ctx, source, "counted", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("~int | ~int8 | ~int16 | ~int32 | ~int64")
+			})
+
+			It("Should map uint constraint to union type", func(ctx SpecContext) {
+				source := `
+					@go output "core/indexed"
+
+					Indexed struct<N extends uint32> {
+						index N
+					}
+				`
+				resp := MustGenerate(ctx, source, "indexed", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64")
+			})
+		})
 	})
 })

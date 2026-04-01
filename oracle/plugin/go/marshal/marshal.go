@@ -90,13 +90,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	merged := make(map[string]map[string]resolution.Type)
 	for _, ei := range entryTypes {
 		adapters[ei.goName] = ei.goPath
-		entry, _ := req.Resolutions.Get(ei.goName)
-		if entry.QualifiedName == "" {
-			for _, t := range req.Resolutions.StructTypes() {
-				if naming.GetGoName(t) == ei.goName {
-					entry = t
-					break
-				}
+		var entry resolution.Type
+		for _, t := range req.Resolutions.StructTypes() {
+			if naming.GetGoName(t) == ei.goName {
+				entry = t
+				break
 			}
 		}
 		byPkg, _ := collectSerializableTypes(entry, req.Resolutions)

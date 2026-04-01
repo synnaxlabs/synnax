@@ -129,8 +129,11 @@ func runMigrate(cmd *cobra.Command) error {
 				oldNormalized = append(oldNormalized, importPath)
 			}
 			oldTable, oldDiag := analyzer.Analyze(ctx, oldNormalized, snapshotLoader)
-			if oldDiag != nil && !oldDiag.Ok() {
+			if oldDiag != nil {
 				printDiagnostics(oldDiag.String())
+				if !oldDiag.Ok() {
+					return errors.New("failed to analyze old schema snapshot")
+				}
 			}
 			if oldTable != nil {
 				req.OldResolutions = oldTable
