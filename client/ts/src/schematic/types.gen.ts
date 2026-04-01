@@ -66,20 +66,14 @@ export const handleZ = z.object({
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
-/** EdgeProps contains visual properties for an edge, stored in schematic props. */
-export const edgePropsZ = z.object({
-  /**
-   * waypoints contains user-placed intermediate waypoints. Empty array means
-   * fully auto-routed. The routing algorithm computes the full path
-   * at render time.
-   */
-  waypoints: array.nullishToEmpty(spatial.xyZ),
-  /** variant is the visual style of the edge. */
-  variant: edgeVariantZ.default("pipe"),
-  /** color is the optional display color. */
-  color: z.string().optional(),
+/** Segment is an orthogonal path segment with a direction and signed length. */
+export const segmentZ = z.object({
+  /** direction is the axis of travel: x (horizontal) or y (vertical). */
+  direction: spatial.directionZ,
+  /** length is the signed distance along the axis. */
+  length: z.number(),
 });
-export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
+export interface Segment extends z.infer<typeof segmentZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -94,6 +88,17 @@ export const edgeZ = z.object({
   target: handleZ,
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
+
+/** EdgeProps contains visual properties for an edge, stored in schematic props. */
+export const edgePropsZ = z.object({
+  /** segments defines the orthogonal path segments from source to target. */
+  segments: array.nullishToEmpty(segmentZ),
+  /** variant is the visual style of the edge. */
+  variant: edgeVariantZ.default("pipe"),
+  /** color is the optional display color. */
+  color: z.string().optional(),
+});
+export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 
 /**
  * Schematic is a visual diagram editor component for drawing system schematics,
@@ -128,7 +133,7 @@ export const schematicZ = z.object({
    * props contains symbol-specific properties keyed by node key, including
    * colors, labels, and other visual configuration.
    */
-  props: caseconv.preserveCase(record.nullishToEmpty()),
+  props: record.nullishToEmpty(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 

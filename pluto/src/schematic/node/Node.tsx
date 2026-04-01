@@ -1,4 +1,5 @@
 import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { useKey } from "@/schematic/Context";
@@ -14,6 +15,7 @@ export const Node = ({
 }: Diagram.NodeProps): ReactElement | null => {
   const schematicKey = useKey();
   const nodeProps = useSelectProps({ key: schematicKey, propKey: nodeKey });
+  console.log("nodeProps", nodeProps);
   const { update: dispatch } = useDispatch();
   const variant = (nodeProps?.variant ?? null) as Symbol.Variant | null;
 

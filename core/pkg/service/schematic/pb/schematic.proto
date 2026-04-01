@@ -55,11 +55,18 @@ message Handle {
   string param = 2;
 }
 
+// Segment is an orthogonal path segment with a direction and signed length.
+message Segment {
+  // direction is the axis of travel: x (horizontal) or y (vertical).
+  .x.spatial.pb.Direction direction = 1;
+  // length is the signed distance along the axis.
+  double length = 2;
+}
+
 // EdgeProps contains visual properties for an edge, stored in schematic props.
 message EdgeProps {
-  // waypoints contains user-placed intermediate waypoints. Empty array means fully
-  // auto-routed. The routing algorithm computes the full path at render time.
-  repeated .x.spatial.pb.XY waypoints = 1;
+  // segments defines the orthogonal path segments from source to target.
+  repeated Segment segments = 1;
   // variant is the visual style of the edge.
   EdgeVariant variant = 2;
   // color is the optional display color.

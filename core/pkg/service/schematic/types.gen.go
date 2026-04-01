@@ -68,11 +68,18 @@ type Handle struct {
 	Param string `json:"param" msgpack:"param"`
 }
 
+// Segment is an orthogonal path segment with a direction and signed length.
+type Segment struct {
+	// Direction is the axis of travel: x (horizontal) or y (vertical).
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	// Length is the signed distance along the axis.
+	Length float64 `json:"length" msgpack:"length"`
+}
+
 // EdgeProps contains visual properties for an edge, stored in schematic props.
 type EdgeProps struct {
-	// Waypoints contains user-placed intermediate waypoints. Empty array means fully
-	// auto-routed. The routing algorithm computes the full path at render time.
-	Waypoints []spatial.XY `json:"waypoints" msgpack:"waypoints"`
+	// Segments defines the orthogonal path segments from source to target.
+	Segments []Segment `json:"segments" msgpack:"segments"`
 	// Variant is the visual style of the edge.
 	Variant EdgeVariant `json:"variant" msgpack:"variant"`
 	// Color is the optional display color.

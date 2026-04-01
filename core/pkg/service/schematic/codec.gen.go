@@ -22,6 +22,68 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+func EncodeNode(w *xbinary.Writer, s *Node) error {
+	w.String(s.Key)
+	if err := spatial.EncodeXY(w, &s.Position); err != nil {
+		return err
+	}
+	w.Bool(s.Selected)
+	w.Int32(int32(s.ZIndex))
+	w.String(s.Type)
+	if err := spatial.EncodeDimensions(w, &s.Measured); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeNode(r *xbinary.Reader, s *Node) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeXY(r, &s.Position); err != nil {
+		return err
+	}
+	if s.Selected, err = r.Bool(); err != nil {
+		return err
+	}
+	if s.ZIndex, err = r.Int32(); err != nil {
+		return err
+	}
+	if s.Type, err = r.String(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeEdge(w *xbinary.Writer, s *Edge) error {
+	w.String(s.Key)
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEdge(r *xbinary.Reader, s *Edge) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Source); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeHandle(w *xbinary.Writer, s *Handle) error {
 	w.String(s.Node)
 	w.String(s.Param)
@@ -179,68 +241,6 @@ func DecodeLegend(r *xbinary.Reader, s *Legend) error {
 			}
 			s.Colors[key] = val
 		}
-	}
-	return nil
-}
-
-func EncodeNode(w *xbinary.Writer, s *Node) error {
-	w.String(s.Key)
-	if err := spatial.EncodeXY(w, &s.Position); err != nil {
-		return err
-	}
-	w.Bool(s.Selected)
-	w.Int32(int32(s.ZIndex))
-	w.String(s.Type)
-	if err := spatial.EncodeDimensions(w, &s.Measured); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeNode(r *xbinary.Reader, s *Node) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = spatial.DecodeXY(r, &s.Position); err != nil {
-		return err
-	}
-	if s.Selected, err = r.Bool(); err != nil {
-		return err
-	}
-	if s.ZIndex, err = r.Int32(); err != nil {
-		return err
-	}
-	if s.Type, err = r.String(); err != nil {
-		return err
-	}
-	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeEdge(w *xbinary.Writer, s *Edge) error {
-	w.String(s.Key)
-	if err := EncodeHandle(w, &s.Source); err != nil {
-		return err
-	}
-	if err := EncodeHandle(w, &s.Target); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEdge(r *xbinary.Reader, s *Edge) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Source); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Target); err != nil {
-		return err
 	}
 	return nil
 }

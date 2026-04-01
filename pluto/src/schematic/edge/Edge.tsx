@@ -17,19 +17,24 @@ import {
   Fragment,
   type ReactElement,
   useCallback,
-  useMemo,
   useRef,
 } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { useKey } from "@/schematic/Context";
+import { connector } from "@/schematic/edge/connector";
 import { DefaultPath, PATHS } from "@/schematic/edge/paths";
-import { route } from "@/schematic/edge/route";
 import { useDispatch, useSelectProps } from "@/schematic/queries";
 import { type Key } from "@/triggers/triggers";
 import { type diagram } from "@/vis/diagram/aether";
+import { selectNodeBox } from "@/vis/diagram/util";
+
+interface CurrentlyDragging {
+  segments: connector.Segment[];
+  index: number;
+}
 
 export const ConnectionLine = ({
   source,
@@ -41,9 +46,23 @@ export const ConnectionLine = ({
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
   if (toNodeHandle != null) {
     const res = location.outerZ.safeParse(toNodeHandle[1]);
-    if (res.success) source.orientation = res.data;
+    if (res.success) target.orientation = res.data;
   }
-  const points = route({ source, target });
+  const flow = useReactFlow();
+  const conn = connector.buildNew({
+    sourcePos: source.position,
+    targetPos: target.position,
+    sourceOrientation: source.orientation,
+    targetOrientation: target.orientation,
+    sourceBox: box.ZERO,
+    targetBox: box.ZERO,
+  });
+  const points = connector.segmentsToPoints(
+    source.position,
+    conn,
+    flow.getZoom(),
+    false,
+  );
   return (
     <DefaultPath
       points={points}
@@ -59,30 +78,12 @@ export const ConnectionLine = ({
   );
 };
 
-interface CurrentlyDragging {
-  /** Index of the first point of the dragged segment in the interior array. */
-  segStart: number;
-  /** Snapshot of the interior points at drag start. */
-  initialInterior: xy.XY[];
-  /** The perpendicular axis the drag moves along. */
-  dragAxis: direction.Direction;
-}
-
-const segmentDir = (a: xy.XY, b: xy.XY): direction.Direction =>
-  a.y === b.y ? "x" : "y";
-
-const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
-  points.slice(1).map((p, i) => ({
-    x: (p.x + points[i].x) / 2,
-    y: (p.y + points[i].y) / 2,
-  }));
-
 export const Edge = ({
   edgeKey,
   source,
   target,
-  sourceNode: _sourceNode,
-  targetNode: _targetNode,
+  sourceNode,
+  targetNode,
   selected = false,
 }: diagram.EdgeProps): ReactElement => {
   const schematicKey = useKey();
@@ -90,101 +91,158 @@ export const Edge = ({
     | schematic.EdgeProps
     | undefined;
   const {
-    waypoints: storedWaypoints = [],
+    segments: propsSegments = [],
     color: edgeColor = "var(--pluto-gray-l11)",
     variant = "pipe",
-  } = edgeProps ?? {};
+  } = (edgeProps ?? {}) as schematic.EdgeProps;
+
+  const sourcePos = source.position;
+  const sourcePosRef = useRef(sourcePos);
+  const sourcePosEq = xy.equals(sourcePos, sourcePosRef.current);
+
+  const targetPos = target.position;
+  const targetPosRef = useRef(targetPos);
+  const targetPosEq = xy.equals(targetPos, targetPosRef.current);
 
   const flow = useReactFlow();
   const { update: dispatch } = useDispatch();
 
-  const [waypoints, setWaypoints, waypointsRef] =
-    useCombinedStateAndRef<xy.XY[]>(storedWaypoints);
-
-  const storedRef = useRef(storedWaypoints);
-  if (storedWaypoints !== storedRef.current) {
-    storedRef.current = storedWaypoints;
-    setWaypoints(storedWaypoints);
-  }
-
-  const points = useMemo(
-    () => route({ source, target, waypoints }),
-    [source, target, waypoints],
+  const [segments, setSegments, segRef] = useCombinedStateAndRef<connector.Segment[]>(
+    () =>
+      propsSegments.length > 0
+        ? propsSegments
+        : connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation: source.orientation,
+            targetOrientation: target.orientation,
+            sourceBox: selectNodeBox(flow, sourceNode),
+            targetBox: selectNodeBox(flow, targetNode),
+          }),
   );
 
-  const persistWaypoints = useCallback(
-    (wps: xy.XY[]) => {
+  const propsRef = useRef(propsSegments);
+  if (propsSegments !== propsRef.current) {
+    propsRef.current = propsSegments;
+    if (propsSegments.length > 0) setSegments(propsSegments);
+  }
+
+  const targetOrientationRef = useRef(target.orientation);
+  const sourceOrientationRef = useRef(source.orientation);
+
+  const persistSegments = useCallback(
+    (segs: connector.Segment[]) => {
       dispatch({
         key: schematicKey,
         actions: schematic.setProps({
           key: edgeKey,
-          props: { waypoints: wps, variant, color: edgeColor },
+          props: { segments: segs, variant, color: edgeColor },
         }),
       });
     },
     [schematicKey, edgeKey, variant, edgeColor, dispatch],
   );
 
-  // Refs for stable callback access - never in dependency arrays.
-  const pointsRef = useSyncedRef(points);
-  const flowRef = useSyncedRef(flow);
+  const debouncedPersist = useDebouncedCallback(persistSegments, 100, [
+    persistSegments,
+  ]);
+
+  if (!sourcePosEq || !targetPosEq) {
+    let next: connector.Segment[] = segments;
+    const sourceDelta = xy.translation(sourcePosRef.current, sourcePos);
+    const targetDelta = xy.translation(targetPos, targetPosRef.current);
+    if (xy.equals(sourceDelta, xy.scale(targetDelta, -1), 0.001)) {
+      sourcePosRef.current = sourcePos;
+      targetPosRef.current = targetPos;
+    } else {
+      if (!sourcePosEq) {
+        next = connector.moveSourceNode({ delta: sourceDelta, segments: next });
+        if (sourceOrientationRef.current !== source.orientation) {
+          sourceOrientationRef.current = source.orientation;
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation: source.orientation,
+            targetOrientation: target.orientation,
+            sourceBox: selectNodeBox(flow, sourceNode),
+            targetBox: selectNodeBox(flow, targetNode),
+          });
+        }
+        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation: source.orientation,
+            targetOrientation: target.orientation,
+            sourceBox: selectNodeBox(flow, sourceNode),
+            targetBox: selectNodeBox(flow, targetNode),
+          });
+        sourcePosRef.current = sourcePos;
+      } else if (!targetPosEq) {
+        next = connector.moveTargetNode({ delta: targetDelta, segments: next });
+        if (targetOrientationRef.current !== target.orientation) {
+          targetOrientationRef.current = target.orientation;
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation: source.orientation,
+            targetOrientation: target.orientation,
+            sourceBox: selectNodeBox(flow, sourceNode),
+            targetBox: selectNodeBox(flow, targetNode),
+          });
+        }
+        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation: source.orientation,
+            targetOrientation: target.orientation,
+            sourceBox: selectNodeBox(flow, sourceNode),
+            targetBox: selectNodeBox(flow, targetNode),
+          });
+        targetPosRef.current = targetPos;
+      }
+      debouncedPersist(next);
+      setSegments(next);
+    }
+  }
+
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
     onStart: useCallback((_: xy.XY, __: Key, e: DragEvent) => {
-      const segIndex = Number(e.currentTarget.id.split("-")[1]);
-      const currentPoints = pointsRef.current;
-
-      // The segment direction tells us which axis is shared and which to drag.
-      const dir = segmentDir(currentPoints[segIndex], currentPoints[segIndex + 1]);
-      const dragAxis = direction.swap(dir);
-
-      // Extract all interior points (everything except source and target).
-      // These become the waypoints that define the route shape.
-      const interior = currentPoints.slice(1, -1).map((p) => ({ ...p }));
-
-      // The segment at segIndex in the full points array corresponds to
-      // interior indices segIndex-1 and segIndex (shifted by 1 since we
-      // removed the source point).
-      const interiorSegStart = segIndex - 1;
-
-      setWaypoints(interior);
       dragRef.current = {
-        segStart: interiorSegStart,
-        initialInterior: interior,
-        dragAxis,
+        index: Number(e.currentTarget.id.split("-")[1]),
+        segments: [...segRef.current],
       };
     }, []),
     onMove: useCallback((b: box.Box) => {
       if (dragRef.current == null) return;
-      const { segStart, initialInterior, dragAxis } = dragRef.current;
-      const magnitude = box.dim(b, dragAxis, true) / flowRef.current.getZoom();
-
-      // Adjust the shared coordinate of both endpoints of the dragged segment.
-      const next = initialInterior.map((p) => ({ ...p }));
-      for (const idx of [segStart, segStart + 1]) {
-        if (idx < 0 || idx >= next.length) continue;
-        if (dragAxis === "x") next[idx] = { x: next[idx].x + magnitude, y: next[idx].y };
-        else next[idx] = { x: next[idx].x, y: next[idx].y + magnitude };
-      }
-      setWaypoints(next);
+      const next = connector.dragSegment({
+        segments: dragRef.current.segments,
+        index: dragRef.current.index,
+        magnitude:
+          box.dim(
+            b,
+            direction.swap(dragRef.current.segments[dragRef.current.index].direction),
+            true,
+          ) / flow.getZoom(),
+      });
+      setSegments(next);
     }, []),
-    onEnd: useCallback(() => {
-      persistWaypoints(waypointsRef.current);
-      dragRef.current = null;
-    }, [persistWaypoints]),
+    onEnd: useCallback(() => persistSegments(segRef.current), [persistSegments]),
   });
 
+  const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
+
   const P = PATHS[variant] ?? PATHS.pipe;
-  const midPoints = selected ? calcMidPoints(points) : [];
 
   return (
     <>
       <P points={points} color={edgeColor} />
       {selected &&
-        midPoints.map((p, i) => {
-          if (i === 0 || i === midPoints.length - 1) return null;
-          const dir = segmentDir(points[i], points[i + 1]);
+        calcMidPoints(points).map((p, i) => {
+          const dir = segments[i].direction;
           const swapped = direction.swap(dir);
           const dims = {
             [direction.dimension(dir)]: "18px",
@@ -223,3 +281,8 @@ export const Edge = ({
   );
 };
 
+const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
+  points.slice(1).map((p, i) => {
+    const prev = points[i];
+    return xy.construct((p.x + prev.x) / 2, (p.y + prev.y) / 2);
+  });

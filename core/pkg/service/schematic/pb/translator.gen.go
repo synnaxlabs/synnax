@@ -190,9 +190,63 @@ func HandlesFromPB(pbs []*Handle) ([]schematic.Handle, error) {
 	return result, nil
 }
 
+// SegmentToPB converts Segment to Segment.
+func SegmentToPB(r schematic.Segment) (*Segment, error) {
+	directionVal, err := spatialpb.DirectionToPB(r.Direction)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Segment{
+		Length:    r.Length,
+		Direction: directionVal,
+	}
+	return pb, nil
+}
+
+// SegmentFromPB converts Segment to Segment.
+func SegmentFromPB(pb *Segment) (schematic.Segment, error) {
+	var r schematic.Segment
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Direction, err = spatialpb.DirectionFromPB(pb.Direction)
+	if err != nil {
+		return schematic.Segment{}, err
+	}
+	r.Length = pb.Length
+	return r, nil
+}
+
+// SegmentsToPB converts a slice of Segment to Segment.
+func SegmentsToPB(rs []schematic.Segment) ([]*Segment, error) {
+	result := make([]*Segment, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SegmentToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentsFromPB converts a slice of Segment to Segment.
+func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
+	result := make([]schematic.Segment, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SegmentFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // EdgePropsToPB converts EdgeProps to EdgeProps.
 func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
-	waypointsVal, err := spatialpb.XYsToPB(r.Waypoints)
+	segmentsVal, err := SegmentsToPB(r.Segments)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +255,9 @@ func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
 		return nil, err
 	}
 	pb := &EdgeProps{
-		Color:     r.Color,
-		Waypoints: waypointsVal,
-		Variant:   variantVal,
+		Color:    r.Color,
+		Segments: segmentsVal,
+		Variant:  variantVal,
 	}
 	return pb, nil
 }
@@ -215,7 +269,7 @@ func EdgePropsFromPB(pb *EdgeProps) (schematic.EdgeProps, error) {
 		return r, nil
 	}
 	var err error
-	r.Waypoints, err = spatialpb.XYsFromPB(pb.Waypoints)
+	r.Segments, err = SegmentsFromPB(pb.Segments)
 	if err != nil {
 		return schematic.EdgeProps{}, err
 	}
