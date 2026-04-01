@@ -98,9 +98,9 @@ jobs:
         # chain_name: [minimum, major, patch]  # Disabled minimum while latest major == minimum
         chain_name: [major, patch]
         include:
-          - chain_name: minimum
-            chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
-            version: ${{ needs.setup.outputs.MINIMUM_VERSION }}
+          # - chain_name: minimum
+          #   chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
+          #   version: ${{ needs.setup.outputs.MINIMUM_VERSION }}
           - chain_name: major
             chain: ${{ needs.setup.outputs.MAJOR_CHAIN }}
             version: ${{ needs.setup.outputs.MAJOR_VERSION }}
