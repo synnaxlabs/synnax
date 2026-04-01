@@ -321,7 +321,10 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = { endContent: "ms" };
+const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
+  endContent: "ms",
+  min: 0,
+};
 
 const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },
