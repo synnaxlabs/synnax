@@ -23,11 +23,13 @@ Usage:
 import argparse
 import os
 import platform
+import re
 import shutil
 import socket
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 
 BINARY_CACHE_DIR = Path.home() / "synnax-binary-cache"
@@ -45,11 +47,28 @@ INTEGRATION_DIR = Path(__file__).parent
 CLIENT_VENV_DIR = Path.home() / "migration-client-env"
 WHEELS_DIR = Path.home() / "synnax-wheels"
 
-# TC framework dependencies needed in client venvs (beyond synnax itself).
-CLIENT_VENV_DEPS = ["numpy", "pydantic", "flask", "psutil"]
+# Packages provided by pre-built wheels — exclude from pyproject.toml deps.
+WHEEL_PACKAGES = {"synnax", "xpy", "alamos", "synnax-freighter"}
 
 
-# Cannot us utils from `xpy/`. We are testing against the Python client version.
+def _load_client_venv_deps() -> list[str]:
+    """Read integration/pyproject.toml and return deps not provided by wheels."""
+    pyproject = INTEGRATION_DIR / "pyproject.toml"
+    with open(pyproject, "rb") as f:
+        data = tomllib.load(f)
+    deps = data.get("project", {}).get("dependencies", [])
+    result = []
+    for dep in deps:
+        name = re.split(r"[><=!;\[]", dep)[0].strip().lower()
+        if name not in WHEEL_PACKAGES:
+            result.append(dep)
+    return result
+
+
+CLIENT_VENV_DEPS = _load_client_venv_deps()
+
+
+# Cannot use utils from `xpy/`. We are testing against the Python client version.
 def _get_platform() -> str:
     """Map platform.system() to the asset suffix used in release binaries."""
     return {
