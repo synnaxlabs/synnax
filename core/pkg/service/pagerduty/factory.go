@@ -72,15 +72,15 @@ func (f *factory) ConfigureTask(
 	ctx driver.Context,
 	t task.Task,
 ) (driver.Task, error) {
-	if t.Type != WriteTaskType {
+	if t.Type != AlertTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
-	var cfg WriteTaskConfig
+	var cfg AlertTaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
-	v := validate.New("pagerduty.write")
+	v := validate.New("pagerduty.alert_task_config")
 	v.Ternary("routing_key", len(cfg.RoutingKey) != 32, "must be exactly 32 characters")
 	var hasEnabled bool
 	for _, a := range cfg.Alerts {
@@ -94,7 +94,7 @@ func (f *factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
-	pdTask := &writeTaskImpl{factoryCfg: f.cfg, task: t, cfg: cfg}
+	pdTask := &alertTaskImpl{factoryCfg: f.cfg, task: t, cfg: cfg}
 	if cfg.AutoStart {
 		if err := pdTask.start(ctx); err != nil {
 			return nil, err

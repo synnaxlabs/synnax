@@ -29,8 +29,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// WriteTaskType is the type identifier for PagerDuty write tasks.
-const WriteTaskType = "pagerduty_write"
+// AlertTaskType is the type identifier for PagerDuty alert tasks.
+const AlertTaskType = "pagerduty_alert"
 
 // AlertConfig is the configuration for a single alert, mapping a Synnax status to a
 // PagerDuty alert.
@@ -51,8 +51,8 @@ type AlertConfig struct {
 	Enabled bool `json:"enabled" msgpack:"enabled"`
 }
 
-// WriteTaskConfig is the configuration for a PagerDuty write task.
-type WriteTaskConfig struct {
+// AlertTaskConfig is the configuration for a PagerDuty alert task.
+type AlertTaskConfig struct {
 	// RoutingKey is the 32-character Integration Key for an integration on a service
 	// or on a global ruleset.
 	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
@@ -64,7 +64,7 @@ type WriteTaskConfig struct {
 
 // MsgpackEncodedJSON converts the config into a binary.MsgpackEncodedJSON suitable
 // for use as a task.Task.Config value.
-func (c WriteTaskConfig) MsgpackEncodedJSON() (binary.MsgpackEncodedJSON, error) {
+func (c AlertTaskConfig) MsgpackEncodedJSON() (binary.MsgpackEncodedJSON, error) {
 	b, err := json.Marshal(c)
 	if err != nil {
 		return nil, err
@@ -76,18 +76,18 @@ func (c WriteTaskConfig) MsgpackEncodedJSON() (binary.MsgpackEncodedJSON, error)
 	return m, nil
 }
 
-type writeTaskImpl struct {
+type alertTaskImpl struct {
 	factoryCfg FactoryConfig
 	task       task.Task
-	cfg        WriteTaskConfig
+	cfg        AlertTaskConfig
 	disconnect observe.Disconnect
 	// alertsByStatus maps status keys to their AlertConfig for O(1) lookup.
 	alertsByStatus map[string]AlertConfig
 }
 
-var _ driver.Task = (*writeTaskImpl)(nil)
+var _ driver.Task = (*alertTaskImpl)(nil)
 
-func (t *writeTaskImpl) Exec(ctx context.Context, cmd task.Command) error {
+func (t *alertTaskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
@@ -98,7 +98,7 @@ func (t *writeTaskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	}
 }
 
-func (t *writeTaskImpl) start(ctx context.Context) error {
+func (t *alertTaskImpl) start(ctx context.Context) error {
 	if t.disconnect != nil {
 		return nil
 	}
@@ -113,9 +113,9 @@ func (t *writeTaskImpl) start(ctx context.Context) error {
 	return nil
 }
 
-func (t *writeTaskImpl) Stop() error { return t.stop(context.TODO()) }
+func (t *alertTaskImpl) Stop() error { return t.stop(context.TODO()) }
 
-func (t *writeTaskImpl) stop(ctx context.Context) error {
+func (t *alertTaskImpl) stop(ctx context.Context) error {
 	if t.disconnect != nil {
 		t.disconnect()
 		t.disconnect = nil
@@ -124,7 +124,7 @@ func (t *writeTaskImpl) stop(ctx context.Context) error {
 	return nil
 }
 
-func (t *writeTaskImpl) handleStatusChange(
+func (t *alertTaskImpl) handleStatusChange(
 	ctx context.Context,
 	reader gorp.TxReader[string, status.Status[any]],
 ) {
@@ -150,7 +150,7 @@ func (t *writeTaskImpl) handleStatusChange(
 	}
 }
 
-func (t *writeTaskImpl) buildTriggerEvent(
+func (t *alertTaskImpl) buildTriggerEvent(
 	s status.Status[any],
 	alertCfg AlertConfig,
 ) pagerduty.V2Event {
@@ -175,7 +175,7 @@ func (t *writeTaskImpl) buildTriggerEvent(
 	}
 }
 
-func (t *writeTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
+func (t *alertTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",
@@ -183,7 +183,7 @@ func (t *writeTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	}
 }
 
-func (t *writeTaskImpl) mapSeverity(
+func (t *alertTaskImpl) mapSeverity(
 	variant xstatus.Variant,
 	treatErrorAsCritical bool,
 ) string {
@@ -202,7 +202,7 @@ func (t *writeTaskImpl) mapSeverity(
 	}
 }
 
-func (t *writeTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) {
+func (t *alertTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 	b, err := breaker.NewBreaker(ctx, breaker.Config{
 		BaseInterval: 1 * time.Second,
 		Scale:        2,
@@ -243,7 +243,7 @@ func (t *writeTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) 
 	}
 }
 
-func (t *writeTaskImpl) updateStatus(ctx context.Context, variant xstatus.Variant, running bool, message string) {
+func (t *alertTaskImpl) updateStatus(ctx context.Context, variant xstatus.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
 		Name:    t.task.Name,

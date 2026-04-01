@@ -26,11 +26,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("WriteTask", func() {
+var _ = Describe("AlertTask", func() {
 	Describe("Config", func() {
 		Describe("MsgpackEncodedJSON", func() {
 			It("Should round-trip all fields correctly", func() {
-				cfg := pd.WriteTaskConfig{
+				cfg := pd.AlertTaskConfig{
 					RoutingKey: strings.Repeat("x", 32),
 					AutoStart:  true,
 					Alerts: []pd.AlertConfig{
@@ -45,13 +45,13 @@ var _ = Describe("WriteTask", func() {
 					},
 				}
 				m := MustSucceed(cfg.MsgpackEncodedJSON())
-				var decoded pd.WriteTaskConfig
+				var decoded pd.AlertTaskConfig
 				Expect(m.Unmarshal(&decoded)).To(Succeed())
 				Expect(decoded).To(Equal(cfg))
 			})
 
 			It("Should produce a valid map with expected keys", func() {
-				cfg := pd.WriteTaskConfig{
+				cfg := pd.AlertTaskConfig{
 					RoutingKey: strings.Repeat("a", 32),
 					Alerts:     []pd.AlertConfig{{Status: "s1", Enabled: true}},
 				}
@@ -68,8 +68,8 @@ var _ = Describe("WriteTask", func() {
 		ctx     driver.Context
 	)
 
-	validConfig := func(alerts ...pd.AlertConfig) pd.WriteTaskConfig {
-		return pd.WriteTaskConfig{
+	validConfig := func(alerts ...pd.AlertConfig) pd.AlertTaskConfig {
+		return pd.AlertTaskConfig{
 			RoutingKey: strings.Repeat("b", 32),
 			AutoStart:  false,
 			Alerts:     alerts,
@@ -78,12 +78,12 @@ var _ = Describe("WriteTask", func() {
 
 	configureAndStart := func(
 		specCtx SpecContext,
-		cfg pd.WriteTaskConfig,
+		cfg pd.AlertTaskConfig,
 	) driver.Task {
 		t := task.Task{
 			Key:    task.NewKey(1, 1),
 			Name:   "PagerDuty Test",
-			Type:   pd.WriteTaskType,
+			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 		}
 		tsk := MustSucceed(factory.ConfigureTask(ctx, t))
@@ -128,7 +128,7 @@ var _ = Describe("WriteTask", func() {
 				t := task.Task{
 					Key:    task.NewKey(1, 1),
 					Name:   "test",
-					Type:   pd.WriteTaskType,
+					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 				}
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
@@ -405,9 +405,9 @@ var _ = Describe("WriteTask", func() {
 				cancelCtx, cancel := context.WithCancel(specCtx)
 				defer cancel()
 				t := task.Task{
-					Key:    task.NewKey(1, 1),
-					Name:   "PagerDuty Test",
-					Type:   pd.WriteTaskType,
+					Key:  task.NewKey(1, 1),
+					Name: "PagerDuty Test",
+					Type: pd.AlertTaskType,
 					Config: MustSucceed(validConfig(
 						pd.AlertConfig{Status: "cancel-mid-retry", Enabled: true},
 					).MsgpackEncodedJSON()),

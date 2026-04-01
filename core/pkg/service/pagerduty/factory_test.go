@@ -119,7 +119,7 @@ var _ = Describe("Factory", func() {
 				t := task.Task{
 					Key:    1,
 					Name:   "test",
-					Type:   pd.WriteTaskType,
+					Type:   pd.AlertTaskType,
 					Config: binary.MsgpackEncodedJSON{"invalid": func() {}},
 				}
 				Expect(factory.ConfigureTask(ctx, t)).Error().
@@ -128,14 +128,14 @@ var _ = Describe("Factory", func() {
 
 			It("Should return a validation error for invalid routing key length",
 				func() {
-					cfg := MustSucceed(pd.WriteTaskConfig{
+					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: "tooshort",
 						Alerts: []pd.AlertConfig{
 							{Status: "test-status", Enabled: true},
 						},
 					}.MsgpackEncodedJSON())
 					t := task.Task{
-						Key: 1, Name: "test", Type: pd.WriteTaskType,
+						Key: 1, Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
 					Expect(factory.ConfigureTask(ctx, t)).Error().
@@ -145,14 +145,14 @@ var _ = Describe("Factory", func() {
 
 			It("Should return a validation error when no alerts are enabled",
 				func() {
-					cfg := MustSucceed(pd.WriteTaskConfig{
+					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: strings.Repeat("a", 32),
 						Alerts: []pd.AlertConfig{
 							{Status: "test-status", Enabled: false},
 						},
 					}.MsgpackEncodedJSON())
 					t := task.Task{
-						Key: 1, Name: "test", Type: pd.WriteTaskType,
+						Key: 1, Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
 					Expect(factory.ConfigureTask(ctx, t)).Error().
@@ -162,7 +162,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should configure a task successfully without auto-start",
 				func() {
-					cfg := MustSucceed(pd.WriteTaskConfig{
+					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: strings.Repeat("a", 32),
 						AutoStart:  false,
 						Alerts: []pd.AlertConfig{
@@ -171,7 +171,7 @@ var _ = Describe("Factory", func() {
 					}.MsgpackEncodedJSON())
 					t := task.Task{
 						Key: 1, Name: "PagerDuty Test",
-						Type: pd.WriteTaskType, Config: cfg,
+						Type: pd.AlertTaskType, Config: cfg,
 					}
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t))
 					Expect(tsk).ToNot(BeNil())
@@ -187,7 +187,7 @@ var _ = Describe("Factory", func() {
 			)
 
 			It("Should configure and auto-start a task", func() {
-				cfg := MustSucceed(pd.WriteTaskConfig{
+				cfg := MustSucceed(pd.AlertTaskConfig{
 					RoutingKey: strings.Repeat("a", 32),
 					AutoStart:  true,
 					Alerts: []pd.AlertConfig{
@@ -196,7 +196,7 @@ var _ = Describe("Factory", func() {
 				}.MsgpackEncodedJSON())
 				t := task.Task{
 					Key: 1, Name: "PagerDuty Test",
-					Type: pd.WriteTaskType, Config: cfg,
+					Type: pd.AlertTaskType, Config: cfg,
 				}
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
 				Expect(tsk).ToNot(BeNil())
