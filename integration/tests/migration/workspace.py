@@ -7,51 +7,96 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Migration test: create a workspace with a single visualization on old version."""
+"""Migration test: import a workspace on old version, verify after migration."""
+
+import json
+from abc import abstractmethod
+from typing import Any
 
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path
 
 WORKSPACE_NAME = "mig_workspace"
-LINE_PLOT_NAME = "mig_line_plot"
-FIXTURE_PATH = "ImportSpace/Metrics Plot.json"
+FIXTURE_DIR = "ImportSpace"
+EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
 
-class WorkspacesSetup(ConsoleCase):
-    """Create a workspace and import a line plot fixture."""
+def _load_workspace_fixture() -> dict[str, Any]:
+    """Build an import-ready workspace data dict from the ImportSpace fixtures.
+
+    Returns a dict with 'layout' and 'components' keys matching the format
+    expected by WorkspaceClient.import_workspace.
+    """
+    layout_path = get_fixture_path(f"{FIXTURE_DIR}/LAYOUT.json")
+    with open(layout_path) as f:
+        layout = json.load(f)
+
+    components: dict[str, Any] = {}
+    for key, entry in layout.get("layouts", {}).items():
+        name = entry.get("name")
+        entry_type = entry.get("type")
+        if entry_type in ("main", None):
+            continue
+        try:
+            page_path = get_fixture_path(f"{FIXTURE_DIR}/{name}.json")
+        except FileNotFoundError:
+            continue
+        with open(page_path) as f:
+            component = json.load(f)
+        component["type"] = entry_type
+        components[key] = component
+
+    return {"layout": layout, "components": components}
+
+
+class WorkspaceMigration(ConsoleCase):
+    """Base class defining the migration test contract for workspaces.
+
+    Subclasses must implement each test method — setup creates the state,
+    verify checks it after migration.
+    """
 
     def run(self) -> None:
-        self.test_create_workspace()
-        self.test_import_page()
+        self.test_workspace()
+        self.test_page()
 
-    def test_create_workspace(self) -> None:
-        self.log("Testing: Create workspace")
-        self.console.workspace.create(WORKSPACE_NAME)
+    @abstractmethod
+    def test_workspace(self) -> None: ...
 
-    def test_import_page(self) -> None:
-        self.log("Testing: Import line plot page")
-        fixture_path = get_fixture_path(FIXTURE_PATH)
-        self.console.workspace.import_page(fixture_path, LINE_PLOT_NAME)
-        tab = self.console.layout.get_tab(LINE_PLOT_NAME)
-        assert tab.is_visible(), "Imported line plot tab is not visible"
+    @abstractmethod
+    def test_page(self) -> None: ...
 
 
-class WorkspacesVerify(ConsoleCase):
-    """Verify workspace and line plot exist after migration."""
+class WorkspacesSetup(WorkspaceMigration):
+    """Import a full workspace from fixtures."""
 
-    def run(self) -> None:
-        self.test_workspace_exists()
-        self.test_page_renders()
+    def test_workspace(self) -> None:
+        self.log("Testing: Import workspace")
+        data = _load_workspace_fixture()
+        self.console.workspace.import_workspace(WORKSPACE_NAME, data)
 
-    def test_workspace_exists(self) -> None:
-        self.log("Testing: Workspace exists")
+    def test_page(self) -> None:
+        for name in EXPECTED_PAGES:
+            assert self.console.workspace.page_exists(
+                name
+            ), f"Page '{name}' not found after import"
+
+
+class WorkspacesVerify(WorkspaceMigration):
+    """Verify workspace and all pages survive migration."""
+
+    def test_workspace(self) -> None:
+        self.log("Testing: Workspace exists with all pages")
         self.console.workspace.select(WORKSPACE_NAME)
-        assert self.console.workspace.page_exists(
-            LINE_PLOT_NAME
-        ), f"Page '{LINE_PLOT_NAME}' not found after migration"
+        for name in EXPECTED_PAGES:
+            assert self.console.workspace.page_exists(
+                name
+            ), f"Page '{name}' not found after migration"
 
-    def test_page_renders(self) -> None:
-        self.log("Testing: Page renders after migration")
-        self.console.workspace.open_page(LINE_PLOT_NAME)
-        tab = self.console.layout.get_tab(LINE_PLOT_NAME)
-        assert tab.is_visible(), "Line plot tab is not visible after opening"
+    def test_page(self) -> None:
+        self.log("Testing: All pages render after migration")
+        for name in EXPECTED_PAGES:
+            self.console.workspace.open_page(name)
+            tab = self.console.layout.get_tab(name)
+            assert tab.is_visible(), f"Page '{name}' tab is not visible after opening"
+            self.console.layout.close_tab(name)

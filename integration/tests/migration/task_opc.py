@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from abc import abstractmethod
+from typing import Any
+
 import synnax as sy
 
-from framework.test_case import TestCase
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
 
@@ -19,8 +21,12 @@ CHANNEL_PREFIX = "mig_opc_float"
 NUM_CHANNELS = 2
 
 
-class TasksOpcSetup(OPCUAReadTaskCase):
-    """Create an OPC UA read task, run it, and verify sample collection."""
+class TaskOpcMigration(OPCUAReadTaskCase):
+    """Base class defining the migration test contract for OPC UA tasks.
+
+    Subclasses must implement each test method — setup creates the state,
+    verify checks it after migration.
+    """
 
     task_name = TASK_NAME
 
@@ -42,45 +48,67 @@ class TasksOpcSetup(OPCUAReadTaskCase):
         ]
 
     def run(self) -> None:
-        assert self.tsk is not None
-        self.test_task_exists()
-        self.test_start_and_stop()
+        self.test_task_config()
+        self.test_data()
 
     def teardown(self) -> None:
-        # Do NOT delete the task - it must survive for verify phase.
+        """Stop sims without deleting the task — it must survive across phases."""
         for sim in self.sims.values():
             if sim is not None:
                 sim.stop()
         self.sims = {}
         self.sim = None
 
+    @abstractmethod
+    def test_task_config(self) -> None: ...
 
-class TasksOpcVerify(TestCase):
+    @abstractmethod
+    def test_data(self) -> None: ...
+
+
+class TaskspcSetup(TaskOpcMigration):
+    """Create an OPC UA read task, run it, and verify sample collection."""
+
+    def test_task_config(self) -> None:
+        assert self.tsk is not None
+        self.test_task_exists()
+
+    def test_data(self) -> None:
+        self.test_start_and_stop()
+
+
+class TasksOpVerify(TaskOpcMigration):
     """Verify OPC UA task data survived, settings intact, and task still runs."""
 
-    def run(self) -> None:
-        self.test_data_survived()
-        self.test_task_config()
+    def create(self, **kwargs: Any) -> sy.Task:
+        """Retrieve the existing task instead of creating a new one."""
+        tasks = self.client.tasks.retrieve(names=[TASK_NAME])
+        assert (
+            len(tasks) == 1
+        ), f"Expected exactly 1 task named '{TASK_NAME}', got {len(tasks)}"
+        return tasks[0]
 
-    def test_data_survived(self) -> None:
+    def _channel_keys(self, task: sy.Task) -> list[int]:
+        return [ch["channel"] for ch in task.config["channels"]]
+
+    def test_task_config(self) -> None:
+        self.log("Testing: Task config survived migration")
+        assert self.tsk is not None
+        assert (
+            self.tsk.type == "opc_read"
+        ), f"Expected type 'opc_read', got '{self.tsk.type}'"
+        assert self.tsk.config["data_saving"] is True, "data_saving should be True"
+        assert len(self.tsk.config["channels"]) == NUM_CHANNELS, (
+            f"Expected {NUM_CHANNELS} channels, "
+            f"got {len(self.tsk.config['channels'])}"
+        )
+
+    def test_data(self) -> None:
         self.log("Testing: Data survived migration")
         for i in range(NUM_CHANNELS):
             ch = self.client.channels.retrieve(f"{CHANNEL_PREFIX}_{i}")
             data = ch.read(sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now()))
             assert len(data) > 0, f"Channel '{ch.name}' has no data after migration"
 
-    def test_task_config(self) -> None:
-        self.log("Testing: Task config survived migration")
-        tasks = self.client.tasks.retrieve(names=[TASK_NAME])
-        assert (
-            len(tasks) == 1
-        ), f"Expected exactly 1 task named '{TASK_NAME}', got {len(tasks)}"
-        task = tasks[0]
-        assert task.type == "opc_read", f"Expected type 'opc_read', got '{task.type}'"
-        assert isinstance(
-            task.config, dict
-        ), f"Expected task.config to be a dict, got {type(task.config)}"
-        assert task.config["data_saving"] is True, "data_saving should be True"
-        assert len(task.config["channels"]) == NUM_CHANNELS, (
-            f"Expected {NUM_CHANNELS} channels, " f"got {len(task.config['channels'])}"
-        )
+        self.log("Testing: Task still runs after migration")
+        self.test_start_and_stop()
