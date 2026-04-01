@@ -120,6 +120,12 @@ jobs:
           REF_RUN_ID: ${{ inputs.ref_run_id }}
         run: integration/scripts/download_artifacts_unix.sh
 
+      - name: Download Client Wheels
+        uses: actions/download-artifact@v7
+        with:
+          name: synnax-client-wheels
+          path: ~/synnax-wheels
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
