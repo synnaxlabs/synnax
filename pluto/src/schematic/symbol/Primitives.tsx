@@ -249,7 +249,9 @@ const Toggle = ({
   const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
     onMouseDown?.(e);
     if (parsedDelay.isZero) return;
-    document.addEventListener("mouseup", () => clearTimeout(timeoutRef.current), { once: true });
+    document.addEventListener("mouseup", () => clearTimeout(timeoutRef.current), {
+      once: true,
+    });
     timeoutRef.current = setTimeout(() => {
       onClick?.(e);
       timeoutRef.current = undefined;
