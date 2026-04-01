@@ -9,44 +9,20 @@
 
 """Migration test: import a workspace on old version, verify after migration."""
 
-import json
 from abc import abstractmethod
-from typing import Any
 
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path
 
 WORKSPACE_NAME = "mig_workspace"
 FIXTURE_DIR = "ImportSpace"
-EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
-
-def _load_workspace_fixture() -> dict[str, Any]:
-    """Build an import-ready workspace data dict from the ImportSpace fixtures.
-
-    Returns a dict with 'layout' and 'components' keys matching the format
-    expected by WorkspaceClient.import_workspace.
-    """
-    layout_path = get_fixture_path(f"{FIXTURE_DIR}/LAYOUT.json")
-    with open(layout_path) as f:
-        layout = json.load(f)
-
-    components: dict[str, Any] = {}
-    for key, entry in layout.get("layouts", {}).items():
-        name = entry.get("name")
-        entry_type = entry.get("type")
-        if entry_type in ("main", None):
-            continue
-        try:
-            page_path = get_fixture_path(f"{FIXTURE_DIR}/{name}.json")
-        except FileNotFoundError:
-            continue
-        with open(page_path) as f:
-            component = json.load(f)
-        component["type"] = entry_type
-        components[key] = component
-
-    return {"layout": layout, "components": components}
+PAGES = [
+    ("Metrics Plot", f"{FIXTURE_DIR}/Metrics Plot.json"),
+    ("Metrics Schematic", f"{FIXTURE_DIR}/Metrics Schematic.json"),
+    ("Metrics Log", f"{FIXTURE_DIR}/Metrics Log.json"),
+    ("Metrics Table", f"{FIXTURE_DIR}/Metrics Table.json"),
+]
 
 
 class WorkspaceMigration(ConsoleCase):
@@ -68,18 +44,22 @@ class WorkspaceMigration(ConsoleCase):
 
 
 class WorkspacesSetup(WorkspaceMigration):
-    """Import a full workspace from fixtures."""
+    """Create a workspace and import page fixtures."""
 
     def test_workspace(self) -> None:
-        self.log("Testing: Import workspace")
-        data = _load_workspace_fixture()
-        self.console.workspace.import_workspace(WORKSPACE_NAME, data)
+        self.log("Testing: Create workspace")
+        self.console.workspace.create(WORKSPACE_NAME)
 
     def test_page(self) -> None:
-        for name in EXPECTED_PAGES:
+        self.log("Testing: Import pages")
+        for name, fixture in PAGES:
+            self.log(f"Importing {name}")
+            json_path = get_fixture_path(fixture)
+            self.console.workspace.import_page(json_path, name)
             assert self.console.workspace.page_exists(
                 name
             ), f"Page '{name}' not found after import"
+            self.console.layout.close_tab(name)
 
 
 class WorkspacesVerify(WorkspaceMigration):
@@ -88,14 +68,14 @@ class WorkspacesVerify(WorkspaceMigration):
     def test_workspace(self) -> None:
         self.log("Testing: Workspace exists with all pages")
         self.console.workspace.select(WORKSPACE_NAME)
-        for name in EXPECTED_PAGES:
+        for name, _ in PAGES:
             assert self.console.workspace.page_exists(
                 name
             ), f"Page '{name}' not found after migration"
 
     def test_page(self) -> None:
         self.log("Testing: All pages render after migration")
-        for name in EXPECTED_PAGES:
+        for name, _ in PAGES:
             self.console.workspace.open_page(name)
             tab = self.console.layout.get_tab(name)
             assert tab.is_visible(), f"Page '{name}' tab is not visible after opening"

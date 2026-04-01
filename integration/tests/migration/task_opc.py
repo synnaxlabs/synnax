@@ -21,7 +21,7 @@ CHANNEL_PREFIX = "mig_opc_float"
 NUM_CHANNELS = 2
 
 
-class TaskOpcMigration(OPCUAReadTaskCase):
+class TaskOPCUAMigration(OPCUAReadTaskCase):
     """Base class defining the migration test contract for OPC UA tasks.
 
     Subclasses must implement each test method — setup creates the state,
@@ -52,7 +52,10 @@ class TaskOpcMigration(OPCUAReadTaskCase):
         self.test_data()
 
     def teardown(self) -> None:
-        """Stop sims without deleting the task — it must survive across phases."""
+        """Stop task and sims without deleting — must survive across phases."""
+        if self.tsk is not None:
+            self.tsk.stop()
+            self.log(f"Task '{self.task_name}' stopped")
         for sim in self.sims.values():
             if sim is not None:
                 sim.stop()
@@ -66,7 +69,7 @@ class TaskOpcMigration(OPCUAReadTaskCase):
     def test_data(self) -> None: ...
 
 
-class TaskspcSetup(TaskOpcMigration):
+class TasksOPCUASetup(TaskOPCUAMigration):
     """Create an OPC UA read task, run it, and verify sample collection."""
 
     def test_task_config(self) -> None:
@@ -77,30 +80,31 @@ class TaskspcSetup(TaskOpcMigration):
         self.test_start_and_stop()
 
 
-class TasksOpVerify(TaskOpcMigration):
+class TaskOPCUAVerify(TaskOPCUAMigration):
     """Verify OPC UA task data survived, settings intact, and task still runs."""
 
-    def create(self, **kwargs: Any) -> sy.Task:
+    def create(self, **kwargs: Any) -> sy.opcua.ReadTask:
         """Retrieve the existing task instead of creating a new one."""
         tasks = self.client.tasks.retrieve(names=[TASK_NAME])
         assert (
             len(tasks) == 1
         ), f"Expected exactly 1 task named '{TASK_NAME}', got {len(tasks)}"
-        return tasks[0]
-
-    def _channel_keys(self, task: sy.Task) -> list[int]:
-        return [ch["channel"] for ch in task.config["channels"]]
+        # Wrap the raw Task in a typed ReadTask so .run(), .config.sample_rate, etc. work.
+        raw = tasks[0]
+        typed = sy.opcua.ReadTask(**raw.config)
+        typed.set_internal(raw)
+        return typed
 
     def test_task_config(self) -> None:
         self.log("Testing: Task config survived migration")
+        self.test_task_exists()
         assert self.tsk is not None
         assert (
-            self.tsk.type == "opc_read"
-        ), f"Expected type 'opc_read', got '{self.tsk.type}'"
-        assert self.tsk.config["data_saving"] is True, "data_saving should be True"
-        assert len(self.tsk.config["channels"]) == NUM_CHANNELS, (
-            f"Expected {NUM_CHANNELS} channels, "
-            f"got {len(self.tsk.config['channels'])}"
+            self.tsk._internal.type == "opc_read"
+        ), f"Expected type 'opc_read', got '{self.tsk._internal.type}'"
+        assert self.tsk.config.data_saving is True, "data_saving should be True"
+        assert len(self.tsk.config.channels) == NUM_CHANNELS, (
+            f"Expected {NUM_CHANNELS} channels, " f"got {len(self.tsk.config.channels)}"
         )
 
     def test_data(self) -> None:
@@ -110,5 +114,8 @@ class TasksOpVerify(TaskOpcMigration):
             data = ch.read(sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now()))
             assert len(data) > 0, f"Channel '{ch.name}' has no data after migration"
 
-        self.log("Testing: Task still runs after migration")
+        # The OPC UA connection pool has a circuit breaker (3 failures, 5s
+        # cooldown). After migration the driver may trip it before the simulator
+        # is up.  Wait for cooldown to expire before starting the task.
+        sy.sleep(2)
         self.test_start_and_stop()
