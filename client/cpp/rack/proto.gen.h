@@ -49,6 +49,8 @@ inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() c
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
+    for (const auto &item: this->integrations)
+        pb.add_integrations(item);
     return {pb, x::errors::NIL};
 }
 
@@ -64,6 +66,8 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
         if (err) return {{}, err};
         cpp.status = v;
     }
+    for (const auto &item: pb.integrations())
+        cpp.integrations.push_back(item);
     return {cpp, x::errors::NIL};
 }
 
