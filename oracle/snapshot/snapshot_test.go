@@ -203,8 +203,7 @@ var _ = Describe("FileLoader", func() {
 			[]byte("User struct {}"), 0644,
 		)).To(Succeed())
 
-		content, filePath, err := loader.Load("schemas/user")
-		Expect(err).ToNot(HaveOccurred())
+		content, filePath := MustSucceed2(loader.Load("schemas/user"))
 		Expect(content).To(Equal("User struct {}"))
 		Expect(filePath).To(Equal("schemas/user.oracle"))
 	})
@@ -217,8 +216,7 @@ var _ = Describe("FileLoader", func() {
 			[]byte("Channel struct {}"), 0644,
 		)).To(Succeed())
 
-		content, filePath, err := loader.Load("schemas/core/channel")
-		Expect(err).ToNot(HaveOccurred())
+		content, filePath := MustSucceed2(loader.Load("schemas/core/channel"))
 		Expect(content).To(Equal("Channel struct {}"))
 		Expect(filePath).To(Equal("schemas/core/channel.oracle"))
 	})

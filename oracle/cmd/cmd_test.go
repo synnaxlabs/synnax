@@ -151,8 +151,7 @@ var _ = Describe("findMigrationVersions", func() {
 	})
 
 	It("should return nil for nonexistent directory", func() {
-		versions, err := findMigrationVersions(filepath.Join(migrationsDir, "nonexistent"))
-		Expect(err).ToNot(HaveOccurred())
+		versions := MustSucceed(findMigrationVersions(filepath.Join(migrationsDir, "nonexistent")))
 		Expect(versions).To(BeNil())
 	})
 
