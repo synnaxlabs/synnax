@@ -41,10 +41,11 @@ export const useAddSymbol = (schematicKey: string) => {
         initialProps.label.label = initialName;
       }
       const nodeKey = id.create();
-      const node: Diagram.Node = {
+      const node: schematic.Node = {
         key: nodeKey,
         position: position ?? xy.ZERO,
         zIndex: spec.zIndex,
+        measured: { width: 0, height: 0 },
       };
       const props: record.Unknown = {
         variant,

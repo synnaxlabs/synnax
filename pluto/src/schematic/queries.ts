@@ -147,6 +147,7 @@ export interface EdgeElementInfo {
   key: string;
   type: "edge";
   edge: Diagram.Edge;
+  props: Record<string, unknown>;
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
@@ -176,7 +177,13 @@ export const useSelectElementsInfo = Flux.createSelector<
           props: (s.props?.[node.key] as Record<string, unknown>) ?? {},
         });
     for (const edge of s.edges)
-      if (keySet.has(edge.key)) result.push({ key: edge.key, type: "edge", edge });
+      if (keySet.has(edge.key))
+        result.push({
+          key: edge.key,
+          type: "edge",
+          edge,
+          props: (s.props?.[edge.key] as Record<string, unknown>) ?? {},
+        });
     return result;
   },
 });
@@ -227,15 +234,6 @@ export const useSelectAuthority = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key }) => store.schematics.get(key)?.authority,
-});
-
-export const useSelectViewport = Flux.createSelector<
-  FluxSubStore,
-  SelectFieldArgs,
-  Diagram.Viewport | undefined
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => store.schematics.get(key)?.viewport,
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];

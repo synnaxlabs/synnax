@@ -93,22 +93,15 @@ message Schematic {
   string name = 2;
   // snapshot indicates whether this schematic represents a saved snapshot state.
   bool snapshot = 3;
-  // editable indicates whether this schematic can be edited by users.
-  bool editable = 4;
-  // fit_view_on_resize indicates whether the viewport should auto-fit when the window
-  // resizes.
-  bool fit_view_on_resize = 5;
   // authority is the control authority level for this schematic.
-  uint32 authority = 6;
-  // viewport is the camera state of the schematic viewport.
-  .x.spatial.pb.Viewport viewport = 7;
+  uint32 authority = 4;
   // legend is the control legend overlay configuration.
-  Legend legend = 8;
+  Legend legend = 5;
   // nodes contains all diagram nodes in the schematic.
-  repeated Node nodes = 9;
+  repeated Node nodes = 6;
   // edges contains all connections between nodes.
-  repeated Edge edges = 10;
+  repeated Edge edges = 7;
   // props contains symbol-specific properties keyed by node key, including colors,
   // labels, and other visual configuration.
-  google.protobuf.Struct props = 11;
+  google.protobuf.Struct props = 8;
 }

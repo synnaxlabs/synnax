@@ -17,18 +17,22 @@ import {
   Tabs,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as CoreToolbar } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
-import { useSelectControlStatus, useSelectEditable } from "@/schematic/selectors";
+import {
+  useSelectActiveToolbarTab,
+  useSelectControlStatus,
+  useSelectEditable,
+  useSelectSelected,
+} from "@/schematic/selectors";
 import {
   setActiveToolbarTab,
   setEditable,
-  type StoreState,
   type ToolbarTab,
 } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
@@ -75,14 +79,10 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const activeTab = useSelector(
-    (s: StoreState) => s.schematic.schematics[layoutKey]?.activeToolbarTab,
-  );
+  const activeTab = useSelectActiveToolbarTab(layoutKey);
   const editable = useSelectEditable(layoutKey);
   const handleExport = useExport();
-  const selected = useSelector(
-    (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
-  );
+  const selected = useSelectSelected(layoutKey);
   const selectedNames = Base.useSelectElementNames({ key: layoutKey, keys: selected });
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = Base.useSelectSnapshot({ key: layoutKey }) ?? false;

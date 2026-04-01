@@ -29,6 +29,7 @@ const graphStateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   viewport: Diagram.viewportZ,
+  selected: z.array(z.string()).default([]),
   nodes: z
     .array(z.any())
     .transform((nodes) => nodes.filter((node) => Diagram.nodeZ.safeParse(node).success))
@@ -97,6 +98,7 @@ export const ZERO_GRAPH_STATE: GraphState = {
   editable: true,
   fitViewOnResize: false,
   viewport: { position: xy.ZERO, zoom: 1 },
+  selected: [],
   nodes: [],
   edges: [],
   props: {},

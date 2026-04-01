@@ -106,15 +106,8 @@ type Schematic struct {
 	Name string `json:"name" msgpack:"name"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	// Editable indicates whether this schematic can be edited by users.
-	Editable bool `json:"editable" msgpack:"editable"`
-	// FitViewOnResize indicates whether the viewport should auto-fit when the window
-	// resizes.
-	FitViewOnResize bool `json:"fit_view_on_resize" msgpack:"fit_view_on_resize"`
 	// Authority is the control authority level for this schematic.
 	Authority uint8 `json:"authority" msgpack:"authority"`
-	// Viewport is the camera state of the schematic viewport.
-	Viewport spatial.Viewport `json:"viewport" msgpack:"viewport"`
 	// Legend is the control legend overlay configuration.
 	Legend Legend `json:"legend" msgpack:"legend"`
 	// Nodes contains all diagram nodes in the schematic.

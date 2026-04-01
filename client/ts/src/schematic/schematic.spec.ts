@@ -18,7 +18,6 @@ const client = createTestClient();
 
 const newSchematic = (overrides: Partial<schematic.New> = {}): schematic.New => ({
   name: "Test",
-  viewport: { position: { x: 0, y: 0 }, zoom: 1 },
   legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
   nodes: [],
   edges: [],
@@ -39,7 +38,6 @@ describe("Schematic", () => {
       expect(s.props.myProp).toEqual("value");
       const retrieved = await client.schematics.retrieve({ key: s.key });
       expect(retrieved.props.myProp).toEqual("value");
-      expect(retrieved.viewport.zoom).toEqual(1);
     });
   });
 

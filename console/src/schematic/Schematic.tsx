@@ -25,20 +25,25 @@ import {
 } from "@synnaxlabs/pluto";
 import { box, location, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelector, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
 import { Layout } from "@/layout";
 import {
+  useSelectControlStatus,
   useSelectEditable,
   useSelectFitViewOnResize,
+  useSelectLegend,
+  useSelectSelected,
+  useSelectViewport,
 } from "@/schematic/selectors";
 import {
+  internalCreate,
   setControlStatus,
   setEditable,
   setFitViewOnResize,
   setSelected,
-  type StoreState,
+  setViewport,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
@@ -83,7 +88,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const { data: doc } = Base.useRetrieve({ key: layoutKey });
   const dispatch = useDispatch();
-  const store = useStore<StoreState>();
 
   const hasEditPermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
@@ -91,16 +95,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const editableState = useSelectEditable(layoutKey);
   const editable = hasEditPermission && editableState;
   const fitViewOnResize = useSelectFitViewOnResize(layoutKey);
-
-  const selected = useSelector(
-    (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
-  );
-  const control = useSelector(
-    (s: StoreState) => s.schematic.schematics[layoutKey]?.control ?? "released",
-  );
-  const legendState = useSelector(
-    (s: StoreState) => s.schematic.schematics[layoutKey]?.legend,
-  );
+  const selected = useSelectSelected(layoutKey);
+  const control = useSelectControlStatus(layoutKey);
+  const legend = useSelectLegend(layoutKey);
+  const viewport = useSelectViewport(layoutKey);
+  const viewportRef = useSyncedRef(viewport);
 
   const handleSelectionChange = useCallback(
     (next: string[]) => dispatch(setSelected({ key: layoutKey, selected: next })),
@@ -114,24 +113,23 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleEditableChange = useCallback(
-    (v: boolean) => {
-      const before = store.getState().schematic.schematics[layoutKey];
-      console.log("handleEditableChange", { v, before: before?.editable });
-      dispatch(setEditable({ key: layoutKey, editable: v }));
-      const after = store.getState().schematic.schematics[layoutKey];
-      console.log("after dispatch", { editable: after?.editable });
-    },
-    [dispatch, layoutKey, store],
+    (v: boolean) => dispatch(setEditable({ key: layoutKey, editable: v })),
+    [dispatch, layoutKey],
   );
 
   const handleFitViewOnResizeChange = useCallback(
-    (v: boolean) => dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
+    (v: boolean) =>
+      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
+    [dispatch, layoutKey],
+  );
+
+  const handleViewportChange = useCallback(
+    (vp: Diagram.Viewport) =>
+      dispatch(setViewport({ key: layoutKey, viewport: vp })),
     [dispatch, layoutKey],
   );
 
   const [mode, setMode] = useState<Viewport.Mode>("select");
-
-  const viewportRef = useSyncedRef(doc?.viewport ?? { position: xy.ZERO, zoom: 1 });
 
   const ref = useRef<HTMLDivElement>(null);
   const handleAddElement = useAddSymbol(layoutKey);
@@ -207,8 +205,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           onSelectionChange={handleSelectionChange}
           viewportMode={mode}
           onViewportModeChange={setMode}
-          viewport={doc?.viewport ?? { position: xy.ZERO, zoom: 1 }}
-          onViewportChange={() => {}}
+          viewport={viewport}
+          onViewportChange={handleViewportChange}
           editable={editable}
           onEditableChange={handleEditableChange}
           setFitViewOnResize={handleFitViewOnResizeChange}
@@ -230,9 +228,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             </Flex.Box>
           </Controls>
         </Base.Schematic>
-        {legendState?.visible && (
+        {legend.visible && (
           <Control.Legend
-            position={legendState.position}
+            position={legend.position}
             colors={doc?.legend?.colors ?? {}}
             allowVisibleChange={false}
           />
@@ -273,9 +271,10 @@ export interface CreateArg extends Partial<Layout.BaseState> {
 
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
-  () => {
-    const { name = "Schematic", location = "mosaic", window, tab } = initial;
+  ({ dispatch }) => {
+    const { name = "Schematic", location = "mosaic", tab } = initial;
     const key = initial.key ?? uuid.create();
+    dispatch(internalCreate({ key }));
     return {
       key,
       location,

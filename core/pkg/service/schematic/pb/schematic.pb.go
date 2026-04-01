@@ -501,24 +501,17 @@ type Schematic struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `protobuf:"varint,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	// editable indicates whether this schematic can be edited by users.
-	Editable bool `protobuf:"varint,4,opt,name=editable,proto3" json:"editable,omitempty"`
-	// fit_view_on_resize indicates whether the viewport should auto-fit when the window
-	// resizes.
-	FitViewOnResize bool `protobuf:"varint,5,opt,name=fit_view_on_resize,json=fitViewOnResize,proto3" json:"fit_view_on_resize,omitempty"`
 	// authority is the control authority level for this schematic.
-	Authority uint32 `protobuf:"varint,6,opt,name=authority,proto3" json:"authority,omitempty"`
-	// viewport is the camera state of the schematic viewport.
-	Viewport *pb.Viewport `protobuf:"bytes,7,opt,name=viewport,proto3" json:"viewport,omitempty"`
+	Authority uint32 `protobuf:"varint,4,opt,name=authority,proto3" json:"authority,omitempty"`
 	// legend is the control legend overlay configuration.
-	Legend *Legend `protobuf:"bytes,8,opt,name=legend,proto3" json:"legend,omitempty"`
+	Legend *Legend `protobuf:"bytes,5,opt,name=legend,proto3" json:"legend,omitempty"`
 	// nodes contains all diagram nodes in the schematic.
-	Nodes []*Node `protobuf:"bytes,9,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Nodes []*Node `protobuf:"bytes,6,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains all connections between nodes.
-	Edges []*Edge `protobuf:"bytes,10,rep,name=edges,proto3" json:"edges,omitempty"`
+	Edges []*Edge `protobuf:"bytes,7,rep,name=edges,proto3" json:"edges,omitempty"`
 	// props contains symbol-specific properties keyed by node key, including colors,
 	// labels, and other visual configuration.
-	Props         *structpb.Struct `protobuf:"bytes,11,opt,name=props,proto3" json:"props,omitempty"`
+	Props         *structpb.Struct `protobuf:"bytes,8,opt,name=props,proto3" json:"props,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -574,32 +567,11 @@ func (x *Schematic) GetSnapshot() bool {
 	return false
 }
 
-func (x *Schematic) GetEditable() bool {
-	if x != nil {
-		return x.Editable
-	}
-	return false
-}
-
-func (x *Schematic) GetFitViewOnResize() bool {
-	if x != nil {
-		return x.FitViewOnResize
-	}
-	return false
-}
-
 func (x *Schematic) GetAuthority() uint32 {
 	if x != nil {
 		return x.Authority
 	}
 	return 0
-}
-
-func (x *Schematic) GetViewport() *pb.Viewport {
-	if x != nil {
-		return x.Viewport
-	}
-	return nil
 }
 
 func (x *Schematic) GetLegend() *Legend {
@@ -662,20 +634,16 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x04Edge\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x06source\x18\x02 \x01(\v2\x1c.service.schematic.pb.HandleR\x06source\x124\n" +
-	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\xb1\x03\n" +
+	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\xb4\x02\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x12\x1a\n" +
-	"\beditable\x18\x04 \x01(\bR\beditable\x12+\n" +
-	"\x12fit_view_on_resize\x18\x05 \x01(\bR\x0ffitViewOnResize\x12\x1c\n" +
-	"\tauthority\x18\x06 \x01(\rR\tauthority\x122\n" +
-	"\bviewport\x18\a \x01(\v2\x16.x.spatial.pb.ViewportR\bviewport\x124\n" +
-	"\x06legend\x18\b \x01(\v2\x1c.service.schematic.pb.LegendR\x06legend\x120\n" +
-	"\x05nodes\x18\t \x03(\v2\x1a.service.schematic.pb.NodeR\x05nodes\x120\n" +
-	"\x05edges\x18\n" +
-	" \x03(\v2\x1a.service.schematic.pb.EdgeR\x05edges\x12-\n" +
-	"\x05props\x18\v \x01(\v2\x17.google.protobuf.StructR\x05props*\xc5\x01\n" +
+	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x12\x1c\n" +
+	"\tauthority\x18\x04 \x01(\rR\tauthority\x124\n" +
+	"\x06legend\x18\x05 \x01(\v2\x1c.service.schematic.pb.LegendR\x06legend\x120\n" +
+	"\x05nodes\x18\x06 \x03(\v2\x1a.service.schematic.pb.NodeR\x05nodes\x120\n" +
+	"\x05edges\x18\a \x03(\v2\x1a.service.schematic.pb.EdgeR\x05edges\x12-\n" +
+	"\x05props\x18\b \x01(\v2\x17.google.protobuf.StructR\x05props*\xc5\x01\n" +
 	"\vEdgeVariant\x12\x15\n" +
 	"\x11EDGE_VARIANT_PIPE\x10\x00\x12\x19\n" +
 	"\x15EDGE_VARIANT_ELECTRIC\x10\x01\x12\x1a\n" +
@@ -714,8 +682,7 @@ var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(*pb.XY)(nil),           // 10: x.spatial.pb.XY
 	(*pb.Dimensions)(nil),   // 11: x.spatial.pb.Dimensions
 	(pb.Direction)(0),       // 12: x.spatial.pb.Direction
-	(*pb.Viewport)(nil),     // 13: x.spatial.pb.Viewport
-	(*structpb.Struct)(nil), // 14: google.protobuf.Struct
+	(*structpb.Struct)(nil), // 13: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	9,  // 0: service.schematic.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
@@ -727,16 +694,15 @@ var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	0,  // 6: service.schematic.pb.EdgeProps.variant:type_name -> service.schematic.pb.EdgeVariant
 	3,  // 7: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
 	3,  // 8: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	13, // 9: service.schematic.pb.Schematic.viewport:type_name -> x.spatial.pb.Viewport
-	1,  // 10: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
-	2,  // 11: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	6,  // 12: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	14, // 13: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	1,  // 9: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
+	2,  // 10: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	6,  // 11: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	13, // 12: service.schematic.pb.Schematic.props:type_name -> google.protobuf.Struct
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }

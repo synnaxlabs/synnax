@@ -7,29 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import { type Control } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
+  type LegendState,
   SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
   type ToolbarTab,
+  type Viewport,
+  ZERO_STATE,
 } from "@/schematic/slice";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
-
-export const selectRequired = (state: StoreState, key: string): State => {
-  const schematic = selectSliceState(state).schematics[key];
-  if (schematic == null)
-    throw new UnexpectedError(`Schematic not found for key: ${key}`);
-  return schematic;
-};
-
-export const useSelectRequired = (key: string): State =>
-  useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
 
 export const selectOptional = (state: StoreState, key: string): State | undefined =>
   selectSliceState(state).schematics[key];
@@ -45,21 +37,18 @@ export const useSelectSelected = (key: string): string[] =>
 
 export const selectControlStatus = (
   state: StoreState,
-  layoutKey: string,
-): Control.Status | undefined => selectOptional(state, layoutKey)?.control;
+  key: string,
+): Control.Status => selectOptional(state, key)?.control ?? "released";
 
-export const useSelectControlStatus = (layoutKey: string): Control.Status | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectControlStatus(state, layoutKey),
-    [layoutKey],
-  );
+export const useSelectControlStatus = (key: string): Control.Status =>
+  useMemoSelect((state: StoreState) => selectControlStatus(state, key), [key]);
 
 export const selectActiveToolbarTab = (
   state: StoreState,
   key: string,
-): ToolbarTab | undefined => selectOptional(state, key)?.activeToolbarTab;
+): ToolbarTab => selectOptional(state, key)?.activeToolbarTab ?? "symbols";
 
-export const useSelectActiveToolbarTab = (key: string): ToolbarTab | undefined =>
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
   useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
@@ -68,12 +57,20 @@ export const selectSelectedSymbolGroup = (state: StoreState, key: string): strin
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
 
+export const selectLegend = (
+  state: StoreState,
+  key: string,
+): LegendState => selectOptional(state, key)?.legend ?? ZERO_STATE.legend;
+
+export const useSelectLegend = (key: string): LegendState =>
+  useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
+
 export const selectLegendVisible = (
   state: StoreState,
   key: string,
-): boolean | undefined => selectOptional(state, key)?.legend.visible;
+): boolean => selectOptional(state, key)?.legend.visible ?? false;
 
-export const useSelectLegendVisible = (key: string): boolean | undefined =>
+export const useSelectLegendVisible = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
@@ -87,3 +84,9 @@ export const selectFitViewOnResize = (state: StoreState, key: string): boolean =
 
 export const useSelectFitViewOnResize = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
+
+export const selectViewport = (state: StoreState, key: string): Viewport =>
+  selectOptional(state, key)?.viewport ?? ZERO_STATE.viewport;
+
+export const useSelectViewport = (key: string): Viewport =>
+  useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);

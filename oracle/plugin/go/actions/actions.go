@@ -38,9 +38,9 @@ type Plugin struct{ Options Options }
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string       { return "go/actions" }
-func (p *Plugin) Domains() []string  { return []string{"go"} }
-func (p *Plugin) Requires() []string { return []string{"go/types"} }
+func (p *Plugin) Name() string                  { return "go/actions" }
+func (p *Plugin) Domains() []string             { return []string{"go"} }
+func (p *Plugin) Requires() []string            { return []string{"go/types"} }
 func (p *Plugin) Check(_ *plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
@@ -140,8 +140,8 @@ type templateData struct {
 	imports    *imports.Manager
 }
 
-func (d *templateData) HasImports() bool              { return d.imports.HasImports() }
-func (d *templateData) ExternalImports() []string      { return d.imports.ExternalImports() }
+func (d *templateData) HasImports() bool          { return d.imports.HasImports() }
+func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 func (d *templateData) InternalImports() []imports.InternalImportData {
 	return d.imports.InternalImports()
 }

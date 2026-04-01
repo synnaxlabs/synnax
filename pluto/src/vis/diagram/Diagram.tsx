@@ -329,6 +329,10 @@ export const create = ({
             else nextSelected.delete(translated.key);
             continue;
           }
+          if (translated.type === "remove") {
+            if (nextSelected === undefined) nextSelected = new Set(selectedRef.current);
+            nextSelected.delete(translated.key);
+          }
           mutations.push(translated);
         }
         if (nextSelected !== undefined) onSelectionChange?.([...nextSelected]);

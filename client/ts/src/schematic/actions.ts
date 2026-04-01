@@ -119,6 +119,4 @@ export const reduce = (state: Schematic, action: Action): Schematic => {
 };
 
 export const reduceAll = (state: Schematic, actions: Action[]): Schematic =>
-  produce(state, (draft) => {
-    for (const action of actions) reduce(draft, action);
-  });
+  produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));

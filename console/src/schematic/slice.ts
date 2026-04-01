@@ -9,13 +9,18 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Control } from "@synnaxlabs/pluto";
-import { type sticky } from "@synnaxlabs/x";
+import { type sticky, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const SLICE_NAME = "schematic";
 
 export const toolbarTabZ = z.enum(["symbols", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
+
+export interface Viewport {
+  position: xy.XY;
+  zoom: number;
+}
 
 export interface LegendState {
   visible: boolean;
@@ -30,6 +35,7 @@ export interface State {
   selectedSymbolGroup: string;
   editable: boolean;
   fitViewOnResize: boolean;
+  viewport: Viewport;
 }
 
 export const ZERO_STATE: State = {
@@ -40,6 +46,7 @@ export const ZERO_STATE: State = {
   selectedSymbolGroup: "general",
   editable: true,
   fitViewOnResize: false,
+  viewport: { position: xy.ZERO, zoom: 1 },
 };
 
 export interface SliceState {
@@ -54,85 +61,140 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-const ensure = (state: SliceState, key: string): State => {
-  state.schematics[key] ??= {
-    ...ZERO_STATE,
-    legend: { ...ZERO_STATE.legend },
-    selected: [],
-  };
-  return state.schematics[key];
-};
+export interface CreatePayload {
+  key: string;
+}
+
+export interface SetSelectedPayload {
+  key: string;
+  selected: string[];
+}
+
+export interface SetControlStatusPayload {
+  key: string;
+  control: Control.Status;
+}
+
+export interface SetLegendPayload {
+  key: string;
+  legend: Partial<LegendState>;
+}
+
+export interface SetLegendVisiblePayload {
+  key: string;
+  visible: boolean;
+}
+
+export interface SetActiveToolbarTabPayload {
+  key: string;
+  tab: ToolbarTab;
+}
+
+export interface SetSelectedSymbolGroupPayload {
+  key: string;
+  group: string;
+}
+
+export interface SetEditablePayload {
+  key: string;
+  editable: boolean;
+}
+
+export interface SetFitViewOnResizePayload {
+  key: string;
+  fitViewOnResize: boolean;
+}
+
+export interface SetViewportPayload {
+  key: string;
+  viewport: Viewport;
+}
+
+export interface RemovePayload {
+  keys: string[];
+}
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    setSelected: (
-      state,
-      {
-        payload: { key, selected },
-      }: PayloadAction<{ key: string; selected: string[] }>,
-    ) => {
-      const s = ensure(state, key);
-      s.selected = selected;
-      s.activeToolbarTab = selected.length > 0 ? "properties" : "symbols";
+    create: (state, { payload }: PayloadAction<CreatePayload>) => {
+      if (state.schematics[payload.key] != null) return;
+      state.schematics[payload.key] = {
+        ...ZERO_STATE,
+        legend: { ...ZERO_STATE.legend },
+        selected: [],
+      };
+    },
+    setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.selected = payload.selected;
+      s.activeToolbarTab = payload.selected.length > 0 ? "properties" : "symbols";
     },
     setControlStatus: (
       state,
-      {
-        payload: { key, control },
-      }: PayloadAction<{ key: string; control: Control.Status }>,
+      { payload }: PayloadAction<SetControlStatusPayload>,
     ) => {
-      ensure(state, key).control = control;
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.control = payload.control;
     },
-    setLegend: (
-      state,
-      {
-        payload: { key, legend },
-      }: PayloadAction<{ key: string; legend: Partial<LegendState> }>,
-    ) => {
-      const s = ensure(state, key);
-      s.legend = { ...s.legend, ...legend };
+    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.legend = { ...s.legend, ...payload.legend };
     },
     setLegendVisible: (
       state,
-      { payload: { key, visible } }: PayloadAction<{ key: string; visible: boolean }>,
+      { payload }: PayloadAction<SetLegendVisiblePayload>,
     ) => {
-      ensure(state, key).legend.visible = visible;
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.legend.visible = payload.visible;
     },
     setActiveToolbarTab: (
       state,
-      { payload: { key, tab } }: PayloadAction<{ key: string; tab: ToolbarTab }>,
+      { payload }: PayloadAction<SetActiveToolbarTabPayload>,
     ) => {
-      ensure(state, key).activeToolbarTab = tab;
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.activeToolbarTab = payload.tab;
     },
     setSelectedSymbolGroup: (
       state,
-      { payload: { key, group } }: PayloadAction<{ key: string; group: string }>,
+      { payload }: PayloadAction<SetSelectedSymbolGroupPayload>,
     ) => {
-      ensure(state, key).selectedSymbolGroup = group;
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.selectedSymbolGroup = payload.group;
     },
-    setEditable: (
-      state,
-      { payload: { key, editable } }: PayloadAction<{ key: string; editable: boolean }>,
-    ) => {
-      ensure(state, key).editable = editable;
+    setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.editable = payload.editable;
     },
     setFitViewOnResize: (
       state,
-      {
-        payload: { key, fitViewOnResize },
-      }: PayloadAction<{ key: string; fitViewOnResize: boolean }>,
+      { payload }: PayloadAction<SetFitViewOnResizePayload>,
     ) => {
-      ensure(state, key).fitViewOnResize = fitViewOnResize;
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.fitViewOnResize = payload.fitViewOnResize;
     },
-    remove: (state, { payload: { keys } }: PayloadAction<{ keys: string[] }>) => {
-      keys.forEach((key) => delete state.schematics[key]);
+    setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.viewport = payload.viewport;
+    },
+    remove: (state, { payload }: PayloadAction<RemovePayload>) => {
+      payload.keys.forEach((key) => delete state.schematics[key]);
     },
   },
 });
 
 export const {
+  create: internalCreate,
   setSelected,
   setControlStatus,
   setLegend,
@@ -141,9 +203,10 @@ export const {
   setSelectedSymbolGroup,
   setEditable,
   setFitViewOnResize,
+  setViewport,
   remove,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const PERSIST_EXCLUDE = ["schematic.**.selected" as const];
+export const PERSIST_EXCLUDE = [];

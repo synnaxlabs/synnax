@@ -32,8 +32,27 @@ describe("Schematic Slice", () => {
     });
   });
 
+  describe("create", () => {
+    it("should initialize state for a new schematic", () => {
+      store.dispatch(actions.create({ key: "s1" }));
+      const state = store.getState()[SLICE_NAME];
+      expect(state.schematics["s1"]).toBeDefined();
+      expect(state.schematics["s1"].activeToolbarTab).toBe("symbols");
+      expect(state.schematics["s1"].control).toBe("released");
+    });
+
+    it("should not overwrite existing state", () => {
+      store.dispatch(actions.create({ key: "s1" }));
+      store.dispatch(actions.setEditable({ key: "s1", editable: false }));
+      store.dispatch(actions.create({ key: "s1" }));
+      const state = store.getState()[SLICE_NAME];
+      expect(state.schematics["s1"].editable).toBe(false);
+    });
+  });
+
   describe("selection", () => {
     it("should set selected elements and switch to properties tab", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(
         actions.setSelected({ key: "s1", selected: ["node-1", "node-2"] }),
       );
@@ -43,6 +62,7 @@ describe("Schematic Slice", () => {
     });
 
     it("should switch back to symbols tab when selection is cleared", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(actions.setSelected({ key: "s1", selected: ["node-1"] }));
       store.dispatch(actions.setSelected({ key: "s1", selected: [] }));
       const state = store.getState()[SLICE_NAME];
@@ -50,16 +70,18 @@ describe("Schematic Slice", () => {
       expect(state.schematics["s1"].activeToolbarTab).toBe("symbols");
     });
 
-    it("should auto-create schematic state on first access", () => {
-      store.dispatch(actions.setSelected({ key: "new-schematic", selected: ["a"] }));
+    it("should no-op when schematic does not exist", () => {
+      store.dispatch(
+        actions.setSelected({ key: "nonexistent", selected: ["a"] }),
+      );
       const state = store.getState()[SLICE_NAME];
-      expect(state.schematics["new-schematic"]).toBeDefined();
-      expect(state.schematics["new-schematic"].control).toBe("released");
+      expect(state.schematics["nonexistent"]).toBeUndefined();
     });
   });
 
   describe("control status", () => {
     it("should set control status", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(actions.setControlStatus({ key: "s1", control: "acquired" }));
       const state = store.getState()[SLICE_NAME];
       expect(state.schematics["s1"].control).toBe("acquired");
@@ -68,6 +90,7 @@ describe("Schematic Slice", () => {
 
   describe("legend", () => {
     it("should toggle legend visibility", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(actions.setLegendVisible({ key: "s1", visible: true }));
       let state = store.getState()[SLICE_NAME];
       expect(state.schematics["s1"].legend.visible).toBe(true);
@@ -78,6 +101,7 @@ describe("Schematic Slice", () => {
     });
 
     it("should partially update legend", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(
         actions.setLegend({
           key: "s1",
@@ -94,12 +118,14 @@ describe("Schematic Slice", () => {
 
   describe("toolbar", () => {
     it("should set active toolbar tab", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(actions.setActiveToolbarTab({ key: "s1", tab: "properties" }));
       const state = store.getState()[SLICE_NAME];
       expect(state.schematics["s1"].activeToolbarTab).toBe("properties");
     });
 
     it("should set selected symbol group", () => {
+      store.dispatch(actions.create({ key: "s1" }));
       store.dispatch(actions.setSelectedSymbolGroup({ key: "s1", group: "valves" }));
       const state = store.getState()[SLICE_NAME];
       expect(state.schematics["s1"].selectedSymbolGroup).toBe("valves");
@@ -108,8 +134,8 @@ describe("Schematic Slice", () => {
 
   describe("removal", () => {
     it("should remove schematics", () => {
-      store.dispatch(actions.setSelected({ key: "s1", selected: [] }));
-      store.dispatch(actions.setSelected({ key: "s2", selected: [] }));
+      store.dispatch(actions.create({ key: "s1" }));
+      store.dispatch(actions.create({ key: "s2" }));
       expect(Object.keys(store.getState()[SLICE_NAME].schematics)).toHaveLength(2);
 
       store.dispatch(actions.remove({ keys: ["s1"] }));
@@ -120,9 +146,9 @@ describe("Schematic Slice", () => {
     });
 
     it("should remove multiple schematics at once", () => {
-      store.dispatch(actions.setSelected({ key: "s1", selected: [] }));
-      store.dispatch(actions.setSelected({ key: "s2", selected: [] }));
-      store.dispatch(actions.setSelected({ key: "s3", selected: [] }));
+      store.dispatch(actions.create({ key: "s1" }));
+      store.dispatch(actions.create({ key: "s2" }));
+      store.dispatch(actions.create({ key: "s3" }));
 
       store.dispatch(actions.remove({ keys: ["s1", "s3"] }));
       const state = store.getState()[SLICE_NAME];

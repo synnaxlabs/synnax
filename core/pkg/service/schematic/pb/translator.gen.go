@@ -372,10 +372,6 @@ func EdgesFromPB(pbs []*Edge) ([]schematic.Edge, error) {
 
 // SchematicToPB converts Schematic to Schematic.
 func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
-	viewportVal, err := spatialpb.ViewportToPB(r.Viewport)
-	if err != nil {
-		return nil, err
-	}
 	legendVal, err := LegendToPB(r.Legend)
 	if err != nil {
 		return nil, err
@@ -393,17 +389,14 @@ func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
 		return nil, err
 	}
 	pb := &Schematic{
-		Name:            r.Name,
-		Snapshot:        r.Snapshot,
-		Editable:        r.Editable,
-		FitViewOnResize: r.FitViewOnResize,
-		Authority:       uint32(r.Authority),
-		Key:             r.Key.String(),
-		Viewport:        viewportVal,
-		Legend:          legendVal,
-		Nodes:           nodesVal,
-		Edges:           edgesVal,
-		Props:           propsVal,
+		Name:      r.Name,
+		Snapshot:  r.Snapshot,
+		Authority: uint32(r.Authority),
+		Key:       r.Key.String(),
+		Legend:    legendVal,
+		Nodes:     nodesVal,
+		Edges:     edgesVal,
+		Props:     propsVal,
 	}
 	return pb, nil
 }
@@ -420,10 +413,6 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 		return schematic.Schematic{}, err
 	}
 	r.Key = schematic.Key(parsedKey)
-	r.Viewport, err = spatialpb.ViewportFromPB(pb.Viewport)
-	if err != nil {
-		return schematic.Schematic{}, err
-	}
 	r.Legend, err = LegendFromPB(pb.Legend)
 	if err != nil {
 		return schematic.Schematic{}, err
@@ -439,8 +428,6 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	r.Props = pb.Props.AsMap()
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
-	r.Editable = pb.Editable
-	r.FitViewOnResize = pb.FitViewOnResize
 	r.Authority = uint8(pb.Authority)
 	return r, nil
 }

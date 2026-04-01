@@ -25,10 +25,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { box, color, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
-import { useSelector } from "react-redux";
 
 import { Layout } from "@/layout";
-import { type StoreState } from "@/schematic/slice";
+import { useSelectSelected, useSelectViewport } from "@/schematic/selectors";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
@@ -39,9 +38,7 @@ export interface PropertiesProps {
 
 export const PropertiesControls = memo(
   ({ layoutKey }: PropertiesProps): ReactElement => {
-    const selected = useSelector(
-      (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
-    );
+    const selected = useSelectSelected(layoutKey);
     const digests = Base.useSelectElementDigests({ key: layoutKey, keys: selected });
     if (digests.length === 0)
       return (
@@ -134,9 +131,7 @@ const EdgeProperties = ({
   edgeKey,
 }: EdgePropertiesProps): ReactElement | null => {
   const edge = Base.useSelectEdge({ key: layoutKey, edgeKey });
-  const edgeProps = Base.useSelectProps({ key: layoutKey, propKey: edgeKey }) as
-    | Record<string, unknown>
-    | undefined;
+  const edgeProps = Base.useSelectProps({ key: layoutKey, propKey: edgeKey });
   const { update: dispatch } = Base.useDispatch();
   if (edge == null) return null;
   const onChange = (key: string, props: Record<string, unknown>): void => {
@@ -176,12 +171,10 @@ const MultiElementProperties = ({
   layoutKey,
 }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
-  const selected = useSelector(
-    (s: StoreState) => s.schematic.schematics[layoutKey]?.selected ?? [],
-  );
+  const selected = useSelectSelected(layoutKey);
   const elements = Base.useSelectElementsInfo({ key: layoutKey, keys: selected });
   const { update: dispatch } = Base.useDispatch();
-  const viewport = Base.useSelectViewport({ key: layoutKey });
+  const viewport = useSelectViewport(layoutKey);
 
   const onChange = (key: string, props: Record<string, unknown>): void => {
     dispatch({
@@ -192,24 +185,17 @@ const MultiElementProperties = ({
 
   const colorGroups: Record<string, Base.ElementInfo[]> = {};
   elements.forEach((e) => {
-    let colorVal: color.Color | null = null;
-    if (e.type === "edge") {
-      const edgeColor = (e as Base.EdgeElementInfo).edge;
-      // edge color comes from props, not edge itself
-      colorVal = null;
-    } else if ((e.props as Record<string, unknown>)?.color != null)
-      colorVal = color.construct(
-        (e.props as Record<string, unknown>).color as color.Crude,
-      );
-    if (colorVal === null) return;
-    const hex = color.hex(colorVal);
+    const raw = e.props?.color;
+    if (raw == null) return;
+    const parsed = color.crudeZ.safeParse(raw);
+    if (!parsed.success) return;
+    const hex = color.hex(color.construct(parsed.data));
     if (!(hex in colorGroups)) colorGroups[hex] = [];
     colorGroups[hex].push(e);
   });
 
   const firstNode = elements.find((e) => e.type === "node");
-  const firstNodeLabel = (firstNode?.props as Record<string, unknown> | undefined)
-    ?.label as Record<string, unknown> | undefined;
+  const firstNodeLabel = firstNode?.props?.label as Record<string, unknown> | undefined;
 
   const getLayoutsForAlignment = () =>
     elements
@@ -337,12 +323,10 @@ const MultiElementProperties = ({
   const handleRotateIndividual = (dir: direction.Angular): void => {
     elements.forEach((el) => {
       if (el.type !== "node") return;
-      const parsed = location.outerZ.safeParse(
-        (el.props as Record<string, unknown>)?.orientation,
-      );
+      const parsed = location.outerZ.safeParse(el.props?.orientation);
       if (!parsed.success) return;
       onChange(el.key, {
-        ...(el.props as Record<string, unknown>),
+        ...el.props,
         orientation: location.rotate(parsed.data, dir),
       });
     });
@@ -359,7 +343,7 @@ const MultiElementProperties = ({
   ): void => {
     elements.forEach((e) => {
       if (e.type !== "node") return;
-      const p = e.props as Record<string, unknown>;
+      const p = e.props;
       if (p.label == null) return;
       onChange(e.key, { ...p, label: { ...(p.label as object), [key]: value } });
     });
@@ -375,9 +359,8 @@ const MultiElementProperties = ({
               value={hex}
               onChange={(v: color.Color) => {
                 elements.forEach((e) => {
-                  const p = e.type === "node" ? e.props : {};
                   onChange(e.key, {
-                    ...(p as Record<string, unknown>),
+                    ...e.props,
                     color: color.hex(v),
                   });
                 });

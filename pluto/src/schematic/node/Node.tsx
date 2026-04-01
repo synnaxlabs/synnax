@@ -1,5 +1,5 @@
 import { NotFoundError, schematic } from "@synnaxlabs/client";
-import { caseconv } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { useKey } from "@/schematic/Context";
@@ -15,26 +15,17 @@ export const Node = ({
 }: Diagram.NodeProps): ReactElement | null => {
   const schematicKey = useKey();
   const nodeProps = useSelectProps({ key: schematicKey, propKey: nodeKey });
-  console.log("nodeProps", nodeProps);
   const { update: dispatch } = useDispatch();
-  const variant = (nodeProps?.variant ?? null) as Symbol.Variant | null;
-
+  const variant = nodeProps?.variant as Symbol.Variant | undefined;
   const handleChange = useCallback(
-    (props: object) => {
-      if (variant == null) return;
+    (props: record.Unknown) =>
       dispatch({
         key: schematicKey,
-        actions: schematic.setProps({
-          key: nodeKey,
-          props: { variant, ...props },
-        }),
-      });
-    },
-    [nodeKey, schematicKey, variant, dispatch],
+        actions: schematic.setProps({ key: nodeKey, props }),
+      }),
+    [nodeKey, schematicKey, dispatch],
   );
-
   if (nodeProps == null || variant == null) return null;
-
   const Spec = Symbol.REGISTRY[variant];
   if (Spec == null) throw new NotFoundError(`Symbol ${variant} not found`);
   return (
