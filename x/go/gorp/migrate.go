@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -285,7 +286,7 @@ func MigrationDepOpt[T any](ctx context.Context) (T, bool) {
 // topoSort filters out already-applied migrations, then produces a valid
 // execution order. Dependencies that are already applied are considered
 // satisfied and do not need to appear in the pending set.
-func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, error) {
+func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, error) {
 	byName := make(map[string]Migration, len(migrations))
 	for _, m := range migrations {
 		if _, dup := byName[m.Name()]; dup {
@@ -296,7 +297,7 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 
 	var pending []Migration
 	for _, m := range migrations {
-		if !applied[m.Name()] {
+		if !applied.Contains(m.Name()) {
 			pending = append(pending, m)
 		}
 	}
@@ -321,7 +322,7 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 		adj[name] = nil
 		if dd, ok := m.(DependencyDeclarer); ok {
 			for _, dep := range dd.Dependencies() {
-				if applied[dep] {
+				if applied.Contains(dep) {
 					continue
 				}
 				adj[name] = append(adj[name], dep)

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
@@ -96,10 +97,7 @@ func OpenTable[K Key, E Entry[K]](
 			zap.Int("pending", len(pending)),
 		)
 		if len(applied) > 0 {
-			appliedNames := make([]string, 0, len(applied))
-			for name := range applied {
-				appliedNames = append(appliedNames, name)
-			}
+			appliedNames := applied.Keys()
 			sort.Strings(appliedNames)
 			cfg.L.Debug(
 				"already applied",
@@ -135,7 +133,7 @@ func OpenTable[K Key, E Entry[K]](
 				zap.Int("entries", entries),
 				zap.Duration("elapsed", time.Since(mStart)),
 			)
-			applied[m.Name()] = true
+			applied.Add(m.Name())
 			if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
 				return nil, err
 			}
@@ -255,25 +253,25 @@ func readAppliedMigrations(
 	ctx context.Context,
 	kvTx kv.Tx,
 	key []byte,
-) (map[string]bool, error) {
-	b, closer, err := kvTx.Get(ctx, key)
-	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return make(map[string]bool), nil
+) (_ set.Set[string], err error) {
+	b, closer, getErr := kvTx.Get(ctx, key)
+	if getErr != nil {
+		if errors.Is(getErr, query.ErrNotFound) {
+			return make(set.Set[string]), nil
 		}
-		return nil, err
+		return nil, getErr
 	}
 	defer func() {
 		err = errors.Combine(err, closer.Close())
 	}()
 	names := strings.Split(string(b), "\n")
-	applied := make(map[string]bool, len(names))
+	applied := make(set.Set[string], len(names))
 	for _, name := range names {
 		if name != "" {
-			applied[name] = true
+			applied.Add(name)
 		}
 	}
-	return applied, err
+	return applied, nil
 }
 
 // writeAppliedMigrations persists the set of applied migration names as a
@@ -282,12 +280,9 @@ func writeAppliedMigrations(
 	ctx context.Context,
 	kvTx kv.Tx,
 	key []byte,
-	applied map[string]bool,
+	applied set.Set[string],
 ) error {
-	names := make([]string, 0, len(applied))
-	for name := range applied {
-		names = append(names, name)
-	}
+	names := applied.Keys()
 	sort.Strings(names)
 	return kvTx.Set(ctx, key, []byte(strings.Join(names, "\n")))
 }

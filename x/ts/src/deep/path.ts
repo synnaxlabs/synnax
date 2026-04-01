@@ -110,7 +110,7 @@ export const pathsMatch = (path: string, pattern: string): boolean => {
 };
 
 export const getIndex = (part: string): number | null => {
-  const num = parseInt(part);
+  const num = parseInt(part, 10);
   if (isNaN(num) || num < 0 || num.toString() !== part) return null;
   return num;
 };
