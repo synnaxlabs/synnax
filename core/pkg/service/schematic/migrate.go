@@ -133,32 +133,6 @@ func mapString(m map[string]any, key string, def string) string {
 	return v
 }
 
-func mapUint8(m map[string]any, key string, def uint8) uint8 {
-	switch v := m[key].(type) {
-	case float64:
-		return uint8(v)
-	case int:
-		return uint8(v)
-	case int64:
-		return uint8(v)
-	default:
-		return def
-	}
-}
-
-func mapInt32(m map[string]any, key string, def int32) int32 {
-	switch v := m[key].(type) {
-	case float64:
-		return int32(v)
-	case int:
-		return int32(v)
-	case int64:
-		return int32(v)
-	default:
-		return def
-	}
-}
-
 func mapRecord(m map[string]any, key string) binary.MsgpackEncodedJSON {
 	v, ok := m[key].(map[string]any)
 	if !ok {

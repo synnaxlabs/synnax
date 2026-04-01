@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type Diagram, Flux, Schematic, Theming } from "@synnaxlabs/pluto";
-import { id, xy, type record } from "@synnaxlabs/x";
+import { Flux, Schematic, Theming } from "@synnaxlabs/pluto";
+import { id, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -44,7 +44,6 @@ export const useAddSymbol = (schematicKey: string) => {
       const node: schematic.Node = {
         key: nodeKey,
         position: position ?? xy.ZERO,
-        zIndex: spec.zIndex,
         measured: { width: 0, height: 0 },
       };
       const props: record.Unknown = {

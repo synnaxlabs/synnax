@@ -121,7 +121,7 @@ func (w Writer) Copy(
 	if err != nil || !ok {
 		return err
 	}
-	if err := w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return err
 	}
 	// In the case of a snapshot, don't create a relationship to the workspace.
@@ -161,8 +161,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
-	if err != nil {
+	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

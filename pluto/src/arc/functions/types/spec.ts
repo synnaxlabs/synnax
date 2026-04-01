@@ -17,7 +17,7 @@ export type PreviewProps<P extends object = record.Unknown> = P & {
 };
 
 export type SymbolProps<P extends object = record.Unknown> = P & {
-  symbolKey?: string;
+  nodeKey?: string;
   position?: xy.XY;
   aetherKey?: string;
   selected?: boolean;
