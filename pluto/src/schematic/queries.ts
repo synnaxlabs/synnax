@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
-import { type Diagram } from "@/vis/diagram";
 import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { type Diagram } from "@/vis/diagram";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
@@ -87,9 +87,7 @@ export const useSelectProps = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, propKey }) =>
-    (store.schematics.get(key) as schematic.Schematic | undefined)?.props?.[propKey] as
-      | Record<string, unknown>
-      | undefined,
+    store.schematics.get(key)?.props?.[propKey] as Record<string, unknown> | undefined,
 });
 
 export interface SelectEdgeArgs {
@@ -104,7 +102,7 @@ export const useSelectEdge = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, edgeKey }) => {
-    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    const s = store.schematics.get(key);
     return s?.edges?.find((e) => e.key === edgeKey);
   },
 });
@@ -126,7 +124,7 @@ export const useSelectElementDigests = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, keys }) => {
-    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    const s = store.schematics.get(key);
     if (s == null || keys.length === 0) return [];
     const keySet = new Set(keys);
     const digests: ElementDigest[] = [];
@@ -165,7 +163,7 @@ export const useSelectElementsInfo = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, keys }) => {
-    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    const s = store.schematics.get(key);
     if (s == null || keys.length === 0) return [];
     const keySet = new Set(keys);
     const result: ElementInfo[] = [];
@@ -195,7 +193,7 @@ export const useSelectElementNames = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, keys }) => {
-    const s = store.schematics.get(key) as schematic.Schematic | undefined;
+    const s = store.schematics.get(key);
     if (s == null || keys.length === 0) return [];
     const keySet = new Set(keys);
     const result: (string | null)[] = [];
@@ -219,8 +217,7 @@ export const useSelectSnapshot = Flux.createSelector<
   boolean | undefined
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) =>
-    (store.schematics.get(key) as schematic.Schematic | undefined)?.snapshot,
+  select: (store, { key }) => store.schematics.get(key)?.snapshot,
 });
 
 export const useSelectAuthority = Flux.createSelector<
@@ -229,8 +226,7 @@ export const useSelectAuthority = Flux.createSelector<
   number | undefined
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) =>
-    (store.schematics.get(key) as schematic.Schematic | undefined)?.authority,
+  select: (store, { key }) => store.schematics.get(key)?.authority,
 });
 
 export const useSelectViewport = Flux.createSelector<
@@ -239,8 +235,7 @@ export const useSelectViewport = Flux.createSelector<
   Diagram.Viewport | undefined
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) =>
-    (store.schematics.get(key) as schematic.Schematic | undefined)?.viewport,
+  select: (store, { key }) => store.schematics.get(key)?.viewport,
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];

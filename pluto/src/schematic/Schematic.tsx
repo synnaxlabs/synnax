@@ -10,15 +10,17 @@
 import "@/schematic/Schematic.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Provider } from "@/schematic/Context";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 import { useDispatch, useRetrieve } from "@/schematic/queries";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
+import { Theming } from "@/theming";
 import { Diagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -54,14 +56,17 @@ const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null
   }
 };
 
-const edgeChangeToActions = (change: Diagram.EdgeChange): schematic.Action[] => {
+const edgeChangeToActions = (
+  change: Diagram.EdgeChange,
+  baseEdgeColor: color.Color,
+): schematic.Action[] => {
   switch (change.type) {
     case "add":
       return [
-        schematic.setEdge({ edge: change.edge as schematic.Edge }),
+        schematic.setEdge({ edge: change.edge }),
         schematic.setProps({
           key: change.edge.key,
-          props: { waypoints: [], variant: "pipe", color: "#000000" },
+          props: { waypoints: [], variant: "pipe", color: color.hex(baseEdgeColor) },
         }),
       ];
     case "remove":
@@ -72,40 +77,42 @@ const edgeChangeToActions = (change: Diagram.EdgeChange): schematic.Action[] => 
 };
 
 const SchematicDiagram = Diagram.create({
-  node: (props) => <Node.Node {...props} />,
-  edge: (props) => <Edge.Edge {...props} />,
-  connectionLine: (props) => <Edge.ConnectionLine {...props} />,
+  node: Component.renderProp(Node.Node),
+  edge: Component.renderProp(Edge.Edge),
+  connectionLine: Component.renderProp(Edge.ConnectionLine),
 });
 
 export const Schematic = ({
   className,
-  children,
-  resourceKey: key,
+  resourceKey,
   ...props
-}: SchematicProps): ReactElement | null => {
-  const { data: doc } = useRetrieve({ key });
+}: SchematicProps): ReactElement => {
+  const { data: doc } = useRetrieve({ key: resourceKey });
   const { update: dispatch } = useDispatch();
+  const theme = Theming.use();
 
   const handleNodesChange = useCallback(
     (changes: Diagram.NodeChange[]) => {
       const actions = changes
         .map(nodeChangeToAction)
         .filter((a): a is schematic.Action => a != null);
-      if (actions.length > 0) dispatch({ key, actions });
+      if (actions.length > 0) dispatch({ key: resourceKey, actions });
     },
-    [key, dispatch],
+    [resourceKey, dispatch],
   );
 
   const handleEdgesChange = useCallback(
     (changes: Diagram.EdgeChange[]) => {
-      const actions = changes.flatMap(edgeChangeToActions);
-      if (actions.length > 0) dispatch({ key, actions });
+      const actions = changes.flatMap((change) =>
+        edgeChangeToActions(change, theme.colors.gray.l10),
+      );
+      if (actions.length > 0) dispatch({ key: resourceKey, actions });
     },
-    [key, dispatch],
+    [resourceKey, dispatch, theme.colors.gray.l10],
   );
 
   return (
-    <Provider value={key}>
+    <Provider value={resourceKey}>
       <SchematicDiagram
         className={CSS(CSS.B("schematic"), className)}
         dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
@@ -115,9 +122,7 @@ export const Schematic = ({
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         {...props}
-      >
-        {children}
-      </SchematicDiagram>
+      />
     </Provider>
   );
 };

@@ -33,6 +33,7 @@ import {
 import {
   type ComponentPropsWithoutRef,
   type FC,
+  memo,
   type ReactElement,
   useCallback,
   useEffect,
@@ -44,8 +45,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
-import { useMemoCompare, useMemoDeepEqual } from "@/memo";
+import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
+import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
@@ -229,7 +230,6 @@ export const create = ({
     autoRenderInterval,
     ...rest
   }: DiagramProps): ReactElement => {
-    const memoProps = useMemoDeepEqual({ visible, autoRenderInterval });
     const [{ path }, , setState] = Aether.use({
       aetherKey,
       type: diagram.Diagram.TYPE,
@@ -238,9 +238,15 @@ export const create = ({
         position: viewport.position,
         region: box.ZERO,
         zoom: viewport.zoom,
-        ...memoProps,
+        visible,
+        autoRenderInterval,
       },
     });
+    useEffect(
+      () => setState((prev) => ({ ...prev, visible, autoRenderInterval })),
+      [visible, autoRenderInterval],
+    );
+
     const { fitView } = useReactFlow();
     const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
       fitView,
@@ -255,7 +261,6 @@ export const create = ({
         [setState, debouncedFitView, fitViewOnResize],
       ),
     );
-    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
@@ -263,94 +268,90 @@ export const create = ({
       [pTriggers],
     );
 
+    const zoomRef = useRef<number>(viewport.zoom);
+    const syncZoomCSSVar = useCallback((zoom: number): void => {
+      if (zoomRef.current === zoom) return;
+      zoomRef.current = zoom;
+      triggerRef.current?.style.setProperty(CSS.var("diagram-zoom"), `${zoom}`);
+    }, []);
+    syncZoomCSSVar(viewport.zoom);
+
     const viewportRef = useRef<RFViewport | null>(null);
-    const handleViewport = useCallback(
+    const handleViewportChange = useCallback(
       (vp: RFViewport): void => {
         const prev = viewportRef.current;
         if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
           return;
         viewportRef.current = vp;
         if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
+        syncZoomCSSVar(vp.zoom);
         setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
         onViewportChange(translateViewportBackward(vp));
       },
-      [setState, onViewportChange],
+      [setState, onViewportChange, syncZoomCSSVar],
     );
 
     useRFOnViewportChange({
-      onStart: handleViewport,
-      onChange: handleViewport,
-      onEnd: handleViewport,
+      onStart: handleViewportChange,
+      onChange: handleViewportChange,
+      onEnd: handleViewportChange,
     });
 
     const selectedSet = useMemo(() => new Set(selected), [selected]);
+    const selectedRef = useSyncedRef(selectedSet);
 
     const rfEdges = useMemo(
       () => translateEdgesForward(edges, selectedSet),
-      [edges, selectedSet],
+      [edges, selected],
     );
     const rfNodes = useMemo(
       () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
-      [nodes, selectedSet, dragHandleSelector],
+      [nodes, selected, dragHandleSelector],
     );
 
-    const selectedRef = useRef(selected);
-    selectedRef.current = selected;
+    const processChanges = useCallback(
+      <
+        RFChange extends RFEdgeChange | RFNodeChange,
+        Change extends EdgeChange | NodeChange,
+      >(
+        rfChanges: RFChange[],
+        translate: (c: RFChange) => Change | null,
+        onMutations: (changes: Change[]) => void,
+      ): void => {
+        const mutations: Change[] = [];
+        let nextSelected: Set<string> | undefined;
+        for (const change of rfChanges) {
+          const translated = translate(change);
+          if (translated == null) continue;
+          if (translated.type === "select") {
+            if (nextSelected === undefined) nextSelected = new Set(selectedRef.current);
+            if (translated.selected) nextSelected.add(translated.key);
+            else nextSelected.delete(translated.key);
+            continue;
+          }
+          mutations.push(translated);
+        }
+        if (nextSelected !== undefined) onSelectionChange?.([...nextSelected]);
+        if (mutations.length > 0) onMutations(mutations);
+      },
+      [onSelectionChange],
+    );
 
     const handleNodesChange = useCallback(
-      (changes: RFNodeChange[]) => {
-        const selChanges: Array<{ key: string; selected: boolean }> = [];
-        const mutations: NodeChange[] = [];
-        for (const change of changes) {
-          const translated = translateNodeChangeForward(change);
-          if (translated == null) continue;
-          if (translated.type === "select") selChanges.push(translated);
-          else mutations.push(translated);
-        }
-        if (selChanges.length > 0) {
-          const next = new Set(selectedRef.current);
-          for (const c of selChanges)
-            if (c.selected) next.add(c.key);
-            else next.delete(c.key);
-          onSelectionChange?.([...next]);
-        }
-        if (mutations.length > 0) onNodesChange(mutations);
-      },
-      [onNodesChange, onSelectionChange],
+      (changes: RFNodeChange[]) =>
+        processChanges(changes, translateNodeChangeForward, onNodesChange),
+      [processChanges, onNodesChange],
     );
 
     const handleEdgesChange = useCallback(
-      (changes: RFEdgeChange[]) => {
-        const selChanges: Array<{ key: string; selected: boolean }> = [];
-        const mutations: EdgeChange[] = [];
-        for (const change of changes) {
-          const translated = translateEdgeChangeForward(change);
-          if (translated == null) continue;
-          if (translated.type === "select") selChanges.push(translated);
-          else mutations.push(translated);
-        }
-        if (selChanges.length > 0) {
-          const next = new Set(selectedRef.current);
-          for (const c of selChanges)
-            if (c.selected) next.add(c.key);
-            else next.delete(c.key);
-          onSelectionChange?.([...next]);
-        }
-        if (mutations.length > 0) onEdgesChange(mutations);
-      },
-      [onEdgesChange, onSelectionChange],
+      (changes: RFEdgeChange[]) =>
+        processChanges(changes, translateEdgeChangeForward, onEdgesChange),
+      [processChanges, onEdgesChange],
     );
 
     const handleConnect = useCallback(
-      (conn: RFConnection) => {
-        const key = `${conn.source}-${conn.sourceHandle ?? ""}-${conn.target}-${conn.targetHandle ?? ""}`;
-        const edge: Edge = {
-          key,
-          source: { node: conn.source, param: conn.sourceHandle ?? "" },
-          target: { node: conn.target, param: conn.targetHandle ?? "" },
-        };
-        onEdgesChange([{ type: "add", edge }]);
-      },
+      (conn: RFConnection) =>
+        onEdgesChange([{ type: "add", edge: diagram.createEdgeFromConnection(conn) }]),
       [onEdgesChange],
     );
 
@@ -411,11 +412,6 @@ export const create = ({
       ],
     );
 
-    const style = useMemo(
-      () => ({ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }),
-      [viewport.zoom, rest.style],
-    );
-
     return (
       <Context value={ctxValue}>
         <Aether.Composite path={path}>
@@ -451,7 +447,6 @@ export const create = ({
               deleteKeyCode={DELETE_KEY_CODES}
               snapToGrid={snapToGrid}
               {...rest}
-              style={style}
               {...editableProps}
               nodesDraggable={editable}
               onInit={handleInit}
@@ -468,5 +463,5 @@ export const create = ({
     </ReactFlowProvider>
   );
 
-  return Diagram;
+  return memo(Diagram);
 };

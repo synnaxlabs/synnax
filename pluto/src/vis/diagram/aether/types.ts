@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location, xy } from "@synnaxlabs/x";
+import { id, type location, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type React from "react";
@@ -198,4 +198,10 @@ export const createEndpoint = (
 ): EdgeEndpoint => ({
   position: { x, y },
   orientation: position as location.Outer,
+});
+
+export const createEdgeFromConnection = (connection: rf.Connection): Edge => ({
+  key: id.create(),
+  source: { node: connection.source, param: connection.sourceHandle ?? "" },
+  target: { node: connection.target, param: connection.targetHandle ?? "" },
 });
