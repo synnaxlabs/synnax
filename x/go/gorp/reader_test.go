@@ -58,6 +58,11 @@ var _ = Describe("Reader", func() {
 			Expect(iter2.Error()).To(HaveOccurred())
 			Expect(iter2.Valid()).To(BeFalse())
 			Expect(iter2.Close()).To(Succeed())
+
+			cleanupTx := kvDB.OpenTx()
+			Expect(cleanupTx.Delete(ctx, rawKey)).To(Succeed())
+			Expect(cleanupTx.Commit(ctx)).To(Succeed())
+			Expect(cleanupTx.Close()).To(Succeed())
 		})
 	})
 	Describe("Nexter", func() {
