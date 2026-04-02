@@ -15,7 +15,7 @@ import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 
-import { type Import } from "@/import";
+import { Import } from "@/import";
 import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
 import { Workspace } from "@/workspace";
@@ -80,27 +80,39 @@ export const import_ = ({
 }: IngestContext) => {
   let name: string | undefined = "workspace";
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import items from a dialog when running Synnax in the browser.",
+    let fileData: Import.File[];
+
+    if (Runtime.ENGINE === "tauri") {
+      const path = await open({
+        title: "Import a Workspace",
+        multiple: false,
+        directory: true,
+      });
+      if (path == null) return;
+      name = path.split(sep()).at(-1);
+      if (name == null) throw new Error("Cannot read workspace");
+      const files = await readDir(path);
+      fileData = await Promise.all(
+        files.map(
+          async (file): Promise<Import.File> => ({
+            name: file.name,
+            data: JSON.parse(await readTextFile(await join(path, file.name))),
+          }),
+        ),
       );
-    const path = await open({
-      title: "Import a Workspace",
-      multiple: false,
-      directory: true,
-    });
-    if (path == null) return;
-    name = path.split(sep()).at(-1);
-    if (name == null) throw new Error("Cannot read workspace");
-    const files = await readDir(path);
-    const fileData = await Promise.all(
-      files.map(
-        async (file): Promise<Import.File> => ({
-          name: file.name,
-          data: JSON.parse(await readTextFile(await join(path, file.name))),
+    } else {
+      const files = await Import.pickDirectoryFromBrowser();
+      if (files == null || files.length === 0) return;
+      name = files[0].webkitRelativePath.split("/")[0];
+      if (name == null) throw new Error("Cannot read workspace");
+      fileData = await Promise.all(
+        files.map(async (file): Promise<Import.File> => {
+          const text = await file.text();
+          return { name: file.name, data: JSON.parse(text) };
         }),
-      ),
-    );
+      );
+    }
+
     await ingest(name, fileData, {
       client,
       fileIngesters,

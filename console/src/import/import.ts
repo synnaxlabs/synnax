@@ -15,45 +15,42 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
-import { ZodError } from "zod";
 
 import { useFileIngesters } from "@/import/FileIngestersProvider";
-import { type FileIngesterContext, type FileIngesters } from "@/import/ingester";
+import { ingestComponent } from "@/import/ingestComponent";
+import { type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const ingestComponent = (
-  data: unknown,
-  fileName: string,
-  fileIngesters: FileIngesters,
-  ctx: FileIngesterContext,
-): void => {
-  let type: string | undefined;
-  if (
-    typeof data === "object" &&
-    data != null &&
-    "type" in data &&
-    typeof data.type === "string"
-  )
-    type = data.type;
-  if (type != null) {
-    const ingest = fileIngesters[type];
-    ingest(data, ctx);
-    return;
-  }
-  for (const ingest of Object.values(fileIngesters))
-    try {
-      ingest(data, ctx);
-      return;
-    } catch (e) {
-      if (e instanceof ZodError) continue;
-      else throw e;
-    }
-  throw new Error(`${fileName} cannot be imported.`);
-};
+interface PickFromBrowserOpts {
+  accept?: string;
+  multiple?: boolean;
+  directory?: boolean;
+}
+
+const pickFromBrowser = (opts: PickFromBrowserOpts): Promise<File[] | null> =>
+  new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    if (opts.accept != null) input.accept = opts.accept;
+    if (opts.multiple === true) input.multiple = true;
+    if (opts.directory === true) input.webkitdirectory = true;
+    input.addEventListener("cancel", () => resolve(null));
+    input.onchange = () =>
+      resolve(input.files != null ? Array.from(input.files) : null);
+    input.click();
+  });
+
+export const pickFilesFromBrowser = (
+  accept: string,
+  multiple: boolean,
+): Promise<File[] | null> => pickFromBrowser({ accept, multiple });
+
+export const pickDirectoryFromBrowser = (): Promise<File[] | null> =>
+  pickFromBrowser({ directory: true });
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
@@ -77,17 +74,6 @@ const importComponent = ({
   fileIngesters,
 }: ImportComponentArgs): void => {
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import components from a dialog when running Synnax in the browser.",
-      );
-    const paths = await open({
-      title: "Import",
-      filters: FILTERS,
-      multiple: true,
-      directory: false,
-    });
-    if (paths == null) return;
     const storeState = store.getState();
     const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
     if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
@@ -101,20 +87,44 @@ const importComponent = ({
         }),
       );
     }
-    paths.forEach((path) =>
-      handleError(async () => {
-        const data = await readTextFile(path);
-        const fileName = path.split(sep()).pop();
-        if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
-        const name = trimFileName(fileName);
-        ingestComponent(JSON.parse(data), name, fileIngesters, {
-          layout: { name },
-          placeLayout,
-          store: fluxStore,
-          client,
-        });
-      }, `Failed to import ${path}`),
-    );
+
+    if (Runtime.ENGINE === "tauri") {
+      const paths = await open({
+        title: "Import",
+        filters: FILTERS,
+        multiple: true,
+        directory: false,
+      });
+      if (paths == null) return;
+      paths.forEach((path) =>
+        handleError(async () => {
+          const data = await readTextFile(path);
+          const fileName = path.split(sep()).pop();
+          if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
+          const name = trimFileName(fileName);
+          ingestComponent(JSON.parse(data), name, fileIngesters, {
+            layout: { name },
+            placeLayout,
+            store: fluxStore,
+            client,
+          });
+        }, `Failed to import ${path}`),
+      );
+    } else {
+      const files = await pickFilesFromBrowser(".json", true);
+      if (files == null || files.length === 0) return;
+      for (const file of files)
+        handleError(async () => {
+          const text = await file.text();
+          const name = trimFileName(file.name);
+          ingestComponent(JSON.parse(text), name, fileIngesters, {
+            layout: { name },
+            placeLayout,
+            store: fluxStore,
+            client,
+          });
+        }, `Failed to import ${file.name}`);
+    }
   });
 };
 

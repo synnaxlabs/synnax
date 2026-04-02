@@ -10,6 +10,7 @@
 export * from "@/import/dataTransferItem";
 export * from "@/import/FileIngestersProvider";
 export * from "@/import/import";
+export * from "@/import/ingestComponent";
 export * from "@/import/ingester";
 export * from "@/import/palette";
 export * from "@/import/trimFileName";
