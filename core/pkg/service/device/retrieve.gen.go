@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Retrieve is used to retrieve Device records from the database using a
+// builder pattern for constructing queries.
 type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[Key, Device]
@@ -27,13 +29,16 @@ type Retrieve struct {
 	searchTerm string
 }
 
+// Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
+// WhereKeys filters for devices whose key matches any of the provided keys.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
 }
 
+// WhereRacks filters for devices whose Rack matches any of the provided values.
 func (r Retrieve) WhereRacks(vals ...rack.Key) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Rack), nil
@@ -41,6 +46,7 @@ func (r Retrieve) WhereRacks(vals ...rack.Key) Retrieve {
 	return r
 }
 
+// WhereLocations filters for devices whose Location matches any of the provided values.
 func (r Retrieve) WhereLocations(vals ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Location), nil
@@ -48,6 +54,7 @@ func (r Retrieve) WhereLocations(vals ...string) Retrieve {
 	return r
 }
 
+// WhereMakes filters for devices whose Make matches any of the provided values.
 func (r Retrieve) WhereMakes(vals ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Make), nil
@@ -55,6 +62,7 @@ func (r Retrieve) WhereMakes(vals ...string) Retrieve {
 	return r
 }
 
+// WhereModels filters for devices whose Model matches any of the provided values.
 func (r Retrieve) WhereModels(vals ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Model), nil
@@ -62,6 +70,7 @@ func (r Retrieve) WhereModels(vals ...string) Retrieve {
 	return r
 }
 
+// WhereNames filters for devices whose Name matches any of the provided values.
 func (r Retrieve) WhereNames(vals ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Name), nil
@@ -69,18 +78,23 @@ func (r Retrieve) WhereNames(vals ...string) Retrieve {
 	return r
 }
 
+// Entry binds the provided device as the result container for the query. If
+// multiple devices match, the first one is used.
 func (r Retrieve) Entry(e *Device) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
+// Entries binds the provided slice of devices as the result container for the query.
 func (r Retrieve) Entries(es *[]Device) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
+// Limit sets the maximum number of devices to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
+// Offset sets the starting index of the devices to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
@@ -101,6 +115,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	return r.WhereKeys(keys...), nil
 }
 
+// Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	var err error
 	if r, err = r.execSearch(ctx); err != nil {
@@ -109,6 +124,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Count returns the number of devices matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 	var err error
 	if r, err = r.execSearch(ctx); err != nil {
@@ -117,6 +133,7 @@ func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Exists checks whether any devices match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	var err error
 	if r, err = r.execSearch(ctx); err != nil {

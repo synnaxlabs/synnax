@@ -315,6 +315,7 @@ func (d *templateData) InternalImports() []imports.InternalImportData {
 
 var templateFuncs = template.FuncMap{
 	"toPascal": lo.PascalCase,
+	"toLower":  strings.ToLower,
 	"pluralize": func(s string) string {
 		if strings.HasSuffix(s, "s") {
 			return s + "es"
@@ -343,6 +344,8 @@ import (
 {{- end}}
 {{range $ret := .Retrieves}}
 {{- if not $ret.IsCustom}}
+// Retrieve is used to retrieve {{$ret.GoName}} records from the database using a
+// builder pattern for constructing queries.
 type Retrieve struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[{{$ret.KeyType}}, {{$ret.GoName}}]
@@ -353,14 +356,17 @@ type Retrieve struct {
 }
 {{- end}}
 {{if $ret.HasSearch}}
+// Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 {{end}}
+// WhereKeys filters for {{$ret.GoName | toLower}}s whose key matches any of the provided keys.
 func (r Retrieve) WhereKeys(keys ...{{$ret.KeyType}}) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
 }
 {{range .Filters}}
 {{- if .IsBool}}
+// Where{{.GoName}} filters for {{$ret.GoName | toLower}}s by their {{.GoName}} field.
 func (r Retrieve) Where{{.GoName}}(v bool, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return e.{{.GoName}} == v, nil
@@ -368,6 +374,7 @@ func (r Retrieve) Where{{.GoName}}(v bool, opts ...gorp.FilterOption) Retrieve {
 	return r
 }
 {{else if .IsScalar}}
+// Where{{.GoName}} filters for {{$ret.GoName | toLower}}s whose {{.GoName}} matches the provided value.
 func (r Retrieve) Where{{.GoName}}(v {{.GoType}}, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return e.{{.GoName}} == v, nil
@@ -375,6 +382,7 @@ func (r Retrieve) Where{{.GoName}}(v {{.GoType}}, opts ...gorp.FilterOption) Ret
 	return r
 }
 {{else}}
+// Where{{.GoName | pluralize}} filters for {{$ret.GoName | toLower}}s whose {{.GoName}} matches any of the provided values.
 func (r Retrieve) Where{{.GoName | pluralize}}(vals ...{{.GoType}}) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return lo.Contains(vals, e.{{.GoName}}), nil
@@ -383,18 +391,23 @@ func (r Retrieve) Where{{.GoName | pluralize}}(vals ...{{.GoType}}) Retrieve {
 }
 {{end}}
 {{- end}}
+// Entry binds the provided {{$ret.GoName | toLower}} as the result container for the query. If
+// multiple {{$ret.GoName | toLower}}s match, the first one is used.
 func (r Retrieve) Entry(e *{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
+// Entries binds the provided slice of {{$ret.GoName | toLower}}s as the result container for the query.
 func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
+// Limit sets the maximum number of {{$ret.GoName | toLower}}s to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
+// Offset sets the starting index of the {{$ret.GoName | toLower}}s to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
@@ -422,6 +435,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	return r.WhereKeys(keys...), nil
 }
 {{end}}
+// Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 {{- if $ret.HasSearch}}
 	var err error
@@ -432,6 +446,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Count returns the number of {{$ret.GoName | toLower}}s matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 {{- if $ret.HasSearch}}
 	var err error
@@ -442,6 +457,7 @@ func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Exists checks whether any {{$ret.GoName | toLower}}s match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 {{- if $ret.HasSearch}}
 	var err error

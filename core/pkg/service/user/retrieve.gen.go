@@ -17,16 +17,20 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Retrieve is used to retrieve User records from the database using a
+// builder pattern for constructing queries.
 type Retrieve struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[Key, User]
 }
 
+// WhereKeys filters for users whose key matches any of the provided keys.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
 }
 
+// WhereUsernames filters for users whose Username matches any of the provided values.
 func (r Retrieve) WhereUsernames(vals ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *User) (bool, error) {
 		return lo.Contains(vals, e.Username), nil
@@ -34,31 +38,39 @@ func (r Retrieve) WhereUsernames(vals ...string) Retrieve {
 	return r
 }
 
+// Entry binds the provided user as the result container for the query. If
+// multiple users match, the first one is used.
 func (r Retrieve) Entry(e *User) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
+// Entries binds the provided slice of users as the result container for the query.
 func (r Retrieve) Entries(es *[]User) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
+// Limit sets the maximum number of users to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
+// Offset sets the starting index of the users to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
 }
 
+// Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Count returns the number of users matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Exists checks whether any users match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

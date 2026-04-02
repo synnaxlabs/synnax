@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Retrieve is used to retrieve Workspace records from the database using a
+// builder pattern for constructing queries.
 type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[Key, Workspace]
@@ -26,13 +28,16 @@ type Retrieve struct {
 	searchTerm string
 }
 
+// Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
+// WhereKeys filters for workspaces whose key matches any of the provided keys.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
 }
 
+// WhereAuthor filters for workspaces whose Author matches the provided value.
 func (r Retrieve) WhereAuthor(v uuid.UUID, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Workspace) (bool, error) {
 		return e.Author == v, nil
@@ -40,18 +45,23 @@ func (r Retrieve) WhereAuthor(v uuid.UUID, opts ...gorp.FilterOption) Retrieve {
 	return r
 }
 
+// Entry binds the provided workspace as the result container for the query. If
+// multiple workspaces match, the first one is used.
 func (r Retrieve) Entry(e *Workspace) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
+// Entries binds the provided slice of workspaces as the result container for the query.
 func (r Retrieve) Entries(es *[]Workspace) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
+// Limit sets the maximum number of workspaces to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
+// Offset sets the starting index of the workspaces to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
@@ -75,6 +85,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	return r.WhereKeys(keys...), nil
 }
 
+// Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	var err error
 	if r, err = r.execSearch(ctx); err != nil {
@@ -83,6 +94,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Count returns the number of workspaces matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 	var err error
 	if r, err = r.execSearch(ctx); err != nil {
@@ -91,6 +103,7 @@ func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
+// Exists checks whether any workspaces match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	var err error
 	if r, err = r.execSearch(ctx); err != nil {
