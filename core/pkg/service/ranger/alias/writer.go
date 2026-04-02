@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -25,6 +25,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otg       *ontology.Ontology
 	otgWriter ontology.Writer
+	channel   *channel.Service
 	table     *gorp.Table[string, Alias]
 }
 
@@ -35,7 +36,7 @@ func (w Writer) Set(
 	ch channel.Key,
 	al string,
 ) error {
-	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel](nil).
+	exists, err := w.channel.NewRetrieve().
 		WhereKeys(ch).Exists(ctx, w.tx)
 	if err != nil {
 		return err

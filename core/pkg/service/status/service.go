@@ -151,13 +151,12 @@ func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		group:     s.group,
-		codec:     s.table.Codec(),
 	}
 }
 
 func NewRetrieve[D any](s *Service) Retrieve[D] {
 	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[string, Status[D]](s.table.Codec()),
+		gorp:   gorp.NewRetrieve[string, Status[D]](),
 		baseTX: s.cfg.DB,
 		search: s.cfg.Search,
 		label:  s.cfg.Label,

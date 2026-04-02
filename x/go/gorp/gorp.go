@@ -21,11 +21,6 @@ import (
 // Wrap wraps the provided key-value database in a DB.
 func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
 
-// WrapTx creates a gorp.Tx from a raw kv.Tx and a encoding.Codec.
-func WrapTx(kvTx kv.Tx, codec encoding.Codec) Tx {
-	return tx{Tx: kvTx, options: options{Codec: codec}}
-}
-
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the transaction (Tx) interface. Using a DB as a Tx will execute the query
 // directly against the underlying key-value store, outside the isolated context of
@@ -82,7 +77,7 @@ func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, overr
 // if they desire to do so, or simply use the DB directly otherwise.
 type Tx interface {
 	kv.Tx
-	Tools
+	encoding.Codec
 }
 
 // Context is an extension of the built-in context.Context type that adds additional
@@ -103,9 +98,3 @@ func checkForNilTx(method string, tx Tx) {
 		panic("[gorp] - nil transaction - please provide transaction to " + method)
 	}
 }
-
-var _ Tx = (*tx)(nil)
-
-// Tools provides the codec that gorp needs to translate key-value operations
-// to strongly-typed requests.
-type Tools interface{ encoding.Codec }

@@ -105,7 +105,7 @@ func makeBenchLargeEntries(n int) []benchLargeEntry {
 func populateEntries(b *testing.B, db *gorp.DB, n int) []int32 {
 	b.Helper()
 	entries := makeBenchEntries(n)
-	if err := gorp.NewCreate[int32, benchEntry](nil).Entries(&entries).Exec(
+	if err := gorp.NewCreate[int32, benchEntry]().Entries(&entries).Exec(
 		context.Background(), db,
 	); err != nil {
 		b.Fatal(err)
@@ -120,7 +120,7 @@ func populateEntries(b *testing.B, db *gorp.DB, n int) []int32 {
 func populateStringEntries(b *testing.B, db *gorp.DB, n int) []string {
 	b.Helper()
 	entries := makeBenchStringEntries(n)
-	if err := gorp.NewCreate[string, benchStringEntry](nil).Entries(&entries).Exec(
+	if err := gorp.NewCreate[string, benchStringEntry]().Entries(&entries).Exec(
 		context.Background(), db,
 	); err != nil {
 		b.Fatal(err)
@@ -155,7 +155,7 @@ func BenchmarkCreate(b *testing.B) {
 							Data: entries[j].Data,
 						}
 					}
-					if err := gorp.NewCreate[int32, benchEntry](nil).Entries(&e).Exec(ctx, db); err != nil {
+					if err := gorp.NewCreate[int32, benchEntry]().Entries(&e).Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -178,7 +178,7 @@ func BenchmarkCreate(b *testing.B) {
 							Data: base[j].Data,
 						}
 					}
-					if err := gorp.NewCreate[string, benchStringEntry](nil).Entries(&e).Exec(ctx, db); err != nil {
+					if err := gorp.NewCreate[string, benchStringEntry]().Entries(&e).Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -199,7 +199,7 @@ func BenchmarkCreate(b *testing.B) {
 						e[j] = base[j]
 						e[j].ID = int32(i*size+j) + 1
 					}
-					if err := gorp.NewCreate[int32, benchLargeEntry](nil).Entries(&e).Exec(ctx, db); err != nil {
+					if err := gorp.NewCreate[int32, benchLargeEntry]().Entries(&e).Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -218,7 +218,7 @@ func BenchmarkCreate(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					e := make([]benchEntry, len(entries))
 					copy(e, entries)
-					if err := gorp.NewCreate[int32, benchEntry](nil).
+					if err := gorp.NewCreate[int32, benchEntry]().
 						MergeExisting(func(_ gorp.Context, creating, existing benchEntry) (benchEntry, error) {
 							creating.Data = existing.Data + "-merged"
 							return creating, nil
@@ -246,7 +246,7 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					var results []benchEntry
-					if err := gorp.NewRetrieve[int32, benchEntry](nil).
+					if err := gorp.NewRetrieve[int32, benchEntry]().
 						WhereKeys(keys...).
 						Entries(&results).
 						Exec(ctx, db); err != nil {
@@ -266,7 +266,7 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					var results []benchStringEntry
-					if err := gorp.NewRetrieve[string, benchStringEntry](nil).
+					if err := gorp.NewRetrieve[string, benchStringEntry]().
 						WhereKeys(keys...).
 						Entries(&results).
 						Exec(ctx, db); err != nil {
@@ -289,7 +289,7 @@ func BenchmarkRetrieveByFilter(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				var results []benchEntry
-				if err := gorp.NewRetrieve[int32, benchEntry](nil).
+				if err := gorp.NewRetrieve[int32, benchEntry]().
 					Where(func(_ gorp.Context, e *benchEntry) (bool, error) {
 						return e.ID < half, nil
 					}).
@@ -310,7 +310,7 @@ func BenchmarkRetrieveExists(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			if _, err := gorp.NewRetrieve[int32, benchEntry](nil).
+			if _, err := gorp.NewRetrieve[int32, benchEntry]().
 				WhereKeys(500).
 				Exists(ctx, db); err != nil {
 				b.Fatal(err)
@@ -324,7 +324,7 @@ func BenchmarkRetrieveExists(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			if _, err := gorp.NewRetrieve[int32, benchEntry](nil).
+			if _, err := gorp.NewRetrieve[int32, benchEntry]().
 				WhereKeys(9999).
 				Exists(ctx, db); err != nil {
 				b.Fatal(err)
@@ -345,7 +345,7 @@ func BenchmarkUpdateByKeys(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				suffix := strconv.Itoa(i)
-				if err := gorp.NewUpdate[int32, benchEntry](nil).
+				if err := gorp.NewUpdate[int32, benchEntry]().
 					WhereKeys(keys...).
 					Change(func(_ gorp.Context, entry benchEntry) benchEntry {
 						entry.Data = "updated-" + suffix
@@ -379,14 +379,14 @@ func BenchmarkDeleteByKeys(b *testing.B) {
 						Data: base[j].Data,
 					}
 				}
-				if err := gorp.NewCreate[int32, benchEntry](nil).Entries(&e).Exec(ctx, db); err != nil {
+				if err := gorp.NewCreate[int32, benchEntry]().Entries(&e).Exec(ctx, db); err != nil {
 					b.Fatal(err)
 				}
 				keys := make([]int32, size)
 				for j := range keys {
 					keys[j] = int32(i*size + j)
 				}
-				if err := gorp.NewDelete[int32, benchEntry](nil).
+				if err := gorp.NewDelete[int32, benchEntry]().
 					WhereKeys(keys...).
 					Exec(ctx, db); err != nil {
 					b.Fatal(err)
@@ -408,11 +408,11 @@ func BenchmarkWithTx(b *testing.B) {
 			key := int32(i % 10000)
 			if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 				entry := benchEntry{ID: key, Data: "data"}
-				if err := gorp.NewCreate[int32, benchEntry](nil).Entry(&entry).Exec(ctx, tx); err != nil {
+				if err := gorp.NewCreate[int32, benchEntry]().Entry(&entry).Exec(ctx, tx); err != nil {
 					return err
 				}
 				var result benchEntry
-				return gorp.NewRetrieve[int32, benchEntry](nil).
+				return gorp.NewRetrieve[int32, benchEntry]().
 					WhereKeys(key).
 					Entry(&result).
 					Exec(ctx, tx)
@@ -429,11 +429,11 @@ func BenchmarkWithTx(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			key := int32(i % 10000)
 			entry := benchEntry{ID: key, Data: "data"}
-			if err := gorp.NewCreate[int32, benchEntry](nil).Entry(&entry).Exec(ctx, db); err != nil {
+			if err := gorp.NewCreate[int32, benchEntry]().Entry(&entry).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
 			var result benchEntry
-			if err := gorp.NewRetrieve[int32, benchEntry](nil).
+			if err := gorp.NewRetrieve[int32, benchEntry]().
 				WhereKeys(key).
 				Entry(&result).
 				Exec(ctx, db); err != nil {
