@@ -56,7 +56,7 @@ var _ = Describe("Migrate", func() {
 			Group:    gSvc,
 			Search:   searchIdx,
 		}))
-		closer = xio.MultiCloser{db, otg, gSvc}
+		closer = xio.MultiCloser{db, otg, gSvc, lab}
 	})
 	AfterEach(func() {
 		Expect(closer.Close()).To(Succeed())

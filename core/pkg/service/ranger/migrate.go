@@ -192,8 +192,8 @@ func (m *groupsMigration) swapRanges(
 func (m *groupsMigration) loadAllRanges(
 	ctx context.Context,
 	tx gorp.Tx,
-) (map[uuid.UUID]Range, error) {
-	result := make(map[uuid.UUID]Range)
+) (result map[uuid.UUID]Range, err error) {
+	result = make(map[uuid.UUID]Range)
 	reader := gorp.WrapReader[Key, Range](tx)
 	iter, err := reader.OpenIterator(gorp.IterOptions{})
 	if err != nil {
