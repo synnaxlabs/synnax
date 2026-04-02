@@ -35,6 +35,7 @@ import { Docs } from "@/docs";
 import { Errors } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
+import { Framer } from "@/framer";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
@@ -62,6 +63,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
   ...CSV.LAYOUTS,
+  ...Framer.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,

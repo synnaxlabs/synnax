@@ -13,11 +13,8 @@
 package pb
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/samber/lo"
@@ -26,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -33,13 +31,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
-
-func toPascalCase(s string) string {
-	if naming.IsScreamingCase(s) {
-		return s
-	}
-	return lo.PascalCase(s)
-}
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
 type Plugin struct{ Options Options }
@@ -313,10 +304,7 @@ func (p *Plugin) processStructForTranslation(
 		return nil, nil
 	}
 
-	goName := getGoName(s)
-	if goName == "" {
-		goName = s.Name
-	}
+	goName := naming.GetGoName(s)
 
 	pbName := getPBName(s)
 	if pbName == "" {
@@ -353,7 +341,7 @@ func (p *Plugin) processFieldForTranslation(
 	data *templateData,
 	parentStruct resolution.Type,
 ) fieldTranslatorData {
-	goName := toPascalCase(field.Name)
+	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
 	isHardOptional := field.IsHardOptional
@@ -420,10 +408,7 @@ func (p *Plugin) processGenericStructForTranslation(
 		return nil, nil
 	}
 
-	goName := getGoName(s)
-	if goName == "" {
-		goName = s.Name
-	}
+	goName := naming.GetGoName(s)
 
 	pbName := getPBName(s)
 	if pbName == "" {
@@ -485,7 +470,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 	parentForm resolution.StructForm,
 	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
-	goName := toPascalCase(field.Name)
+	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
@@ -558,10 +543,7 @@ func (p *Plugin) processDelegationTranslator(
 	data *templateData,
 	req *plugin.Request,
 ) (*delegationTranslatorData, error) {
-	goName := getGoName(td)
-	if goName == "" {
-		goName = td.Name
-	}
+	goName := naming.GetGoName(td)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -594,10 +576,7 @@ func (p *Plugin) processDelegationTranslator(
 		break
 	}
 
-	underlyingGoName := getGoName(actualStruct)
-	if underlyingGoName == "" {
-		underlyingGoName = actualStruct.Name
-	}
+	underlyingGoName := naming.GetGoName(actualStruct)
 
 	underlyingPBPath := output.GetPBPath(actualStruct)
 	if underlyingPBPath == "" {
@@ -803,7 +782,7 @@ func (p *Plugin) generateFieldConversion(
 	parentStruct resolution.Type,
 ) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
-	goFieldName := "r." + toPascalCase(field.Name)
+	goFieldName := "r." + naming.GetFieldName(field)
 	pbFieldName := "pb." + lo.PascalCase(lo.SnakeCase(field.Name))
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
@@ -1051,10 +1030,7 @@ func (p *Plugin) generateGenericStructConversion(
 		argResolved, ok := typeArg.Resolve(data.table)
 		if ok {
 			if _, isStruct := argResolved.Form.(resolution.StructForm); isStruct {
-				argGoName := getGoName(argResolved)
-				if argGoName == "" {
-					argGoName = argResolved.Name
-				}
+				argGoName := naming.GetGoName(argResolved)
 
 				p.ensureAnyHelper(argResolved, data)
 
@@ -1090,10 +1066,7 @@ func (p *Plugin) generateGenericStructConversion(
 		}
 	}
 
-	aliasGoName := getGoName(originalResolved)
-	if aliasGoName == "" {
-		aliasGoName = originalResolved.Name
-	}
+	aliasGoName := naming.GetGoName(originalResolved)
 	if isHardOptional {
 		if genericGoType != "" {
 			forward = fmt.Sprintf("%s%sToPB%s((%s)(*%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
@@ -1131,10 +1104,7 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	data.imports.AddExternal("google.golang.org/protobuf/encoding/protojson")
 	data.imports.AddExternal("encoding/json")
 
-	goName := getGoName(s)
-	if goName == "" {
-		goName = s.Name
-	}
+	goName := naming.GetGoName(s)
 
 	pbName := getPBName(s)
 	if pbName == "" {
@@ -1366,17 +1336,14 @@ func (p *Plugin) generateEnumTranslator(
 		return nil
 	}
 
-	goName := getGoName(*enumRef)
-	if goName == "" {
-		goName = enumRef.Name
-	}
+	goName := naming.GetGoName(*enumRef)
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 
 	goAlias := data.parentAlias
 
 	for _, v := range form.Values {
-		valueName := toPascalCase(v.Name)
+		valueName := naming.ToPascalCase(v.Name)
 
 		goValue := fmt.Sprintf("%s.%s%s", goAlias, goName, valueName)
 
@@ -1399,74 +1366,7 @@ func (p *Plugin) generateEnumTranslator(
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	if repoRoot == "" {
-		return "github.com/synnaxlabs/synnax/" + outputPath, nil
-	}
-
-	absPath := filepath.Join(repoRoot, outputPath)
-	dir := absPath
-	for {
-		modPath := filepath.Join(dir, "go.mod")
-		if fileExists(modPath) {
-			moduleName, err := parseModuleName(modPath)
-			if err != nil {
-				return "", errors.Wrapf(err, "failed to parse go.mod at %s", modPath)
-			}
-			relPath, err := filepath.Rel(dir, absPath)
-			if err != nil {
-				return "", errors.Wrapf(err, "failed to compute relative path")
-			}
-			if relPath == "." {
-				return moduleName, nil
-			}
-			return moduleName + "/" + filepath.ToSlash(relPath), nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return "github.com/synnaxlabs/synnax/" + outputPath, nil
-}
-
-func parseModuleName(modPath string) (string, error) {
-	file, err := os.Open(modPath)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = file.Close() }()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "module ") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return parts[1], nil
-			}
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-	return "", errors.Newf("no module directive found in %s", modPath)
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-func getGoName(s resolution.Type) string {
-	if domain, ok := s.Domains["go"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
 }
 
 func getPBName(s resolution.Type) string {

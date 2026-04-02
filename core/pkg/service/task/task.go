@@ -14,7 +14,8 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/binary"
+	xjson "github.com/synnaxlabs/x/encoding/json"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -32,13 +33,13 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 func (k *Key) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringUint64(b)
+	n, err := xjson.UnmarshalStringUint64(b)
 	*k = Key(n)
 	return err
 }
 
 func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := binary.UnmarshalMsgpackUint64(dec)
+	n, err := xmsgpack.UnmarshalUint64(dec)
 	if err != nil {
 		return err
 	}

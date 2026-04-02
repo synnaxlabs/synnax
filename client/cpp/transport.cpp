@@ -32,6 +32,8 @@
 #include "core/pkg/api/grpc/status/status.pb.h"
 #include "core/pkg/api/grpc/task/task.grpc.pb.h"
 #include "core/pkg/api/grpc/task/task.pb.h"
+#include "core/pkg/api/grpc/view/view.grpc.pb.h"
+#include "core/pkg/api/grpc/view/view.pb.h"
 
 namespace synnax::details {
 Transport::Transport(
@@ -147,6 +149,18 @@ Transport::Transport(
         grpc::arc::DeleteRequest,
         google::protobuf::Empty,
         grpc::arc::ArcDeleteService>>(pool, base_target);
+    this->view_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::view::CreateRequest,
+        grpc::view::CreateResponse,
+        grpc::view::ViewCreateService>>(pool, base_target);
+    this->view_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::view::RetrieveRequest,
+        grpc::view::RetrieveResponse,
+        grpc::view::ViewRetrieveService>>(pool, base_target);
+    this->view_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::view::DeleteRequest,
+        google::protobuf::Empty,
+        grpc::view::ViewDeleteService>>(pool, base_target);
 };
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
@@ -174,5 +188,8 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);
+    view_create->use(mw);
+    view_retrieve->use(mw);
+    view_delete->use(mw);
 }
 }

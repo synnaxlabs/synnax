@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
 )
 
 type Network struct {
@@ -64,7 +63,7 @@ type transport struct {
 }
 
 // Configure implements aspen.transport.
-func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
+func (t *transport) Configure(addr address.Address, _ alamos.Instrumentation, _ bool) error {
 	t.pledgeServer = t.net.pledge.UnaryServer(addr)
 	t.pledgeClient = t.net.pledge.UnaryClient()
 	t.clusterServer = t.net.cluster.UnaryServer(addr)
@@ -83,6 +82,10 @@ func (t *transport) Configure(ctx signal.Context, addr address.Address, external
 	}
 	return nil
 }
+
+func (t *transport) Serve() error { return nil }
+
+func (t *transport) Close() error { return nil }
 
 func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 

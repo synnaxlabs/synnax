@@ -70,6 +70,7 @@ export const Controls = ({ state }: ControlsProps) => {
           onChange={setSelectedRack}
           allowNone
           location="top"
+          initialQuery={INITIAL_RACK_QUERY}
         />
         <Base.ConfigureButton
           onClick={handleConfigure}
@@ -84,3 +85,5 @@ export const Controls = ({ state }: ControlsProps) => {
     </Base.Frame>
   );
 };
+
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };

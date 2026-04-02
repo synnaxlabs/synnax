@@ -28,4 +28,7 @@ message Rack {
   bool embedded = 4;
   // status is the current operational status of the rack.
   optional .x.status.pb.Status status = 5;
+  // integrations is the list of hardware integrations this rack supports (e.g., "ni",
+  // "opc", "labjack"). An empty or nil list means the rack supports no integrations.
+  repeated string integrations = 6;
 }

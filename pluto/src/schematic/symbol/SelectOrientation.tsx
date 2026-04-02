@@ -84,47 +84,43 @@ const InternalOrientation = ({
   let showStyle: CSSProperties = {};
   if (hideInner)
     showStyle = { opacity: 0, userSelect: "none", width: "1.5rem", height: "1.5rem" };
-  let content: ReactElement | null = null;
-  if (showOuterCenter)
-    content = (
+  const content = showOuterCenter ? (
+    <Button
+      selected={value.outer === "center"}
+      onClick={handleChange({ outer: "center" })}
+    />
+  ) : (
+    <>
       <Button
-        selected={value.outer === "center"}
-        onClick={handleChange({ outer: "center" })}
+        style={showStyle}
+        disabled={hideInner}
+        className={CSS(CSS.dir("y"))}
+        selected={inner === "top"}
+        onClick={handleChange({ inner: "top" })}
       />
-    );
-  else
-    content = (
-      <>
+      <Flex.Box x align="center" justify="center">
         <Button
           style={showStyle}
           disabled={hideInner}
-          className={CSS(CSS.dir("y"))}
-          selected={inner === "top"}
-          onClick={handleChange({ inner: "top" })}
+          selected={inner === "left"}
+          onClick={handleChange({ inner: "left" })}
         />
-        <Flex.Box x align="center" justify="center">
-          <Button
-            style={showStyle}
-            disabled={hideInner}
-            selected={inner === "left"}
-            onClick={handleChange({ inner: "left" })}
-          />
-          <Button
-            style={showStyle}
-            disabled={hideInner}
-            selected={inner === "right"}
-            onClick={handleChange({ inner: "right" })}
-          />
-        </Flex.Box>
         <Button
           style={showStyle}
           disabled={hideInner}
-          className={CSS(CSS.dir("y"))}
-          selected={inner === "bottom"}
-          onClick={handleChange({ inner: "bottom" })}
+          selected={inner === "right"}
+          onClick={handleChange({ inner: "right" })}
         />
-      </>
-    );
+      </Flex.Box>
+      <Button
+        style={showStyle}
+        disabled={hideInner}
+        className={CSS(CSS.dir("y"))}
+        selected={inner === "bottom"}
+        onClick={handleChange({ inner: "bottom" })}
+      />
+    </>
+  );
   return (
     <Flex.Box
       className={CSS(
