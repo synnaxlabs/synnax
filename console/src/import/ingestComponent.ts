@@ -27,8 +27,10 @@ export const ingestComponent = (
     type = data.type;
   if (type != null) {
     const ingest = fileIngesters[type];
-    ingest(data, ctx);
-    return;
+    if (ingest != null) {
+      ingest(data, ctx);
+      return;
+    }
   }
   for (const ingest of Object.values(fileIngesters))
     try {

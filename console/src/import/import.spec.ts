@@ -73,6 +73,18 @@ describe("ingestComponent", () => {
     ).toThrow("mystery.json cannot be imported");
   });
 
+  it("should fall back to trying all ingesters when type does not match any registered ingester", () => {
+    const ingester = vi.fn();
+    const ingesters: FileIngesters = { lineplot: ingester };
+    const data = { type: "unknown_type", key: "x" };
+    const ctx = stubContext();
+
+    ingestComponent(data, "test.json", ingesters, ctx);
+
+    expect(ingester).toHaveBeenCalledOnce();
+    expect(ingester).toHaveBeenCalledWith(data, ctx);
+  });
+
   it("should re-throw non-Zod errors immediately", () => {
     const ingester = vi.fn().mockImplementation(() => {
       throw new TypeError("something broke");

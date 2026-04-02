@@ -25,7 +25,7 @@ import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActive } from "@/workspace/selectors";
 
-const removeDirectory = (name: string): string => name.replace(/[/\\]/g, "_");
+export const removeDirectory = (name: string): string => name.replace(/[/\\]/g, "_");
 
 export interface ExportContext {
   client: Client | null;
