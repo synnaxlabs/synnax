@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -152,7 +152,7 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
 	s.DataType = telem.StringT
-	s.Data, err = (&binary.JSONCodec{}).Encode(ctx, u)
+	s.Data, err = (json.Codec).Encode(ctx, u)
 	s.Data = append(s.Data, '\n')
 	return s, err
 }

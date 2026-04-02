@@ -19,6 +19,7 @@ cc_library(
         "//client/cpp/rack",
         "//client/cpp/ranger",
         "//client/cpp/status",
+        "//client/cpp/view",
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",

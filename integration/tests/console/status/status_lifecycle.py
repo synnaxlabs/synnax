@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import synnax as sy
 from x import get_random_name
 
 from console.case import ConsoleCase
@@ -72,6 +73,7 @@ class StatusLifecycle(ConsoleCase):
         self.test_status_exists_in_explorer()
         self.test_status_has_labels()
         self.test_filter_by_labels()
+        self.test_filter_by_variant()
         self.test_favorite_unfavorite_from_explorer()
         self.test_delete_single_status()
         self.test_delete_multiple_statuses()
@@ -127,6 +129,37 @@ class StatusLifecycle(ConsoleCase):
         self.console.statuses.wait_for_removed_from_explorer(self.status_c_name)
 
         self.console.statuses.clear_explorer_label_filter(self.label_a_name)
+
+    def test_filter_by_variant(self) -> None:
+        """Test filtering statuses by variant in the explorer."""
+        self.log("Testing: Filter statuses by variant")
+        error_status_name = f"ErrorStatus_{self.suffix}"
+        self.client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_ERROR,
+                message="Error for filter test",
+                name=error_status_name,
+            )
+        )
+        self.console.statuses.open_explorer()
+
+        assert self.console.statuses.exists_in_explorer(
+            error_status_name
+        ), f"'{error_status_name}' should be visible before filtering"
+
+        self.console.statuses.select_explorer_variant_filter("Error")
+
+        assert self.console.statuses.exists_in_explorer(
+            error_status_name
+        ), f"'{error_status_name}' should remain when filtering by Error variant"
+
+        self.console.statuses.wait_for_removed_from_explorer(self.status_d_name)
+
+        self.console.statuses.clear_explorer_variant_filter("Error")
+
+        statuses = self.client.statuses.retrieve(search_term=error_status_name)
+        if len(statuses) > 0:
+            self.client.statuses.delete([s.key for s in statuses])
 
     def test_favorite_unfavorite_from_explorer(self) -> None:
         """Test favoriting then unfavoriting a status via the explorer context menu."""

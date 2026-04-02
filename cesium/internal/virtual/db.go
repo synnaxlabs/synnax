@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -71,7 +71,7 @@ type Config struct {
 	alamos.Instrumentation
 	// MetaCodec is used to encode and decode the channel metadata.
 	// [REQUIRED]
-	MetaCodec binary.Codec
+	MetaCodec encoding.Codec
 	// FS is the filesystem that the DB will use to store metadata about the channel.
 	// [REQUIRED]
 	FS fs.FS

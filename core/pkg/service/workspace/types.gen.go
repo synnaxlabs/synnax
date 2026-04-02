@@ -13,7 +13,7 @@ package workspace
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a workspace, represented as a UUID.
@@ -31,5 +31,5 @@ type Workspace struct {
 	Author uuid.UUID `json:"author" msgpack:"author"`
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
-	Layout binary.MsgpackEncodedJSON `json:"layout" msgpack:"layout"`
+	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
 }

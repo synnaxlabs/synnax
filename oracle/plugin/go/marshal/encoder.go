@@ -1065,7 +1065,7 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 {{range .Adapters}}
 type {{lowerFirst .GoName}}Codec struct{}
 
-var {{.GoName}}Codec xbinary.Codec = {{lowerFirst .GoName}}Codec{}
+var {{.GoName}}Codec xencoding.Codec = {{lowerFirst .GoName}}Codec{}
 
 func ({{lowerFirst .GoName}}Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.({{.GoName}})

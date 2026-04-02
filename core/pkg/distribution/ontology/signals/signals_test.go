@@ -23,9 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -124,7 +124,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Expect(s.Len()).To(Equal(int64(1)))
 			for s := range s.Samples() {
 				r := ontology.Resource{}
-				Expect((&binary.JSONCodec{}).Decode(ctx, s, &r)).To(Succeed())
+				Expect((json.Codec).Decode(ctx, s, &r)).To(Succeed())
 				Expect(r.ID).To(Equal(newChangeID(key)))
 			}
 			requests.Close()
