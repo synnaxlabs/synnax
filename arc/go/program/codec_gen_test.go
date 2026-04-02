@@ -30,11 +30,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original program.Program) {
 				w := orc.NewWriter(0)
-				Expect(program.EncodeProgram(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded program.Program
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(program.DecodeProgram(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", program.Program{
@@ -233,7 +233,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeProgram(b *testing.B) {
-	s := program.Program{
+	p := program.Program{
 		IR: ir.IR{
 			Functions: []ir.Function{
 				{
@@ -400,15 +400,15 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := program.EncodeProgram(w, &s); err != nil {
+		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded program.Program
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := program.DecodeProgram(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -583,7 +583,7 @@ func FuzzDecodeProgram(f *testing.F) {
 			},
 		}
 		w := orc.NewWriter(0)
-		if err := program.EncodeProgram(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -601,7 +601,7 @@ func FuzzDecodeProgram(f *testing.F) {
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 		}
 		w := orc.NewWriter(0)
-		if err := program.EncodeProgram(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -622,7 +622,7 @@ func FuzzDecodeProgram(f *testing.F) {
 			Output: compiler.Output{WASM: []byte{9, 10, 11}, OutputMemoryBases: map[string]uint32{}},
 		}
 		w := orc.NewWriter(0)
-		if err := program.EncodeProgram(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -631,20 +631,20 @@ func FuzzDecodeProgram(f *testing.F) {
 		var decoded program.Program
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := program.DecodeProgram(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := program.EncodeProgram(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded program.Program
 		r.ResetBytes(w1.Bytes())
-		if err := program.DecodeProgram(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := program.EncodeProgram(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

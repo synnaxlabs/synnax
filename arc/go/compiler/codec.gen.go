@@ -15,16 +15,16 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeOutput(w *orc.Writer, s *Output) error {
-	w.Bool(s.WASM != nil)
-	if s.WASM != nil {
-		w.Uint32(uint32(len(s.WASM)))
-		w.Write(s.WASM)
+func (o Output) EncodeOrc(w *orc.Writer) error {
+	w.Bool(o.WASM != nil)
+	if o.WASM != nil {
+		w.Uint32(uint32(len(o.WASM)))
+		w.Write(o.WASM)
 	}
-	w.Bool(s.OutputMemoryBases != nil)
-	if s.OutputMemoryBases != nil {
-		w.Uint32(uint32(len(s.OutputMemoryBases)))
-		for key, val := range s.OutputMemoryBases {
+	w.Bool(o.OutputMemoryBases != nil)
+	if o.OutputMemoryBases != nil {
+		w.Uint32(uint32(len(o.OutputMemoryBases)))
+		for key, val := range o.OutputMemoryBases {
 			w.String(key)
 			w.Uint32(uint32(val))
 		}
@@ -32,7 +32,7 @@ func EncodeOutput(w *orc.Writer, s *Output) error {
 	return nil
 }
 
-func DecodeOutput(r *orc.Reader, s *Output) error {
+func (o *Output) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -43,8 +43,8 @@ func DecodeOutput(r *orc.Reader, s *Output) error {
 			if err != nil {
 				return err
 			}
-			s.WASM = make([]byte, n)
-			if _, err = r.Read(s.WASM); err != nil {
+			o.WASM = make([]byte, n)
+			if _, err = r.Read(o.WASM); err != nil {
 				return err
 			}
 		}
@@ -59,7 +59,7 @@ func DecodeOutput(r *orc.Reader, s *Output) error {
 			if err != nil {
 				return err
 			}
-			s.OutputMemoryBases = make(map[string]uint32, n)
+			o.OutputMemoryBases = make(map[string]uint32, n)
 			for range n {
 				var key string
 				var val uint32
@@ -69,7 +69,7 @@ func DecodeOutput(r *orc.Reader, s *Output) error {
 				if val, err = r.Uint32(); err != nil {
 					return err
 				}
-				s.OutputMemoryBases[key] = val
+				o.OutputMemoryBases[key] = val
 			}
 		}
 	}

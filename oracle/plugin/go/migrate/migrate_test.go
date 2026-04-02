@@ -181,7 +181,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate frozen codec", func() {
 				content := fileContent(resp, "migrations/v1/codec.gen.go")
 				Expect(content).To(ContainSubstring("package v1"))
-				Expect(content).To(ContainSubstring("EntryCodec"))
+				Expect(content).To(ContainSubstring("func (e Entry) EncodeOrc"))
+				Expect(content).To(ContainSubstring("func (e *Entry) DecodeOrc"))
 			})
 
 			It("Should generate auto-copy with error propagation", func() {
@@ -499,8 +500,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("_ context.Context"))
-				Expect(content).To(ContainSubstring(`"context"`))
+				Expect(content).To(ContainSubstring("_ gorp.MigrationContext"))
+				Expect(content).To(ContainSubstring(`"github.com/synnaxlabs/x/gorp"`))
 			})
 		})
 
@@ -904,7 +905,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
 			content := fileContent(resp, "migrate_auto.gen.go")
-			Expect(content).To(ContainSubstring("context.Context"))
+			Expect(content).To(ContainSubstring("gorp.MigrationContext"))
 			Expect(content).To(ContainSubstring("error"))
 			Expect(content).To(ContainSubstring("if err != nil"))
 		})
@@ -1026,8 +1027,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
 			content := fileContent(resp, "migrate.gen.go")
-			Expect(content).To(ContainSubstring("gorp.WithDependencies"))
-			Expect(content).To(ContainSubstring(`"msgpack_to_binary"`))
+			Expect(content).To(ContainSubstring("gorp.NewEntryMigration"))
+			Expect(content).To(ContainSubstring("v1_schema_migration"))
 		})
 	})
 

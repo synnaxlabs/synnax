@@ -12,20 +12,17 @@
 package workspace
 
 import (
-	"context"
 	"encoding/json"
-	xencoding "github.com/synnaxlabs/x/encoding"
+
 	"github.com/synnaxlabs/x/encoding/orc"
-	"io"
-	"sync"
 )
 
-func EncodeWorkspace(w *orc.Writer, s *Workspace) error {
-	w.Write(s.Key[:])
-	w.String(s.Name)
-	w.Write(s.Author[:])
+func (wv Workspace) EncodeOrc(w *orc.Writer) error {
+	w.Write(wv.Key[:])
+	w.String(wv.Name)
+	w.Write(wv.Author[:])
 	{
-		b, err := json.Marshal(s.Layout)
+		b, err := json.Marshal(wv.Layout)
 		if err != nil {
 			return err
 		}
@@ -35,15 +32,15 @@ func EncodeWorkspace(w *orc.Writer, s *Workspace) error {
 	return nil
 }
 
-func DecodeWorkspace(r *orc.Reader, s *Workspace) error {
+func (wv *Workspace) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(wv.Key[:]); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if wv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if _, err = r.Read(s.Author[:]); err != nil {
+	if _, err := r.Read(wv.Author[:]); err != nil {
 		return err
 	}
 	{
@@ -55,52 +52,9 @@ func DecodeWorkspace(r *orc.Reader, s *Workspace) error {
 		if _, err = r.Read(b); err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Layout); err != nil {
+		if err = json.Unmarshal(b, &wv.Layout); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type workspaceCodec struct{}
-
-var WorkspaceCodec xencoding.Codec = workspaceCodec{}
-
-func (workspaceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Workspace)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeWorkspace(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c workspaceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (workspaceCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Workspace)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeWorkspace(r, s)
-}
-
-func (c workspaceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

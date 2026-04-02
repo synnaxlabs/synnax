@@ -16,7 +16,5 @@ import (
 )
 
 func TaskMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Task]("msgpack_to_binary", TaskCodec),
-	}
+	return []gorp.Migration{}
 }

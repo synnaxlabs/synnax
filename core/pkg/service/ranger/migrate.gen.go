@@ -16,7 +16,5 @@ import (
 )
 
 func RangeMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Range]("msgpack_to_binary", RangeCodec),
-	}
+	return []gorp.Migration{}
 }

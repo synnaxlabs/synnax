@@ -12,42 +12,38 @@
 package channel
 
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/x/control"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
-	"io"
-	"sync"
 )
 
-func EncodeChannel(w *orc.Writer, s *Channel) error {
-	w.String(s.Name)
-	w.Uint16(uint16(s.Leaseholder))
-	w.String(string(s.DataType))
-	w.Bool(s.IsIndex)
-	w.Uint32(uint32(s.LocalKey))
-	w.Uint32(uint32(s.LocalIndex))
-	w.Bool(s.Virtual)
-	w.Int64(int64(s.Concurrency))
-	w.Bool(s.Internal)
-	w.Bool(s.Operations != nil)
-	if s.Operations != nil {
-		w.Uint32(uint32(len(s.Operations)))
-		for i := range s.Operations {
-			if err := EncodeOperation(w, &s.Operations[i]); err != nil {
+func (c Channel) EncodeOrc(w *orc.Writer) error {
+	w.String(c.Name)
+	w.Uint16(uint16(c.Leaseholder))
+	w.String(string(c.DataType))
+	w.Bool(c.IsIndex)
+	w.Uint32(uint32(c.LocalKey))
+	w.Uint32(uint32(c.LocalIndex))
+	w.Bool(c.Virtual)
+	w.Int64(int64(c.Concurrency))
+	w.Bool(c.Internal)
+	w.Bool(c.Operations != nil)
+	if c.Operations != nil {
+		w.Uint32(uint32(len(c.Operations)))
+		for i := range c.Operations {
+			if err := c.Operations[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
-	w.String(s.Expression)
+	w.String(c.Expression)
 	return nil
 }
 
-func DecodeChannel(r *orc.Reader, s *Channel) error {
+func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.Name, err = r.String(); err != nil {
+	if c.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -55,16 +51,16 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 		if err != nil {
 			return err
 		}
-		s.Leaseholder = cluster.NodeKey(v)
+		c.Leaseholder = cluster.NodeKey(v)
 	}
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		s.DataType = telem.DataType(v)
+		c.DataType = telem.DataType(v)
 	}
-	if s.IsIndex, err = r.Bool(); err != nil {
+	if c.IsIndex, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -72,16 +68,16 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 		if err != nil {
 			return err
 		}
-		s.LocalKey = LocalKey(v)
+		c.LocalKey = LocalKey(v)
 	}
 	{
 		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		s.LocalIndex = LocalKey(v)
+		c.LocalIndex = LocalKey(v)
 	}
-	if s.Virtual, err = r.Bool(); err != nil {
+	if c.Virtual, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -89,9 +85,9 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 		if err != nil {
 			return err
 		}
-		s.Concurrency = control.Concurrency(v)
+		c.Concurrency = control.Concurrency(v)
 	}
-	if s.Internal, err = r.Bool(); err != nil {
+	if c.Internal, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -104,91 +100,48 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 			if err != nil {
 				return err
 			}
-			s.Operations = make([]Operation, n)
-			for i := range s.Operations {
-				if err = DecodeOperation(r, &s.Operations[i]); err != nil {
+			c.Operations = make([]Operation, n)
+			for i := range c.Operations {
+				if err = c.Operations[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	if s.Expression, err = r.String(); err != nil {
+	if c.Expression, err = r.String(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func EncodeOperation(w *orc.Writer, s *Operation) error {
-	w.String(string(s.Type))
-	w.Uint32(uint32(s.ResetChannel))
-	w.Int64(int64(s.Duration))
+func (o Operation) EncodeOrc(w *orc.Writer) error {
+	w.String(string(o.Type))
+	w.Uint32(uint32(o.ResetChannel))
+	w.Int64(int64(o.Duration))
 	return nil
 }
 
-func DecodeOperation(r *orc.Reader, s *Operation) error {
+func (o *Operation) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		s.Type = OperationType(v)
+		o.Type = OperationType(v)
 	}
 	{
 		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		s.ResetChannel = Key(v)
+		o.ResetChannel = Key(v)
 	}
 	{
 		v, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		s.Duration = telem.TimeSpan(v)
+		o.Duration = telem.TimeSpan(v)
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type channelCodec struct{}
-
-var ChannelCodec xencoding.Codec = channelCodec{}
-
-func (channelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Channel)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeChannel(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c channelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (channelCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Channel)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeChannel(r, s)
-}
-
-func (c channelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

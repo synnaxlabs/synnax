@@ -16,7 +16,5 @@ import (
 )
 
 func ChannelMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Channel]("msgpack_to_binary", ChannelCodec),
-	}
+	return []gorp.Migration{}
 }

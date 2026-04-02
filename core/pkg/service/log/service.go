@@ -77,7 +77,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[Log]{
 		DB:              cfg.DB,
-		Codec:           LogCodec,
 		Migrations:      LogMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	})

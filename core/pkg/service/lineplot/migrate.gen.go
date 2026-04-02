@@ -16,7 +16,5 @@ import (
 )
 
 func LinePlotMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, LinePlot]("msgpack_to_binary", LinePlotCodec),
-	}
+	return []gorp.Migration{}
 }

@@ -16,7 +16,5 @@ import (
 )
 
 func GroupMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Group]("msgpack_to_binary", GroupCodec),
-	}
+	return []gorp.Migration{}
 }

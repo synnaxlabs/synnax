@@ -12,83 +12,34 @@
 package ranger
 
 import (
-	"context"
-	"github.com/synnaxlabs/x/color"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/telem"
-	"io"
-	"sync"
 )
 
-func EncodeRange(w *orc.Writer, s *Range) error {
-	w.Write(s.Key[:])
-	w.String(s.Name)
-	if err := telem.EncodeTimeRange(w, &s.TimeRange); err != nil {
+func (rv Range) EncodeOrc(w *orc.Writer) error {
+	w.Write(rv.Key[:])
+	w.String(rv.Name)
+	if err := rv.TimeRange.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := color.EncodeColor(w, &s.Color); err != nil {
+	if err := rv.Color.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
 }
 
-func DecodeRange(r *orc.Reader, s *Range) error {
+func (rv *Range) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(rv.Key[:]); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if rv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if err = telem.DecodeTimeRange(r, &s.TimeRange); err != nil {
+	if err = rv.TimeRange.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = color.DecodeColor(r, &s.Color); err != nil {
+	if err = rv.Color.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type rangeValCodec struct{}
-
-var RangeCodec xencoding.Codec = rangeValCodec{}
-
-func (rangeValCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Range)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeRange(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c rangeValCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (rangeValCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Range)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeRange(r, s)
-}
-
-func (c rangeValCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

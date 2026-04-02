@@ -155,7 +155,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{
 		DB:              cfg.DB,
-		Codec:           ArcCodec,
 		Migrations:      ArcMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	})

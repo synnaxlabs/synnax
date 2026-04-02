@@ -16,7 +16,5 @@ import (
 )
 
 func DeviceMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Device]("msgpack_to_binary", DeviceCodec),
-	}
+	return []gorp.Migration{}
 }

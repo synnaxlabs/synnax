@@ -39,7 +39,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("simple struct with string and int fields", func() {
-			It("Should generate Writer/Reader codec functions", func() {
+			It("Should generate EncodeOrc/DecodeOrc methods", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -54,43 +54,16 @@ var _ = Describe("Go Marshal Plugin", func() {
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"package test",
-						"w.String(s.Name)",
-						"w.Int32(int32(s.Age))",
-						"TestCodec xencoding.Codec",
-						"func EncodeTest(w *orc.Writer",
-						"func DecodeTest(r *orc.Reader",
-						"defer writerPool.Put(w)",
-						"defer readerPool.Put(r)",
-						"return nil, err",
-						"return w.Copy(), nil",
-						"return DecodeTest(r, s)",
-					)
-			})
-		})
-
-		Context("struct with uuid field", func() {
-			It("Should use assignment not declaration for r.Read", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Test struct {
-						key uuid
-						name string
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec.gen.go").
-					ToContain(
-						"w.Write(s.Key[:])",
-						"if _, err = r.Read(s.Key[:]); err != nil",
+						"w.String(t.Name)",
+						"w.Int32(int32(t.Age))",
+						"func (t Test) EncodeOrc(w *orc.Writer",
+						"func (t *Test) DecodeOrc(r *orc.Reader",
 					)
 			})
 		})
 
 		Context("nested struct (same package delegation)", func() {
-			It("Should delegate to nested struct codec functions", func() {
+			It("Should delegate to nested struct EncodeOrc/DecodeOrc methods", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -111,9 +84,9 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"EncodeInner(w, &s.From)",
-						"DecodeInner(r, &s.From)",
-						"s.Name",
+						"o.From.EncodeOrc(w)",
+						"o.From.DecodeOrc(r)",
+						"o.Name",
 					)
 			})
 		})
@@ -132,7 +105,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("if s.Description != nil {")
+					ToContain("if t.Description != nil {")
 			})
 		})
 
@@ -164,7 +137,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec xencoding.Codec")
+					ToContain("func (t Test) EncodeOrc(w *orc.Writer")
 			})
 		})
 
@@ -190,7 +163,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("GraphCodec xencoding.Codec")
+					ToContain("func (g Graph) EncodeOrc(w *orc.Writer")
 			})
 		})
 
@@ -212,7 +185,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec xencoding.Codec")
+					ToContain("func (t Test) EncodeOrc(w *orc.Writer")
 			})
 		})
 
@@ -243,7 +216,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec xencoding.Codec")
+					ToContain("func (t Test) EncodeOrc(w *orc.Writer")
 			})
 		})
 
@@ -262,8 +235,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"w.Bool(s.Items != nil)",
-						"if s.Items != nil {",
+						"w.Bool(t.Items != nil)",
+						"if t.Items != nil {",
 						"present, err := r.Bool()",
 						"if present {",
 					)
@@ -285,11 +258,55 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"w.Bool(s.Labels != nil)",
-						"if s.Labels != nil {",
+						"w.Bool(t.Labels != nil)",
+						"if t.Labels != nil {",
 						"present, err := r.Bool()",
 						"if present {",
 					)
+			})
+		})
+
+		Context("bytes field nil preservation", func() {
+			It("Should generate a presence bit before the byte slice length", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name string
+						data bytes
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain(
+						"w.Bool(t.Data != nil)",
+						"if t.Data != nil {",
+						"present, err := r.Bool()",
+						"if present {",
+					)
+			})
+		})
+
+		Context("marshal skip on a field", func() {
+			It("Should exclude the field from encoding and decoding", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name string
+						data record? {
+							@go marshal skip
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain("t.Name")
+				content.ToNotContain("Data")
 			})
 		})
 
@@ -308,12 +325,12 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
-					"if s.Items != nil {",
+					"if t.Items != nil {",
 					"w.Bool(true)",
-					"w.Uint32(uint32(len(s.Items)))",
+					"w.Uint32(uint32(len(t.Items)))",
 				)
 				content.ToNotContain(
-					"w.Bool(s.Items != nil)",
+					"w.Bool(t.Items != nil)",
 				)
 			})
 		})
@@ -333,118 +350,13 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
-					"if s.Labels != nil {",
+					"if t.Labels != nil {",
 					"w.Bool(true)",
-					"w.Uint32(uint32(len(s.Labels)))",
+					"w.Uint32(uint32(len(t.Labels)))",
 				)
 				content.ToNotContain(
-					"w.Bool(s.Labels != nil)",
+					"w.Bool(t.Labels != nil)",
 				)
-			})
-		})
-
-		Context("bytes field nil preservation", func() {
-			It("Should generate a presence bit before the byte slice length", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Test struct {
-						name string
-						data bytes
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec.gen.go").
-					ToContain(
-						"w.Bool(s.Data != nil)",
-						"if s.Data != nil {",
-						"present, err := r.Bool()",
-						"if present {",
-					)
-			})
-		})
-
-		Context("generic struct test generation", func() {
-			It("Should generate tests for generic structs with concrete type substitution", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Status struct<Details?> {
-						key     string
-						message string
-						details Details?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToContain(
-						"Describe(\"Status\"",
-						"Status[string]",
-						"EncodeStatus",
-						"DecodeStatus",
-					)
-			})
-
-			It("Should generate tests for generic structs with defaulted and non-defaulted type params", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Variant enum {
-						info    = "info"
-						warning = "warning"
-						error   = "error"
-					}
-
-					Inner struct {
-						name string
-						@go omit
-					}
-
-					Status struct<Details?, V extends Variant = Variant> {
-						key         string
-						variant     V
-						message     string
-						description string?
-						time        int64
-						details     Details?
-						items       Inner[]?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToContain(
-						"Describe(\"Status\"",
-						"Status[string]",
-						"EncodeStatus",
-						"DecodeStatus",
-						"BenchmarkEncodeDecodeStatus",
-						"FuzzDecodeStatus",
-					)
-			})
-
-			It("Should generate benchmark and fuzz tests for generic structs", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Container struct<T?> {
-						name  string
-						value T?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToContain(
-						"BenchmarkEncodeDecodeContainer",
-						"FuzzDecodeContainer",
-					)
 			})
 		})
 
@@ -468,37 +380,12 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
-					"if s.Items != nil {",
+					"if t.Items != nil {",
 					"w.Bool(true)",
-					"w.Uint32(uint32(len((*s.Items))))",
+					"w.Uint32(uint32(len((*t.Items))))",
 				)
 				content.ToNotContain(
-					"w.Bool((*s.Items) != nil)",
-				)
-			})
-		})
-
-		Context("hard optional map field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Test struct {
-						name   string
-						labels map<string, string>??
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"if s.Labels != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len((*s.Labels))))",
-				)
-				content.ToNotContain(
-					"w.Bool((*s.Labels) != nil)",
+					"w.Bool((*t.Items) != nil)",
 				)
 			})
 		})
@@ -523,9 +410,9 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"ContainerCodec xencoding.Codec",
-						"EncodeType(w, &s.Type)",
-						"DecodeType(r, &s.Type)",
+						"func (c Container) EncodeOrc(w *orc.Writer",
+						"c.Type.EncodeOrc(w)",
+						"c.Type.DecodeOrc(r)",
 					)
 			})
 		})

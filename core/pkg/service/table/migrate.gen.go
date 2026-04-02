@@ -16,7 +16,5 @@ import (
 )
 
 func TableMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Table]("msgpack_to_binary", TableCodec),
-	}
+	return []gorp.Migration{}
 }

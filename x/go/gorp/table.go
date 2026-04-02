@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -30,21 +30,14 @@ import (
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
 	DB         *DB
-	Codec      encoding.Codec
 	Migrations []Migration
 	alamos.Instrumentation
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
-// It holds a resolved Codec (either custom or the DB's default) and provides methods
-// for creating query builders that are automatically configured with the codec.
 type Table[K Key, E Entry[K]] struct {
-	codec encoding.Codec
-	DB    *DB
+	DB *DB
 }
-
-// Codec returns the table's codec.
-func (t *Table[K, E]) Codec() encoding.Codec { return t.codec }
 
 func (t *Table[K, E]) Close() error {
 	return nil
@@ -57,17 +50,13 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (_ *Table[K, E], err error) {
-	codec := resolveCodec(cfg.Codec, cfg.DB)
 	tableName := types.Name[E]()
-	prefix := []byte(magicPrefix + tableName)
 	versionKey := []byte(migrationVersionPrefix + tableName)
 	// Prepend built-in migrations that use the DB's default codec. These run
 	// once and are tracked alongside user migrations. They must execute before
 	// any codec transitions so that all entries are under the current prefix
 	// and key encoding.
-	builtIn := []Migration{
-		&normalizeKeysMigration[K, E]{dbCodec: cfg.DB},
-	}
+	builtIn := []Migration{&normalizeKeysMigration[K, E]{}}
 	// Wrap user migrations to depend on normalize_keys so they always run
 	// after key normalization.
 	wrapped := make([]Migration, len(cfg.Migrations))
@@ -76,12 +65,11 @@ func OpenTable[K Key, E Entry[K]](
 	}
 	migrations := append(builtIn, wrapped...)
 
-	kvTx := cfg.DB.KV().OpenTx()
+	tx := cfg.DB.OpenTx()
 	defer func() {
-		err = errors.Combine(err, kvTx.Close())
+		err = errors.Combine(err, tx.Close())
 	}()
-	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB, L: cfg.L}
-	applied, err := readAppliedMigrations(ctx, kvTx, versionKey)
+	applied, err := readAppliedMigrations(ctx, tx, versionKey)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +95,7 @@ func OpenTable[K Key, E Entry[K]](
 		}
 		for _, m := range pending {
 			mStart := time.Now()
-			if err := m.Run(ctx, kvTx, migCfg); err != nil {
+			if err := m.Run(ctx, tx, cfg.Instrumentation); err != nil {
 				entries := 0
 				if ec, ok := m.(EntryCounter); ok {
 					entries = ec.EntriesProcessed()
@@ -134,7 +122,7 @@ func OpenTable[K Key, E Entry[K]](
 				zap.Duration("elapsed", time.Since(mStart)),
 			)
 			applied.Add(m.Name())
-			if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
+			if err := writeAppliedMigrations(ctx, tx, versionKey, applied); err != nil {
 				return nil, err
 			}
 		}
@@ -145,61 +133,49 @@ func OpenTable[K Key, E Entry[K]](
 			zap.Duration("elapsed", time.Since(totalStart)),
 		)
 	}
-	if err = kvTx.Commit(ctx); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &Table[K, E]{codec: codec, DB: cfg.DB}, nil
+	return &Table[K, E]{DB: cfg.DB}, nil
 }
 
-// resolveCodec returns the override codec if non-nil, otherwise falls back to the
-// fallback codec.
-func resolveCodec(override encoding.Codec, fallback encoding.Codec) encoding.Codec {
-	if override != nil {
-		return override
-	}
-	return fallback
-}
-
-// NewCreate returns a Create query builder configured with this table's codec.
+// NewCreate returns a Create query builder.
 func (t *Table[K, E]) NewCreate() Create[K, E] {
-	return Create[K, E]{entries: new(Entries[K, E]), codec: t.codec}
+	return NewCreate[K, E]()
 }
 
-// NewRetrieve returns a Retrieve query builder configured with this table's codec.
+// NewRetrieve returns a Retrieve query builder.
 func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
-	return Retrieve[K, E]{entries: new(Entries[K, E]), codec: t.codec}
+	return NewRetrieve[K, E]()
 }
 
-// NewUpdate returns an Update query builder configured with this table's codec.
+// NewUpdate returns an Update query builder.
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
-	return Update[K, E]{retrieve: t.NewRetrieve(), codec: t.codec}
+	return NewUpdate[K, E]()
 }
 
-// NewDelete returns a Delete query builder configured with this table's codec.
+// NewDelete returns a Delete query builder.
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
-	return Delete[K, E]{retrieve: t.NewRetrieve(), codec: t.codec}
+	return NewDelete[K, E]()
 }
 
-// OpenNexter opens a new Nexter over entries in the table using the table's codec for
+// OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
+	return WrapReader[K, E](t.DB).OpenNexter(ctx)
 }
 
 // normalizeKeysMigration moves entries from the old codec-encoded prefix to the
 // current literal prefix and re-encodes key suffixes to use primitive encoding.
 // Values are decoded with the DB's default codec only to extract GorpKey(); raw
 // value bytes are written back without re-encoding.
-type normalizeKeysMigration[K Key, E Entry[K]] struct {
-	dbCodec encoding.Codec
-}
+type normalizeKeysMigration[K Key, E Entry[K]] struct{}
 
 func (m *normalizeKeysMigration[K, E]) Name() string { return "normalize_keys" }
 
-func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx kv.Tx, _ MigrationConfig) error {
+func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx Tx, ins alamos.Instrumentation) error {
 	kc := newKeyCodec[K, E]()
-	dbTx := WrapTx(tx, m.dbCodec)
-	oldPrefix, err := dbTx.Encode(ctx, types.Name[E]())
+	oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
 	if err != nil {
 		return err
 	}
@@ -212,7 +188,7 @@ func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx kv.Tx, _ Migr
 		for itr.First(); itr.Valid(); itr.Next() {
 			rawValue := itr.Value()
 			var entry E
-			if err = m.dbCodec.Decode(ctx, rawValue, &entry); err != nil {
+			if err = tx.Decode(ctx, rawValue, &entry); err != nil {
 				return errors.Combine(
 					errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key()),
 					itr.Close(),
@@ -251,10 +227,10 @@ func (a *afterBuiltIn) Dependencies() []string {
 // store. Names are stored as a newline-delimited string.
 func readAppliedMigrations(
 	ctx context.Context,
-	kvTx kv.Tx,
+	tx Tx,
 	key []byte,
 ) (_ set.Set[string], err error) {
-	b, closer, getErr := kvTx.Get(ctx, key)
+	b, closer, getErr := tx.Get(ctx, key)
 	if getErr != nil {
 		if errors.Is(getErr, query.ErrNotFound) {
 			return make(set.Set[string]), nil
@@ -278,11 +254,11 @@ func readAppliedMigrations(
 // newline-delimited string.
 func writeAppliedMigrations(
 	ctx context.Context,
-	kvTx kv.Tx,
+	tx Tx,
 	key []byte,
 	applied set.Set[string],
 ) error {
 	names := applied.Keys()
 	sort.Strings(names)
-	return kvTx.Set(ctx, key, []byte(strings.Join(names, "\n")))
+	return tx.Set(ctx, key, []byte(strings.Join(names, "\n")))
 }

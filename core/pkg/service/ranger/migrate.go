@@ -11,47 +11,39 @@ package ranger
 
 import (
 	"context"
-	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
-type rangeGroupsMigration struct {
-	otg   *ontology.Ontology
-	group *group.Service
-	codec encoding.Codec
+type groupsMigration struct {
+	cfg ServiceConfig
 }
 
-func (m *rangeGroupsMigration) Name() string { return "range_groups" }
+var _ gorp.Migration = (*groupsMigration)(nil)
 
-func (m *rangeGroupsMigration) Run(
-	ctx context.Context,
-	kvTx kv.Tx,
-	migCfg gorp.MigrationConfig,
-) error {
-	gorpTx := gorp.WrapTx(kvTx, m.codec)
+func (m *groupsMigration) Name() string { return "range_groups" }
 
-	migCfg.L.Debug("swapping invalid time ranges")
-	if err := m.swapRanges(ctx, kvTx, migCfg.Prefix); err != nil {
+func (m *groupsMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+	ins.L.Debug("swapping invalid time ranges")
+	if err := m.swapRanges(ctx, tx); err != nil {
 		return err
 	}
 
 	var topLevelGroup group.Group
-	if err := m.group.
+	if err := m.cfg.Group.
 		NewRetrieve().
 		Entry(&topLevelGroup).
 		WhereNames("Ranges").
-		Exec(ctx, gorpTx); err != nil {
+		Exec(ctx, tx); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return nil
 		}
@@ -59,18 +51,18 @@ func (m *rangeGroupsMigration) Run(
 	}
 
 	var groups []ontology.Resource
-	if err := m.otg.
+	if err := m.cfg.Ontology.
 		NewRetrieve().
 		WhereIDs(topLevelGroup.OntologyID()).
 		TraverseTo(ontology.ChildrenTraverser).
 		WhereTypes(ontology.ResourceTypeGroup).
 		Entries(&groups).
-		Exec(ctx, gorpTx); err != nil {
+		Exec(ctx, tx); err != nil {
 		return err
 	}
-	migCfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
+	m.cfg.Instrumentation.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
 
-	otgWriter := m.otg.NewWriter(gorpTx)
+	otgWriter := m.cfg.Ontology.NewWriter(tx)
 	if err := otgWriter.DeleteOutgoingRelationshipsOfType(
 		ctx,
 		topLevelGroup.OntologyID(),
@@ -78,31 +70,33 @@ func (m *rangeGroupsMigration) Run(
 	); err != nil {
 		return err
 	}
-	if err := m.group.NewWriter(gorpTx).Delete(ctx, topLevelGroup.Key); err != nil {
+	if err := m.cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
 		return err
 	}
 
-	rangeMap, err := m.loadAllRanges(ctx, kvTx, migCfg.Prefix)
+	rangeMap, err := m.loadAllRanges(ctx, tx)
 	if err != nil {
 		return err
 	}
+
+	writer := gorp.WrapWriter[Key, Range](tx)
 
 	for _, g := range groups {
 		var childRanges []ontology.Resource
 		// ExcludeFieldData is required because this migration runs during
 		// OpenService before the range ontology service is registered. Without
 		// it, the ontology would panic trying to retrieve range resources.
-		if err = m.otg.
+		if err = m.cfg.Ontology.
 			NewRetrieve().
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ontology.ResourceTypeRange).
 			ExcludeFieldData(true).
 			Entries(&childRanges).
-			Exec(ctx, gorpTx); err != nil {
+			Exec(ctx, tx); err != nil {
 			return err
 		}
-		migCfg.L.Debug(
+		m.cfg.Instrumentation.L.Debug(
 			"migrating range group",
 			zap.String("group", g.Name),
 			zap.Int("children", len(childRanges)),
@@ -118,7 +112,7 @@ func (m *rangeGroupsMigration) Run(
 		); err != nil {
 			return err
 		}
-		if err = m.group.NewWriter(gorpTx).Delete(ctx, gKey); err != nil {
+		if err = m.cfg.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
 			return err
 		}
 		if len(childRanges) == 0 {
@@ -146,7 +140,7 @@ func (m *rangeGroupsMigration) Run(
 			Name:      g.Name,
 			TimeRange: tr.MakeValid(),
 		}
-		if err = m.writeRange(ctx, kvTx, migCfg.Prefix, newParentRange); err != nil {
+		if err = writer.Set(ctx, newParentRange); err != nil {
 			return err
 		}
 		if err = otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
@@ -167,12 +161,12 @@ func (m *rangeGroupsMigration) Run(
 	return nil
 }
 
-func (m *rangeGroupsMigration) swapRanges(
+func (m *groupsMigration) swapRanges(
 	ctx context.Context,
-	kvTx kv.Tx,
-	prefix []byte,
+	tx gorp.Tx,
 ) (err error) {
-	iter, err := kvTx.OpenIterator(kv.IterPrefix(prefix))
+	writer := gorp.WrapWriter[Key, Range](tx)
+	iter, err := gorp.WrapReader[Key, Range](tx).OpenIterator(gorp.IterOptions{})
 	if err != nil {
 		return err
 	}
@@ -180,29 +174,28 @@ func (m *rangeGroupsMigration) swapRanges(
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		var r Range
-		if err = m.codec.Decode(ctx, iter.Value(), &r); err != nil {
-			return err
+		rng := iter.Value(ctx)
+		if err := iter.Error(); err != nil {
+			return errors.Wrap(err, "invalid range")
 		}
-		r.TimeRange = r.TimeRange.MakeValid()
-		data, encErr := m.codec.Encode(ctx, r)
-		if encErr != nil {
-			return encErr
+		if rng.TimeRange.Valid() {
+			continue
 		}
-		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
+		rng.TimeRange = rng.TimeRange.MakeValid()
+		if err = writer.Set(ctx, *rng); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-func (m *rangeGroupsMigration) loadAllRanges(
+func (m *groupsMigration) loadAllRanges(
 	ctx context.Context,
-	kvTx kv.Tx,
-	prefix []byte,
+	tx gorp.Tx,
 ) (map[uuid.UUID]Range, error) {
 	result := make(map[uuid.UUID]Range)
-	iter, err := kvTx.OpenIterator(kv.IterPrefix(prefix))
+	reader := gorp.WrapReader[Key, Range](tx)
+	iter, err := reader.OpenIterator(gorp.IterOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -210,49 +203,11 @@ func (m *rangeGroupsMigration) loadAllRanges(
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		var rng Range
-		if decErr := m.codec.Decode(ctx, iter.Value(), &rng); decErr != nil {
-			return nil, decErr
+		v := iter.Value(ctx)
+		if err := iter.Error(); err != nil {
+			return nil, err
 		}
-		result[rng.Key] = rng
+		result[v.Key] = *v
 	}
 	return result, err
 }
-
-func (m *rangeGroupsMigration) writeRange(
-	ctx context.Context,
-	kvTx kv.Tx,
-	prefix []byte,
-	r Range,
-) error {
-	data, err := m.codec.Encode(ctx, r)
-	if err != nil {
-		return err
-	}
-	return kvTx.Set(ctx, encodeUUIDKey(prefix, r.Key), data)
-}
-
-func encodeUUIDKey(prefix []byte, id uuid.UUID) []byte {
-	const uuidSize = int(unsafe.Sizeof(uuid.UUID{}))
-	key := make([]byte, len(prefix)+uuidSize)
-	copy(key, prefix)
-	for i := range uuidSize {
-		key[len(prefix)+i] = id[uuidSize-1-i]
-	}
-	return key
-}
-
-// newRangeGroupsMigration constructs the migration. It uses gorp.Codec and
-// binary.Codec to remain independent of the DB's default codec — this is
-// necessary because the migration runs AFTER NewCodecTransition and the
-// entries are already in protobuf format.
-func newRangeGroupsMigration(cfg ServiceConfig) gorp.Migration {
-	return &rangeGroupsMigration{
-		otg:   cfg.Ontology,
-		group: cfg.Group,
-		codec: RangeCodec,
-	}
-}
-
-// Ensure rangeGroupsMigration implements the Migration interface at compile time.
-var _ gorp.Migration = (*rangeGroupsMigration)(nil)

@@ -12,76 +12,28 @@
 package label
 
 import (
-	"context"
-	"github.com/synnaxlabs/x/color"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"io"
-	"sync"
 )
 
-func EncodeLabel(w *orc.Writer, s *Label) error {
-	w.Write(s.Key[:])
-	w.String(s.Name)
-	if err := color.EncodeColor(w, &s.Color); err != nil {
+func (lv Label) EncodeOrc(w *orc.Writer) error {
+	w.Write(lv.Key[:])
+	w.String(lv.Name)
+	if err := lv.Color.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
 }
 
-func DecodeLabel(r *orc.Reader, s *Label) error {
+func (lv *Label) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(lv.Key[:]); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if lv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if err = color.DecodeColor(r, &s.Color); err != nil {
+	if err = lv.Color.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type labelCodec struct{}
-
-var LabelCodec xencoding.Codec = labelCodec{}
-
-func (labelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Label)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeLabel(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c labelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (labelCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Label)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeLabel(r, s)
-}
-
-func (c labelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

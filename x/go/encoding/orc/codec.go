@@ -1,0 +1,91 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package orc
+
+import (
+	"context"
+	"io"
+	"sync"
+
+	"github.com/synnaxlabs/x/errors"
+)
+
+// Magic is the 3-byte header written at the start of every ORC-encoded payload.
+// It allows quick format detection without trial decoding. The bytes spell "ORC"
+// in ASCII and do not conflict with msgpack (0x80-0xdf, 0xc0-0xd3) or JSON
+// (0x22-0x7b) leading bytes.
+var Magic = [3]byte{0x4F, 0x52, 0x43}
+
+// SelfEncoder is implemented by types that can encode themselves to ORC binary format.
+type SelfEncoder interface {
+	EncodeOrc(w *Writer) error
+}
+
+// SelfDecoder is implemented by types that can decode themselves from ORC binary format.
+type SelfDecoder interface {
+	DecodeOrc(r *Reader) error
+}
+
+// SelfCodec is implemented by types that can both encode and decode themselves
+// using the ORC binary format.
+type SelfCodec interface {
+	SelfEncoder
+	SelfDecoder
+}
+
+var (
+	writerPool = sync.Pool{New: func() any { return NewWriter(0) }}
+	readerPool = sync.Pool{New: func() any { return NewReader(nil) }}
+)
+
+// Codec is an ORC implementation of encoding.Codec.
+var Codec = &codec{}
+
+type codec struct{}
+
+func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+	m := value.(SelfEncoder)
+	w := writerPool.Get().(*Writer)
+	w.Reset()
+	w.Write(Magic[:])
+	err := m.EncodeOrc(w)
+	out := w.Copy()
+	writerPool.Put(w)
+	return out, err
+}
+
+func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (*codec) Decode(_ context.Context, data []byte, value any) error {
+	if len(data) < len(Magic) || data[0] != Magic[0] || data[1] != Magic[1] || data[2] != Magic[2] {
+		return errors.New("orc: invalid magic header")
+	}
+	m := value.(SelfDecoder)
+	r := readerPool.Get().(*Reader)
+	r.ResetBytes(data[len(Magic):])
+	err := m.DecodeOrc(r)
+	readerPool.Put(r)
+	return err
+}
+
+func (c *codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}

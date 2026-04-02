@@ -13,14 +13,12 @@ package workspace_test
 
 import (
 	"bytes"
-	"context"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
@@ -30,34 +28,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original workspace.Workspace) {
 				w := orc.NewWriter(0)
-				Expect(workspace.EncodeWorkspace(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded workspace.Workspace
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(workspace.DecodeWorkspace(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", workspace.Workspace{
-				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:   "test_2",
-				Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-				Layout: map[string]interface{}{"key_4": "value_4"},
-			}),
-			Entry("zero values", workspace.Workspace{
-				Key:    uuid.Nil,
-				Name:   "",
-				Author: uuid.Nil,
-				Layout: nil,
-			}),
-		)
-	})
-	Describe("WorkspaceCodec", func() {
-		DescribeTable("should round-trip through the Codec interface",
-			func(original workspace.Workspace) {
-				ctx := context.Background()
-				data := MustSucceed(workspace.WorkspaceCodec.Encode(ctx, original))
-				var decoded workspace.Workspace
-				Expect(workspace.WorkspaceCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", workspace.Workspace{
@@ -77,22 +52,22 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeWorkspace(b *testing.B) {
-	s := workspace.Workspace{
+	wv := workspace.Workspace{
 		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:   "test_2",
 		Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 		Layout: map[string]interface{}{"key_4": "value_4"},
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := workspace.EncodeWorkspace(w, &s); err != nil {
+		if err := wv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded workspace.Workspace
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := workspace.DecodeWorkspace(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -107,7 +82,7 @@ func FuzzDecodeWorkspace(f *testing.F) {
 			Layout: map[string]interface{}{"key_4": "value_4"},
 		}
 		w := orc.NewWriter(0)
-		if err := workspace.EncodeWorkspace(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -120,7 +95,7 @@ func FuzzDecodeWorkspace(f *testing.F) {
 			Layout: nil,
 		}
 		w := orc.NewWriter(0)
-		if err := workspace.EncodeWorkspace(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -129,20 +104,20 @@ func FuzzDecodeWorkspace(f *testing.F) {
 		var decoded workspace.Workspace
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := workspace.DecodeWorkspace(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := workspace.EncodeWorkspace(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded workspace.Workspace
 		r.ResetBytes(w1.Bytes())
-		if err := workspace.DecodeWorkspace(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := workspace.EncodeWorkspace(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

@@ -12,19 +12,16 @@
 package log
 
 import (
-	"context"
 	"encoding/json"
-	xencoding "github.com/synnaxlabs/x/encoding"
+
 	"github.com/synnaxlabs/x/encoding/orc"
-	"io"
-	"sync"
 )
 
-func EncodeLog(w *orc.Writer, s *Log) error {
-	w.Write(s.Key[:])
-	w.String(s.Name)
+func (lv Log) EncodeOrc(w *orc.Writer) error {
+	w.Write(lv.Key[:])
+	w.String(lv.Name)
 	{
-		b, err := json.Marshal(s.Data)
+		b, err := json.Marshal(lv.Data)
 		if err != nil {
 			return err
 		}
@@ -34,12 +31,12 @@ func EncodeLog(w *orc.Writer, s *Log) error {
 	return nil
 }
 
-func DecodeLog(r *orc.Reader, s *Log) error {
+func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(lv.Key[:]); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if lv.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -51,52 +48,9 @@ func DecodeLog(r *orc.Reader, s *Log) error {
 		if _, err = r.Read(b); err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Data); err != nil {
+		if err = json.Unmarshal(b, &lv.Data); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type logCodec struct{}
-
-var LogCodec xencoding.Codec = logCodec{}
-
-func (logCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Log)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeLog(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c logCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (logCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Log)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeLog(r, s)
-}
-
-func (c logCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

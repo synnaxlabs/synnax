@@ -129,7 +129,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
 		DB:              cfg.DB,
-		Codec:           RackCodec,
 		Migrations:      RackMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	})

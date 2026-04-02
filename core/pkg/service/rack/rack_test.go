@@ -614,7 +614,7 @@ var _ = Describe("Migration", func() {
 			Key:  65538,
 			Name: "sy_node_1_rack",
 		}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack](nil).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
@@ -637,7 +637,7 @@ var _ = Describe("Migration", func() {
 			Name:     "Some Other Embedded Rack",
 			Embedded: true,
 		}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack](nil).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
 			Entry(&mismatchedRack).
 			Exec(ctx, db)).To(Succeed())
 
@@ -662,7 +662,7 @@ var _ = Describe("Migration", func() {
 			Name:     "Node 1 Embedded Driver",
 			Embedded: true,
 		}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack](nil).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
 			Entry(&existingRack).
 			Exec(ctx, db)).To(Succeed())
 

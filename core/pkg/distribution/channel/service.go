@@ -94,7 +94,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
 		DB:         cfg.ClusterDB,
-		Codec:      ChannelCodec,
 		Migrations: ChannelMigrations(),
 	})
 	if err != nil {

@@ -84,21 +84,13 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		return nil, err
 	}
 	resourceTable, err := gorp.OpenTable[string, Resource](ctx, gorp.TableConfig[Resource]{
-		DB:    cfg.DB,
-		Codec: ResourceCodec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[string, Resource]("msgpack_to_binary", ResourceCodec),
-		},
+		DB: cfg.DB,
 	})
 	if err != nil {
 		return nil, err
 	}
 	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, gorp.TableConfig[Relationship]{
-		DB:    cfg.DB,
-		Codec: RelationshipCodec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_binary", RelationshipCodec),
-		},
+		DB: cfg.DB,
 	})
 	if err != nil {
 		return nil, err

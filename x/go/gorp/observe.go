@@ -21,10 +21,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec encoding.Codec) observe.Observable[iter.Seq[change.Change[K, E]]] {
+func newObservable[K Key, E Entry[K]](obs BaseObservable) observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := newKeyCodec[K, E]()
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
-		Observable: kvo,
+		Observable: obs,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
 			var matched []kv.Change
 			for ch := range reader {
@@ -35,7 +35,7 @@ func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec encoding.Codec) o
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges(ctx, matched, kCodec, codec), true
+			return wrapMatchedChanges(ctx, matched, kCodec, obs), true
 		},
 	}
 }
@@ -43,7 +43,7 @@ func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec encoding.Codec) o
 // Observe returns an observable that notifies its caller whenever a change is made
 // to entries in this table.
 func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
-	return newObservable[K, E](t.DB, t.codec)
+	return newObservable[K, E](t.DB)
 }
 
 func wrapMatchedChanges[K Key, E Entry[K]](

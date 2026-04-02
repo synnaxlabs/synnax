@@ -12,32 +12,27 @@
 package rack
 
 import (
-	"context"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/status"
-	"io"
-	"sync"
 )
 
-func EncodeRack(w *orc.Writer, s *Rack) error {
-	w.Uint32(uint32(s.Key))
-	w.String(s.Name)
-	w.Uint32(uint32(s.TaskCounter))
-	w.Bool(s.Embedded)
-	if s.Status != nil {
+func (rv Rack) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(rv.Key))
+	w.String(rv.Name)
+	w.Uint32(uint32(rv.TaskCounter))
+	w.Bool(rv.Embedded)
+	if rv.Status != nil {
 		w.Bool(true)
-		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
+		if err := (*rv.Status).EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Integrations != nil {
+	if rv.Integrations != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Integrations)))
-		for j := range s.Integrations {
-			w.String(s.Integrations[j])
+		w.Uint32(uint32(len(rv.Integrations)))
+		for j := range rv.Integrations {
+			w.String(rv.Integrations[j])
 		}
 	} else {
 		w.Bool(false)
@@ -45,22 +40,22 @@ func EncodeRack(w *orc.Writer, s *Rack) error {
 	return nil
 }
 
-func DecodeRack(r *orc.Reader, s *Rack) error {
+func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
 		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		s.Key = Key(v)
+		rv.Key = Key(v)
 	}
-	if s.Name, err = r.String(); err != nil {
+	if rv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if s.TaskCounter, err = r.Uint32(); err != nil {
+	if rv.TaskCounter, err = r.Uint32(); err != nil {
 		return err
 	}
-	if s.Embedded, err = r.Bool(); err != nil {
+	if rv.Embedded, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -70,10 +65,10 @@ func DecodeRack(r *orc.Reader, s *Rack) error {
 		}
 		if present {
 			var v Status
-			if err = status.DecodeStatus[StatusDetails](r, &v, DecodeStatusDetails); err != nil {
+			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Status = &v
+			rv.Status = &v
 		}
 	}
 	{
@@ -86,9 +81,9 @@ func DecodeRack(r *orc.Reader, s *Rack) error {
 			if err != nil {
 				return err
 			}
-			s.Integrations = make([]string, n)
-			for j := range s.Integrations {
-				if s.Integrations[j], err = r.String(); err != nil {
+			rv.Integrations = make([]string, n)
+			for j := range rv.Integrations {
+				if rv.Integrations[j], err = r.String(); err != nil {
 					return err
 				}
 			}
@@ -97,61 +92,18 @@ func DecodeRack(r *orc.Reader, s *Rack) error {
 	return nil
 }
 
-func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
-	w.Uint32(uint32(s.Rack))
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(sd.Rack))
 	return nil
 }
 
-func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		s.Rack = Key(v)
+		sd.Rack = Key(v)
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type rackCodec struct{}
-
-var RackCodec xencoding.Codec = rackCodec{}
-
-func (rackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Rack)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeRack(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (rackCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Rack)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeRack(r, s)
-}
-
-func (c rackCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

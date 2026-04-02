@@ -91,7 +91,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
 		DB:              cfg.DB,
-		Codec:           SchematicCodec,
 		Migrations:      SchematicMigrations(),
 		Instrumentation: cfg.Instrumentation,
 	})

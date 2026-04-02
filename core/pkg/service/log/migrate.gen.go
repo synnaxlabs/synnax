@@ -16,7 +16,5 @@ import (
 )
 
 func LogMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Log]("msgpack_to_binary", LogCodec),
-	}
+	return []gorp.Migration{}
 }

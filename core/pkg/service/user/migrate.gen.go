@@ -16,7 +16,5 @@ import (
 )
 
 func UserMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, User]("msgpack_to_binary", UserCodec),
-	}
+	return []gorp.Migration{}
 }

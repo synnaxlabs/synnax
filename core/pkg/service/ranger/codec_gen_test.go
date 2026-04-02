@@ -13,14 +13,12 @@ package ranger_test
 
 import (
 	"bytes"
-	"context"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
@@ -32,44 +30,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original ranger.Range) {
 				w := orc.NewWriter(0)
-				Expect(ranger.EncodeRange(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded ranger.Range
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(ranger.DecodeRange(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", ranger.Range{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:      "test_2",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color: color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 10.5,
-				},
-			}),
-			Entry("zero values", ranger.Range{
-				Key:       uuid.Nil,
-				Name:      "",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
-				Color: color.Color{
-					R: 0,
-					G: 0,
-					B: 0,
-					A: 0,
-				},
-			}),
-		)
-	})
-	Describe("RangeCodec", func() {
-		DescribeTable("should round-trip through the Codec interface",
-			func(original ranger.Range) {
-				ctx := context.Background()
-				data := MustSucceed(ranger.RangeCodec.Encode(ctx, original))
-				var decoded ranger.Range
-				Expect(ranger.RangeCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", ranger.Range{
@@ -99,7 +64,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeRange(b *testing.B) {
-	s := ranger.Range{
+	rv := ranger.Range{
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:      "test_2",
 		TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
@@ -111,15 +76,15 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := ranger.EncodeRange(w, &s); err != nil {
+		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ranger.Range
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := ranger.DecodeRange(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -139,7 +104,7 @@ func FuzzDecodeRange(f *testing.F) {
 			},
 		}
 		w := orc.NewWriter(0)
-		if err := ranger.EncodeRange(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -157,7 +122,7 @@ func FuzzDecodeRange(f *testing.F) {
 			},
 		}
 		w := orc.NewWriter(0)
-		if err := ranger.EncodeRange(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -166,20 +131,20 @@ func FuzzDecodeRange(f *testing.F) {
 		var decoded ranger.Range
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := ranger.DecodeRange(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := ranger.EncodeRange(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded ranger.Range
 		r.ResetBytes(w1.Bytes())
-		if err := ranger.DecodeRange(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := ranger.EncodeRange(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

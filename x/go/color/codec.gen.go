@@ -15,26 +15,26 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeColor(w *orc.Writer, s *Color) error {
-	w.Uint8(uint8(s.R))
-	w.Uint8(uint8(s.G))
-	w.Uint8(uint8(s.B))
-	w.Float64(float64(s.A))
+func (c Color) EncodeOrc(w *orc.Writer) error {
+	w.Uint8(uint8(c.R))
+	w.Uint8(uint8(c.G))
+	w.Uint8(uint8(c.B))
+	w.Float64(float64(c.A))
 	return nil
 }
 
-func DecodeColor(r *orc.Reader, s *Color) error {
+func (c *Color) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.R, err = r.Uint8(); err != nil {
+	if c.R, err = r.Uint8(); err != nil {
 		return err
 	}
-	if s.G, err = r.Uint8(); err != nil {
+	if c.G, err = r.Uint8(); err != nil {
 		return err
 	}
-	if s.B, err = r.Uint8(); err != nil {
+	if c.B, err = r.Uint8(); err != nil {
 		return err
 	}
-	if s.A, err = r.Float64(); err != nil {
+	if c.A, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

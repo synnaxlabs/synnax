@@ -16,7 +16,5 @@ import (
 )
 
 func ArcMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Arc]("msgpack_to_binary", ArcCodec),
-	}
+	return []gorp.Migration{}
 }

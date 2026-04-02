@@ -9,29 +9,19 @@
 
 package gorp
 
-import (
-	"context"
-
-	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/kv"
-)
+import "context"
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
 // entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
-	writer   kv.Writer
+	BaseWriter
 	keyCodec *keyCodec[K, E]
-	codec    encoding.Codec
 }
 
-// WrapWriter wraps the given key-value writer and codec to provide a strongly
-// typed interface for writing entries to the DB.
-func WrapWriter[K Key, E Entry[K]](base kv.Writer, codec encoding.Codec) *Writer[K, E] {
-	return &Writer[K, E]{writer: base, keyCodec: newKeyCodec[K, E](), codec: codec}
-}
-
-func wrapWriter[K Key, E Entry[K]](base kv.Writer, codec encoding.Codec) *Writer[K, E] {
-	return &Writer[K, E]{writer: base, keyCodec: newKeyCodec[K, E](), codec: codec}
+// WrapWriter wraps the given BaseWriter to provide a strongly typed interface for writing
+// entries to the DB.
+func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
+	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Set writes the provided entries to the DB.
@@ -55,14 +45,14 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	data, err := w.codec.Encode(ctx, entry)
+	data, err := w.Encode(ctx, entry)
 	if err != nil {
 		return err
 	}
 	v := w.keyCodec.encode(entry.GorpKey())
-	return w.writer.Set(ctx, v, data, entry.SetOptions()...)
+	return w.BaseWriter.Set(ctx, v, data, entry.SetOptions()...)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	return w.writer.Delete(ctx, w.keyCodec.encode(key))
+	return w.BaseWriter.Delete(ctx, w.keyCodec.encode(key))
 }

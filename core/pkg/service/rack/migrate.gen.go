@@ -16,7 +16,5 @@ import (
 )
 
 func RackMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Rack]("msgpack_to_binary", RackCodec),
-	}
+	return []gorp.Migration{}
 }

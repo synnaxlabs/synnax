@@ -16,75 +16,75 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeProgram(w *orc.Writer, s *Program) error {
-	if s.Functions != nil {
+func (p Program) EncodeOrc(w *orc.Writer) error {
+	if p.Functions != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Functions)))
-		for j := range s.Functions {
-			if err := ir.EncodeFunction(w, &s.Functions[j]); err != nil {
+		w.Uint32(uint32(len(p.Functions)))
+		for j := range p.Functions {
+			if err := p.Functions[j].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Nodes != nil {
+	if p.Nodes != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Nodes)))
-		for j := range s.Nodes {
-			if err := ir.EncodeNode(w, &s.Nodes[j]); err != nil {
+		w.Uint32(uint32(len(p.Nodes)))
+		for j := range p.Nodes {
+			if err := p.Nodes[j].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Edges != nil {
+	if p.Edges != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Edges)))
-		for j := range s.Edges {
-			if err := ir.EncodeEdge(w, &s.Edges[j]); err != nil {
+		w.Uint32(uint32(len(p.Edges)))
+		for j := range p.Edges {
+			if err := p.Edges[j].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Strata != nil {
+	if p.Strata != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Strata)))
-		for j := range s.Strata {
-			w.Uint32(uint32(len(s.Strata[j])))
-			for k := range s.Strata[j] {
-				w.String(s.Strata[j][k])
+		w.Uint32(uint32(len(p.Strata)))
+		for j := range p.Strata {
+			w.Uint32(uint32(len(p.Strata[j])))
+			for k := range p.Strata[j] {
+				w.String(p.Strata[j][k])
 			}
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Sequences != nil {
+	if p.Sequences != nil {
 		w.Bool(true)
-		w.Uint32(uint32(len(s.Sequences)))
-		for j := range s.Sequences {
-			if err := ir.EncodeSequence(w, &s.Sequences[j]); err != nil {
+		w.Uint32(uint32(len(p.Sequences)))
+		for j := range p.Sequences {
+			if err := p.Sequences[j].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	} else {
 		w.Bool(false)
 	}
-	if err := ir.EncodeAuthorities(w, &s.Authorities); err != nil {
+	if err := p.Authorities.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(s.WASM != nil)
-	if s.WASM != nil {
-		w.Uint32(uint32(len(s.WASM)))
-		w.Write(s.WASM)
+	w.Bool(p.WASM != nil)
+	if p.WASM != nil {
+		w.Uint32(uint32(len(p.WASM)))
+		w.Write(p.WASM)
 	}
-	w.Bool(s.OutputMemoryBases != nil)
-	if s.OutputMemoryBases != nil {
-		w.Uint32(uint32(len(s.OutputMemoryBases)))
-		for key, val := range s.OutputMemoryBases {
+	w.Bool(p.OutputMemoryBases != nil)
+	if p.OutputMemoryBases != nil {
+		w.Uint32(uint32(len(p.OutputMemoryBases)))
+		for key, val := range p.OutputMemoryBases {
 			w.String(key)
 			w.Uint32(uint32(val))
 		}
@@ -92,7 +92,7 @@ func EncodeProgram(w *orc.Writer, s *Program) error {
 	return nil
 }
 
-func DecodeProgram(r *orc.Reader, s *Program) error {
+func (p *Program) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
 		present, err := r.Bool()
@@ -104,9 +104,9 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.Functions = make([]ir.Function, n)
-			for j := range s.Functions {
-				if err = ir.DecodeFunction(r, &s.Functions[j]); err != nil {
+			p.Functions = make([]ir.Function, n)
+			for j := range p.Functions {
+				if err = p.Functions[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -122,9 +122,9 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.Nodes = make([]ir.Node, n)
-			for j := range s.Nodes {
-				if err = ir.DecodeNode(r, &s.Nodes[j]); err != nil {
+			p.Nodes = make([]ir.Node, n)
+			for j := range p.Nodes {
+				if err = p.Nodes[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -140,9 +140,9 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.Edges = make([]ir.Edge, n)
-			for j := range s.Edges {
-				if err = ir.DecodeEdge(r, &s.Edges[j]); err != nil {
+			p.Edges = make([]ir.Edge, n)
+			for j := range p.Edges {
+				if err = p.Edges[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -158,15 +158,15 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.Strata = make([][]string, n)
-			for j := range s.Strata {
+			p.Strata = make([][]string, n)
+			for j := range p.Strata {
 				n, err := r.CollectionLen()
 				if err != nil {
 					return err
 				}
-				s.Strata[j] = make([]string, n)
-				for k := range s.Strata[j] {
-					if s.Strata[j][k], err = r.String(); err != nil {
+				p.Strata[j] = make([]string, n)
+				for k := range p.Strata[j] {
+					if p.Strata[j][k], err = r.String(); err != nil {
 						return err
 					}
 				}
@@ -183,15 +183,15 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.Sequences = make([]ir.Sequence, n)
-			for j := range s.Sequences {
-				if err = ir.DecodeSequence(r, &s.Sequences[j]); err != nil {
+			p.Sequences = make([]ir.Sequence, n)
+			for j := range p.Sequences {
+				if err = p.Sequences[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	if err = ir.DecodeAuthorities(r, &s.Authorities); err != nil {
+	if err = p.Authorities.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -204,8 +204,8 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.WASM = make([]byte, n)
-			if _, err = r.Read(s.WASM); err != nil {
+			p.WASM = make([]byte, n)
+			if _, err = r.Read(p.WASM); err != nil {
 				return err
 			}
 		}
@@ -220,7 +220,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			if err != nil {
 				return err
 			}
-			s.OutputMemoryBases = make(map[string]uint32, n)
+			p.OutputMemoryBases = make(map[string]uint32, n)
 			for range n {
 				var key string
 				var val uint32
@@ -230,7 +230,7 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 				if val, err = r.Uint32(); err != nil {
 					return err
 				}
-				s.OutputMemoryBases[key] = val
+				p.OutputMemoryBases[key] = val
 			}
 		}
 	}

@@ -12,81 +12,34 @@
 package user
 
 import (
-	"context"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"io"
-	"sync"
 )
 
-func EncodeUser(w *orc.Writer, s *User) error {
-	w.Write(s.Key[:])
-	w.String(s.Username)
-	w.String(s.FirstName)
-	w.String(s.LastName)
-	w.Bool(s.RootUser)
+func (u User) EncodeOrc(w *orc.Writer) error {
+	w.Write(u.Key[:])
+	w.String(u.Username)
+	w.String(u.FirstName)
+	w.String(u.LastName)
+	w.Bool(u.RootUser)
 	return nil
 }
 
-func DecodeUser(r *orc.Reader, s *User) error {
+func (u *User) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(u.Key[:]); err != nil {
 		return err
 	}
-	if s.Username, err = r.String(); err != nil {
+	if u.Username, err = r.String(); err != nil {
 		return err
 	}
-	if s.FirstName, err = r.String(); err != nil {
+	if u.FirstName, err = r.String(); err != nil {
 		return err
 	}
-	if s.LastName, err = r.String(); err != nil {
+	if u.LastName, err = r.String(); err != nil {
 		return err
 	}
-	if s.RootUser, err = r.Bool(); err != nil {
+	if u.RootUser, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type userCodec struct{}
-
-var UserCodec xencoding.Codec = userCodec{}
-
-func (userCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(User)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeUser(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c userCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (userCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*User)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeUser(r, s)
-}
-
-func (c userCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

@@ -12,19 +12,16 @@
 package table
 
 import (
-	"context"
 	"encoding/json"
-	xencoding "github.com/synnaxlabs/x/encoding"
+
 	"github.com/synnaxlabs/x/encoding/orc"
-	"io"
-	"sync"
 )
 
-func EncodeTable(w *orc.Writer, s *Table) error {
-	w.Write(s.Key[:])
-	w.String(s.Name)
+func (t Table) EncodeOrc(w *orc.Writer) error {
+	w.Write(t.Key[:])
+	w.String(t.Name)
 	{
-		b, err := json.Marshal(s.Data)
+		b, err := json.Marshal(t.Data)
 		if err != nil {
 			return err
 		}
@@ -34,12 +31,12 @@ func EncodeTable(w *orc.Writer, s *Table) error {
 	return nil
 }
 
-func DecodeTable(r *orc.Reader, s *Table) error {
+func (t *Table) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(t.Key[:]); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if t.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -51,52 +48,9 @@ func DecodeTable(r *orc.Reader, s *Table) error {
 		if _, err = r.Read(b); err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Data); err != nil {
+		if err = json.Unmarshal(b, &t.Data); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type tableCodec struct{}
-
-var TableCodec xencoding.Codec = tableCodec{}
-
-func (tableCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Table)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeTable(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (tableCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Table)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeTable(r, s)
-}
-
-func (c tableCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

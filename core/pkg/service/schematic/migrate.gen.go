@@ -16,7 +16,5 @@ import (
 )
 
 func SchematicMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Schematic]("msgpack_to_binary", SchematicCodec),
-	}
+	return []gorp.Migration{}
 }

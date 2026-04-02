@@ -27,11 +27,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original telem.TimeRange) {
 				w := orc.NewWriter(0)
-				Expect(telem.EncodeTimeRange(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded telem.TimeRange
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(telem.DecodeTimeRange(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}),
@@ -41,17 +41,17 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
-	s := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
+	tr := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := telem.EncodeTimeRange(w, &s); err != nil {
+		if err := tr.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded telem.TimeRange
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := telem.DecodeTimeRange(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -61,7 +61,7 @@ func FuzzDecodeTimeRange(f *testing.F) {
 	{
 		seed := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
 		w := orc.NewWriter(0)
-		if err := telem.EncodeTimeRange(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -69,7 +69,7 @@ func FuzzDecodeTimeRange(f *testing.F) {
 	{
 		seed := telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)}
 		w := orc.NewWriter(0)
-		if err := telem.EncodeTimeRange(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -78,20 +78,20 @@ func FuzzDecodeTimeRange(f *testing.F) {
 		var decoded telem.TimeRange
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := telem.DecodeTimeRange(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := telem.EncodeTimeRange(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded telem.TimeRange
 		r.ResetBytes(w1.Bytes())
-		if err := telem.DecodeTimeRange(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := telem.EncodeTimeRange(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

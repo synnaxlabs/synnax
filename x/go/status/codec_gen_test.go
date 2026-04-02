@@ -31,18 +31,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original status.Status[string]) {
 				w := orc.NewWriter(0)
-				Expect(status.EncodeStatus(w, &original, func(w *orc.Writer, v *string) error { w.String(*v); return nil })).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded status.Status[string]
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(status.DecodeStatus(r, &decoded, func(r *orc.Reader, v *string) error {
-					s, err := r.String()
-					if err != nil {
-						return err
-					}
-					*v = s
-					return nil
-				})).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", status.Status[string]{
@@ -116,19 +109,12 @@ func BenchmarkEncodeDecodeStatus(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := status.EncodeStatus(w, &s, func(w *orc.Writer, v *string) error { w.String(*v); return nil }); err != nil {
+		if err := s.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded status.Status[string]
 		r.ResetBytes(w.Bytes())
-		if err := status.DecodeStatus(r, &decoded, func(r *orc.Reader, v *string) error {
-			s, err := r.String()
-			if err != nil {
-				return err
-			}
-			*v = s
-			return nil
-		}); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -158,7 +144,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			},
 		}
 		w := orc.NewWriter(0)
-		if err := status.EncodeStatus(w, &seed, func(w *orc.Writer, v *string) error { w.String(*v); return nil }); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -175,7 +161,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			Labels:      nil,
 		}
 		w := orc.NewWriter(0)
-		if err := status.EncodeStatus(w, &seed, func(w *orc.Writer, v *string) error { w.String(*v); return nil }); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -192,7 +178,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			Labels:      []label.Label{},
 		}
 		w := orc.NewWriter(0)
-		if err := status.EncodeStatus(w, &seed, func(w *orc.Writer, v *string) error { w.String(*v); return nil }); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -201,34 +187,20 @@ func FuzzDecodeStatus(f *testing.F) {
 		var decoded status.Status[string]
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := status.DecodeStatus(r, &decoded, func(r *orc.Reader, v *string) error {
-			s, err := r.String()
-			if err != nil {
-				return err
-			}
-			*v = s
-			return nil
-		}); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := status.EncodeStatus(w1, &decoded, func(w *orc.Writer, v *string) error { w.String(*v); return nil }); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded status.Status[string]
 		r.ResetBytes(w1.Bytes())
-		if err := status.DecodeStatus(r, &redecoded, func(r *orc.Reader, v *string) error {
-			s, err := r.String()
-			if err != nil {
-				return err
-			}
-			*v = s
-			return nil
-		}); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := status.EncodeStatus(w2, &redecoded, func(w *orc.Writer, v *string) error { w.String(*v); return nil }); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

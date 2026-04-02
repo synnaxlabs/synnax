@@ -27,11 +27,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.Type) {
 				w := orc.NewWriter(0)
-				Expect(types.EncodeType(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded types.Type
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(types.DecodeType(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", types.Type{
@@ -1050,11 +1050,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.FunctionProperties) {
 				w := orc.NewWriter(0)
-				Expect(types.EncodeFunctionProperties(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded types.FunctionProperties
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(types.DecodeFunctionProperties(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", types.FunctionProperties{
@@ -1297,11 +1297,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.Unit) {
 				w := orc.NewWriter(0)
-				Expect(types.EncodeUnit(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded types.Unit
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(types.DecodeUnit(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", types.Unit{
@@ -1338,11 +1338,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.Dimensions) {
 				w := orc.NewWriter(0)
-				Expect(types.EncodeDimensions(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded types.Dimensions
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(types.DecodeDimensions(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", types.Dimensions{
@@ -1371,11 +1371,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.Channels) {
 				w := orc.NewWriter(0)
-				Expect(types.EncodeChannels(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded types.Channels
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(types.DecodeChannels(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", types.Channels{
@@ -1390,11 +1390,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.Param) {
 				w := orc.NewWriter(0)
-				Expect(types.EncodeParam(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded types.Param
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(types.DecodeParam(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", types.Param{
@@ -1646,7 +1646,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeType(b *testing.B) {
-	s := types.Type{
+	t := types.Type{
 		FunctionProperties: types.FunctionProperties{
 			Inputs: []types.Param{
 				{
@@ -2345,22 +2345,22 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 		ChanDirection: types.ChanDirection(0),
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := types.EncodeType(w, &s); err != nil {
+		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Type
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := types.DecodeType(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
-	s := types.FunctionProperties{
+	fp := types.FunctionProperties{
 		Inputs: []types.Param{
 			{
 				Name: "test_2",
@@ -2585,22 +2585,22 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := types.EncodeFunctionProperties(w, &s); err != nil {
+		if err := fp.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.FunctionProperties
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := types.DecodeFunctionProperties(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeUnit(b *testing.B) {
-	s := types.Unit{
+	u := types.Unit{
 		Dimensions: types.Dimensions{
 			Length:      3,
 			Mass:        4,
@@ -2615,22 +2615,22 @@ func BenchmarkEncodeDecodeUnit(b *testing.B) {
 		Name:  "test_11",
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := types.EncodeUnit(w, &s); err != nil {
+		if err := u.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Unit
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := types.DecodeUnit(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeDimensions(b *testing.B) {
-	s := types.Dimensions{
+	d := types.Dimensions{
 		Length:      2,
 		Mass:        3,
 		Time:        4,
@@ -2641,42 +2641,42 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 		Data:        9,
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := types.EncodeDimensions(w, &s); err != nil {
+		if err := d.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Dimensions
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := types.DecodeDimensions(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	s := types.Channels{
+	c := types.Channels{
 		Read:  map[uint32]string{2: "test_1"},
 		Write: map[uint32]string{3: "test_2"},
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := types.EncodeChannels(w, &s); err != nil {
+		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Channels
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := types.DecodeChannels(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeParam(b *testing.B) {
-	s := types.Param{
+	p := types.Param{
 		Name: "test_1",
 		Type: types.Type{
 			FunctionProperties: types.FunctionProperties{
@@ -2904,15 +2904,15 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 		Value: map[string]interface{}{"key_137": "value_137"},
 	}
 	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := types.EncodeParam(w, &s); err != nil {
+		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Param
+		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := types.DecodeParam(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -3619,7 +3619,7 @@ func FuzzDecodeType(f *testing.F) {
 			ChanDirection: types.ChanDirection(0),
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeType(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -3639,7 +3639,7 @@ func FuzzDecodeType(f *testing.F) {
 			ChanDirection: types.ChanDirection(0),
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeType(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -3945,7 +3945,7 @@ func FuzzDecodeType(f *testing.F) {
 			ChanDirection: types.ChanDirection(0),
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeType(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -3954,20 +3954,20 @@ func FuzzDecodeType(f *testing.F) {
 		var decoded types.Type
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := types.DecodeType(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := types.EncodeType(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.Type
 		r.ResetBytes(w1.Bytes())
-		if err := types.DecodeType(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := types.EncodeType(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -4203,7 +4203,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 			},
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeFunctionProperties(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4215,7 +4215,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 			Config:  nil,
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeFunctionProperties(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4227,7 +4227,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 			Config:  []types.Param{},
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeFunctionProperties(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4236,20 +4236,20 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 		var decoded types.FunctionProperties
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := types.DecodeFunctionProperties(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := types.EncodeFunctionProperties(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.FunctionProperties
 		r.ResetBytes(w1.Bytes())
-		if err := types.DecodeFunctionProperties(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := types.EncodeFunctionProperties(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -4275,7 +4275,7 @@ func FuzzDecodeUnit(f *testing.F) {
 			Name:  "test_11",
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeUnit(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4296,7 +4296,7 @@ func FuzzDecodeUnit(f *testing.F) {
 			Name:  "",
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeUnit(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4305,20 +4305,20 @@ func FuzzDecodeUnit(f *testing.F) {
 		var decoded types.Unit
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := types.DecodeUnit(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := types.EncodeUnit(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.Unit
 		r.ResetBytes(w1.Bytes())
-		if err := types.DecodeUnit(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := types.EncodeUnit(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -4340,7 +4340,7 @@ func FuzzDecodeDimensions(f *testing.F) {
 			Data:        9,
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeDimensions(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4357,7 +4357,7 @@ func FuzzDecodeDimensions(f *testing.F) {
 			Data:        0,
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeDimensions(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4366,20 +4366,20 @@ func FuzzDecodeDimensions(f *testing.F) {
 		var decoded types.Dimensions
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := types.DecodeDimensions(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := types.EncodeDimensions(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.Dimensions
 		r.ResetBytes(w1.Bytes())
-		if err := types.DecodeDimensions(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := types.EncodeDimensions(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -4395,7 +4395,7 @@ func FuzzDecodeChannels(f *testing.F) {
 			Write: map[uint32]string{3: "test_2"},
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeChannels(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4403,7 +4403,7 @@ func FuzzDecodeChannels(f *testing.F) {
 	{
 		seed := types.Channels{Read: nil, Write: nil}
 		w := orc.NewWriter(0)
-		if err := types.EncodeChannels(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4411,7 +4411,7 @@ func FuzzDecodeChannels(f *testing.F) {
 	{
 		seed := types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
 		w := orc.NewWriter(0)
-		if err := types.EncodeChannels(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4420,20 +4420,20 @@ func FuzzDecodeChannels(f *testing.F) {
 		var decoded types.Channels
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := types.DecodeChannels(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := types.EncodeChannels(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.Channels
 		r.ResetBytes(w1.Bytes())
-		if err := types.DecodeChannels(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := types.EncodeChannels(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -4672,7 +4672,7 @@ func FuzzDecodeParam(f *testing.F) {
 			Value: map[string]interface{}{"key_137": "value_137"},
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeParam(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4696,7 +4696,7 @@ func FuzzDecodeParam(f *testing.F) {
 			Value: nil,
 		}
 		w := orc.NewWriter(0)
-		if err := types.EncodeParam(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -4705,20 +4705,20 @@ func FuzzDecodeParam(f *testing.F) {
 		var decoded types.Param
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := types.DecodeParam(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := types.EncodeParam(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.Param
 		r.ResetBytes(w1.Bytes())
-		if err := types.DecodeParam(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := types.EncodeParam(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

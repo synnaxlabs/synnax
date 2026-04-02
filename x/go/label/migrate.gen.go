@@ -16,7 +16,5 @@ import (
 )
 
 func LabelMigrations() []gorp.Migration {
-	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, Label]("msgpack_to_binary", LabelCodec),
-	}
+	return []gorp.Migration{}
 }
