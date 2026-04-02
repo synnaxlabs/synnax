@@ -444,7 +444,6 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           <PForm.TextField
             path={`${path}.path`}
             label="Path"
-            required
             grow
             inputProps={PATH_INPUT_PROPS}
           />

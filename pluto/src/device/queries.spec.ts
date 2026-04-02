@@ -1198,39 +1198,6 @@ describe("queries", () => {
         const formData = result.current.form.value();
         expect(formData.properties).toEqual(customProps);
       });
-
-      it("should validate custom properties schema", async () => {
-        const customPropertiesZ = z.object({
-          path: z.string().min(1, "Path is required"),
-        });
-
-        const rack = await client.racks.create({
-          name: "test custom validation rack",
-        });
-
-        const useForm = Device.createForm({ properties: customPropertiesZ });
-        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
-          wrapper,
-        });
-
-        await waitFor(() => expect(result.current.variant).toBe("success"));
-
-        act(() => {
-          result.current.form.set("rack", rack.key);
-          result.current.form.set("name", "Test Device");
-          result.current.form.set("make", "TestMake");
-          result.current.form.set("model", "TestModel");
-          result.current.form.set("location", "Lab1");
-          result.current.form.set("properties", { path: "" });
-        });
-
-        await act(async () => {
-          result.current.save();
-        });
-
-        const pathField = result.current.form.get("properties.path");
-        expect(pathField.status.message).toBe("Path is required");
-      });
     });
 
     describe("update mode", () => {

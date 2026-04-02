@@ -124,7 +124,7 @@ export const queryParamsZ: z.ZodType<QueryParamEntry[]> = v1QueryParamsZ
   .check(checkDuplicateKeys("parameter", "query parameter"));
 
 const sharedHealthCheckZ = z.object({
-  path: z.string().min(1, "Path is required"),
+  path: z.string(),
   headers: headersZ.optional(),
   queryParams: queryParamsZ.optional(),
 });
