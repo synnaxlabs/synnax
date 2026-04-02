@@ -293,6 +293,56 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("soft optional array field", func() {
+			It("Should generate a single presence bit without a redundant inner nil check", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name  string
+						items string[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"if s.Items != nil {",
+					"w.Bool(true)",
+					"w.Uint32(uint32(len(s.Items)))",
+				)
+				content.ToNotContain(
+					"w.Bool(s.Items != nil)",
+				)
+			})
+		})
+
+		Context("soft optional map field", func() {
+			It("Should generate a single presence bit without a redundant inner nil check", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name   string
+						labels map<string, string>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"if s.Labels != nil {",
+					"w.Bool(true)",
+					"w.Uint32(uint32(len(s.Labels)))",
+				)
+				content.ToNotContain(
+					"w.Bool(s.Labels != nil)",
+				)
+			})
+		})
+
 		Context("bytes field nil preservation", func() {
 			It("Should generate a presence bit before the byte slice length", func() {
 				source := `
@@ -395,6 +445,61 @@ var _ = Describe("Go Marshal Plugin", func() {
 						"BenchmarkEncodeDecodeContainer",
 						"FuzzDecodeContainer",
 					)
+			})
+		})
+
+		Context("hard optional array field", func() {
+			It("Should generate a single presence bit without a redundant inner nil check", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Inner struct {
+						name string
+						@go omit
+					}
+
+					Test struct {
+						name  string
+						items Inner[]??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"if s.Items != nil {",
+					"w.Bool(true)",
+					"w.Uint32(uint32(len((*s.Items))))",
+				)
+				content.ToNotContain(
+					"w.Bool((*s.Items) != nil)",
+				)
+			})
+		})
+
+		Context("hard optional map field", func() {
+			It("Should generate a single presence bit without a redundant inner nil check", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name   string
+						labels map<string, string>??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"if s.Labels != nil {",
+					"w.Bool(true)",
+					"w.Uint32(uint32(len((*s.Labels))))",
+				)
+				content.ToNotContain(
+					"w.Bool((*s.Labels) != nil)",
+				)
 			})
 		})
 

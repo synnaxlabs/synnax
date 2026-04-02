@@ -238,6 +238,7 @@ type encoderBuilder struct {
 	usesErr             bool
 	depth               int
 	inBlock             int
+	skipNilCheck        bool
 	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 
@@ -518,10 +519,12 @@ func (b *encoderBuilder) processHardOptional(
 		)
 		b.depth++
 		b.inBlock++
+		b.skipNilCheck = true
 		derefGet := "(*" + getPath + ")"
 		if err := b.processValueByType(resolved, f.Type, derefGet, setPath); err != nil {
 			return err
 		}
+		b.skipNilCheck = false
 		b.inBlock--
 		b.depth--
 		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
@@ -600,9 +603,11 @@ func (b *encoderBuilder) processSoftOptionalNilable(
 	)
 	b.depth++
 	b.inBlock++
+	b.skipNilCheck = true
 	if err := b.processValueByType(resolved, f.Type, getPath, setPath); err != nil {
 		return err
 	}
+	b.skipNilCheck = false
 	b.inBlock--
 	b.depth--
 	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
@@ -625,14 +630,17 @@ func (b *encoderBuilder) processArray(
 	}
 
 	// Write a presence bit to distinguish nil from empty slices.
-	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-		ind+fmt.Sprintf("if %s != nil {", getPath),
-	)
-	b.decodeLines = append(b.decodeLines,
-		ind+"{ present, err := r.Bool(); if err != nil { return err }",
-		ind+"if present {",
-	)
+	// When inside a hard-optional guard, the slice is already known non-nil.
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
 
 	idx := b.loopIndex()
 	b.encodeLines = append(b.encodeLines,
@@ -655,8 +663,12 @@ func (b *encoderBuilder) processArray(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"\t}", ind+"}")
-	b.decodeLines = append(b.decodeLines, ind+"\t}", ind+"}", ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}")
+	b.decodeLines = append(b.decodeLines, ind+"\t}")
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines, ind+"}")
+		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
+	}
 	return nil
 }
 
@@ -683,14 +695,17 @@ func (b *encoderBuilder) processMap(
 	}
 
 	// Write a presence bit to distinguish nil from empty maps.
-	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-		ind+fmt.Sprintf("if %s != nil {", getPath),
-	)
-	b.decodeLines = append(b.decodeLines,
-		ind+"{ present, err := r.Bool(); if err != nil { return err }",
-		ind+"if present {",
-	)
+	// When inside a hard-optional guard, the map is already known non-nil.
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
 
 	b.encodeLines = append(b.encodeLines,
 		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
@@ -715,12 +730,15 @@ func (b *encoderBuilder) processMap(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"\t}", ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines,
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
-		ind+"}", ind+"}",
 	)
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines, ind+"}")
+		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
+	}
 	return nil
 }
 
