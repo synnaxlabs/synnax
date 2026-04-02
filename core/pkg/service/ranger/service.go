@@ -101,16 +101,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Range]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+		DB:              cfg.DB,
+		Migrations:      append(RangeMigrations(), &groupsMigration{cfg: cfg}),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if err := s.migrate(ctx); err != nil {
-		return nil, err
-	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
