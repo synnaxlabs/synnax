@@ -70,7 +70,11 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 			return c.fallback.Encode(ctx, value)
 		}
 	} else {
-		m = value.(SelfEncoder)
+		var ok bool
+		m, ok = value.(SelfEncoder)
+		if !ok {
+			return nil, errors.New("orc: value does not implement SelfEncoder")
+		}
 	}
 	w := writerPool.Get().(*Writer)
 	w.Reset()
@@ -97,7 +101,10 @@ func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 		}
 		return errors.New("orc: invalid magic header")
 	}
-	m := value.(SelfDecoder)
+	m, ok := value.(SelfDecoder)
+	if !ok {
+		return errors.New("orc: value does not implement SelfDecoder")
+	}
 	r := readerPool.Get().(*Reader)
 	r.ResetBytes(data[len(Magic):])
 	err := m.DecodeOrc(r)

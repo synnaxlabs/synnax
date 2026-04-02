@@ -71,6 +71,11 @@ var _ = Describe("Codec", func() {
 			_, err := orc.Codec.Encode(ctx, &failEncoder{})
 			Expect(err).To(MatchError(errEncode))
 		})
+
+		It("Should return an error for non-SelfEncoder values", func() {
+			_, err := orc.Codec.Encode(ctx, &jsonOnlyRecord{ID: 1, Name: "nope"})
+			Expect(err).To(MatchError(ContainSubstring("does not implement SelfEncoder")))
+		})
 	})
 
 	Describe("Decode", func() {
@@ -87,6 +92,12 @@ var _ = Describe("Codec", func() {
 		It("Should reject wrong magic bytes", func() {
 			Expect(orc.Codec.Decode(ctx, []byte{0x00, 0x00, 0x00, 0x00}, &testRecord{})).
 				To(MatchError(ContainSubstring("invalid magic header")))
+		})
+
+		It("Should return an error for non-SelfDecoder values", func() {
+			data := MustSucceed(orc.Codec.Encode(ctx, &testRecord{ID: 1, Name: "a"}))
+			Expect(orc.Codec.Decode(ctx, data, &jsonOnlyRecord{})).
+				To(MatchError(ContainSubstring("does not implement SelfDecoder")))
 		})
 	})
 
