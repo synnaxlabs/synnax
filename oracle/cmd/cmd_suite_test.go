@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime } from "@synnaxlabs/x";
-import { memoize } from "proxy-memoize";
+package cmd
 
-export const proxyMemo: typeof memoize = (fn, opts) => {
-  if (runtime.RUNTIME === "browser") return memoize(fn, opts);
-  return fn;
-};
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestCmd(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cmd Suite")
+}
