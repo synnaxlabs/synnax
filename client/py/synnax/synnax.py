@@ -28,6 +28,7 @@ from synnax import (
     status,
     task,
     user,
+    view,
 )
 from synnax.config import try_load_options_if_none_provided
 from synnax.options import Options
@@ -70,6 +71,7 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    views: view.Client
 
     _transport: Transport
 
@@ -152,6 +154,7 @@ class Synnax(framer.Client):
         self.signals = signals.Registry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
+        self.views = view.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,

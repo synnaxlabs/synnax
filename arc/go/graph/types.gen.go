@@ -13,7 +13,7 @@ package graph
 
 import (
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -28,7 +28,7 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Config contains configuration parameter values as a JSON object.
-	Config binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 	// Position is the canvas position (x, y) for visual layout.
 	Position spatial.XY `json:"position" msgpack:"position"`
 }

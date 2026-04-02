@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,7 +46,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			keys := channel.Keys{1}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{
 				Command: writer.CommandWrite,
@@ -68,7 +68,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			keys := channel.Keys{1, 2, 3}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"int32", "float32", "uint64"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{
 				Command: writer.CommandWrite,
@@ -108,7 +108,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			cdec := codec.NewDynamic(dist.Channel)
 			v := httpframer.Codec{
 				Codec:          cdec,
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{Command: writer.CommandOpen, Config: framer.WriterConfig{Keys: keys}}
 			msg := fhttp.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
@@ -123,7 +123,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode open message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			msg := fhttp.WSMessage[framer.WriterRequest]{Type: fhttp.WSMessageTypeOpen}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -135,7 +135,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode close message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			msg := fhttp.WSMessage[framer.WriterRequest]{Type: fhttp.WSMessageTypeClose}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -149,7 +149,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode response", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			res := framer.WriterResponse{Command: writer.CommandWrite, Authorized: true}
 			msg := fhttp.WSMessage[framer.WriterResponse]{Type: fhttp.WSMessageTypeData, Payload: res}
@@ -181,7 +181,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			cdec := codec.NewDynamic(dist.Channel)
 			v := httpframer.Codec{
 				Codec:          cdec,
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			req := framer.StreamerRequest{Keys: keys}
 			msg := fhttp.WSMessage[framer.StreamerRequest]{Type: "data", Payload: req}
@@ -198,7 +198,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			keys := channel.Keys{1}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{
 				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
@@ -218,7 +218,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			keys := channel.Keys{1, 2}
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(keys, []telem.DataType{"float64", "int64"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{
 				Frame: frame.NewMulti(keys, []telem.Series{
@@ -238,7 +238,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode empty frame", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{Frame: frame.Frame{}}
 			msg := fhttp.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
@@ -252,7 +252,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode open message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			msg := fhttp.WSMessage[framer.StreamerResponse]{Type: fhttp.WSMessageTypeOpen}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -264,7 +264,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode close message", func(ctx SpecContext) {
 			v := httpframer.Codec{
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: json.Codec,
 			}
 			msg := fhttp.WSMessage[framer.StreamerResponse]{Type: fhttp.WSMessageTypeClose}
 			encoded := MustSucceed(v.Encode(ctx, msg))

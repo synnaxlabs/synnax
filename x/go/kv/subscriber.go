@@ -16,7 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +29,7 @@ type Subscriber[S any] struct {
 	// Store is the store to flush the contents of the observable into.
 	Store Writer
 	// Encoder is the encoder to use when flushing the contents of the state
-	Encoder binary.Encoder
+	Encoder encoding.Encoder
 	// Key is the key to flush the contents of the observable into.
 	Key []byte
 	// MinInterval specifies the minimum interval between flushes. If the observable

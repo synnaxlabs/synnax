@@ -36,6 +36,7 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
   includeLabels: z.boolean().optional(),
   hasLabels: label.keyZ.array().optional(),
+  variants: z.string().array().optional(),
 });
 
 const singleRetrieveArgsZ = z

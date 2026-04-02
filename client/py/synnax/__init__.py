@@ -87,6 +87,7 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 from synnax.util.deprecation import deprecated_getattr
+from synnax.view import View
 
 _DEPRECATED: dict[str, str | tuple[str, str]] = {
     "ArcTask": ("synnax.arc.Task", "_ArcTask"),
@@ -122,6 +123,7 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
+    "View",
     "elapsed_seconds",
     "ExpiredToken",
     "PathError",

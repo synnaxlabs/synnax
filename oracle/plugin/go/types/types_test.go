@@ -195,7 +195,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Entry("uint64", "uint64", "Field uint64"),
 				Entry("float32", "float32", "Field float32"),
 				Entry("float64", "float64", "Field float64"),
-				Entry("record", "record", "Field binary.MsgpackEncodedJSON"),
+				Entry("record", "record", "Field msgpack.EncodedJSON"),
 				Entry("bytes", "bytes", "Field []byte"),
 			)
 
