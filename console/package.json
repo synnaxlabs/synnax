@@ -46,6 +46,7 @@
     "@tauri-apps/plugin-updater": "^2.10.0",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
+    "fflate": "^0.8.2",
     "pluralize": "catalog:",
     "proxy-memoize": "2.0.3",
     "react": "catalog:",
