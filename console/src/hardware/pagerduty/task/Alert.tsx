@@ -88,7 +88,7 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
   return (
     <Flex.Box grow style={DETAILS_STYLE} gap="small">
       <Flex.Box x>
-        <PForm.Field<string> path={`${path}.status`} label="Status" grow>
+        <PForm.Field<string> path={`${path}.status`} label="Status" grow required>
           {selectStatusRenderProp}
         </PForm.Field>
         <PForm.SwitchField
