@@ -1,0 +1,454 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package query generates gorp Retrieve query wrappers from Oracle schema definitions.
+package query
+
+import (
+	"bytes"
+	"fmt"
+	"strings"
+	"text/template"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/key"
+	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/exec"
+	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
+	"github.com/synnaxlabs/oracle/resolution"
+)
+
+// Plugin generates gorp Retrieve query wrappers for structs annotated with @retrieve.
+type Plugin struct{ Options Options }
+
+// Options configures the go/query plugin.
+type Options struct {
+	FileNamePattern string
+}
+
+// DefaultOptions returns the default plugin options.
+func DefaultOptions() Options {
+	return Options{FileNamePattern: "retrieve.gen.go"}
+}
+
+// New creates a new go/query plugin with the given options.
+func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+
+// Name returns the plugin identifier.
+func (p *Plugin) Name() string { return "go/query" }
+
+// Domains returns the domains this plugin handles.
+func (p *Plugin) Domains() []string { return []string{"go"} }
+
+// Requires returns plugin dependencies.
+func (p *Plugin) Requires() []string { return []string{"go/types"} }
+
+// Check verifies generated files are up-to-date.
+func (p *Plugin) Check(*plugin.Request) error { return nil }
+
+var goPostWriter = &exec.PostWriter{
+	Extensions: []string{".go"},
+	Commands:   [][]string{{"gofmt", "-w"}},
+}
+
+// PostWrite runs gofmt on generated files.
+func (p *Plugin) PostWrite(files []string) error {
+	return goPostWriter.PostWrite(files)
+}
+
+// Generate produces retrieve.gen.go files for structs with @retrieve annotation.
+func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	resp := &plugin.Response{Files: make([]plugin.File, 0)}
+
+	// Group @retrieve structs by output path.
+	type entry struct {
+		path    string
+		structs []resolution.Type
+	}
+	entries := make(map[string]*entry)
+
+	for _, typ := range req.Resolutions.StructTypes() {
+		if _, ok := typ.Domains["retrieve"]; !ok {
+			continue
+		}
+		outputPath := output.GetPath(typ, "go")
+		if outputPath == "" {
+			continue
+		}
+		e, ok := entries[outputPath]
+		if !ok {
+			e = &entry{path: outputPath}
+			entries[outputPath] = e
+		}
+		e.structs = append(e.structs, typ)
+	}
+
+	for _, e := range entries {
+		content, err := generateRetrieveFile(e.path, e.structs, req.Resolutions, req.RepoRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate %s: %w", e.path, err)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", e.path, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+
+	return resp, nil
+}
+
+// filterInfo holds extracted data about a @filter-annotated field.
+type filterInfo struct {
+	FieldName  string // oracle field name
+	GoName     string // PascalCase
+	GoType     string // resolved Go type
+	IsScalar   bool   // @filter scalar or bool type
+	IsBool     bool   // underlying primitive is bool
+	IsRequired bool   // @filter required
+}
+
+// retrieveInfo holds extracted data about a @retrieve-annotated struct.
+type retrieveInfo struct {
+	TypeName                     string
+	GoName                       string
+	KeyType                      string
+	KeyPrimitive                 string
+	HasSearch                    bool
+	IsCustom                     bool // @retrieve custom - user defines the struct
+	OntologyType                 string
+	KeysFromOntologyIDsHasError bool
+	Filters                     []filterInfo
+}
+
+func generateRetrieveFile(
+	outputPath string,
+	structs []resolution.Type,
+	table *resolution.Table,
+	repoRoot string,
+) ([]byte, error) {
+	pkg := naming.DerivePackageName(outputPath)
+	imps := imports.NewManager()
+
+	namespace := structs[0].Namespace
+
+	ctx := &resolver.Context{
+		Table:                         table,
+		OutputPath:                    outputPath,
+		Namespace:                     namespace,
+		RepoRoot:                      repoRoot,
+		DomainName:                    "go",
+		SubstituteDefaultedTypeParams: true,
+	}
+
+	r := &resolver.Resolver{
+		Formatter:       types.GoFormatter(),
+		ImportResolver:  &types.GoImportResolver{RepoRoot: repoRoot, CurrentPackage: pkg},
+		ImportAdder:     imps,
+		PrimitiveMapper: goprimitives.Mapper(),
+	}
+
+	var infos []retrieveInfo
+	for _, typ := range structs {
+		info := extractRetrieveInfo(typ, table, r, ctx)
+		if info != nil {
+			infos = append(infos, *info)
+		}
+	}
+
+	if len(infos) == 0 {
+		return nil, nil
+	}
+
+	// Always need context and gorp.
+	imps.AddExternal("context")
+	imps.AddInternal("gorp", gomod.ResolveImportPath("x/go/gorp", repoRoot, gomod.DefaultModulePrefix))
+
+	// Check if any info needs search imports.
+	hasSearch := lo.SomeBy(infos, func(i retrieveInfo) bool { return i.HasSearch })
+	if hasSearch {
+		imps.AddInternal("search", gomod.ResolveImportPath("core/pkg/distribution/search", repoRoot, gomod.DefaultModulePrefix))
+		imps.AddInternal("ontology", gomod.ResolveImportPath("core/pkg/distribution/ontology", repoRoot, gomod.DefaultModulePrefix))
+	}
+
+	// Check if any info needs lo for slice filters.
+	hasSliceFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
+		return lo.SomeBy(i.Filters, func(f filterInfo) bool { return !f.IsScalar })
+	})
+	if hasSliceFilter {
+		imps.AddExternal("github.com/samber/lo")
+	}
+
+	data := &templateData{
+		Package:   pkg,
+		Retrieves: infos,
+		imports:   imps,
+	}
+
+	var buf bytes.Buffer
+	if err := retrieveTemplate.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func extractRetrieveInfo(
+	typ resolution.Type,
+	table *resolution.Table,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) *retrieveInfo {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
+
+	// Find the @key field.
+	var keyField *resolution.Field
+	for i := range form.Fields {
+		if _, hasKey := form.Fields[i].Domains["key"]; hasKey {
+			keyField = &form.Fields[i]
+			break
+		}
+	}
+	if keyField == nil {
+		return nil
+	}
+
+	goName := domain.GetName(typ, "go")
+	keyType := r.ResolveTypeRef(keyField.Type, ctx)
+	keyPrimitive := key.ResolvePrimitive(keyField.Type, table)
+
+	// Check for @retrieve custom.
+	retrieveDomain := typ.Domains["retrieve"]
+	_, isCustom := retrieveDomain.Expressions.Find("custom")
+
+	// Check for @search.
+	_, hasSearch := typ.Domains["search"]
+
+	// Get ontology type for search. Check @search type "X" first, then fall
+	// back to @ontology type "X" on the struct itself.
+	var ontologyType string
+	if hasSearch {
+		searchDomain := typ.Domains["search"]
+		if typeExpr, ok := searchDomain.Expressions.Find("type"); ok && len(typeExpr.Values) > 0 {
+			ontologyType = typeExpr.Values[0].StringValue
+		} else {
+			keyFields := key.Collect([]resolution.Type{typ}, table, nil)
+			ontData := ontology.Extract([]resolution.Type{typ}, keyFields, nil)
+			if ontData != nil {
+				ontologyType = ontData.TypeName
+			}
+		}
+	}
+
+	// Collect @filter fields.
+	var filters []filterInfo
+	allFields := resolution.UnifiedFields(typ, table)
+	for _, field := range allFields {
+		filterDomain, hasFilter := field.Domains["filter"]
+		if !hasFilter {
+			continue
+		}
+
+		primitive := key.ResolvePrimitive(field.Type, table)
+		isBool := primitive == "bool"
+
+		isScalar := isBool
+		if !isScalar {
+			_, hasScalarExpr := filterDomain.Expressions.Find("scalar")
+			isScalar = hasScalarExpr
+		}
+
+		_, isRequired := filterDomain.Expressions.Find("required")
+
+		goType := r.ResolveTypeRef(field.Type, ctx)
+		goFieldName := lo.PascalCase(field.Name)
+
+		filters = append(filters, filterInfo{
+			FieldName:  field.Name,
+			GoName:     goFieldName,
+			GoType:     goType,
+			IsScalar:   isScalar,
+			IsBool:     isBool,
+			IsRequired: isRequired,
+		})
+	}
+
+	return &retrieveInfo{
+		TypeName:                     typ.Name,
+		GoName:                       goName,
+		KeyType:                      keyType,
+		KeyPrimitive:                 keyPrimitive,
+		HasSearch:                    hasSearch,
+		IsCustom:                     isCustom,
+		OntologyType:                 ontologyType,
+		KeysFromOntologyIDsHasError: keyPrimitive != "string",
+		Filters:                     filters,
+	}
+}
+
+type templateData struct {
+	imports   *imports.Manager
+	Package   string
+	Retrieves []retrieveInfo
+}
+
+func (d *templateData) HasImports() bool         { return d.imports.HasImports() }
+func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
+func (d *templateData) InternalImports() []imports.InternalImportData {
+	return d.imports.InternalImports()
+}
+
+var templateFuncs = template.FuncMap{
+	"toPascal": lo.PascalCase,
+	"pluralize": func(s string) string {
+		if strings.HasSuffix(s, "s") {
+			return s + "es"
+		}
+		return s + "s"
+	},
+}
+
+var retrieveTemplate = template.Must(template.New("go-retrieve").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
+
+package {{.Package}}
+{{- if .HasImports}}
+
+import (
+{{- range .ExternalImports}}
+	"{{.}}"
+{{- end}}
+{{- range .InternalImports}}
+{{- if .NeedsAlias}}
+	{{.Alias}} "{{.Path}}"
+{{- else}}
+	"{{.Path}}"
+{{- end}}
+{{- end}}
+)
+{{- end}}
+{{range $ret := .Retrieves}}
+{{- if not $ret.IsCustom}}
+type Retrieve struct {
+	baseTX gorp.Tx
+	gorp   gorp.Retrieve[{{$ret.KeyType}}, {{$ret.GoName}}]
+{{- if $ret.HasSearch}}
+	search     *search.Index
+	searchTerm string
+{{- end}}
+}
+{{- end}}
+{{if $ret.HasSearch}}
+func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+{{end}}
+func (r Retrieve) WhereKeys(keys ...{{$ret.KeyType}}) Retrieve {
+	r.gorp = r.gorp.WhereKeys(keys...)
+	return r
+}
+{{range .Filters}}
+{{- if .IsBool}}
+func (r Retrieve) Where{{.GoName}}(v bool, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+		return e.{{.GoName}} == v, nil
+	}, opts...)
+	return r
+}
+{{else if .IsScalar}}
+func (r Retrieve) Where{{.GoName}}(v {{.GoType}}, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+		return e.{{.GoName}} == v, nil
+	}, opts...)
+	return r
+}
+{{else}}
+func (r Retrieve) Where{{.GoName | pluralize}}(vals ...{{.GoType}}) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+		return lo.Contains(vals, e.{{.GoName}}), nil
+	}{{if .IsRequired}}, gorp.Required(){{end}})
+	return r
+}
+{{end}}
+{{- end}}
+func (r Retrieve) Entry(e *{{$ret.GoName}}) Retrieve {
+	r.gorp = r.gorp.Entry(e)
+	return r
+}
+
+func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
+	r.gorp = r.gorp.Entries(es)
+	return r
+}
+
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
+
+func (r Retrieve) Offset(offset int) Retrieve {
+	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+{{if $ret.HasSearch}}
+func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
+	if r.searchTerm == "" {
+		return r, nil
+	}
+	ids, err := r.search.Search(ctx, search.Request{
+		Type: ontology.ResourceType{{$ret.OntologyType | toPascal}},
+		Term: r.searchTerm,
+	})
+	if err != nil {
+		return Retrieve{}, err
+	}
+{{- if $ret.KeysFromOntologyIDsHasError}}
+	keys, err := KeysFromOntologyIDs(ids)
+	if err != nil {
+		return Retrieve{}, err
+	}
+{{- else}}
+	keys := KeysFromOntologyIDs(ids)
+{{- end}}
+	return r.WhereKeys(keys...), nil
+}
+{{end}}
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+{{- if $ret.HasSearch}}
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return err
+	}
+{{- end}}
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
+func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
+{{- if $ret.HasSearch}}
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return 0, err
+	}
+{{- end}}
+	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
+func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+{{- if $ret.HasSearch}}
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return false, err
+	}
+{{- end}}
+	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+{{end}}`))

@@ -52,6 +52,7 @@ Arc struct {
     }
     name    string            {
         @doc value "is a human-readable name for the module."
+        @filter
     }
     mode    Mode              {
         @doc value """
@@ -80,6 +81,8 @@ Arc struct {
         sandboxed execution.
     """
     @ontology type "arc"
+    @retrieve
+    @search
 }
 
 New struct {

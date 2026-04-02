@@ -37,6 +37,7 @@ Log struct {
         filtering and formatting capabilities.
     """
     @ontology type "log"
+    @retrieve
 }
 
 New struct extends Log {

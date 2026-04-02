@@ -67,16 +67,18 @@ Rack struct {
         """
     }
 
-    @doc value     """
+    @doc value       """
         is a collection container for hardware devices and tasks running on a
         specific cluster node. Racks serve as the integration point between the
         Synnax server and physical hardware via the Driver system.
     """
-    @ts name       "Payload"
-    @ontology type "rack"
-    @py name       "Base"
-    @cpp methods   "task::Client tasks"
-    @cpp includes  "client/cpp/task/task.h"
+    @ts name         "Payload"
+    @ontology type   "rack"
+    @retrieve custom
+    @search
+    @py name         "Base"
+    @cpp methods     "task::Client tasks"
+    @cpp includes    "client/cpp/task/task.h"
 }
 
 New struct extends Rack {

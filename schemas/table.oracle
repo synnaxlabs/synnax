@@ -37,6 +37,7 @@ Table struct {
         customizable formatting options.
     """
     @ontology type "table"
+    @retrieve
 }
 
 New struct extends Table {

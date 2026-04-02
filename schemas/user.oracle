@@ -23,6 +23,7 @@ User struct {
     username   string {
         @doc value         "is the unique login name for the user."
         @validate required
+        @filter
     }
     first_name string {
         @doc value "is the user's first name."
@@ -43,6 +44,7 @@ User struct {
         Users can have roles assigned for permission management.
     """
     @ontology type "user"
+    @retrieve
     @pb
 }
 

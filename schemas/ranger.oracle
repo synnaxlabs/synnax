@@ -28,6 +28,7 @@ Range struct {
     name       string          {
         @doc value           "is a human-readable name for the range."
         @validate min_length 1
+        @filter
     }
     time_range telem.TimeRange {
         @doc value """
@@ -42,16 +43,18 @@ Range struct {
         """
     }
 
-    @doc value """
+    @doc value       """
         is a user-defined region of time in the Synnax cluster. Ranges act as a
         method for labeling and categorizing telemetry data within specific time
         periods.
     """
-    @go output "core/pkg/service/ranger"
+    @go output       "core/pkg/service/ranger"
+    @retrieve custom
+    @search type     "range"
     @pb
-    @cpp name  "Base"
-    @ts name   "Base"
-    @py name   "Base"
+    @cpp name        "Base"
+    @ts name         "Base"
+    @py name         "Base"
 }
 
 APIRange struct extends Range {

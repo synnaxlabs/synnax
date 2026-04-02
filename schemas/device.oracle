@@ -51,10 +51,12 @@ Device struct<
     rack       rack.Key      {
         @doc value         "is the key of the rack that owns this device."
         @validate required
+        @filter required
     }
     location   string        {
         @doc value         "is the physical location or address of the device."
         @validate required
+        @filter required
     }
     make       Make          {
         @doc value         """
@@ -62,14 +64,17 @@ Device struct<
             Instruments').
         """
         @validate required
+        @filter required
     }
     model      Model         {
         @doc value         "is the device model identifier."
         @validate required
+        @filter required
     }
     name       string        {
         @doc value         "is a human-readable name for the device."
         @validate required
+        @filter
     }
     configured bool          {
         @doc value        """
@@ -100,6 +105,8 @@ Device struct<
         Instruments, OPC UA servers, or Modbus devices.
     """
     @ontology type     "device"
+    @retrieve
+    @search
     @ts concrete_types
 }
 
