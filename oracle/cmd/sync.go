@@ -23,6 +23,7 @@ import (
 	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
+	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
@@ -31,20 +32,18 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var syncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync generated code, only writing changed files",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := runSync(cmd); err != nil {
-			printError(err.Error())
-			return err
-		}
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(syncCmd)
+func newSyncCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync",
+		Short: "Sync generated code, only writing changed files",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runSync(cmd); err != nil {
+				printError(err.Error())
+				return err
+			}
+			return nil
+		},
+	}
 }
 
 func runSync(cmd *cobra.Command) error {
@@ -177,5 +176,6 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(cppjson.New(cppjson.DefaultOptions()))
 	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
 	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
+	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
 	return registry
 }
