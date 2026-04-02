@@ -170,6 +170,7 @@ var reservedNames = map[string]bool{
 	"w": true, "r": true, // method parameters
 	"n": true, "b": true, "v": true, "m": true, // temporaries
 	"i": true, "j": true, "k": true, "l": true, // loop indices
+	"err": true, "ok": true, // error/bool variables in method bodies
 }
 
 // receiverName derives a Go-idiomatic short receiver name from a type name.

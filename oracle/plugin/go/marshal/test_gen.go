@@ -878,13 +878,13 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
 	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
