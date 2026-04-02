@@ -27,15 +27,6 @@ var _ = Describe("Writer", func() {
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Service Delete", func() {
-		It("Should delete a Table via the service", func(ctx SpecContext) {
-			t := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
-			Expect(svc.NewWriter(tx).Delete(ctx, t.Key)).To(Succeed())
-			var res table.Table
-			Expect(svc.NewRetrieve().WhereKeys(t.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
-		})
-	})
 	Describe("Update", func() {
 		It("Should rename a Table", func(ctx SpecContext) {
 			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}

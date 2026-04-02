@@ -99,10 +99,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-func (s *Service) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-	return s.NewWriter(tx).Delete(ctx, keys...)
-}
-
 // NewRetrieve opens a new query build for retrieving logs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{

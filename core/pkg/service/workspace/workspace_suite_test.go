@@ -17,10 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,17 +30,12 @@ func TestWorkspace(t *testing.T) {
 }
 
 var (
-	db           *gorp.DB
-	otg          *ontology.Ontology
-	svc          *workspace.Service
-	groupSvc     *group.Service
-	schematicSvc *schematic.Service
-	lineplotSvc  *lineplot.Service
-	logSvc       *log.Service
-	tableSvc     *table.Service
-	userSvc      *user.Service
-	author       user.User
-	tx           gorp.Tx
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	svc     *workspace.Service
+	userSvc *user.Service
+	author  user.User
+	tx      gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -56,28 +47,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	DeferCleanup(func() {
 		Expect(searchIdx.Close()).To(Succeed())
 	})
-	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-		Group:    groupSvc,
-	}))
-	lineplotSvc = MustSucceed(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	logSvc = MustSucceed(log.OpenService(ctx, log.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	tableSvc = MustSucceed(table.OpenService(ctx, table.ServiceConfig{
+	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
@@ -85,17 +55,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Group:    g,
 		Search:   searchIdx,
-		Group:    groupSvc,
-		ChildDeleters: []workspace.ChildDeleter{
-			schematicSvc, lineplotSvc, logSvc, tableSvc,
-		},
 	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Group:    g,
 		Search:   searchIdx,
-		Group:    groupSvc,
 	}))
 	author.Username = "test"
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())

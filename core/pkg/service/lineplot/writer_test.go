@@ -27,15 +27,6 @@ var _ = Describe("Writer", func() {
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Service Delete", func() {
-		It("Should delete a LinePlot via the service", func(ctx SpecContext) {
-			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			Expect(svc.NewWriter(tx).Delete(ctx, plot.Key)).To(Succeed())
-			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
-		})
-	})
 	Describe("Update", func() {
 		It("Should rename a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}

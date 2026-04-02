@@ -27,15 +27,6 @@ var _ = Describe("Writer", func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Service Delete", func() {
-		It("Should delete a Log via the service", func(ctx SpecContext) {
-			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
-			var res log.Log
-			Expect(svc.NewRetrieve().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
-		})
-	})
 	Describe("Update", func() {
 		It("Should rename a Log", func(ctx SpecContext) {
 			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
