@@ -82,7 +82,10 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	err := m.EncodeOrc(w)
 	out := w.Copy()
 	writerPool.Put(w)
-	return out, err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
