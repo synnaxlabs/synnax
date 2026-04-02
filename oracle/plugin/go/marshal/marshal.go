@@ -86,10 +86,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	// Merge all entry types' dependency trees per package.
-	adapters := make(map[string]string)
 	merged := make(map[string]map[string]resolution.Type)
 	for _, ei := range entryTypes {
-		adapters[ei.goName] = ei.goPath
 		var entry resolution.Type
 		for _, t := range req.Resolutions.StructTypes() {
 			if naming.GetGoName(t) == ei.goName {
@@ -111,7 +109,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// Generate one file per package.
 	for goPath, typeMap := range merged {
 		packageName := naming.DerivePackageName(goPath)
-		entries := buildCodecEntries(typeMap, adapters, goPath)
+		entries := buildCodecEntries(typeMap)
 		if len(entries) == 0 {
 			continue
 		}
@@ -130,7 +128,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if p.Options.GenerateTests {
 		for goPath, typeMap := range merged {
 			packageName := naming.DerivePackageName(goPath)
-			entries := buildCodecEntries(typeMap, adapters, goPath)
+			entries := buildCodecEntries(typeMap)
 			testContent, testErr := generateTestCodecFile(
 				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
 			)
@@ -151,33 +149,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 // CodecEntry describes a type for which a codec should be generated.
 type CodecEntry struct {
-	GoName  string
-	Type    resolution.Type
-	Adapter bool
+	GoName string
+	Type   resolution.Type
 }
 
 func buildCodecEntries(
 	typeMap map[string]resolution.Type,
-	adapters map[string]string,
-	goPath string,
 ) []CodecEntry {
 	var entries []CodecEntry
 	for _, t := range typeMap {
 		goName := naming.GetGoName(t)
-		ce := CodecEntry{GoName: goName, Type: t}
-		if adapterPath, ok := adapters[goName]; ok && adapterPath == goPath {
-			ce.Adapter = true
-		}
-		entries = append(entries, ce)
+		entries = append(entries, CodecEntry{GoName: goName, Type: t})
 	}
 	return entries
 }
 
 // GenerateCodecFile generates a complete codec file for the given entries using the
 // specified package name and output path context. This is used by the migrate plugin
-// to generate frozen codecs for old schema versions. Each entry gets exported
-// EncodeX/DecodeX functions. Entries with Adapter=true also get an xencoding.Codec
-// implementation with sync.Pool-based Writer/Reader reuse.
+// to generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
+// methods that implement the orc.SelfEncoder and orc.SelfDecoder interfaces.
 func GenerateCodecFile(
 	packageName string,
 	parentPath string,

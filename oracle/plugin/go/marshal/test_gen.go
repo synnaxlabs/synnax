@@ -16,6 +16,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -30,7 +31,14 @@ type testFileOutput struct {
 	ExtraImports map[string]string
 	NeedsUUID    bool
 	Tests        []testEntry
-	Adapters     []testEntry
+	GenericTests []genericTestEntry
+}
+
+type genericTestEntry struct {
+	GoName     string
+	Receiver   string
+	TypeParams []typeParamData
+	Cases      []testCase
 }
 
 type testCase struct {
@@ -39,8 +47,9 @@ type testCase struct {
 }
 
 type testEntry struct {
-	GoName string
-	Cases  []testCase
+	GoName   string
+	Receiver string
+	Cases    []testCase
 }
 
 type valueMode int
@@ -70,11 +79,30 @@ func generateTestCodecFile(
 
 	for _, e := range entries {
 		form, ok := e.Type.Form.(resolution.StructForm)
-		if !ok || form.IsGeneric() {
+		if !ok {
 			continue
 		}
 
-		te := testEntry{GoName: e.GoName}
+		// Collect non-defaulted type params (same logic as encoder).
+		var typeParams []typeParamData
+		if form.IsGeneric() {
+			for _, tp := range form.TypeParams {
+				if tp.HasDefault() {
+					continue
+				}
+				typeParams = append(typeParams, typeParamData{
+					Name:       tp.Name,
+					Constraint: typeParamConstraint(tp),
+				})
+			}
+		}
+
+		recv := receiverName(e.GoName)
+		// In test files the receiver is used as a local variable, so it must
+		// not shadow the package import alias.
+		if recv == packageName {
+			recv = recv + "v"
+		}
 		modes := []struct {
 			name string
 			mode valueMode
@@ -89,37 +117,110 @@ func generateTestCodecFile(
 			}{"empty collections", modeEmptyCollections})
 		}
 
-		for _, m := range modes {
-			b := &testValueBuilder{
-				table:       table,
-				repoRoot:    repoRoot,
-				packageName: packageName,
-				parentPath:  parentPath,
-				imports:     fo.ExtraImports,
-				pkgPrefix:   packageName + ".",
-				mode:        m.mode,
+		if len(typeParams) > 0 {
+			// Generic type: substitute concrete types for type params.
+			typeArgMap := make(map[string]resolution.TypeRef)
+			for _, tp := range form.TypeParams {
+				if tp.HasDefault() {
+					typeArgMap[tp.Name] = *tp.Default
+				} else {
+					typeArgMap[tp.Name] = concreteTypeRefForConstraint(tp)
+				}
 			}
-			valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to generate %s test value for %s", m.name, e.GoName)
-			}
-			if b.needsUUID {
-				fo.NeedsUUID = true
-			}
-			te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
-		}
 
-		fo.Tests = append(fo.Tests, te)
-		if e.Adapter {
-			fo.Adapters = append(fo.Adapters, te)
+			gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
+			for _, m := range modes {
+				b := &testValueBuilder{
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					pkgPrefix:   packageName + ".",
+					mode:        m.mode,
+				}
+
+				fields := resolution.UnifiedFields(e.Type, table)
+				substituted := make([]resolution.Field, len(fields))
+				for i, f := range fields {
+					substituted[i] = f
+					substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+				}
+
+				var concreteTypeArgStrs []string
+				for _, tp := range typeParams {
+					concreteTypeArgStrs = append(concreteTypeArgStrs, concreteGoTypeForConstraint(tp.Constraint))
+				}
+				concreteGoName := e.GoName + "[" + strings.Join(concreteTypeArgStrs, ", ") + "]"
+
+				var fieldExprs []string
+				for _, f := range substituted {
+					if f.Type.Name == "nil" {
+						continue
+					}
+					if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+						continue
+					}
+					r, ok := f.Type.Resolve(table)
+					if !ok {
+						continue
+					}
+					b.fieldIndex++
+					fieldGoName := naming.GetFieldName(f)
+					var expr string
+					var err error
+					if f.IsHardOptional {
+						expr, err = b.hardOptionalExpr(r, f.Type)
+					} else {
+						expr, err = b.valueExpr(r, f.Type)
+					}
+					if err != nil {
+						return nil, errors.Wrapf(err, "failed to generate %s test value for %s field %s", m.name, e.GoName, fieldGoName)
+					}
+					if expr != "" {
+						fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
+					}
+				}
+				if b.needsUUID {
+					fo.NeedsUUID = true
+				}
+				valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
+				gte.Cases = append(gte.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+			}
+			fo.GenericTests = append(fo.GenericTests, gte)
+		} else {
+			te := testEntry{GoName: e.GoName, Receiver: recv}
+			for _, m := range modes {
+				b := &testValueBuilder{
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					pkgPrefix:   packageName + ".",
+					mode:        m.mode,
+				}
+				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to generate %s test value for %s", m.name, e.GoName)
+				}
+				if b.needsUUID {
+					fo.NeedsUUID = true
+				}
+				te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+			}
+			fo.Tests = append(fo.Tests, te)
 		}
 	}
 
-	if len(fo.Tests) == 0 {
+	if len(fo.Tests) == 0 && len(fo.GenericTests) == 0 {
 		return nil, nil
 	}
 
-	tmpl, err := template.New("codec_test").Parse(testCodecTemplate)
+	tmpl, err := template.New("codec_test").Funcs(template.FuncMap{
+		"concreteGoType": concreteGoTypeForConstraint,
+		"tpNames":        tpNames,
+	}).Parse(testCodecTemplate)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse test template")
 	}
@@ -128,6 +229,43 @@ func generateTestCodecFile(
 		return nil, errors.Wrap(err, "failed to execute test template")
 	}
 	return buf.Bytes(), nil
+}
+
+func concreteTypeRefForConstraint(tp resolution.TypeParam) resolution.TypeRef {
+	return resolution.TypeRef{Name: concreteOracleTypeForConstraint(tp)}
+}
+
+func concreteOracleTypeForConstraint(tp resolution.TypeParam) string {
+	if tp.Constraint != nil {
+		switch tp.Constraint.Name {
+		case "comparable":
+			return "string"
+		case "integer":
+			return "int64"
+		case "float":
+			return "float64"
+		case "number":
+			return "int64"
+		}
+	}
+	return "string"
+}
+
+func concreteGoTypeForConstraint(constraint string) string {
+	switch constraint {
+	case "comparable":
+		return "string"
+	case "integer":
+		return "int64"
+	case "float":
+		return "float64"
+	case "number":
+		return "int64"
+	case "any":
+		return "string"
+	default:
+		return "string"
+	}
 }
 
 func typeHasCollections(typ resolution.Type, table *resolution.Table) bool {
@@ -186,6 +324,9 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 	var fieldExprs []string
 	for _, f := range fields {
 		if f.Type.Name == "nil" {
+			continue
+		}
+		if domain.GetStringFromField(f, "go", "marshal") == "skip" {
 			continue
 		}
 		resolved, ok := f.Type.Resolve(b.table)
@@ -326,6 +467,9 @@ func (b *testValueBuilder) valueExpr(
 			var fieldExprs []string
 			for _, f := range substituted {
 				if f.Type.Name == "nil" {
+					continue
+				}
+				if domain.GetStringFromField(f, "go", "marshal") == "skip" {
 					continue
 				}
 				r, ok := f.Type.Resolve(b.table)
@@ -621,9 +765,6 @@ package {{.Package}}_test
 import (
 	"bytes"
 	"testing"
-{{- if .Adapters}}
-	"context"
-{{- end}}
 {{- if .NeedsUUID}}
 	"github.com/google/uuid"
 {{- end}}
@@ -631,9 +772,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-{{- if .Adapters}}
-	. "github.com/synnaxlabs/x/testutil"
-{{- end}}
 
 	"{{.PkgImport}}"
 {{- range $path, $alias := .ExtraImports}}
@@ -647,11 +785,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original {{$.Package}}.{{.GoName}}) {
 				w := orc.NewWriter(0)
-				Expect({{$.Package}}.Encode{{.GoName}}(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded {{$.Package}}.{{.GoName}}
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect({{$.Package}}.Decode{{.GoName}}(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			{{- range .Cases}}
@@ -660,14 +798,16 @@ var _ = Describe("Codec", func() {
 		)
 	})
 {{- end}}
-{{- range .Adapters}}
-	Describe("{{.GoName}}Codec", func() {
-		DescribeTable("should round-trip through the Codec interface",
-			func(original {{$.Package}}.{{.GoName}}) {
-				ctx := context.Background()
-				data := MustSucceed({{$.Package}}.{{.GoName}}Codec.Encode(ctx, original))
-				var decoded {{$.Package}}.{{.GoName}}
-				Expect({{$.Package}}.{{.GoName}}Codec.Decode(ctx, data, &decoded)).To(Succeed())
+{{- range .GenericTests}}
+	Describe("{{.GoName}}", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			{{- range .Cases}}
@@ -677,19 +817,76 @@ var _ = Describe("Codec", func() {
 	})
 {{- end}}
 })
-{{range .Tests}}
+{{range .GenericTests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	s := {{(index .Cases 0).ValueExpr}}
+	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+{{end}}{{range .GenericTests}}
+func FuzzDecode{{.GoName}}(f *testing.F) {
+	{{- $goName := .GoName}}
+	{{- $typeParams := .TypeParams}}
+	{{- $recv := .Receiver}}
+	{{- range .Cases}}
+	{
+		seed := {{.ValueExpr}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{{- end}}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+{{end}}{{range .Tests}}
+func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
+	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := {{$.Package}}.Encode{{.GoName}}(w, &s); err != nil {
+		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}
 		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
-		if err := {{$.Package}}.Decode{{.GoName}}(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -701,7 +898,7 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 	{
 		seed := {{.ValueExpr}}
 		w := orc.NewWriter(0)
-		if err := {{$.Package}}.Encode{{$goName}}(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -711,20 +908,20 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		var decoded {{$.Package}}.{{.GoName}}
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := {{$.Package}}.Decode{{.GoName}}(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := {{$.Package}}.Encode{{.GoName}}(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded {{$.Package}}.{{.GoName}}
 		r.ResetBytes(w1.Bytes())
-		if err := {{$.Package}}.Decode{{.GoName}}(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := {{$.Package}}.Encode{{.GoName}}(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
