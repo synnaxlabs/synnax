@@ -9,7 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Access, Icon, Log as Base, telem, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
@@ -62,7 +62,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const hasChannels = activeChannels.length > 0;
   // Stable spec — channels are passed separately via the `channels` prop so that
   // adding/removing a channel does not destroy and recreate the telem source.
-  const t = telem.streamMultiChannelLog({
+  const t = Base.streamMultiChannelLog({
     channels: [],
     timeSpan: PRELOAD,
     keepFor: DEFAULT_RETENTION,

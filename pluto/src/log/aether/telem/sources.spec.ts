@@ -21,7 +21,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
-} from "@/log/aether/sources";
+} from "@/log/aether/telem/sources";
 import { type Source } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
 

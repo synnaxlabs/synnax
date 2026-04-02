@@ -9,7 +9,7 @@
 
 import "@/log/Log.css";
 
-import { box, location, type optional } from "@synnaxlabs/x";
+import { box, location, type optional, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { type z } from "zod";
 
@@ -26,19 +26,13 @@ import { Status } from "@/status/base";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
-const escapeHTML = (s: string): string =>
-  s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 const COPY_FLASH_DURATION_MS = 150;
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];
 const ESCAPE_TRIGGER: Triggers.Trigger = ["Escape"];
 
+// Worker-computed fields that the caller should not pass as props.
 export interface LogProps
   extends
     optional.Optional<
@@ -183,26 +177,32 @@ export const Log = ({
     draggingRef.current = false;
   }, []);
 
+  const buildCopyHTML = useCallback((): string => {
+    const lines = selectedLines.map((l) => {
+      const escaped = strings.escapeHTML(l.text);
+      if (l.color.length === 0) return escaped;
+      // Preserve color and font when pasting into rich text editors.
+      return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
+    });
+    return `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
+  }, [selectedLines]);
+
+  const flashCopy = useCallback(() => {
+    setState((s) => ({ ...s, copyFlash: true }));
+    setTimeout(
+      () => setState((s) => ({ ...s, copyFlash: false })),
+      COPY_FLASH_DURATION_MS,
+    );
+  }, [setState]);
+
   const copyToClipboard = useCallback(() => {
     if (selectedText.length === 0) return;
-    const lines = selectedLines.map((l) => {
-      const escaped = escapeHTML(l.text);
-      if (l.color.length === 0) return escaped;
-      return `<span style="color: ${escapeHTML(l.color)}">${escaped}</span>`;
-    });
-    const html = `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
     const item = new ClipboardItem({
-      "text/html": new Blob([html], { type: "text/html" }),
+      "text/html": new Blob([buildCopyHTML()], { type: "text/html" }),
       "text/plain": new Blob([selectedText], { type: "text/plain" }),
     });
-    void navigator.clipboard.write([item]).then(() => {
-      setState((s) => ({ ...s, copyFlash: true }));
-      setTimeout(
-        () => setState((s) => ({ ...s, copyFlash: false })),
-        COPY_FLASH_DURATION_MS,
-      );
-    });
-  }, [selectedText, selectedLines, setState]);
+    void navigator.clipboard.write([item]).then(flashCopy);
+  }, [selectedText, buildCopyHTML, flashCopy]);
 
   Triggers.use({
     triggers: [ESCAPE_TRIGGER],
@@ -282,20 +282,8 @@ export const Log = ({
           if (selectedText.length === 0) return;
           e.preventDefault();
           e.clipboardData.setData("text/plain", selectedText);
-          const lines = selectedLines.map((l) => {
-            const escaped = escapeHTML(l.text);
-            if (l.color.length === 0) return escaped;
-            return `<span style="color: ${escapeHTML(l.color)}">${escaped}</span>`;
-          });
-          e.clipboardData.setData(
-            "text/html",
-            `<pre style="font-family: monospace">${lines.join("\n")}</pre>`,
-          );
-          setState((s) => ({ ...s, copyFlash: true }));
-          setTimeout(
-            () => setState((s) => ({ ...s, copyFlash: false })),
-            COPY_FLASH_DURATION_MS,
-          );
+          e.clipboardData.setData("text/html", buildCopyHTML());
+          flashCopy();
         }}
         onContextMenu={menuProps.open}
         {...rest}

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { channelConfigZ } from "@/log/aether/Log";
+export { streamMultiChannelLog } from "@/log/aether/telem/sources";
 export * from "@/log/Icons";
 export * from "@/log/Log";
 export * from "@/log/queries";

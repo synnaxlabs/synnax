@@ -27,7 +27,7 @@ vi.mock("@synnaxlabs/pluto", async () => {
   };
 });
 
-import { Toolbar } from "@/log/Toolbar";
+import { Toolbar } from "@/log/toolbar/Toolbar";
 
 const LAYOUT_KEY = "test-key";
 

@@ -9,18 +9,20 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type LogSource, noopLogSourceSpec } from "@/log/aether/types";
-import { NoopFactory } from "@/telem/aether/noop";
+import { LogFactory } from "@/log/aether/telem/factory";
+import { noopLogSourceSpec } from "@/log/aether/telem/noop";
+import { type LogSource } from "@/log/aether/telem/types";
+import { NoopClient } from "@/telem/client/client";
 
 describe("NoopLogSource", () => {
   it("should return an empty array from value()", () => {
-    const factory = new NoopFactory();
+    const factory = new LogFactory(new NoopClient());
     const source = factory.create(noopLogSourceSpec) as LogSource;
     expect(source.value()).toEqual([]);
   });
 
   it("should have evictedCount of 0", () => {
-    const factory = new NoopFactory();
+    const factory = new LogFactory(new NoopClient());
     const source = factory.create(noopLogSourceSpec) as LogSource;
     expect(source.evictedCount).toBe(0);
   });

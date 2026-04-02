@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type LogEntry, type LogSource, type LogSourceSpec } from "@/log/aether/types";
+import { type LogEntry, type LogSource, type LogSourceSpec } from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import { AbstractSource } from "@/telem/aether/telem";
@@ -28,7 +28,7 @@ import { type client } from "@/telem/client";
 const MAX_ENTRIES = 100_000;
 
 const streamMultiChannelLogPropsZ = z.object({
-  channels: z.array(z.number().or(z.string())),
+  channels: z.array(channel.keyZ.or(z.string())),
   timeSpan: TimeSpan.z,
   keepFor: TimeSpan.z.optional(),
 });
@@ -37,9 +37,7 @@ export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPro
 
 interface ChannelMeta {
   key: channel.Key;
-  indexKey: channel.Key;
   dataType: DataType;
-  virtual: boolean;
   leadingBuffer: Series | null;
   readCursor: number;
   skipSeed: boolean;
@@ -103,32 +101,35 @@ export class StreamMultiChannelLog
   private async read(): Promise<void> {
     try {
       this.valid = true;
+      // Generation counter prevents stale async completions: if setChannels() triggers
+      // a new read() while this one is awaiting, the older read bails out.
       const generation = ++this.readGeneration;
       this.stopStreaming?.();
 
       const channels = await Promise.all(
         this._channels.map((ch) => this.client.retrieveChannel(ch)),
       );
+      // Superseded by a newer read() call while we were awaiting.
       if (generation !== this.readGeneration) return;
 
+      // Scrub entries from channels that were removed.
       const newKeys = new Set(channels.map((ch) => ch.key));
       const removedKeys = new Set(
         [...this.channelMeta.keys()].filter((k) => !newKeys.has(k)),
       );
-
       if (removedKeys.size > 0)
         this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
 
+      // When channels change mid-session, the new stream seeds with buffered data
+      // for ALL channels. Skip the seed to avoid re-displaying existing entries.
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
       for (const ch of channels)
         this.channelMeta.set(ch.key, {
           key: ch.key,
-          indexKey: ch.index,
           leadingBuffer: null,
           readCursor: 0,
           dataType: new DataType(ch.dataType),
-          virtual: ch.virtual,
           skipSeed: isRestart,
         });
 
@@ -136,8 +137,8 @@ export class StreamMultiChannelLog
       this.stopStreaming = await this.client.stream((res) => {
         const now = this.now();
         let pushed = 0;
-        for (const [channelKey, chMeta] of this.channelMeta) {
-          const allocated = res.get(channelKey);
+        for (const [key, chMeta] of this.channelMeta) {
+          const allocated = res.get(key);
           const isJSON = chMeta.dataType.equals(DataType.JSON);
           const pushSamples = (buf: Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
@@ -151,6 +152,7 @@ export class StreamMultiChannelLog
             }
           };
           if (allocated != null && allocated.series.length > 0) {
+            // First callback after channel change: skip buffered data.
             if (chMeta.skipSeed) {
               const lastSeries = allocated.series[allocated.series.length - 1];
               chMeta.leadingBuffer = lastSeries;
@@ -158,15 +160,19 @@ export class StreamMultiChannelLog
               chMeta.skipSeed = false;
               continue;
             }
+            // Drain unread tail of the old leading buffer before switching.
             if (chMeta.leadingBuffer != null)
               pushSamples(chMeta.leadingBuffer, chMeta.readCursor);
+            // Drain intermediate buffers (burst crossed multiple allocations).
             for (let s = 0; s < allocated.series.length - 1; s++)
               pushSamples(allocated.series[s], 0);
+            // Switch to the newest buffer.
             [chMeta.leadingBuffer, chMeta.readCursor] = [
               allocated.series[allocated.series.length - 1],
               0,
             ];
           }
+          // Read new in-place writes to the current leading buffer.
           const buf = chMeta.leadingBuffer;
           if (buf == null || buf.length <= chMeta.readCursor) continue;
           if (chMeta.skipSeed) {
@@ -187,9 +193,12 @@ export class StreamMultiChannelLog
     }
   }
 
+  // Evicts stale entries from the front of the array. Returns the count so
+  // the caller can adjust scroll offset and selection indices.
   private gcEntries(): number {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
     const threshold = this.now().sub(keepFor).valueOf();
+    // Single splice instead of shift() loop to avoid O(n²).
     const cutoff = this.entries.findIndex((e) => e.timestamp >= threshold);
     let evicted = 0;
     if (cutoff > 0) {

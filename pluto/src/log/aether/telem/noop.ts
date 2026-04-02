@@ -8,25 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor, type observe } from "@synnaxlabs/x";
-import { z } from "zod";
 
-import { type Source, sourceSpecZ, type Telem } from "@/telem/aether/telem";
+import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
-export interface LogEntry {
-  channelKey: number;
-  timestamp: bigint;
-  value: string;
-}
-
-export interface LogSource extends Source<LogEntry[]> {
-  readonly evictedCount: number;
-  setChannels?: (channels: Array<number | string>) => void;
-}
-
-export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });
-export type LogSourceSpec = z.infer<typeof logSourceSpecZ>;
-
-class NoopLogSource implements LogSource {
+export class NoopLogSource implements LogSource {
   static readonly TYPE = "noop-log-source";
   readonly evictedCount = 0;
 
@@ -46,8 +31,4 @@ export const noopLogSourceSpec: LogSourceSpec = {
   props: {},
   variant: "source",
   valueType: "log",
-};
-
-export const NOOP_LOG_REGISTRY: Record<string, new () => Telem> = {
-  [NoopLogSource.TYPE]: NoopLogSource as unknown as new () => Telem,
 };

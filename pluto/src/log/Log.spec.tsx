@@ -8,37 +8,41 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Aether.use mock is essential: it controls worker-computed state (empty, scrolling,
-// selectionStart, etc.) that cannot be set via props. This is the ONLY module mock.
-const mockAetherUse = vi.hoisted(() => vi.fn());
-vi.mock("@/aether", () => ({
-  Aether: { use: (...args: unknown[]) => mockAetherUse(...args) },
-}));
-
-// Channel.useRetrieveMultiple needs Flux provider (not available without Aether).
-// Canvas.useRegion needs Aether. Triggers.use needs Triggers.Provider.
-// These hooks depend on providers that require real Aether internally,
-// so they must remain mocked while Aether.use is mocked.
-const mockUseRetrieveMultiple = vi.hoisted(() =>
-  vi.fn(
-    (_arg?: unknown) =>
-      ({ data: null }) as { data: Array<{ key: number; name: string }> | null },
-  ),
-);
-vi.mock("@/channel", () => ({
-  Channel: {
-    useRetrieveMultiple: (...args: unknown[]) => mockUseRetrieveMultiple(...args),
-  },
-}));
-vi.mock("@/vis/canvas", () => ({
-  Canvas: { useRegion: () => vi.fn() },
-}));
-vi.mock("@/triggers", () => ({ Triggers: { use: vi.fn() } }));
-
-// All UI components (Button, Icon, Menu, Status, CSS) render for real.
 import { Log } from "@/log/Log";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Triggers } from "@/triggers";
+
+// Partial Aether mock: only intercepts type "log" for controlling worker-computed
+// state (empty, scrolling, selectionStart, etc.). All other Aether consumers
+// (Status, Flux, etc.) get the real implementation via the test providers.
+// Type assertions below follow existing vi.mock patterns (vitest doesn't expose
+// module types from importOriginal without import() annotations, which lint forbids).
+const mockAetherUse = vi.hoisted(() => vi.fn());
+vi.mock("@/aether", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const realAether = actual.Aether as Record<string, unknown>;
+  return {
+    ...actual,
+    Aether: {
+      ...realAether,
+      use: (...args: unknown[]) => {
+        const opts = args[0] as { type?: string } | undefined;
+        if (opts?.type === "log") return mockAetherUse(...args);
+        return (realAether.use as Function)(...args);
+      },
+    },
+  };
+});
+
+const SynnaxWrapper = createSynnaxWrapper({ client: null });
+const Wrapper: FC<PropsWithChildren> = ({ children }) => (
+  <SynnaxWrapper>
+    <Triggers.Provider>{children}</Triggers.Provider>
+  </SynnaxWrapper>
+);
 
 const DEFAULT_STATE = {
   region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
@@ -71,6 +75,18 @@ const setupAether = (overrides: Record<string, unknown> = {}) => {
   return { setState, state };
 };
 
+const renderLog = (props: Record<string, unknown> = {}) =>
+  render(<Log {...props} />, { wrapper: Wrapper });
+
+const getLogDiv = (container: HTMLElement): HTMLElement => {
+  const div = container.querySelector(".pluto-log");
+  if (div == null) throw new Error(".pluto-log not found");
+  return div as HTMLElement;
+};
+
+const getAetherInitialState = (): Record<string, unknown> =>
+  mockAetherUse.mock.calls[0][0].initialState;
+
 describe("log/Log", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,24 +99,24 @@ describe("log/Log", () => {
 
   describe("rendering", () => {
     it("should render the empty content when state is empty", () => {
-      render(<Log />);
+      renderLog();
       expect(screen.getByText("Empty Log")).toBeDefined();
     });
 
     it("should render the live button when not empty", () => {
       setupAether({ empty: false, entryCount: 10 });
-      const { container } = render(<Log />);
+      const { container } = renderLog();
       const liveButton = container.querySelector(".pluto-log__live");
       expect(liveButton).not.toBeNull();
     });
 
     it("should render custom empty content when provided", () => {
-      render(<Log emptyContent={<div data-testid="custom-empty">No data</div>} />);
+      renderLog({ emptyContent: <div data-testid="custom-empty">No data</div> });
       expect(screen.getByTestId("custom-empty")).toBeDefined();
     });
 
     it("should apply className to the container div", () => {
-      const { container } = render(<Log className="my-class" />);
+      const { container } = renderLog({ className: "my-class" });
       const div = container.querySelector(".my-class");
       expect(div).not.toBeNull();
     });
@@ -109,7 +125,7 @@ describe("log/Log", () => {
   describe("live button", () => {
     it("should toggle scrolling when clicked", () => {
       const { setState } = setupAether({ empty: false, scrolling: false });
-      const { container } = render(<Log />);
+      const { container } = renderLog();
       const btn = container.querySelector(".pluto-log__live") as HTMLElement;
       fireEvent.click(btn);
       expect(setState).toHaveBeenCalled();
@@ -123,8 +139,8 @@ describe("log/Log", () => {
         computedLineHeight: 16,
         visibleStart: 0,
       });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
       expect(setState).toHaveBeenCalled();
     });
@@ -134,8 +150,8 @@ describe("log/Log", () => {
         empty: false,
         computedLineHeight: 16,
       });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       const callsBefore = setState.mock.calls.length;
       fireEvent.mouseDown(logDiv, { button: 2, clientY: 50 });
       expect(setState.mock.calls.length).toBe(callsBefore);
@@ -146,8 +162,8 @@ describe("log/Log", () => {
         empty: false,
         computedLineHeight: 16,
       });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
       const callsAfterDown = setState.mock.calls.length;
       fireEvent.mouseMove(logDiv, { clientY: 80 });
@@ -156,8 +172,8 @@ describe("log/Log", () => {
 
     it("should handle mouse up events", () => {
       setupAether({ empty: false, computedLineHeight: 16 });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.mouseUp(logDiv);
     });
 
@@ -169,8 +185,8 @@ describe("log/Log", () => {
         selectionStart: 0,
         selectionEnd: 0,
       });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 100, shiftKey: true });
       expect(setState).toHaveBeenCalled();
     });
@@ -179,80 +195,86 @@ describe("log/Log", () => {
   describe("wheel events", () => {
     it("should call setState on scroll up", () => {
       const { setState } = setupAether({ empty: false });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.wheel(logDiv, { deltaY: -100 });
       expect(setState).toHaveBeenCalled();
     });
 
     it("should call setState on scroll down", () => {
       const { setState } = setupAether({ empty: false, scrolling: false });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.wheel(logDiv, { deltaY: 100 });
       expect(setState).toHaveBeenCalled();
     });
   });
 
-  describe("channel name resolution", () => {
-    it("should filter numeric channels for retrieval", () => {
-      render(
-        <Log channels={[{ channel: 1 }, { channel: 2 }, { channel: "virtual" }]} />,
+  describe("copy", () => {
+    it("should no-op onCopy when no text is selected", () => {
+      setupAether({ empty: false, selectedText: "" });
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
+      const prevented = fireEvent.copy(logDiv);
+      expect(prevented).toBe(true);
+    });
+
+    it("should write to clipboardData onCopy when text is selected", () => {
+      setupAether({
+        empty: false,
+        selectedText: "hello",
+        selectedLines: [{ text: "hello", color: "" }],
+      });
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
+      const setData = vi.fn();
+      const event = new Event("copy", { bubbles: true });
+      Object.defineProperty(event, "clipboardData", {
+        value: { setData },
+      });
+      logDiv.dispatchEvent(event);
+      expect(setData).toHaveBeenCalledWith("text/plain", "hello");
+      expect(setData).toHaveBeenCalledWith(
+        "text/html",
+        expect.stringContaining("hello"),
       );
-      expect(mockUseRetrieveMultiple).toHaveBeenCalledWith({ keys: [1, 2] });
     });
+  });
 
-    it("should filter out zero channel keys", () => {
-      render(<Log channels={[{ channel: 0 }, { channel: 1 }, { channel: 2 }]} />);
-      expect(mockUseRetrieveMultiple).toHaveBeenCalledWith({ keys: [1, 2] });
-    });
-
-    it("should pass empty array when no numeric channels", () => {
-      render(<Log channels={[{ channel: "virtual1" }, { channel: "virtual2" }]} />);
-      expect(mockUseRetrieveMultiple).toHaveBeenCalledWith({ keys: [] });
-    });
-
-    it("should build channelNames from retrieved channels", () => {
-      mockUseRetrieveMultiple.mockReturnValue({
-        data: [
-          { key: 1, name: "Temperature" },
-          { key: 2, name: "Pressure" },
-        ],
+  describe("channel name resolution", () => {
+    it("should pass channels to aether state", () => {
+      renderLog({
+        channels: [{ channel: 1 }, { channel: 2 }, { channel: "virtual" }],
       });
-      render(<Log channels={[{ channel: 1 }, { channel: 2 }]} />);
       expect(mockAetherUse).toHaveBeenCalled();
-      const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.channelNames).toEqual({
-        "1": "Temperature",
-        "2": "Pressure",
-      });
+      expect(getAetherInitialState().channels).toEqual([
+        { channel: 1 },
+        { channel: 2 },
+        { channel: "virtual" },
+      ]);
     });
   });
 
   describe("props forwarding", () => {
     it("should pass showChannelNames to aether state", () => {
-      render(<Log showChannelNames={false} />);
-      const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.showChannelNames).toBe(false);
+      renderLog({ showChannelNames: false });
+      expect(getAetherInitialState().showChannelNames).toBe(false);
     });
 
     it("should pass timestampPrecision to aether state", () => {
-      render(<Log timestampPrecision={3} />);
-      const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.timestampPrecision).toBe(3);
+      renderLog({ timestampPrecision: 3 });
+      expect(getAetherInitialState().timestampPrecision).toBe(3);
     });
 
     it("should default visible to true", () => {
-      render(<Log />);
-      const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.visible).toBe(true);
+      renderLog();
+      expect(getAetherInitialState().visible).toBe(true);
     });
 
     it("should pass channels with configs to aether state", () => {
       const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
-      render(<Log channels={channels} />);
-      const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.channels).toEqual(channels);
+      renderLog({ channels });
+      expect(getAetherInitialState().channels).toEqual(channels);
     });
   });
 
@@ -263,8 +285,8 @@ describe("log/Log", () => {
         computedLineHeight: 0,
         visibleStart: 0,
       });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 100 });
       expect(setState).toHaveBeenCalled();
     });
@@ -276,8 +298,8 @@ describe("log/Log", () => {
         visibleStart: 5,
         region: { one: { x: 0, y: 100 }, two: { x: 400, y: 600 } },
       });
-      const { container } = render(<Log />);
-      const logDiv = container.querySelector(".pluto-log") as HTMLElement;
+      const { container } = renderLog();
+      const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 150 });
       expect(setState).toHaveBeenCalled();
     });

@@ -15,13 +15,13 @@ import {
   type LogEntry,
   type LogSource,
   logSourceSpecZ,
-  noopLogSourceSpec,
-} from "@/log/aether/types";
+} from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+import { noopLogSourceSpec } from "./telem/noop";
 
 export const channelConfigZ = z.object({
   color: z.string().default(""),
@@ -201,6 +201,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const { scrolling, wheelPos } = this.state;
     const lh = i.lineHeight;
 
+    // Scrollback: snapshot the current position when the user first pauses scrolling.
     const justEnteredScrollback = this.state.scrolling && !this.prevState.scrolling;
     if (justEnteredScrollback) {
       const off = this.entries.length;
@@ -210,6 +211,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         scrollRef: this.state.wheelPos,
       };
     } else if (scrolling) {
+      // Adjust viewport offset based on wheel delta from the snapshot reference.
       const { scrollState } = this;
       const dist = Math.ceil((wheelPos - scrollState.scrollRef) / lh);
       const visCount = this.calcVisibleLineCount(lh);
@@ -217,20 +219,25 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         visCount,
         Math.min(scrollState.offsetRef - dist, this.entries.length),
       );
+      // Clamp: if scrolled to top, lock wheel position to prevent over-scroll.
       if (scrollState.offset <= visCount) {
         scrollState.offset = visCount;
         this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
+      // Auto-resume live mode when scrolled back to the bottom.
       if (scrollState.offset >= this.entries.length)
         this.setState((s) => ({ ...s, scrolling: false }));
     }
 
+    // Pull current entries and subscribe to new data from the telem source.
     this.entries = this.internal.telem.value();
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { evictedCount } = this.internal.telem.wrapped;
       this.entries = this.internal.telem.value();
+      // When old entries are evicted, adjust scroll offset and selection indices
+      // so they still point at the same logical entries.
       if (evictedCount > 0) {
         if (this.state.scrolling)
           this.scrollState.offset = Math.max(
