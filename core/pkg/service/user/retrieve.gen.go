@@ -30,11 +30,21 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereUsernames filters for users whose Username matches any of the provided values.
-func (r Retrieve) WhereUsernames(vals ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, e *User) (bool, error) {
+// WhereUsernames returns a filter for users whose Username matches any of the provided values.
+func WhereUsernames(vals ...string) gorp.Filter[Key, User] {
+	return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
 		return lo.Contains(vals, e.Username), nil
 	})
+}
+
+func (r Retrieve) WhereUsernames(vals ...string) Retrieve {
+	r.gorp = r.gorp.Where(WhereUsernames(vals...))
+	return r
+}
+
+// Where applies the provided filters to the query.
+func (r Retrieve) Where(filters ...gorp.Filter[Key, User]) Retrieve {
+	r.gorp = r.gorp.Where(filters...)
 	return r
 }
 

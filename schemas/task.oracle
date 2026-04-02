@@ -88,15 +88,15 @@ Task struct<
         @key
     }
     name     string               {
-        @doc value       "is a human-readable name for the task."
-        @filter required
+        @doc value "is a human-readable name for the task."
+        @filter
     }
     type     Type                 {
-        @doc value       """
+        @doc value """
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
-        @filter required
+        @filter
     }
     config   Config               {
         @doc value """

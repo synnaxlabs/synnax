@@ -27,6 +27,12 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
+// Where applies the provided filters to the query.
+func (r Retrieve) Where(filters ...gorp.Filter[Key, Rack]) Retrieve {
+	r.gorp = r.gorp.Where(filters...)
+	return r
+}
+
 // Entry binds the provided rack as the result container for the query. If
 // multiple racks match, the first one is used.
 func (r Retrieve) Entry(e *Rack) Retrieve {

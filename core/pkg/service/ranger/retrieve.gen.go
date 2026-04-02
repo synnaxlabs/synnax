@@ -28,11 +28,21 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereNames filters for ranges whose Name matches any of the provided values.
-func (r Retrieve) WhereNames(vals ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Range) (bool, error) {
+// WhereNames returns a filter for ranges whose Name matches any of the provided values.
+func WhereNames(vals ...string) gorp.Filter[Key, Range] {
+	return gorp.Match(func(_ gorp.Context, e *Range) (bool, error) {
 		return lo.Contains(vals, e.Name), nil
 	})
+}
+
+func (r Retrieve) WhereNames(vals ...string) Retrieve {
+	r.gorp = r.gorp.Where(WhereNames(vals...))
+	return r
+}
+
+// Where applies the provided filters to the query.
+func (r Retrieve) Where(filters ...gorp.Filter[Key, Range]) Retrieve {
+	r.gorp = r.gorp.Where(filters...)
 	return r
 }
 

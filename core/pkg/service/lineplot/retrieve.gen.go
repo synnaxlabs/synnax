@@ -29,6 +29,12 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
+// Where applies the provided filters to the query.
+func (r Retrieve) Where(filters ...gorp.Filter[Key, LinePlot]) Retrieve {
+	r.gorp = r.gorp.Where(filters...)
+	return r
+}
+
 // Entry binds the provided lineplot as the result container for the query. If
 // multiple lineplots match, the first one is used.
 func (r Retrieve) Entry(e *LinePlot) Retrieve {

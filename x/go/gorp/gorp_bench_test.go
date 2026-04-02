@@ -290,9 +290,9 @@ func BenchmarkRetrieveByFilter(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var results []benchEntry
 				if err := gorp.NewRetrieve[int32, benchEntry](nil).
-					Where(func(_ gorp.Context, e *benchEntry) (bool, error) {
+					Where(gorp.Match[int32, benchEntry](func(_ gorp.Context, e *benchEntry) (bool, error) {
 						return e.ID < half, nil
-					}).
+					})).
 					Entries(&results).
 					Exec(ctx, db); err != nil {
 					b.Fatal(err)

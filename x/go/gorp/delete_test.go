@@ -42,16 +42,16 @@ var _ = Describe("Delete", func() {
 			Expect(gorp.NewCreate[int32, entry](nil).
 				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewDelete[int32, entry](nil).Where(func(_ gorp.Context, e *entry) (bool, error) {
+			Expect(gorp.NewDelete[int32, entry](nil).Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
 				return e.Data == "Synnax", nil
-			}).Exec(ctx, tx)).To(Succeed())
+			})).Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewRetrieve[int32, entry](nil).WhereKeys(1).Exists(ctx, tx)).To(BeFalse())
 		})
 
 		It("Should not return an error if the entry does not exist", func(ctx SpecContext) {
-			Expect(gorp.NewDelete[int32, entry](nil).Where(func(_ gorp.Context, e *entry) (bool, error) {
+			Expect(gorp.NewDelete[int32, entry](nil).Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
 				return e.Data == "Synnax", nil
-			}).Exec(ctx, tx)).To(Succeed())
+			})).Exec(ctx, tx)).To(Succeed())
 		})
 	})
 

@@ -117,9 +117,8 @@ type filterInfo struct {
 	FieldName  string // oracle field name
 	GoName     string // PascalCase
 	GoType     string // resolved Go type
-	IsScalar   bool   // @filter scalar or bool type
-	IsBool     bool   // underlying primitive is bool
-	IsRequired bool   // @filter required
+	IsScalar bool // @filter scalar or bool type
+	IsBool   bool // underlying primitive is bool
 }
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
@@ -263,7 +262,6 @@ func extractRetrieveInfo(
 		isBool := primitive == "bool"
 
 		isScalar := isBool || plugindomain.HasExprFromField(field, "filter", "scalar")
-		isRequired := plugindomain.HasExprFromField(field, "filter", "required")
 
 		goType := r.ResolveTypeRef(field.Type, ctx)
 		goFieldName := naming.GetFieldName(field)
@@ -271,10 +269,9 @@ func extractRetrieveInfo(
 		filters = append(filters, filterInfo{
 			FieldName:  field.Name,
 			GoName:     goFieldName,
-			GoType:     goType,
-			IsScalar:   isScalar,
-			IsBool:     isBool,
-			IsRequired: isRequired,
+			GoType:   goType,
+			IsScalar: isScalar,
+			IsBool:   isBool,
 		})
 	}
 
@@ -362,31 +359,49 @@ func (r Retrieve) WhereKeys(keys ...{{$ret.KeyType}}) Retrieve {
 }
 {{range .Filters}}
 {{- if .IsBool}}
-// Where{{.GoName}} filters for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
-func (r Retrieve) Where{{.GoName}}(v bool, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+// Where{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
+func Where{{.GoName}}(v bool) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return e.{{.GoName}} == v, nil
-	}, opts...)
+	})
+}
+
+func (r Retrieve) Where{{.GoName}}(v bool) Retrieve {
+	r.gorp = r.gorp.Where(Where{{.GoName}}(v))
 	return r
 }
 {{else if .IsScalar}}
-// Where{{.GoName}} filters for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
-func (r Retrieve) Where{{.GoName}}(v {{.GoType}}, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+// Where{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
+func Where{{.GoName}}(v {{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return e.{{.GoName}} == v, nil
-	}, opts...)
+	})
+}
+
+func (r Retrieve) Where{{.GoName}}(v {{.GoType}}) Retrieve {
+	r.gorp = r.gorp.Where(Where{{.GoName}}(v))
 	return r
 }
 {{else}}
-// Where{{.GoName | pluralize}} filters for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
-func (r Retrieve) Where{{.GoName | pluralize}}(vals ...{{.GoType}}) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+// Where{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
+func Where{{.GoName | pluralize}}(vals ...{{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return lo.Contains(vals, e.{{.GoName}}), nil
-	}{{if .IsRequired}}, gorp.Required(){{end}})
+	})
+}
+
+func (r Retrieve) Where{{.GoName | pluralize}}(vals ...{{.GoType}}) Retrieve {
+	r.gorp = r.gorp.Where(Where{{.GoName | pluralize}}(vals...))
 	return r
 }
 {{end}}
 {{- end}}
+// Where applies the provided filters to the query.
+func (r Retrieve) Where(filters ...gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}]) Retrieve {
+	r.gorp = r.gorp.Where(filters...)
+	return r
+}
+
 // Entry binds the provided {{$ret.GoName | toLower}} as the result container for the query. If
 // multiple {{$ret.GoName | toLower | pluralize}} match, the first one is used.
 func (r Retrieve) Entry(e *{{$ret.GoName}}) Retrieve {

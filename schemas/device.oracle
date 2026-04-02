@@ -51,12 +51,12 @@ Device struct<
     rack       rack.Key      {
         @doc value         "is the key of the rack that owns this device."
         @validate required
-        @filter required
+        @filter
     }
     location   string        {
         @doc value         "is the physical location or address of the device."
         @validate required
-        @filter required
+        @filter
     }
     make       Make          {
         @doc value         """
@@ -64,12 +64,12 @@ Device struct<
             Instruments').
         """
         @validate required
-        @filter required
+        @filter
     }
     model      Model         {
         @doc value         "is the device model identifier."
         @validate required
-        @filter required
+        @filter
     }
     name       string        {
         @doc value         "is a human-readable name for the device."

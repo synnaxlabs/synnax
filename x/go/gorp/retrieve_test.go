@@ -89,7 +89,7 @@ var _ = Describe("Retrieve", func() {
 			})
 			It("Should return true when a filter is set", func() {
 				q := gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, _ *entry) (bool, error) { return true, nil })
+					Where(gorp.Match[int32, entry](func(_ gorp.Context, _ *entry) (bool, error) { return true, nil }))
 				Expect(q.HasFilters()).To(BeTrue())
 			})
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Retrieve", func() {
 			})
 			It("Should return a query.ErrNotFound error if the where clause matches no entry", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 241241, nil }).
+					Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 241241, nil })).
 					Entry(&entry{}).
 					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
@@ -258,36 +258,72 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry](nil).
 				Entries(&res).
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }).
+				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil })).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1]}))
 		})
-		It("Should support isMultiple filters", func(ctx SpecContext) {
+		It("Should AND multiple Where calls together", func(ctx SpecContext) {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry](nil).
 				Entries(&res).
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }).
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[2].ID, nil }).
+				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil })).
+				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID > 2, nil })).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[3], entries[4]}))
+		})
+		It("Should support Or combinator", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry](nil).
+				Entries(&res).
+				Where(gorp.Or[int32, entry](
+					gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }),
+					gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[2].ID, nil }),
+				)).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2]}))
 		})
-		It("Should require a filter to match when gorp.Required()", func(ctx SpecContext) {
+		It("Should support Not combinator", func(ctx SpecContext) {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry](nil).
 				Entries(&res).
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }, gorp.Required()).
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[2].ID, nil }).
+				Where(gorp.Not[int32, entry](
+					gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID >= 5, nil }),
+				)).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[1]}))
+			Expect(res).To(HaveLen(5))
+			for _, e := range res {
+				Expect(e.ID).To(BeNumerically("<", 5))
+			}
+		})
+		It("Should support nested And(Or(...), Or(...))", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry](nil).
+				Entries(&res).
+				Where(gorp.And[int32, entry](
+					gorp.Or[int32, entry](
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 1, nil }),
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 2, nil }),
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 3, nil }),
+					),
+					gorp.Or[int32, entry](
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 2, nil }),
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 3, nil }),
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 4, nil }),
+					),
+				)).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[2], entries[3]}))
 		})
 		It("Should NOT return a query.NamesNotFound error if no entries are found", func(ctx SpecContext) {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry](nil).
 				Entries(&res).
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil }).
+				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil })).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(BeEmpty())
@@ -295,14 +331,18 @@ var _ = Describe("Retrieve", func() {
 		Describe("exists", func() {
 			It("Should return true if ANY entries exist", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 44444, nil }).
+					Where(gorp.Or[int32, entry](
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }),
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 44444, nil }),
+					)).
 					Exists(ctx, tx)).To(BeTrue())
 			})
 			It("Should return false if ALL entries do not exist", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil }).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 44444, nil }).
+					Where(gorp.Or[int32, entry](
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil }),
+						gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID == 44444, nil }),
+					)).
 					Exists(ctx, tx)).To(BeFalse())
 			})
 		})
@@ -388,9 +428,9 @@ var _ = Describe("Retrieve", func() {
 	})
 	Describe("HasFilters", func() {
 		It("Should return true when Where has been called", func() {
-			q := gorp.NewRetrieve[int32, entry](nil).Where(func(_ gorp.Context, e *entry) (bool, error) {
+			q := gorp.NewRetrieve[int32, entry](nil).Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
 				return e.ID == 1, nil
-			})
+			}))
 			Expect(q.HasFilters()).To(BeTrue())
 		})
 		It("Should return false when Where has not been called", func() {
@@ -420,32 +460,32 @@ var _ = Describe("Retrieve", func() {
 		Context("Where", func() {
 			It("Should count entries matching a filter", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
+					Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil })).
 					Count(ctx, tx)).To(Equal(5))
 			})
 
 			It("Should return zero for non-matching filters", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID > 100, nil }).
+					Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID > 100, nil })).
 					Count(ctx, tx)).To(Equal(0))
 			})
 
-			It("Should handle multiple filters", func(ctx SpecContext) {
+			It("Should AND multiple Where calls", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }, gorp.Required()).
-					Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID > 2, nil }, gorp.Required()).
-					Count(ctx, tx)).To(Equal(2)) // Should count entries with ID 3 and 4
+					Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil })).
+					Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) { return e.ID > 2, nil })).
+					Count(ctx, tx)).To(Equal(2))
 			})
 
 			It("Should pass the correct transaction in the Context of the Where clause", func(ctx SpecContext) {
 				callCount := 0
 				Expect(gorp.NewRetrieve[int32, entry](nil).
-					Where(func(gCtx gorp.Context, _ *entry) (bool, error) {
+					Where(gorp.Match[int32, entry](func(gCtx gorp.Context, _ *entry) (bool, error) {
 						callCount++
 						Expect(gCtx.Context).To(BeIdenticalTo(ctx))
 						Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 						return false, nil
-					}).Count(ctx, tx)).To(Equal(0))
+					})).Count(ctx, tx)).To(Equal(0))
 				Expect(callCount).To(BeNumerically(">", 0))
 			})
 		})
@@ -488,7 +528,6 @@ var _ = Describe("Retrieve", func() {
 
 		Context("No Parameters", func() {
 			It("Should count all entries", func(ctx SpecContext) {
-				// Based on the 10 entries created in BeforeEach
 				Expect(gorp.NewRetrieve[int32, entry](nil).Count(ctx, tx)).To(Equal(10))
 			})
 		})
