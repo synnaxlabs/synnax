@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xstatus "github.com/synnaxlabs/x/status"
 )
 
 type Service struct {
@@ -101,6 +102,8 @@ type RetrieveRequest struct {
 	// HasLabels retrieves statuses that are labeled by one or more labels with the
 	// given keys.
 	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+	// Variants filters for statuses with the given variants.
+	Variants []xstatus.Variant `json:"variants" msgpack:"variants"`
 	// Limit is the maximum number of statuses to retrieve.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
@@ -132,6 +135,9 @@ func (s *Service) Retrieve(
 	}
 	if len(req.HasLabels) > 0 {
 		q = q.WhereHasLabels(req.HasLabels...)
+	}
+	if len(req.Variants) > 0 {
+		q = q.WhereVariants(req.Variants...)
 	}
 	if len(req.Keys) != 0 {
 		q = q.WhereKeys(req.Keys...)
