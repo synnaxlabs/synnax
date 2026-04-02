@@ -13,7 +13,7 @@ package view
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a saved view configuration.
@@ -30,5 +30,5 @@ type View struct {
 	Type string `json:"type" msgpack:"type"`
 	// Query is a type-agnostic JSON object containing view-specific configuration and query
 	// parameters.
-	Query binary.MsgpackEncodedJSON `json:"query" msgpack:"query"`
+	Query msgpack.EncodedJSON `json:"query" msgpack:"query"`
 }
