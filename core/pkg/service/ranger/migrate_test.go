@@ -61,6 +61,85 @@ var _ = Describe("Migrate", func() {
 	AfterEach(func() {
 		Expect(closer.Close()).To(Succeed())
 	})
+	It("should succeed when no Ranges group exists", func(ctx SpecContext) {
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:             db,
+			Ontology:       otg,
+			Group:          gSvc,
+			Label:          lab,
+			ForceMigration: new(true),
+			Search:         searchIdx,
+		}))
+		Expect(svc.Close()).To(Succeed())
+	})
+	It("should delete an empty group without creating a parent range", func(ctx SpecContext) {
+		bareTable := MustSucceed(gorp.OpenTable[uuid.UUID, ranger.Range](
+			ctx, gorp.TableConfig[ranger.Range]{DB: db},
+		))
+
+		tx := db.OpenTx()
+		tlg := MustSucceed(gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID))
+		MustSucceed(gSvc.NewWriter(tx).Create(ctx, "EmptyGroup", tlg.OntologyID()))
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(tx.Close()).To(Succeed())
+		Expect(bareTable.Close()).To(Succeed())
+
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:             db,
+			Ontology:       otg,
+			Group:          gSvc,
+			Label:          lab,
+			ForceMigration: new(true),
+			Search:         searchIdx,
+		}))
+
+		var g group.Group
+		Expect(gSvc.NewRetrieve().WhereNames("Ranges").Entry(&g).Exec(ctx, nil)).
+			To(MatchError(query.ErrNotFound))
+		Expect(gSvc.NewRetrieve().WhereNames("EmptyGroup").Entry(&g).Exec(ctx, nil)).
+			To(MatchError(query.ErrNotFound))
+
+		var emptyRange ranger.Range
+		Expect(svc.NewRetrieve().WhereNames("EmptyGroup").Entry(&emptyRange).Exec(ctx, nil)).
+			To(MatchError(query.ErrNotFound))
+		Expect(svc.Close()).To(Succeed())
+	})
+	It("should swap invalid time ranges where Start > End", func(ctx SpecContext) {
+		bareTable := MustSucceed(gorp.OpenTable[uuid.UUID, ranger.Range](
+			ctx, gorp.TableConfig[ranger.Range]{DB: db},
+		))
+
+		tx := db.OpenTx()
+		r := ranger.Range{
+			Key:  uuid.New(),
+			Name: "Inverted",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(30 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(bareTable.NewCreate().Entry(&r).Exec(ctx, tx)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(tx.Close()).To(Succeed())
+		Expect(bareTable.Close()).To(Succeed())
+
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:             db,
+			Ontology:       otg,
+			Group:          gSvc,
+			Label:          lab,
+			ForceMigration: new(true),
+			Search:         searchIdx,
+		}))
+
+		var retrieved ranger.Range
+		Expect(svc.NewRetrieve().WhereNames("Inverted").Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+		Expect(retrieved.TimeRange).To(Equal(telem.TimeRange{
+			Start: telem.TimeStamp(10 * telem.Second),
+			End:   telem.TimeStamp(30 * telem.Second),
+		}))
+		Expect(svc.Close()).To(Succeed())
+	})
 	It("should migrate subgroups to parent ranges and delete groups", func(ctx SpecContext) {
 		// Open a bare Range table with only the codec transition migration.
 		// This simulates the state of the DB before the range_groups migration

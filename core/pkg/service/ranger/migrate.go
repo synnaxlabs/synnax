@@ -26,15 +26,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type rangeGroupsMigration struct {
+type groupsMigration struct {
 	otg   *ontology.Ontology
 	group *group.Service
 	codec encoding.Codec
 }
 
-func (m *rangeGroupsMigration) Name() string { return "range_groups" }
+func (m *groupsMigration) Name() string { return "range_groups" }
 
-func (m *rangeGroupsMigration) Run(
+func (m *groupsMigration) Run(
 	ctx context.Context,
 	kvTx kv.Tx,
 	migCfg gorp.MigrationConfig,
@@ -167,7 +167,7 @@ func (m *rangeGroupsMigration) Run(
 	return nil
 }
 
-func (m *rangeGroupsMigration) swapRanges(
+func (m *groupsMigration) swapRanges(
 	ctx context.Context,
 	kvTx kv.Tx,
 	prefix []byte,
@@ -196,7 +196,7 @@ func (m *rangeGroupsMigration) swapRanges(
 	return err
 }
 
-func (m *rangeGroupsMigration) loadAllRanges(
+func (m *groupsMigration) loadAllRanges(
 	ctx context.Context,
 	kvTx kv.Tx,
 	prefix []byte,
@@ -219,7 +219,7 @@ func (m *rangeGroupsMigration) loadAllRanges(
 	return result, err
 }
 
-func (m *rangeGroupsMigration) writeRange(
+func (m *groupsMigration) writeRange(
 	ctx context.Context,
 	kvTx kv.Tx,
 	prefix []byte,
@@ -247,12 +247,12 @@ func encodeUUIDKey(prefix []byte, id uuid.UUID) []byte {
 // necessary because the migration runs AFTER NewCodecTransition and the
 // entries are already in ORC binary format.
 func newRangeGroupsMigration(cfg ServiceConfig) gorp.Migration {
-	return gorp.WithDependencies(&rangeGroupsMigration{
+	return gorp.WithDependencies(&groupsMigration{
 		otg:   cfg.Ontology,
 		group: cfg.Group,
 		codec: RangeCodec,
 	}, "msgpack_to_binary")
 }
 
-// Ensure rangeGroupsMigration implements the Migration interface at compile time.
-var _ gorp.Migration = (*rangeGroupsMigration)(nil)
+// Ensure groupsMigration implements the Migration interface at compile time.
+var _ gorp.Migration = (*groupsMigration)(nil)
