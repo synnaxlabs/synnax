@@ -90,12 +90,15 @@ func (f *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, val
 
 // Decode implements the Decoder interface.
 func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) error {
+	var errs []error
 	for _, c := range f.Codecs {
-		if err := c.Decode(ctx, data, value); err == nil {
-			return err
+		if err := c.Decode(ctx, data, value); err != nil {
+			errs = append(errs, err)
+		} else {
+			return nil
 		}
 	}
-	return nil
+	return errors.Wrap(errors.Join(errs...), "all codecs failed to decode")
 }
 
 // DecodeStream implements the Decoder interface.
@@ -113,10 +116,13 @@ func (f *decodeFallbackCodec) DecodeStream(
 	if err != nil {
 		return err
 	}
+	var errs []error
 	for _, c := range f.Codecs {
-		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err == nil {
-			return err
+		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err != nil {
+			errs = append(errs, err)
+		} else {
+			return nil
 		}
 	}
-	return err
+	return errors.Wrap(errors.Join(errs...), "all codecs failed to decode")
 }

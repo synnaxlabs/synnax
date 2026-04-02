@@ -39,9 +39,15 @@ var _ = Describe("Codec", func() {
 			Expect(fbc.Decode(ctx, gobB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 		})
-		It("Should return the error of the last decoder if all codecs fail", func(ctx SpecContext) {
+		It("Should return the error of the last encoder if all codecs fail to encode", func(ctx SpecContext) {
 			fbc := binary.NewDecodeFallbackCodec(&gob.Codec{}, &json.Codec{})
 			Expect(fbc.Encode(ctx, make(chan int))).Error().To(HaveOccurred())
+		})
+		It("Should return an error when all codecs fail to decode", func(ctx SpecContext) {
+			fbc := binary.NewDecodeFallbackCodec(&gob.Codec{}, &json.Codec{})
+			invalidData := []byte("completely invalid data")
+			var res struct{ Value int }
+			Expect(fbc.Decode(ctx, invalidData, &res)).To(MatchError(ContainSubstring("all codecs failed to decode")))
 		})
 		It("Should handle DecodeStream fallback correctly", func(ctx SpecContext) {
 			js := &json.Codec{}
@@ -62,7 +68,7 @@ var _ = Describe("Codec", func() {
 			fbc := binary.NewDecodeFallbackCodec(&gob.Codec{}, &json.Codec{})
 			invalidData := []byte("completely invalid data")
 			var res struct{ Value int }
-			Expect(fbc.DecodeStream(ctx, bytes.NewReader(invalidData), &res)).To(HaveOccurred())
+			Expect(fbc.DecodeStream(ctx, bytes.NewReader(invalidData), &res)).To(MatchError(ContainSubstring("all codecs failed to decode")))
 		})
 	})
 })
