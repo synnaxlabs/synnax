@@ -13,17 +13,16 @@ package channel
 
 import (
 	"context"
-	"encoding/binary"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/x/control"
+	xencoding "github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/telem"
 	"io"
 	"sync"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/telem"
 )
 
-func EncodeChannel(w *xbinary.Writer, s *Channel) error {
+func EncodeChannel(w *orc.Writer, s *Channel) error {
 	w.String(s.Name)
 	w.Uint16(uint16(s.Leaseholder))
 	w.String(string(s.DataType))
@@ -33,17 +32,20 @@ func EncodeChannel(w *xbinary.Writer, s *Channel) error {
 	w.Bool(s.Virtual)
 	w.Int64(int64(s.Concurrency))
 	w.Bool(s.Internal)
-	w.Uint32(uint32(len(s.Operations)))
-	for i := range s.Operations {
-		if err := EncodeOperation(w, &s.Operations[i]); err != nil {
-			return err
+	w.Bool(s.Operations != nil)
+	if s.Operations != nil {
+		w.Uint32(uint32(len(s.Operations)))
+		for i := range s.Operations {
+			if err := EncodeOperation(w, &s.Operations[i]); err != nil {
+				return err
+			}
 		}
 	}
 	w.String(s.Expression)
 	return nil
 }
 
-func DecodeChannel(r *xbinary.Reader, s *Channel) error {
+func DecodeChannel(r *orc.Reader, s *Channel) error {
 	var err error
 	if s.Name, err = r.String(); err != nil {
 		return err
@@ -93,14 +95,20 @@ func DecodeChannel(r *xbinary.Reader, s *Channel) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.Operations = make([]Operation, n)
-		for i := range s.Operations {
-			if err = DecodeOperation(r, &s.Operations[i]); err != nil {
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
 				return err
+			}
+			s.Operations = make([]Operation, n)
+			for i := range s.Operations {
+				if err = DecodeOperation(r, &s.Operations[i]); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -110,14 +118,14 @@ func DecodeChannel(r *xbinary.Reader, s *Channel) error {
 	return nil
 }
 
-func EncodeOperation(w *xbinary.Writer, s *Operation) error {
+func EncodeOperation(w *orc.Writer, s *Operation) error {
 	w.String(string(s.Type))
 	w.Uint32(uint32(s.ResetChannel))
 	w.Int64(int64(s.Duration))
 	return nil
 }
 
-func DecodeOperation(r *xbinary.Reader, s *Operation) error {
+func DecodeOperation(r *orc.Reader, s *Operation) error {
 	{
 		v, err := r.String()
 		if err != nil {
@@ -142,21 +150,22 @@ func DecodeOperation(r *xbinary.Reader, s *Operation) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type channelCodec struct{}
 
-var ChannelCodec xbinary.Codec = channelCodec{}
+var ChannelCodec xencoding.Codec = channelCodec{}
 
 func (channelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Channel)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeChannel(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeChannel(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c channelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -170,11 +179,10 @@ func (c channelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) 
 
 func (channelCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Channel)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeChannel(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeChannel(r, s)
 }
 
 func (c channelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

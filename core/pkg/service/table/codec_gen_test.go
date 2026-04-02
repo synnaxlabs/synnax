@@ -12,57 +12,134 @@
 package table_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Table", func() {
-		It("should round-trip encode and decode", func() {
-			original := table.Table{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(table.EncodeTable(w, &original)).To(Succeed())
-			var decoded table.Table
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(table.DecodeTable(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original table.Table) {
+				w := orc.NewWriter(0)
+				Expect(table.EncodeTable(w, &original)).To(Succeed())
+				var decoded table.Table
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(table.DecodeTable(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", table.Table{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: map[string]interface{}{"key_3": "value_3"},
+			}),
+			Entry("zero values", table.Table{
+				Key:  uuid.Nil,
+				Name: "",
+				Data: nil,
+			}),
+		)
 	})
 	Describe("TableCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := table.Table{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}}
-			ctx := context.Background()
-			data, err := table.TableCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded table.Table
-			Expect(table.TableCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original table.Table) {
+				ctx := context.Background()
+				data := MustSucceed(table.TableCodec.Encode(ctx, original))
+				var decoded table.Table
+				Expect(table.TableCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", table.Table{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: map[string]interface{}{"key_3": "value_3"},
+			}),
+			Entry("zero values", table.Table{
+				Key:  uuid.Nil,
+				Name: "",
+				Data: nil,
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeTable(b *testing.B) {
-	s := table.Table{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := table.Table{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Data: map[string]interface{}{"key_3": "value_3"},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := table.EncodeTable(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded table.Table
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := table.DecodeTable(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeTable(f *testing.F) {
+	{
+		seed := table.Table{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Data: map[string]interface{}{"key_3": "value_3"},
+		}
+		w := orc.NewWriter(0)
+		if err := table.EncodeTable(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := table.Table{
+			Key:  uuid.Nil,
+			Name: "",
+			Data: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := table.EncodeTable(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded table.Table
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := table.DecodeTable(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := table.EncodeTable(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded table.Table
+		r.ResetBytes(w1.Bytes())
+		if err := table.DecodeTable(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := table.EncodeTable(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

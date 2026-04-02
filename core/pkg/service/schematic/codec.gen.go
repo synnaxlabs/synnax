@@ -13,254 +13,71 @@ package schematic
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
+	xencoding "github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/spatial"
 )
 
-func EncodeSchematic(w *xbinary.Writer, s *Schematic) error {
+func EncodeSchematic(w *orc.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
+	{
+		b, err := json.Marshal(s.Data)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
 	w.Bool(s.Snapshot)
-	w.Uint8(uint8(s.Authority))
-	if err := EncodeLegend(w, &s.Legend); err != nil {
-		return err
-	}
-	w.Uint32(uint32(len(s.Nodes)))
-	for i := range s.Nodes {
-		if err := EncodeNode(w, &s.Nodes[i]); err != nil {
-			return err
-		}
-	}
-	w.Uint32(uint32(len(s.Edges)))
-	for i := range s.Edges {
-		if err := EncodeEdge(w, &s.Edges[i]); err != nil {
-			return err
-		}
-	}
-	w.Uint32(uint32(len(s.Props)))
-	for key, val := range s.Props {
-		w.String(key)
-		{
-			b, err := json.Marshal(val)
-			if err != nil {
-				return err
-			}
-			w.Uint32(uint32(len(b)))
-			w.Write(b)
-		}
-	}
 	return nil
 }
 
-func DecodeSchematic(r *xbinary.Reader, s *Schematic) error {
+func DecodeSchematic(r *orc.Reader, s *Schematic) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
+	{
+		n, err := r.CollectionLen()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Data); err != nil {
+			return err
+		}
+	}
 	if s.Snapshot, err = r.Bool(); err != nil {
 		return err
 	}
-	{
-		v, err := r.Uint8()
-		if err != nil {
-			return err
-		}
-		s.Authority = control.Authority(v)
-	}
-	if err = DecodeLegend(r, &s.Legend); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Nodes = make([]Node, n)
-		for i := range s.Nodes {
-			if err = DecodeNode(r, &s.Nodes[i]); err != nil {
-				return err
-			}
-		}
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Edges = make([]Edge, n)
-		for i := range s.Edges {
-			if err = DecodeEdge(r, &s.Edges[i]); err != nil {
-				return err
-			}
-		}
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Props = make(map[string]interface{}, n)
-		for range n {
-			var key string
-			var val interface{}
-			if key, err = r.String(); err != nil {
-				return err
-			}
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				b := make([]byte, n)
-				if _, err = r.Read(b); err != nil {
-					return err
-				}
-				if err = json.Unmarshal(b, &val); err != nil {
-					return err
-				}
-			}
-			s.Props[key] = val
-		}
-	}
 	return nil
 }
 
-func EncodeLegend(w *xbinary.Writer, s *Legend) error {
-	w.Bool(s.Visible)
-	if err := spatial.EncodeStickyXY(w, &s.Position); err != nil {
-		return err
-	}
-	w.Uint32(uint32(len(s.Colors)))
-	for key, val := range s.Colors {
-		w.String(key)
-		if err := color.EncodeColor(w, &val); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func DecodeLegend(r *xbinary.Reader, s *Legend) error {
-	var err error
-	if s.Visible, err = r.Bool(); err != nil {
-		return err
-	}
-	if err = spatial.DecodeStickyXY(r, &s.Position); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Colors = make(map[string]color.Color, n)
-		for range n {
-			var key string
-			var val color.Color
-			if key, err = r.String(); err != nil {
-				return err
-			}
-			if err = color.DecodeColor(r, &val); err != nil {
-				return err
-			}
-			s.Colors[key] = val
-		}
-	}
-	return nil
-}
-
-func EncodeNode(w *xbinary.Writer, s *Node) error {
-	w.String(s.Key)
-	if err := spatial.EncodeXY(w, &s.Position); err != nil {
-		return err
-	}
-	if err := spatial.EncodeDimensions(w, &s.Measured); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeNode(r *xbinary.Reader, s *Node) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = spatial.DecodeXY(r, &s.Position); err != nil {
-		return err
-	}
-	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeEdge(w *xbinary.Writer, s *Edge) error {
-	w.String(s.Key)
-	if err := EncodeHandle(w, &s.Source); err != nil {
-		return err
-	}
-	if err := EncodeHandle(w, &s.Target); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEdge(r *xbinary.Reader, s *Edge) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Source); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Target); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeHandle(w *xbinary.Writer, s *Handle) error {
-	w.String(s.Node)
-	w.String(s.Param)
-	return nil
-}
-
-func DecodeHandle(r *xbinary.Reader, s *Handle) error {
-	var err error
-	if s.Node, err = r.String(); err != nil {
-		return err
-	}
-	if s.Param, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type schematicCodec struct{}
 
-var SchematicCodec xbinary.Codec = schematicCodec{}
+var SchematicCodec xencoding.Codec = schematicCodec{}
 
 func (schematicCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Schematic)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeSchematic(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeSchematic(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c schematicCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -274,11 +91,10 @@ func (c schematicCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 
 func (schematicCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Schematic)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeSchematic(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeSchematic(r, s)
 }
 
 func (c schematicCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

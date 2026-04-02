@@ -13,84 +13,11 @@ package schematic
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
-
-// EdgeVariant is the visual style of an edge connector.
-type EdgeVariant string
-
-const (
-	EdgeVariantPipe      EdgeVariant = "pipe"
-	EdgeVariantElectric  EdgeVariant = "electric"
-	EdgeVariantSecondary EdgeVariant = "secondary"
-	EdgeVariantJacketed  EdgeVariant = "jacketed"
-	EdgeVariantHydraulic EdgeVariant = "hydraulic"
-	EdgeVariantPneumatic EdgeVariant = "pneumatic"
-	EdgeVariantData      EdgeVariant = "data"
-)
-
-// Legend is the control legend overlay configuration.
-type Legend struct {
-	// Visible is whether the legend is visible.
-	Visible bool `json:"visible" msgpack:"visible"`
-	// Position is the legend position within the schematic.
-	Position spatial.StickyXY `json:"position" msgpack:"position"`
-	// Colors maps control status keys to their display colors.
-	Colors map[string]color.Color `json:"colors" msgpack:"colors"`
-}
-
-// Node is a diagram node representing a symbol in the schematic.
-type Node struct {
-	// Key is the unique node identifier within the schematic.
-	Key string `json:"key" msgpack:"key"`
-	// Position is the top-left position of the node.
-	Position spatial.XY `json:"position" msgpack:"position"`
-	// Measured contains the measured dimensions from rendering.
-	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
-}
-
-// Handle is a reference to a specific connection point on a specific node. For
-// schematics, param is the symbol handle key (e.g. inlet, outlet).
-type Handle struct {
-	// Node is the node identifier.
-	Node string `json:"node" msgpack:"node"`
-	// Param is the connection point identifier on the node.
-	Param string `json:"param" msgpack:"param"`
-}
-
-// Segment is an orthogonal path segment with a direction and signed length.
-type Segment struct {
-	// Direction is the axis of travel: x (horizontal) or y (vertical).
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Length is the signed distance along the axis.
-	Length float64 `json:"length" msgpack:"length"`
-}
-
-// EdgeProps contains visual properties for an edge, stored in schematic props.
-type EdgeProps struct {
-	// Segments defines the orthogonal path segments from source to target.
-	Segments []Segment `json:"segments" msgpack:"segments"`
-	// Variant is the visual style of the edge.
-	Variant EdgeVariant `json:"variant" msgpack:"variant"`
-	// Color is the optional display color.
-	Color color.Color `json:"color" msgpack:"color"`
-}
-
-// Edge is a connection between two nodes in the schematic.
-type Edge struct {
-	// Key is the unique edge identifier within the schematic.
-	Key string `json:"key" msgpack:"key"`
-	// Source is the source endpoint of the edge.
-	Source Handle `json:"source" msgpack:"source"`
-	// Target is the target endpoint of the edge.
-	Target Handle `json:"target" msgpack:"target"`
-}
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
@@ -100,17 +27,9 @@ type Schematic struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the schematic.
 	Name string `json:"name" msgpack:"name"`
+	// Data is the schematic content including symbols, connections, and layout
+	// configuration.
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	// Authority is the control authority level for this schematic.
-	Authority control.Authority `json:"authority" msgpack:"authority"`
-	// Legend is the control legend overlay configuration.
-	Legend Legend `json:"legend" msgpack:"legend"`
-	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes" msgpack:"nodes"`
-	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges" msgpack:"edges"`
-	// Props contains symbol-specific properties keyed by node key, including colors,
-	// labels, and other visual configuration.
-	Props map[string]binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
 }

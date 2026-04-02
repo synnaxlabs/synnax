@@ -68,10 +68,11 @@ func StatusDetailsListFromPB(pbs []*StatusDetails) ([]rack.StatusDetails, error)
 // RackToPB converts Rack to Rack.
 func RackToPB(r rack.Rack) (*Rack, error) {
 	pb := &Rack{
-		Key:         uint32(r.Key),
-		Name:        r.Name,
-		TaskCounter: r.TaskCounter,
-		Embedded:    r.Embedded,
+		Key:          uint32(r.Key),
+		Name:         r.Name,
+		TaskCounter:  r.TaskCounter,
+		Embedded:     r.Embedded,
+		Integrations: r.Integrations,
 	}
 	if r.Status != nil {
 		var err error
@@ -93,6 +94,7 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	r.Name = pb.Name
 	r.TaskCounter = pb.TaskCounter
 	r.Embedded = pb.Embedded
+	r.Integrations = pb.Integrations
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[rack.StatusDetails](pb.Status, StatusDetailsFromPBAny)
 		if err != nil {

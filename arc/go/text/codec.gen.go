@@ -12,15 +12,15 @@
 package text
 
 import (
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeText(w *xbinary.Writer, s *Text) error {
+func EncodeText(w *orc.Writer, s *Text) error {
 	w.String(s.Raw)
 	return nil
 }
 
-func DecodeText(r *xbinary.Reader, s *Text) error {
+func DecodeText(r *orc.Reader, s *Text) error {
 	var err error
 	if s.Raw, err = r.String(); err != nil {
 		return err

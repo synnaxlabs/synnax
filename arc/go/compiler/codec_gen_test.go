@@ -12,44 +12,108 @@
 package compiler_test
 
 import (
-	"encoding/binary"
+	"bytes"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/arc/compiler"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Output", func() {
-		It("should round-trip encode and decode", func() {
-			original := compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{"test": 7}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(compiler.EncodeOutput(w, &original)).To(Succeed())
-			var decoded compiler.Output
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(compiler.DecodeOutput(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original compiler.Output) {
+				w := orc.NewWriter(0)
+				Expect(compiler.EncodeOutput(w, &original)).To(Succeed())
+				var decoded compiler.Output
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(compiler.DecodeOutput(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", compiler.Output{
+				WASM:              []byte{1, 2, 3},
+				OutputMemoryBases: map[string]uint32{"test_2": 3},
+			}),
+			Entry("zero values", compiler.Output{WASM: nil, OutputMemoryBases: nil}),
+			Entry("empty collections", compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeOutput(b *testing.B) {
-	s := compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{"test": 7}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := compiler.Output{
+		WASM:              []byte{1, 2, 3},
+		OutputMemoryBases: map[string]uint32{"test_2": 3},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := compiler.EncodeOutput(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded compiler.Output
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := compiler.DecodeOutput(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeOutput(f *testing.F) {
+	{
+		seed := compiler.Output{
+			WASM:              []byte{1, 2, 3},
+			OutputMemoryBases: map[string]uint32{"test_2": 3},
+		}
+		w := orc.NewWriter(0)
+		if err := compiler.EncodeOutput(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := compiler.Output{WASM: nil, OutputMemoryBases: nil}
+		w := orc.NewWriter(0)
+		if err := compiler.EncodeOutput(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}
+		w := orc.NewWriter(0)
+		if err := compiler.EncodeOutput(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded compiler.Output
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := compiler.DecodeOutput(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := compiler.EncodeOutput(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded compiler.Output
+		r.ResetBytes(w1.Bytes())
+		if err := compiler.DecodeOutput(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := compiler.EncodeOutput(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

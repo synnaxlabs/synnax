@@ -13,22 +13,21 @@ package group
 
 import (
 	"context"
-	"encoding/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeGroup(w *xbinary.Writer, s *Group) error {
+func EncodeGroup(w *orc.Writer, s *Group) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	return nil
 }
 
-func DecodeGroup(r *xbinary.Reader, s *Group) error {
+func DecodeGroup(r *orc.Reader, s *Group) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
@@ -37,21 +36,22 @@ func DecodeGroup(r *xbinary.Reader, s *Group) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type groupCodec struct{}
 
-var GroupCodec xbinary.Codec = groupCodec{}
+var GroupCodec xencoding.Codec = groupCodec{}
 
 func (groupCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Group)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeGroup(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeGroup(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c groupCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -65,11 +65,10 @@ func (c groupCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 
 func (groupCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Group)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeGroup(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeGroup(r, s)
 }
 
 func (c groupCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

@@ -9,13 +9,15 @@
 
 package cmd
 
+import "github.com/spf13/cobra"
+
 // Flag constants for type safety
 const (
 	verboseFlag = "verbose"
 )
 
-func configureRootFlags() {
-	rootCmd.PersistentFlags().BoolP(
+func configureRootFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolP(
 		verboseFlag,
 		"v",
 		false,

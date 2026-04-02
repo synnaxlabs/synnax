@@ -12,14 +12,15 @@
 package label_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/label"
@@ -27,43 +28,154 @@ import (
 
 var _ = Describe("Codec", func() {
 	Describe("Label", func() {
-		It("should round-trip encode and decode", func() {
-			original := label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(label.EncodeLabel(w, &original)).To(Succeed())
-			var decoded label.Label
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(label.DecodeLabel(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original label.Label) {
+				w := orc.NewWriter(0)
+				Expect(label.EncodeLabel(w, &original)).To(Succeed())
+				var decoded label.Label
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(label.DecodeLabel(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", label.Label{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Color: color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				},
+			}),
+			Entry("zero values", label.Label{
+				Key:  uuid.Nil,
+				Name: "",
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
+			}),
+		)
 	})
 	Describe("LabelCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}
-			ctx := context.Background()
-			data, err := label.LabelCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded label.Label
-			Expect(label.LabelCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original label.Label) {
+				ctx := context.Background()
+				data := MustSucceed(label.LabelCodec.Encode(ctx, original))
+				var decoded label.Label
+				Expect(label.LabelCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", label.Label{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Color: color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				},
+			}),
+			Entry("zero values", label.Label{
+				Key:  uuid.Nil,
+				Name: "",
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeLabel(b *testing.B) {
-	s := label.Label{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := label.Label{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Color: color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 7.5,
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := label.EncodeLabel(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded label.Label
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := label.DecodeLabel(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeLabel(f *testing.F) {
+	{
+		seed := label.Label{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Color: color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := label.EncodeLabel(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := label.Label{
+			Key:  uuid.Nil,
+			Name: "",
+			Color: color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := label.EncodeLabel(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded label.Label
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := label.DecodeLabel(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := label.EncodeLabel(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded label.Label
+		r.ResetBytes(w1.Bytes())
+		if err := label.DecodeLabel(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := label.EncodeLabel(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

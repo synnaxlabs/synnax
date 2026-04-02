@@ -12,13 +12,14 @@
 package channel_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -27,53 +28,194 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Operation", func() {
-		It("should round-trip encode and decode", func() {
-			original := channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(channel.EncodeOperation(w, &original)).To(Succeed())
-			var decoded channel.Operation
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(channel.DecodeOperation(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Channel", func() {
-		It("should round-trip encode and decode", func() {
-			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(channel.EncodeChannel(w, &original)).To(Succeed())
-			var decoded channel.Channel
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(channel.DecodeChannel(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original channel.Channel) {
+				w := orc.NewWriter(0)
+				Expect(channel.EncodeChannel(w, &original)).To(Succeed())
+				var decoded channel.Channel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(channel.DecodeChannel(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", channel.Channel{
+				Name:        "test_1",
+				Leaseholder: cluster.NodeKey(3),
+				DataType:    telem.DataType("test_3"),
+				IsIndex:     false,
+				LocalKey:    channel.LocalKey(6),
+				LocalIndex:  channel.LocalKey(7),
+				Virtual:     true,
+				Concurrency: control.Concurrency(0),
+				Internal:    true,
+				Operations: []channel.Operation{
+					{
+						Type:         channel.OperationType("min"),
+						ResetChannel: channel.Key(13),
+						Duration:     telem.TimeSpan(14),
+					},
+				},
+				Expression: "test_14",
+			}),
+			Entry("zero values", channel.Channel{
+				Name:        "",
+				Leaseholder: cluster.NodeKey(0),
+				DataType:    telem.DataType(""),
+				IsIndex:     false,
+				LocalKey:    channel.LocalKey(0),
+				LocalIndex:  channel.LocalKey(0),
+				Virtual:     false,
+				Concurrency: control.Concurrency(0),
+				Internal:    false,
+				Operations:  nil,
+				Expression:  "",
+			}),
+			Entry("empty collections", channel.Channel{
+				Name:        "test_1",
+				Leaseholder: cluster.NodeKey(3),
+				DataType:    telem.DataType("test_3"),
+				IsIndex:     false,
+				LocalKey:    channel.LocalKey(6),
+				LocalIndex:  channel.LocalKey(7),
+				Virtual:     true,
+				Concurrency: control.Concurrency(0),
+				Internal:    true,
+				Operations:  []channel.Operation{},
+				Expression:  "test_11",
+			}),
+		)
+	})
+	Describe("Operation", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original channel.Operation) {
+				w := orc.NewWriter(0)
+				Expect(channel.EncodeOperation(w, &original)).To(Succeed())
+				var decoded channel.Operation
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(channel.DecodeOperation(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", channel.Operation{
+				Type:         channel.OperationType("min"),
+				ResetChannel: channel.Key(3),
+				Duration:     telem.TimeSpan(4),
+			}),
+			Entry("zero values", channel.Operation{
+				Type:         channel.OperationType(""),
+				ResetChannel: channel.Key(0),
+				Duration:     telem.TimeSpan(0),
+			}),
+		)
 	})
 	Describe("ChannelCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
-			ctx := context.Background()
-			data, err := channel.ChannelCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded channel.Channel
-			Expect(channel.ChannelCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original channel.Channel) {
+				ctx := context.Background()
+				data := MustSucceed(channel.ChannelCodec.Encode(ctx, original))
+				var decoded channel.Channel
+				Expect(channel.ChannelCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", channel.Channel{
+				Name:        "test_1",
+				Leaseholder: cluster.NodeKey(3),
+				DataType:    telem.DataType("test_3"),
+				IsIndex:     false,
+				LocalKey:    channel.LocalKey(6),
+				LocalIndex:  channel.LocalKey(7),
+				Virtual:     true,
+				Concurrency: control.Concurrency(0),
+				Internal:    true,
+				Operations: []channel.Operation{
+					{
+						Type:         channel.OperationType("min"),
+						ResetChannel: channel.Key(13),
+						Duration:     telem.TimeSpan(14),
+					},
+				},
+				Expression: "test_14",
+			}),
+			Entry("zero values", channel.Channel{
+				Name:        "",
+				Leaseholder: cluster.NodeKey(0),
+				DataType:    telem.DataType(""),
+				IsIndex:     false,
+				LocalKey:    channel.LocalKey(0),
+				LocalIndex:  channel.LocalKey(0),
+				Virtual:     false,
+				Concurrency: control.Concurrency(0),
+				Internal:    false,
+				Operations:  nil,
+				Expression:  "",
+			}),
+			Entry("empty collections", channel.Channel{
+				Name:        "test_1",
+				Leaseholder: cluster.NodeKey(3),
+				DataType:    telem.DataType("test_3"),
+				IsIndex:     false,
+				LocalKey:    channel.LocalKey(6),
+				LocalIndex:  channel.LocalKey(7),
+				Virtual:     true,
+				Concurrency: control.Concurrency(0),
+				Internal:    true,
+				Operations:  []channel.Operation{},
+				Expression:  "test_11",
+			}),
+		)
 	})
 })
 
+func BenchmarkEncodeDecodeChannel(b *testing.B) {
+	s := channel.Channel{
+		Name:        "test_1",
+		Leaseholder: cluster.NodeKey(3),
+		DataType:    telem.DataType("test_3"),
+		IsIndex:     false,
+		LocalKey:    channel.LocalKey(6),
+		LocalIndex:  channel.LocalKey(7),
+		Virtual:     true,
+		Concurrency: control.Concurrency(0),
+		Internal:    true,
+		Operations: []channel.Operation{
+			{
+				Type:         channel.OperationType("min"),
+				ResetChannel: channel.Key(13),
+				Duration:     telem.TimeSpan(14),
+			},
+		},
+		Expression: "test_14",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := channel.EncodeChannel(w, &s); err != nil {
+			b.Fatal(err)
+		}
+		var decoded channel.Channel
+		r.ResetBytes(w.Bytes())
+		if err := channel.DecodeChannel(r, &decoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeOperation(b *testing.B) {
-	s := channel.Operation{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := channel.Operation{
+		Type:         channel.OperationType("min"),
+		ResetChannel: channel.Key(3),
+		Duration:     telem.TimeSpan(4),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := channel.EncodeOperation(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Operation
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := channel.DecodeOperation(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -81,19 +223,146 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeChannel(b *testing.B) {
-	s := channel.Channel{Name: "test", Leaseholder: cluster.NodeKey(6), DataType: telem.DataType("test"), IsIndex: true, LocalKey: channel.LocalKey(7), LocalIndex: channel.LocalKey(7), Virtual: true, Concurrency: control.Concurrency(0), Internal: true, Operations: []channel.Operation{{Type: channel.OperationType("min"), ResetChannel: channel.Key(7), Duration: telem.TimeSpan(4)}}, Expression: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := channel.EncodeChannel(w, &s); err != nil {
-			b.Fatal(err)
+func FuzzDecodeChannel(f *testing.F) {
+	{
+		seed := channel.Channel{
+			Name:        "test_1",
+			Leaseholder: cluster.NodeKey(3),
+			DataType:    telem.DataType("test_3"),
+			IsIndex:     false,
+			LocalKey:    channel.LocalKey(6),
+			LocalIndex:  channel.LocalKey(7),
+			Virtual:     true,
+			Concurrency: control.Concurrency(0),
+			Internal:    true,
+			Operations: []channel.Operation{
+				{
+					Type:         channel.OperationType("min"),
+					ResetChannel: channel.Key(13),
+					Duration:     telem.TimeSpan(14),
+				},
+			},
+			Expression: "test_14",
 		}
-		var decoded channel.Channel
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := channel.DecodeChannel(r, &decoded); err != nil {
-			b.Fatal(err)
+		w := orc.NewWriter(0)
+		if err := channel.EncodeChannel(w, &seed); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
 	}
+	{
+		seed := channel.Channel{
+			Name:        "",
+			Leaseholder: cluster.NodeKey(0),
+			DataType:    telem.DataType(""),
+			IsIndex:     false,
+			LocalKey:    channel.LocalKey(0),
+			LocalIndex:  channel.LocalKey(0),
+			Virtual:     false,
+			Concurrency: control.Concurrency(0),
+			Internal:    false,
+			Operations:  nil,
+			Expression:  "",
+		}
+		w := orc.NewWriter(0)
+		if err := channel.EncodeChannel(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := channel.Channel{
+			Name:        "test_1",
+			Leaseholder: cluster.NodeKey(3),
+			DataType:    telem.DataType("test_3"),
+			IsIndex:     false,
+			LocalKey:    channel.LocalKey(6),
+			LocalIndex:  channel.LocalKey(7),
+			Virtual:     true,
+			Concurrency: control.Concurrency(0),
+			Internal:    true,
+			Operations:  []channel.Operation{},
+			Expression:  "test_11",
+		}
+		w := orc.NewWriter(0)
+		if err := channel.EncodeChannel(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded channel.Channel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := channel.DecodeChannel(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := channel.EncodeChannel(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded channel.Channel
+		r.ResetBytes(w1.Bytes())
+		if err := channel.DecodeChannel(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := channel.EncodeChannel(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeOperation(f *testing.F) {
+	{
+		seed := channel.Operation{
+			Type:         channel.OperationType("min"),
+			ResetChannel: channel.Key(3),
+			Duration:     telem.TimeSpan(4),
+		}
+		w := orc.NewWriter(0)
+		if err := channel.EncodeOperation(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := channel.Operation{
+			Type:         channel.OperationType(""),
+			ResetChannel: channel.Key(0),
+			Duration:     telem.TimeSpan(0),
+		}
+		w := orc.NewWriter(0)
+		if err := channel.EncodeOperation(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded channel.Operation
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := channel.DecodeOperation(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := channel.EncodeOperation(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded channel.Operation
+		r.ResetBytes(w1.Bytes())
+		if err := channel.DecodeOperation(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := channel.EncodeOperation(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

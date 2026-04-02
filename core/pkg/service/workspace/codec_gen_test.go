@@ -12,57 +12,141 @@
 package workspace_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Workspace", func() {
-		It("should round-trip encode and decode", func() {
-			original := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(workspace.EncodeWorkspace(w, &original)).To(Succeed())
-			var decoded workspace.Workspace
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(workspace.DecodeWorkspace(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original workspace.Workspace) {
+				w := orc.NewWriter(0)
+				Expect(workspace.EncodeWorkspace(w, &original)).To(Succeed())
+				var decoded workspace.Workspace
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(workspace.DecodeWorkspace(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", workspace.Workspace{
+				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:   "test_2",
+				Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+				Layout: map[string]interface{}{"key_4": "value_4"},
+			}),
+			Entry("zero values", workspace.Workspace{
+				Key:    uuid.Nil,
+				Name:   "",
+				Author: uuid.Nil,
+				Layout: nil,
+			}),
+		)
 	})
 	Describe("WorkspaceCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}}
-			ctx := context.Background()
-			data, err := workspace.WorkspaceCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded workspace.Workspace
-			Expect(workspace.WorkspaceCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original workspace.Workspace) {
+				ctx := context.Background()
+				data := MustSucceed(workspace.WorkspaceCodec.Encode(ctx, original))
+				var decoded workspace.Workspace
+				Expect(workspace.WorkspaceCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", workspace.Workspace{
+				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:   "test_2",
+				Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+				Layout: map[string]interface{}{"key_4": "value_4"},
+			}),
+			Entry("zero values", workspace.Workspace{
+				Key:    uuid.Nil,
+				Name:   "",
+				Author: uuid.Nil,
+				Layout: nil,
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeWorkspace(b *testing.B) {
-	s := workspace.Workspace{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Layout: map[string]interface{}{"key": "value"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := workspace.Workspace{
+		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:   "test_2",
+		Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+		Layout: map[string]interface{}{"key_4": "value_4"},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := workspace.EncodeWorkspace(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded workspace.Workspace
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := workspace.DecodeWorkspace(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeWorkspace(f *testing.F) {
+	{
+		seed := workspace.Workspace{
+			Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:   "test_2",
+			Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+			Layout: map[string]interface{}{"key_4": "value_4"},
+		}
+		w := orc.NewWriter(0)
+		if err := workspace.EncodeWorkspace(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := workspace.Workspace{
+			Key:    uuid.Nil,
+			Name:   "",
+			Author: uuid.Nil,
+			Layout: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := workspace.EncodeWorkspace(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded workspace.Workspace
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := workspace.DecodeWorkspace(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := workspace.EncodeWorkspace(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded workspace.Workspace
+		r.ResetBytes(w1.Bytes())
+		if err := workspace.DecodeWorkspace(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := workspace.EncodeWorkspace(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

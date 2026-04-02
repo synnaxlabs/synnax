@@ -12,14 +12,15 @@
 package rack_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/color"
@@ -30,61 +31,204 @@ import (
 
 var _ = Describe("Codec", func() {
 	Describe("Rack", func() {
-		It("should round-trip encode and decode", func() {
-			original := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
-				v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
-				return &v
-			}()}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(rack.EncodeRack(w, &original)).To(Succeed())
-			var decoded rack.Rack
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(rack.DecodeRack(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original rack.Rack) {
+				w := orc.NewWriter(0)
+				Expect(rack.EncodeRack(w, &original)).To(Succeed())
+				var decoded rack.Rack
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(rack.DecodeRack(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", rack.Rack{
+				Key:         rack.Key(2),
+				Name:        "test_2",
+				TaskCounter: 4,
+				Embedded:    false,
+				Status: func() *status.Status[rack.StatusDetails] {
+					v := status.Status[rack.StatusDetails]{
+						Key:         "test_6",
+						Name:        "test_7",
+						Variant:     status.Variant("success"),
+						Message:     "test_9",
+						Description: "test_10",
+						Time:        telem.TimeStamp(12),
+						Details:     rack.StatusDetails{Rack: rack.Key(14)},
+						Labels: []label.Label{
+							{
+								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+								Name: "test_16",
+								Color: color.Color{
+									R: 19,
+									G: 20,
+									B: 21,
+									A: 21.5,
+								},
+							},
+						},
+					}
+					return &v
+				}(),
+				Integrations: []string{"test_22"},
+			}),
+			Entry("zero values", rack.Rack{
+				Key:          rack.Key(0),
+				Name:         "",
+				TaskCounter:  0,
+				Embedded:     false,
+				Status:       nil,
+				Integrations: nil,
+			}),
+			Entry("empty collections", rack.Rack{
+				Key:         rack.Key(2),
+				Name:        "test_2",
+				TaskCounter: 4,
+				Embedded:    false,
+				Status: func() *status.Status[rack.StatusDetails] {
+					v := status.Status[rack.StatusDetails]{
+						Key:         "test_6",
+						Name:        "test_7",
+						Variant:     status.Variant("success"),
+						Message:     "test_9",
+						Description: "test_10",
+						Time:        telem.TimeStamp(12),
+						Details:     rack.StatusDetails{Rack: rack.Key(14)},
+						Labels:      []label.Label{},
+					}
+					return &v
+				}(),
+				Integrations: []string{},
+			}),
+		)
 	})
 	Describe("StatusDetails", func() {
-		It("should round-trip encode and decode", func() {
-			original := rack.StatusDetails{Rack: rack.Key(7)}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(rack.EncodeStatusDetails(w, &original)).To(Succeed())
-			var decoded rack.StatusDetails
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(rack.DecodeStatusDetails(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original rack.StatusDetails) {
+				w := orc.NewWriter(0)
+				Expect(rack.EncodeStatusDetails(w, &original)).To(Succeed())
+				var decoded rack.StatusDetails
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(rack.DecodeStatusDetails(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", rack.StatusDetails{Rack: rack.Key(2)}),
+			Entry("zero values", rack.StatusDetails{Rack: rack.Key(0)}),
+		)
 	})
 	Describe("RackCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
-				v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
-				return &v
-			}()}
-			ctx := context.Background()
-			data, err := rack.RackCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded rack.Rack
-			Expect(rack.RackCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original rack.Rack) {
+				ctx := context.Background()
+				data := MustSucceed(rack.RackCodec.Encode(ctx, original))
+				var decoded rack.Rack
+				Expect(rack.RackCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", rack.Rack{
+				Key:         rack.Key(2),
+				Name:        "test_2",
+				TaskCounter: 4,
+				Embedded:    false,
+				Status: func() *status.Status[rack.StatusDetails] {
+					v := status.Status[rack.StatusDetails]{
+						Key:         "test_6",
+						Name:        "test_7",
+						Variant:     status.Variant("success"),
+						Message:     "test_9",
+						Description: "test_10",
+						Time:        telem.TimeStamp(12),
+						Details:     rack.StatusDetails{Rack: rack.Key(14)},
+						Labels: []label.Label{
+							{
+								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+								Name: "test_16",
+								Color: color.Color{
+									R: 19,
+									G: 20,
+									B: 21,
+									A: 21.5,
+								},
+							},
+						},
+					}
+					return &v
+				}(),
+				Integrations: []string{"test_22"},
+			}),
+			Entry("zero values", rack.Rack{
+				Key:          rack.Key(0),
+				Name:         "",
+				TaskCounter:  0,
+				Embedded:     false,
+				Status:       nil,
+				Integrations: nil,
+			}),
+			Entry("empty collections", rack.Rack{
+				Key:         rack.Key(2),
+				Name:        "test_2",
+				TaskCounter: 4,
+				Embedded:    false,
+				Status: func() *status.Status[rack.StatusDetails] {
+					v := status.Status[rack.StatusDetails]{
+						Key:         "test_6",
+						Name:        "test_7",
+						Variant:     status.Variant("success"),
+						Message:     "test_9",
+						Description: "test_10",
+						Time:        telem.TimeStamp(12),
+						Details:     rack.StatusDetails{Rack: rack.Key(14)},
+						Labels:      []label.Label{},
+					}
+					return &v
+				}(),
+				Integrations: []string{},
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeRack(b *testing.B) {
-	s := rack.Rack{Key: rack.Key(7), Name: "test", TaskCounter: 7, Embedded: true, Status: func() *status.Status[rack.StatusDetails] {
-		v := status.Status[rack.StatusDetails]{Key: "test", Name: "test", Variant: status.Variant("success"), Message: "test", Description: "test", Time: telem.TimeStamp(4), Details: rack.StatusDetails{Rack: rack.Key(7)}, Labels: []label.Label{{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Color: color.Color{R: 5, G: 5, B: 5, A: 2.5}}}}
-		return &v
-	}()}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := rack.Rack{
+		Key:         rack.Key(2),
+		Name:        "test_2",
+		TaskCounter: 4,
+		Embedded:    false,
+		Status: func() *status.Status[rack.StatusDetails] {
+			v := status.Status[rack.StatusDetails]{
+				Key:         "test_6",
+				Name:        "test_7",
+				Variant:     status.Variant("success"),
+				Message:     "test_9",
+				Description: "test_10",
+				Time:        telem.TimeStamp(12),
+				Details:     rack.StatusDetails{Rack: rack.Key(14)},
+				Labels: []label.Label{
+					{
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+						Name: "test_16",
+						Color: color.Color{
+							R: 19,
+							G: 20,
+							B: 21,
+							A: 21.5,
+						},
+					},
+				},
+			}
+			return &v
+		}(),
+		Integrations: []string{"test_22"},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rack.EncodeRack(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.Rack
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeRack(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -93,18 +237,168 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	s := rack.StatusDetails{Rack: rack.Key(7)}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := rack.StatusDetails{Rack: rack.Key(2)}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rack.EncodeStatusDetails(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.StatusDetails
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeRack(f *testing.F) {
+	{
+		seed := rack.Rack{
+			Key:         rack.Key(2),
+			Name:        "test_2",
+			TaskCounter: 4,
+			Embedded:    false,
+			Status: func() *status.Status[rack.StatusDetails] {
+				v := status.Status[rack.StatusDetails]{
+					Key:         "test_6",
+					Name:        "test_7",
+					Variant:     status.Variant("success"),
+					Message:     "test_9",
+					Description: "test_10",
+					Time:        telem.TimeStamp(12),
+					Details:     rack.StatusDetails{Rack: rack.Key(14)},
+					Labels: []label.Label{
+						{
+							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+							Name: "test_16",
+							Color: color.Color{
+								R: 19,
+								G: 20,
+								B: 21,
+								A: 21.5,
+							},
+						},
+					},
+				}
+				return &v
+			}(),
+			Integrations: []string{"test_22"},
+		}
+		w := orc.NewWriter(0)
+		if err := rack.EncodeRack(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := rack.Rack{
+			Key:          rack.Key(0),
+			Name:         "",
+			TaskCounter:  0,
+			Embedded:     false,
+			Status:       nil,
+			Integrations: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := rack.EncodeRack(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := rack.Rack{
+			Key:         rack.Key(2),
+			Name:        "test_2",
+			TaskCounter: 4,
+			Embedded:    false,
+			Status: func() *status.Status[rack.StatusDetails] {
+				v := status.Status[rack.StatusDetails]{
+					Key:         "test_6",
+					Name:        "test_7",
+					Variant:     status.Variant("success"),
+					Message:     "test_9",
+					Description: "test_10",
+					Time:        telem.TimeStamp(12),
+					Details:     rack.StatusDetails{Rack: rack.Key(14)},
+					Labels:      []label.Label{},
+				}
+				return &v
+			}(),
+			Integrations: []string{},
+		}
+		w := orc.NewWriter(0)
+		if err := rack.EncodeRack(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded rack.Rack
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := rack.DecodeRack(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := rack.EncodeRack(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded rack.Rack
+		r.ResetBytes(w1.Bytes())
+		if err := rack.DecodeRack(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := rack.EncodeRack(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStatusDetails(f *testing.F) {
+	{
+		seed := rack.StatusDetails{Rack: rack.Key(2)}
+		w := orc.NewWriter(0)
+		if err := rack.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := rack.StatusDetails{Rack: rack.Key(0)}
+		w := orc.NewWriter(0)
+		if err := rack.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded rack.StatusDetails
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := rack.DecodeStatusDetails(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := rack.EncodeStatusDetails(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded rack.StatusDetails
+		r.ResetBytes(w1.Bytes())
+		if err := rack.DecodeStatusDetails(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := rack.EncodeStatusDetails(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

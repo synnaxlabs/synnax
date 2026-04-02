@@ -13,15 +13,14 @@ package table
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
+	xencoding "github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
-func EncodeTable(w *xbinary.Writer, s *Table) error {
+func EncodeTable(w *orc.Writer, s *Table) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	{
@@ -35,16 +34,16 @@ func EncodeTable(w *xbinary.Writer, s *Table) error {
 	return nil
 }
 
-func DecodeTable(r *xbinary.Reader, s *Table) error {
+func DecodeTable(r *orc.Reader, s *Table) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}
@@ -59,21 +58,22 @@ func DecodeTable(r *xbinary.Reader, s *Table) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type tableCodec struct{}
 
-var TableCodec xbinary.Codec = tableCodec{}
+var TableCodec xencoding.Codec = tableCodec{}
 
 func (tableCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Table)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeTable(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeTable(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -87,11 +87,10 @@ func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 
 func (tableCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Table)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeTable(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeTable(r, s)
 }
 
 func (c tableCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

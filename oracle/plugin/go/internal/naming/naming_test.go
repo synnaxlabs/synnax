@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/resolution"
 )
 
 var _ = Describe("IsScreamingCase", func() {
@@ -99,5 +100,68 @@ var _ = Describe("DerivePackageAlias", func() {
 		Expect(naming.DerivePackageAlias(
 			"github.com/synnaxlabs/synnax/arc/go/graph/migrations/v53", "v53",
 		)).To(Equal("graphv53"))
+	})
+})
+
+var _ = Describe("LowerFirst", func() {
+	DescribeTable("should lowercase the leading uppercase run",
+		func(input, expected string) {
+			Expect(naming.LowerFirst(input)).To(Equal(expected))
+		},
+		Entry("simple pascal", "Key", "key"),
+		Entry("acronym prefix", "HTTPClient", "httpClient"),
+		Entry("all uppercase", "ID", "id"),
+		Entry("single char", "A", "a"),
+		Entry("already lowercase", "key", "key"),
+		Entry("empty string", "", ""),
+		Entry("all uppercase long", "WASM", "wasm"),
+	)
+
+	It("should escape Go keywords after lowering", func() {
+		Expect(naming.LowerFirst("Type")).To(Equal("typeVal"))
+		Expect(naming.LowerFirst("Map")).To(Equal("mapVal"))
+		Expect(naming.LowerFirst("String")).To(Equal("stringVal"))
+	})
+})
+
+var _ = Describe("GetGoName", func() {
+	It("should return PascalCase of the type name by default", func() {
+		t := resolution.Type{Name: "user_key"}
+		Expect(naming.GetGoName(t)).To(Equal("UserKey"))
+	})
+
+	It("should use the go name override when present", func() {
+		t := resolution.Type{
+			Name: "user_key",
+			Domains: map[string]resolution.Domain{
+				"go": {
+					Expressions: []resolution.Expression{
+						{Name: "name", Values: []resolution.ExpressionValue{{IdentValue: "CustomName"}}},
+					},
+				},
+			},
+		}
+		Expect(naming.GetGoName(t)).To(Equal("CustomName"))
+	})
+})
+
+var _ = Describe("GetFieldName", func() {
+	It("should return PascalCase of the field name by default", func() {
+		f := resolution.Field{Name: "created_at"}
+		Expect(naming.GetFieldName(f)).To(Equal("CreatedAt"))
+	})
+
+	It("should use the go name override when present", func() {
+		f := resolution.Field{
+			Name: "created_at",
+			Domains: map[string]resolution.Domain{
+				"go": {
+					Expressions: []resolution.Expression{
+						{Name: "name", Values: []resolution.ExpressionValue{{IdentValue: "Timestamp"}}},
+					},
+				},
+			},
+		}
+		Expect(naming.GetFieldName(f)).To(Equal("Timestamp"))
 	})
 })

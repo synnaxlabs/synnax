@@ -238,7 +238,6 @@ APIChannel struct {
         storage and streaming in Synnax.
     """
     @go output     "core/pkg/api/channel"
-    @go marshal
     @ontology type "channel"
     @py name       "Payload"
     @ts name       "Payload"

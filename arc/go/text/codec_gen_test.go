@@ -12,44 +12,90 @@
 package text_test
 
 import (
-	"encoding/binary"
+	"bytes"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/arc/text"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Text", func() {
-		It("should round-trip encode and decode", func() {
-			original := text.Text{Raw: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(text.EncodeText(w, &original)).To(Succeed())
-			var decoded text.Text
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(text.DecodeText(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original text.Text) {
+				w := orc.NewWriter(0)
+				Expect(text.EncodeText(w, &original)).To(Succeed())
+				var decoded text.Text
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(text.DecodeText(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", text.Text{Raw: "test_1"}),
+			Entry("zero values", text.Text{Raw: ""}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeText(b *testing.B) {
-	s := text.Text{Raw: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := text.Text{Raw: "test_1"}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := text.EncodeText(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded text.Text
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := text.DecodeText(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeText(f *testing.F) {
+	{
+		seed := text.Text{Raw: "test_1"}
+		w := orc.NewWriter(0)
+		if err := text.EncodeText(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := text.Text{Raw: ""}
+		w := orc.NewWriter(0)
+		if err := text.EncodeText(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded text.Text
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := text.DecodeText(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := text.EncodeText(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded text.Text
+		r.ResetBytes(w1.Bytes())
+		if err := text.DecodeText(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := text.EncodeText(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

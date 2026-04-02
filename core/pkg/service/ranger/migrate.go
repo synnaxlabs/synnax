@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -29,7 +29,7 @@ import (
 type rangeGroupsMigration struct {
 	otg   *ontology.Ontology
 	group *group.Service
-	codec binary.Codec
+	codec encoding.Codec
 }
 
 func (m *rangeGroupsMigration) Name() string { return "range_groups" }

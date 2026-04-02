@@ -13,15 +13,14 @@ package rack
 
 import (
 	"context"
-	"encoding/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/status"
 	"io"
 	"sync"
-
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/status"
 )
 
-func EncodeRack(w *xbinary.Writer, s *Rack) error {
+func EncodeRack(w *orc.Writer, s *Rack) error {
 	w.Uint32(uint32(s.Key))
 	w.String(s.Name)
 	w.Uint32(uint32(s.TaskCounter))
@@ -34,10 +33,19 @@ func EncodeRack(w *xbinary.Writer, s *Rack) error {
 	} else {
 		w.Bool(false)
 	}
+	if s.Integrations != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Integrations)))
+		for j := range s.Integrations {
+			w.String(s.Integrations[j])
+		}
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
-func DecodeRack(r *xbinary.Reader, s *Rack) error {
+func DecodeRack(r *orc.Reader, s *Rack) error {
 	var err error
 	{
 		v, err := r.Uint32()
@@ -68,15 +76,33 @@ func DecodeRack(r *xbinary.Reader, s *Rack) error {
 			s.Status = &v
 		}
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Integrations = make([]string, n)
+			for j := range s.Integrations {
+				if s.Integrations[j], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
-func EncodeStatusDetails(w *xbinary.Writer, s *StatusDetails) error {
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
 	w.Uint32(uint32(s.Rack))
 	return nil
 }
 
-func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 	{
 		v, err := r.Uint32()
 		if err != nil {
@@ -87,21 +113,22 @@ func DecodeStatusDetails(r *xbinary.Reader, s *StatusDetails) error {
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type rackCodec struct{}
 
-var RackCodec xbinary.Codec = rackCodec{}
+var RackCodec xencoding.Codec = rackCodec{}
 
 func (rackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Rack)
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeRack(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeRack(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -115,11 +142,10 @@ func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 
 func (rackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Rack)
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeRack(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeRack(r, s)
 }
 
 func (c rackCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

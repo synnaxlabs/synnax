@@ -14,96 +14,13 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
-
-// Deprecated: Use Migration interface and OpenTable with variadic migrations.
-var ErrMigrationCountExceeded = errors.New(
-	"migration count is greater than the maximum of 255",
-)
-
-// Deprecated: Use Migration interface and OpenTable with variadic migrations.
-//
-// MigrationSpec defines a single migration that should be run with a transaction.
-type MigrationSpec struct {
-	// Migrate is the migration function to execute
-	Migrate func(context.Context, Tx) error
-	// Name is a unique identifier for this migration (e.g., "name_validation")
-	Name string
-}
-
-// Deprecated: Use Migration interface and OpenTable with variadic migrations.
-//
-// Migrator executes a series of migrations in order, tracking progress with
-// incrementing versions. Migrations are run sequentially from current_version + 1 up to
-// the latest version. The version starts at 0 (no migrations) and increments to
-// len(Migrations).
-type Migrator struct {
-	// Key is the KV store key used to track migration version (e.g.,
-	// "sy_channel_migration_version").
-	Key string
-	// Migrations is the ordered list of migrations to run.
-	Migrations []MigrationSpec
-	// Force, when true, will run all migrations, regardless of whether they have been
-	// completed or not. This is useful for testing or debugging.
-	Force bool
-}
-
-// Deprecated: Use Migration interface and OpenTable with variadic migrations.
-//
-// Run executes all migrations that haven't been completed yet. Migrations run
-// sequentially and the version is incremented after each successful migration.
-func (r Migrator) Run(ctx context.Context, db *DB) error {
-	return db.WithTx(ctx, func(tx Tx) error {
-		migrationCount := len(r.Migrations)
-		if migrationCount > 255 {
-			return errors.Wrapf(
-				ErrMigrationCountExceeded,
-				"migration count is greater than the maximum of 255: %d",
-				migrationCount,
-			)
-		}
-		var currentVersion uint8
-		if !r.Force {
-			versionBytes, closer, err := tx.Get(ctx, []byte(r.Key))
-			if err := errors.Skip(err, query.ErrNotFound); err != nil {
-				return err
-			}
-			if closer != nil {
-				if err := closer.Close(); err != nil {
-					return err
-				}
-			}
-			if len(versionBytes) > 0 {
-				currentVersion = versionBytes[0]
-			}
-		}
-		for i := currentVersion; i < uint8(migrationCount); i++ {
-			migration := r.Migrations[i]
-			newVersion := i + 1
-			if err := migration.Migrate(ctx, tx); err != nil {
-				return errors.Wrapf(
-					err,
-					"migration %d (%s) failed",
-					newVersion,
-					migration.Name,
-				)
-			}
-			if err := tx.Set(ctx, []byte(r.Key), []byte{newVersion}); err != nil {
-				return errors.Wrapf(
-					err,
-					"failed to migrate to version %d",
-					newVersion,
-				)
-			}
-		}
-		return nil
-	})
-}
 
 // Migration is a versioned schema migration that transforms entries stored in gorp.
 type Migration interface {
@@ -119,7 +36,7 @@ type Migration interface {
 // migrations carry their own codecs for version-specific encoding/decoding.
 type MigrationConfig struct {
 	Prefix  []byte
-	DBCodec binary.Codec
+	DBCodec encoding.Codec
 	L       *alamos.Logger
 }
 
@@ -130,15 +47,33 @@ type EntryCounter interface {
 	EntriesProcessed() int
 }
 
-const migrationProgressInterval = 10000
+const migrationProgressMax = 1000
+
+// shouldLogProgress returns true at logarithmically spaced intervals
+// (1, 10, 100, 1000) then every 1000 entries after that.
+func shouldLogProgress(entries int) bool {
+	if entries <= 0 {
+		return false
+	}
+	if entries >= migrationProgressMax {
+		return entries%migrationProgressMax == 0
+	}
+	for entries >= 10 {
+		if entries%10 != 0 {
+			return false
+		}
+		entries /= 10
+	}
+	return entries == 1
+}
 
 // TransformFunc transforms an old entry of type I into a new entry of type O.
 type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
 type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 	name        string
-	inputCodec  binary.Codec
-	outputCodec binary.Codec
+	inputCodec  encoding.Codec
+	outputCodec encoding.Codec
 	transform   TransformFunc[I, O]
 	entries     int
 }
@@ -150,8 +85,8 @@ type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 // If outputCodec is nil, MigrationConfig.DBCodec is used for encoding.
 func NewTypedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	name string,
-	inputCodec binary.Codec,
-	outputCodec binary.Codec,
+	inputCodec encoding.Codec,
+	outputCodec encoding.Codec,
 	transform TransformFunc[I, O],
 ) Migration {
 	return &typedMigration[IK, OK, I, O]{
@@ -170,7 +105,7 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 	ctx context.Context,
 	kvTx kv.Tx,
 	cfg MigrationConfig,
-) error {
+) (err error) {
 	m.entries = 0
 	inCodec := m.inputCodec
 	if inCodec == nil {
@@ -189,7 +124,7 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		m.entries++
-		if m.entries%migrationProgressInterval == 0 {
+		if shouldLogProgress(m.entries) {
 			cfg.L.Debug(
 				"migration progress",
 				zap.String("migration", m.name),
@@ -217,13 +152,13 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 
 type codecTransitionMigration[K Key, E Entry[K]] struct {
 	name    string
-	codec   binary.Codec
+	codec   encoding.Codec
 	entries int
 }
 
 // NewCodecTransition creates a Migration that re-encodes all entries from the DB's
 // default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
-func NewCodecTransition[K Key, E Entry[K]](name string, codec binary.Codec) Migration {
+func NewCodecTransition[K Key, E Entry[K]](name string, codec encoding.Codec) Migration {
 	return &codecTransitionMigration[K, E]{name: name, codec: codec}
 }
 
@@ -235,7 +170,7 @@ func (m *codecTransitionMigration[K, E]) Run(
 	ctx context.Context,
 	kvTx kv.Tx,
 	cfg MigrationConfig,
-) error {
+) (err error) {
 	m.entries = 0
 	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
 	if err != nil {
@@ -246,7 +181,7 @@ func (m *codecTransitionMigration[K, E]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		m.entries++
-		if m.entries%migrationProgressInterval == 0 {
+		if shouldLogProgress(m.entries) {
 			cfg.L.Debug(
 				"migration progress",
 				zap.String("migration", m.name),
@@ -326,18 +261,18 @@ func WithMigrationDep[T any](ctx context.Context, dep T) context.Context {
 }
 
 // MigrationDep retrieves a dependency previously injected via WithMigrationDep.
-// Panics if the dependency was not injected, since this indicates a programming
-// error (the service forgot to inject the dependency before calling OpenTable).
-func MigrationDep[T any](ctx context.Context) T {
+// Returns ErrMissingMigrationDep if the dependency was not injected.
+func MigrationDep[T any](ctx context.Context) (T, error) {
 	v, ok := ctx.Value(depKey[T]{}).(T)
 	if !ok {
-		panic(fmt.Sprintf(
-			"%s: %T not found in context",
+		var zero T
+		return zero, errors.Wrapf(
 			ErrMissingMigrationDep,
+			"%T not found in context",
 			*new(T),
-		))
+		)
 	}
-	return v
+	return v, nil
 }
 
 // MigrationDepOpt retrieves a dependency previously injected via WithMigrationDep.
@@ -347,25 +282,21 @@ func MigrationDepOpt[T any](ctx context.Context) (T, bool) {
 	return v, ok
 }
 
-// ErrCyclicDependency is returned when migrations form a dependency cycle.
-var ErrCyclicDependency = errors.New("cyclic dependency detected in migrations")
-
-// ErrMissingDependency is returned when a migration depends on a name that
-// does not exist in the migration list and has not already been applied.
-var ErrMissingDependency = errors.New("missing migration dependency")
-
 // topoSort filters out already-applied migrations, then produces a valid
-// execution order using Kahn's algorithm. Dependencies that are already applied
-// are considered satisfied and do not need to appear in the pending set.
-func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, error) {
+// execution order. Dependencies that are already applied are considered
+// satisfied and do not need to appear in the pending set.
+func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, error) {
 	byName := make(map[string]Migration, len(migrations))
 	for _, m := range migrations {
+		if _, dup := byName[m.Name()]; dup {
+			return nil, fmt.Errorf("duplicate migration name %q", m.Name())
+		}
 		byName[m.Name()] = m
 	}
 
 	var pending []Migration
 	for _, m := range migrations {
-		if !applied[m.Name()] {
+		if !applied.Contains(m.Name()) {
 			pending = append(pending, m)
 		}
 	}
@@ -384,59 +315,28 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 		return pending, nil
 	}
 
-	pendingSet := make(map[string]bool, len(pending))
-	for _, m := range pending {
-		pendingSet[m.Name()] = true
-	}
-
-	inDegree := make(map[string]int, len(pending))
-	dependents := make(map[string][]string, len(pending))
+	adj := make(map[string][]string, len(pending))
 	for _, m := range pending {
 		name := m.Name()
-		if _, exists := inDegree[name]; !exists {
-			inDegree[name] = 0
-		}
+		adj[name] = nil
 		if dd, ok := m.(DependencyDeclarer); ok {
 			for _, dep := range dd.Dependencies() {
-				if applied[dep] {
+				if applied.Contains(dep) {
 					continue
 				}
-				if !pendingSet[dep] {
-					if _, known := byName[dep]; !known {
-						return nil, fmt.Errorf(
-							"%w: migration %q depends on %q which does not exist",
-							ErrMissingDependency, name, dep,
-						)
-					}
-				}
-				inDegree[name]++
-				dependents[dep] = append(dependents[dep], name)
+				adj[name] = append(adj[name], dep)
 			}
 		}
 	}
 
-	var queue []string
-	for _, m := range pending {
-		if inDegree[m.Name()] == 0 {
-			queue = append(queue, m.Name())
-		}
+	order, err := graph.TopoSort(adj)
+	if err != nil {
+		return nil, err
 	}
 
-	var sorted []Migration
-	for len(queue) > 0 {
-		name := queue[0]
-		queue = queue[1:]
-		sorted = append(sorted, byName[name])
-		for _, dep := range dependents[name] {
-			inDegree[dep]--
-			if inDegree[dep] == 0 {
-				queue = append(queue, dep)
-			}
-		}
-	}
-
-	if len(sorted) != len(pending) {
-		return nil, fmt.Errorf("%w: not all migrations could be ordered", ErrCyclicDependency)
+	sorted := make([]Migration, len(order))
+	for i, name := range order {
+		sorted[i] = byName[name]
 	}
 	return sorted, nil
 }

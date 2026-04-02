@@ -13,235 +13,10 @@ package ir
 
 import (
 	"github.com/synnaxlabs/arc/types"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeAuthorities(w *xbinary.Writer, s *Authorities) error {
-	if s.Default != nil {
-		w.Bool(true)
-		w.Uint8(uint8((*s.Default)))
-	} else {
-		w.Bool(false)
-	}
-	if s.Channels != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Channels)))
-		for key, val := range s.Channels {
-			w.Uint32(uint32(key))
-			w.Uint8(uint8(val))
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func DecodeAuthorities(r *xbinary.Reader, s *Authorities) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v uint8
-			if v, err = r.Uint8(); err != nil {
-				return err
-			}
-			s.Default = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Channels = make(map[uint32]uint8, n)
-				for range n {
-					var key uint32
-					var val uint8
-					if key, err = r.Uint32(); err != nil {
-						return err
-					}
-					if val, err = r.Uint8(); err != nil {
-						return err
-					}
-					s.Channels[key] = val
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func EncodeEdge(w *xbinary.Writer, s *Edge) error {
-	if err := EncodeHandle(w, &s.Source); err != nil {
-		return err
-	}
-	if err := EncodeHandle(w, &s.Target); err != nil {
-		return err
-	}
-	w.Int64(int64(s.Kind))
-	return nil
-}
-
-func DecodeEdge(r *xbinary.Reader, s *Edge) error {
-	var err error
-	if err = DecodeHandle(r, &s.Source); err != nil {
-		return err
-	}
-	if err = DecodeHandle(r, &s.Target); err != nil {
-		return err
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Kind = EdgeKind(v)
-	}
-	return nil
-}
-
-func EncodeHandle(w *xbinary.Writer, s *Handle) error {
-	w.String(s.Node)
-	w.String(s.Param)
-	return nil
-}
-
-func DecodeHandle(r *xbinary.Reader, s *Handle) error {
-	var err error
-	if s.Node, err = r.String(); err != nil {
-		return err
-	}
-	if s.Param, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeNode(w *xbinary.Writer, s *Node) error {
-	w.String(s.Key)
-	w.String(s.Type)
-	if s.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Config)))
-		for j := range s.Config {
-			if err := types.EncodeParam(w, &s.Config[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Inputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Inputs)))
-		for j := range s.Inputs {
-			if err := types.EncodeParam(w, &s.Inputs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if s.Outputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Outputs)))
-		for j := range s.Outputs {
-			if err := types.EncodeParam(w, &s.Outputs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if err := types.EncodeChannels(w, &s.Channels); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeNode(r *xbinary.Reader, s *Node) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if s.Type, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Config = make([]types.Param, n)
-				for j := range s.Config {
-					if err = types.DecodeParam(r, &s.Config[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Inputs = make([]types.Param, n)
-				for j := range s.Inputs {
-					if err = types.DecodeParam(r, &s.Inputs[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Outputs = make([]types.Param, n)
-				for j := range s.Outputs {
-					if err = types.DecodeParam(r, &s.Outputs[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	if err = types.DecodeChannels(r, &s.Channels); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EncodeFunction(w *xbinary.Writer, s *Function) error {
+func EncodeFunction(w *orc.Writer, s *Function) error {
 	w.String(s.Key)
 	if err := EncodeBody(w, &s.Body); err != nil {
 		return err
@@ -285,7 +60,7 @@ func EncodeFunction(w *xbinary.Writer, s *Function) error {
 	return nil
 }
 
-func DecodeFunction(r *xbinary.Reader, s *Function) error {
+func DecodeFunction(r *orc.Reader, s *Function) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
@@ -299,16 +74,14 @@ func DecodeFunction(r *xbinary.Reader, s *Function) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Config = make([]types.Param, n)
+			for j := range s.Config {
+				if err = types.DecodeParam(r, &s.Config[j]); err != nil {
 					return err
-				}
-				s.Config = make([]types.Param, n)
-				for j := range s.Config {
-					if err = types.DecodeParam(r, &s.Config[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -319,16 +92,14 @@ func DecodeFunction(r *xbinary.Reader, s *Function) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Inputs = make([]types.Param, n)
+			for j := range s.Inputs {
+				if err = types.DecodeParam(r, &s.Inputs[j]); err != nil {
 					return err
-				}
-				s.Inputs = make([]types.Param, n)
-				for j := range s.Inputs {
-					if err = types.DecodeParam(r, &s.Inputs[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -339,16 +110,14 @@ func DecodeFunction(r *xbinary.Reader, s *Function) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Outputs = make([]types.Param, n)
+			for j := range s.Outputs {
+				if err = types.DecodeParam(r, &s.Outputs[j]); err != nil {
 					return err
-				}
-				s.Outputs = make([]types.Param, n)
-				for j := range s.Outputs {
-					if err = types.DecodeParam(r, &s.Outputs[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -359,12 +128,183 @@ func DecodeFunction(r *xbinary.Reader, s *Function) error {
 	return nil
 }
 
-func EncodeBody(w *xbinary.Writer, s *Body) error {
+func EncodeNode(w *orc.Writer, s *Node) error {
+	w.String(s.Key)
+	w.String(s.Type)
+	if s.Config != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Config)))
+		for j := range s.Config {
+			if err := types.EncodeParam(w, &s.Config[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Inputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Inputs)))
+		for j := range s.Inputs {
+			if err := types.EncodeParam(w, &s.Inputs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Outputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Outputs)))
+		for j := range s.Outputs {
+			if err := types.EncodeParam(w, &s.Outputs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if err := types.EncodeChannels(w, &s.Channels); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeNode(r *orc.Reader, s *Node) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if s.Type, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Config = make([]types.Param, n)
+			for j := range s.Config {
+				if err = types.DecodeParam(r, &s.Config[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Inputs = make([]types.Param, n)
+			for j := range s.Inputs {
+				if err = types.DecodeParam(r, &s.Inputs[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Outputs = make([]types.Param, n)
+			for j := range s.Outputs {
+				if err = types.DecodeParam(r, &s.Outputs[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err = types.DecodeChannels(r, &s.Channels); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeAuthorities(w *orc.Writer, s *Authorities) error {
+	if s.Default != nil {
+		w.Bool(true)
+		w.Uint8(uint8((*s.Default)))
+	} else {
+		w.Bool(false)
+	}
+	if s.Channels != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Channels)))
+		for key, val := range s.Channels {
+			w.Uint32(uint32(key))
+			w.Uint8(uint8(val))
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func DecodeAuthorities(r *orc.Reader, s *Authorities) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v uint8
+			if v, err = r.Uint8(); err != nil {
+				return err
+			}
+			s.Default = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Channels = make(map[uint32]uint8, n)
+			for range n {
+				var key uint32
+				var val uint8
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.Uint8(); err != nil {
+					return err
+				}
+				s.Channels[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+func EncodeBody(w *orc.Writer, s *Body) error {
 	w.String(s.Raw)
 	return nil
 }
 
-func DecodeBody(r *xbinary.Reader, s *Body) error {
+func DecodeBody(r *orc.Reader, s *Body) error {
 	var err error
 	if s.Raw, err = r.String(); err != nil {
 		return err
@@ -372,7 +312,53 @@ func DecodeBody(r *xbinary.Reader, s *Body) error {
 	return nil
 }
 
-func EncodeIR(w *xbinary.Writer, s *IR) error {
+func EncodeEdge(w *orc.Writer, s *Edge) error {
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
+		return err
+	}
+	w.Int64(int64(s.Kind))
+	return nil
+}
+
+func DecodeEdge(r *orc.Reader, s *Edge) error {
+	var err error
+	if err = DecodeHandle(r, &s.Source); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Target); err != nil {
+		return err
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Kind = EdgeKind(v)
+	}
+	return nil
+}
+
+func EncodeHandle(w *orc.Writer, s *Handle) error {
+	w.String(s.Node)
+	w.String(s.Param)
+	return nil
+}
+
+func DecodeHandle(r *orc.Reader, s *Handle) error {
+	var err error
+	if s.Node, err = r.String(); err != nil {
+		return err
+	}
+	if s.Param, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeIR(w *orc.Writer, s *IR) error {
 	if s.Functions != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Functions)))
@@ -435,7 +421,7 @@ func EncodeIR(w *xbinary.Writer, s *IR) error {
 	return nil
 }
 
-func DecodeIR(r *xbinary.Reader, s *IR) error {
+func DecodeIR(r *orc.Reader, s *IR) error {
 	var err error
 	{
 		present, err := r.Bool()
@@ -443,14 +429,73 @@ func DecodeIR(r *xbinary.Reader, s *IR) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Functions = make([]Function, n)
+			for j := range s.Functions {
+				if err = DecodeFunction(r, &s.Functions[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Nodes = make([]Node, n)
+			for j := range s.Nodes {
+				if err = DecodeNode(r, &s.Nodes[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Edges = make([]Edge, n)
+			for j := range s.Edges {
+				if err = DecodeEdge(r, &s.Edges[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Strata = make([][]string, n)
+			for j := range s.Strata {
+				n, err := r.CollectionLen()
 				if err != nil {
 					return err
 				}
-				s.Functions = make([]Function, n)
-				for j := range s.Functions {
-					if err = DecodeFunction(r, &s.Functions[j]); err != nil {
+				s.Strata[j] = make([]string, n)
+				for k := range s.Strata[j] {
+					if s.Strata[j][k], err = r.String(); err != nil {
 						return err
 					}
 				}
@@ -463,85 +508,14 @@ func DecodeIR(r *xbinary.Reader, s *IR) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Nodes = make([]Node, n)
-				for j := range s.Nodes {
-					if err = DecodeNode(r, &s.Nodes[j]); err != nil {
-						return err
-					}
-				}
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
 			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			s.Sequences = make([]Sequence, n)
+			for j := range s.Sequences {
+				if err = DecodeSequence(r, &s.Sequences[j]); err != nil {
 					return err
-				}
-				s.Edges = make([]Edge, n)
-				for j := range s.Edges {
-					if err = DecodeEdge(r, &s.Edges[j]); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Strata = make([][]string, n)
-				for j := range s.Strata {
-					{
-						n, err := r.Uint32()
-						if err != nil {
-							return err
-						}
-						s.Strata[j] = make([]string, n)
-						for k := range s.Strata[j] {
-							if s.Strata[j][k], err = r.String(); err != nil {
-								return err
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
-					return err
-				}
-				s.Sequences = make([]Sequence, n)
-				for j := range s.Sequences {
-					if err = DecodeSequence(r, &s.Sequences[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -552,30 +526,13 @@ func DecodeIR(r *xbinary.Reader, s *IR) error {
 	return nil
 }
 
-func EncodeSequence(w *xbinary.Writer, s *Sequence) error {
+func EncodeSequence(w *orc.Writer, s *Sequence) error {
 	w.String(s.Key)
-	w.Uint32(uint32(len(s.Stages)))
-	for i := range s.Stages {
-		if err := EncodeStage(w, &s.Stages[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func DecodeSequence(r *xbinary.Reader, s *Sequence) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Stages = make([]Stage, n)
+	w.Bool(s.Stages != nil)
+	if s.Stages != nil {
+		w.Uint32(uint32(len(s.Stages)))
 		for i := range s.Stages {
-			if err = DecodeStage(r, &s.Stages[i]); err != nil {
+			if err := EncodeStage(w, &s.Stages[i]); err != nil {
 				return err
 			}
 		}
@@ -583,55 +540,108 @@ func DecodeSequence(r *xbinary.Reader, s *Sequence) error {
 	return nil
 }
 
-func EncodeStage(w *xbinary.Writer, s *Stage) error {
-	w.String(s.Key)
-	w.Uint32(uint32(len(s.Nodes)))
-	for i := range s.Nodes {
-		w.String(s.Nodes[i])
-	}
-	w.Uint32(uint32(len(s.Strata)))
-	for i := range s.Strata {
-		w.Uint32(uint32(len(s.Strata[i])))
-		for j := range s.Strata[i] {
-			w.String(s.Strata[i][j])
-		}
-	}
-	return nil
-}
-
-func DecodeStage(r *xbinary.Reader, s *Stage) error {
+func DecodeSequence(r *orc.Reader, s *Sequence) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.Nodes = make([]string, n)
-		for i := range s.Nodes {
-			if s.Nodes[i], err = r.String(); err != nil {
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
 				return err
 			}
-		}
-	}
-	{
-		n, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Strata = make([][]string, n)
-		for i := range s.Strata {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			s.Stages = make([]Stage, n)
+			for i := range s.Stages {
+				if err = DecodeStage(r, &s.Stages[i]); err != nil {
 					return err
 				}
-				s.Strata[i] = make([]string, n)
+			}
+		}
+	}
+	return nil
+}
+
+func EncodeStage(w *orc.Writer, s *Stage) error {
+	w.String(s.Key)
+	w.Bool(s.Nodes != nil)
+	if s.Nodes != nil {
+		w.Uint32(uint32(len(s.Nodes)))
+		for i := range s.Nodes {
+			w.String(s.Nodes[i])
+		}
+	}
+	w.Bool(s.Strata != nil)
+	if s.Strata != nil {
+		w.Uint32(uint32(len(s.Strata)))
+		for i := range s.Strata {
+			w.Bool(s.Strata[i] != nil)
+			if s.Strata[i] != nil {
+				w.Uint32(uint32(len(s.Strata[i])))
 				for j := range s.Strata[i] {
-					if s.Strata[i][j], err = r.String(); err != nil {
+					w.String(s.Strata[i][j])
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func DecodeStage(r *orc.Reader, s *Stage) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Nodes = make([]string, n)
+			for i := range s.Nodes {
+				if s.Nodes[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Strata = make([][]string, n)
+			for i := range s.Strata {
+				{
+					present, err := r.Bool()
+					if err != nil {
 						return err
+					}
+					if present {
+						n, err := r.CollectionLen()
+						if err != nil {
+							return err
+						}
+						s.Strata[i] = make([]string, n)
+						for j := range s.Strata[i] {
+							if s.Strata[i][j], err = r.String(); err != nil {
+								return err
+							}
+						}
 					}
 				}
 			}

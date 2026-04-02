@@ -44,6 +44,12 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
     return err;
 }
 
+/// @brief returns true if the LabJack LJM library is available on this system.
+inline bool integration_supported() {
+    auto [ljm, ljm_err] = ljm::API::load();
+    return ljm != nullptr;
+}
+
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;

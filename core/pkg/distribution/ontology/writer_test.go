@@ -106,7 +106,7 @@ var _ = Describe("Writer", func() {
 						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 						err := w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idOne)
 						Expect(err).To(HaveOccurred())
-						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+						Expect(err).To(MatchError(ontology.ErrCycle))
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
@@ -117,7 +117,7 @@ var _ = Describe("Writer", func() {
 						Expect(w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idThree)).To(Succeed())
 						err := w.DefineRelationship(ctx, idThree, ontology.RelationshipTypeParentOf, idOne)
 						Expect(err).To(HaveOccurred())
-						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+						Expect(err).To(MatchError(ontology.ErrCycle))
 					})
 			})
 		})
@@ -155,7 +155,7 @@ var _ = Describe("Writer", func() {
 					[]ontology.ID{idOne},
 				)
 				Expect(err).To(HaveOccurred())
-				Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+				Expect(err).To(MatchError(ontology.ErrCycle))
 			})
 		})
 		Describe("Deleting a Relationship", func() {

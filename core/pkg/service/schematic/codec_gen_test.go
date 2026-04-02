@@ -12,139 +12,85 @@
 package schematic_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/spatial"
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Edge", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.Edge{Key: "test", Source: schematic.Handle{Node: "test", Param: "test"}, Target: schematic.Handle{Node: "test", Param: "test"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeEdge(w, &original)).To(Succeed())
-			var decoded schematic.Edge
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeEdge(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
-	Describe("Handle", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.Handle{Node: "test", Param: "test"}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeHandle(w, &original)).To(Succeed())
-			var decoded schematic.Handle
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeHandle(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
 	Describe("Schematic", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Snapshot: true, Authority: control.Authority(5), Legend: schematic.Legend{Visible: true, Position: spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}, Colors: map[string]color.Color{"test": {R: 5, G: 5, B: 5, A: 2.5}}}, Nodes: []schematic.Node{{Key: "test", Position: spatial.XY{X: 2.5, Y: 2.5}, Measured: spatial.Dimensions{Width: 2.5, Height: 2.5}}}, Edges: []schematic.Edge{{Key: "test", Source: schematic.Handle{Node: "test", Param: "test"}, Target: schematic.Handle{Node: "test", Param: "test"}}}, Props: map[string]interface{}{"test": map[string]interface{}{"key": "value"}}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeSchematic(w, &original)).To(Succeed())
-			var decoded schematic.Schematic
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeSchematic(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
-	Describe("Legend", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.Legend{Visible: true, Position: spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}, Colors: map[string]color.Color{"test": {R: 5, G: 5, B: 5, A: 2.5}}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeLegend(w, &original)).To(Succeed())
-			var decoded schematic.Legend
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeLegend(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-	})
-	Describe("Node", func() {
-		It("should round-trip encode and decode", func() {
-			original := schematic.Node{Key: "test", Position: spatial.XY{X: 2.5, Y: 2.5}, Measured: spatial.Dimensions{Width: 2.5, Height: 2.5}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(schematic.EncodeNode(w, &original)).To(Succeed())
-			var decoded schematic.Node
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(schematic.DecodeNode(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.Schematic) {
+				w := orc.NewWriter(0)
+				Expect(schematic.EncodeSchematic(w, &original)).To(Succeed())
+				var decoded schematic.Schematic
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(schematic.DecodeSchematic(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Schematic{
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Data:     map[string]interface{}{"key_3": "value_3"},
+				Snapshot: false,
+			}),
+			Entry("zero values", schematic.Schematic{
+				Key:      uuid.Nil,
+				Name:     "",
+				Data:     nil,
+				Snapshot: false,
+			}),
+		)
 	})
 	Describe("SchematicCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Snapshot: true, Authority: control.Authority(5), Legend: schematic.Legend{Visible: true, Position: spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}, Colors: map[string]color.Color{"test": {R: 5, G: 5, B: 5, A: 2.5}}}, Nodes: []schematic.Node{{Key: "test", Position: spatial.XY{X: 2.5, Y: 2.5}, Measured: spatial.Dimensions{Width: 2.5, Height: 2.5}}}, Edges: []schematic.Edge{{Key: "test", Source: schematic.Handle{Node: "test", Param: "test"}, Target: schematic.Handle{Node: "test", Param: "test"}}}, Props: map[string]interface{}{"test": map[string]interface{}{"key": "value"}}}
-			ctx := context.Background()
-			data, err := schematic.SchematicCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded schematic.Schematic
-			Expect(schematic.SchematicCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original schematic.Schematic) {
+				ctx := context.Background()
+				data := MustSucceed(schematic.SchematicCodec.Encode(ctx, original))
+				var decoded schematic.Schematic
+				Expect(schematic.SchematicCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Schematic{
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Data:     map[string]interface{}{"key_3": "value_3"},
+				Snapshot: false,
+			}),
+			Entry("zero values", schematic.Schematic{
+				Key:      uuid.Nil,
+				Name:     "",
+				Data:     nil,
+				Snapshot: false,
+			}),
+		)
 	})
 })
 
-func BenchmarkEncodeDecodeEdge(b *testing.B) {
-	s := schematic.Edge{Key: "test", Source: schematic.Handle{Node: "test", Param: "test"}, Target: schematic.Handle{Node: "test", Param: "test"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := schematic.EncodeEdge(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.Edge
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := schematic.DecodeEdge(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeHandle(b *testing.B) {
-	s := schematic.Handle{Node: "test", Param: "test"}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := schematic.EncodeHandle(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.Handle
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := schematic.DecodeHandle(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
-	s := schematic.Schematic{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Snapshot: true, Authority: control.Authority(5), Legend: schematic.Legend{Visible: true, Position: spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}, Colors: map[string]color.Color{"test": {R: 5, G: 5, B: 5, A: 2.5}}}, Nodes: []schematic.Node{{Key: "test", Position: spatial.XY{X: 2.5, Y: 2.5}, Measured: spatial.Dimensions{Width: 2.5, Height: 2.5}}}, Edges: []schematic.Edge{{Key: "test", Source: schematic.Handle{Node: "test", Param: "test"}, Target: schematic.Handle{Node: "test", Param: "test"}}}, Props: map[string]interface{}{"test": map[string]interface{}{"key": "value"}}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := schematic.Schematic{
+		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:     "test_2",
+		Data:     map[string]interface{}{"key_3": "value_3"},
+		Snapshot: false,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := schematic.EncodeSchematic(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded schematic.Schematic
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := schematic.DecodeSchematic(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -152,36 +98,55 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeLegend(b *testing.B) {
-	s := schematic.Legend{Visible: true, Position: spatial.StickyXY{X: 2.5, Y: 2.5, Root: spatial.Corner{X: "test", Y: "test"}, Units: spatial.StickyUnits{X: "test", Y: "test"}}, Colors: map[string]color.Color{"test": {R: 5, G: 5, B: 5, A: 2.5}}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := schematic.EncodeLegend(w, &s); err != nil {
-			b.Fatal(err)
+func FuzzDecodeSchematic(f *testing.F) {
+	{
+		seed := schematic.Schematic{
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Data:     map[string]interface{}{"key_3": "value_3"},
+			Snapshot: false,
 		}
-		var decoded schematic.Legend
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := schematic.DecodeLegend(r, &decoded); err != nil {
-			b.Fatal(err)
+		w := orc.NewWriter(0)
+		if err := schematic.EncodeSchematic(w, &seed); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
 	}
-}
-
-func BenchmarkEncodeDecodeNode(b *testing.B) {
-	s := schematic.Node{Key: "test", Position: spatial.XY{X: 2.5, Y: 2.5}, Measured: spatial.Dimensions{Width: 2.5, Height: 2.5}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := schematic.EncodeNode(w, &s); err != nil {
-			b.Fatal(err)
+	{
+		seed := schematic.Schematic{
+			Key:      uuid.Nil,
+			Name:     "",
+			Data:     nil,
+			Snapshot: false,
 		}
-		var decoded schematic.Node
-		r := xbinary.NewReader(nil, binary.BigEndian)
-		r.ResetBytes(w.Bytes())
-		if err := schematic.DecodeNode(r, &decoded); err != nil {
-			b.Fatal(err)
+		w := orc.NewWriter(0)
+		if err := schematic.EncodeSchematic(w, &seed); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
 	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.Schematic
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := schematic.DecodeSchematic(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := schematic.EncodeSchematic(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.Schematic
+		r.ResetBytes(w1.Bytes())
+		if err := schematic.DecodeSchematic(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := schematic.EncodeSchematic(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

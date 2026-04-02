@@ -13,11 +13,10 @@ package types
 
 import (
 	"encoding/json"
-
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeParam(w *xbinary.Writer, s *Param) error {
+func EncodeParam(w *orc.Writer, s *Param) error {
 	w.String(s.Name)
 	if err := EncodeType(w, &s.Type); err != nil {
 		return err
@@ -33,7 +32,7 @@ func EncodeParam(w *xbinary.Writer, s *Param) error {
 	return nil
 }
 
-func DecodeParam(r *xbinary.Reader, s *Param) error {
+func DecodeParam(r *orc.Reader, s *Param) error {
 	var err error
 	if s.Name, err = r.String(); err != nil {
 		return err
@@ -42,7 +41,7 @@ func DecodeParam(r *xbinary.Reader, s *Param) error {
 		return err
 	}
 	{
-		n, err := r.Uint32()
+		n, err := r.CollectionLen()
 		if err != nil {
 			return err
 		}
@@ -57,7 +56,7 @@ func DecodeParam(r *xbinary.Reader, s *Param) error {
 	return nil
 }
 
-func EncodeType(w *xbinary.Writer, s *Type) error {
+func EncodeType(w *orc.Writer, s *Type) error {
 	if s.Inputs != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Inputs)))
@@ -121,7 +120,7 @@ func EncodeType(w *xbinary.Writer, s *Type) error {
 	return nil
 }
 
-func DecodeType(r *xbinary.Reader, s *Type) error {
+func DecodeType(r *orc.Reader, s *Type) error {
 	var err error
 	{
 		present, err := r.Bool()
@@ -129,16 +128,14 @@ func DecodeType(r *xbinary.Reader, s *Type) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Inputs = make([]Param, n)
+			for j := range s.Inputs {
+				if err = DecodeParam(r, &s.Inputs[j]); err != nil {
 					return err
-				}
-				s.Inputs = make([]Param, n)
-				for j := range s.Inputs {
-					if err = DecodeParam(r, &s.Inputs[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -149,16 +146,14 @@ func DecodeType(r *xbinary.Reader, s *Type) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Outputs = make([]Param, n)
+			for j := range s.Outputs {
+				if err = DecodeParam(r, &s.Outputs[j]); err != nil {
 					return err
-				}
-				s.Outputs = make([]Param, n)
-				for j := range s.Outputs {
-					if err = DecodeParam(r, &s.Outputs[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -169,16 +164,14 @@ func DecodeType(r *xbinary.Reader, s *Type) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Config = make([]Param, n)
+			for j := range s.Config {
+				if err = DecodeParam(r, &s.Config[j]); err != nil {
 					return err
-				}
-				s.Config = make([]Param, n)
-				for j := range s.Config {
-					if err = DecodeParam(r, &s.Config[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -242,7 +235,7 @@ func DecodeType(r *xbinary.Reader, s *Type) error {
 	return nil
 }
 
-func EncodeFunctionProperties(w *xbinary.Writer, s *FunctionProperties) error {
+func EncodeFunctionProperties(w *orc.Writer, s *FunctionProperties) error {
 	if s.Inputs != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Inputs)))
@@ -279,23 +272,21 @@ func EncodeFunctionProperties(w *xbinary.Writer, s *FunctionProperties) error {
 	return nil
 }
 
-func DecodeFunctionProperties(r *xbinary.Reader, s *FunctionProperties) error {
+func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 	{
 		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Inputs = make([]Param, n)
+			for j := range s.Inputs {
+				if err = DecodeParam(r, &s.Inputs[j]); err != nil {
 					return err
-				}
-				s.Inputs = make([]Param, n)
-				for j := range s.Inputs {
-					if err = DecodeParam(r, &s.Inputs[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -306,16 +297,14 @@ func DecodeFunctionProperties(r *xbinary.Reader, s *FunctionProperties) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Outputs = make([]Param, n)
+			for j := range s.Outputs {
+				if err = DecodeParam(r, &s.Outputs[j]); err != nil {
 					return err
-				}
-				s.Outputs = make([]Param, n)
-				for j := range s.Outputs {
-					if err = DecodeParam(r, &s.Outputs[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -326,16 +315,14 @@ func DecodeFunctionProperties(r *xbinary.Reader, s *FunctionProperties) error {
 			return err
 		}
 		if present {
-			{
-				n, err := r.Uint32()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Config = make([]Param, n)
+			for j := range s.Config {
+				if err = DecodeParam(r, &s.Config[j]); err != nil {
 					return err
-				}
-				s.Config = make([]Param, n)
-				for j := range s.Config {
-					if err = DecodeParam(r, &s.Config[j]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -343,7 +330,7 @@ func DecodeFunctionProperties(r *xbinary.Reader, s *FunctionProperties) error {
 	return nil
 }
 
-func EncodeUnit(w *xbinary.Writer, s *Unit) error {
+func EncodeUnit(w *orc.Writer, s *Unit) error {
 	if err := EncodeDimensions(w, &s.Dimensions); err != nil {
 		return err
 	}
@@ -352,7 +339,7 @@ func EncodeUnit(w *xbinary.Writer, s *Unit) error {
 	return nil
 }
 
-func DecodeUnit(r *xbinary.Reader, s *Unit) error {
+func DecodeUnit(r *orc.Reader, s *Unit) error {
 	var err error
 	if err = DecodeDimensions(r, &s.Dimensions); err != nil {
 		return err
@@ -366,7 +353,7 @@ func DecodeUnit(r *xbinary.Reader, s *Unit) error {
 	return nil
 }
 
-func EncodeDimensions(w *xbinary.Writer, s *Dimensions) error {
+func EncodeDimensions(w *orc.Writer, s *Dimensions) error {
 	w.Int8(int8(s.Length))
 	w.Int8(int8(s.Mass))
 	w.Int8(int8(s.Time))
@@ -378,7 +365,7 @@ func EncodeDimensions(w *xbinary.Writer, s *Dimensions) error {
 	return nil
 }
 
-func DecodeDimensions(r *xbinary.Reader, s *Dimensions) error {
+func DecodeDimensions(r *orc.Reader, s *Dimensions) error {
 	var err error
 	if s.Length, err = r.Int8(); err != nil {
 		return err
@@ -407,55 +394,73 @@ func DecodeDimensions(r *xbinary.Reader, s *Dimensions) error {
 	return nil
 }
 
-func EncodeChannels(w *xbinary.Writer, s *Channels) error {
-	w.Uint32(uint32(len(s.Read)))
-	for key, val := range s.Read {
-		w.Uint32(uint32(key))
-		w.String(val)
+func EncodeChannels(w *orc.Writer, s *Channels) error {
+	w.Bool(s.Read != nil)
+	if s.Read != nil {
+		w.Uint32(uint32(len(s.Read)))
+		for key, val := range s.Read {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
 	}
-	w.Uint32(uint32(len(s.Write)))
-	for key, val := range s.Write {
-		w.Uint32(uint32(key))
-		w.String(val)
+	w.Bool(s.Write != nil)
+	if s.Write != nil {
+		w.Uint32(uint32(len(s.Write)))
+		for key, val := range s.Write {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
 	}
 	return nil
 }
 
-func DecodeChannels(r *xbinary.Reader, s *Channels) error {
+func DecodeChannels(r *orc.Reader, s *Channels) error {
 	{
-		n, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.Read = make(map[uint32]string, n)
-		for range n {
-			var key uint32
-			var val string
-			if key, err = r.Uint32(); err != nil {
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
 				return err
 			}
-			if val, err = r.String(); err != nil {
-				return err
+			s.Read = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				s.Read[key] = val
 			}
-			s.Read[key] = val
 		}
 	}
 	{
-		n, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.Write = make(map[uint32]string, n)
-		for range n {
-			var key uint32
-			var val string
-			if key, err = r.Uint32(); err != nil {
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
 				return err
 			}
-			if val, err = r.String(); err != nil {
-				return err
+			s.Write = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				s.Write[key] = val
 			}
-			s.Write[key] = val
 		}
 	}
 	return nil

@@ -12,57 +12,134 @@
 package lineplot_test
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("LinePlot", func() {
-		It("should round-trip encode and decode", func() {
-			original := lineplot.LinePlot{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}}
-			w := xbinary.NewWriter(0, binary.BigEndian)
-			Expect(lineplot.EncodeLinePlot(w, &original)).To(Succeed())
-			var decoded lineplot.LinePlot
-			r := xbinary.NewReader(nil, binary.BigEndian)
-			r.ResetBytes(w.Bytes())
-			Expect(lineplot.DecodeLinePlot(r, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.LinePlot) {
+				w := orc.NewWriter(0)
+				Expect(lineplot.EncodeLinePlot(w, &original)).To(Succeed())
+				var decoded lineplot.LinePlot
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(lineplot.DecodeLinePlot(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.LinePlot{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: map[string]interface{}{"key_3": "value_3"},
+			}),
+			Entry("zero values", lineplot.LinePlot{
+				Key:  uuid.Nil,
+				Name: "",
+				Data: nil,
+			}),
+		)
 	})
 	Describe("LinePlotCodec", func() {
-		It("should round-trip through the Codec interface", func() {
-			original := lineplot.LinePlot{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}}
-			ctx := context.Background()
-			data, err := lineplot.LinePlotCodec.Encode(ctx, original)
-			Expect(err).ToNot(HaveOccurred())
-			var decoded lineplot.LinePlot
-			Expect(lineplot.LinePlotCodec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
+		DescribeTable("should round-trip through the Codec interface",
+			func(original lineplot.LinePlot) {
+				ctx := context.Background()
+				data := MustSucceed(lineplot.LinePlotCodec.Encode(ctx, original))
+				var decoded lineplot.LinePlot
+				Expect(lineplot.LinePlotCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.LinePlot{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: map[string]interface{}{"key_3": "value_3"},
+			}),
+			Entry("zero values", lineplot.LinePlot{
+				Key:  uuid.Nil,
+				Name: "",
+				Data: nil,
+			}),
+		)
 	})
 })
 
 func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
-	s := lineplot.LinePlot{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), Name: "test", Data: map[string]interface{}{"key": "value"}}
-	w := xbinary.NewWriter(0, binary.BigEndian)
+	s := lineplot.LinePlot{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Data: map[string]interface{}{"key_3": "value_3"},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := lineplot.EncodeLinePlot(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded lineplot.LinePlot
-		r := xbinary.NewReader(nil, binary.BigEndian)
 		r.ResetBytes(w.Bytes())
 		if err := lineplot.DecodeLinePlot(r, &decoded); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeLinePlot(f *testing.F) {
+	{
+		seed := lineplot.LinePlot{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Data: map[string]interface{}{"key_3": "value_3"},
+		}
+		w := orc.NewWriter(0)
+		if err := lineplot.EncodeLinePlot(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.LinePlot{
+			Key:  uuid.Nil,
+			Name: "",
+			Data: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := lineplot.EncodeLinePlot(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.LinePlot
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := lineplot.DecodeLinePlot(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := lineplot.EncodeLinePlot(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.LinePlot
+		r.ResetBytes(w1.Bytes())
+		if err := lineplot.DecodeLinePlot(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := lineplot.EncodeLinePlot(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }

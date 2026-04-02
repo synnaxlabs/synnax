@@ -12,16 +12,16 @@
 package telem
 
 import (
-	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeTimeRange(w *xbinary.Writer, s *TimeRange) error {
+func EncodeTimeRange(w *orc.Writer, s *TimeRange) error {
 	w.Int64(int64(s.Start))
 	w.Int64(int64(s.End))
 	return nil
 }
 
-func DecodeTimeRange(r *xbinary.Reader, s *TimeRange) error {
+func DecodeTimeRange(r *orc.Reader, s *TimeRange) error {
 	{
 		v, err := r.Int64()
 		if err != nil {

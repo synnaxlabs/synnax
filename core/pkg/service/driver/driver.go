@@ -67,19 +67,30 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d := &Driver{cfg: cfg}
 	d.mu.tasks = make(map[task.Key]Task)
 
+	integrations := make([]string, len(cfg.Factories))
+	for i, f := range cfg.Factories {
+		integrations[i] = f.Name()
+	}
+
 	if err = cfg.Rack.NewRetrieve().
 		WhereEmbedded(true, gorp.Required()).
 		WhereName(fmt.Sprintf("Node %d", cfg.Host.HostKey()), gorp.Required()).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
-			Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
-			Embedded: true,
+			Name:         fmt.Sprintf("Node %d", cfg.Host.HostKey()),
+			Embedded:     true,
+			Integrations: integrations,
 		}
 		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
 			return nil, err
 		}
 	} else if err != nil {
 		return nil, err
+	} else {
+		d.rack.Integrations = integrations
+		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
+			return nil, err
+		}
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
@@ -253,9 +264,8 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	defer cancel()
 
 	sCtx.Go(func(ctx context.Context) error {
-		taskCtx := NewContext(ctx, d.cfg.Status)
 		for _, f := range d.cfg.Factories {
-			newTask, err := f.ConfigureTask(taskCtx, t)
+			newTask, err := f.ConfigureTask(ctx, t)
 			if errors.Is(err, ErrTaskNotHandled) {
 				continue
 			}

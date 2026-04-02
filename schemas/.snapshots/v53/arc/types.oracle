@@ -94,13 +94,13 @@ Type struct extends FunctionProperties {
 }
 
 Param struct {
-    name        string  {
+    name  string {
         @doc value "is the parameter name."
     }
-    type        Type    {
+    type  Type   {
         @doc value "is the parameter type."
     }
-    value       any?    {
+    value any?   {
         @doc value "is an optional default value."
     }
 

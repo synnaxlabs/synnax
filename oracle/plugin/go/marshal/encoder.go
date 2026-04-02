@@ -194,7 +194,7 @@ func tpNames(tps []typeParamData) string {
 func encodeArgs(tps []typeParamData) string {
 	parts := make([]string, len(tps))
 	for i, tp := range tps {
-		parts[i] = "encode" + naming.ToPascalCase(tp.Name) + " func(*xbinary.Writer, *" + tp.Name + ") error"
+		parts[i] = "encode" + naming.ToPascalCase(tp.Name) + " func(*orc.Writer, *" + tp.Name + ") error"
 	}
 	return strings.Join(parts, ", ")
 }
@@ -202,7 +202,7 @@ func encodeArgs(tps []typeParamData) string {
 func decodeArgs(tps []typeParamData) string {
 	parts := make([]string, len(tps))
 	for i, tp := range tps {
-		parts[i] = "decode" + naming.ToPascalCase(tp.Name) + " func(*xbinary.Reader, *" + tp.Name + ") error"
+		parts[i] = "decode" + naming.ToPascalCase(tp.Name) + " func(*orc.Reader, *" + tp.Name + ") error"
 	}
 	return strings.Join(parts, ", ")
 }
@@ -238,6 +238,7 @@ type encoderBuilder struct {
 	usesErr             bool
 	depth               int
 	inBlock             int
+	skipNilCheck        bool
 	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 
@@ -518,10 +519,12 @@ func (b *encoderBuilder) processHardOptional(
 		)
 		b.depth++
 		b.inBlock++
+		b.skipNilCheck = true
 		derefGet := "(*" + getPath + ")"
 		if err := b.processValueByType(resolved, f.Type, derefGet, setPath); err != nil {
 			return err
 		}
+		b.skipNilCheck = false
 		b.inBlock--
 		b.depth--
 		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
@@ -600,9 +603,11 @@ func (b *encoderBuilder) processSoftOptionalNilable(
 	)
 	b.depth++
 	b.inBlock++
+	b.skipNilCheck = true
 	if err := b.processValueByType(resolved, f.Type, getPath, setPath); err != nil {
 		return err
 	}
+	b.skipNilCheck = false
 	b.inBlock--
 	b.depth--
 	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
@@ -624,13 +629,26 @@ func (b *encoderBuilder) processArray(
 		return err
 	}
 
+	// Write a presence bit to distinguish nil from empty slices.
+	// When inside a hard-optional guard, the slice is already known non-nil.
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
+
 	idx := b.loopIndex()
 	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
-		ind+fmt.Sprintf("for %s := range %s {", idx, getPath),
+		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
+		ind+fmt.Sprintf("\tfor %s := range %s {", idx, getPath),
 	)
 	b.decodeLines = append(b.decodeLines,
-		ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make([]%s, n)", setPath, goType),
 		ind+fmt.Sprintf("\tfor %s := range %s {", idx, setPath),
 	)
@@ -645,8 +663,12 @@ func (b *encoderBuilder) processArray(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"}")
-	b.decodeLines = append(b.decodeLines, ind+"\t}", ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}")
+	b.decodeLines = append(b.decodeLines, ind+"\t}")
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines, ind+"}")
+		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
+	}
 	return nil
 }
 
@@ -672,12 +694,25 @@ func (b *encoderBuilder) processMap(
 		return err
 	}
 
+	// Write a presence bit to distinguish nil from empty maps.
+	// When inside a hard-optional guard, the map is already known non-nil.
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
+
 	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
-		ind+fmt.Sprintf("for key, val := range %s {", getPath),
+		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
+		ind+fmt.Sprintf("\tfor key, val := range %s {", getPath),
 	)
 	b.decodeLines = append(b.decodeLines,
-		ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
 		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
@@ -695,12 +730,15 @@ func (b *encoderBuilder) processMap(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines,
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
-		ind+"}",
 	)
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines, ind+"}")
+		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
+	}
 	return nil
 }
 
@@ -731,7 +769,7 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
 		b.decodeLine(
-			ind + fmt.Sprintf("if _, err := r.Read(%s[:]); err != nil { return err }", setPath))
+			ind + fmt.Sprintf("if _, err = r.Read(%s[:]); err != nil { return err }", setPath))
 
 	case "record", "any":
 		b.needsJSON = true
@@ -742,21 +780,28 @@ func (b *encoderBuilder) processLeaf(
 			ind+"\tw.Write(b) }",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+			ind+"{ n, err := r.CollectionLen(); if err != nil { return err }",
 			ind+"\tb := make([]byte, n)",
 			ind+"\tif _, err = r.Read(b); err != nil { return err }",
 			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err } }", setPath),
 		)
 
 	case "bytes":
+		// Write a presence bit to distinguish nil from empty byte slices.
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Uint32(uint32(len(%s)))", getPath),
-			ind+fmt.Sprintf("w.Write(%s)", getPath),
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+			ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
+			ind+fmt.Sprintf("\tw.Write(%s)", getPath),
+			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ n, err := r.Uint32(); if err != nil { return err }",
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 			ind+fmt.Sprintf("\t%s = make([]byte, n)", setPath),
-			ind+fmt.Sprintf("\tif _, err = r.Read(%s); err != nil { return err } }", setPath),
+			ind+fmt.Sprintf("\tif _, err = r.Read(%s); err != nil { return err }", setPath),
+			ind+"} }",
 		)
 
 	case "bool":
@@ -991,7 +1036,6 @@ package {{.Package}}
 import (
 {{- if .Adapters}}
 	"context"
-	"encoding/binary"
 	"io"
 	"sync"
 {{- end}}
@@ -999,18 +1043,21 @@ import (
 	"encoding/json"
 {{- end}}
 
-	xbinary "github.com/synnaxlabs/x/binary"
+{{- if .Adapters}}
+	xencoding "github.com/synnaxlabs/x/encoding"
+{{- end}}
+	"github.com/synnaxlabs/x/encoding/orc"
 {{- range $path, $alias := .ExtraImports}}
 	{{if $alias}}{{$alias}} {{end}}"{{$path}}"
 {{- end}}
 )
 {{range .ConcreteCodecs}}
-func Encode{{.GoName}}(w *xbinary.Writer, s *{{.GoName}}) error {
+func Encode{{.GoName}}(w *orc.Writer, s *{{.GoName}}) error {
 {{.EncodeBody}}
 	return nil
 }
 
-func Decode{{.GoName}}(r *xbinary.Reader, s *{{.GoName}}) error {
+func Decode{{.GoName}}(r *orc.Reader, s *{{.GoName}}) error {
 {{- if .UsesErr}}
 	var err error
 {{- end}}
@@ -1018,12 +1065,12 @@ func Decode{{.GoName}}(r *xbinary.Reader, s *{{.GoName}}) error {
 	return nil
 }
 {{end}}{{range .GenericCodecs}}
-func Encode{{.GoName}}[{{tpList .TypeParams}}](w *xbinary.Writer, s *{{.GoName}}[{{tpNames .TypeParams}}], {{encodeArgs .TypeParams}}) error {
+func Encode{{.GoName}}[{{tpList .TypeParams}}](w *orc.Writer, s *{{.GoName}}[{{tpNames .TypeParams}}], {{encodeArgs .TypeParams}}) error {
 {{.EncodeBody}}
 	return nil
 }
 
-func Decode{{.GoName}}[{{tpList .TypeParams}}](r *xbinary.Reader, s *{{.GoName}}[{{tpNames .TypeParams}}], {{decodeArgs .TypeParams}}) error {
+func Decode{{.GoName}}[{{tpList .TypeParams}}](r *orc.Reader, s *{{.GoName}}[{{tpNames .TypeParams}}], {{decodeArgs .TypeParams}}) error {
 {{- if .UsesErr}}
 	var err error
 {{- end}}
@@ -1031,21 +1078,22 @@ func Decode{{.GoName}}[{{tpList .TypeParams}}](r *xbinary.Reader, s *{{.GoName}}
 	return nil
 }
 {{end}}{{if .Adapters}}
-var writerPool = sync.Pool{New: func() any { return xbinary.NewWriter(0, binary.BigEndian) }}
-var readerPool = sync.Pool{New: func() any { return xbinary.NewReader(nil, binary.BigEndian) }}
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 {{range .Adapters}}
 type {{lowerFirst .GoName}}Codec struct{}
 
-var {{.GoName}}Codec xbinary.Codec = {{lowerFirst .GoName}}Codec{}
+var {{.GoName}}Codec xencoding.Codec = {{lowerFirst .GoName}}Codec{}
 
 func ({{lowerFirst .GoName}}Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.({{.GoName}})
-	w := writerPool.Get().(*xbinary.Writer)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := Encode{{.GoName}}(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := Encode{{.GoName}}(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -1059,11 +1107,10 @@ func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writ
 
 func ({{lowerFirst .GoName}}Codec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*{{.GoName}})
-	r := readerPool.Get().(*xbinary.Reader)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := Decode{{.GoName}}(r, s)
-	readerPool.Put(r)
-	return err
+	return Decode{{.GoName}}(r, s)
 }
 
 func (c {{lowerFirst .GoName}}Codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

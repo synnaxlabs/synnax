@@ -37,8 +37,6 @@ Table struct {
         customizable formatting options.
     """
     @ontology type "table"
-    @go marshal
-    @go migrate
 }
 
 New struct extends Table {

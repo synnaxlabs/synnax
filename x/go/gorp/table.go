@@ -11,7 +11,6 @@ package gorp
 
 import (
 	"context"
-	stdbinary "encoding/binary"
 	"io"
 	"iter"
 	"sort"
@@ -19,10 +18,11 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
@@ -30,7 +30,7 @@ import (
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
 	DB         *DB
-	Codec      binary.Codec
+	Codec      encoding.Codec
 	Migrations []Migration
 	alamos.Instrumentation
 }
@@ -39,12 +39,12 @@ type TableConfig[E any] struct {
 // It holds a resolved Codec (either custom or the DB's default) and provides methods
 // for creating query builders that are automatically configured with the codec.
 type Table[K Key, E Entry[K]] struct {
-	codec binary.Codec
+	codec encoding.Codec
 	DB    *DB
 }
 
 // Codec returns the table's codec.
-func (t *Table[K, E]) Codec() binary.Codec { return t.codec }
+func (t *Table[K, E]) Codec() encoding.Codec { return t.codec }
 
 func (t *Table[K, E]) Close() error {
 	return nil
@@ -56,97 +56,96 @@ func (t *Table[K, E]) Close() error {
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
-) (*Table[K, E], error) {
+) (_ *Table[K, E], err error) {
 	codec := resolveCodec(cfg.Codec, cfg.DB)
 	tableName := types.Name[E]()
 	prefix := []byte(magicPrefix + tableName)
 	versionKey := []byte(migrationVersionPrefix + tableName)
+	// Prepend built-in migrations that use the DB's default codec. These run
+	// once and are tracked alongside user migrations. They must execute before
+	// any codec transitions so that all entries are under the current prefix
+	// and key encoding.
+	builtIn := []Migration{
+		&normalizeKeysMigration[K, E]{dbCodec: cfg.DB},
+	}
+	// Wrap user migrations to depend on normalize_keys so they always run
+	// after key normalization.
+	wrapped := make([]Migration, len(cfg.Migrations))
+	for i, m := range cfg.Migrations {
+		wrapped[i] = &afterBuiltIn{Migration: m}
+	}
+	migrations := append(builtIn, wrapped...)
+
 	kvTx := cfg.DB.KV().OpenTx()
 	defer func() {
-		_ = kvTx.Close()
+		err = errors.Combine(err, kvTx.Close())
 	}()
 	migCfg := MigrationConfig{Prefix: prefix, DBCodec: cfg.DB, L: cfg.L}
-	if len(cfg.Migrations) > 0 {
-		applied, err := readAppliedMigrations(ctx, kvTx, versionKey, cfg.Migrations)
-		if err != nil {
-			return nil, err
-		}
-		pending, err := topoSort(cfg.Migrations, applied)
-		if err != nil {
-			return nil, err
-		}
-		if len(pending) > 0 {
-			totalStart := time.Now()
-			cfg.L.Info(
-				"starting migrations",
+	applied, err := readAppliedMigrations(ctx, kvTx, versionKey)
+	if err != nil {
+		return nil, err
+	}
+	pending, err := topoSort(migrations, applied)
+	if err != nil {
+		return nil, err
+	}
+	if len(pending) > 0 {
+		totalStart := time.Now()
+		cfg.L.Info(
+			"starting migrations",
+			zap.String("table", tableName),
+			zap.Int("pending", len(pending)),
+		)
+		if len(applied) > 0 {
+			appliedNames := applied.Keys()
+			sort.Strings(appliedNames)
+			cfg.L.Debug(
+				"already applied",
 				zap.String("table", tableName),
-				zap.Int("pending", len(pending)),
+				zap.Strings("applied", appliedNames),
 			)
-			if len(applied) > 0 {
-				appliedNames := make([]string, 0, len(applied))
-				for name := range applied {
-					appliedNames = append(appliedNames, name)
-				}
-				sort.Strings(appliedNames)
-				cfg.L.Debug(
-					"already applied",
-					zap.String("table", tableName),
-					zap.Strings("applied", appliedNames),
-				)
-			}
-			for _, m := range pending {
-				mStart := time.Now()
-				if err := m.Run(ctx, kvTx, migCfg); err != nil {
-					entries := 0
-					if ec, ok := m.(EntryCounter); ok {
-						entries = ec.EntriesProcessed()
-					}
-					cfg.L.Error(
-						"migration failed",
-						zap.String("table", tableName),
-						zap.String("migration", m.Name()),
-						zap.Int("entries_processed", entries),
-						zap.Duration("elapsed", time.Since(mStart)),
-						zap.Error(err),
-					)
-					return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
-				}
+		}
+		for _, m := range pending {
+			mStart := time.Now()
+			if err := m.Run(ctx, kvTx, migCfg); err != nil {
 				entries := 0
 				if ec, ok := m.(EntryCounter); ok {
 					entries = ec.EntriesProcessed()
 				}
-				cfg.L.Info(
-					"migration complete",
+				cfg.L.Error(
+					"migration failed",
 					zap.String("table", tableName),
 					zap.String("migration", m.Name()),
-					zap.Int("entries", entries),
+					zap.Int("entries_processed", entries),
 					zap.Duration("elapsed", time.Since(mStart)),
+					zap.Error(err),
 				)
-				applied[m.Name()] = true
-				if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
-					return nil, err
-				}
+				return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
+			}
+			entries := 0
+			if ec, ok := m.(EntryCounter); ok {
+				entries = ec.EntriesProcessed()
 			}
 			cfg.L.Info(
-				"migrations complete",
+				"migration complete",
 				zap.String("table", tableName),
-				zap.Int("migrations", len(pending)),
-				zap.Duration("elapsed", time.Since(totalStart)),
+				zap.String("migration", m.Name()),
+				zap.Int("entries", entries),
+				zap.Duration("elapsed", time.Since(mStart)),
 			)
+			applied.Add(m.Name())
+			if err := writeAppliedMigrations(ctx, kvTx, versionKey, applied); err != nil {
+				return nil, err
+			}
 		}
+		cfg.L.Info(
+			"migrations complete",
+			zap.String("table", tableName),
+			zap.Int("migrations", len(pending)),
+			zap.Duration("elapsed", time.Since(totalStart)),
+		)
 	}
-	// migrateOldPrefixKeys uses the DB's default codec to compute the old prefix
-	// (the type name was originally encoded with msgpack). reEncodeKeys uses the
-	// table's codec for reading/writing entry values.
-	dbTx := WrapTx(kvTx, cfg.DB)
-	if err := migrateOldPrefixKeys[K, E](ctx, dbTx, codec); err != nil {
-		return nil, err
-	}
-	tableTx := WrapTx(kvTx, codec)
-	if err := reEncodeKeys[K, E](ctx, tableTx, codec); err != nil {
-		return nil, err
-	}
-	if err := kvTx.Commit(ctx); err != nil {
+	if err = kvTx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &Table[K, E]{codec: codec, DB: cfg.DB}, nil
@@ -154,7 +153,7 @@ func OpenTable[K Key, E Entry[K]](
 
 // resolveCodec returns the override codec if non-nil, otherwise falls back to the
 // fallback codec.
-func resolveCodec(override binary.Codec, fallback binary.Codec) binary.Codec {
+func resolveCodec(override encoding.Codec, fallback encoding.Codec) encoding.Codec {
 	if override != nil {
 		return override
 	}
@@ -187,101 +186,92 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
 }
 
-// migrateOldPrefixKeys finds entries stored under the old codec-based prefix
-// (e.g. msgpack-encoded type name) and re-writes them under the new prefix
-// format (__gorp__//TypeName).
-func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Codec) (err error) {
-	oldPrefix, err := tx.Encode(ctx, types.Name[E]())
-	if err != nil {
-		return err
-	}
-	newCodec := newKeyCodec[K, E]()
-	if string(oldPrefix) == string(newCodec.prefix) {
-		return nil
-	}
-	iter, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	writer := wrapWriter[K, E](tx, codec)
-	for iter.First(); iter.Valid(); iter.Next() {
-		var entry E
-		if err = codec.Decode(ctx, iter.Value(), &entry); err != nil {
-			return err
-		}
-		if err = tx.Delete(ctx, iter.Key()); err != nil {
-			return err
-		}
-		if err = writer.Set(ctx, entry); err != nil {
-			return err
-		}
-	}
-	return err
+// normalizeKeysMigration moves entries from the old codec-encoded prefix to the
+// current literal prefix and re-encodes key suffixes to use primitive encoding.
+// Values are decoded with the DB's default codec only to extract GorpKey(); raw
+// value bytes are written back without re-encoding.
+type normalizeKeysMigration[K Key, E Entry[K]] struct {
+	dbCodec encoding.Codec
 }
 
-// reEncodeKeys iterates entries already stored under the current prefix and
-// re-writes them, ensuring the key portion uses the current primitive encoding.
-// This is a no-op when the key encoding hasn't changed.
-func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Codec) error {
-	reader := wrapReader[K, E](tx, codec)
-	iter, err := reader.OpenIterator(IterOptions{})
+func (m *normalizeKeysMigration[K, E]) Name() string { return "normalize_keys" }
+
+func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx kv.Tx, _ MigrationConfig) error {
+	kc := newKeyCodec[K, E]()
+	dbTx := WrapTx(tx, m.dbCodec)
+	oldPrefix, err := dbTx.Encode(ctx, types.Name[E]())
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	writer := wrapWriter[K, E](tx, codec)
-	for iter.First(); iter.Valid(); iter.Next() {
-		if err = writer.writer.Delete(ctx, iter.Key()); err != nil {
+	// Phase 1: move entries from old prefix to new prefix + new key encoding.
+	if string(oldPrefix) != string(kc.prefix) {
+		itr, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
+		if err != nil {
 			return err
 		}
-		if err = writer.Set(ctx, *iter.Value(ctx)); err != nil {
+		for itr.First(); itr.Valid(); itr.Next() {
+			rawValue := itr.Value()
+			var entry E
+			if err = m.dbCodec.Decode(ctx, rawValue, &entry); err != nil {
+				return errors.Combine(
+					errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key()),
+					itr.Close(),
+				)
+			}
+			if err = tx.Delete(ctx, itr.Key()); err != nil {
+				return errors.Combine(err, itr.Close())
+			}
+			if err = tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
+				return errors.Combine(err, itr.Close())
+			}
+		}
+		if err = itr.Close(); err != nil {
 			return err
 		}
 	}
-	return err
+	return nil
 }
 
-// readAppliedMigrations reads the set of applied migration names from the KV store.
-// It handles backward compatibility: if the stored value is exactly 2 bytes, it is
-// treated as the old uint16 index-based format and converted by marking the first N
-// migrations from the provided list as applied.
+// afterBuiltIn wraps a user-provided Migration so that it depends on the
+// built-in reencode_keys migration. This guarantees all built-in key
+// normalization completes before any user codec transitions run.
+type afterBuiltIn struct {
+	Migration
+}
+
+func (a *afterBuiltIn) Dependencies() []string {
+	var deps []string
+	if dd, ok := a.Migration.(DependencyDeclarer); ok {
+		deps = dd.Dependencies()
+	}
+	return append(deps, "normalize_keys")
+}
+
+// readAppliedMigrations reads the set of applied migration names from the KV
+// store. Names are stored as a newline-delimited string.
 func readAppliedMigrations(
 	ctx context.Context,
 	kvTx kv.Tx,
 	key []byte,
-	migrations []Migration,
-) (map[string]bool, error) {
-	b, closer, err := kvTx.Get(ctx, key)
-	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return make(map[string]bool), nil
+) (_ set.Set[string], err error) {
+	b, closer, getErr := kvTx.Get(ctx, key)
+	if getErr != nil {
+		if errors.Is(getErr, query.ErrNotFound) {
+			return make(set.Set[string]), nil
 		}
-		return nil, err
+		return nil, getErr
 	}
 	defer func() {
 		err = errors.Combine(err, closer.Close())
 	}()
-	if len(b) == 2 {
-		count := int(stdbinary.BigEndian.Uint16(b))
-		applied := make(map[string]bool, count)
-		for i := 0; i < count && i < len(migrations); i++ {
-			applied[migrations[i].Name()] = true
-		}
-		return applied, err
-	}
 	names := strings.Split(string(b), "\n")
-	applied := make(map[string]bool, len(names))
+	applied := make(set.Set[string], len(names))
 	for _, name := range names {
 		if name != "" {
-			applied[name] = true
+			applied.Add(name)
 		}
 	}
-	return applied, err
+	return applied, nil
 }
 
 // writeAppliedMigrations persists the set of applied migration names as a
@@ -290,11 +280,9 @@ func writeAppliedMigrations(
 	ctx context.Context,
 	kvTx kv.Tx,
 	key []byte,
-	applied map[string]bool,
+	applied set.Set[string],
 ) error {
-	names := make([]string, 0, len(applied))
-	for name := range applied {
-		names = append(names, name)
-	}
+	names := applied.Keys()
+	sort.Strings(names)
 	return kvTx.Set(ctx, key, []byte(strings.Join(names, "\n")))
 }
