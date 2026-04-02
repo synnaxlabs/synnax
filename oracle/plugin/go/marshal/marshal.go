@@ -90,13 +90,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	merged := make(map[string]map[string]resolution.Type)
 	for _, ei := range entryTypes {
 		adapters[ei.goName] = ei.goPath
-		entry, _ := req.Resolutions.Get(ei.goName)
-		if entry.QualifiedName == "" {
-			for _, t := range req.Resolutions.StructTypes() {
-				if naming.GetGoName(t) == ei.goName {
-					entry = t
-					break
-				}
+		var entry resolution.Type
+		for _, t := range req.Resolutions.StructTypes() {
+			if naming.GetGoName(t) == ei.goName {
+				entry = t
+				break
 			}
 		}
 		byPkg, _ := collectSerializableTypes(entry, req.Resolutions)
@@ -178,7 +176,7 @@ func buildCodecEntries(
 // GenerateCodecFile generates a complete codec file for the given entries using the
 // specified package name and output path context. This is used by the migrate plugin
 // to generate frozen codecs for old schema versions. Each entry gets exported
-// EncodeX/DecodeX functions. Entries with Adapter=true also get an xbinary.Codec
+// EncodeX/DecodeX functions. Entries with Adapter=true also get an xencoding.Codec
 // implementation with sync.Pool-based Writer/Reader reuse.
 func GenerateCodecFile(
 	packageName string,

@@ -110,6 +110,111 @@ var _ = Describe("Raw", func() {
 		})
 	})
 
+	Describe("SkipUint8", func() {
+		It("Should skip 1 byte", func() {
+			data := orc.Raw([]byte{99, 42})
+			rest := data.SkipUint8()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("SkipInt8", func() {
+		It("Should skip 1 byte", func() {
+			data := orc.Raw([]byte{0xFF, 42})
+			rest := data.SkipInt8()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("SkipInt16", func() {
+		It("Should skip 2 bytes", func() {
+			data := orc.Raw([]byte{0xFF, 0x00, 42})
+			rest := data.SkipInt16()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("SkipInt32", func() {
+		It("Should skip 4 bytes", func() {
+			data := orc.Raw([]byte{0, 0, 0, 1, 42})
+			rest := data.SkipInt32()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("SkipInt64", func() {
+		It("Should skip 8 bytes", func() {
+			data := orc.Raw([]byte{0, 0, 0, 0, 0, 0, 0, 1, 42})
+			rest := data.SkipInt64()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("SkipFloat32", func() {
+		It("Should skip 4 bytes", func() {
+			data := orc.Raw([]byte{0, 0, 0, 0, 42})
+			rest := data.SkipFloat32()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("SkipFloat64", func() {
+		It("Should skip 8 bytes", func() {
+			data := orc.Raw([]byte{0, 0, 0, 0, 0, 0, 0, 0, 42})
+			rest := data.SkipFloat64()
+			v, _ := rest.ReadUint8()
+			Expect(v).To(Equal(uint8(42)))
+		})
+	})
+
+	Describe("ReadUint8", func() {
+		It("Should return nil rest on empty data", func() {
+			_, rest := orc.Raw(nil).ReadUint8()
+			Expect(rest).To(BeNil())
+		})
+	})
+
+	Describe("ReadUint16", func() {
+		It("Should return nil rest on short data", func() {
+			_, rest := orc.Raw([]byte{1}).ReadUint16()
+			Expect(rest).To(BeNil())
+		})
+	})
+
+	Describe("ReadUint32", func() {
+		It("Should return nil rest on short data", func() {
+			_, rest := orc.Raw([]byte{1, 2}).ReadUint32()
+			Expect(rest).To(BeNil())
+		})
+	})
+
+	Describe("ReadUint64", func() {
+		It("Should return nil rest on short data", func() {
+			_, rest := orc.Raw([]byte{1, 2, 3, 4}).ReadUint64()
+			Expect(rest).To(BeNil())
+		})
+	})
+
+	Describe("ReadLenPrefixed", func() {
+		It("Should return nil on short header", func() {
+			val, rest := orc.Raw([]byte{0, 0}).ReadLenPrefixed()
+			Expect(val).To(BeNil())
+			Expect(rest).To(BeNil())
+		})
+
+		It("Should return nil on truncated body", func() {
+			val, rest := orc.Raw([]byte{0, 0, 0, 10, 1, 2}).ReadLenPrefixed()
+			Expect(val).To(BeNil())
+			Expect(rest).To(BeNil())
+		})
+	})
+
 	Describe("ReadString", func() {
 		It("Should read a length-prefixed string", func() {
 			w := orc.NewWriter(0)
@@ -202,6 +307,24 @@ var _ = Describe("Raw", func() {
 			w.Int64(-1)
 			v, _ := orc.Raw(w.Bytes()).ReadInt64()
 			Expect(v).To(Equal(int64(-1)))
+		})
+	})
+
+	Describe("ReadFloat32", func() {
+		It("Should read a float32", func() {
+			w := orc.NewWriter(0)
+			w.Float32(3.14)
+			v, _ := orc.Raw(w.Bytes()).ReadFloat32()
+			Expect(v).To(BeNumerically("~", float32(3.14), 1e-6))
+		})
+	})
+
+	Describe("ReadFloat64", func() {
+		It("Should read a float64", func() {
+			w := orc.NewWriter(0)
+			w.Float64(2.718281828)
+			v, _ := orc.Raw(w.Bytes()).ReadFloat64()
+			Expect(v).To(BeNumerically("~", 2.718281828, 1e-9))
 		})
 	})
 

@@ -27,20 +27,18 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-var migrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Generate migration files for schema changes and take a schema snapshot",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := runMigrate(cmd); err != nil {
-			printError(err.Error())
-			return err
-		}
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(migrateCmd)
+func newMigrateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "migrate",
+		Short: "Generate migration files for schema changes and take a schema snapshot",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runMigrate(cmd); err != nil {
+				printError(err.Error())
+				return err
+			}
+			return nil
+		},
+	}
 }
 
 func runMigrate(cmd *cobra.Command) error {
@@ -129,8 +127,11 @@ func runMigrate(cmd *cobra.Command) error {
 				oldNormalized = append(oldNormalized, importPath)
 			}
 			oldTable, oldDiag := analyzer.Analyze(ctx, oldNormalized, snapshotLoader)
-			if oldDiag != nil && !oldDiag.Ok() {
+			if oldDiag != nil {
 				printDiagnostics(oldDiag.String())
+				if !oldDiag.Ok() {
+					return errors.New("failed to analyze old schema snapshot")
+				}
 			}
 			if oldTable != nil {
 				req.OldResolutions = oldTable

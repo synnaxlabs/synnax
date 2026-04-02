@@ -96,14 +96,16 @@ type Scheduler struct {
 // Implementations can log, aggregate, or handle errors in custom ways.
 type ErrorHandler interface {
 	// HandleError is called when a node reports an error during execution.
-	HandleError(nodeKey string, err error)
+	HandleError(ctx context.Context, nodeKey string, err error)
 }
 
 // ErrorHandlerFunc is an adapter to allow ordinary functions to be used as ErrorHandlers.
-type ErrorHandlerFunc func(nodeKey string, err error)
+type ErrorHandlerFunc func(ctx context.Context, nodeKey string, err error)
 
 // HandleError implements ErrorHandler by calling the function.
-func (f ErrorHandlerFunc) HandleError(nodeKey string, err error) { f(nodeKey, err) }
+func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err error) {
+	f(ctx, nodeKey, err)
+}
 
 // New creates a scheduler from an IR program and node instances.
 // The scheduler organizes nodes into strata for topological execution and
@@ -217,7 +219,7 @@ func (s *Scheduler) markSelfChanged() {
 // reportError reports an error from the currently executing node.
 func (s *Scheduler) reportError(err error) {
 	if s.errorHandler != nil {
-		s.errorHandler.HandleError(s.currNodeKey, err)
+		s.errorHandler.HandleError(s.nodeCtx.Context, s.currNodeKey, err)
 	}
 }
 

@@ -9,7 +9,10 @@
 
 package orc
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math"
+)
 
 // Raw provides zero-allocation navigation of orc-encoded binary data. Callers
 // can skip or read individual fields by type without fully deserializing the
@@ -166,4 +169,16 @@ func (r Raw) ReadInt32() (int32, Raw) {
 func (r Raw) ReadInt64() (int64, Raw) {
 	v, rest := r.ReadUint64()
 	return int64(v), rest
+}
+
+// ReadFloat32 reads a 4-byte big-endian float32 field.
+func (r Raw) ReadFloat32() (float32, Raw) {
+	v, rest := r.ReadUint32()
+	return math.Float32frombits(v), rest
+}
+
+// ReadFloat64 reads an 8-byte big-endian float64 field.
+func (r Raw) ReadFloat64() (float64, Raw) {
+	v, rest := r.ReadUint64()
+	return math.Float64frombits(v), rest
 }

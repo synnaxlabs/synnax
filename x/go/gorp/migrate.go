@@ -14,10 +14,12 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +37,7 @@ type Migration interface {
 // migrations carry their own codecs for version-specific encoding/decoding.
 type MigrationConfig struct {
 	Prefix  []byte
-	DBCodec binary.Codec
+	DBCodec encoding.Codec
 	L       *alamos.Logger
 }
 
@@ -71,8 +73,8 @@ type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
 type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 	name        string
-	inputCodec  binary.Codec
-	outputCodec binary.Codec
+	inputCodec  encoding.Codec
+	outputCodec encoding.Codec
 	transform   TransformFunc[I, O]
 	entries     int
 }
@@ -84,8 +86,8 @@ type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 // If outputCodec is nil, MigrationConfig.DBCodec is used for encoding.
 func NewTypedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	name string,
-	inputCodec binary.Codec,
-	outputCodec binary.Codec,
+	inputCodec encoding.Codec,
+	outputCodec encoding.Codec,
 	transform TransformFunc[I, O],
 ) Migration {
 	return &typedMigration[IK, OK, I, O]{
@@ -151,13 +153,13 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 
 type codecTransitionMigration[K Key, E Entry[K]] struct {
 	name    string
-	codec   binary.Codec
+	codec   encoding.Codec
 	entries int
 }
 
 // NewCodecTransition creates a Migration that re-encodes all entries from the DB's
 // default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
-func NewCodecTransition[K Key, E Entry[K]](name string, codec binary.Codec) Migration {
+func NewCodecTransition[K Key, E Entry[K]](name string, codec encoding.Codec) Migration {
 	return &codecTransitionMigration[K, E]{name: name, codec: codec}
 }
 
@@ -260,18 +262,18 @@ func WithMigrationDep[T any](ctx context.Context, dep T) context.Context {
 }
 
 // MigrationDep retrieves a dependency previously injected via WithMigrationDep.
-// Panics if the dependency was not injected, since this indicates a programming
-// error (the service forgot to inject the dependency before calling OpenTable).
-func MigrationDep[T any](ctx context.Context) T {
+// Returns ErrMissingMigrationDep if the dependency was not injected.
+func MigrationDep[T any](ctx context.Context) (T, error) {
 	v, ok := ctx.Value(depKey[T]{}).(T)
 	if !ok {
-		panic(fmt.Sprintf(
-			"%s: %T not found in context",
+		var zero T
+		return zero, errors.Wrapf(
 			ErrMissingMigrationDep,
+			"%T not found in context",
 			*new(T),
-		))
+		)
 	}
-	return v
+	return v, nil
 }
 
 // MigrationDepOpt retrieves a dependency previously injected via WithMigrationDep.
@@ -284,15 +286,18 @@ func MigrationDepOpt[T any](ctx context.Context) (T, bool) {
 // topoSort filters out already-applied migrations, then produces a valid
 // execution order. Dependencies that are already applied are considered
 // satisfied and do not need to appear in the pending set.
-func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, error) {
+func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, error) {
 	byName := make(map[string]Migration, len(migrations))
 	for _, m := range migrations {
+		if _, dup := byName[m.Name()]; dup {
+			return nil, fmt.Errorf("duplicate migration name %q", m.Name())
+		}
 		byName[m.Name()] = m
 	}
 
 	var pending []Migration
 	for _, m := range migrations {
-		if !applied[m.Name()] {
+		if !applied.Contains(m.Name()) {
 			pending = append(pending, m)
 		}
 	}
@@ -317,7 +322,7 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 		adj[name] = nil
 		if dd, ok := m.(DependencyDeclarer); ok {
 			for _, dep := range dd.Dependencies() {
-				if applied[dep] {
+				if applied.Contains(dep) {
 					continue
 				}
 				adj[name] = append(adj[name], dep)
@@ -335,4 +340,71 @@ func topoSort(migrations []Migration, applied map[string]bool) ([]Migration, err
 		sorted[i] = byName[name]
 	}
 	return sorted, nil
+}
+
+var ErrMigrationCountExceeded = errors.New(
+	"migration count is greater than the maximum of 255",
+)
+
+// MigrationSpec defines a single migration that should be run with a transaction.
+type MigrationSpec struct {
+	Migrate func(context.Context, Tx) error
+	Name    string
+}
+
+// Migrator executes a series of migrations in order, tracking progress with
+// incrementing versions.
+type Migrator struct {
+	Key        string
+	Migrations []MigrationSpec
+	Force      bool
+}
+
+// Run executes all migrations that haven't been completed yet.
+func (r Migrator) Run(ctx context.Context, db *DB) error {
+	return db.WithTx(ctx, func(tx Tx) error {
+		migrationCount := len(r.Migrations)
+		if migrationCount > 255 {
+			return errors.Wrapf(
+				ErrMigrationCountExceeded,
+				"migration count is greater than the maximum of 255: %d",
+				migrationCount,
+			)
+		}
+		var currentVersion uint8
+		if !r.Force {
+			versionBytes, closer, err := tx.Get(ctx, []byte(r.Key))
+			if err := errors.Skip(err, query.ErrNotFound); err != nil {
+				return err
+			}
+			if closer != nil {
+				if err := closer.Close(); err != nil {
+					return err
+				}
+			}
+			if len(versionBytes) > 0 {
+				currentVersion = versionBytes[0]
+			}
+		}
+		for i := currentVersion; i < uint8(migrationCount); i++ {
+			migration := r.Migrations[i]
+			newVersion := i + 1
+			if err := migration.Migrate(ctx, tx); err != nil {
+				return errors.Wrapf(
+					err,
+					"migration %d (%s) failed",
+					newVersion,
+					migration.Name,
+				)
+			}
+			if err := tx.Set(ctx, []byte(r.Key), []byte{newVersion}); err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to migrate to version %d",
+					newVersion,
+				)
+			}
+		}
+		return nil
+	})
 }

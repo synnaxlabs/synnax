@@ -238,6 +238,7 @@ type encoderBuilder struct {
 	usesErr             bool
 	depth               int
 	inBlock             int
+	skipNilCheck        bool
 	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 
@@ -518,10 +519,12 @@ func (b *encoderBuilder) processHardOptional(
 		)
 		b.depth++
 		b.inBlock++
+		b.skipNilCheck = true
 		derefGet := "(*" + getPath + ")"
 		if err := b.processValueByType(resolved, f.Type, derefGet, setPath); err != nil {
 			return err
 		}
+		b.skipNilCheck = false
 		b.inBlock--
 		b.depth--
 		b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
@@ -600,9 +603,11 @@ func (b *encoderBuilder) processSoftOptionalNilable(
 	)
 	b.depth++
 	b.inBlock++
+	b.skipNilCheck = true
 	if err := b.processValueByType(resolved, f.Type, getPath, setPath); err != nil {
 		return err
 	}
+	b.skipNilCheck = false
 	b.inBlock--
 	b.depth--
 	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
@@ -625,14 +630,17 @@ func (b *encoderBuilder) processArray(
 	}
 
 	// Write a presence bit to distinguish nil from empty slices.
-	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-		ind+fmt.Sprintf("if %s != nil {", getPath),
-	)
-	b.decodeLines = append(b.decodeLines,
-		ind+"{ present, err := r.Bool(); if err != nil { return err }",
-		ind+"if present {",
-	)
+	// When inside a hard-optional guard, the slice is already known non-nil.
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
 
 	idx := b.loopIndex()
 	b.encodeLines = append(b.encodeLines,
@@ -655,8 +663,12 @@ func (b *encoderBuilder) processArray(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"\t}", ind+"}")
-	b.decodeLines = append(b.decodeLines, ind+"\t}", ind+"}", ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}")
+	b.decodeLines = append(b.decodeLines, ind+"\t}")
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines, ind+"}")
+		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
+	}
 	return nil
 }
 
@@ -683,14 +695,17 @@ func (b *encoderBuilder) processMap(
 	}
 
 	// Write a presence bit to distinguish nil from empty maps.
-	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-		ind+fmt.Sprintf("if %s != nil {", getPath),
-	)
-	b.decodeLines = append(b.decodeLines,
-		ind+"{ present, err := r.Bool(); if err != nil { return err }",
-		ind+"if present {",
-	)
+	// When inside a hard-optional guard, the map is already known non-nil.
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
 
 	b.encodeLines = append(b.encodeLines,
 		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
@@ -715,12 +730,15 @@ func (b *encoderBuilder) processMap(
 	b.inBlock--
 	b.depth--
 
-	b.encodeLines = append(b.encodeLines, ind+"\t}", ind+"}")
+	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines,
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
-		ind+"}", ind+"}",
 	)
+	if !b.skipNilCheck {
+		b.encodeLines = append(b.encodeLines, ind+"}")
+		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
+	}
 	return nil
 }
 
@@ -751,7 +769,7 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
 		b.decodeLine(
-			ind + fmt.Sprintf("if _, err := r.Read(%s[:]); err != nil { return err }", setPath))
+			ind + fmt.Sprintf("if _, err = r.Read(%s[:]); err != nil { return err }", setPath))
 
 	case "record", "any":
 		b.needsJSON = true
@@ -1026,7 +1044,7 @@ import (
 {{- end}}
 
 {{- if .Adapters}}
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 {{- end}}
 	"github.com/synnaxlabs/x/encoding/orc"
 {{- range $path, $alias := .ExtraImports}}
@@ -1065,16 +1083,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 {{range .Adapters}}
 type {{lowerFirst .GoName}}Codec struct{}
 
-var {{.GoName}}Codec xbinary.Codec = {{lowerFirst .GoName}}Codec{}
+var {{.GoName}}Codec xencoding.Codec = {{lowerFirst .GoName}}Codec{}
 
 func ({{lowerFirst .GoName}}Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.({{.GoName}})
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := Encode{{.GoName}}(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := Encode{{.GoName}}(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -1089,10 +1108,9 @@ func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writ
 func ({{lowerFirst .GoName}}Codec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*{{.GoName}})
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := Decode{{.GoName}}(r, s)
-	readerPool.Put(r)
-	return err
+	return Decode{{.GoName}}(r, s)
 }
 
 func (c {{lowerFirst .GoName}}Codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

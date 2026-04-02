@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology, type Synnax } from "@synnaxlabs/client";
+import { device, ontology } from "@synnaxlabs/client";
 import { array, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -314,13 +314,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 export const formSchema = device.deviceZ();
 
-const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
-  let rack = store.racks.get(() => true)[0];
-  if (rack != null) return rack.key;
-  rack = (await client.racks.retrieve({ offset: 0, limit: 1 }))[0];
-  return rack?.key ?? 0;
-};
-
 export interface FormQuery extends RetrieveQuery {}
 
 export const createForm = <
@@ -345,7 +338,6 @@ export const createForm = <
     },
     retrieve: async ({ query, client, reset, store, set }) => {
       if (primitive.isZero(query.key)) {
-        set("rack", await retrieveInitialRackKey(client, store));
         set("key", uuid.create());
         return;
       }

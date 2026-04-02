@@ -95,12 +95,12 @@ var _ = AfterSuite(func() {
 
 // mockFactory is a test implementation of driver.Factory.
 type mockFactory struct {
-	configureFunc func(driver.Context, task.Task) (driver.Task, error)
+	configureFunc func(context.Context, task.Task) (driver.Task, error)
 	name          string
 }
 
 func (f *mockFactory) ConfigureTask(
-	ctx driver.Context,
+	ctx context.Context,
 	t task.Task,
 ) (driver.Task, error) {
 	if f.configureFunc != nil {

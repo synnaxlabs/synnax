@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
+	"sync"
 )
 
 func EncodeStatus[Details any](w *orc.Writer, s *Status[Details], encodeDetails func(*orc.Writer, *Details) error) error {
@@ -29,13 +30,10 @@ func EncodeStatus[Details any](w *orc.Writer, s *Status[Details], encodeDetails 
 	}
 	if s.Labels != nil {
 		w.Bool(true)
-		w.Bool(s.Labels != nil)
-		if s.Labels != nil {
-			w.Uint32(uint32(len(s.Labels)))
-			for j := range s.Labels {
-				if err := label.EncodeLabel(w, &s.Labels[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Labels)))
+		for j := range s.Labels {
+			if err := label.EncodeLabel(w, &s.Labels[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -81,25 +79,20 @@ func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails 
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Labels = make([]label.Label, n)
+			for j := range s.Labels {
+				if err = label.DecodeLabel(r, &s.Labels[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Labels = make([]label.Label, n)
-					for j := range s.Labels {
-						if err = label.DecodeLabel(r, &s.Labels[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
 	}
 	return nil
 }
+
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}

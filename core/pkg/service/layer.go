@@ -167,11 +167,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}()
 
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		Instrumentation: cfg.Child("user"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Group:           cfg.Distribution.Group,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
+		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -200,12 +199,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
-		Instrumentation: cfg.Child("label"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Group:           cfg.Distribution.Group,
-		Signals:         cfg.Distribution.Signals,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -220,7 +218,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-
+	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
+		Instrumentation: cfg.Child("alias"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Signals:         cfg.Distribution.Signals,
+		ParentRetriever: l.Ranger,
+	}); !ok(err, l.Alias) {
+		return nil, err
+	}
 	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
 		Instrumentation: cfg.Child("kv"),
 		DB:              cfg.Distribution.DB,
@@ -229,46 +236,41 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
-		Instrumentation: cfg.Child("workspace"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Group:           cfg.Distribution.Group,
-		Signals:         cfg.Distribution.Signals,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
-		Instrumentation: cfg.Child("schematic"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Group:           cfg.Distribution.Group,
-		Signals:         cfg.Distribution.Signals,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		Instrumentation: cfg.Child("lineplot"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
-		Instrumentation: cfg.Child("log"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
-		Instrumentation: cfg.Child("table"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Search:   cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -346,17 +348,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
-	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
-		Instrumentation: cfg.Child("alias"),
-		DB:              cfg.Distribution.DB,
-		Channel:         l.Channel,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Signals:         cfg.Distribution.Signals,
-		ParentRetriever: l.Ranger,
-	}); !ok(err, l.Alias) {
-		return nil, err
-	}
 	if l.View, err = view.OpenService(
 		ctx,
 		view.ServiceConfig{
@@ -397,11 +388,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
+	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
-		Channel:    l.Channel,
-		Framer:     cfg.Distribution.Framer,
-		Status:     l.Status,
-		GetProgram: l.Arc.CompileProgram,
+		Instrumentation: cfg.Child("arc.runtime"),
+		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
+		Status:          l.Status,
+		GetProgram:      l.Arc.CompileProgram,
 	})
 	if !ok(err, nil) {
 		return nil, err

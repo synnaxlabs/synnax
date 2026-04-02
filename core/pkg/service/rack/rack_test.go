@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -118,7 +118,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = &binary.MsgPackCodec{}
+		var codec = msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
 			func(ctx SpecContext, value any, expected rack.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))
@@ -226,6 +226,75 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res.Key).To(Equal(r2.Key))
 				Expect(res.Name).To(Equal("filter-rack-beta"))
 			})
+		})
+		Describe("WhereIntegration", func() {
+			It("Should retrieve a rack that supports the requested integration", func(ctx SpecContext) {
+				r := &rack.Rack{Name: "ni-rack", Integrations: []string{"ni", "opc"}}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res []rack.Rack
+				Expect(svc.NewRetrieve().
+					WhereIntegration("ni").
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).ToNot(BeEmpty())
+				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+					return r.Name == "ni-rack"
+				})).To(BeTrue())
+			})
+			It("Should not return racks missing the requested integration", func(ctx SpecContext) {
+				r := &rack.Rack{Name: "opc-only-rack", Integrations: []string{"opc"}}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res []rack.Rack
+				Expect(svc.NewRetrieve().
+					WhereIntegration("ni").
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+					return r.Name == "opc-only-rack"
+				})).To(BeFalse())
+			})
+			It("Should not return racks with empty integrations", func(ctx SpecContext) {
+				r := &rack.Rack{Name: "empty-integrations-rack", Integrations: []string{}}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res []rack.Rack
+				Expect(svc.NewRetrieve().
+					WhereIntegration("ni").
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+					return r.Name == "empty-integrations-rack"
+				})).To(BeFalse())
+			})
+			It("Should not return racks with nil integrations", func(ctx SpecContext) {
+				r := &rack.Rack{Name: "nil-integrations-rack"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res []rack.Rack
+				Expect(svc.NewRetrieve().
+					WhereIntegration("ni").
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
+					return r.Name == "nil-integrations-rack"
+				})).To(BeFalse())
+			})
+		})
+	})
+	Describe("Create with Integrations", func() {
+		It("Should persist integrations on the rack", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "persist-integ-rack", Integrations: []string{"ni", "opc", "arc"}}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			var res rack.Rack
+			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Integrations).To(ConsistOf([]string{"ni", "opc", "arc"}))
+		})
+		It("Should update integrations on upsert", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "upsert-integ-rack", Integrations: []string{"ni"}}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			r.Integrations = []string{"opc", "modbus"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			var res rack.Rack
+			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Integrations).To(ConsistOf([]string{"opc", "modbus"}))
 		})
 	})
 	Describe("Delete", func() {

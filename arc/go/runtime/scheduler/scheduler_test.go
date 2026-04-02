@@ -10,6 +10,7 @@
 package scheduler_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -74,7 +75,7 @@ type MockErrorHandler struct {
 	}
 }
 
-func (h *MockErrorHandler) HandleError(nodeKey string, err error) {
+func (h *MockErrorHandler) HandleError(_ context.Context, nodeKey string, err error) {
 	h.Errors = append(h.Errors, struct {
 		Err     error
 		NodeKey string

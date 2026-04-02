@@ -13,7 +13,9 @@
 
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
+#include "driver/ni/daqmx/prod.h"
 #include "driver/ni/daqmx/sugared.h"
+#include "driver/ni/syscfg/prod.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/task.h"
 
@@ -50,6 +52,14 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
             "sample rate a higher multiple of the stream rate"
         )};
     return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
+}
+
+/// @brief returns true if the NI SDK libraries (DAQmx and SysCfg) are available on this
+/// system.
+inline bool integration_supported() {
+    auto [dmx, dmx_err] = daqmx::ProdAPI::load();
+    auto [sc, sc_err] = syscfg::ProdAPI::load();
+    return dmx != nullptr && sc != nullptr;
 }
 
 /// @brief a factory for instantiating and operating NI data acquisition, control,

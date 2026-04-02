@@ -1,0 +1,53 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.view;
+
+import "core/pkg/service/view/pb/view.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/view";
+
+service ViewCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service ViewRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+}
+
+service ViewDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+message CreateRequest {
+  repeated service.view.pb.View views = 1;
+}
+
+message CreateResponse {
+  repeated service.view.pb.View views = 1;
+}
+
+message RetrieveRequest {
+  repeated string keys = 1;
+  repeated string types = 2;
+  string search_term = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message RetrieveResponse {
+  repeated service.view.pb.View views = 1;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}
