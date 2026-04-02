@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
+	"sync"
 )
 
 func EncodeStatus[Details any](w *orc.Writer, s *Status[Details], encodeDetails func(*orc.Writer, *Details) error) error {
@@ -103,3 +104,6 @@ func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails 
 	}
 	return nil
 }
+
+var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
+var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}

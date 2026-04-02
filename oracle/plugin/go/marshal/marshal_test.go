@@ -316,6 +316,88 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("generic struct test generation", func() {
+			It("Should generate tests for generic structs with concrete type substitution", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Status struct<Details?> {
+						key     string
+						message string
+						details Details?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec_gen_test.go").
+					ToContain(
+						"Describe(\"Status\"",
+						"Status[string]",
+						"EncodeStatus",
+						"DecodeStatus",
+					)
+			})
+
+			It("Should generate tests for generic structs with defaulted and non-defaulted type params", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Variant enum {
+						info    = "info"
+						warning = "warning"
+						error   = "error"
+					}
+
+					Inner struct {
+						name string
+						@go omit
+					}
+
+					Status struct<Details?, V extends Variant = Variant> {
+						key         string
+						variant     V
+						message     string
+						description string?
+						time        int64
+						details     Details?
+						items       Inner[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec_gen_test.go").
+					ToContain(
+						"Describe(\"Status\"",
+						"Status[string]",
+						"EncodeStatus",
+						"DecodeStatus",
+						"BenchmarkEncodeDecodeStatus",
+						"FuzzDecodeStatus",
+					)
+			})
+
+			It("Should generate benchmark and fuzz tests for generic structs", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Container struct<T?> {
+						name  string
+						value T?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec_gen_test.go").
+					ToContain(
+						"BenchmarkEncodeDecodeContainer",
+						"FuzzDecodeContainer",
+					)
+			})
+		})
+
 		Context("recursive struct (self-referencing optional fields)", func() {
 			It("Should handle recursive type via delegation", func() {
 				source := `
