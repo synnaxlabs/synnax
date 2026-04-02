@@ -81,10 +81,6 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	newContext := func(ctx context.Context) driver.Context {
-		return driver.NewContext(ctx, statusSvc)
-	}
-
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 			Channel:    svcchannel.Wrap(dist.Channel),
@@ -130,7 +126,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   runtime.TaskType,
 			Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 		}
-		return MustSucceed(factory.ConfigureTask(newContext(ctx), svcTask))
+		return MustSucceed(factory.ConfigureTask(ctx, svcTask))
 	}
 
 	simpleGraph := func(chKey channel.Key) graph.Graph {
@@ -232,7 +228,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   "not-arc",
 				Config: map[string]any{},
 			}
-			Expect(factory.ConfigureTask(newContext(ctx), svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(driver.ErrTaskNotHandled))
 		})
 
@@ -255,7 +251,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			Expect(factory.ConfigureTask(newContext(ctx), svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(HaveOccurred())
 		})
 
@@ -271,7 +267,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			Expect(factory.ConfigureTask(newContext(ctx), svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 
@@ -288,7 +284,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			Expect(factory.ConfigureTask(newContext(ctx), svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -312,7 +308,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			Expect(factory.ConfigureTask(newContext(ctx), svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -338,7 +334,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(
 				newGraphFactory(simpleGraph(ch.Key())).
-					ConfigureTask(newContext(ctx), svcTask),
+					ConfigureTask(ctx, svcTask),
 			)
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
@@ -369,7 +365,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key())).
-				ConfigureTask(newContext(ctx), svcTask))
+				ConfigureTask(ctx, svcTask))
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
@@ -380,6 +376,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Message).To(Equal("Task started successfully"))
 			Expect(stat.Details.Running).To(BeTrue())
 		})
+
 	})
 
 	Describe("Task Lifecycle", func() {
@@ -443,7 +440,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			Expect(newGraphFactory(badNodeGraph).ConfigureTask(newContext(ctx), svcTask)).
+			Expect(newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask)).
 				Error().To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
@@ -1150,7 +1147,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(newContext(ctx), svcTask))
+			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() {
 				Expect(t.Stop()).To(Succeed())
@@ -1271,7 +1268,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
-			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(newContext(ctx), svcTask))
+			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 
 			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{outputCh.Key()}, 5)
 			defer closeStreamer()
