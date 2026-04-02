@@ -34,6 +34,31 @@ var _ = Describe("Reader", func() {
 			Expect(iter.Next()).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
+		It("Should return nil and accumulate an error when decoding fails", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[int32, entry](nil).
+				Entries(&[]entry{{ID: 99, Data: "valid"}}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+
+			iter := MustSucceed(gorp.WrapReader[int32, entry](tx, tx).OpenIterator(gorp.IterOptions{}))
+			Expect(iter.First()).To(BeTrue())
+			rawKey := make([]byte, len(iter.Key()))
+			copy(rawKey, iter.Key())
+			Expect(iter.Close()).To(Succeed())
+
+			kvTx := kvDB.OpenTx()
+			Expect(kvTx.Set(ctx, rawKey, []byte("corrupt"))).To(Succeed())
+			Expect(kvTx.Commit(ctx)).To(Succeed())
+			Expect(kvTx.Close()).To(Succeed())
+
+			tx2 := db.OpenTx()
+			iter2 := MustSucceed(gorp.WrapReader[int32, entry](tx2, tx2).OpenIterator(gorp.IterOptions{}))
+			Expect(iter2.First()).To(BeTrue())
+			Expect(iter2.Value(ctx)).To(BeNil())
+			Expect(iter2.Error()).To(HaveOccurred())
+			Expect(iter2.Valid()).To(BeFalse())
+			Expect(iter2.Close()).To(Succeed())
+		})
 	})
 	Describe("Nexter", func() {
 		It("Should iterate over entries matching a type", func(ctx SpecContext) {

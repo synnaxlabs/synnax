@@ -262,18 +262,18 @@ func WithMigrationDep[T any](ctx context.Context, dep T) context.Context {
 }
 
 // MigrationDep retrieves a dependency previously injected via WithMigrationDep.
-// Panics if the dependency was not injected, since this indicates a programming
-// error (the service forgot to inject the dependency before calling OpenTable).
-func MigrationDep[T any](ctx context.Context) T {
+// Returns ErrMissingMigrationDep if the dependency was not injected.
+func MigrationDep[T any](ctx context.Context) (T, error) {
 	v, ok := ctx.Value(depKey[T]{}).(T)
 	if !ok {
-		panic(fmt.Sprintf(
-			"%s: %T not found in context",
+		var zero T
+		return zero, errors.Wrapf(
 			ErrMissingMigrationDep,
+			"%T not found in context",
 			*new(T),
-		))
+		)
 	}
-	return v
+	return v, nil
 }
 
 // MigrationDepOpt retrieves a dependency previously injected via WithMigrationDep.

@@ -984,7 +984,10 @@ var _ = Describe("Gorp", func() {
 					"enrich",
 					nil, nil,
 					func(ctx context.Context, old entryV1) (entryV1, error) {
-						svc := gorp.MigrationDep[*LookupService](ctx)
+						svc, err := gorp.MigrationDep[*LookupService](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
 						return entryV1{ID: old.ID, Data: old.Data + svc.Suffix}, nil
 					},
 				)
@@ -1013,8 +1016,14 @@ var _ = Describe("Gorp", func() {
 					"wrap",
 					nil, nil,
 					func(ctx context.Context, old entryV1) (entryV1, error) {
-						pre := gorp.MigrationDep[*PrefixService](ctx)
-						suf := gorp.MigrationDep[*SuffixService](ctx)
+						pre, err := gorp.MigrationDep[*PrefixService](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
+						suf, err := gorp.MigrationDep[*SuffixService](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
 						return entryV1{
 							ID:   old.ID,
 							Data: pre.Prefix + old.Data + suf.Suffix,
@@ -1029,11 +1038,10 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("pre_base_post"))
 			})
 
-			It("Should panic when a required dependency is missing", func(ctx SpecContext) {
+			It("Should return an error when a required dependency is missing", func(ctx SpecContext) {
 				type MissingService struct{}
-				Expect(func() {
-					gorp.MigrationDep[*MissingService](ctx)
-				}).To(PanicWith(ContainSubstring("missing migration dependency")))
+				_, err := gorp.MigrationDep[*MissingService](ctx)
+				Expect(err).To(HaveOccurredAs(gorp.ErrMissingMigrationDep))
 			})
 
 			It("Should return false from MigrationDepOpt when dependency is missing", func(ctx SpecContext) {
@@ -1064,7 +1072,10 @@ var _ = Describe("Gorp", func() {
 				migration := gorp.NewRawMigration(
 					"raw_with_dep",
 					func(ctx context.Context, tx gorp.Tx) error {
-						renamer := gorp.MigrationDep[*Renamer](ctx)
+						renamer, err := gorp.MigrationDep[*Renamer](ctx)
+						if err != nil {
+							return err
+						}
 						r := gorp.WrapReader[int32, entryV1](tx, tx)
 						e := MustSucceed(r.Get(ctx, 1))
 						e.Data = renamer.NewData
@@ -1092,7 +1103,10 @@ var _ = Describe("Gorp", func() {
 					"iface_dep",
 					nil, nil,
 					func(ctx context.Context, old entryV1) (entryV1, error) {
-						dp := gorp.MigrationDep[migrationDepProvider](ctx)
+						dp, err := gorp.MigrationDep[migrationDepProvider](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
 						return entryV1{ID: old.ID, Data: old.Data + dp.GetSuffix()}, nil
 					},
 				)
