@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Migration test orchestrator.
+"""Migration test conductor.
 
 Manages Core binary lifecycle and runs test-conductor for migration tests.
 Python selected for cross-platform compatibility.
@@ -19,7 +19,7 @@ conductor is invoked as a subprocess so it runs inside the version-specific
 venv (old client for setup, current client for verify).
 
 Usage:
-    uv run migration-orchestrator --chain "0.50.0,0.53.0,latest"
+    uv run migration-conductor --chain "0.50.0,0.53.0,latest"
 """
 
 import argparse
@@ -314,7 +314,7 @@ def run(chain: list[str]) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Migration test orchestrator",
+        description="Migration test conductor",
     )
     parser.add_argument(
         "--chain",
@@ -324,7 +324,7 @@ def main() -> None:
     args = parser.parse_args()
     chain = [v.strip() for v in args.chain.split(",")]
 
-    print("Migration orchestrator")
+    print("Migration conductor")
     print(f"  Chain: {' -> '.join(chain)}")
     print(f"{'#' * 60}\n")
 

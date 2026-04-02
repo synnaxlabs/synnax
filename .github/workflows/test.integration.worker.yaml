@@ -73,14 +73,7 @@ jobs:
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Install Playwright (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Install Playwright (Unix)
-        if: runner.os == 'Linux'
+      - name: Install Playwright
         working-directory: integration
         run: uv run playwright install --with-deps
 
