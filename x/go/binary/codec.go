@@ -107,6 +107,8 @@ func (f *decodeFallbackCodec) DecodeStream(
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to decodeFallbackCodec")
 	}
+	// We need to read out all the data here, otherwise an initial codec that fails will
+	// leave the reader in a bad state. It's not ideal, but we need to do it.
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return err

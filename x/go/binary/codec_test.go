@@ -21,10 +21,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type toEncode struct {
-	Value int
-}
-
 var _ = Describe("Codec", func() {
 	Describe("Fallback", func() {
 		It("Should fallback to the next codec when the first one fails", func(ctx SpecContext) {
