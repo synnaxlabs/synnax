@@ -10,6 +10,9 @@
 import multiprocessing
 import platform
 import subprocess
+from typing import Literal
+
+Platform = Literal["linux", "macos", "windows"]
 
 
 def get_machine_info() -> str:
@@ -122,11 +125,8 @@ def get_cpu_cores() -> int:
     return multiprocessing.cpu_count()
 
 
-def get_platform() -> str:
-    """Get the current platform as a lowercase string.
-
-    Returns one of: "linux", "macos", "windows".
-    """
+def get_platform() -> Platform:
+    """Get the current platform as a lowercase string."""
     system = platform.system()
     if system == "Linux":
         return "linux"

@@ -86,6 +86,13 @@ from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 from synnax.util.deprecation import deprecated_getattr
 
+try:
+    from importlib.metadata import version as _version
+
+    __version__ = _version("synnax")
+except Exception:
+    __version__ = "unknown"
+
 _DEPRECATED: dict[str, str | tuple[str, str]] = {
     "ArcTask": ("synnax.arc.Task", "_ArcTask"),
     "TaskStatus": ("synnax.task.Status", "_TaskStatus"),

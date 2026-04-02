@@ -10,7 +10,7 @@
 """Migration test orchestrator.
 
 Manages Core binary lifecycle and runs test-conductor for migration tests.
-Python selected for cross-platform compatibilty.
+Python selected for cross-platform compatibility.
 
 This module intentionally uses only stdlib imports — no synnax, xpy, or
 framework dependencies — so it can create isolated venvs with different
