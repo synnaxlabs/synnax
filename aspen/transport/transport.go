@@ -10,17 +10,24 @@
 package transport
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
 )
 
 type Transport interface {
 	freighter.Transport
-	Configure(ctx signal.Context, addr address.Address, external bool) error
+	// Configure prepares the transport for serving (e.g. registers gRPC services).
+	// It does not start accepting connections.
+	Configure(addr address.Address, ins alamos.Instrumentation, external bool) error
+	// Serve starts accepting connections on the configured address. All handlers
+	// must be bound before calling Serve to prevent data races.
+	Serve() error
+	// Close gracefully stops the transport.
+	Close() error
 	PledgeServer() pledge.TransportServer
 	PledgeClient() pledge.TransportClient
 	GossipServer() gossip.TransportServer
