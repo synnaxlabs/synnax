@@ -188,13 +188,13 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Expression: "test_14",
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := channel.EncodeChannel(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Channel
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := channel.DecodeChannel(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -209,13 +209,13 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 		Duration:     telem.TimeSpan(4),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := channel.EncodeOperation(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Operation
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := channel.DecodeOperation(r, &decoded); err != nil {
 			b.Fatal(err)

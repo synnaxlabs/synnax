@@ -16,16 +16,53 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func EncodeParam(w *orc.Writer, s *Param) error {
+	w.String(s.Name)
+	if err := EncodeType(w, &s.Type); err != nil {
+		return err
+	}
+	{
+		b, err := json.Marshal(s.Value)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	return nil
+}
+
+func DecodeParam(r *orc.Reader, s *Param) error {
+	var err error
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeType(r, &s.Type); err != nil {
+		return err
+	}
+	{
+		n, err := r.CollectionLen()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func EncodeType(w *orc.Writer, s *Type) error {
 	if s.Inputs != nil {
 		w.Bool(true)
-		w.Bool(s.Inputs != nil)
-		if s.Inputs != nil {
-			w.Uint32(uint32(len(s.Inputs)))
-			for j := range s.Inputs {
-				if err := EncodeParam(w, &s.Inputs[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Inputs)))
+		for j := range s.Inputs {
+			if err := EncodeParam(w, &s.Inputs[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -33,13 +70,10 @@ func EncodeType(w *orc.Writer, s *Type) error {
 	}
 	if s.Outputs != nil {
 		w.Bool(true)
-		w.Bool(s.Outputs != nil)
-		if s.Outputs != nil {
-			w.Uint32(uint32(len(s.Outputs)))
-			for j := range s.Outputs {
-				if err := EncodeParam(w, &s.Outputs[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Outputs)))
+		for j := range s.Outputs {
+			if err := EncodeParam(w, &s.Outputs[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -47,13 +81,10 @@ func EncodeType(w *orc.Writer, s *Type) error {
 	}
 	if s.Config != nil {
 		w.Bool(true)
-		w.Bool(s.Config != nil)
-		if s.Config != nil {
-			w.Uint32(uint32(len(s.Config)))
-			for j := range s.Config {
-				if err := EncodeParam(w, &s.Config[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Config)))
+		for j := range s.Config {
+			if err := EncodeParam(w, &s.Config[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -97,22 +128,14 @@ func DecodeType(r *orc.Reader, s *Type) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Inputs = make([]Param, n)
+			for j := range s.Inputs {
+				if err = DecodeParam(r, &s.Inputs[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Inputs = make([]Param, n)
-					for j := range s.Inputs {
-						if err = DecodeParam(r, &s.Inputs[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
@@ -123,22 +146,14 @@ func DecodeType(r *orc.Reader, s *Type) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Outputs = make([]Param, n)
+			for j := range s.Outputs {
+				if err = DecodeParam(r, &s.Outputs[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Outputs = make([]Param, n)
-					for j := range s.Outputs {
-						if err = DecodeParam(r, &s.Outputs[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
@@ -149,22 +164,14 @@ func DecodeType(r *orc.Reader, s *Type) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Config = make([]Param, n)
+			for j := range s.Config {
+				if err = DecodeParam(r, &s.Config[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Config = make([]Param, n)
-					for j := range s.Config {
-						if err = DecodeParam(r, &s.Config[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
@@ -231,13 +238,10 @@ func DecodeType(r *orc.Reader, s *Type) error {
 func EncodeFunctionProperties(w *orc.Writer, s *FunctionProperties) error {
 	if s.Inputs != nil {
 		w.Bool(true)
-		w.Bool(s.Inputs != nil)
-		if s.Inputs != nil {
-			w.Uint32(uint32(len(s.Inputs)))
-			for j := range s.Inputs {
-				if err := EncodeParam(w, &s.Inputs[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Inputs)))
+		for j := range s.Inputs {
+			if err := EncodeParam(w, &s.Inputs[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -245,13 +249,10 @@ func EncodeFunctionProperties(w *orc.Writer, s *FunctionProperties) error {
 	}
 	if s.Outputs != nil {
 		w.Bool(true)
-		w.Bool(s.Outputs != nil)
-		if s.Outputs != nil {
-			w.Uint32(uint32(len(s.Outputs)))
-			for j := range s.Outputs {
-				if err := EncodeParam(w, &s.Outputs[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Outputs)))
+		for j := range s.Outputs {
+			if err := EncodeParam(w, &s.Outputs[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -259,13 +260,10 @@ func EncodeFunctionProperties(w *orc.Writer, s *FunctionProperties) error {
 	}
 	if s.Config != nil {
 		w.Bool(true)
-		w.Bool(s.Config != nil)
-		if s.Config != nil {
-			w.Uint32(uint32(len(s.Config)))
-			for j := range s.Config {
-				if err := EncodeParam(w, &s.Config[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Config)))
+		for j := range s.Config {
+			if err := EncodeParam(w, &s.Config[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -281,22 +279,14 @@ func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Inputs = make([]Param, n)
+			for j := range s.Inputs {
+				if err = DecodeParam(r, &s.Inputs[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Inputs = make([]Param, n)
-					for j := range s.Inputs {
-						if err = DecodeParam(r, &s.Inputs[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
@@ -307,22 +297,14 @@ func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Outputs = make([]Param, n)
+			for j := range s.Outputs {
+				if err = DecodeParam(r, &s.Outputs[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Outputs = make([]Param, n)
-					for j := range s.Outputs {
-						if err = DecodeParam(r, &s.Outputs[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
@@ -333,22 +315,14 @@ func DecodeFunctionProperties(r *orc.Reader, s *FunctionProperties) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Config = make([]Param, n)
+			for j := range s.Config {
+				if err = DecodeParam(r, &s.Config[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Config = make([]Param, n)
-					for j := range s.Config {
-						if err = DecodeParam(r, &s.Config[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}
@@ -487,46 +461,6 @@ func DecodeChannels(r *orc.Reader, s *Channels) error {
 				}
 				s.Write[key] = val
 			}
-		}
-	}
-	return nil
-}
-
-func EncodeParam(w *orc.Writer, s *Param) error {
-	w.String(s.Name)
-	if err := EncodeType(w, &s.Type); err != nil {
-		return err
-	}
-	{
-		b, err := json.Marshal(s.Value)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	return nil
-}
-
-func DecodeParam(r *orc.Reader, s *Param) error {
-	var err error
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeType(r, &s.Type); err != nil {
-		return err
-	}
-	{
-		n, err := r.CollectionLen()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Value); err != nil {
-			return err
 		}
 	}
 	return nil

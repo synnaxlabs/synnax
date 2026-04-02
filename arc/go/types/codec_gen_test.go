@@ -2345,13 +2345,13 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 		ChanDirection: types.ChanDirection(0),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := types.EncodeType(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Type
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeType(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -2585,13 +2585,13 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := types.EncodeFunctionProperties(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.FunctionProperties
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeFunctionProperties(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -2615,13 +2615,13 @@ func BenchmarkEncodeDecodeUnit(b *testing.B) {
 		Name:  "test_11",
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := types.EncodeUnit(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Unit
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeUnit(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -2641,13 +2641,13 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 		Data:        9,
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := types.EncodeDimensions(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Dimensions
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeDimensions(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -2661,13 +2661,13 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 		Write: map[uint32]string{3: "test_2"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := types.EncodeChannels(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Channels
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeChannels(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -2904,13 +2904,13 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 		Value: map[string]interface{}{"key_137": "value_137"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := types.EncodeParam(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Param
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := types.DecodeParam(r, &decoded); err != nil {
 			b.Fatal(err)

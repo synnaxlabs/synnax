@@ -400,13 +400,13 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := program.EncodeProgram(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded program.Program
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := program.DecodeProgram(r, &decoded); err != nil {
 			b.Fatal(err)

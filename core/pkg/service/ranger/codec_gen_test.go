@@ -111,13 +111,13 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := ranger.EncodeRange(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ranger.Range
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := ranger.DecodeRange(r, &decoded); err != nil {
 			b.Fatal(err)

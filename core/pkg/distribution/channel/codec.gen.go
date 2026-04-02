@@ -14,45 +14,13 @@ package channel
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 	"sync"
 )
-
-func EncodeOperation(w *orc.Writer, s *Operation) error {
-	w.String(string(s.Type))
-	w.Uint32(uint32(s.ResetChannel))
-	w.Int64(int64(s.Duration))
-	return nil
-}
-
-func DecodeOperation(r *orc.Reader, s *Operation) error {
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = OperationType(v)
-	}
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.ResetChannel = Key(v)
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Duration = telem.TimeSpan(v)
-	}
-	return nil
-}
 
 func EncodeChannel(w *orc.Writer, s *Channel) error {
 	w.String(s.Name)
@@ -150,21 +118,54 @@ func DecodeChannel(r *orc.Reader, s *Channel) error {
 	return nil
 }
 
+func EncodeOperation(w *orc.Writer, s *Operation) error {
+	w.String(string(s.Type))
+	w.Uint32(uint32(s.ResetChannel))
+	w.Int64(int64(s.Duration))
+	return nil
+}
+
+func DecodeOperation(r *orc.Reader, s *Operation) error {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = OperationType(v)
+	}
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.ResetChannel = Key(v)
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.Duration = telem.TimeSpan(v)
+	}
+	return nil
+}
+
 var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
 var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type channelCodec struct{}
 
-var ChannelCodec xbinary.Codec = channelCodec{}
+var ChannelCodec xencoding.Codec = channelCodec{}
 
 func (channelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Channel)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeChannel(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeChannel(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c channelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -179,10 +180,9 @@ func (c channelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) 
 func (channelCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Channel)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeChannel(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeChannel(r, s)
 }
 
 func (c channelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

@@ -14,7 +14,7 @@ package log
 import (
 	"context"
 	"encoding/json"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
@@ -36,7 +36,7 @@ func EncodeLog(w *orc.Writer, s *Log) error {
 
 func DecodeLog(r *orc.Reader, s *Log) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
@@ -63,16 +63,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type logCodec struct{}
 
-var LogCodec xbinary.Codec = logCodec{}
+var LogCodec xencoding.Codec = logCodec{}
 
 func (logCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Log)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeLog(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeLog(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c logCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -87,10 +88,9 @@ func (c logCodec) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 func (logCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Log)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeLog(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeLog(r, s)
 }
 
 func (c logCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

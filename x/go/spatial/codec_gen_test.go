@@ -43,13 +43,13 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeXY(b *testing.B) {
 	s := spatial.XY{X: 1.5, Y: 2.5}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := spatial.EncodeXY(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded spatial.XY
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := spatial.DecodeXY(r, &decoded); err != nil {
 			b.Fatal(err)

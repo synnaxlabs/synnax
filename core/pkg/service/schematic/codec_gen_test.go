@@ -84,13 +84,13 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 		Snapshot: false,
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := schematic.EncodeSchematic(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded schematic.Schematic
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := schematic.DecodeSchematic(r, &decoded); err != nil {
 			b.Fatal(err)

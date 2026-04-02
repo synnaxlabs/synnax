@@ -19,13 +19,10 @@ import (
 func EncodeProgram(w *orc.Writer, s *Program) error {
 	if s.Functions != nil {
 		w.Bool(true)
-		w.Bool(s.Functions != nil)
-		if s.Functions != nil {
-			w.Uint32(uint32(len(s.Functions)))
-			for j := range s.Functions {
-				if err := ir.EncodeFunction(w, &s.Functions[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Functions)))
+		for j := range s.Functions {
+			if err := ir.EncodeFunction(w, &s.Functions[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -33,13 +30,10 @@ func EncodeProgram(w *orc.Writer, s *Program) error {
 	}
 	if s.Nodes != nil {
 		w.Bool(true)
-		w.Bool(s.Nodes != nil)
-		if s.Nodes != nil {
-			w.Uint32(uint32(len(s.Nodes)))
-			for j := range s.Nodes {
-				if err := ir.EncodeNode(w, &s.Nodes[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Nodes)))
+		for j := range s.Nodes {
+			if err := ir.EncodeNode(w, &s.Nodes[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -47,13 +41,10 @@ func EncodeProgram(w *orc.Writer, s *Program) error {
 	}
 	if s.Edges != nil {
 		w.Bool(true)
-		w.Bool(s.Edges != nil)
-		if s.Edges != nil {
-			w.Uint32(uint32(len(s.Edges)))
-			for j := range s.Edges {
-				if err := ir.EncodeEdge(w, &s.Edges[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Edges)))
+		for j := range s.Edges {
+			if err := ir.EncodeEdge(w, &s.Edges[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -61,17 +52,11 @@ func EncodeProgram(w *orc.Writer, s *Program) error {
 	}
 	if s.Strata != nil {
 		w.Bool(true)
-		w.Bool(s.Strata != nil)
-		if s.Strata != nil {
-			w.Uint32(uint32(len(s.Strata)))
-			for j := range s.Strata {
-				w.Bool(s.Strata[j] != nil)
-				if s.Strata[j] != nil {
-					w.Uint32(uint32(len(s.Strata[j])))
-					for k := range s.Strata[j] {
-						w.String(s.Strata[j][k])
-					}
-				}
+		w.Uint32(uint32(len(s.Strata)))
+		for j := range s.Strata {
+			w.Uint32(uint32(len(s.Strata[j])))
+			for k := range s.Strata[j] {
+				w.String(s.Strata[j][k])
 			}
 		}
 	} else {
@@ -79,13 +64,10 @@ func EncodeProgram(w *orc.Writer, s *Program) error {
 	}
 	if s.Sequences != nil {
 		w.Bool(true)
-		w.Bool(s.Sequences != nil)
-		if s.Sequences != nil {
-			w.Uint32(uint32(len(s.Sequences)))
-			for j := range s.Sequences {
-				if err := ir.EncodeSequence(w, &s.Sequences[j]); err != nil {
-					return err
-				}
+		w.Uint32(uint32(len(s.Sequences)))
+		for j := range s.Sequences {
+			if err := ir.EncodeSequence(w, &s.Sequences[j]); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -118,21 +100,74 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Functions = make([]ir.Function, n)
+			for j := range s.Functions {
+				if err = ir.DecodeFunction(r, &s.Functions[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Nodes = make([]ir.Node, n)
+			for j := range s.Nodes {
+				if err = ir.DecodeNode(r, &s.Nodes[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Edges = make([]ir.Edge, n)
+			for j := range s.Edges {
+				if err = ir.DecodeEdge(r, &s.Edges[j]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Strata = make([][]string, n)
+			for j := range s.Strata {
+				n, err := r.CollectionLen()
 				if err != nil {
 					return err
 				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
+				s.Strata[j] = make([]string, n)
+				for k := range s.Strata[j] {
+					if s.Strata[j][k], err = r.String(); err != nil {
 						return err
-					}
-					s.Functions = make([]ir.Function, n)
-					for j := range s.Functions {
-						if err = ir.DecodeFunction(r, &s.Functions[j]); err != nil {
-							return err
-						}
 					}
 				}
 			}
@@ -144,115 +179,14 @@ func DecodeProgram(r *orc.Reader, s *Program) error {
 			return err
 		}
 		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
-					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Nodes = make([]ir.Node, n)
-					for j := range s.Nodes {
-						if err = ir.DecodeNode(r, &s.Nodes[j]); err != nil {
-							return err
-						}
-					}
-				}
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
 			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
+			s.Sequences = make([]ir.Sequence, n)
+			for j := range s.Sequences {
+				if err = ir.DecodeSequence(r, &s.Sequences[j]); err != nil {
 					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Edges = make([]ir.Edge, n)
-					for j := range s.Edges {
-						if err = ir.DecodeEdge(r, &s.Edges[j]); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
-					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Strata = make([][]string, n)
-					for j := range s.Strata {
-						{
-							present, err := r.Bool()
-							if err != nil {
-								return err
-							}
-							if present {
-								n, err := r.CollectionLen()
-								if err != nil {
-									return err
-								}
-								s.Strata[j] = make([]string, n)
-								for k := range s.Strata[j] {
-									if s.Strata[j][k], err = r.String(); err != nil {
-										return err
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				present, err := r.Bool()
-				if err != nil {
-					return err
-				}
-				if present {
-					n, err := r.CollectionLen()
-					if err != nil {
-						return err
-					}
-					s.Sequences = make([]ir.Sequence, n)
-					for j := range s.Sequences {
-						if err = ir.DecodeSequence(r, &s.Sequences[j]); err != nil {
-							return err
-						}
-					}
 				}
 			}
 		}

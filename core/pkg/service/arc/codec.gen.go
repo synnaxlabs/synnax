@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/status"
 	"io"
@@ -54,7 +54,7 @@ func EncodeArc(w *orc.Writer, s *Arc) error {
 
 func DecodeArc(r *orc.Reader, s *Arc) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
@@ -120,16 +120,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type arcCodec struct{}
 
-var ArcCodec xbinary.Codec = arcCodec{}
+var ArcCodec xencoding.Codec = arcCodec{}
 
 func (arcCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Arc)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeArc(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeArc(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c arcCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -144,10 +145,9 @@ func (c arcCodec) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 func (arcCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Arc)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeArc(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeArc(r, s)
 }
 
 func (c arcCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

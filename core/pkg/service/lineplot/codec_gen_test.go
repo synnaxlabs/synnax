@@ -79,13 +79,13 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 		Data: map[string]interface{}{"key_3": "value_3"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := lineplot.EncodeLinePlot(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded lineplot.LinePlot
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := lineplot.DecodeLinePlot(r, &decoded); err != nil {
 			b.Fatal(err)

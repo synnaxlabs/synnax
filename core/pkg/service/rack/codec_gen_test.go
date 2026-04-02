@@ -70,13 +70,35 @@ var _ = Describe("Codec", func() {
 					}
 					return &v
 				}(),
+				Integrations: []string{"test_22"},
 			}),
 			Entry("zero values", rack.Rack{
-				Key:         rack.Key(0),
-				Name:        "",
-				TaskCounter: 0,
+				Key:          rack.Key(0),
+				Name:         "",
+				TaskCounter:  0,
+				Embedded:     false,
+				Status:       nil,
+				Integrations: nil,
+			}),
+			Entry("empty collections", rack.Rack{
+				Key:         rack.Key(2),
+				Name:        "test_2",
+				TaskCounter: 4,
 				Embedded:    false,
-				Status:      nil,
+				Status: func() *status.Status[rack.StatusDetails] {
+					v := status.Status[rack.StatusDetails]{
+						Key:         "test_6",
+						Name:        "test_7",
+						Variant:     status.Variant("success"),
+						Message:     "test_9",
+						Description: "test_10",
+						Time:        telem.TimeStamp(12),
+						Details:     rack.StatusDetails{Rack: rack.Key(14)},
+						Labels:      []label.Label{},
+					}
+					return &v
+				}(),
+				Integrations: []string{},
 			}),
 		)
 	})
@@ -133,13 +155,35 @@ var _ = Describe("Codec", func() {
 					}
 					return &v
 				}(),
+				Integrations: []string{"test_22"},
 			}),
 			Entry("zero values", rack.Rack{
-				Key:         rack.Key(0),
-				Name:        "",
-				TaskCounter: 0,
+				Key:          rack.Key(0),
+				Name:         "",
+				TaskCounter:  0,
+				Embedded:     false,
+				Status:       nil,
+				Integrations: nil,
+			}),
+			Entry("empty collections", rack.Rack{
+				Key:         rack.Key(2),
+				Name:        "test_2",
+				TaskCounter: 4,
 				Embedded:    false,
-				Status:      nil,
+				Status: func() *status.Status[rack.StatusDetails] {
+					v := status.Status[rack.StatusDetails]{
+						Key:         "test_6",
+						Name:        "test_7",
+						Variant:     status.Variant("success"),
+						Message:     "test_9",
+						Description: "test_10",
+						Time:        telem.TimeStamp(12),
+						Details:     rack.StatusDetails{Rack: rack.Key(14)},
+						Labels:      []label.Label{},
+					}
+					return &v
+				}(),
+				Integrations: []string{},
 			}),
 		)
 	})
@@ -175,15 +219,16 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 			}
 			return &v
 		}(),
+		Integrations: []string{"test_22"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rack.EncodeRack(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.Rack
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeRack(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -194,13 +239,13 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	s := rack.StatusDetails{Rack: rack.Key(2)}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rack.EncodeStatusDetails(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.StatusDetails
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := rack.DecodeStatusDetails(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -239,6 +284,7 @@ func FuzzDecodeRack(f *testing.F) {
 				}
 				return &v
 			}(),
+			Integrations: []string{"test_22"},
 		}
 		w := orc.NewWriter(0)
 		if err := rack.EncodeRack(w, &seed); err != nil {
@@ -248,11 +294,39 @@ func FuzzDecodeRack(f *testing.F) {
 	}
 	{
 		seed := rack.Rack{
-			Key:         rack.Key(0),
-			Name:        "",
-			TaskCounter: 0,
+			Key:          rack.Key(0),
+			Name:         "",
+			TaskCounter:  0,
+			Embedded:     false,
+			Status:       nil,
+			Integrations: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := rack.EncodeRack(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := rack.Rack{
+			Key:         rack.Key(2),
+			Name:        "test_2",
+			TaskCounter: 4,
 			Embedded:    false,
-			Status:      nil,
+			Status: func() *status.Status[rack.StatusDetails] {
+				v := status.Status[rack.StatusDetails]{
+					Key:         "test_6",
+					Name:        "test_7",
+					Variant:     status.Variant("success"),
+					Message:     "test_9",
+					Description: "test_10",
+					Time:        telem.TimeStamp(12),
+					Details:     rack.StatusDetails{Rack: rack.Key(14)},
+					Labels:      []label.Label{},
+				}
+				return &v
+			}(),
+			Integrations: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := rack.EncodeRack(w, &seed); err != nil {

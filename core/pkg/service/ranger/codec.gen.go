@@ -13,8 +13,8 @@ package ranger
 
 import (
 	"context"
-	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/color"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
 	"io"
@@ -35,7 +35,7 @@ func EncodeRange(w *orc.Writer, s *Range) error {
 
 func DecodeRange(r *orc.Reader, s *Range) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
@@ -55,16 +55,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type rangeValCodec struct{}
 
-var RangeCodec xbinary.Codec = rangeValCodec{}
+var RangeCodec xencoding.Codec = rangeValCodec{}
 
 func (rangeValCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Range)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeRange(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeRange(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c rangeValCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -79,10 +80,9 @@ func (c rangeValCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 func (rangeValCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Range)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeRange(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeRange(r, s)
 }
 
 func (c rangeValCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

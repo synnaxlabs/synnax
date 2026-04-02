@@ -13,7 +13,7 @@ package rack
 
 import (
 	"context"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/status"
 	"io"
@@ -29,6 +29,15 @@ func EncodeRack(w *orc.Writer, s *Rack) error {
 		w.Bool(true)
 		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
 			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if s.Integrations != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(s.Integrations)))
+		for j := range s.Integrations {
+			w.String(s.Integrations[j])
 		}
 	} else {
 		w.Bool(false)
@@ -67,6 +76,24 @@ func DecodeRack(r *orc.Reader, s *Rack) error {
 			s.Status = &v
 		}
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Integrations = make([]string, n)
+			for j := range s.Integrations {
+				if s.Integrations[j], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -91,16 +118,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type rackCodec struct{}
 
-var RackCodec xbinary.Codec = rackCodec{}
+var RackCodec xencoding.Codec = rackCodec{}
 
 func (rackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Rack)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeRack(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeRack(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -115,10 +143,9 @@ func (c rackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) err
 func (rackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Rack)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeRack(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeRack(r, s)
 }
 
 func (c rackCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

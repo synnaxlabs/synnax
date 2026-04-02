@@ -14,7 +14,7 @@ package workspace
 import (
 	"context"
 	"encoding/json"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
@@ -37,13 +37,13 @@ func EncodeWorkspace(w *orc.Writer, s *Workspace) error {
 
 func DecodeWorkspace(r *orc.Reader, s *Workspace) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
-	if _, err := r.Read(s.Author[:]); err != nil {
+	if _, err = r.Read(s.Author[:]); err != nil {
 		return err
 	}
 	{
@@ -67,16 +67,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type workspaceCodec struct{}
 
-var WorkspaceCodec xbinary.Codec = workspaceCodec{}
+var WorkspaceCodec xencoding.Codec = workspaceCodec{}
 
 func (workspaceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Workspace)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeWorkspace(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeWorkspace(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c workspaceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -91,10 +92,9 @@ func (c workspaceCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 func (workspaceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Workspace)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeWorkspace(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeWorkspace(r, s)
 }
 
 func (c workspaceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

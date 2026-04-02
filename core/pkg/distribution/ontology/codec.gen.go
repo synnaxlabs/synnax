@@ -14,11 +14,32 @@ package ontology
 import (
 	"context"
 	"encoding/json"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
 )
+
+func EncodeID(w *orc.Writer, s *ID) error {
+	w.String(string(s.Type))
+	w.String(s.Key)
+	return nil
+}
+
+func DecodeID(r *orc.Reader, s *ID) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = ResourceType(v)
+	}
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
 
 func EncodeResource(w *orc.Writer, s *Resource) error {
 	if err := EncodeID(w, &s.ID); err != nil {
@@ -89,42 +110,22 @@ func DecodeRelationship(r *orc.Reader, s *Relationship) error {
 	return nil
 }
 
-func EncodeID(w *orc.Writer, s *ID) error {
-	w.String(string(s.Type))
-	w.String(s.Key)
-	return nil
-}
-
-func DecodeID(r *orc.Reader, s *ID) error {
-	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = ResourceType(v)
-	}
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
 var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
 var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type resourceCodec struct{}
 
-var ResourceCodec xbinary.Codec = resourceCodec{}
+var ResourceCodec xencoding.Codec = resourceCodec{}
 
 func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Resource)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeResource(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeResource(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -139,10 +140,9 @@ func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Resource)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeResource(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeResource(r, s)
 }
 
 func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
@@ -155,16 +155,17 @@ func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any
 
 type relationshipCodec struct{}
 
-var RelationshipCodec xbinary.Codec = relationshipCodec{}
+var RelationshipCodec xencoding.Codec = relationshipCodec{}
 
 func (relationshipCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Relationship)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeRelationship(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeRelationship(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c relationshipCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -179,10 +180,9 @@ func (c relationshipCodec) EncodeStream(ctx context.Context, w io.Writer, value 
 func (relationshipCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Relationship)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeRelationship(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeRelationship(r, s)
 }
 
 func (c relationshipCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

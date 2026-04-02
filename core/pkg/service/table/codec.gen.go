@@ -14,7 +14,7 @@ package table
 import (
 	"context"
 	"encoding/json"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
@@ -36,7 +36,7 @@ func EncodeTable(w *orc.Writer, s *Table) error {
 
 func DecodeTable(r *orc.Reader, s *Table) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
@@ -63,16 +63,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type tableCodec struct{}
 
-var TableCodec xbinary.Codec = tableCodec{}
+var TableCodec xencoding.Codec = tableCodec{}
 
 func (tableCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Table)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeTable(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeTable(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -87,10 +88,9 @@ func (c tableCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 func (tableCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Table)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeTable(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeTable(r, s)
 }
 
 func (c tableCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

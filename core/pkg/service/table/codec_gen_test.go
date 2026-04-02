@@ -79,13 +79,13 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 		Data: map[string]interface{}{"key_3": "value_3"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := table.EncodeTable(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded table.Table
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := table.DecodeTable(r, &decoded); err != nil {
 			b.Fatal(err)

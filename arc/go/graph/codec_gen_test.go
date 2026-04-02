@@ -26,46 +26,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Viewport", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original graph.Viewport) {
-				w := orc.NewWriter(0)
-				Expect(graph.EncodeViewport(w, &original)).To(Succeed())
-				var decoded graph.Viewport
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}),
-			Entry("zero values", graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}),
-		)
-	})
-	Describe("Node", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original graph.Node) {
-				w := orc.NewWriter(0)
-				Expect(graph.EncodeNode(w, &original)).To(Succeed())
-				var decoded graph.Node
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(graph.DecodeNode(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", graph.Node{
-				Key:      "test_1",
-				Type:     "test_2",
-				Config:   map[string]interface{}{"key_3": "value_3"},
-				Position: spatial.XY{X: 5.5, Y: 6.5},
-			}),
-			Entry("zero values", graph.Node{
-				Key:      "",
-				Type:     "",
-				Config:   nil,
-				Position: spatial.XY{X: 0, Y: 0},
-			}),
-		)
-	})
 	Describe("Graph", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original graph.Graph) {
@@ -176,46 +136,47 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Viewport", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original graph.Viewport) {
+				w := orc.NewWriter(0)
+				Expect(graph.EncodeViewport(w, &original)).To(Succeed())
+				var decoded graph.Viewport
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(graph.DecodeViewport(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}),
+			Entry("zero values", graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}),
+		)
+	})
+	Describe("Node", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original graph.Node) {
+				w := orc.NewWriter(0)
+				Expect(graph.EncodeNode(w, &original)).To(Succeed())
+				var decoded graph.Node
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(graph.DecodeNode(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", graph.Node{
+				Key:      "test_1",
+				Type:     "test_2",
+				Config:   map[string]interface{}{"key_3": "value_3"},
+				Position: spatial.XY{X: 5.5, Y: 6.5},
+			}),
+			Entry("zero values", graph.Node{
+				Key:      "",
+				Type:     "",
+				Config:   nil,
+				Position: spatial.XY{X: 0, Y: 0},
+			}),
+		)
+	})
 })
-
-func BenchmarkEncodeDecodeViewport(b *testing.B) {
-	s := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := graph.EncodeViewport(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded graph.Viewport
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := graph.DecodeViewport(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeNode(b *testing.B) {
-	s := graph.Node{
-		Key:      "test_1",
-		Type:     "test_2",
-		Config:   map[string]interface{}{"key_3": "value_3"},
-		Position: spatial.XY{X: 5.5, Y: 6.5},
-	}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := graph.EncodeNode(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded graph.Node
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := graph.DecodeNode(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	s := graph.Graph{
@@ -304,13 +265,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := graph.EncodeGraph(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded graph.Graph
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeGraph(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -318,100 +279,43 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	}
 }
 
-func FuzzDecodeViewport(f *testing.F) {
-	{
-		seed := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
-		w := orc.NewWriter(0)
-		if err := graph.EncodeViewport(w, &seed); err != nil {
-			f.Fatal(err)
+func BenchmarkEncodeDecodeViewport(b *testing.B) {
+	s := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := graph.EncodeViewport(w, &s); err != nil {
+			b.Fatal(err)
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}
-		w := orc.NewWriter(0)
-		if err := graph.EncodeViewport(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded graph.Viewport
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeViewport(r, &decoded); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := graph.EncodeViewport(w1, &decoded); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded graph.Viewport
-		r.ResetBytes(w1.Bytes())
-		if err := graph.DecodeViewport(r, &redecoded); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := graph.EncodeViewport(w2, &redecoded); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
-func FuzzDecodeNode(f *testing.F) {
-	{
-		seed := graph.Node{
-			Key:      "test_1",
-			Type:     "test_2",
-			Config:   map[string]interface{}{"key_3": "value_3"},
-			Position: spatial.XY{X: 5.5, Y: 6.5},
-		}
-		w := orc.NewWriter(0)
-		if err := graph.EncodeNode(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
+func BenchmarkEncodeDecodeNode(b *testing.B) {
+	s := graph.Node{
+		Key:      "test_1",
+		Type:     "test_2",
+		Config:   map[string]interface{}{"key_3": "value_3"},
+		Position: spatial.XY{X: 5.5, Y: 6.5},
 	}
-	{
-		seed := graph.Node{
-			Key:      "",
-			Type:     "",
-			Config:   nil,
-			Position: spatial.XY{X: 0, Y: 0},
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := graph.EncodeNode(w, &s); err != nil {
+			b.Fatal(err)
 		}
-		w := orc.NewWriter(0)
-		if err := graph.EncodeNode(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded graph.Node
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := graph.DecodeNode(r, &decoded); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := graph.EncodeNode(w1, &decoded); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded graph.Node
-		r.ResetBytes(w1.Bytes())
-		if err := graph.DecodeNode(r, &redecoded); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := graph.EncodeNode(w2, &redecoded); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
 func FuzzDecodeGraph(f *testing.F) {
@@ -551,6 +455,102 @@ func FuzzDecodeGraph(f *testing.F) {
 		}
 		w2 := orc.NewWriter(w1.Len())
 		if err := graph.EncodeGraph(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeViewport(f *testing.F) {
+	{
+		seed := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
+		w := orc.NewWriter(0)
+		if err := graph.EncodeViewport(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}
+		w := orc.NewWriter(0)
+		if err := graph.EncodeViewport(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded graph.Viewport
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := graph.DecodeViewport(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := graph.EncodeViewport(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded graph.Viewport
+		r.ResetBytes(w1.Bytes())
+		if err := graph.DecodeViewport(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := graph.EncodeViewport(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeNode(f *testing.F) {
+	{
+		seed := graph.Node{
+			Key:      "test_1",
+			Type:     "test_2",
+			Config:   map[string]interface{}{"key_3": "value_3"},
+			Position: spatial.XY{X: 5.5, Y: 6.5},
+		}
+		w := orc.NewWriter(0)
+		if err := graph.EncodeNode(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := graph.Node{
+			Key:      "",
+			Type:     "",
+			Config:   nil,
+			Position: spatial.XY{X: 0, Y: 0},
+		}
+		w := orc.NewWriter(0)
+		if err := graph.EncodeNode(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded graph.Node
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := graph.DecodeNode(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := graph.EncodeNode(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded graph.Node
+		r.ResetBytes(w1.Bytes())
+		if err := graph.DecodeNode(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := graph.EncodeNode(w2, &redecoded); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

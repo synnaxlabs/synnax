@@ -25,29 +25,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Relationship", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original ontology.Relationship) {
-				w := orc.NewWriter(0)
-				Expect(ontology.EncodeRelationship(w, &original)).To(Succeed())
-				var decoded ontology.Relationship
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(ontology.DecodeRelationship(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", ontology.Relationship{
-				From: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
-				Type: ontology.RelationshipType("test_4"),
-				To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
-			}),
-			Entry("zero values", ontology.Relationship{
-				From: ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-				Type: ontology.RelationshipType(""),
-				To:   ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-			}),
-		)
-	})
 	Describe("ID", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original ontology.ID) {
@@ -86,13 +63,15 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("RelationshipCodec", func() {
-		DescribeTable("should round-trip through the Codec interface",
+	Describe("Relationship", func() {
+		DescribeTable("should round-trip encode and decode",
 			func(original ontology.Relationship) {
-				ctx := context.Background()
-				data := MustSucceed(ontology.RelationshipCodec.Encode(ctx, original))
+				w := orc.NewWriter(0)
+				Expect(ontology.EncodeRelationship(w, &original)).To(Succeed())
 				var decoded ontology.Relationship
-				Expect(ontology.RelationshipCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(ontology.DecodeRelationship(r, &decoded)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", ontology.Relationship{
@@ -128,39 +107,39 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("RelationshipCodec", func() {
+		DescribeTable("should round-trip through the Codec interface",
+			func(original ontology.Relationship) {
+				ctx := context.Background()
+				data := MustSucceed(ontology.RelationshipCodec.Encode(ctx, original))
+				var decoded ontology.Relationship
+				Expect(ontology.RelationshipCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", ontology.Relationship{
+				From: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+				Type: ontology.RelationshipType("test_4"),
+				To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
+			}),
+			Entry("zero values", ontology.Relationship{
+				From: ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+				Type: ontology.RelationshipType(""),
+				To:   ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+			}),
+		)
+	})
 })
-
-func BenchmarkEncodeDecodeRelationship(b *testing.B) {
-	s := ontology.Relationship{
-		From: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
-		Type: ontology.RelationshipType("test_4"),
-		To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
-	}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := ontology.EncodeRelationship(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ontology.Relationship
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := ontology.DecodeRelationship(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeID(b *testing.B) {
 	s := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_2"}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := ontology.EncodeID(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ontology.ID
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeID(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -175,13 +154,13 @@ func BenchmarkEncodeDecodeResource(b *testing.B) {
 		Data: map[string]interface{}{"key_5": "value_5"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := ontology.EncodeResource(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ontology.Resource
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeResource(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -189,55 +168,25 @@ func BenchmarkEncodeDecodeResource(b *testing.B) {
 	}
 }
 
-func FuzzDecodeRelationship(f *testing.F) {
-	{
-		seed := ontology.Relationship{
-			From: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
-			Type: ontology.RelationshipType("test_4"),
-			To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
-		}
-		w := orc.NewWriter(0)
-		if err := ontology.EncodeRelationship(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
+func BenchmarkEncodeDecodeRelationship(b *testing.B) {
+	s := ontology.Relationship{
+		From: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+		Type: ontology.RelationshipType("test_4"),
+		To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
 	}
-	{
-		seed := ontology.Relationship{
-			From: ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-			Type: ontology.RelationshipType(""),
-			To:   ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ontology.EncodeRelationship(w, &s); err != nil {
+			b.Fatal(err)
 		}
-		w := orc.NewWriter(0)
-		if err := ontology.EncodeRelationship(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded ontology.Relationship
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := ontology.DecodeRelationship(r, &decoded); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := ontology.EncodeRelationship(w1, &decoded); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded ontology.Relationship
-		r.ResetBytes(w1.Bytes())
-		if err := ontology.DecodeRelationship(r, &redecoded); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := ontology.EncodeRelationship(w2, &redecoded); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
 func FuzzDecodeID(f *testing.F) {
@@ -326,6 +275,57 @@ func FuzzDecodeResource(f *testing.F) {
 		}
 		w2 := orc.NewWriter(w1.Len())
 		if err := ontology.EncodeResource(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRelationship(f *testing.F) {
+	{
+		seed := ontology.Relationship{
+			From: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+			Type: ontology.RelationshipType("test_4"),
+			To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
+		}
+		w := orc.NewWriter(0)
+		if err := ontology.EncodeRelationship(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := ontology.Relationship{
+			From: ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+			Type: ontology.RelationshipType(""),
+			To:   ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+		}
+		w := orc.NewWriter(0)
+		if err := ontology.EncodeRelationship(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded ontology.Relationship
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := ontology.DecodeRelationship(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := ontology.EncodeRelationship(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded ontology.Relationship
+		r.ResetBytes(w1.Bytes())
+		if err := ontology.DecodeRelationship(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := ontology.EncodeRelationship(w2, &redecoded); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

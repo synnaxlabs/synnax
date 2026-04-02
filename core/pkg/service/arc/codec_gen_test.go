@@ -37,21 +37,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("StatusDetails", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original arc.StatusDetails) {
-				w := orc.NewWriter(0)
-				Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
-				var decoded arc.StatusDetails
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", arc.StatusDetails{Running: true}),
-			Entry("zero values", arc.StatusDetails{Running: false}),
-		)
-	})
 	Describe("Arc", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original arc.Arc) {
@@ -253,6 +238,21 @@ var _ = Describe("Codec", func() {
 				Program: nil,
 				Status:  nil,
 			}),
+		)
+	})
+	Describe("StatusDetails", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original arc.StatusDetails) {
+				w := orc.NewWriter(0)
+				Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
+				var decoded arc.StatusDetails
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", arc.StatusDetails{Running: true}),
+			Entry("zero values", arc.StatusDetails{Running: false}),
 		)
 	})
 	Describe("ArcCodec", func() {
@@ -458,23 +458,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	s := arc.StatusDetails{Running: true}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := arc.EncodeStatusDetails(w, &s); err != nil {
-			b.Fatal(err)
-		}
-		var decoded arc.StatusDetails
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeArc(b *testing.B) {
 	s := arc.Arc{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -653,13 +636,13 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		}(),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := arc.EncodeArc(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded arc.Arc
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := arc.DecodeArc(r, &decoded); err != nil {
 			b.Fatal(err)
@@ -667,47 +650,21 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 	}
 }
 
-func FuzzDecodeStatusDetails(f *testing.F) {
-	{
-		seed := arc.StatusDetails{Running: true}
-		w := orc.NewWriter(0)
-		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
-			f.Fatal(err)
+func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
+	s := arc.StatusDetails{Running: true}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := arc.EncodeStatusDetails(w, &s); err != nil {
+			b.Fatal(err)
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := arc.StatusDetails{Running: false}
-		w := orc.NewWriter(0)
-		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded arc.StatusDetails
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := arc.EncodeStatusDetails(w1, &decoded); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded arc.StatusDetails
-		r.ResetBytes(w1.Bytes())
-		if err := arc.DecodeStatusDetails(r, &redecoded); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := arc.EncodeStatusDetails(w2, &redecoded); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
 func FuzzDecodeArc(f *testing.F) {
@@ -933,6 +890,49 @@ func FuzzDecodeArc(f *testing.F) {
 		}
 		w2 := orc.NewWriter(w1.Len())
 		if err := arc.EncodeArc(w2, &redecoded); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStatusDetails(f *testing.F) {
+	{
+		seed := arc.StatusDetails{Running: true}
+		w := orc.NewWriter(0)
+		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := arc.StatusDetails{Running: false}
+		w := orc.NewWriter(0)
+		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded arc.StatusDetails
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := arc.EncodeStatusDetails(w1, &decoded); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded arc.StatusDetails
+		r.ResetBytes(w1.Bytes())
+		if err := arc.DecodeStatusDetails(r, &redecoded); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := arc.EncodeStatusDetails(w2, &redecoded); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
