@@ -10,8 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { remapKeys } from "@/layout/remapKeys";
-import { ZERO_SLICE_STATE } from "@/layout/types";
-import { type SliceState, type State } from "@/layout/types";
+import { type SliceState, type State, ZERO_SLICE_STATE } from "@/layout/types";
 
 const makeSlice = (
   layouts: Record<string, Partial<State>>,
