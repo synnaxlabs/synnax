@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -48,7 +48,7 @@ func (m grape) GorpKey() int32 { return m.ID }
 
 func (m grape) SetOptions() []any { return nil }
 
-var jsonCodec = &binary.JSONCodec{}
+var jsonCodec = &json.Codec{}
 
 var _ = Describe("Create", Ordered, func() {
 	var (

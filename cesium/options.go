@@ -12,6 +12,7 @@ package cesium
 import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -42,7 +43,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 }
 
 func mergeAndValidateOptions(o *options) error {
-	o.metaCodec = override.Nil[binary.Codec](&binary.JSONCodec{}, o.metaCodec)
+	o.metaCodec = override.Nil[binary.Codec](&json.Codec{}, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
 	o.gcCfg = DefaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)

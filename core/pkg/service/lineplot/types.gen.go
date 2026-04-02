@@ -13,7 +13,7 @@ package lineplot
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -29,5 +29,5 @@ type LinePlot struct {
 	Name string `json:"name" msgpack:"name"`
 	// Data is the line plot configuration including channel references, axis settings, and
 	// display options.
-	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -136,7 +136,7 @@ var _ = Describe("Open", func() {
 					StorageKey:           []byte("Cluster-join-test-storage"),
 					Storage:              kvDB,
 					StorageFlushInterval: cluster.FlushOnEvery,
-					Codec:                &binary.MsgPackCodec{},
+					Codec:                &msgpack.Codec{},
 				}
 				clusterTwo := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))

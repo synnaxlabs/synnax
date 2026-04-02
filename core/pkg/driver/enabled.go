@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	fs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
@@ -63,7 +63,7 @@ const (
 	extractedDriverDir = "driver"
 )
 
-var configCodec = &binary.JSONCodec{}
+var configCodec = &json.Codec{}
 
 // Driver manages the lifecycle of an embedded C++ driver subprocess. The driver binary
 // is either extracted from an embedded filesystem or loaded from a configured path,

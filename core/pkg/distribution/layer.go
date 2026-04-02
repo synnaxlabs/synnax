@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -113,7 +114,7 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		GorpCodec:            &binary.MsgPackCodec{},
+		GorpCodec:            &msgpack.Codec{},
 		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
 	}
@@ -226,11 +227,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	l.Cluster = aspenDB.Cluster
 	l.DB = gorp.Wrap(
 		aspenDB,
-		gorp.WithCodec(&binary.TracingCodec{
-			Level:           alamos.EnvironmentBench,
-			Instrumentation: cfg.Instrumentation,
-			Codec:           cfg.GorpCodec,
-		}),
+		gorp.WithCodec(cfg.GorpCodec),
 	)
 
 	if l.Ontology, err = ontology.Open(

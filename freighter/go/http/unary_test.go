@@ -20,7 +20,7 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/encoding/json"
 )
 
 var _ = Describe("Unary", Ordered, Serial, func() {
@@ -36,7 +36,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		app = fiber.New(fiber.Config{})
 		router := fhttp.NewRouter(fhttp.RouterConfig{})
 		factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: httputil.JSONCodec,
+			Codec: &json.Codec{},
 		})
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)

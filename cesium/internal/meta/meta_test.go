@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -36,7 +37,7 @@ var _ = Describe("Meta", func() {
 		)
 		BeforeEach(func() {
 			fs, cleanUp = makeFS()
-			codec = &binary.JSONCodec{}
+			codec = &json.Codec{}
 		})
 		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, func() {

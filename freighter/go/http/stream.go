@@ -26,7 +26,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
+	xhttp "github.com/synnaxlabs/x/http"
 	"go.uber.org/zap"
 )
 
@@ -282,7 +282,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
-	codec  httputil.Codec
+	codec  xhttp.Codec
 	dialer ws.Dialer
 	freighter.Reporter
 	freighter.MiddlewareCollector

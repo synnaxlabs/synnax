@@ -12,13 +12,14 @@ package http
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type ClientFactoryConfig struct {
-	Codec httputil.Codec
+	Codec http.Codec
 }
 
 func (c ClientFactoryConfig) Validate() error {
@@ -33,7 +34,7 @@ func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryCo
 }
 
 var DefaultClientFactoryConfig = ClientFactoryConfig{
-	Codec: httputil.MsgPackCodec,
+	Codec: &msgpack.Codec{},
 }
 
 type ClientFactory struct {

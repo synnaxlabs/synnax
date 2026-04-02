@@ -399,7 +399,7 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 
 func processField(field resolution.Field, data *templateData) fieldData {
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "binary.MsgpackEncodedJSON") {
+	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
 	return fieldData{

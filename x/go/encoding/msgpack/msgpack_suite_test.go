@@ -7,23 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package virtual_test
+package msgpack_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/encoding/json"
 )
 
-var (
-	codec       = &json.Codec{}
-	fileSystems = testutil.FileSystems
-)
-
-func TestVirtual(t *testing.T) {
+func TestMsgpack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Virtual Suite")
+	RunSpecs(t, "Msgpack Suite")
 }

@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/gob"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -98,7 +100,7 @@ var (
 		StorageFlushInterval: 1 * time.Second,
 		// This used to be implemented by a gob codec, but we want to switch to msgpack.
 		// Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
-		Codec: binary.NewDecodeFallbackCodec(&binary.JSONCodec{}, &binary.GobCodec{}),
+		Codec: binary.NewDecodeFallbackCodec(&json.Codec{}, &gob.Codec{}),
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Pledge: pledge.FastConfig,

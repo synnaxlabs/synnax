@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -158,7 +158,7 @@ var _ = Describe("Channel", Ordered, func() {
 					errorKey2New  = GenerateChannelKey()
 					errorKey3     = GenerateChannelKey()
 					errorKey3New  = GenerateChannelKey()
-					jsonDecoder   = &binary.JSONCodec{}
+					jsonDecoder   = &json.Codec{}
 
 					channels = []cesium.Channel{
 						{Name: "John", Key: unaryKey, DataType: telem.TimeStampT, IsIndex: true},
@@ -406,7 +406,7 @@ var _ = Describe("Channel", Ordered, func() {
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 						meta  = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
-						codec = &binary.JSONCodec{}
+						codec = &json.Codec{}
 						buf   = make([]byte, MustSucceed(meta.Stat()).Size())
 						newCh cesium.Channel
 					)
