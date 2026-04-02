@@ -101,10 +101,8 @@ class Plot(ConsolePage):
         download_button = self.page.get_by_role("button", name="Download").last
         download_button.wait_for(state="visible", timeout=5000)
 
+        # Bypass native "Save As" dialog so Playwright can capture the download.
         self.page.evaluate("delete window.showSaveFilePicker")
-        self.page.wait_for_function(
-            "() => window.showSaveFilePicker === undefined", timeout=5000
-        )
 
         with self.page.expect_download(timeout=20000) as download_info:
             download_button.click()

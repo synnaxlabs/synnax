@@ -524,7 +524,6 @@ class WorkspaceClient:
         """
         page_item = self._find_page(name)
         self.ctx_menu.open_on(page_item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
@@ -556,7 +555,11 @@ class WorkspaceClient:
             self.ctx_menu.click_option("Import component(s)")
 
         fc_info.value.set_files(json_path)
-        self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
+
+        file_name = os.path.splitext(os.path.basename(json_path))[0]
+        self.layout.get_tab(file_name).wait_for(state="visible", timeout=10000)
+        if name != file_name:
+            self.layout.rename_tab(old_name=file_name, new_name=name)
         self.layout.close_left_toolbar()
 
     def import_workspace(self, name: str, export_dir: str) -> None:

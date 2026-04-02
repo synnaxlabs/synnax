@@ -317,7 +317,6 @@ class ConsolePage:
         """
         self.layout.show_visualization_toolbar()
         export_button = self.page.locator(".pluto-icon--export").locator("..")
-        self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
             try:

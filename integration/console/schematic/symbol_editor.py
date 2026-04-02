@@ -57,7 +57,7 @@ class SymbolEditor:
         name_input.fill(name)
 
     def upload_svg(self, svg_path: str) -> None:
-        """Upload SVG file by directly calling the component's content handler.
+        """Upload an SVG file via the file picker.
 
         This must be called before setting the name or other properties,
         as the form only appears after an SVG is uploaded.
@@ -65,44 +65,13 @@ class SymbolEditor:
         Args:
             svg_path: Path to the SVG file to upload.
         """
-        import os
+        drop_zone = self.page.locator(".console-file-drop")
+        drop_zone.wait_for(state="visible", timeout=5000)
 
-        with open(svg_path, "r") as f:
-            svg_content = f.read()
+        with self.page.expect_file_chooser() as fc_info:
+            drop_zone.click()
 
-        filename = os.path.basename(svg_path)
-        name_without_ext = os.path.splitext(filename)[0]
-        proper_name = " ".join(
-            word.capitalize()
-            for word in name_without_ext.replace("_", " ").replace("-", " ").split()
-        )
-
-        # SY-3670
-        self.page.evaluate(
-            """([svgContent, properName]) => {
-                // Access React fiber to call FileDrop's onContentsChange prop directly
-                const dropZone = document.querySelector('.console-file-drop');
-                if (!dropZone) throw new Error('Drop zone not found');
-
-                const fiberKey = Object.keys(dropZone).find(k => k.startsWith('__reactFiber$'));
-                if (!fiberKey) throw new Error('React fiber not found');
-
-                let fiber = dropZone[fiberKey];
-                let onContentsChange = null;
-
-                while (fiber) {
-                    if (fiber.memoizedProps?.onContentsChange) {
-                        onContentsChange = fiber.memoizedProps.onContentsChange;
-                        break;
-                    }
-                    fiber = fiber.return;
-                }
-
-                if (!onContentsChange) throw new Error('onContentsChange not found');
-                onContentsChange(svgContent, properName);
-            }""",
-            [svg_content, proper_name],
-        )
+        fc_info.value.set_files(svg_path)
         self.wait_for_form_visible()
 
     def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
