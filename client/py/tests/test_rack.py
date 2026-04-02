@@ -83,6 +83,40 @@ class TestRackClient:
         with pytest.raises(sy.ValidationError, match="tasks are still attached"):
             client.racks.delete([rack.key])
 
+    def test_create_with_integrations(self, client: sy.Synnax):
+        """Should create a rack with integrations and persist them"""
+        rack = client.racks.create(
+            racks=sy.Rack(name="integ-rack", integrations=["ni", "opc", "modbus"])
+        )
+        res = client.racks.retrieve(key=rack.key)
+        assert res.integrations == ["ni", "opc", "modbus"]
+
+    def test_retrieve_by_integration(self, client: sy.Synnax):
+        """Should filter racks by supported integration"""
+        r1 = client.racks.create(
+            racks=sy.Rack(name="py-ni-rack", integrations=["ni", "opc"])
+        )
+        r2 = client.racks.create(
+            racks=sy.Rack(name="py-modbus-rack", integrations=["modbus"])
+        )
+        results = client.racks.retrieve(keys=[r1.key, r2.key], integration="ni")
+        result_keys = {r.key for r in results}
+        assert r1.key in result_keys
+        assert r2.key not in result_keys
+
+    def test_update_integrations(self, client: sy.Synnax):
+        """Should update integrations on upsert"""
+        rack = client.racks.create(
+            racks=sy.Rack(name="py-upsert-integ", integrations=["ni"])
+        )
+        client.racks.create(
+            racks=sy.Rack(
+                key=rack.key, name="py-upsert-integ", integrations=["ni", "opc", "arc"]
+            )
+        )
+        res = client.racks.retrieve(key=rack.key)
+        assert res.integrations == ["ni", "opc", "arc"]
+
     def test_retrieve_embedded_rack(self, client: sy.Synnax):
         rack = client.racks.retrieve_embedded_rack()
         assert isinstance(rack, sy.Rack)

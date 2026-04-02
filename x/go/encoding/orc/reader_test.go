@@ -30,20 +30,20 @@ var _ = Describe("Reader", func() {
 		w.Uint32(256)
 		w.Uint64(1024)
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-		Expect(MustSucceed(r.Uint32())).To(Equal(uint32(256)))
-		Expect(MustSucceed(r.Uint64())).To(Equal(uint64(1024)))
+		Expect(r.Uint8()).To(Equal(uint8(1)))
+		Expect(r.Uint32()).To(Equal(uint32(256)))
+		Expect(r.Uint64()).To(Equal(uint64(1024)))
 	})
 
 	It("Should return error on EOF", func() {
 		r := orc.NewReader(bytesReader([]byte{1, 2}))
-		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
+		Expect(r.Uint8()).To(Equal(uint8(1)))
 		Expect(r.Uint32()).Error().To(MatchError(io.ErrUnexpectedEOF))
 	})
 
 	It("Should return EOF when no data remains", func() {
 		r := orc.NewReader(bytesReader([]byte{1}))
-		Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
+		Expect(r.Uint8()).To(Equal(uint8(1)))
 		Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 	})
 
@@ -51,9 +51,9 @@ var _ = Describe("Reader", func() {
 		data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 		r := orc.NewReader(bytesReader(data))
 		buf := make([]byte, 4)
-		Expect(MustSucceed(r.Read(buf))).To(Equal(4))
+		Expect(r.Read(buf)).To(Equal(4))
 		Expect(buf).To(Equal([]byte{1, 2, 3, 4}))
-		Expect(MustSucceed(r.Read(buf))).To(Equal(4))
+		Expect(r.Read(buf)).To(Equal(4))
 		Expect(buf).To(Equal([]byte{5, 6, 7, 8}))
 	})
 
@@ -64,10 +64,10 @@ var _ = Describe("Reader", func() {
 		w.Int32(-65536)
 		w.Int64(-1)
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		Expect(MustSucceed(r.Int8())).To(Equal(int8(-1)))
-		Expect(MustSucceed(r.Int16())).To(Equal(int16(-256)))
-		Expect(MustSucceed(r.Int32())).To(Equal(int32(-65536)))
-		Expect(MustSucceed(r.Int64())).To(Equal(int64(-1)))
+		Expect(r.Int8()).To(Equal(int8(-1)))
+		Expect(r.Int16()).To(Equal(int16(-256)))
+		Expect(r.Int32()).To(Equal(int32(-65536)))
+		Expect(r.Int64()).To(Equal(int64(-1)))
 	})
 
 	It("Should read floats", func() {
@@ -87,9 +87,9 @@ var _ = Describe("Reader", func() {
 		w.Bool(false)
 		w.Bool(true)
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		Expect(MustSucceed(r.Bool())).To(BeTrue())
-		Expect(MustSucceed(r.Bool())).To(BeFalse())
-		Expect(MustSucceed(r.Bool())).To(BeTrue())
+		Expect(r.Bool()).To(BeTrue())
+		Expect(r.Bool()).To(BeFalse())
+		Expect(r.Bool()).To(BeTrue())
 	})
 
 	It("Should read length-prefixed strings", func() {
@@ -98,9 +98,9 @@ var _ = Describe("Reader", func() {
 		w.String("")
 		w.String("world")
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		Expect(MustSucceed(r.String())).To(Equal("hello"))
-		Expect(MustSucceed(r.String())).To(Equal(""))
-		Expect(MustSucceed(r.String())).To(Equal("world"))
+		Expect(r.String()).To(Equal("hello"))
+		Expect(r.String()).To(Equal(""))
+		Expect(r.String()).To(Equal("world"))
 	})
 
 	It("Should return error on truncated string", func() {
@@ -118,9 +118,7 @@ var _ = Describe("Reader", func() {
 		buf := make([]byte, 4)
 		binary.BigEndian.PutUint32(buf, 9)
 		r := orc.NewReader(bytesReader(buf))
-		Expect(r.String()).Error().To(MatchError(
-			ContainSubstring("exceeds maximum"),
-		))
+		Expect(r.String()).Error().To(MatchError(orc.ErrExceedStringLen))
 	})
 
 	It("Should allow string within MaxStringLen in io.Reader mode", func() {
@@ -130,17 +128,86 @@ var _ = Describe("Reader", func() {
 		w := orc.NewWriter(0)
 		w.String("hello")
 		r := orc.NewReader(bytesReader(w.Bytes()))
-		Expect(MustSucceed(r.String())).To(Equal("hello"))
+		Expect(r.String()).To(Equal("hello"))
+	})
+
+	It("Should read uint16 in io.Reader mode", func() {
+		w := orc.NewWriter(0)
+		w.Uint16(1000)
+		w.Uint16(65535)
+		r := orc.NewReader(bytesReader(w.Bytes()))
+		Expect(r.Uint16()).To(Equal(uint16(1000)))
+		Expect(r.Uint16()).To(Equal(uint16(65535)))
+	})
+
+	It("Should return error on truncated uint16 in io.Reader mode", func() {
+		r := orc.NewReader(bytesReader([]byte{1}))
+		Expect(r.Uint16()).Error().To(MatchError(io.ErrUnexpectedEOF))
+	})
+
+	It("Should read uint64 in io.Reader mode", func() {
+		w := orc.NewWriter(0)
+		w.Uint64(0x123456789ABCDEF0)
+		r := orc.NewReader(bytesReader(w.Bytes()))
+		Expect(r.Uint64()).To(Equal(uint64(0x123456789ABCDEF0)))
+	})
+
+	It("Should return error on truncated uint64 in io.Reader mode", func() {
+		r := orc.NewReader(bytesReader([]byte{1, 2, 3}))
+		Expect(r.Uint64()).Error().To(MatchError(io.ErrUnexpectedEOF))
+	})
+
+	Describe("CollectionLen", func() {
+		It("Should read a valid collection length", func() {
+			w := orc.NewWriter(0)
+			w.Uint32(100)
+			r := orc.NewReader(bytesReader(w.Bytes()))
+			Expect(r.CollectionLen()).To(Equal(uint32(100)))
+		})
+
+		It("Should reject collection length exceeding MaxCollectionLen", func() {
+			prev := orc.MaxCollectionLen
+			defer func() { orc.MaxCollectionLen = prev }()
+			orc.MaxCollectionLen = 5
+			w := orc.NewWriter(0)
+			w.Uint32(6)
+			r := orc.NewReader(bytesReader(w.Bytes()))
+			Expect(r.CollectionLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
+		})
+
+		It("Should read a valid collection length in direct mode", func() {
+			w := orc.NewWriter(0)
+			w.Uint32(50)
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			Expect(r.CollectionLen()).To(Equal(uint32(50)))
+		})
+
+		It("Should reject collection length exceeding MaxCollectionLen in direct mode", func() {
+			prev := orc.MaxCollectionLen
+			defer func() { orc.MaxCollectionLen = prev }()
+			orc.MaxCollectionLen = 5
+			w := orc.NewWriter(0)
+			w.Uint32(6)
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			Expect(r.CollectionLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
+		})
+
+		It("Should return error on truncated data", func() {
+			r := orc.NewReader(bytesReader([]byte{0, 0}))
+			Expect(r.CollectionLen()).Error().To(HaveOccurred())
+		})
 	})
 
 	Describe("Reset", func() {
 		It("Should reset to use a new reader", func() {
 			r := orc.NewReader(bytesReader([]byte{1}))
-			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
+			Expect(r.Uint8()).To(Equal(uint8(1)))
 			Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 			r.Reset(bytesReader([]byte{42, 0, 0, 1, 0}))
-			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(42)))
-			Expect(MustSucceed(r.Uint32())).To(Equal(uint32(256)))
+			Expect(r.Uint8()).To(Equal(uint8(42)))
+			Expect(r.Uint32()).To(Equal(uint32(256)))
 		})
 	})
 
@@ -179,14 +246,14 @@ var _ = Describe("Reader", func() {
 			w.Int32(-42)
 
 			r := orc.NewReader(bytesReader(w.Bytes()))
-			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(255)))
-			Expect(MustSucceed(r.Uint32())).To(Equal(uint32(0xDEADBEEF)))
-			Expect(MustSucceed(r.Uint64())).To(Equal(uint64(0x123456789ABCDEF0)))
-			Expect(MustSucceed(r.String())).To(Equal("hello"))
-			Expect(MustSucceed(r.Bool())).To(BeTrue())
-			Expect(MustSucceed(r.Float32())).To(Equal(float32(1.5)))
-			Expect(MustSucceed(r.Float64())).To(Equal(float64(2.5)))
-			Expect(MustSucceed(r.Int32())).To(Equal(int32(-42)))
+			Expect(r.Uint8()).To(Equal(uint8(255)))
+			Expect(r.Uint32()).To(Equal(uint32(0xDEADBEEF)))
+			Expect(r.Uint64()).To(Equal(uint64(0x123456789ABCDEF0)))
+			Expect(r.String()).To(Equal("hello"))
+			Expect(r.Bool()).To(BeTrue())
+			Expect(r.Float32()).To(Equal(float32(1.5)))
+			Expect(r.Float64()).To(Equal(float64(2.5)))
+			Expect(r.Int32()).To(Equal(int32(-42)))
 		})
 	})
 
@@ -198,15 +265,15 @@ var _ = Describe("Reader", func() {
 			w.Uint64(1024)
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
-			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
-			Expect(MustSucceed(r.Uint32())).To(Equal(uint32(256)))
-			Expect(MustSucceed(r.Uint64())).To(Equal(uint64(1024)))
+			Expect(r.Uint8()).To(Equal(uint8(1)))
+			Expect(r.Uint32()).To(Equal(uint32(256)))
+			Expect(r.Uint64()).To(Equal(uint64(1024)))
 		})
 
 		It("Should return EOF when no data remains", func() {
 			r := orc.NewReader(nil)
 			r.ResetBytes([]byte{1})
-			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(1)))
+			Expect(r.Uint8()).To(Equal(uint8(1)))
 			Expect(r.Uint8()).Error().To(MatchError(io.EOF))
 		})
 
@@ -216,6 +283,39 @@ var _ = Describe("Reader", func() {
 			Expect(r.Uint32()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 
+		It("Should return EOF on truncated uint16 when at end of data", func() {
+			r := orc.NewReader(nil)
+			r.ResetBytes([]byte{})
+			Expect(r.Uint16()).Error().To(MatchError(io.EOF))
+		})
+
+		It("Should return ErrUnexpectedEOF on truncated uint16 with partial data", func() {
+			r := orc.NewReader(nil)
+			r.ResetBytes([]byte{1})
+			Expect(r.Uint16()).Error().To(MatchError(io.ErrUnexpectedEOF))
+		})
+
+		It("Should return EOF on truncated uint64 when at end of data", func() {
+			r := orc.NewReader(nil)
+			r.ResetBytes([]byte{})
+			Expect(r.Uint64()).Error().To(MatchError(io.EOF))
+		})
+
+		It("Should return ErrUnexpectedEOF on truncated uint64 with partial data", func() {
+			r := orc.NewReader(nil)
+			r.ResetBytes([]byte{1, 2, 3})
+			Expect(r.Uint64()).Error().To(MatchError(io.ErrUnexpectedEOF))
+		})
+
+		It("Should return EOF on Read with no data remaining", func() {
+			r := orc.NewReader(nil)
+			r.ResetBytes([]byte{})
+			buf := make([]byte, 4)
+			n, err := r.Read(buf)
+			Expect(n).To(Equal(0))
+			Expect(err).To(MatchError(io.EOF))
+		})
+
 		It("Should read length-prefixed strings", func() {
 			w := orc.NewWriter(0)
 			w.String("hello")
@@ -223,9 +323,9 @@ var _ = Describe("Reader", func() {
 			w.String("world")
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
-			Expect(MustSucceed(r.String())).To(Equal("hello"))
-			Expect(MustSucceed(r.String())).To(Equal(""))
-			Expect(MustSucceed(r.String())).To(Equal("world"))
+			Expect(r.String()).To(Equal("hello"))
+			Expect(r.String()).To(Equal(""))
+			Expect(r.String()).To(Equal("world"))
 		})
 
 		It("Should return error on truncated string", func() {
@@ -248,13 +348,13 @@ var _ = Describe("Reader", func() {
 			w.Bool(true)
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
-			Expect(MustSucceed(r.Int8())).To(Equal(int8(-1)))
-			Expect(MustSucceed(r.Int16())).To(Equal(int16(-256)))
-			Expect(MustSucceed(r.Int32())).To(Equal(int32(-65536)))
-			Expect(MustSucceed(r.Int64())).To(Equal(int64(-1)))
-			Expect(MustSucceed(r.Float32())).To(Equal(float32(1.5)))
-			Expect(MustSucceed(r.Float64())).To(Equal(float64(2.5)))
-			Expect(MustSucceed(r.Bool())).To(BeTrue())
+			Expect(r.Int8()).To(Equal(int8(-1)))
+			Expect(r.Int16()).To(Equal(int16(-256)))
+			Expect(r.Int32()).To(Equal(int32(-65536)))
+			Expect(r.Int64()).To(Equal(int64(-1)))
+			Expect(r.Float32()).To(Equal(float32(1.5)))
+			Expect(r.Float64()).To(Equal(float64(2.5)))
+			Expect(r.Bool()).To(BeTrue())
 		})
 
 		It("Should read arbitrary bytes", func() {
@@ -262,9 +362,9 @@ var _ = Describe("Reader", func() {
 			r := orc.NewReader(nil)
 			r.ResetBytes(data)
 			buf := make([]byte, 4)
-			Expect(MustSucceed(r.Read(buf))).To(Equal(4))
+			Expect(r.Read(buf)).To(Equal(4))
 			Expect(buf).To(Equal([]byte{1, 2, 3, 4}))
-			Expect(MustSucceed(r.Read(buf))).To(Equal(4))
+			Expect(r.Read(buf)).To(Equal(4))
 			Expect(buf).To(Equal([]byte{5, 6, 7, 8}))
 		})
 
@@ -290,14 +390,14 @@ var _ = Describe("Reader", func() {
 
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
-			Expect(MustSucceed(r.Uint8())).To(Equal(uint8(255)))
-			Expect(MustSucceed(r.Uint32())).To(Equal(uint32(0xDEADBEEF)))
-			Expect(MustSucceed(r.Uint64())).To(Equal(uint64(0x123456789ABCDEF0)))
-			Expect(MustSucceed(r.String())).To(Equal("hello"))
-			Expect(MustSucceed(r.Bool())).To(BeTrue())
-			Expect(MustSucceed(r.Float32())).To(Equal(float32(1.5)))
-			Expect(MustSucceed(r.Float64())).To(Equal(float64(2.5)))
-			Expect(MustSucceed(r.Int32())).To(Equal(int32(-42)))
+			Expect(r.Uint8()).To(Equal(uint8(255)))
+			Expect(r.Uint32()).To(Equal(uint32(0xDEADBEEF)))
+			Expect(r.Uint64()).To(Equal(uint64(0x123456789ABCDEF0)))
+			Expect(r.String()).To(Equal("hello"))
+			Expect(r.Bool()).To(BeTrue())
+			Expect(r.Float32()).To(Equal(float32(1.5)))
+			Expect(r.Float64()).To(Equal(float64(2.5)))
+			Expect(r.Int32()).To(Equal(int32(-42)))
 		})
 
 		Describe("ResetBytes after Reset", func() {
@@ -307,12 +407,12 @@ var _ = Describe("Reader", func() {
 				w.String("test")
 
 				r := orc.NewReader(bytesReader(w.Bytes()))
-				Expect(MustSucceed(r.Uint32())).To(Equal(uint32(42)))
-				Expect(MustSucceed(r.String())).To(Equal("test"))
+				Expect(r.Uint32()).To(Equal(uint32(42)))
+				Expect(r.String()).To(Equal("test"))
 
 				r.ResetBytes(w.Bytes())
-				Expect(MustSucceed(r.Uint32())).To(Equal(uint32(42)))
-				Expect(MustSucceed(r.String())).To(Equal("test"))
+				Expect(r.Uint32()).To(Equal(uint32(42)))
+				Expect(r.String()).To(Equal("test"))
 			})
 		})
 

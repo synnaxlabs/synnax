@@ -96,8 +96,8 @@ var ErrMissingDependency = errors.New("missing dependency")
 // represented by the adjacency list adj (where adj[a] = [b, c] means a depends
 // on b and c, i.e. b and c must come before a). Returns ErrCyclicDependency if
 // the graph contains a cycle, or ErrMissingDependency if an edge references a
-// node not present as a key in adj. The output is deterministic: nodes at the
-// same topological level are sorted by their natural ordering.
+// node not present as a key in adj. The output is deterministic: nodes within
+// the same parent's dependent list are sorted by their natural ordering.
 func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
 	for node, deps := range adj {
 		for _, dep := range deps {
@@ -114,9 +114,6 @@ func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
 	inDegree := make(map[T]int, len(adj))
 	dependents := make(map[T][]T, len(adj))
 	for node := range adj {
-		if _, exists := inDegree[node]; !exists {
-			inDegree[node] = 0
-		}
 		for _, dep := range adj[node] {
 			inDegree[node]++
 			dependents[dep] = append(dependents[dep], node)
@@ -124,8 +121,8 @@ func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
 	}
 
 	var queue []T
-	for node, deg := range inDegree {
-		if deg == 0 {
+	for node := range adj {
+		if inDegree[node] == 0 {
 			queue = append(queue, node)
 		}
 	}
@@ -136,7 +133,7 @@ func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
 		node := queue[0]
 		queue = queue[1:]
 		sorted = append(sorted, node)
-		next := dependents[node]
+		next := slices.Clone(dependents[node])
 		slices.Sort(next)
 		for _, dep := range next {
 			inDegree[dep]--

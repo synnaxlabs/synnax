@@ -96,6 +96,68 @@ var _ = Describe("Driver", func() {
 			Expect(racks[0].Embedded).To(BeTrue())
 		})
 
+		It("should set integrations on the rack from factory names", func(ctx SpecContext) {
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:      dist.DB,
+				Rack:    rackService,
+				Task:    taskService,
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				Status:  statusSvc,
+				Factories: []driver.Factory{
+					&mockFactory{name: "arc"},
+					&mockFactory{name: "opc"},
+				},
+				Host: hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				WhereEmbedded(true).
+				WhereName("Node 1").
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
+		})
+
+		It("should update integrations on existing rack when reopened with different factories", func(ctx SpecContext) {
+			d1 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{&mockFactory{name: "arc"}},
+				Host:      hostProvider,
+			}))
+			Expect(d1.Close()).To(Succeed())
+
+			d2 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:      dist.DB,
+				Rack:    rackService,
+				Task:    taskService,
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				Status:  statusSvc,
+				Factories: []driver.Factory{
+					&mockFactory{name: "arc"},
+					&mockFactory{name: "ni"},
+					&mockFactory{name: "opc"},
+				},
+				Host: hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
+
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				WhereEmbedded(true).
+				WhereName("Node 1").
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
+		})
+
 		It("should fail with invalid config", func(ctx SpecContext) {
 			_, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())
@@ -108,7 +170,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					mt := &mockTask{key: t.Key}
@@ -134,7 +196,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configCount.Add(1)
@@ -171,7 +233,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configuredCount.Add(1)
@@ -200,7 +262,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(initialReady) })
@@ -232,7 +294,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -264,7 +326,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configureCalled.Store(true)
@@ -290,7 +352,7 @@ var _ = Describe("Driver", func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(driver.Context, task.Task) (driver.Task, error) {
+				configureFunc: func(context.Context, task.Task) (driver.Task, error) {
 					configCalled.Store(true)
 					return nil, errors.New("factory configuration failed")
 				},
@@ -307,6 +369,53 @@ var _ = Describe("Driver", func() {
 			Consistently(func() bool { return stopCalled.Load() }).Should(BeFalse())
 		})
 
+		It("should continue processing new tasks after a configuration error", func(ctx SpecContext) {
+			var (
+				knownKeys   sync.Map
+				configCount atomic.Int32
+				execCalled  atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					if _, ok := knownKeys.Load(t.Key); !ok {
+						return nil, driver.ErrTaskNotHandled
+					}
+					n := configCount.Add(1)
+					if n == 1 {
+						return nil, errors.New("first task fails")
+					}
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCalled.Store(true)
+							return nil
+						},
+					}, nil
+				},
+			}
+			openDriver(ctx, factory)
+
+			// First task: configuration fails.
+			t1 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t1.Key, true)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t1)).To(Succeed())
+			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(1)))
+
+			// Second task: configuration succeeds, proving the driver is still
+			// functional after the first error.
+			t2 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t2.Key, true)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t2)).To(Succeed())
+			Eventually(func() int32 { return configCount.Load() }).Should(Equal(int32(2)))
+
+			writeCommand(ctx, task.Command{Task: t2.Key, Type: "start", Key: "cmd-1"})
+			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
+		})
+
 		It("should handle task stop error gracefully during reconfiguration", func(ctx SpecContext) {
 			var (
 				stopCalled  atomic.Bool
@@ -316,7 +425,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configCount.Add(1)
@@ -353,7 +462,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					configuredTasks.Store(t.Key, true)
@@ -430,7 +539,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
@@ -483,7 +592,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -635,7 +744,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					return &mockTask{
@@ -678,7 +787,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -718,7 +827,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					return &mockTask{
@@ -749,7 +858,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					return &mockTask{
@@ -787,7 +896,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -826,7 +935,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -867,15 +976,15 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					dCtx driver.Context,
+					cfgCtx context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					startOnce.Do(func() { close(configureStarted) })
 					// Block until context is canceled (simulates a well-behaved but
 					// slow implementation that respects cancellation).
-					<-dCtx.Done()
+					<-cfgCtx.Done()
 					timedOut.Store(true)
-					return nil, dCtx.Err()
+					return nil, cfgCtx.Err()
 				},
 			}
 			d := MustSucceed(driver.Open(ctx, driver.Config{
@@ -908,7 +1017,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
@@ -985,7 +1094,7 @@ var _ = Describe("Driver", func() {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
-					_ driver.Context,
+					_ context.Context,
 					t task.Task,
 				) (driver.Task, error) {
 					if configCount.Add(1) == numTasks {

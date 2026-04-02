@@ -13,7 +13,7 @@ package table
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -29,5 +29,5 @@ type Table struct {
 	Name string `json:"name" msgpack:"name"`
 	// Data is the table configuration including column definitions, channel references, and
 	// formatting options.
-	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }

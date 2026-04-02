@@ -93,15 +93,17 @@ func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse)
 
 func (retrieveRequestTranslator) Forward(_ context.Context, req apirack.RetrieveRequest) (*RetrieveRequest, error) {
 	return &RetrieveRequest{
-		Keys:  unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
-		Names: req.Names,
+		Keys:        unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
+		Names:       req.Names,
+		Integration: req.Integration,
 	}, nil
 }
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apirack.RetrieveRequest, error) {
 	return apirack.RetrieveRequest{
-		Keys:  unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names: req.Names,
+		Keys:        unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
+		Names:       req.Names,
+		Integration: req.Integration,
 	}, nil
 }
 

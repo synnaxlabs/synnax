@@ -1,8 +1,9 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "composite": true
+    "composite": true,
+    "types": ["node"],
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*", "eslint.config.ts"]
 }
