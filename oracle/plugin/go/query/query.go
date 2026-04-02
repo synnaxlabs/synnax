@@ -123,13 +123,13 @@ type filterInfo struct {
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
-	TypeName                     string
-	GoName                       string
-	KeyType                      string
-	KeyPrimitive                 string
-	HasSearch                    bool
-	IsCustom                     bool // @retrieve custom - user defines the struct
-	OntologyType                 string
+	TypeName                    string
+	GoName                      string
+	KeyType                     string
+	KeyPrimitive                string
+	HasSearch                   bool
+	IsCustom                    bool // @retrieve custom - user defines the struct
+	OntologyType                string
 	KeysFromOntologyIDsHasError bool
 	Filters                     []filterInfo
 }
@@ -289,13 +289,13 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		TypeName:                     typ.Name,
-		GoName:                       goName,
-		KeyType:                      keyType,
-		KeyPrimitive:                 keyPrimitive,
-		HasSearch:                    hasSearch,
-		IsCustom:                     isCustom,
-		OntologyType:                 ontologyType,
+		TypeName:                    typ.Name,
+		GoName:                      goName,
+		KeyType:                     keyType,
+		KeyPrimitive:                keyPrimitive,
+		HasSearch:                   hasSearch,
+		IsCustom:                    isCustom,
+		OntologyType:                ontologyType,
 		KeysFromOntologyIDsHasError: keyPrimitive != "string",
 		Filters:                     filters,
 	}
@@ -307,7 +307,7 @@ type templateData struct {
 	Retrieves []retrieveInfo
 }
 
-func (d *templateData) HasImports() bool         { return d.imports.HasImports() }
+func (d *templateData) HasImports() bool          { return d.imports.HasImports() }
 func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 func (d *templateData) InternalImports() []imports.InternalImportData {
 	return d.imports.InternalImports()
