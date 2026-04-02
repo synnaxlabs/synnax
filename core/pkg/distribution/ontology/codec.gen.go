@@ -20,6 +20,35 @@ import (
 	"sync"
 )
 
+func EncodeRelationship(w *orc.Writer, s *Relationship) error {
+	if err := EncodeID(w, &s.From); err != nil {
+		return err
+	}
+	w.String(string(s.Type))
+	if err := EncodeID(w, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeRelationship(r *orc.Reader, s *Relationship) error {
+	var err error
+	if err = DecodeID(r, &s.From); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Type = RelationshipType(v)
+	}
+	if err = DecodeID(r, &s.To); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeID(w *orc.Writer, s *ID) error {
 	w.String(string(s.Type))
 	w.String(s.Key)
@@ -81,77 +110,8 @@ func DecodeResource(r *orc.Reader, s *Resource) error {
 	return nil
 }
 
-func EncodeRelationship(w *orc.Writer, s *Relationship) error {
-	if err := EncodeID(w, &s.From); err != nil {
-		return err
-	}
-	w.String(string(s.Type))
-	if err := EncodeID(w, &s.To); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeRelationship(r *orc.Reader, s *Relationship) error {
-	var err error
-	if err = DecodeID(r, &s.From); err != nil {
-		return err
-	}
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Type = RelationshipType(v)
-	}
-	if err = DecodeID(r, &s.To); err != nil {
-		return err
-	}
-	return nil
-}
-
 var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
 var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type resourceCodec struct{}
-
-var ResourceCodec xencoding.Codec = resourceCodec{}
-
-func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Resource)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeResource(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Resource)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeResource(r, s)
-}
-
-func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
-}
 
 type relationshipCodec struct{}
 
@@ -186,6 +146,46 @@ func (relationshipCodec) Decode(ctx context.Context, data []byte, value any) err
 }
 
 func (c relationshipCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return err
+	}
+	return c.Decode(ctx, data, value)
+}
+
+type resourceCodec struct{}
+
+var ResourceCodec xencoding.Codec = resourceCodec{}
+
+func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	s := value.(Resource)
+	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
+	w.Reset()
+	if err := EncodeResource(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
+}
+
+func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
+	s := value.(*Resource)
+	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
+	r.ResetBytes(data)
+	return DecodeResource(r, s)
+}
+
+func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err

@@ -23,27 +23,6 @@ import (
 	"sync"
 )
 
-func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
-	w.Uint32(uint32(s.Rack))
-	w.String(s.Device)
-	return nil
-}
-
-func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
-	var err error
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		s.Rack = rack.Key(v)
-	}
-	if s.Device, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func EncodeDevice(w *orc.Writer, s *Device) error {
 	w.String(s.Key)
 	w.Uint32(uint32(s.Rack))
@@ -144,6 +123,27 @@ func DecodeDevice(r *orc.Reader, s *Device) error {
 			}
 			s.Parent = &v
 		}
+	}
+	return nil
+}
+
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
+	w.Uint32(uint32(s.Rack))
+	w.String(s.Device)
+	return nil
+}
+
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
+	var err error
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		s.Rack = rack.Key(v)
+	}
+	if s.Device, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }

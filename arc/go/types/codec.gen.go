@@ -16,46 +16,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeParam(w *orc.Writer, s *Param) error {
-	w.String(s.Name)
-	if err := EncodeType(w, &s.Type); err != nil {
-		return err
-	}
-	{
-		b, err := json.Marshal(s.Value)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	return nil
-}
-
-func DecodeParam(r *orc.Reader, s *Param) error {
-	var err error
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	if err = DecodeType(r, &s.Type); err != nil {
-		return err
-	}
-	{
-		n, err := r.CollectionLen()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func EncodeType(w *orc.Writer, s *Type) error {
 	if s.Inputs != nil {
 		w.Bool(true)
@@ -461,6 +421,46 @@ func DecodeChannels(r *orc.Reader, s *Channels) error {
 				}
 				s.Write[key] = val
 			}
+		}
+	}
+	return nil
+}
+
+func EncodeParam(w *orc.Writer, s *Param) error {
+	w.String(s.Name)
+	if err := EncodeType(w, &s.Type); err != nil {
+		return err
+	}
+	{
+		b, err := json.Marshal(s.Value)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	return nil
+}
+
+func DecodeParam(r *orc.Reader, s *Param) error {
+	var err error
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeType(r, &s.Type); err != nil {
+		return err
+	}
+	{
+		n, err := r.CollectionLen()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Value); err != nil {
+			return err
 		}
 	}
 	return nil

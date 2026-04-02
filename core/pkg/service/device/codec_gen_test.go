@@ -59,7 +59,7 @@ var _ = Describe("Codec", func() {
 						Time:        telem.TimeStamp(13),
 						Details:     device.StatusDetails{Rack: rack.Key(15), Device: "test_15"},
 						Labels: []label.Label{
-							{
+							label.Label{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 								Name: "test_18",
 								Color: color.Color{
@@ -126,7 +126,7 @@ var _ = Describe("Codec", func() {
 						Time:        telem.TimeStamp(13),
 						Details:     device.StatusDetails{Rack: rack.Key(15), Device: "test_15"},
 						Labels: []label.Label{
-							{
+							label.Label{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 								Name: "test_18",
 								Color: color.Color{
@@ -172,7 +172,7 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 				Time:        telem.TimeStamp(13),
 				Details:     device.StatusDetails{Rack: rack.Key(15), Device: "test_15"},
 				Labels: []label.Label{
-					{
+					label.Label{
 						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 						Name: "test_18",
 						Color: color.Color{
@@ -238,7 +238,7 @@ func FuzzDecodeDevice(f *testing.F) {
 					Time:        telem.TimeStamp(13),
 					Details:     device.StatusDetails{Rack: rack.Key(15), Device: "test_15"},
 					Labels: []label.Label{
-						{
+						label.Label{
 							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 							Name: "test_18",
 							Color: color.Color{

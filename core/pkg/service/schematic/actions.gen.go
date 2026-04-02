@@ -12,7 +12,7 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -31,8 +31,8 @@ type SetNodePosition struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 type AddNode struct {
-	Node  Node                      `json:"node" msgpack:"node"`
-	Props binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
+	Node  Node                `json:"node" msgpack:"node"`
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
 }
 type RemoveNode struct {
 	Key string `json:"key" msgpack:"key"`
@@ -48,8 +48,8 @@ type SetNodeDimensions struct {
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 }
 type SetProps struct {
-	Key   string                    `json:"key" msgpack:"key"`
-	Props binary.MsgpackEncodedJSON `json:"props" msgpack:"props"`
+	Key   string              `json:"key" msgpack:"key"`
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
 }
 
 // Action is a discriminated union for all Schematic mutations.

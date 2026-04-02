@@ -23,6 +23,19 @@ import (
 	"sync"
 )
 
+func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
+	w.Bool(s.Running)
+	return nil
+}
+
+func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
+	var err error
+	if s.Running, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeArc(w *orc.Writer, s *Arc) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -98,19 +111,6 @@ func DecodeArc(r *orc.Reader, s *Arc) error {
 			}
 			s.Status = &v
 		}
-	}
-	return nil
-}
-
-func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
-	w.Bool(s.Running)
-	return nil
-}
-
-func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
-	var err error
-	if s.Running, err = r.Bool(); err != nil {
-		return err
 	}
 	return nil
 }

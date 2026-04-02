@@ -14,24 +14,98 @@ package schematic
 import (
 	"context"
 	"encoding/json"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/control"
 	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/spatial"
 	"io"
 	"sync"
 )
 
+func EncodeEdge(w *orc.Writer, s *Edge) error {
+	w.String(s.Key)
+	if err := EncodeHandle(w, &s.Source); err != nil {
+		return err
+	}
+	if err := EncodeHandle(w, &s.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEdge(r *orc.Reader, s *Edge) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Source); err != nil {
+		return err
+	}
+	if err = DecodeHandle(r, &s.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EncodeHandle(w *orc.Writer, s *Handle) error {
+	w.String(s.Node)
+	w.String(s.Param)
+	return nil
+}
+
+func DecodeHandle(r *orc.Reader, s *Handle) error {
+	var err error
+	if s.Node, err = r.String(); err != nil {
+		return err
+	}
+	if s.Param, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EncodeSchematic(w *orc.Writer, s *Schematic) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
-	{
-		b, err := json.Marshal(s.Data)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
 	w.Bool(s.Snapshot)
+	w.Uint8(uint8(s.Authority))
+	if err := EncodeLegend(w, &s.Legend); err != nil {
+		return err
+	}
+	w.Bool(s.Nodes != nil)
+	if s.Nodes != nil {
+		w.Uint32(uint32(len(s.Nodes)))
+		for i := range s.Nodes {
+			if err := EncodeNode(w, &s.Nodes[i]); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(s.Edges != nil)
+	if s.Edges != nil {
+		w.Uint32(uint32(len(s.Edges)))
+		for i := range s.Edges {
+			if err := EncodeEdge(w, &s.Edges[i]); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(s.Props != nil)
+	if s.Props != nil {
+		w.Uint32(uint32(len(s.Props)))
+		for key, val := range s.Props {
+			w.String(key)
+			{
+				b, err := json.Marshal(val)
+				if err != nil {
+					return err
+				}
+				w.Uint32(uint32(len(b)))
+				w.Write(b)
+			}
+		}
+	}
 	return nil
 }
 
@@ -43,20 +117,165 @@ func DecodeSchematic(r *orc.Reader, s *Schematic) error {
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
+	if s.Snapshot, err = r.Bool(); err != nil {
+		return err
+	}
 	{
-		n, err := r.CollectionLen()
+		v, err := r.Uint8()
 		if err != nil {
 			return err
 		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
+		s.Authority = control.Authority(v)
+	}
+	if err = DecodeLegend(r, &s.Legend); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Data); err != nil {
-			return err
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Nodes = make([]Node, n)
+			for i := range s.Nodes {
+				if err = DecodeNode(r, &s.Nodes[i]); err != nil {
+					return err
+				}
+			}
 		}
 	}
-	if s.Snapshot, err = r.Bool(); err != nil {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Edges = make([]Edge, n)
+			for i := range s.Edges {
+				if err = DecodeEdge(r, &s.Edges[i]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Props = make(map[string]interface{}, n)
+			for range n {
+				var key string
+				var val interface{}
+				if key, err = r.String(); err != nil {
+					return err
+				}
+				{
+					n, err := r.CollectionLen()
+					if err != nil {
+						return err
+					}
+					b := make([]byte, n)
+					if _, err = r.Read(b); err != nil {
+						return err
+					}
+					if err = json.Unmarshal(b, &val); err != nil {
+						return err
+					}
+				}
+				s.Props[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+func EncodeLegend(w *orc.Writer, s *Legend) error {
+	w.Bool(s.Visible)
+	if err := spatial.EncodeStickyXY(w, &s.Position); err != nil {
+		return err
+	}
+	w.Bool(s.Colors != nil)
+	if s.Colors != nil {
+		w.Uint32(uint32(len(s.Colors)))
+		for key, val := range s.Colors {
+			w.String(key)
+			if err := color.EncodeColor(w, &val); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func DecodeLegend(r *orc.Reader, s *Legend) error {
+	var err error
+	if s.Visible, err = r.Bool(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeStickyXY(r, &s.Position); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Colors = make(map[string]color.Color, n)
+			for range n {
+				var key string
+				var val color.Color
+				if key, err = r.String(); err != nil {
+					return err
+				}
+				if err = color.DecodeColor(r, &val); err != nil {
+					return err
+				}
+				s.Colors[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+func EncodeNode(w *orc.Writer, s *Node) error {
+	w.String(s.Key)
+	if err := spatial.EncodeXY(w, &s.Position); err != nil {
+		return err
+	}
+	if err := spatial.EncodeDimensions(w, &s.Measured); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeNode(r *orc.Reader, s *Node) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = spatial.DecodeXY(r, &s.Position); err != nil {
+		return err
+	}
+	if err = spatial.DecodeDimensions(r, &s.Measured); err != nil {
 		return err
 	}
 	return nil
