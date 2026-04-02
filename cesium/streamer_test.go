@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +29,7 @@ import (
 
 func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpdate, error) {
 	var u cesium.ControlUpdate
-	if err := (&binary.JSONCodec{}).Decode(ctx, s.Data, &u); err != nil {
+	if err := json.Codec.Decode(ctx, s.Data, &u); err != nil {
 		return cesium.ControlUpdate{}, err
 	}
 	return u, nil

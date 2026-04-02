@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/binary"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
@@ -56,7 +56,7 @@ func (k Key) IsZero() bool { return k == 0 }
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := binary.UnmarshalMsgpackUint32(dec)
+	n, err := xmsgpack.UnmarshalUint32(dec)
 	if err != nil {
 		return err
 	}

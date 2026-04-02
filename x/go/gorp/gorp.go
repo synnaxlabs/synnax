@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
@@ -103,4 +103,4 @@ var _ Tx = (*tx)(nil)
 
 // Tools provides the codec that gorp needs to translate key-value operations
 // to strongly-typed requests.
-type Tools interface{ binary.Codec }
+type Tools interface{ encoding.Codec }

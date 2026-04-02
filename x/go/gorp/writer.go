@@ -12,7 +12,7 @@ package gorp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -21,16 +21,16 @@ import (
 type Writer[K Key, E Entry[K]] struct {
 	writer   kv.Writer
 	keyCodec *keyCodec[K, E]
-	codec    binary.Codec
+	codec    encoding.Codec
 }
 
 // WrapWriter wraps the given key-value writer and codec to provide a strongly
 // typed interface for writing entries to the DB.
-func WrapWriter[K Key, E Entry[K]](base kv.Writer, codec binary.Codec) *Writer[K, E] {
+func WrapWriter[K Key, E Entry[K]](base kv.Writer, codec encoding.Codec) *Writer[K, E] {
 	return &Writer[K, E]{writer: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
-func wrapWriter[K Key, E Entry[K]](base kv.Writer, codec binary.Codec) *Writer[K, E] {
+func wrapWriter[K Key, E Entry[K]](base kv.Writer, codec encoding.Codec) *Writer[K, E] {
 	return &Writer[K, E]{writer: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 

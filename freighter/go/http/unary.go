@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
+	xhttp "github.com/synnaxlabs/x/http"
 )
 
 type unaryServer[RQ, RS freighter.Payload] struct {
@@ -41,8 +41,8 @@ func (s *unaryServer[RQ, RS]) BindHandler(
 }
 
 func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
-	fCtx.Accepts(httputil.SupportedContentTypes()...)
-	codec, err := httputil.ResolveCodec(fCtx.Get(fiber.HeaderContentType))
+	fCtx.Accepts(xhttp.SupportedContentTypes()...)
+	codec, err := xhttp.ResolveCodec(fCtx.Get(fiber.HeaderContentType))
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
-	codec httputil.Codec
+	codec xhttp.Codec
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
@@ -129,7 +129,7 @@ func (u *unaryClient[RQ, RS]) Send(
 	return res, err
 }
 
-func encodeAndWrite(c fiber.Ctx, codec httputil.Codec, v any) error {
+func encodeAndWrite(c fiber.Ctx, codec xhttp.Codec, v any) error {
 	b, err := codec.Encode(c.RequestCtx(), v)
 	if err != nil {
 		return err

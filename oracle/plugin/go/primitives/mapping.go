@@ -29,7 +29,7 @@ var Mappings = map[string]primitives.Mapping{
 	"uint64":  {TargetType: "uint64"},
 	"float32": {TargetType: "float32"},
 	"float64": {TargetType: "float64"},
-	"record":  {TargetType: "binary.MsgpackEncodedJSON", Imports: []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/binary"}}},
+	"record":  {TargetType: "msgpack.EncodedJSON", Imports: []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/encoding/msgpack"}}},
 	"bytes":   {TargetType: "[]byte"},
 	"any":     {TargetType: "any"},
 	"nil":     {TargetType: "gotypes.Nil", Imports: []primitives.Import{{Category: "internal", Path: "go/types", Name: "gotypes"}}},

@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/binary"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -39,7 +39,7 @@ var _ = Describe("DecodeMsgpack", func() {
 			legacy := struct {
 				Key      string
 				Type     string
-				Config   binary.MsgpackEncodedJSON
+				Config   xmsgpack.EncodedJSON
 				Position spatial.XY
 			}{
 				Key:      "node1",

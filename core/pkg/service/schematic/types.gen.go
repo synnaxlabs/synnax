@@ -13,7 +13,7 @@ package schematic
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -29,7 +29,7 @@ type Schematic struct {
 	Name string `json:"name" msgpack:"name"`
 	// Data is the schematic content including symbols, connections, and layout
 	// configuration.
-	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 }

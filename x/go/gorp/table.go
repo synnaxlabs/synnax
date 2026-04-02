@@ -14,7 +14,7 @@ import (
 	"io"
 	"iter"
 
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/types"
@@ -23,19 +23,19 @@ import (
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
 	DB    *DB
-	Codec binary.Codec
+	Codec encoding.Codec
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 // It holds a resolved Codec (either custom or the DB's default) and provides methods
 // for creating query builders that are automatically configured with the codec.
 type Table[K Key, E Entry[K]] struct {
-	codec binary.Codec
+	codec encoding.Codec
 	DB    *DB
 }
 
 // Codec returns the table's codec.
-func (t *Table[K, E]) Codec() binary.Codec { return t.codec }
+func (t *Table[K, E]) Codec() encoding.Codec { return t.codec }
 
 func (t *Table[K, E]) Close() error {
 	return nil
@@ -56,7 +56,7 @@ func OpenTable[K Key, E Entry[K]](
 
 // resolveCodec returns the override codec if non-nil, otherwise falls back to the
 // fallback codec.
-func resolveCodec(override binary.Codec, fallback binary.Codec) binary.Codec {
+func resolveCodec(override encoding.Codec, fallback encoding.Codec) encoding.Codec {
 	if override != nil {
 		return override
 	}
@@ -89,7 +89,7 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
 }
 
-func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec binary.Codec) error {
+func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec encoding.Codec) error {
 	return db.WithTx(ctx, func(tx Tx) error {
 		if err := migrateOldPrefixKeys[K, E](ctx, tx, codec); err != nil {
 			return err
@@ -101,7 +101,7 @@ func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec binary.Co
 // migrateOldPrefixKeys finds entries stored under the old codec-based prefix
 // (e.g. msgpack-encoded type name) and re-writes them under the new prefix
 // format (__gorp__//TypeName).
-func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Codec) (err error) {
+func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec encoding.Codec) (err error) {
 	oldPrefix, err := tx.Encode(ctx, types.Name[E]())
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func migrateOldPrefixKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec b
 // reEncodeKeys iterates entries already stored under the current prefix and
 // re-writes them, ensuring the key portion uses the current primitive encoding.
 // This is a no-op when the key encoding hasn't changed.
-func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec binary.Codec) error {
+func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec encoding.Codec) error {
 	reader := wrapReader[K, E](tx, codec)
 	iter, err := reader.OpenIterator(IterOptions{})
 	if err != nil {

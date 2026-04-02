@@ -12,7 +12,7 @@ package gorp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -21,12 +21,12 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	changes  changes[K, E]
-	codec    binary.Codec
+	codec    encoding.Codec
 }
 
 // NewUpdate opens a new Update query. If codec is non-nil, it overrides the
 // default DB codec for encoding/decoding entries.
-func NewUpdate[K Key, E Entry[K]](codec binary.Codec) Update[K, E] {
+func NewUpdate[K Key, E Entry[K]](codec encoding.Codec) Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E](codec), codec: codec}
 }
 

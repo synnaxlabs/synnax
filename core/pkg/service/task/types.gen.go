@@ -12,7 +12,7 @@
 package task
 
 import (
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/status"
 )
 
@@ -33,7 +33,7 @@ type StatusDetails struct {
 	// Cmd is the last command executed on this task.
 	Cmd string `json:"cmd" msgpack:"cmd"`
 	// Data contains task-specific status data.
-	Data binary.MsgpackEncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
+	Data msgpack.EncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
 }
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
@@ -48,7 +48,7 @@ type Task struct {
 	// which hardware integration handles the task.
 	Type string `json:"type" msgpack:"type"`
 	// Config is task-specific configuration stored as JSON. Structure varies by task type.
-	Config binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Snapshot indicates whether to persist this task's configuration.
@@ -66,5 +66,5 @@ type Command struct {
 	// Key is a unique identifier for this command instance.
 	Key string `json:"key" msgpack:"key"`
 	// Args contains optional arguments for the command.
-	Args binary.MsgpackEncodedJSON `json:"args" msgpack:"args"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
