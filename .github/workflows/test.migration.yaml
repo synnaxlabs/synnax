@@ -24,14 +24,8 @@ jobs:
     name: Generate Migration Chains
     runs-on: ubuntu-latest
     outputs:
-      CUSTOM_CHAIN: ${{ steps.chain.outputs.CUSTOM_CHAIN }}
-      CUSTOM_VERSION: ${{ steps.chain.outputs.CUSTOM_VERSION }}
-      MINIMUM_CHAIN: ${{ steps.chain.outputs.MINIMUM_CHAIN }}
-      MAJOR_CHAIN: ${{ steps.chain.outputs.MAJOR_CHAIN }}
-      PATCH_CHAIN: ${{ steps.chain.outputs.PATCH_CHAIN }}
-      MINIMUM_VERSION: ${{ steps.chain.outputs.MINIMUM_VERSION }}
-      MAJOR_VERSION: ${{ steps.chain.outputs.MAJOR_VERSION }}
-      PATCH_VERSION: ${{ steps.chain.outputs.PATCH_VERSION }}
+      MATRIX: ${{ steps.chain.outputs.MATRIX }}
+      VERSIONS: ${{ steps.chain.outputs.VERSIONS }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -59,49 +53,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Build custom chain client wheels
-        if: needs.setup.outputs.CUSTOM_CHAIN != ''
+      - name: Build client wheels
         run: |
-          IFS=',' read -ra VERSIONS <<< "${{ needs.setup.outputs.CUSTOM_CHAIN }}"
-          BUILT=""
+          IFS=',' read -ra VERSIONS <<< "${{ needs.setup.outputs.VERSIONS }}"
           for version in "${VERSIONS[@]}"; do
-            if [[ -z "$version" ]] || echo "$BUILT" | grep -qw "$version"; then
-              continue
-            fi
             echo "Building wheels for $version..."
             integration/scripts/build_client_wheels.sh "$version" "wheels/$version"
-            BUILT="$BUILT $version"
           done
-
-      - name: Build latest client wheels
-        if: needs.setup.outputs.CUSTOM_CHAIN == ''
-        run: integration/scripts/build_client_wheels.sh latest wheels/latest
-
-      - name: Build minimum version client wheels
-        if: needs.setup.outputs.CUSTOM_CHAIN == ''
-        run:
-          integration/scripts/build_client_wheels.sh ${{
-          needs.setup.outputs.MINIMUM_VERSION }} wheels/${{
-          needs.setup.outputs.MINIMUM_VERSION }}
-
-      - name: Build major version client wheels
-        if: >-
-          needs.setup.outputs.CUSTOM_CHAIN == '' && needs.setup.outputs.MAJOR_VERSION !=
-          needs.setup.outputs.MINIMUM_VERSION
-        run:
-          integration/scripts/build_client_wheels.sh ${{
-          needs.setup.outputs.MAJOR_VERSION }} wheels/${{
-          needs.setup.outputs.MAJOR_VERSION }}
-
-      - name: Build patch version client wheels
-        if: >-
-          needs.setup.outputs.CUSTOM_CHAIN == '' && needs.setup.outputs.PATCH_VERSION !=
-          needs.setup.outputs.MINIMUM_VERSION && needs.setup.outputs.PATCH_VERSION !=
-          needs.setup.outputs.MAJOR_VERSION
-        run:
-          integration/scripts/build_client_wheels.sh ${{
-          needs.setup.outputs.PATCH_VERSION }} wheels/${{
-          needs.setup.outputs.PATCH_VERSION }}
 
       - name: Upload client wheels
         uses: actions/upload-artifact@v7
@@ -119,24 +77,7 @@ jobs:
       - ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        chain_name:
-          ${{ needs.setup.outputs.CUSTOM_CHAIN != '' && fromJSON('["custom"]') ||
-          fromJSON('["major","patch"]') }}
-        include:
-          - chain_name: custom
-            chain: ${{ needs.setup.outputs.CUSTOM_CHAIN }}
-            version: ${{ needs.setup.outputs.CUSTOM_VERSION }}
-          # - chain_name: minimum  # Disabled while latest major == minimum
-          #   chain: ${{ needs.setup.outputs.MINIMUM_CHAIN }}
-          #   version: ${{ needs.setup.outputs.MINIMUM_VERSION }}
-          - chain_name: major
-            chain: ${{ needs.setup.outputs.MAJOR_CHAIN }}
-            version: ${{ needs.setup.outputs.MAJOR_VERSION }}
-          - chain_name: patch
-            chain: ${{ needs.setup.outputs.PATCH_CHAIN }}
-            version: ${{ needs.setup.outputs.PATCH_VERSION }}
+      matrix: ${{ fromJSON(needs.setup.outputs.MATRIX) }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6

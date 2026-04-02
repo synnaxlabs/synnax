@@ -9,27 +9,67 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Discovers stable releases and outputs three migration chains:
-#   MINIMUM_CHAIN: hardcoded minimum version -> latest
-#   MAJOR_CHAIN:   most recent .0 release -> latest
-#   PATCH_CHAIN:   most recent release overall -> latest
+# Outputs a GitHub Actions matrix for migration tests.
+#
+# If CUSTOM_CHAIN is set (e.g. "0.52.0, 0.53.1, 0.54.2"), outputs a single
+# matrix entry with that chain. Otherwise, discovers stable releases and
+# builds major and patch chains.
+#
+# Outputs (via GITHUB_OUTPUT):
+#   MATRIX   — JSON for strategy.matrix via fromJSON()
+#   VERSIONS — comma-separated unique versions that need client wheels built
 #
 # Usage:
+#   CUSTOM_CHAIN="0.52.0,0.53.0" generate_migration_matrix.sh
 #   generate_migration_matrix.sh
 
 set -euo pipefail
 
-# If CUSTOM_CHAIN is set, normalize it (strip spaces) and output it directly.
-if [[ -n "${CUSTOM_CHAIN:-}" ]]; then
-    # Normalize: strip spaces around commas
-    CHAIN=$(echo "$CUSTOM_CHAIN" | tr -d ' ')
-    FIRST_VERSION="${CHAIN%%,*}"
+output_matrix() {
+    # Build matrix JSON with os × chain combinations
+    local json='{"include":['
+    local first=true
+    for entry in "$@"; do
+        local name="${entry%%=*}"
+        local chain="${entry#*=}"
+        local version="${chain%%,*}"
+        for os in ubuntu-latest windows-latest; do
+            if [[ "$first" == true ]]; then first=false; else json+=','; fi
+            json+="{\"chain_name\":\"$name\",\"os\":\"$os\",\"chain\":\"$chain\",\"version\":\"$version\"}"
+        done
+    done
+    json+=']}'
+    echo "$json"
+}
 
-    echo "Custom chain: $CHAIN (first version: $FIRST_VERSION)"
+collect_versions() {
+    local seen=""
+    for entry in "$@"; do
+        local chain="${entry#*=}"
+        IFS=',' read -ra parts <<< "$chain"
+        for v in "${parts[@]}"; do
+            if ! echo "$seen" | grep -qw "$v"; then
+                seen="$seen $v"
+            fi
+        done
+    done
+    echo "${seen## }" | tr ' ' ','
+}
+
+# Custom chain: normalize and output directly
+if [[ -n "${CUSTOM_CHAIN:-}" ]]; then
+    CHAIN=$(echo "$CUSTOM_CHAIN" | tr -d ' ')
+    echo "Custom chain: $CHAIN"
+
+    MATRIX=$(output_matrix "custom=$CHAIN")
+    VERSIONS=$(collect_versions "custom=$CHAIN")
+
+    echo "Matrix: $MATRIX"
+    echo "Versions: $VERSIONS"
 
     if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-        echo "CUSTOM_CHAIN=$CHAIN" >> "$GITHUB_OUTPUT"
-        echo "CUSTOM_VERSION=$FIRST_VERSION" >> "$GITHUB_OUTPUT"
+        echo "MATRIX=$MATRIX" >> "$GITHUB_OUTPUT"
+        echo "VERSIONS=$VERSIONS" >> "$GITHUB_OUTPUT"
     fi
     exit 0
 fi
@@ -64,8 +104,6 @@ fi
 
 echo "Found ${#VERSIONS[@]} versions: ${VERSIONS[*]}"
 
-MINIMUM="${VERSIONS[0]}"
-
 # Latest major: most recent X.Y.0 release
 MAJOR=""
 for ((i = ${#VERSIONS[@]} - 1; i >= 0; i--)); do
@@ -79,22 +117,22 @@ if [[ -z "$MAJOR" ]]; then
     exit 1
 fi
 
-# Latest patch: most recent release overall
-PATCH="${VERSIONS[-1]}"
+PATCH="${VERSIONS[${#VERSIONS[@]} - 1]}"
 
-MINIMUM_CHAIN="${MINIMUM},latest"
-MAJOR_CHAIN="${MAJOR},latest"
-PATCH_CHAIN="${PATCH},latest"
+# Build chain entries (chain_name=version_chain)
+# Minimum chain disabled while latest major == minimum
+ENTRIES=("major=${MAJOR},latest" "patch=${PATCH},latest")
 
-echo "Minimum chain: $MINIMUM_CHAIN"
-echo "Major chain:   $MAJOR_CHAIN"
-echo "Patch chain:   $PATCH_CHAIN"
+echo "Major chain: ${MAJOR},latest"
+echo "Patch chain: ${PATCH},latest"
+
+MATRIX=$(output_matrix "${ENTRIES[@]}")
+WHEEL_VERSIONS=$(collect_versions "${ENTRIES[@]}")
+
+echo "Matrix: $MATRIX"
+echo "Versions: $WHEEL_VERSIONS"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-    echo "MINIMUM_CHAIN=$MINIMUM_CHAIN" >> "$GITHUB_OUTPUT"
-    echo "MAJOR_CHAIN=$MAJOR_CHAIN" >> "$GITHUB_OUTPUT"
-    echo "PATCH_CHAIN=$PATCH_CHAIN" >> "$GITHUB_OUTPUT"
-    echo "MINIMUM_VERSION=$MINIMUM" >> "$GITHUB_OUTPUT"
-    echo "MAJOR_VERSION=$MAJOR" >> "$GITHUB_OUTPUT"
-    echo "PATCH_VERSION=$PATCH" >> "$GITHUB_OUTPUT"
+    echo "MATRIX=$MATRIX" >> "$GITHUB_OUTPUT"
+    echo "VERSIONS=$WHEEL_VERSIONS" >> "$GITHUB_OUTPUT"
 fi

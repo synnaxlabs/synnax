@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from importlib.metadata import version as _version
+
 from synnax import color, ethercat, http, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
@@ -86,12 +88,7 @@ from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 from synnax.util.deprecation import deprecated_getattr
 
-try:
-    from importlib.metadata import version as _version
-
-    __version__ = _version("synnax")
-except Exception:
-    __version__ = "unknown"
+__version__ = _version("synnax")
 
 _DEPRECATED: dict[str, str | tuple[str, str]] = {
     "ArcTask": ("synnax.arc.Task", "_ArcTask"),
