@@ -10,8 +10,6 @@
 package cmd
 
 import (
-	"context"
-
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/lsp"
 	xos "github.com/synnaxlabs/x/os"
@@ -22,7 +20,7 @@ func newLSPCmd() *cobra.Command {
 		Use:   "lsp",
 		Short: "Start the language server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return lsp.New().Serve(context.Background(), xos.StdIO)
+			return lsp.New().Serve(cmd.Context(), xos.StdIO)
 		},
 	}
 	cmd.Flags().Bool("stdio", true, "")
