@@ -29,24 +29,24 @@ import (
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
-	BaseReader
+	tx       Tx
 }
 
 // WrapReader wraps the given BaseReader to provide a strongly typed interface for reading
 // entries from the DB.
-func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
-	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
+func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
+	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
-	b, closer, err := r.BaseReader.Get(ctx, r.keyCodec.encode(key))
+	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return e, err
 	}
-	err = r.Decode(ctx, b, &e)
+	err = r.tx.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
 }
 
@@ -86,8 +86,8 @@ type IterOptions struct {
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
-	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
-	return &Iterator[E]{Iterator: base, codec: r.BaseReader}, err
+	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
+	return &Iterator[E]{Iterator: base, codec: r.tx}, err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over

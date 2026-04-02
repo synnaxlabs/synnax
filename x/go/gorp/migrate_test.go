@@ -40,15 +40,6 @@ type entryV1 struct {
 func (e entryV1) GorpKey() int32    { return e.ID }
 func (e entryV1) SetOptions() []any { return nil }
 
-type entryV2 struct {
-	ID          int32  `msgpack:"id"`
-	Data        string `msgpack:"data"`
-	Description string `msgpack:"description"`
-}
-
-func (e entryV2) GorpKey() int32    { return e.ID }
-func (e entryV2) SetOptions() []any { return nil }
-
 type jsonEntry struct {
 	ID   int32  `json:"id"`
 	Data string `json:"data"`

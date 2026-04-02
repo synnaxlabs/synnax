@@ -46,6 +46,8 @@ ResourceType enum {
 RelationshipType string {
     @go omit
     @ts omit
+    @cpp omit
+    @py omit
 }
 
 ID struct {

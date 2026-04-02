@@ -11,9 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
-
-RelationshipType: TypeAlias = str
+from typing import Literal
 
 RESOURCE_TYPE_ARC: Literal["arc"] = "arc"
 

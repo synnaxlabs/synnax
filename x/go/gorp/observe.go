@@ -21,10 +21,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func newObservable[K Key, E Entry[K]](obs BaseObservable) observe.Observable[iter.Seq[change.Change[K, E]]] {
+func newObservable[K Key, E Entry[K]](db *DB) observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := newKeyCodec[K, E]()
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
-		Observable: obs,
+		Observable: db,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
 			var matched []kv.Change
 			for ch := range reader {
@@ -35,7 +35,7 @@ func newObservable[K Key, E Entry[K]](obs BaseObservable) observe.Observable[ite
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges(ctx, matched, kCodec, obs), true
+			return wrapMatchedChanges(ctx, matched, kCodec, db), true
 		},
 	}
 }

@@ -255,12 +255,19 @@ func (b *encoderBuilder) processFields(
 		getPath := getPrefix + "." + goName
 		setPath := setPrefix + "." + goName
 
-		// Type parameter fields use a type assertion with JSON fallback.
+		// Type parameter fields use a type assertion with JSON fallback,
+		// but only when the type param has no default. Defaulted type params
+		// (e.g. V extends Variant = Variant) are substituted with their
+		// default and encoded concretely.
 		if f.Type.IsTypeParam() && b.hasTypeParams {
-			if err := b.processTypeParamField(getPath, setPath); err != nil {
-				return err
+			if f.Type.TypeParam.HasDefault() {
+				f.Type = *f.Type.TypeParam.Default
+			} else {
+				if err := b.processTypeParamField(getPath, setPath); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
 		}
 
 		if f.IsHardOptional {

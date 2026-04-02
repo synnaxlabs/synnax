@@ -28,8 +28,6 @@ type options struct {
 	encoding.Codec
 }
 
-var _ Tools = options{}
-
 var defaultOptions = options{Codec: msgpack.Codec}
 
 func newOptions(opts []Option) options {

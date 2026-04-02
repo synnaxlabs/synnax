@@ -22,18 +22,7 @@ import (
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Key)
 	w.String(s.Name)
-	if m, ok := any(s.Variant).(orc.SelfEncoder); ok {
-		if err := m.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		b, err := json.Marshal(s.Variant)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
+	w.String(string(s.Variant))
 	w.String(s.Message)
 	w.String(s.Description)
 	w.Int64(int64(s.Time))
@@ -71,22 +60,12 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
-	if m, ok := any(&s.Variant).(orc.SelfDecoder); ok {
-		if err := m.DecodeOrc(r); err != nil {
-			return err
-		}
-	} else {
-		n, err := r.CollectionLen()
+	{
+		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Variant); err != nil {
-			return err
-		}
+		s.Variant = Variant(v)
 	}
 	if s.Message, err = r.String(); err != nil {
 		return err

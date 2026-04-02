@@ -77,7 +77,7 @@ func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, overr
 // if they desire to do so, or simply use the DB directly otherwise.
 type Tx interface {
 	kv.Tx
-	Tools
+	encoding.Codec
 }
 
 // Context is an extension of the built-in context.Context type that adds additional
@@ -97,34 +97,4 @@ func checkForNilTx(method string, tx Tx) {
 	if tx == nil {
 		panic("[gorp] - nil transaction - please provide transaction to " + method)
 	}
-}
-
-var _ Tx = (*tx)(nil)
-
-// Tools provides the codec that gorp needs to translate key-value operations
-// to strongly-typed requests.
-type Tools interface{ encoding.Codec }
-
-// BaseReader is a simple extension of the kv.Reader interface that adds
-// gorp-required tooling. For semantic purposes, it can be considered as
-// equivalent to a kv.Reader.
-type BaseReader interface {
-	kv.Reader
-	Tools
-}
-
-// BaseWriter is a simple extension of the kv.Writer interface that
-// adds gorp-required tooling. For semantic purposes, it can be considered
-// as equivalent to a kv.Writer.
-type BaseWriter interface {
-	kv.Writer
-	Tools
-}
-
-// BaseObservable is a simple extension of the kv.Writer interface that
-// adds gorp-required tooling. For semantic purposes, it can be considered
-// as equivalent to a kv.Observable.
-type BaseObservable interface {
-	kv.Observable
-	Tools
 }

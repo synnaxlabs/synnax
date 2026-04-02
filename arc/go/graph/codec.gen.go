@@ -18,50 +18,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (nv Node) EncodeOrc(w *orc.Writer) error {
-	w.String(nv.Key)
-	w.String(nv.Type)
-	{
-		b, err := json.Marshal(nv.Config)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	if err := nv.Position.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (nv *Node) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if nv.Key, err = r.String(); err != nil {
-		return err
-	}
-	if nv.Type, err = r.String(); err != nil {
-		return err
-	}
-	{
-		n, err := r.CollectionLen()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &nv.Config); err != nil {
-			return err
-		}
-	}
-	if err = nv.Position.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (g Graph) EncodeOrc(w *orc.Writer) error {
 	if err := g.Viewport.EncodeOrc(w); err != nil {
 		return err
@@ -172,6 +128,50 @@ func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if vv.Zoom, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (nv Node) EncodeOrc(w *orc.Writer) error {
+	w.String(nv.Key)
+	w.String(nv.Type)
+	{
+		b, err := json.Marshal(nv.Config)
+		if err != nil {
+			return err
+		}
+		w.Uint32(uint32(len(b)))
+		w.Write(b)
+	}
+	if err := nv.Position.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (nv *Node) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if nv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if nv.Type, err = r.String(); err != nil {
+		return err
+	}
+	{
+		n, err := r.CollectionLen()
+		if err != nil {
+			return err
+		}
+		b := make([]byte, n)
+		if _, err = r.Read(b); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &nv.Config); err != nil {
+			return err
+		}
+	}
+	if err = nv.Position.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil

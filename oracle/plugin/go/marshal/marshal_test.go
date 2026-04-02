@@ -141,6 +141,36 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("defaulted type param should encode as concrete type, not JSON fallback", func() {
+			It("Should encode a defaulted enum type param as a string, not via JSON marshal", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Variant enum {
+						info    = "info"
+						warning = "warning"
+						error   = "error"
+					}
+
+					Status struct<Details?, V extends Variant = Variant> {
+						key     string
+						variant V
+						details Details?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"w.String(string(s.Variant))",
+				)
+				content.ToNotContain(
+					"json.Marshal(s.Variant)",
+				)
+			})
+		})
+
 		Context("non-optional array alias field", func() {
 			It("Should handle a type alias that wraps an array", func() {
 				source := `

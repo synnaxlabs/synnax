@@ -14,14 +14,14 @@ import "context"
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
 // entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
-	BaseWriter
+	tx       Tx
 	keyCodec *keyCodec[K, E]
 }
 
 // WrapWriter wraps the given BaseWriter to provide a strongly typed interface for writing
 // entries to the DB.
-func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
-	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
+func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
+	return &Writer[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Set writes the provided entries to the DB.
@@ -45,14 +45,14 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	data, err := w.Encode(ctx, entry)
+	data, err := w.tx.Encode(ctx, entry)
 	if err != nil {
 		return err
 	}
 	v := w.keyCodec.encode(entry.GorpKey())
-	return w.BaseWriter.Set(ctx, v, data, entry.SetOptions()...)
+	return w.tx.Set(ctx, v, data, entry.SetOptions()...)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	return w.BaseWriter.Delete(ctx, w.keyCodec.encode(key))
+	return w.tx.Delete(ctx, w.keyCodec.encode(key))
 }
