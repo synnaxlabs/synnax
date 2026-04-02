@@ -20,6 +20,7 @@
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
+#include "client/cpp/view/view.h"
 #include "client/cpp/transport.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
@@ -151,6 +152,8 @@ public:
     status::Client statuses;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs;
+    /// @brief Client for managing views.
+    view::Client views;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg):
@@ -197,7 +200,12 @@ public:
             std::move(this->t.device_delete)
         ),
         statuses(this->t.status_retrieve, this->t.status_set, this->t.status_delete),
-        arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete) {
+        arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
+        views(
+            std::move(this->t.view_create),
+            std::move(this->t.view_retrieve),
+            std::move(this->t.view_delete)
+        ) {
         details::check_little_endian();
     }
 };

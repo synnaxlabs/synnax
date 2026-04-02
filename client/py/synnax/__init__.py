@@ -28,6 +28,7 @@ from synnax.channel import Channel
 from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
+from synnax.view import View
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
@@ -122,6 +123,7 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
+    "View",
     "elapsed_seconds",
     "ExpiredToken",
     "PathError",
