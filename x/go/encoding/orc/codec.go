@@ -46,13 +46,17 @@ var (
 	readerPool = sync.Pool{New: func() any { return NewReader(nil) }}
 )
 
-// Codec is an ORC implementation of encoding.Codec.
+// Codec is an orc implementation of encoding.Codec that requires all values to
+// implement SelfEncoder/SelfDecoder.
 var Codec = &codec{}
 
 type codec struct {
 	fallback encoding.Codec
 }
 
+// NewCodec returns an orc codec that falls back to the given codec when a value
+// does not implement SelfEncoder (on encode) or when the data lacks the orc magic
+// header (on decode).
 func NewCodec(fallback encoding.Codec) encoding.Codec {
 	return &codec{fallback: fallback}
 }

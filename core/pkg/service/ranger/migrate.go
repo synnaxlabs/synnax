@@ -60,7 +60,7 @@ func (m *groupsMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instru
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	m.cfg.Instrumentation.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
+	m.cfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
 
 	otgWriter := m.cfg.Ontology.NewWriter(tx)
 	if err := otgWriter.DeleteOutgoingRelationshipsOfType(
@@ -96,7 +96,7 @@ func (m *groupsMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instru
 			Exec(ctx, tx); err != nil {
 			return err
 		}
-		m.cfg.Instrumentation.L.Debug(
+		m.cfg.L.Debug(
 			"migrating range group",
 			zap.String("group", g.Name),
 			zap.Int("children", len(childRanges)),

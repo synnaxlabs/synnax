@@ -16,6 +16,7 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -51,6 +52,11 @@ func (f *failEncoder) EncodeOrc(w *orc.Writer) error { return errEncode }
 type errReader struct{ err error }
 
 func (e *errReader) Read([]byte) (int, error) { return 0, e.err }
+
+type jsonOnlyRecord struct {
+	ID   uint32 `json:"id"`
+	Name string `json:"name"`
+}
 
 var _ = Describe("Codec", func() {
 	ctx := context.Background()
@@ -138,6 +144,63 @@ var _ = Describe("Codec", func() {
 				Expect(out.ID).To(Equal(uint32(i)))
 				Expect(out.Name).To(Equal("iter"))
 			}
+		})
+	})
+
+	Describe("Fallback", func() {
+		var c = orc.NewCodec(json.Codec)
+
+		Describe("Encode", func() {
+			It("Should fall back to JSON for non-SelfEncoder values", func() {
+				in := &jsonOnlyRecord{ID: 1, Name: "fallback"}
+				data := MustSucceed(c.Encode(ctx, in))
+				Expect(data[0]).ToNot(Equal(orc.Magic[0]))
+				out := &jsonOnlyRecord{}
+				Expect(json.Codec.Decode(ctx, data, out)).To(Succeed())
+				Expect(out).To(Equal(in))
+			})
+
+			It("Should use ORC for SelfEncoder values", func() {
+				data := MustSucceed(c.Encode(ctx, &testRecord{ID: 1, Name: "orc"}))
+				Expect(data[:3]).To(Equal(orc.Magic[:]))
+			})
+		})
+
+		Describe("Decode", func() {
+			It("Should fall back to JSON when magic header is missing", func() {
+				data := MustSucceed(json.Codec.Encode(ctx, &jsonOnlyRecord{ID: 2, Name: "json"}))
+				out := &jsonOnlyRecord{}
+				Expect(c.Decode(ctx, data, out)).To(Succeed())
+				Expect(out.ID).To(Equal(uint32(2)))
+				Expect(out.Name).To(Equal("json"))
+			})
+
+			It("Should decode ORC data normally", func() {
+				data := MustSucceed(c.Encode(ctx, &testRecord{ID: 3, Name: "orc"}))
+				out := &testRecord{}
+				Expect(c.Decode(ctx, data, out)).To(Succeed())
+				Expect(out.ID).To(Equal(uint32(3)))
+				Expect(out.Name).To(Equal("orc"))
+			})
+		})
+
+		Describe("Round-trip", func() {
+			It("Should round-trip a non-SelfEncoder value through the fallback", func() {
+				in := &jsonOnlyRecord{ID: 99, Name: "round"}
+				data := MustSucceed(c.Encode(ctx, in))
+				out := &jsonOnlyRecord{}
+				Expect(c.Decode(ctx, data, out)).To(Succeed())
+				Expect(out).To(Equal(in))
+			})
+
+			It("Should round-trip a SelfEncoder value through ORC", func() {
+				in := &testRecord{ID: 77, Name: "trip"}
+				data := MustSucceed(c.Encode(ctx, in))
+				out := &testRecord{}
+				Expect(c.Decode(ctx, data, out)).To(Succeed())
+				Expect(out.ID).To(Equal(uint32(77)))
+				Expect(out.Name).To(Equal("trip"))
+			})
 		})
 	})
 })
