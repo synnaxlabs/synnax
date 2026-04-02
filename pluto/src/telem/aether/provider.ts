@@ -16,11 +16,7 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
-import {
-  CompoundFactory,
-  createFactory,
-  type Factory,
-} from "@/telem/aether/factory";
+import { CompoundFactory, createFactory, type Factory } from "@/telem/aether/factory";
 import { NoopFactory } from "@/telem/aether/noop";
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import { RemoteFactory } from "@/telem/aether/remote";
@@ -79,7 +75,7 @@ export const REGISTRY: aether.ComponentRegistry = {
   [PROVIDER_TYPE]: Provider,
 };
 
-export type FactoryConstructor =  (client: client.Client) => Factory;
+export type FactoryConstructor = (client: client.Client) => Factory;
 
 export const createRegistry = (
   ...factoryConstructors: FactoryConstructor[]

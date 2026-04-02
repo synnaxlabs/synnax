@@ -16,7 +16,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { use,type UseProps } from "@/log/use";
+import { use, type UseProps } from "@/log/use";
 import { Menu } from "@/menu";
 import { Status } from "@/status/base";
 import { Triggers } from "@/triggers";

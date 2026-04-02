@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
+import { type Mock, vi } from "vitest";
+
+export interface MockRenderContext {
+  loop: { set: Mock };
+  erase: Mock;
+  scissor: Mock;
+  lower2d: Record<string, unknown>;
+}
 
 // Stubs for jsdom which doesn't implement CanvasRenderingContext2D.
 // Used by aether components that render directly to a 2D canvas context.
-export const mockCanvas2DContext = () => ({
+export const mockCanvas2DContext = (): Record<string, unknown> => ({
   setLineDash: vi.fn(),
   beginPath: vi.fn(),
   closePath: vi.fn(),
@@ -36,7 +43,7 @@ export const mockCanvas2DContext = () => ({
   measureText: vi.fn(() => ({ width: 8 })),
 });
 
-export const mockRenderContext = () => {
+export const mockRenderContext = (): MockRenderContext => {
   const ctx2d = mockCanvas2DContext();
   return {
     loop: { set: vi.fn() },

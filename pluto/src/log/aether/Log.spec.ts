@@ -202,21 +202,21 @@ describe("log/aether/Log", () => {
 
       // First update: not scrolling
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
 
       // Second update: start scrolling
       updateState({
-          region: REGION_500,
-          wheelPos: 100,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       // Scrollback should be initialized with current entry count
       expect(log.scrollState.offset).toBe(entries.length);
@@ -394,33 +394,33 @@ describe("log/aether/Log", () => {
 
       // First update: not scrolling
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
 
       // Enter scrollback
       updateState({
-          region: REGION_500,
-          wheelPos: 100,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       const initialOffset = log.scrollState.offset;
       expect(initialOffset).toBe(entries.length);
 
       // Continue scrolling (wheel position changes)
       updateState({
-          region: REGION_500,
-          wheelPos: 200,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 200,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       // Offset should have changed based on the wheel delta
       expect(log.scrollState.offset).toBeLessThanOrEqual(entries.length);
@@ -432,29 +432,29 @@ describe("log/aether/Log", () => {
       const { log, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
 
       updateState({
-          region: REGION_500,
-          wheelPos: 100,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       // Scroll back down past the end (large negative delta from scrollRef)
       updateState({
-          region: REGION_500,
-          wheelPos: -5000,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: -5000,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       // Should have exited scrollback
       expect(log.state.scrolling).toBe(false);
@@ -467,14 +467,14 @@ describe("log/aether/Log", () => {
       const { log, source, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-          selectionStart: 5,
-          selectionEnd: 10,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 10,
+      });
 
       // Simulate eviction via the onChange callback
       source.evictedCount = 3;
@@ -491,14 +491,14 @@ describe("log/aether/Log", () => {
       const { log, source, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-          selectionStart: 0,
-          selectionEnd: 2,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 0,
+        selectionEnd: 2,
+      });
 
       // Evict more than the selection range
       source.evictedCount = 5;
@@ -515,14 +515,14 @@ describe("log/aether/Log", () => {
       const { log, source, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-          selectionStart: 5,
-          selectionEnd: 10,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 10,
+      });
 
       // No eviction
       source.evictedCount = 0;
@@ -537,14 +537,14 @@ describe("log/aether/Log", () => {
       const { log, source, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-          selectionStart: 2,
-          selectionEnd: 8,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 2,
+        selectionEnd: 8,
+      });
 
       // Evict 4 entries — start goes negative, end stays positive
       source.evictedCount = 4;
@@ -563,21 +563,21 @@ describe("log/aether/Log", () => {
 
       // First update: not scrolling
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
 
       // Enter scrollback
       updateState({
-          region: REGION_500,
-          wheelPos: 100,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       const offsetBeforeEviction = log.scrollState.offset;
 
@@ -636,21 +636,21 @@ describe("log/aether/Log", () => {
       const { log, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
 
       // Enter scrollback
       updateState({
-          region: REGION_500,
-          wheelPos: 100,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       const result = log.render();
       expect(result).toBeTypeOf("function");
@@ -829,20 +829,20 @@ describe("log/aether/Log", () => {
       const { log, updateState } = createLogContext(entries);
 
       updateState({
-          region: REGION_500,
-          wheelPos: 0,
-          scrolling: false,
-          empty: true,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
 
       updateState({
-          region: REGION_500,
-          wheelPos: 100,
-          scrolling: true,
-          empty: false,
-          visible: true,
-        });
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
 
       const result = log.render();
       expect(result).toBeTypeOf("function");

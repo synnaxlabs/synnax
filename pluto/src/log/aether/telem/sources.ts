@@ -19,7 +19,11 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type LogEntry, type LogSource, type LogSourceSpec } from "@/log/aether/telem/types";
+import {
+  type LogEntry,
+  type LogSource,
+  type LogSourceSpec,
+} from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import { AbstractSource } from "@/telem/aether/telem";

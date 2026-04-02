@@ -10,10 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { type destructor, observe } from "@synnaxlabs/x";
 
-import {
-  registerInstance,
-  TEST_SOURCE_TYPE,
-} from "@/telem/aether/test/factory";
+import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
 
 import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
