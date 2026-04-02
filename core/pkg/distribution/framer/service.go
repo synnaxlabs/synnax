@@ -112,7 +112,7 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
 		Channel:         cfg.Channel,
-		Instrumentation: cfg.Child("writer"),
+		Instrumentation: cfg.Child("iterator"),
 	}); err != nil {
 		return nil, err
 	}

@@ -213,9 +213,10 @@ func (s *Server) startBranches(
 
 func (s *Server) baseBranchContext() BranchContext {
 	return BranchContext{
-		Debug:      *s.Debug,
-		Security:   s.Security,
-		ServerName: s.ListenAddress.Host(),
+		Instrumentation: s.Instrumentation,
+		Debug:           *s.Debug,
+		Security:        s.Security,
+		ServerName:      s.ListenAddress.Host(),
 	}
 }
 
