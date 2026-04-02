@@ -166,13 +166,12 @@ describe("workspace ingest", () => {
 
     await ingest("Test Workspace", files, ctx);
 
-    const setWorkspaceCall = (
-      ctx.store.dispatch as ReturnType<typeof vi.fn>
-    ).mock.calls.find(
-      ([action]: [{ type: string }]) => action.type === Layout.setWorkspace.type,
+    const calls = (ctx.store.dispatch as ReturnType<typeof vi.fn>).mock.calls;
+    const setWorkspaceCall = calls.find(
+      (call) => call[0]?.type === Layout.setWorkspace.type,
     );
     expect(setWorkspaceCall).toBeDefined();
-    const newSlice = setWorkspaceCall[0].payload.slice as SliceState;
+    const newSlice = setWorkspaceCall![0].payload.slice as SliceState;
     const newKeys = Object.keys(newSlice.layouts).filter((k) => k !== "main");
     expect(newKeys).toHaveLength(1);
     expect(newKeys[0]).not.toBe("plot-1");

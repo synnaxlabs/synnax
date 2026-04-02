@@ -113,7 +113,7 @@ export const import_ = ({
       const files = await Import.pickDirectoryFromBrowser();
       if (files == null || files.length === 0) return;
       name = files[0].webkitRelativePath.split("/")[0];
-      if (name == null) throw new Error("Cannot read workspace");
+      if (!name) throw new Error("Cannot read workspace");
       fileData = await Promise.all(
         files.map(async (file): Promise<Import.File> => {
           const text = await file.text();
