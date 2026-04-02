@@ -15,6 +15,7 @@ proto_library(
         "ranger/ranger.proto",
         "status/status.proto",
         "task/task.proto",
+        "view/view.proto",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -30,6 +31,7 @@ proto_library(
         "//core/pkg/service/rack:rack_proto",
         "//core/pkg/service/ranger/kv:kv_proto",
         "//core/pkg/service/task:task_proto",
+        "//core/pkg/service/view:view_proto",
         "//x/go/control:control_proto",
         "//x/go/errors:errors_proto",
         "//x/go/status:status_proto",
@@ -57,6 +59,7 @@ cpp_grpc_library(
         "//core/pkg/service/rack:rack_grpc",
         "//core/pkg/service/ranger/kv:kv_grpc",
         "//core/pkg/service/task:task_grpc",
+        "//core/pkg/service/view:view_grpc",
         "//x/go/control:control_grpc",
         "//x/go/errors:errors_grpc",
         "//x/go/status:status_grpc",

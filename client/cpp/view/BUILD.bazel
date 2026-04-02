@@ -1,0 +1,35 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_library(
+    name = "view",
+    srcs = ["view.cpp"],
+    hdrs = [
+        "view.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//client/cpp/ontology",
+        "//core/pkg/api/grpc:api_grpc",
+        "//freighter/cpp:freighter",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/pb",
+        "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "view_test",
+    srcs = ["view_test.cpp"],
+    deps = [
+        ":view",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -14,26 +14,32 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 )
 
+// RawFilter is a predicate that operates on the raw encoded bytes of an entry
+// before it is decoded. Returning false skips the entry without allocating a
+// decoded value. Returning true allows normal decode + filter processing.
+type RawFilter func(data []byte) bool
+
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries *Entries[K, E]
-	limit   int
-	offset  int
-	keys    *[]K
-	prefix  []byte
-	filters filters[K, E]
-	codec   binary.Codec
+	entries    *Entries[K, E]
+	limit      int
+	offset     int
+	keys       *[]K
+	prefix     []byte
+	filters    filters[K, E]
+	rawFilters rawFilters
+	codec      encoding.Codec
 }
 
 // NewRetrieve opens a new Retrieve query. If codec is non-nil, it overrides the
 // default DB codec for decoding entries.
-func NewRetrieve[K Key, E Entry[K]](codec binary.Codec) Retrieve[K, E] {
+func NewRetrieve[K Key, E Entry[K]](codec encoding.Codec) Retrieve[K, E] {
 	return Retrieve[K, E]{entries: new(Entries[K, E]), codec: codec}
 }
 
@@ -95,6 +101,18 @@ func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
 // Offset sets the number of results that the query will skip before returning results.
 func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 	r.offset = offset
+	return r
+}
+
+// WhereRaw adds a raw byte filter that is evaluated before decoding each entry.
+// Entries whose raw bytes cause the filter to return false are skipped without
+// being decoded. Supports the same options as Where (e.g. Required).
+func (r Retrieve[K, E]) WhereRaw(filter RawFilter, opts ...FilterOption) Retrieve[K, E] {
+	o := &filterOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+	r.rawFilters = append(r.rawFilters, rawFilter{f: filter, filterOptions: *o})
 	return r
 }
 
@@ -181,6 +199,9 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		if !r.rawFilters.exec(iter.Iterator.Value()) {
+			continue
+		}
 		v := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return 0, err
@@ -198,6 +219,28 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		}
 	}
 	return count, err
+}
+
+type rawFilter struct {
+	f RawFilter
+	filterOptions
+}
+
+type rawFilters []rawFilter
+
+func (rf rawFilters) exec(data []byte) bool {
+	if len(rf) == 0 {
+		return true
+	}
+	match := false
+	for _, f := range rf {
+		if f.f(data) {
+			match = true
+		} else if f.required {
+			return false
+		}
+	}
+	return match
 }
 
 type filter[K Key, E Entry[K]] struct {
@@ -283,6 +326,9 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		if !r.rawFilters.exec(iter.Iterator.Value()) {
+			continue
+		}
 		v := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return err

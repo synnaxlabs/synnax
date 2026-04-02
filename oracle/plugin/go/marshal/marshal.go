@@ -176,7 +176,7 @@ func buildCodecEntries(
 // GenerateCodecFile generates a complete codec file for the given entries using the
 // specified package name and output path context. This is used by the migrate plugin
 // to generate frozen codecs for old schema versions. Each entry gets exported
-// EncodeX/DecodeX functions. Entries with Adapter=true also get an xbinary.Codec
+// EncodeX/DecodeX functions. Entries with Adapter=true also get an xencoding.Codec
 // implementation with sync.Pool-based Writer/Reader reuse.
 func GenerateCodecFile(
 	packageName string,

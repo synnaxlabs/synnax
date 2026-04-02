@@ -21,9 +21,7 @@ export const Chips = (): ReactElement | null => {
   const field = Form.useField<label.Key[]>("query.hasLabels", {
     optional: true,
   });
-  const hasLabels = Form.useFieldValue<label.Key[]>("query.hasLabels", {
-    optional: true,
-  });
+  const hasLabels = field?.value;
   const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
   if (labels.length === 0 || field == null || hasLabels == null) return null;
   const handleClose = (key: label.Key) =>

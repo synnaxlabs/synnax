@@ -11,13 +11,13 @@ package signals
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -84,10 +84,8 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 	return v.Error()
 }
 
-var jsonEcd = binary.JSONCodec{}
-
 func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
-	b, err := jsonEcd.Encode(context.TODO(), e)
+	b, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
 	}

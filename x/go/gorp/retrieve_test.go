@@ -10,6 +10,8 @@
 package gorp_test
 
 import (
+	"bytes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
@@ -357,6 +359,31 @@ var _ = Describe("Retrieve", func() {
 				).To(Succeed())
 				Expect(res).To(HaveLen(10))
 			})
+		})
+	})
+
+	Describe("WhereRaw", func() {
+		It("Should filter entries by their raw bytes before decoding", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry](nil).
+				Entries(&res).
+				WhereRaw(func(data []byte) bool {
+					return bytes.Contains(data, []byte("data"))
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(HaveLen(10))
+		})
+		It("Should skip entries that do not match the raw filter", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry](nil).
+				Entries(&res).
+				WhereRaw(func(data []byte) bool {
+					return false
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(BeEmpty())
 		})
 	})
 
