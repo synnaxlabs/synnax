@@ -187,8 +187,9 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 
 	// Use allocator to resolve dependencies and get topological order
 	calcGraph, err := graph.New(graph.Config{
-		Channel:        s.cfg.Channel,
-		SymbolResolver: s.cfg.Arc.NewSymbolResolver(nil),
+		Instrumentation: s.cfg.Child("calculation.graph"),
+		Channel:         s.cfg.Channel,
+		SymbolResolver:  s.cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err
