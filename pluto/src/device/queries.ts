@@ -77,27 +77,20 @@ export const retrieveSingle = async <
 }): Promise<device.Device<Properties, Make, Model>> => {
   const cached = store.devices.get(query.key);
   if (cached != null) {
-    const status = await Status.retrieveSingle<typeof device.statusDetailsZ>({
+    const status = await Status.retrieveSingle({
       store,
       client,
       query: { key: device.statusKey(query.key) },
       detailsSchema: device.statusDetailsZ,
     });
-    const dev: device.Device = { ...cached, status };
-    return dev as unknown as device.Device<Properties, Make, Model>;
+    const dev = { ...cached, status };
+    return dev as device.Device<Properties, Make, Model>;
   }
   const dev =
     schemas != null
-      ? await client.devices.retrieve({
-          ...BASE_QUERY,
-          ...query,
-          schemas,
-        })
-      : await client.devices.retrieve({
-          ...BASE_QUERY,
-          ...query,
-        });
-  store.devices.set(dev.key, dev as unknown as device.Device);
+      ? await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas })
+      : await client.devices.retrieve({ ...BASE_QUERY, ...query });
+  store.devices.set(dev.key, dev);
   if (dev.status != null) store.statuses.set(dev.status);
   return dev as device.Device<Properties, Make, Model>;
 };
@@ -138,17 +131,10 @@ export const retrieveMultiple = async <
   if (missingKeys.length > 0) {
     const fetched =
       schemas != null
-        ? await client.devices.retrieve({
-            ...BASE_QUERY,
-            keys: missingKeys,
-            schemas,
-          })
-        : await client.devices.retrieve({
-            ...BASE_QUERY,
-            keys: missingKeys,
-          });
+        ? await client.devices.retrieve({ ...BASE_QUERY, keys: missingKeys, schemas })
+        : await client.devices.retrieve({ ...BASE_QUERY, keys: missingKeys });
     devices.push(...(fetched as device.Device<Properties, Make, Model>[]));
-    store.devices.set(fetched as unknown as device.Device[]);
+    store.devices.set(fetched);
     fetched.forEach((d) => {
       if (d.status != null) store.statuses.set(d.status);
     });
@@ -280,7 +266,7 @@ const createCreate = <
         schemas != null
           ? await client.devices.create(data, schemas)
           : await client.devices.create(data as unknown as device.New);
-      rollbacks.push(store.devices.set(dev as unknown as device.Device));
+      rollbacks.push(store.devices.set(dev));
       return dev as device.Device<Properties, Make, Model>;
     },
   });
@@ -331,12 +317,7 @@ export const formSchema = device.deviceZ();
 const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
   let rack = store.racks.get(() => true)[0];
   if (rack != null) return rack.key;
-  rack = (
-    await client.racks.retrieve({
-      offset: 0,
-      limit: 1,
-    })
-  )[0];
+  rack = (await client.racks.retrieve({ offset: 0, limit: 1 }))[0];
   return rack?.key ?? 0;
 };
 
@@ -369,13 +350,8 @@ export const createForm = <
         set("key", uuid.create());
         return;
       }
-      const dev = await retrieveSingle<Properties, Make, Model>({
-        client,
-        store,
-        query,
-        schemas,
-      });
-      reset(dev as unknown as z.infer<typeof formSchema>);
+      const dev = await retrieveSingle({ client, store, query, schemas });
+      reset(dev);
     },
     update: async ({ value, client, store, rollbacks }) => {
       const data = value();
@@ -386,7 +362,7 @@ export const createForm = <
               schemas,
             )
           : await client.devices.create(data);
-      rollbacks.push(store.devices.set(result.key, result as unknown as device.Device));
+      rollbacks.push(store.devices.set(result.key, result));
     },
     mountListeners: ({ store, query: { key }, reset, set, get }) => {
       if (primitive.isZero(key)) return [];

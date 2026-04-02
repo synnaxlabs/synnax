@@ -10,6 +10,7 @@
 import "@/components/form/KeyValueEditor.css";
 
 import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
+import { useEffect } from "react";
 
 import { CSS } from "@/css";
 
@@ -43,7 +44,17 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const { set } = Form.useContext();
   const value = Form.useFieldValue<Entry<K, V>[]>(path, { defaultValue: [] });
 
-  const entries = value;
+  useEffect(() => {
+    // weird stuff we have to do to deal with migrations where the previous value is an
+    // object, and the task schema configuration was not applied because the task was
+    // set in Flux via a list retrieve that did not run schema.config.parse on the task.
+    // This means the first time the form is rendered with values from retrieveList, we
+    // get the v0 object instead of the array. So we have to do this jank thing where we
+    // set the value to an empty array as the previous values do not work.
+    // https://linear.app/synnax/issue/SY-3943/strongly-type-tasks-and-devices-in-flux
+    if (!Array.isArray(value)) set(path, []);
+  }, []);
+  const entries = Array.isArray(value) ? value : [];
 
   const setFormValue = (arr: Entry<K, V>[]) =>
     set(path, arr.length > 0 ? arr : undefined);

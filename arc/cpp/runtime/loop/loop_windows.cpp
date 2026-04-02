@@ -115,8 +115,7 @@ public:
 
         auto rt_cfg = this->config_.rt();
         rt_cfg.use_mmcss = true;
-        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
-            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
+        x::thread::rt::apply_config(rt_cfg);
 
         return x::errors::NIL;
     }
@@ -262,10 +261,8 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<WindowsLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::unique_ptr<Loop> create(const Config &cfg) {
+    return std::make_unique<WindowsLoop>(cfg);
 }
 
 }

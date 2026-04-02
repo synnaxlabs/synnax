@@ -59,14 +59,14 @@ TEST(RTConfigTest, WithTimingDefaultsPreservesExisting) {
 
 TEST(RTConfigTest, ApplyEmptyConfig) {
     Config cfg;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithRTEnabled) {
     Config cfg;
     cfg.enabled = true;
     cfg.priority = 50;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithTiming) {
@@ -75,7 +75,7 @@ TEST(RTConfigTest, ApplyWithTiming) {
     cfg.period = telem::MILLISECOND;
     cfg.computation = telem::MICROSECOND * 200;
     cfg.deadline = telem::MICROSECOND * 500;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithDeadlineScheduler) {
@@ -85,14 +85,14 @@ TEST(RTConfigTest, ApplyWithDeadlineScheduler) {
     cfg.computation = telem::MICROSECOND * 200;
     cfg.deadline = telem::MICROSECOND * 500;
     cfg.prefer_deadline_scheduler = true;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, ApplyWithMMCSS) {
     Config cfg;
     cfg.enabled = true;
     cfg.use_mmcss = true;
-    ASSERT_NIL(apply_config(cfg));
+    apply_config(cfg);
 }
 
 TEST(RTConfigTest, HasRTSupportReturns) {
@@ -100,7 +100,7 @@ TEST(RTConfigTest, HasRTSupportReturns) {
 }
 
 TEST(RTCapabilitiesTest, GetCapabilities) {
-    auto caps = get_capabilities();
+    auto caps = capabilities();
     (void) caps.priority_scheduling;
     (void) caps.deadline_scheduling;
     (void) caps.time_constraint;

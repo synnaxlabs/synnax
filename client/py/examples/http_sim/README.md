@@ -7,7 +7,7 @@ This directory contains example scripts for working with HTTP/REST devices in Sy
 1. **Software**:
    - Synnax server running
    - Synnax driver running
-   - For testing: Mock HTTP server (included in `examples/http/server.py`)
+   - For testing: Mock HTTP server (included in `examples/http_sim/server.py`)
 2. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
 ## Quick Start Guide
@@ -21,7 +21,7 @@ Follow these scripts in order:
 If you don't have a real HTTP endpoint, start the included mock server:
 
 ```bash
-uv run python examples/http/server.py
+uv run python examples/http_sim/server.py
 ```
 
 This server simulates:
@@ -41,7 +41,7 @@ The server runs on `http://127.0.0.1:8081` by default. Use `--https` for TLS and
 Register your HTTP server with Synnax:
 
 ```bash
-uv run python examples/http/connect_server.py
+uv run python examples/http_sim/connect_server.py
 ```
 
 This script will:
@@ -60,7 +60,7 @@ This script will:
 Poll an HTTP endpoint for sensor data:
 
 ```bash
-uv run python examples/http/read_task.py
+uv run python examples/http_sim/read_task.py
 ```
 
 This example:
@@ -76,7 +76,7 @@ This example:
 Send commands to an HTTP endpoint:
 
 ```bash
-uv run python examples/http/write_task.py
+uv run python examples/http_sim/write_task.py
 ```
 
 This example:
