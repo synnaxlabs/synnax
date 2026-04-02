@@ -37,8 +37,6 @@ LinePlot struct {
         data display with zoom and pan capabilities.
     """
     @ontology type "lineplot"
-    @go marshal
-    @go migrate
 }
 
 New struct extends LinePlot {
