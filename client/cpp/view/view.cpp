@@ -88,7 +88,7 @@ x::errors::Error Client::create(std::vector<View> &views) const {
 x::errors::Error Client::del(const Key &key) const {
     auto req = grpc::view::DeleteRequest();
     req.add_keys(key.to_string());
-    auto [res, err] = this->delete_client->send("/view/delete", req);
+    auto [_, err] = this->delete_client->send("/view/delete", req);
     return err;
 }
 
@@ -96,7 +96,7 @@ x::errors::Error Client::del(const std::vector<Key> &keys) const {
     auto req = grpc::view::DeleteRequest();
     for (const auto &k: keys)
         req.add_keys(k.to_string());
-    auto [res, err] = this->delete_client->send("/view/delete", req);
+    auto [_, err] = this->delete_client->send("/view/delete", req);
     return err;
 }
 }

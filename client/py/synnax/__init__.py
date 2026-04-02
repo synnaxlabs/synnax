@@ -28,7 +28,6 @@ from synnax.channel import Channel
 from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
-from synnax.view import View
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
@@ -88,6 +87,7 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 from synnax.util.deprecation import deprecated_getattr
+from synnax.view import View
 
 _DEPRECATED: dict[str, str | tuple[str, str]] = {
     "ArcTask": ("synnax.arc.Task", "_ArcTask"),
