@@ -209,16 +209,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-		Label:    l.Label,
+		Instrumentation: cfg.Child("ranger"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+		Label:           l.Label,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
+		Instrumentation: cfg.Child("alias"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
@@ -228,8 +230,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
-		DB:      cfg.Distribution.DB,
-		Signals: cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("kv"),
+		DB:              cfg.Distribution.DB,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
@@ -299,13 +302,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-		Status:   l.Status,
-		Rack:     l.Rack,
+		Instrumentation: cfg.Child("device"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+		Status:          l.Status,
+		Rack:            l.Rack,
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
@@ -387,10 +391,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
-		Channel:    l.Channel,
-		Framer:     cfg.Distribution.Framer,
-		Status:     l.Status,
-		GetProgram: l.Arc.CompileProgram,
+		Instrumentation: cfg.Child("arc.runtime"),
+		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
+		Status:          l.Status,
+		GetProgram:      l.Arc.CompileProgram,
 	})
 	if !ok(err, nil) {
 		return nil, err

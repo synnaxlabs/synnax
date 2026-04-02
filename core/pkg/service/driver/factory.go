@@ -10,6 +10,8 @@
 package driver
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -18,7 +20,7 @@ import (
 type Factory interface {
 	// ConfigureTask creates a task instance if this factory handles the task type.
 	// ConfigureTask should return ErrNotHandled if it does not handle the task type.
-	ConfigureTask(Context, task.Task) (Task, error)
+	ConfigureTask(context.Context, task.Task) (Task, error)
 	// Name returns the integration name of this factory. This is used to identify the
 	// integrations allowed on the rack.
 	Name() string

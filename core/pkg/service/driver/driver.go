@@ -264,9 +264,8 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	defer cancel()
 
 	sCtx.Go(func(ctx context.Context) error {
-		taskCtx := NewContext(ctx, d.cfg.Status)
 		for _, f := range d.cfg.Factories {
-			newTask, err := f.ConfigureTask(taskCtx, t)
+			newTask, err := f.ConfigureTask(ctx, t)
 			if errors.Is(err, ErrTaskNotHandled) {
 				continue
 			}
