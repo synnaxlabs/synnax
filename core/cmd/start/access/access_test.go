@@ -82,7 +82,7 @@ var _ = Describe("Access", Ordered, func() {
 			Expect(originalActions).ToNot(BeEmpty())
 
 			// Remove an object from the policy to simulate a stale DB
-			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy](nil).
+			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
 				WhereKeys(ownerPolicy.Key).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
@@ -135,7 +135,7 @@ var _ = Describe("Access", Ordered, func() {
 					},
 					Actions: []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&adminPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -154,7 +154,7 @@ var _ = Describe("Access", Ordered, func() {
 					},
 					Actions: []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -179,7 +179,7 @@ var _ = Describe("Access", Ordered, func() {
 					Objects:  []ontology.ID{{Type: "schematic"}},
 					Actions:  []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -243,13 +243,13 @@ var _ = Describe("Access", Ordered, func() {
 					Objects:  []ontology.ID{{Type: "schematic"}},
 					Actions:  []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&legacyPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
 				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				var policies []access.LegacyPolicy
-				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy](nil).
+				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy]().
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())
 				legacyPolicies := make([]access.LegacyPolicy, 0)

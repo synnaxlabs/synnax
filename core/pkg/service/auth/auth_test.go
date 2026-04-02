@@ -47,7 +47,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		It("Should register the credentials", func(ctx SpecContext) {
 			var secCreds auth.SecureCredentials
 			tx := db.OpenTx()
-			Expect(gorp.NewRetrieve[string, auth.SecureCredentials](nil).
+			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
 				WhereKeys(creds.Username).
 				Entry(&secCreds).
 				Exec(ctx, tx)).To(Succeed())
