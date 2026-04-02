@@ -59,6 +59,32 @@ var _ = Describe("Go Marshal Plugin", func() {
 						"TestCodec xencoding.Codec",
 						"func EncodeTest(w *orc.Writer",
 						"func DecodeTest(r *orc.Reader",
+						"defer writerPool.Put(w)",
+						"defer readerPool.Put(r)",
+						"return nil, err",
+						"return w.Copy(), nil",
+						"return DecodeTest(r, s)",
+					)
+			})
+		})
+
+		Context("struct with uuid field", func() {
+			It("Should use assignment not declaration for r.Read", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						key uuid
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain(
+						"w.Write(s.Key[:])",
+						"if _, err = r.Read(s.Key[:]); err != nil",
 					)
 			})
 		})

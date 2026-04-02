@@ -681,13 +681,13 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
 	s := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := {{$.Package}}.Encode{{.GoName}}(w, &s); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := {{$.Package}}.Decode{{.GoName}}(r, &decoded); err != nil {
 			b.Fatal(err)

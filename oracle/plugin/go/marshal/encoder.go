@@ -751,7 +751,7 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
 		b.decodeLine(
-			ind + fmt.Sprintf("if _, err := r.Read(%s[:]); err != nil { return err }", setPath))
+			ind + fmt.Sprintf("if _, err = r.Read(%s[:]); err != nil { return err }", setPath))
 
 	case "record", "any":
 		b.needsJSON = true
@@ -1026,7 +1026,7 @@ import (
 {{- end}}
 
 {{- if .Adapters}}
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 {{- end}}
 	"github.com/synnaxlabs/x/encoding/orc"
 {{- range $path, $alias := .ExtraImports}}
@@ -1070,11 +1070,12 @@ var {{.GoName}}Codec xencoding.Codec = {{lowerFirst .GoName}}Codec{}
 func ({{lowerFirst .GoName}}Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.({{.GoName}})
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := Encode{{.GoName}}(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := Encode{{.GoName}}(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -1089,10 +1090,9 @@ func (c {{lowerFirst .GoName}}Codec) EncodeStream(ctx context.Context, w io.Writ
 func ({{lowerFirst .GoName}}Codec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*{{.GoName}})
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := Decode{{.GoName}}(r, s)
-	readerPool.Put(r)
-	return err
+	return Decode{{.GoName}}(r, s)
 }
 
 func (c {{lowerFirst .GoName}}Codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
