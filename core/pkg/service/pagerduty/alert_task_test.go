@@ -65,7 +65,6 @@ var _ = Describe("AlertTask", func() {
 	var (
 		sender  *mockEventSender
 		factory driver.Factory
-		ctx     driver.Context
 	)
 
 	validConfig := func(alerts ...pd.AlertConfig) pd.AlertTaskConfig {
@@ -86,7 +85,7 @@ var _ = Describe("AlertTask", func() {
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 		}
-		tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+		tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
 		Expect(tsk.Exec(specCtx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
 	}
@@ -118,7 +117,6 @@ var _ = Describe("AlertTask", func() {
 			Status: statusSvc,
 			Sender: sender,
 		}))
-		ctx = driver.NewContext(specCtx, statusSvc)
 	})
 
 	Describe("Exec", func() {
@@ -131,7 +129,7 @@ var _ = Describe("AlertTask", func() {
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+				tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 				err := tsk.Exec(specCtx, task.Command{Type: "restart"})
 				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))
@@ -412,7 +410,7 @@ var _ = Describe("AlertTask", func() {
 						pd.AlertConfig{Status: "cancel-mid-retry", Enabled: true},
 					).MsgpackEncodedJSON()),
 				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+				tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
 				Expect(tsk.Exec(cancelCtx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 

@@ -69,7 +69,7 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 }
 
 func (f *factory) ConfigureTask(
-	ctx driver.Context,
+	ctx context.Context,
 	t task.Task,
 ) (driver.Task, error) {
 	if t.Type != AlertTaskType {
