@@ -19,6 +19,21 @@
 
 set -euo pipefail
 
+# If CUSTOM_CHAIN is set, normalize it (strip spaces) and output it directly.
+if [[ -n "${CUSTOM_CHAIN:-}" ]]; then
+    # Normalize: strip spaces around commas
+    CHAIN=$(echo "$CUSTOM_CHAIN" | tr -d ' ')
+    FIRST_VERSION="${CHAIN%%,*}"
+
+    echo "Custom chain: $CHAIN (first version: $FIRST_VERSION)"
+
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+        echo "CUSTOM_CHAIN=$CHAIN" >> "$GITHUB_OUTPUT"
+        echo "CUSTOM_VERSION=$FIRST_VERSION" >> "$GITHUB_OUTPUT"
+    fi
+    exit 0
+fi
+
 MINIMUM_VERSION="0.53.0"
 
 version_gte() {
