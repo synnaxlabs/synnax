@@ -11,6 +11,7 @@ package signals
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -84,10 +84,8 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 	return v.Error()
 }
 
-var jsonCodec = json.Codec
-
 func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
-	b, err := jsonCodec.Encode(context.TODO(), e)
+	b, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
 	}
