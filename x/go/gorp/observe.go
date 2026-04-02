@@ -58,7 +58,7 @@ func wrapMatchedChanges[K Key, E Entry[K]](
 			op.Variant = kvChange.Variant
 			if op.Variant == change.VariantSet {
 				if err := codec.Decode(ctx, kvChange.Value, &op.Value); err != nil {
-					zap.S().DPanic("]()", zap.Error(err))
+					zap.S().DPanic("failed to decode value", zap.Error(err))
 					continue
 				}
 				op.Key = op.Value.GorpKey()
