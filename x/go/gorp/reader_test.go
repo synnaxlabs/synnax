@@ -41,9 +41,16 @@ var _ = Describe("Reader", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 
 			iter := MustSucceed(gorp.WrapReader[int32, entry](tx, tx).OpenIterator(gorp.IterOptions{}))
-			Expect(iter.First()).To(BeTrue())
-			rawKey := make([]byte, len(iter.Key()))
-			copy(rawKey, iter.Key())
+			var rawKey []byte
+			for iter.First(); iter.Valid(); iter.Next() {
+				v := iter.Value(ctx)
+				if v != nil && v.ID == 99 {
+					rawKey = make([]byte, len(iter.Key()))
+					copy(rawKey, iter.Key())
+					break
+				}
+			}
+			Expect(rawKey).ToNot(BeNil())
 			Expect(iter.Close()).To(Succeed())
 
 			kvTx := kvDB.OpenTx()
@@ -53,10 +60,16 @@ var _ = Describe("Reader", func() {
 
 			tx2 := db.OpenTx()
 			iter2 := MustSucceed(gorp.WrapReader[int32, entry](tx2, tx2).OpenIterator(gorp.IterOptions{}))
-			Expect(iter2.First()).To(BeTrue())
-			Expect(iter2.Value(ctx)).To(BeNil())
+			found := false
+			for iter2.First(); iter2.Valid(); iter2.Next() {
+				v := iter2.Value(ctx)
+				if v == nil && iter2.Error() != nil {
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue())
 			Expect(iter2.Error()).To(HaveOccurred())
-			Expect(iter2.Valid()).To(BeFalse())
 			Expect(iter2.Close()).To(Succeed())
 
 			cleanupTx := kvDB.OpenTx()

@@ -19,7 +19,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/graph"
@@ -121,9 +122,9 @@ func (p migrationDepProviderImpl) GetSuffix() string { return string(p) }
 
 // mapEntry mimics production types like Schematic that have a MsgpackEncodedJSON field.
 type mapEntry struct {
-	ID   int32                     `msgpack:"id"`
-	Name string                    `msgpack:"name"`
-	Data binary.MsgpackEncodedJSON `msgpack:"data"`
+	ID   int32               `msgpack:"id"`
+	Name string              `msgpack:"name"`
+	Data msgpack.EncodedJSON `msgpack:"data"`
 }
 
 func (e mapEntry) GorpKey() int32    { return e.ID }
@@ -377,10 +378,9 @@ var _ = Describe("Gorp", func() {
 			It("Should handle cross-type migration with manually seeded data", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
-				codec := &binary.MsgPackCodec{}
 				prefix := "__gorp__//entryV2"
 				for _, e := range []entryV1{{ID: 1, Data: "one"}, {ID: 2, Data: "two"}} {
-					data := MustSucceed(codec.Encode(ctx, e))
+					data := MustSucceed(msgpack.Codec.Encode(ctx, e))
 					key := make([]byte, len(prefix)+4)
 					copy(key, prefix)
 					stdbinary.BigEndian.PutUint32(key[len(prefix):], uint32(e.ID))
@@ -756,7 +756,7 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, mapEntry{
 					ID:   1,
 					Name: "nested_test",
-					Data: binary.MsgpackEncodedJSON{
+					Data: msgpack.EncodedJSON{
 						"string_val": "hello",
 						"int_val":    42,
 						"float_val":  3.14,
