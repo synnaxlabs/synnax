@@ -31,7 +31,8 @@ export const ingest: Import.DirectoryIngester = async (
     throw new Error("You do not have permission to import workspaces");
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
-  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
+  const parsed = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
+  const { slice: layout, oldKeyForNew } = Layout.remapKeys(parsed);
   const wsKey = uuid.create();
   const wsName = name;
   const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
@@ -44,20 +45,28 @@ export const ingest: Import.DirectoryIngester = async (
     }),
   );
 
-  Object.entries(layout.layouts).forEach(([key, layout]) => {
-    const ingest = fileIngesters[layout.type];
+  Object.entries(layout.layouts).forEach(([newKey, layoutEntry]) => {
+    const ingest = fileIngesters[layoutEntry.type];
     if (ingest == null) return;
+    // File lookup uses the original exported key/name since the files on
+    // disk still contain the pre-remap keys.
+    const oldKey = oldKeyForNew.get(newKey) ?? newKey;
     const data = files.find(
       (file) =>
-        file.name === `${layout.name}.json` ||
-        file.name === `${key}.json` ||
+        file.name === `${layoutEntry.name}.json` ||
+        file.name === `${oldKey}.json` ||
         (typeof file.data === "object" &&
           file.data != null &&
-          (("key" in file.data && file.data.key === key) ||
-            ("name" in file.data && file.data.name === layout.name))),
+          (("key" in file.data && file.data.key === oldKey) ||
+            ("name" in file.data && file.data.name === layoutEntry.name))),
     )?.data;
-    if (data == null) throw new Error(`Data for ${key} not found`);
-    ingest(data, { layout, placeLayout, store: fluxStore, client });
+    if (data == null) throw new Error(`Data for ${newKey} not found`);
+    ingest(data, {
+      layout: layoutEntry,
+      placeLayout,
+      store: fluxStore,
+      client,
+    });
   });
 };
 

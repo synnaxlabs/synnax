@@ -14,6 +14,7 @@ export * from "@/layout/Menu";
 export * from "@/layout/middleware";
 export * from "@/layout/Modals";
 export * from "@/layout/nav";
+export * from "@/layout/remapKeys";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";
 export * from "@/layout/useDropOutside";
