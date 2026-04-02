@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/kv"
@@ -37,7 +37,7 @@ type Migration interface {
 // migrations carry their own codecs for version-specific encoding/decoding.
 type MigrationConfig struct {
 	Prefix  []byte
-	DBCodec binary.Codec
+	DBCodec encoding.Codec
 	L       *alamos.Logger
 }
 
@@ -73,8 +73,8 @@ type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
 type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 	name        string
-	inputCodec  binary.Codec
-	outputCodec binary.Codec
+	inputCodec  encoding.Codec
+	outputCodec encoding.Codec
 	transform   TransformFunc[I, O]
 	entries     int
 }
@@ -86,8 +86,8 @@ type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
 // If outputCodec is nil, MigrationConfig.DBCodec is used for encoding.
 func NewTypedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	name string,
-	inputCodec binary.Codec,
-	outputCodec binary.Codec,
+	inputCodec encoding.Codec,
+	outputCodec encoding.Codec,
 	transform TransformFunc[I, O],
 ) Migration {
 	return &typedMigration[IK, OK, I, O]{
@@ -153,13 +153,13 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 
 type codecTransitionMigration[K Key, E Entry[K]] struct {
 	name    string
-	codec   binary.Codec
+	codec   encoding.Codec
 	entries int
 }
 
 // NewCodecTransition creates a Migration that re-encodes all entries from the DB's
 // default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
-func NewCodecTransition[K Key, E Entry[K]](name string, codec binary.Codec) Migration {
+func NewCodecTransition[K Key, E Entry[K]](name string, codec encoding.Codec) Migration {
 	return &codecTransitionMigration[K, E]{name: name, codec: codec}
 }
 

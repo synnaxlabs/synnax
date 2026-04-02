@@ -85,7 +85,7 @@ func (c jsonEntryCodec) DecodeStream(_ context.Context, r io.Reader, value any) 
 	return c.Decode(context.Background(), data, value)
 }
 
-var _ binary.Codec = jsonEntryCodec{}
+var _ encoding.Codec = jsonEntryCodec{}
 
 type failMarshalCodec struct{}
 
@@ -109,7 +109,7 @@ func (c failMarshalCodec) DecodeStream(_ context.Context, r io.Reader, value any
 	return c.Decode(context.Background(), data, value)
 }
 
-var _ binary.Codec = failMarshalCodec{}
+var _ encoding.Codec = failMarshalCodec{}
 
 type migrationDepProvider interface {
 	GetSuffix() string
@@ -182,7 +182,7 @@ func (c structpbCodec) DecodeStream(_ context.Context, r io.Reader, value any) e
 	return c.Decode(context.Background(), data, value)
 }
 
-var _ binary.Codec = structpbCodec{}
+var _ encoding.Codec = structpbCodec{}
 
 var _ = Describe("Gorp", func() {
 	Describe("Codec", func() {

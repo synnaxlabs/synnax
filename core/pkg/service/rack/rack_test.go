@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -117,7 +117,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = &binary.MsgPackCodec{}
+		var codec = msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
 			func(ctx SpecContext, value any, expected rack.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))

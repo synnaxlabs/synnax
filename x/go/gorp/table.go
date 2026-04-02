@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -30,7 +30,7 @@ import (
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
 	DB         *DB
-	Codec      binary.Codec
+	Codec      encoding.Codec
 	Migrations []Migration
 	alamos.Instrumentation
 }
@@ -39,12 +39,12 @@ type TableConfig[E any] struct {
 // It holds a resolved Codec (either custom or the DB's default) and provides methods
 // for creating query builders that are automatically configured with the codec.
 type Table[K Key, E Entry[K]] struct {
-	codec binary.Codec
+	codec encoding.Codec
 	DB    *DB
 }
 
 // Codec returns the table's codec.
-func (t *Table[K, E]) Codec() binary.Codec { return t.codec }
+func (t *Table[K, E]) Codec() encoding.Codec { return t.codec }
 
 func (t *Table[K, E]) Close() error {
 	return nil
@@ -153,7 +153,7 @@ func OpenTable[K Key, E Entry[K]](
 
 // resolveCodec returns the override codec if non-nil, otherwise falls back to the
 // fallback codec.
-func resolveCodec(override binary.Codec, fallback binary.Codec) binary.Codec {
+func resolveCodec(override encoding.Codec, fallback encoding.Codec) encoding.Codec {
 	if override != nil {
 		return override
 	}
@@ -191,7 +191,7 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 // Values are decoded with the DB's default codec only to extract GorpKey(); raw
 // value bytes are written back without re-encoding.
 type normalizeKeysMigration[K Key, E Entry[K]] struct {
-	dbCodec binary.Codec
+	dbCodec encoding.Codec
 }
 
 func (m *normalizeKeysMigration[K, E]) Name() string { return "normalize_keys" }
