@@ -13,8 +13,8 @@ package label
 
 import (
 	"context"
-	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/color"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"io"
 	"sync"
@@ -31,7 +31,7 @@ func EncodeLabel(w *orc.Writer, s *Label) error {
 
 func DecodeLabel(r *orc.Reader, s *Label) error {
 	var err error
-	if _, err := r.Read(s.Key[:]); err != nil {
+	if _, err = r.Read(s.Key[:]); err != nil {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
@@ -48,16 +48,17 @@ var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
 
 type labelCodec struct{}
 
-var LabelCodec xbinary.Codec = labelCodec{}
+var LabelCodec xencoding.Codec = labelCodec{}
 
 func (labelCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	s := value.(Label)
 	w := writerPool.Get().(*orc.Writer)
+	defer writerPool.Put(w)
 	w.Reset()
-	err := EncodeLabel(w, &s)
-	out := w.Copy()
-	writerPool.Put(w)
-	return out, err
+	if err := EncodeLabel(w, &s); err != nil {
+		return nil, err
+	}
+	return w.Copy(), nil
 }
 
 func (c labelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -72,10 +73,9 @@ func (c labelCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 func (labelCodec) Decode(ctx context.Context, data []byte, value any) error {
 	s := value.(*Label)
 	r := readerPool.Get().(*orc.Reader)
+	defer readerPool.Put(r)
 	r.ResetBytes(data)
-	err := DecodeLabel(r, s)
-	readerPool.Put(r)
-	return err
+	return DecodeLabel(r, s)
 }
 
 func (c labelCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {

@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -28,7 +28,7 @@ type Writer[D any] struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
-	codec     binary.Codec
+	codec     encoding.Codec
 }
 
 // Set creates or updates a status within the DB. If the Status already has a key and

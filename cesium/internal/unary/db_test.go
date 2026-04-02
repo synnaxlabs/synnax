@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +28,7 @@ var _ = Describe("DB Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
 			fs         xfs.FS
-			codec      = &binary.JSONCodec{}
+			codec      = json.Codec
 			cleanUp    func() error
 			indexDBfs  xfs.FS
 			indexDBKey channel.Key
@@ -180,7 +180,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		BeforeEach(func(ctx SpecContext) {
 			db = MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
-				MetaCodec: &binary.JSONCodec{},
+				MetaCodec: json.Codec,
 				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
@@ -210,7 +210,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
 			db := MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
-				MetaCodec: &binary.JSONCodec{},
+				MetaCodec: json.Codec,
 				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",

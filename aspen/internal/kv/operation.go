@@ -13,9 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/gob"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 )
@@ -29,7 +31,7 @@ const (
 
 // codec used to be implemented by a gob codec, but we want to switch to msgpack.
 // Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
-var codec = binary.NewDecodeFallbackCodec(&binary.MsgPackCodec{}, &binary.GobCodec{})
+var codec = encoding.NewDecodeFallbackCodec(msgpack.Codec, gob.Codec)
 
 type Operation struct {
 	xkv.Change

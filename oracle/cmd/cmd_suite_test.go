@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package httputil_test
+package cmd
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHttputil(t *testing.T) {
+func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Httputil Suite")
+	RunSpecs(t, "Cmd Suite")
 }

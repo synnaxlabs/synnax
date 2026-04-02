@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/synnaxlabs/x/binary"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 )
 
 const (
@@ -32,12 +32,12 @@ var (
 
 // MarshalJSON implements json.Marshaler.
 func (ts TimeSpan) MarshalJSON() ([]byte, error) {
-	return binary.MarshalStringInt64(int64(ts))
+	return xjson.MarshalStringInt64(int64(ts))
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringInt64(b)
+	n, err := xjson.UnmarshalStringInt64(b)
 	*ts = TimeSpan(n)
 	return err
 }

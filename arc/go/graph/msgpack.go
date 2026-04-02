@@ -11,7 +11,7 @@ package graph
 
 import (
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/binary"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -31,7 +31,7 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 		var legacy struct {
 			Key      string
 			Type     string
-			Config   binary.MsgpackEncodedJSON
+			Config   xmsgpack.EncodedJSON
 			Position spatial.XY
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {

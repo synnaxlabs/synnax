@@ -116,6 +116,21 @@ struct Config {
     /// @brief returns true if the integration with the given name is enabled.
     [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
+    /// @brief returns the list of integrations that are actually available
+    /// at runtime, filtering out NI and LabJack if their SDK libraries
+    /// are not present.
+    [[nodiscard]] std::vector<std::string> supported_integrations() const {
+        std::vector<std::string> result;
+        const bool supports_ni = ni::integration_supported();
+        const bool supports_labjack = labjack::integration_supported();
+        for (const auto &i: this->integrations) {
+            if (i == ni::INTEGRATION_NAME && !supports_ni) continue;
+            if (i == labjack::INTEGRATION_NAME && !supports_labjack) continue;
+            result.push_back(i);
+        }
+        return result;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
