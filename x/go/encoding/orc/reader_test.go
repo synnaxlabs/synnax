@@ -118,9 +118,7 @@ var _ = Describe("Reader", func() {
 		buf := make([]byte, 4)
 		binary.BigEndian.PutUint32(buf, 9)
 		r := orc.NewReader(bytesReader(buf))
-		Expect(r.String()).Error().To(MatchError(
-			ContainSubstring("exceeds maximum"),
-		))
+		Expect(r.String()).Error().To(MatchError(orc.ErrExceedStringLen))
 	})
 
 	It("Should allow string within MaxStringLen in io.Reader mode", func() {
@@ -174,9 +172,7 @@ var _ = Describe("Reader", func() {
 			w := orc.NewWriter(0)
 			w.Uint32(6)
 			r := orc.NewReader(bytesReader(w.Bytes()))
-			Expect(r.CollectionLen()).Error().To(MatchError(
-				ContainSubstring("exceeds maximum"),
-			))
+			Expect(r.CollectionLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
 		})
 
 		It("Should read a valid collection length in direct mode", func() {
@@ -195,9 +191,7 @@ var _ = Describe("Reader", func() {
 			w.Uint32(6)
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
-			Expect(r.CollectionLen()).Error().To(MatchError(
-				ContainSubstring("exceeds maximum"),
-			))
+			Expect(r.CollectionLen()).Error().To(MatchError(orc.ErrExceedCollectionLen))
 		})
 
 		It("Should return error on truncated data", func() {
