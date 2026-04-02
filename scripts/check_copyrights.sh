@@ -191,9 +191,11 @@ check_file() {
         return
     fi
 
-    # Check for duplicate copyright headers anywhere in the file
+    # Check for duplicate copyright headers in the first 20 lines of the file.
+    # We only check the top of the file to avoid false positives from code
+    # generators that embed copyright headers in template strings.
     local copyright_count
-    copyright_count=$(grep -c "Copyright.*Synnax Labs" "$file" 2> /dev/null || true)
+    copyright_count=$(head -n 20 "$file" | grep -c "Copyright.*Synnax Labs" 2> /dev/null || true)
     if [ "$copyright_count" -gt 1 ]; then
         FILES_DUPLICATE_HEADER+=("$file")
         DUPLICATE_HEADER=$((DUPLICATE_HEADER + 1))
