@@ -40,7 +40,7 @@ const selectVariantRenderProp = Component.renderProp(
       "value" | "onChange"
     >,
   ) => (
-    <Status.SelectVariantMultiple
+    <Status.SelectMultipleVariants
       {...props}
       location={DIALOG_LOCATION}
       triggerProps={TRIGGER_PROPS}

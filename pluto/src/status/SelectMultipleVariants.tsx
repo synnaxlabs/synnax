@@ -31,13 +31,13 @@ const listItem = Component.renderProp((p: List.ItemProps<string>) => {
   );
 });
 
-export interface SelectVariantMultipleProps extends Omit<
+export interface SelectMultipleVariantProps extends Omit<
   Select.MultipleProps<status.Variant, Entry>,
   "data" | "getItem" | "subscribe" | "children" | "resourceName" | "onSearch"
 > {}
 
-export const SelectVariantMultiple = (
-  props: SelectVariantMultipleProps,
+export const SelectMultipleVariants = (
+  props: SelectMultipleVariantProps,
 ): ReactElement => {
   const { retrieve, ...listProps } = List.useStaticData<status.Variant, Entry>({
     data: VARIANT_DATA,

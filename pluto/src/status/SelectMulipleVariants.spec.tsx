@@ -16,7 +16,7 @@ import { Status } from "@/status";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
 
-describe("SelectVariantMultiple", () => {
+describe("SelectMultipleVariants", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
@@ -31,7 +31,7 @@ describe("SelectVariantMultiple", () => {
       };
       return (
         <Triggers.Provider>
-          <Status.SelectVariantMultiple value={value} onChange={handleChange} />
+          <Status.SelectMultipleVariants value={value} onChange={handleChange} />
         </Triggers.Provider>
       );
     };

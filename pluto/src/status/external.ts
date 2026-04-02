@@ -10,5 +10,5 @@
 export * from "@/status/base/external";
 export * from "@/status/queries";
 export * from "@/status/Select";
+export * from "@/status/SelectMultipleVariants";
 export * from "@/status/SelectVariant";
-export * from "@/status/SelectVariantMultiple";
