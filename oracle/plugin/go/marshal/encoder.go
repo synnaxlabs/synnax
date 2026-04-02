@@ -248,7 +248,8 @@ func (b *encoderBuilder) processFields(
 		if f.Type.Name == "nil" || !b.canResolve(f.Type) {
 			continue
 		}
-		if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+		marshalDirective := domain.GetStringFromField(f, "go", "marshal")
+		if marshalDirective == "skip" {
 			continue
 		}
 		goName := naming.GetFieldName(f)
@@ -263,7 +264,7 @@ func (b *encoderBuilder) processFields(
 			if f.Type.TypeParam.HasDefault() {
 				f.Type = *f.Type.TypeParam.Default
 			} else {
-				if err := b.processTypeParamField(getPath, setPath); err != nil {
+				if err := b.processTypeParamField(getPath, setPath, marshalDirective == "json_only"); err != nil {
 					return err
 				}
 				continue
@@ -303,7 +304,7 @@ func (b *encoderBuilder) processValueByType(
 ) error {
 	// Type parameter fields use a type assertion with JSON fallback.
 	if ref.IsTypeParam() && b.hasTypeParams {
-		return b.processTypeParamField(getPath, setPath)
+		return b.processTypeParamField(getPath, setPath, false)
 	}
 
 	actual, effectiveTypeArgs := typemap.UnwrapTypeRef(resolved, ref, b.table)
@@ -340,29 +341,48 @@ func (b *encoderBuilder) processValueByType(
 	}
 }
 
-func (b *encoderBuilder) processTypeParamField(getPath, setPath string) error {
+func (b *encoderBuilder) processTypeParamField(getPath, setPath string, jsonOnly bool) error {
 	b.needsJSON = true
 	ind := b.indent()
-	b.encodeLines = append(b.encodeLines,
-		ind+fmt.Sprintf("if m, ok := any(%s).(orc.SelfEncoder); ok {", getPath),
-		ind+"\tif err := m.EncodeOrc(w); err != nil { return err }",
-		ind+"} else {",
-		ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
-		ind+"\tif err != nil { return err }",
-		ind+"\tw.Uint32(uint32(len(b)))",
-		ind+"\tw.Write(b)",
-		ind+"}",
-	)
-	b.decodeLines = append(b.decodeLines,
-		ind+fmt.Sprintf("if m, ok := any(&%s).(orc.SelfDecoder); ok {", setPath),
-		ind+"\tif err := m.DecodeOrc(r); err != nil { return err }",
-		ind+"} else {",
-		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
-		ind+"\tb := make([]byte, n)",
-		ind+"\tif _, err = r.Read(b); err != nil { return err }",
-		ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
-		ind+"}",
-	)
+	if jsonOnly {
+		b.encodeLines = append(b.encodeLines,
+			ind+"{",
+			ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
+			ind+"\tif err != nil { return err }",
+			ind+"\tw.Uint32(uint32(len(b)))",
+			ind+"\tw.Write(b)",
+			ind+"}",
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{",
+			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
+			ind+"\tb := make([]byte, n)",
+			ind+"\tif _, err = r.Read(b); err != nil { return err }",
+			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
+			ind+"}",
+		)
+	} else {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("if m, ok := any(%s).(orc.SelfEncoder); ok {", getPath),
+			ind+"\tif err := m.EncodeOrc(w); err != nil { return err }",
+			ind+"} else {",
+			ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
+			ind+"\tif err != nil { return err }",
+			ind+"\tw.Uint32(uint32(len(b)))",
+			ind+"\tw.Write(b)",
+			ind+"}",
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+fmt.Sprintf("if m, ok := any(&%s).(orc.SelfDecoder); ok {", setPath),
+			ind+"\tif err := m.DecodeOrc(r); err != nil { return err }",
+			ind+"} else {",
+			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
+			ind+"\tb := make([]byte, n)",
+			ind+"\tif _, err = r.Read(b); err != nil { return err }",
+			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
+			ind+"}",
+		)
+	}
 	return nil
 }
 

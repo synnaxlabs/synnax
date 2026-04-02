@@ -115,7 +115,7 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		GorpCodec:            encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+		GorpCodec:            orc.NewCodec(msgpack.Codec),
 		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
 	}

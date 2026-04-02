@@ -99,7 +99,11 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	}
 	return func(yield func(E) bool) {
 		for i.First(); i.Valid(); i.Next() {
-			if !yield(*i.Value(ctx)) {
+			v := i.Value(ctx)
+			if v == nil {
+				continue
+			}
+			if !yield(*v) {
 				return
 			}
 		}

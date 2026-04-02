@@ -16,6 +16,345 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (s Sequence) EncodeOrc(w *orc.Writer) error {
+	w.String(s.Key)
+	w.Bool(s.Stages != nil)
+	if s.Stages != nil {
+		w.Uint32(uint32(len(s.Stages)))
+		for i := range s.Stages {
+			if err := s.Stages[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Sequence) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Stages = make([]Stage, n)
+			for i := range s.Stages {
+				if err = s.Stages[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s Stage) EncodeOrc(w *orc.Writer) error {
+	w.String(s.Key)
+	w.Bool(s.Nodes != nil)
+	if s.Nodes != nil {
+		w.Uint32(uint32(len(s.Nodes)))
+		for i := range s.Nodes {
+			w.String(s.Nodes[i])
+		}
+	}
+	w.Bool(s.Strata != nil)
+	if s.Strata != nil {
+		w.Uint32(uint32(len(s.Strata)))
+		for i := range s.Strata {
+			w.Bool(s.Strata[i] != nil)
+			if s.Strata[i] != nil {
+				w.Uint32(uint32(len(s.Strata[i])))
+				for j := range s.Strata[i] {
+					w.String(s.Strata[i][j])
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Stage) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Nodes = make([]string, n)
+			for i := range s.Nodes {
+				if s.Nodes[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Strata = make([][]string, n)
+			for i := range s.Strata {
+				{
+					present, err := r.Bool()
+					if err != nil {
+						return err
+					}
+					if present {
+						n, err := r.CollectionLen()
+						if err != nil {
+							return err
+						}
+						s.Strata[i] = make([]string, n)
+						for j := range s.Strata[i] {
+							if s.Strata[i][j], err = r.String(); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (a Authorities) EncodeOrc(w *orc.Writer) error {
+	if a.Default != nil {
+		w.Bool(true)
+		w.Uint8(uint8((*a.Default)))
+	} else {
+		w.Bool(false)
+	}
+	if a.Channels != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(a.Channels)))
+		for key, val := range a.Channels {
+			w.Uint32(uint32(key))
+			w.Uint8(uint8(val))
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (a *Authorities) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v uint8
+			if v, err = r.Uint8(); err != nil {
+				return err
+			}
+			a.Default = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			a.Channels = make(map[uint32]uint8, n)
+			for range n {
+				var key uint32
+				var val uint8
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.Uint8(); err != nil {
+					return err
+				}
+				a.Channels[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+func (e Edge) EncodeOrc(w *orc.Writer) error {
+	if err := e.Source.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := e.Target.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Int64(int64(e.Kind))
+	return nil
+}
+
+func (e *Edge) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = e.Source.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Target.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		e.Kind = EdgeKind(v)
+	}
+	return nil
+}
+
+func (f Function) EncodeOrc(w *orc.Writer) error {
+	w.String(f.Key)
+	if err := f.Body.EncodeOrc(w); err != nil {
+		return err
+	}
+	if f.Config != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(f.Config)))
+		for j := range f.Config {
+			if err := f.Config[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if f.Inputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(f.Inputs)))
+		for j := range f.Inputs {
+			if err := f.Inputs[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if f.Outputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(f.Outputs)))
+		for j := range f.Outputs {
+			if err := f.Outputs[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if err := f.Channels.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *Function) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if f.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = f.Body.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			f.Config = make([]types.Param, n)
+			for j := range f.Config {
+				if err = f.Config[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			f.Inputs = make([]types.Param, n)
+			for j := range f.Inputs {
+				if err = f.Inputs[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			f.Outputs = make([]types.Param, n)
+			for j := range f.Outputs {
+				if err = f.Outputs[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err = f.Channels.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (bv Body) EncodeOrc(w *orc.Writer) error {
+	w.String(bv.Raw)
+	return nil
+}
+
+func (bv *Body) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bv.Raw, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h Handle) EncodeOrc(w *orc.Writer) error {
 	w.String(h.Node)
 	w.String(h.Param)
@@ -201,261 +540,6 @@ func (ir *IR) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (s Sequence) EncodeOrc(w *orc.Writer) error {
-	w.String(s.Key)
-	w.Bool(s.Stages != nil)
-	if s.Stages != nil {
-		w.Uint32(uint32(len(s.Stages)))
-		for i := range s.Stages {
-			if err := s.Stages[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Sequence) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Stages = make([]Stage, n)
-			for i := range s.Stages {
-				if err = s.Stages[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (a Authorities) EncodeOrc(w *orc.Writer) error {
-	if a.Default != nil {
-		w.Bool(true)
-		w.Uint8(uint8((*a.Default)))
-	} else {
-		w.Bool(false)
-	}
-	if a.Channels != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(a.Channels)))
-		for key, val := range a.Channels {
-			w.Uint32(uint32(key))
-			w.Uint8(uint8(val))
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func (a *Authorities) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v uint8
-			if v, err = r.Uint8(); err != nil {
-				return err
-			}
-			a.Default = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			a.Channels = make(map[uint32]uint8, n)
-			for range n {
-				var key uint32
-				var val uint8
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.Uint8(); err != nil {
-					return err
-				}
-				a.Channels[key] = val
-			}
-		}
-	}
-	return nil
-}
-
-func (f Function) EncodeOrc(w *orc.Writer) error {
-	w.String(f.Key)
-	if err := f.Body.EncodeOrc(w); err != nil {
-		return err
-	}
-	if f.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(f.Config)))
-		for j := range f.Config {
-			if err := f.Config[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if f.Inputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(f.Inputs)))
-		for j := range f.Inputs {
-			if err := f.Inputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if f.Outputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(f.Outputs)))
-		for j := range f.Outputs {
-			if err := f.Outputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if err := f.Channels.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (f *Function) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if f.Key, err = r.String(); err != nil {
-		return err
-	}
-	if err = f.Body.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			f.Config = make([]types.Param, n)
-			for j := range f.Config {
-				if err = f.Config[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			f.Inputs = make([]types.Param, n)
-			for j := range f.Inputs {
-				if err = f.Inputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			f.Outputs = make([]types.Param, n)
-			for j := range f.Outputs {
-				if err = f.Outputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if err = f.Channels.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (bv Body) EncodeOrc(w *orc.Writer) error {
-	w.String(bv.Raw)
-	return nil
-}
-
-func (bv *Body) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if bv.Raw, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (e Edge) EncodeOrc(w *orc.Writer) error {
-	if err := e.Source.EncodeOrc(w); err != nil {
-		return err
-	}
-	if err := e.Target.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Int64(int64(e.Kind))
-	return nil
-}
-
-func (e *Edge) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = e.Source.DecodeOrc(r); err != nil {
-		return err
-	}
-	if err = e.Target.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		e.Kind = EdgeKind(v)
-	}
-	return nil
-}
-
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
@@ -562,90 +646,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = nv.Channels.DecodeOrc(r); err != nil {
 		return err
-	}
-	return nil
-}
-
-func (s Stage) EncodeOrc(w *orc.Writer) error {
-	w.String(s.Key)
-	w.Bool(s.Nodes != nil)
-	if s.Nodes != nil {
-		w.Uint32(uint32(len(s.Nodes)))
-		for i := range s.Nodes {
-			w.String(s.Nodes[i])
-		}
-	}
-	w.Bool(s.Strata != nil)
-	if s.Strata != nil {
-		w.Uint32(uint32(len(s.Strata)))
-		for i := range s.Strata {
-			w.Bool(s.Strata[i] != nil)
-			if s.Strata[i] != nil {
-				w.Uint32(uint32(len(s.Strata[i])))
-				for j := range s.Strata[i] {
-					w.String(s.Strata[i][j])
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Stage) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Nodes = make([]string, n)
-			for i := range s.Nodes {
-				if s.Nodes[i], err = r.String(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Strata = make([][]string, n)
-			for i := range s.Strata {
-				{
-					present, err := r.Bool()
-					if err != nil {
-						return err
-					}
-					if present {
-						n, err := r.CollectionLen()
-						if err != nil {
-							return err
-						}
-						s.Strata[i] = make([]string, n)
-						for j := range s.Strata[i] {
-							if s.Strata[i][j], err = r.String(); err != nil {
-								return err
-							}
-						}
-					}
-				}
-			}
-		}
 	}
 	return nil
 }

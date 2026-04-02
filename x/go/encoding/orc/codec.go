@@ -14,6 +14,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -48,10 +49,25 @@ var (
 // Codec is an ORC implementation of encoding.Codec.
 var Codec = &codec{}
 
-type codec struct{}
+type codec struct {
+	fallback encoding.Codec
+}
 
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
-	m := value.(SelfEncoder)
+func NewCodec(fallback encoding.Codec) encoding.Codec {
+	return &codec{fallback: fallback}
+}
+
+func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
+	var m SelfEncoder
+	if c.fallback != nil {
+		var ok bool
+		m, ok = value.(SelfEncoder)
+		if !ok {
+			return c.fallback.Encode(ctx, value)
+		}
+	} else {
+		m = value.(SelfEncoder)
+	}
 	w := writerPool.Get().(*Writer)
 	w.Reset()
 	w.Write(Magic[:])
@@ -70,8 +86,11 @@ func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 	return err
 }
 
-func (*codec) Decode(_ context.Context, data []byte, value any) error {
+func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 	if len(data) < len(Magic) || data[0] != Magic[0] || data[1] != Magic[1] || data[2] != Magic[2] {
+		if c.fallback != nil {
+			return c.fallback.Decode(ctx, data, value)
+		}
 		return errors.New("orc: invalid magic header")
 	}
 	m := value.(SelfDecoder)

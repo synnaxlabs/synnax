@@ -17,101 +17,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
-	if fp.Inputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Inputs)))
-		for j := range fp.Inputs {
-			if err := fp.Inputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if fp.Outputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Outputs)))
-		for j := range fp.Outputs {
-			if err := fp.Outputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if fp.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Config)))
-		for j := range fp.Config {
-			if err := fp.Config[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Inputs = make([]Param, n)
-			for j := range fp.Inputs {
-				if err = fp.Inputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Outputs = make([]Param, n)
-			for j := range fp.Outputs {
-				if err = fp.Outputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Config = make([]Param, n)
-			for j := range fp.Config {
-				if err = fp.Config[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (u Unit) EncodeOrc(w *orc.Writer) error {
 	if err := u.Dimensions.EncodeOrc(w); err != nil {
 		return err
@@ -463,6 +368,101 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		t.ChanDirection = ChanDirection(v)
+	}
+	return nil
+}
+
+func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
+	if fp.Inputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(fp.Inputs)))
+		for j := range fp.Inputs {
+			if err := fp.Inputs[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if fp.Outputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(fp.Outputs)))
+		for j := range fp.Outputs {
+			if err := fp.Outputs[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if fp.Config != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(fp.Config)))
+		for j := range fp.Config {
+			if err := fp.Config[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			fp.Inputs = make([]Param, n)
+			for j := range fp.Inputs {
+				if err = fp.Inputs[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			fp.Outputs = make([]Param, n)
+			for j := range fp.Outputs {
+				if err = fp.Outputs[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			fp.Config = make([]Param, n)
+			for j := range fp.Config {
+				if err = fp.Config[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

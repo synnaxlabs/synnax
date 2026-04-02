@@ -340,6 +340,33 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("marshal json_only on a type param field", func() {
+			It("Should always use JSON encoding without SelfEncoder/SelfDecoder type assertions", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Status struct<Details?> {
+						key     string
+						details Details? {
+							@go marshal json_only
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"json.Marshal(s.Details)",
+					"json.Unmarshal(b, &s.Details)",
+				)
+				content.ToNotContain(
+					"orc.SelfEncoder",
+					"orc.SelfDecoder",
+				)
+			})
+		})
+
 		Context("soft optional array field", func() {
 			It("Should generate a single presence bit without a redundant inner nil check", func() {
 				source := `

@@ -26,11 +26,7 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Message)
 	w.String(s.Description)
 	w.Int64(int64(s.Time))
-	if m, ok := any(s.Details).(orc.SelfEncoder); ok {
-		if err := m.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
+	{
 		b, err := json.Marshal(s.Details)
 		if err != nil {
 			return err
@@ -80,11 +76,7 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		}
 		s.Time = telem.TimeStamp(v)
 	}
-	if m, ok := any(&s.Details).(orc.SelfDecoder); ok {
-		if err := m.DecodeOrc(r); err != nil {
-			return err
-		}
-	} else {
+	{
 		n, err := r.CollectionLen()
 		if err != nil {
 			return err
