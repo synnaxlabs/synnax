@@ -10,38 +10,40 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver supports hardware from a variety of vendors, including
-[National Instruments](https://www.ni.com), [LabJack](https://labjack.com),
-[EtherCAT](https://www.ethercat.org) devices, [OPC UA](https://opcfoundation.org)
-servers, [Modbus TCP](https://modbus.org) servers, and any JSON-based
-[HTTP](/reference/driver/http/get-started) server. Synnax also supports building custom
-drivers for devices that are not natively supported.
+The Synnax Driver supports hardware from a variety of vendors, such as
+[National Instruments](https://ni.com), [LabJack](https://labjack.com), and
+[EtherCAT](https://ethercat.org) devices. The Driver also supports acquiring data from
+servers via HTTP JSON REST APIs, [Modbus TCP/IP](https://modbus.org), and
+[OPC UA](https://opcfoundation.org). Finally, the Driver supports running
+[Arc automations](/reference/control/arc/introduction), Synnax's automation language for
+hardware control. Synnax also supports building custom drivers for devices that are not
+natively supported.
 
 <Divider.Divider x />
 
 ## Synnax Driver
 
-The Synnax Driver natively supports reading and writing data for
-[National Instruments](/reference/driver/ni/get-started) hardware,
-[EtherCAT](/reference/driver/ethercat/get-started) devices,
-[HTTP](/reference/driver/http/get-started) servers,
-[OPC UA](/reference/driver/opc-ua/connect-server) servers,
-[Modbus](/reference/driver/modbus/get-started) servers, and
-[LabJack](/reference/driver/labjack/get-started) devices.
+The Driver natively supports acquiring data from and sending commands to
+[National Instruments](/reference/driver/ni/get-started),
+[EtherCAT](/reference/driver/ethercat/get-started), and
+[LabJack](/reference/driver/labjack/get-started) hardware; connecting to
+[HTTP](/reference/driver/http/get-started),
+[OPC UA](/reference/driver/opc-ua/connect-server), and
+[Modbus](/reference/driver/modbus/get-started) servers; and running
+[Arc automations](/reference/control/arc/introduction).
 
 ### Embedded Driver
 
-Every instance of the [Synnax Core](/reference/core/quick-start) comes with the Synnax
-Driver embedded inside. This Driver will run on the same machine as the Synnax Core, and
-starts automatically when the Core starts. The embedded Driver is recommended for most
-users.
+Every instance of the [Synnax Core](/reference/core/quick-start) comes with the Driver
+embedded inside. This Driver will run on the same machine as the Core, and starts
+automatically when the Core starts. The embedded Driver is recommended for most users.
 
 ### Driver Installation
 
-The [Synnax Driver](/reference/driver/installation) can also be installed as a separate
-binary that can run on a different machine from the Synnax Core. It is used to integrate
-data acquisition devices across multiple machines. The Driver connects to a Core over
-the network.
+The [Driver](/reference/driver/installation) can also be installed as a separate binary
+that can run on a different machine from the Core. It is used to integrate data
+acquisition devices across multiple machines. The Driver connects to a Core over the
+network.
 
 #### Support for NI Linux Real-Time
 
@@ -53,7 +55,7 @@ controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html)
 In addition to performing data acquisition and control tasks on real-time controllers,
 the Driver also supports running [Arc automations](/reference/control/arc/introduction)
 on the real-time controller, allowing for precisely timed control loops that run close
-to the hardware.
+to the hardware without introducing latency from network communication.
 
 <Divider.Divider x />
 

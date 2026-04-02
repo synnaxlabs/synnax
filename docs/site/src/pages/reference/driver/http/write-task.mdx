@@ -34,19 +34,19 @@ HTTP Write Tasks use **command channels** to send values to HTTP endpoints:
 
 ## Task Configuration Reference
 
-| Parameter    | Type    | Required | Default | Description                                                                                            |
-| ------------ | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `name`       | string  | Yes      | -       | Human-readable task name                                                                               |
-| `device`     | string  | Yes      | -       | Key of the HTTP server device                                                                          |
-| `auto_start` | boolean | No       | `false` | Automatically start task after configuration                                                           |
-| `endpoints`  | array   | Yes      | -       | List of endpoint configurations. See [Endpoint Configuration](#endpoint-configuration-reference) below |
+| Parameter    | Type    | Required | Default | Description                                                          |
+| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------- |
+| `name`       | string  | Yes      | -       | Human-readable task name                                             |
+| `device`     | string  | Yes      | -       | Key of the HTTP server device                                        |
+| `auto_start` | boolean | No       | `false` | Automatically start task after configuration                         |
+| `endpoints`  | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
 
 <Divider.Divider x />
 
 ## Endpoint Configuration Reference
 
 Each endpoint maps a single Synnax command channel to an HTTP request. When the channel
-receives a value, the driver builds the JSON body and sends the request.
+receives a value, the Driver builds the JSON body and sends the request.
 
 | Parameter      | Type    | Required | Default  | Description                                                             |
 | -------------- | ------- | -------- | -------- | ----------------------------------------------------------------------- |
@@ -72,12 +72,14 @@ The channel field is the primary field on each endpoint. Its value comes from a 
 command channel — when a value is written to the channel, the driver places it in the
 request body at the specified pointer.
 
-| Parameter   | Type   | Required | Default     | Description                                              |
-| ----------- | ------ | -------- | ----------- | -------------------------------------------------------- |
-| `pointer`   | string | Yes      | -           | JSON Pointer where the value goes (e.g., `/value`)       |
-| `json_type` | string | No       | `"number"`  | JSON type to serialize as: `number`, `string`, `boolean` |
-| `channel`   | number | Yes      | -           | Synnax command channel key                               |
-| `data_type` | string | No       | `"float64"` | Data type of the channel                                 |
+| Parameter     | Type   | Required | Default     | Description                                                                                                    |
+| ------------- | ------ | -------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
+| `pointer`     | string | Yes      | -           | JSON Pointer where the value goes (e.g., `/value`)                                                             |
+| `json_type`   | string | No       | `"number"`  | JSON type to serialize as: `number`, `string`, `boolean`                                                       |
+| `channel`     | number | Yes      | -           | Synnax command channel key                                                                                     |
+| `data_type`   | string | No       | `"float64"` | Data type of the channel                                                                                       |
+| `time_format` | string | No       | -           | Timestamp format (only for `TIMESTAMP` data type): `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, `unix_ns`      |
+| `enum_values` | array  | No       | -           | String-to-number mapping for enum fields (e.g., `[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}]`) |
 
 ```python
 http.ChannelField(
@@ -90,22 +92,18 @@ http.ChannelField(
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Static Fields</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Enum Values</Text.Text>
 
-Static fields have a fixed value that is included in every request. Use these for
-constant metadata like source identifiers or action types.
-
-| Parameter   | Type   | Required | Description                                         |
-| ----------- | ------ | -------- | --------------------------------------------------- |
-| `pointer`   | string | Yes      | JSON Pointer where the value goes (e.g., `/source`) |
-| `json_type` | string | Yes      | JSON type: `number`, `string`, `boolean`            |
-| `value`     | any    | Yes      | The fixed value to include                          |
+When the HTTP request body should contain string values that represent discrete states,
+use `enum_values` to map them to numbers. The Driver converts matching strings to their
+numeric equivalents before writing to the channel.
 
 ```python
-http.StaticField(
+http.ChannelField(
     pointer="/source",
     json_type="string",
-    value="synnax",
+    channel=source_cmd.key,
+    enum_values=[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}],
 )
 ```
 

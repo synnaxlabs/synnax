@@ -34,16 +34,16 @@ following:
 
 ## Configuration Parameters Reference
 
-| Parameter      | Type    | Required | Default | Description                                                                      |
-| -------------- | ------- | -------- | ------- | -------------------------------------------------------------------------------- |
-| `name`         | string  | Yes      | -       | Human-readable server name for identification in Console                         |
-| `rack`         | string  | Yes      | -       | Synnax Driver (rack) key that will connect to the HTTP server                    |
-| `host`         | string  | Yes      | -       | Host and port of the HTTP server (e.g., `192.168.1.100:8080` or `localhost:443`) |
-| `secure`       | boolean | No       | `true`  | Use HTTPS (`true`) or HTTP (`false`)                                             |
-| `timeout_ms`   | integer | No       | `100`   | Request timeout in milliseconds                                                  |
-| `verify_ssl`   | boolean | No       | `true`  | Whether to verify SSL/TLS certificates                                           |
-| `auth`         | object  | No       | `none`  | See [Authentication Reference](#authentication-reference) below                  |
-| `health_check` | object  | No       | -       | See [Health Check Configuration](#health-check-configuration) below              |
+| Parameter      | Type    | Required | Default | Description                                                                                             |
+| -------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `name`         | string  | Yes      | -       | Human-readable server name for identification in Console                                                |
+| `rack`         | string  | Yes      | -       | Synnax Driver (rack) key that will connect to the HTTP server                                           |
+| `host`         | string  | Yes      | -       | Host and port of the HTTP server (e.g., `192.168.1.100:8080` or `localhost:443`)                        |
+| `secure`       | boolean | No       | `true`  | Use HTTPS (`true`) or HTTP (`false`)                                                                    |
+| `timeout_ms`   | integer | No       | `100`   | Request timeout in milliseconds                                                                         |
+| `verify_ssl`   | boolean | No       | `true`  | Whether to verify SSL/TLS certificates                                                                  |
+| `auth`         | object  | No       | `none`  | The [configuration](#authentication-reference) used to authenticate with the HTTP server                |
+| `health_check` | object  | Yes      | -       | The [configuration](#health-check-configuration) the Driver uses to track the health of the HTTP server |
 
 <Note.Note variant="warning" className="compact">
   Setting `verify_ssl` to `false` should be used when the HTTP server does not have a
@@ -74,10 +74,9 @@ No authentication headers are added to requests.
 
 Adds an `Authorization: Bearer <token>` header to every request.
 
-| Parameter | Type   | Required | Description  |
-| --------- | ------ | -------- | ------------ |
-| `type`    | string | Yes      | `"bearer"`   |
-| `token`   | string | Yes      | Bearer token |
+| Parameter | Type   | Required | Description            |
+| --------- | ------ | -------- | ---------------------- |
+| `token`   | string | Yes      | The bearer token value |
 
 ```json
 { "type": "bearer", "token": "my-secret-token" }
@@ -86,14 +85,13 @@ Adds an `Authorization: Bearer <token>` header to every request.
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Basic (Username + Password)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Basic (Username and Password)</Text.Text>
 
-Adds an `Authorization: Basic <credentials>` header using Base64-encoded
+Adds an `Authorization: Basic <credentials>` header using Base64 encoded
 `username:password`.
 
 | Parameter  | Type   | Required | Description |
 | ---------- | ------ | -------- | ----------- |
-| `type`     | string | Yes      | `"basic"`   |
 | `username` | string | Yes      | Username    |
 | `password` | string | Yes      | Password    |
 
@@ -110,7 +108,6 @@ Sends an API key as either a custom header or a query parameter.
 
 | Parameter   | Type   | Required | Default | Description                                                       |
 | ----------- | ------ | -------- | ------- | ----------------------------------------------------------------- |
-| `type`      | string | Yes      | -       | `"api_key"`                                                       |
 | `key`       | string | Yes      | -       | The API key value                                                 |
 | `send_as`   | string | Yes      | -       | How to send the key: `"header"` or `"query_param"`                |
 | `header`    | string | No       | -       | Header name (required when `send_as` is `"header"`)               |
@@ -130,15 +127,16 @@ Sends an API key as either a custom header or a query parameter.
 
 ## Health Check Configuration
 
-The driver periodically checks whether the HTTP server is reachable. Health check
-settings are optional and configured at the device level.
+The driver periodically checks whether the HTTP server is reachable. We recommend
+choosing a path that sends a very small response body if the server does not have a
+dedicated `/health`, `/status`, or `/ping` endpoint.
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Health Check Parameters</Text.Text>
 
 | Parameter      | Type   | Required | Default     | Description                                                                   |
 | -------------- | ------ | -------- | ----------- | ----------------------------------------------------------------------------- |
-| `method`       | string | Yes      | -           | HTTP method for the health check (`GET` or `POST`)                            |
+| `method`       | string | Yes      | -           | HTTP method for the health check (`"GET"` or `"POST"`)                        |
 | `path`         | string | No       | `"/health"` | URL path to request                                                           |
 | `headers`      | object | No       | -           | Additional headers to include                                                 |
 | `query_params` | object | No       | -           | Query parameters to include                                                   |
