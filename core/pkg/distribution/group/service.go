@@ -16,9 +16,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -27,6 +29,7 @@ import (
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	Search   *search.Index
 }
 
 var (
@@ -38,6 +41,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -46,6 +50,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -60,12 +65,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Group]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -82,12 +88,17 @@ func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent
 	return w.CreateWithKey(ctx, g.Key, groupName, parent)
 }
 
+// Observe returns an observable that notifies callers of changes to group entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[uuid.UUID, Group]] {
+	return s.table.Observe()
+}
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), otg: s.cfg.Ontology.NewWriter(tx)}
+	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.cfg.DB)
+	return newRetrieve(s.cfg.DB, s.table)
 }
 
 func (s *Service) Close() error {
@@ -98,8 +109,9 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	table *gorp.Table[uuid.UUID, Group]
 }
 
 // Create creates a new Group with the given name and parent.
@@ -111,7 +123,7 @@ func (w Writer) Create(
 	g.Key = uuid.New()
 	g.Name = name
 	id := OntologyID(g.Key)
-	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if err = w.otg.DefineResource(ctx, id); err != nil {
@@ -135,7 +147,7 @@ func (w Writer) CreateWithKey(
 	}
 	g.Name = name
 	id := OntologyID(g.Key)
-	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if err = w.otg.DefineResource(ctx, id); err != nil {
@@ -172,12 +184,12 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return err
 		}
 	}
-	return gorp.NewDelete[uuid.UUID, Group]().WhereKeys(keys...).Exec(ctx, w.tx)
+	return w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
-	return gorp.NewUpdate[uuid.UUID, Group]().
+	return w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, g Group) Group {
 			g.Name = name

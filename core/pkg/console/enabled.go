@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:embed dist/*
+//go:embed all:dist
 var embeddedAssets embed.FS
 
 const rootHTMLFile = "index.html"

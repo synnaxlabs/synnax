@@ -21,7 +21,7 @@ import (
 
 // ChildDeleter deletes child resources of a specific type from a workspace.
 type ChildDeleter interface {
-	Type() ontology.Type
+	Type() ontology.ResourceType
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 }
 
@@ -30,6 +30,7 @@ type Writer struct {
 	otg           ontology.Writer
 	otgR          *ontology.Ontology
 	group         group.Group
+	table         *gorp.Table[uuid.UUID, Workspace]
 	childDeleters []ChildDeleter
 }
 
@@ -40,7 +41,7 @@ func (w Writer) Create(
 	if ws.Key == uuid.Nil {
 		ws.Key = uuid.New()
 	}
-	if err = gorp.NewCreate[uuid.UUID, Workspace]().Entry(ws).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(ws).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	otgID := OntologyID(ws.Key)
@@ -71,7 +72,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Workspace]().
+	return w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Name = name
@@ -84,7 +85,7 @@ func (w Writer) SetLayout(
 	key uuid.UUID,
 	layout map[string]any,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Workspace]().
+	return w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Layout = layout
@@ -101,7 +102,7 @@ func (w Writer) Delete(
 			return err
 		}
 	}
-	if err := gorp.NewDelete[uuid.UUID, Workspace]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {
@@ -113,7 +114,7 @@ func (w Writer) Delete(
 }
 
 func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
-	byType := make(map[ontology.Type][]uuid.UUID)
+	byType := make(map[ontology.ResourceType][]uuid.UUID)
 	if err := w.collectDescendants(ctx, OntologyID(key), byType); err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
 func (w Writer) collectDescendants(
 	ctx context.Context,
 	parentID ontology.ID,
-	byType map[ontology.Type][]uuid.UUID,
+	byType map[ontology.ResourceType][]uuid.UUID,
 ) error {
 	var children []ontology.Resource
 	if err := w.otgR.NewRetrieve().
@@ -143,7 +144,7 @@ func (w Writer) collectDescendants(
 		return err
 	}
 	for _, child := range children {
-		if child.ID.Type == "group" {
+		if child.ID.Type == ontology.ResourceTypeGroup {
 			if err := w.collectDescendants(ctx, child.ID, byType); err != nil {
 				return err
 			}

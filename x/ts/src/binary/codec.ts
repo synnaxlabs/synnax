@@ -26,7 +26,7 @@ export interface Codec {
    * @param payload - The payload to encode.
    * @returns An ArrayBuffer containing the encoded payload.
    */
-  encode: (payload: unknown, schema?: z.ZodType) => Uint8Array;
+  encode: (payload: unknown, schema?: z.ZodType) => Uint8Array<ArrayBuffer>;
 
   /**
    * Decodes the given binary representation into a type checked payload.
@@ -51,7 +51,7 @@ export class JSONCodec implements Codec {
     this.encoder = new TextEncoder();
   }
 
-  encode(payload: unknown, schema?: z.ZodType): Uint8Array {
+  encode(payload: unknown, schema?: z.ZodType): Uint8Array<ArrayBuffer> {
     return this.encoder.encode(this.encodeString(payload, schema));
   }
 
@@ -82,7 +82,7 @@ export class JSONCodec implements Codec {
 export class CSVCodec implements Codec {
   contentType = "text/csv";
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
     const csvString = this.encodeString(payload);
     return new TextEncoder().encode(csvString);
   }
@@ -145,7 +145,7 @@ export class CSVCodec implements Codec {
 export class TextCodec implements Codec {
   contentType = "text/plain";
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
     if (typeof payload !== "string")
       throw new Error("TextCodec.encode payload must be a string");
     return new TextEncoder().encode(payload);

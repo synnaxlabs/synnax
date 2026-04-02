@@ -21,15 +21,11 @@ import (
 )
 
 var _ = Describe("Completion", func() {
-	var (
-		server *lsp.Server
-		ctx    context.Context
-	)
+	var server *lsp.Server
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		server = lsp.New()
 		server.SetClient(&MockClient{})
-		ctx = context.Background()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI:     "file:///test.oracle",
@@ -39,7 +35,7 @@ var _ = Describe("Completion", func() {
 		})).To(Succeed())
 	})
 
-	completionAt := func(line, col uint32) *protocol.CompletionList {
+	completionAt := func(ctx context.Context, line, col uint32) *protocol.CompletionList {
 		return MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
@@ -50,7 +46,7 @@ var _ = Describe("Completion", func() {
 		}))
 	}
 
-	completionFor := func(uri protocol.DocumentURI, line, col uint32) *protocol.CompletionList {
+	completionFor := func(ctx context.Context, uri protocol.DocumentURI, line, col uint32) *protocol.CompletionList {
 		return MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -67,7 +63,7 @@ var _ = Describe("Completion", func() {
 		return result
 	}
 
-	openDoc := func(uri protocol.DocumentURI, text string) {
+	openDoc := func(ctx context.Context, uri protocol.DocumentURI, text string) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: uri, Version: 1, Text: text,
@@ -76,9 +72,9 @@ var _ = Describe("Completion", func() {
 	}
 
 	Describe("Keyword Completions", func() {
-		It("should return keyword completions at the start of a line", func() {
-			openDoc("file:///empty.oracle", "\n")
-			list := completionFor("file:///empty.oracle", 0, 0)
+		It("should return keyword completions at the start of a line", func(ctx SpecContext) {
+			openDoc(ctx, "file:///empty.oracle", "\n")
+			list := completionFor(ctx, "file:///empty.oracle", 0, 0)
 			Expect(labels(list.Items)).To(ContainElements(
 				"struct", "field", "domain", "enum", "import",
 			))
@@ -86,9 +82,9 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Type Completions", func() {
-		It("should return primitive types after field keyword", func() {
-			openDoc("file:///field.oracle", "  field name \n")
-			list := completionFor("file:///field.oracle", 0, 13)
+		It("should return primitive types after field keyword", func(ctx SpecContext) {
+			openDoc(ctx, "file:///field.oracle", "  field name \n")
+			list := completionFor(ctx, "file:///field.oracle", 0, 13)
 			Expect(labels(list.Items)).To(ContainElements(
 				"string", "int32", "float64", "bool", "uuid",
 			))
@@ -96,9 +92,9 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Domain Name Completions", func() {
-		It("should return domain names after domain keyword", func() {
-			openDoc("file:///domain.oracle", "  domain \n")
-			list := completionFor("file:///domain.oracle", 0, 9)
+		It("should return domain names after domain keyword", func(ctx SpecContext) {
+			openDoc(ctx, "file:///domain.oracle", "  domain \n")
+			list := completionFor(ctx, "file:///domain.oracle", 0, 9)
 			Expect(labels(list.Items)).To(ContainElements(
 				"id", "validate", "ontology", "doc", "go", "ts", "py",
 			))
@@ -106,8 +102,8 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Validate Expression Completions", func() {
-		It("should return validate expressions inside validate domain", func() {
-			list := completionAt(2, 20)
+		It("should return validate expressions inside validate domain", func(ctx SpecContext) {
+			list := completionAt(ctx, 2, 20)
 			Expect(labels(list.Items)).To(ContainElements(
 				"required", "min_length", "max_length",
 			))
@@ -115,17 +111,17 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Go Output Completions", func() {
-		It("should return output expressions inside go domain", func() {
-			openDoc("file:///go-domain.oracle", "  domain go { \n")
-			list := completionFor("file:///go-domain.oracle", 0, 14)
+		It("should return output expressions inside go domain", func(ctx SpecContext) {
+			openDoc(ctx, "file:///go-domain.oracle", "  domain go { \n")
+			list := completionFor(ctx, "file:///go-domain.oracle", 0, 14)
 			Expect(labels(list.Items)).To(ContainElements("output", "omit"))
 		})
 	})
 
 	Describe("TS Expression Completions", func() {
-		It("should return ts expressions inside ts domain", func() {
-			openDoc("file:///ts-domain.oracle", "  domain ts { \n")
-			list := completionFor("file:///ts-domain.oracle", 0, 14)
+		It("should return ts expressions inside ts domain", func(ctx SpecContext) {
+			openDoc(ctx, "file:///ts-domain.oracle", "  domain ts { \n")
+			list := completionFor(ctx, "file:///ts-domain.oracle", 0, 14)
 			Expect(labels(list.Items)).To(ContainElements(
 				"output", "use_input", "name",
 			))
@@ -133,31 +129,31 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Ontology Expression Completions", func() {
-		It("should return ontology expressions inside ontology domain", func() {
-			openDoc("file:///ontology-domain.oracle", "  domain ontology { \n")
-			list := completionFor("file:///ontology-domain.oracle", 0, 20)
+		It("should return ontology expressions inside ontology domain", func(ctx SpecContext) {
+			openDoc(ctx, "file:///ontology-domain.oracle", "  domain ontology { \n")
+			list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 20)
 			Expect(labels(list.Items)).To(ContainElement("type"))
 		})
 	})
 
 	Describe("Unknown Document", func() {
-		It("should return empty completions for unknown URI", func() {
-			list := completionFor("file:///unknown.oracle", 0, 0)
+		It("should return empty completions for unknown URI", func(ctx SpecContext) {
+			list := completionFor(ctx, "file:///unknown.oracle", 0, 0)
 			Expect(list.Items).To(BeEmpty())
 		})
 	})
 
 	Describe("Out of Range Position", func() {
-		It("should return empty completions for line beyond document", func() {
-			list := completionAt(100, 0)
+		It("should return empty completions for line beyond document", func(ctx SpecContext) {
+			list := completionAt(ctx, 100, 0)
 			Expect(list.Items).To(BeEmpty())
 		})
 	})
 
 	Describe("Prefix Filtering", func() {
-		It("should filter completions by typed prefix", func() {
-			openDoc("file:///prefix.oracle", "str\n")
-			list := completionFor("file:///prefix.oracle", 0, 3)
+		It("should filter completions by typed prefix", func(ctx SpecContext) {
+			openDoc(ctx, "file:///prefix.oracle", "str\n")
+			list := completionFor(ctx, "file:///prefix.oracle", 0, 3)
 			for _, item := range list.Items {
 				Expect(item.Label).To(HavePrefix("str"))
 			}
@@ -196,18 +192,14 @@ var _ = Describe("Shutdown", func() {
 })
 
 var _ = Describe("DidChange", func() {
-	var (
-		server *lsp.Server
-		ctx    context.Context
-	)
+	var server *lsp.Server
 
 	BeforeEach(func() {
 		server = lsp.New()
 		server.SetClient(&MockClient{})
-		ctx = context.Background()
 	})
 
-	It("should update document content", func() {
+	It("should update document content", func(ctx SpecContext) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///change.oracle", Version: 1,
@@ -238,7 +230,7 @@ var _ = Describe("DidChange", func() {
 		Expect(list.Items).ToNot(BeEmpty())
 	})
 
-	It("should handle empty content changes", func() {
+	It("should handle empty content changes", func(ctx SpecContext) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///empty-change.oracle", Version: 1,
@@ -259,10 +251,9 @@ var _ = Describe("DidChange", func() {
 })
 
 var _ = Describe("DidClose", func() {
-	It("should remove document and clear diagnostics", func() {
+	It("should remove document and clear diagnostics", func(ctx SpecContext) {
 		server := lsp.New()
 		server.SetClient(&MockClient{})
-		ctx := context.Background()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///close.oracle", Version: 1,
@@ -289,15 +280,11 @@ var _ = Describe("DidClose", func() {
 })
 
 var _ = Describe("Hover", func() {
-	var (
-		server *lsp.Server
-		ctx    context.Context
-	)
+	var server *lsp.Server
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		server = lsp.New()
 		server.SetClient(&MockClient{})
-		ctx = context.Background()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///hover.oracle", Version: 1,
@@ -306,7 +293,7 @@ var _ = Describe("Hover", func() {
 		})).To(Succeed())
 	})
 
-	hoverAt := func(uri protocol.DocumentURI, line, col uint32) *protocol.Hover {
+	hoverAt := func(ctx context.Context, uri protocol.DocumentURI, line, col uint32) *protocol.Hover {
 		return MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -315,58 +302,54 @@ var _ = Describe("Hover", func() {
 		}))
 	}
 
-	It("should return hover docs for struct keyword", func() {
-		hover := hoverAt("file:///hover.oracle", 0, 6)
+	It("should return hover docs for struct keyword", func(ctx SpecContext) {
+		hover := hoverAt(ctx, "file:///hover.oracle", 0, 6)
 		Expect(hover).ToNot(BeNil())
 		Expect(hover.Contents.Value).To(ContainSubstring("struct"))
 	})
 
-	It("should return hover docs for string type", func() {
-		hover := hoverAt("file:///hover.oracle", 1, 10)
+	It("should return hover docs for string type", func(ctx SpecContext) {
+		hover := hoverAt(ctx, "file:///hover.oracle", 1, 10)
 		Expect(hover).ToNot(BeNil())
 		Expect(hover.Contents.Value).To(ContainSubstring("string"))
 	})
 
-	It("should return nil for unknown document", func() {
-		hover := hoverAt("file:///unknown.oracle", 0, 0)
+	It("should return nil for unknown document", func(ctx SpecContext) {
+		hover := hoverAt(ctx, "file:///unknown.oracle", 0, 0)
 		Expect(hover).To(BeNil())
 	})
 
-	It("should return nil for non-keyword word", func() {
-		hover := hoverAt("file:///hover.oracle", 0, 2)
+	It("should return nil for non-keyword word", func(ctx SpecContext) {
+		hover := hoverAt(ctx, "file:///hover.oracle", 0, 2)
 		Expect(hover).To(BeNil())
 	})
 
-	It("should return nil for whitespace position", func() {
+	It("should return nil for whitespace position", func(ctx SpecContext) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///spaces.oracle", Version: 1,
 				Text: "    \n",
 			},
 		})).To(Succeed())
-		hover := hoverAt("file:///spaces.oracle", 0, 2)
+		hover := hoverAt(ctx, "file:///spaces.oracle", 0, 2)
 		Expect(hover).To(BeNil())
 	})
 
-	It("should return nil for line beyond document", func() {
-		hover := hoverAt("file:///hover.oracle", 100, 0)
+	It("should return nil for line beyond document", func(ctx SpecContext) {
+		hover := hoverAt(ctx, "file:///hover.oracle", 100, 0)
 		Expect(hover).To(BeNil())
 	})
 })
 
 var _ = Describe("SemanticTokensFull", func() {
-	var (
-		server *lsp.Server
-		ctx    context.Context
-	)
+	var server *lsp.Server
 
 	BeforeEach(func() {
 		server = lsp.New()
 		server.SetClient(&MockClient{})
-		ctx = context.Background()
 	})
 
-	openDoc := func(uri protocol.DocumentURI, text string) {
+	openDoc := func(ctx context.Context, uri protocol.DocumentURI, text string) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: uri, Version: 1, Text: text,
@@ -374,7 +357,7 @@ var _ = Describe("SemanticTokensFull", func() {
 		})).To(Succeed())
 	}
 
-	tokensFor := func(uri protocol.DocumentURI) *protocol.SemanticTokens {
+	tokensFor := func(ctx context.Context, uri protocol.DocumentURI) *protocol.SemanticTokens {
 		return MustSucceed(server.SemanticTokensFull(
 			ctx,
 			&protocol.SemanticTokensParams{
@@ -383,44 +366,40 @@ var _ = Describe("SemanticTokensFull", func() {
 		))
 	}
 
-	It("should return empty tokens for unknown document", func() {
-		Expect(tokensFor("file:///unknown.oracle").Data).To(BeEmpty())
+	It("should return empty tokens for unknown document", func(ctx SpecContext) {
+		Expect(tokensFor(ctx, "file:///unknown.oracle").Data).To(BeEmpty())
 	})
 
-	It("should return tokens for a schema with keywords and types", func() {
-		openDoc("file:///tokens.oracle", "User struct {\n    name string\n}\n")
-		Expect(tokensFor("file:///tokens.oracle").Data).ToNot(BeEmpty())
+	It("should return tokens for a schema with keywords and types", func(ctx SpecContext) {
+		openDoc(ctx, "file:///tokens.oracle", "User struct {\n    name string\n}\n")
+		Expect(tokensFor(ctx, "file:///tokens.oracle").Data).ToNot(BeEmpty())
 	})
 
-	It("should tokenize comments", func() {
-		openDoc("file:///comments.oracle", "// a comment\nUser struct {}\n")
-		Expect(tokensFor("file:///comments.oracle").Data).ToNot(BeEmpty())
+	It("should tokenize comments", func(ctx SpecContext) {
+		openDoc(ctx, "file:///comments.oracle", "// a comment\nUser struct {}\n")
+		Expect(tokensFor(ctx, "file:///comments.oracle").Data).ToNot(BeEmpty())
 	})
 
-	It("should tokenize string literals", func() {
-		openDoc("file:///strings.oracle", "import \"common.oracle\"\n")
-		Expect(tokensFor("file:///strings.oracle").Data).ToNot(BeEmpty())
+	It("should tokenize string literals", func(ctx SpecContext) {
+		openDoc(ctx, "file:///strings.oracle", "import \"common.oracle\"\n")
+		Expect(tokensFor(ctx, "file:///strings.oracle").Data).ToNot(BeEmpty())
 	})
 
-	It("should tokenize enum with number literals", func() {
-		openDoc("file:///enum.oracle", "Status enum {\n    Active = 1\n}\n")
-		Expect(tokensFor("file:///enum.oracle").Data).ToNot(BeEmpty())
+	It("should tokenize enum with number literals", func(ctx SpecContext) {
+		openDoc(ctx, "file:///enum.oracle", "Status enum {\n    Active = 1\n}\n")
+		Expect(tokensFor(ctx, "file:///enum.oracle").Data).ToNot(BeEmpty())
 	})
 })
 
 var _ = Describe("Formatting", func() {
-	var (
-		server *lsp.Server
-		ctx    context.Context
-	)
+	var server *lsp.Server
 
 	BeforeEach(func() {
 		server = lsp.New()
 		server.SetClient(&MockClient{})
-		ctx = context.Background()
 	})
 
-	openDoc := func(uri protocol.DocumentURI, text string) {
+	openDoc := func(ctx context.Context, uri protocol.DocumentURI, text string) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: uri, Version: 1, Text: text,
@@ -428,24 +407,24 @@ var _ = Describe("Formatting", func() {
 		})).To(Succeed())
 	}
 
-	formatDoc := func(uri protocol.DocumentURI) []protocol.TextEdit {
+	formatDoc := func(ctx context.Context, uri protocol.DocumentURI) []protocol.TextEdit {
 		return MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 		}))
 	}
 
-	It("should return nil for unknown document", func() {
-		Expect(formatDoc("file:///unknown.oracle")).To(BeNil())
+	It("should return nil for unknown document", func(ctx SpecContext) {
+		Expect(formatDoc(ctx, "file:///unknown.oracle")).To(BeNil())
 	})
 
-	It("should return nil when content is already formatted", func() {
-		openDoc("file:///formatted.oracle", "User struct {}\n")
-		Expect(formatDoc("file:///formatted.oracle")).To(BeNil())
+	It("should return nil when content is already formatted", func(ctx SpecContext) {
+		openDoc(ctx, "file:///formatted.oracle", "User struct {}\n")
+		Expect(formatDoc(ctx, "file:///formatted.oracle")).To(BeNil())
 	})
 
-	It("should return text edit when formatting changes content", func() {
-		openDoc("file:///unformatted.oracle", "User struct {\n  x int32\n  longName string\n}\n")
-		edits := formatDoc("file:///unformatted.oracle")
+	It("should return text edit when formatting changes content", func(ctx SpecContext) {
+		openDoc(ctx, "file:///unformatted.oracle", "User struct {\n  x int32\n  longName string\n}\n")
+		edits := formatDoc(ctx, "file:///unformatted.oracle")
 		Expect(edits).To(HaveLen(1))
 		Expect(edits[0].Range.Start.Line).To(Equal(uint32(0)))
 		Expect(edits[0].NewText).To(ContainSubstring("x        int32"))

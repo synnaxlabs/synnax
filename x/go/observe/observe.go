@@ -83,8 +83,12 @@ func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 	}
 }
 
-// GoNotify implements the Observer interface.
-func (b *base[T]) GoNotify(ctx context.Context, v T) { go b.Notify(ctx, v) }
+// GoNotify implements the Observer interface. GoNotify severs the cancellation
+// chain from the caller's context because the spawned goroutine outlives the
+// caller. Values (e.g. trace spans) are preserved.
+func (b *base[T]) GoNotify(ctx context.Context, v T) {
+	go b.Notify(context.WithoutCancel(ctx), v)
+}
 
 type asyncMessage[T any] struct {
 	ctx context.Context
@@ -182,7 +186,12 @@ func (a *async[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 	}
 }
 
-func (a *async[T]) GoNotify(ctx context.Context, v T) { go a.Notify(ctx, v) }
+// GoNotify implements the Observer interface. GoNotify severs the cancellation
+// chain from the caller's context because the spawned goroutine outlives the
+// caller. Values (e.g. trace spans) are preserved.
+func (a *async[T]) GoNotify(ctx context.Context, v T) {
+	go a.Notify(context.WithoutCancel(ctx), v)
+}
 
 // Noop is an observable that never calls its OnChange function and does
 // not store any handlers. Use this when you want to implement the Observable

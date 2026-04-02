@@ -28,7 +28,6 @@ from dataclasses import dataclass, field
 import nidaqmx.system
 import nisyscfg
 import synnax as sy
-from pydantic import ValidationError
 
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_write import NIDigitalWrite
@@ -109,7 +108,7 @@ def _wait_for_device_status(
     *,
     device_key: str = "",
     device_name: str = "",
-) -> list[sy.task.Status]:
+) -> list[sy.status.Status]:
     """Wait until a device emits a status with the given message.
 
     Filter by ``device_key`` (exact match on ``device:<key>``) or
@@ -119,7 +118,7 @@ def _wait_for_device_status(
     Returns all matching device statuses collected up to (and including)
     the first status with the expected ``message``.
     """
-    matched: list[sy.task.Status] = []
+    matched: list[sy.status.Status] = []
     diag = _StatusWaitDiag()
     timer = sy.Timer()
 
@@ -132,10 +131,7 @@ def _wait_for_device_status(
             continue
         diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
-            try:
-                s = sy.task.Status.model_validate(raw)
-            except ValidationError:
-                continue
+            s = sy.status.Status.model_validate(raw)
             diag.all_keys.append(s.key)
             if device_key and s.key != f"device:{device_key}":
                 continue
@@ -158,7 +154,7 @@ def _wait_for_device_status(
 
 
 def _log_statuses(
-    log: Callable[[str], None], statuses: list[sy.task.Status], label: str
+    log: Callable[[str], None], statuses: list[sy.status.Status], label: str
 ) -> None:
     """Log final status with count of skipped intermediate ones."""
     final = statuses[-1]

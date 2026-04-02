@@ -10,7 +10,6 @@
 package gossip_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -64,7 +63,7 @@ var _ = Describe("Convergence", func() {
 		It(fmt.Sprintf("Should converge store across %v nodes in %v cycles",
 			values.nodeCount,
 			values.convergenceThreshold,
-		), func() {
+		), func(ctx SpecContext) {
 			group := make(node.Group)
 			configs := make(map[node.Key]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
@@ -91,7 +90,6 @@ var _ = Describe("Convergence", func() {
 				gossips = append(gossips, g)
 				stores = append(stores, s)
 			}
-			ctx := context.Background()
 			for range values.convergenceThreshold {
 				wg := sync.WaitGroup{}
 				for _, g := range gossips {

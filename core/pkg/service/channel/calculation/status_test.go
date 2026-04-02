@@ -10,12 +10,11 @@
 package calculation_test
 
 import (
-	"errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/x/errors"
 	xstatus "github.com/synnaxlabs/x/status"
 )
 

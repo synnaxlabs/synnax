@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -26,7 +27,7 @@ import (
 
 // OntologyID returns unique identifier for the log within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontology.TypeLog, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypeLog, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the logs within the ontology.
@@ -49,9 +50,12 @@ func newResource(l Log) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Log]
 
-var _ ontology.Service = (*Service)(nil)
+var (
+	_ ontology.Service = (*Service)(nil)
+	_ search.Service   = (*Service)(nil)
+)
 
-func (s *Service) Type() ontology.Type { return ontology.TypeLog }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLog }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -82,12 +86,12 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Log]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Log](s.DB).OnChange(handleChange)
+	return s.table.Observe().OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, Log](s.DB).OpenNexter(ctx)
+	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

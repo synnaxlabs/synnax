@@ -10,7 +10,6 @@
 package types_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -71,13 +70,11 @@ var _ = Describe("TSFormatter", func() {
 
 var _ = Describe("TS Types Plugin", func() {
 	var (
-		ctx         context.Context
 		loader      *MockFileLoader
 		typesPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		typesPlugin = types.New(types.DefaultOptions())
 	})
@@ -102,7 +99,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("basic struct generation", func() {
-			It("Should generate schema for simple struct", func() {
+			It("Should generate schema for simple struct", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -129,7 +126,7 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
-		It("Should handle optional and array types", func() {
+		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -159,7 +156,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: zod.nullToUndefined(z.string().array())`))
 		})
 
-		It("Should apply validation rules", func() {
+		It("Should apply validation rules", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -191,7 +188,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
 		})
 
-		It("Should generate enums", func() {
+		It("Should generate enums", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -225,7 +222,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`state: taskStateZ`))
 		})
 
-		It("Should generate string enums", func() {
+		It("Should generate string enums", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -257,7 +254,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Zod schema",
-				func(oracleType, expectedZodType string) {
+				func(ctx SpecContext, oracleType, expectedZodType string) {
 					source := `
 						@ts output "out"
 
@@ -288,7 +285,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("@ts to_number directive", func() {
-			It("Should generate schema that accepts strings and converts to number with NaN validation", func() {
+			It("Should generate schema that accepts strings and converts to number with NaN validation", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -303,7 +300,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("@ts to_string directive", func() {
-			It("Should generate schema that accepts numbers and converts to string", func() {
+			It("Should generate schema that accepts numbers and converts to string", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -317,7 +314,7 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
-		It("Should convert snake_case to camelCase for field names", func() {
+		It("Should convert snake_case to camelCase for field names", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -343,7 +340,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`myLongFieldName:`))
 		})
 
-		It("Should generate create request struct with optional key and password", func() {
+		It("Should generate create request struct with optional key and password", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -375,7 +372,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface New extends z.infer<typeof newZ> {}`))
 		})
 
-		It("Should handle soft optional types (?)", func() {
+		It("Should handle soft optional types (?)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -400,7 +397,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
 		})
 
-		It("Should handle hard optional types (??)", func() {
+		It("Should handle hard optional types (??)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -427,7 +424,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`description: z.string().optional()`))
 		})
 
-		It("Should handle required arrays with array.nullishToEmpty", func() {
+		It("Should handle required arrays with array.nullishToEmpty", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -454,7 +451,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`actions: array.nullishToEmpty(z.string())`))
 		})
 
-		It("Should handle optional arrays with zod.nullToUndefined", func() {
+		It("Should handle optional arrays with zod.nullToUndefined", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -478,7 +475,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`operations: zod.nullToUndefined(z.string().array())`))
 		})
 
-		It("Should handle required record fields with record.nullishToEmpty()", func() {
+		It("Should handle required record fields with record.nullishToEmpty()", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -502,7 +499,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`layout: record.nullishToEmpty()`))
 		})
 
-		It("Should handle optional record fields with zod.nullToUndefined", func() {
+		It("Should handle optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -526,7 +523,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
-		It("Should handle hard optional record fields with zod.nullToUndefined", func() {
+		It("Should handle hard optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -550,7 +547,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
-		It("Should wrap required record field with caseconv.preserveCase when @ts preserve_case is specified", func() {
+		It("Should wrap required record field with caseconv.preserveCase when @ts preserve_case is specified", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -577,7 +574,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`import { caseconv`))
 		})
 
-		It("Should wrap optional record field with caseconv.preserveCase when @ts preserve_case is specified", func() {
+		It("Should wrap optional record field with caseconv.preserveCase when @ts preserve_case is specified", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -604,7 +601,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`import { caseconv`))
 		})
 
-		It("Should wrap type parameter field with caseconv.preserveCase when @ts preserve_case is specified", func() {
+		It("Should wrap type parameter field with caseconv.preserveCase when @ts preserve_case is specified", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -631,7 +628,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`import { caseconv`))
 		})
 
-		It("Should not wrap field with caseconv.preserveCase when @ts no_preserve_case overrides inherited directive", func() {
+		It("Should not wrap field with caseconv.preserveCase when @ts no_preserve_case overrides inherited directive", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -666,7 +663,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(MatchRegexp(`childZ[^}]*caseconv\.preserveCase`))
 		})
 
-		It("Should generate error message for required validation", func() {
+		It("Should generate error message for required validation", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -691,7 +688,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
 		})
 
-		It("Should use z.input when use_input is specified", func() {
+		It("Should use z.input when use_input is specified", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -718,7 +715,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`data: record.nullishToEmpty()`))
 		})
 
-		It("Should use z.record for record fields in child struct with type param", func() {
+		It("Should use z.record for record fields in child struct with type param", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -747,7 +744,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`z.input<`))
 		})
 
-		It("Should use z.infer by default without use_input", func() {
+		It("Should use z.infer by default without use_input", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -770,7 +767,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface Workspace extends z.infer<typeof workspaceZ> {}`))
 		})
 
-		It("Should generate getter for direct self-referencing struct", func() {
+		It("Should generate getter for direct self-referencing struct", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -802,7 +799,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface Type extends z.infer<typeof typeZ> {}`))
 		})
 
-		It("Should generate getter for array self-referencing struct", func() {
+		It("Should generate getter for array self-referencing struct", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -828,7 +825,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(nodeZ.array())`))
 		})
 
-		It("Should generate getter for struct with multiple recursive fields", func() {
+		It("Should generate getter for struct with multiple recursive fields", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -855,7 +852,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`get last():`))
 		})
 
-		It("Should generate getter for generic recursive struct with single param", func() {
+		It("Should generate getter for generic recursive struct with single param", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -881,7 +878,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(treeNodeZ(k).array())`))
 		})
 
-		It("Should generate getter for generic recursive struct with multiple params", func() {
+		It("Should generate getter for generic recursive struct with multiple params", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -911,7 +908,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(mapNodeZ({k: k, v: v}).array())`))
 		})
 
-		It("Should NOT generate getter for non-recursive struct", func() {
+		It("Should NOT generate getter for non-recursive struct", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -937,7 +934,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`get `)) // No getters for non-recursive types
 		})
 
-		It("Should generate fallback pattern for type param fields with string constraint", func() {
+		It("Should generate fallback pattern for type param fields with string constraint", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -969,7 +966,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
 
-		It("Should generate fallback pattern for type param fields with concrete_types directive", func() {
+		It("Should generate fallback pattern for type param fields with concrete_types directive", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1002,7 +999,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "config field should use type param with fallback")
 		})
 
-		It("Should preserve type params when extending generic parent with pass-through type args", func() {
+		It("Should preserve type params when extending generic parent with pass-through type args", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1047,7 +1044,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`newZ`), "should generate newZ schema")
 		})
 
-		It("Should generate record.Unknown constraint for record-constrained type param", func() {
+		It("Should generate record.Unknown constraint for record-constrained type param", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1072,7 +1069,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`import { record`), "should import record")
 		})
 
-		It("Should generate ZodNever default and z.unknown() fallback for optional type param", func() {
+		It("Should generate ZodNever default and z.unknown() fallback for optional type param", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1096,7 +1093,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`data: data ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})
 
-		It("Should handle mixed record-constrained and optional type params", func() {
+		It("Should handle mixed record-constrained and optional type params", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1126,7 +1123,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`statusData: statusData ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})
 
-		It("Should generate .extend() for basic struct extension", func() {
+		It("Should generate .extend() for basic struct extension", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1161,7 +1158,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`email: z.string()`))
 		})
 
-		It("Should generate .omit() for field omissions", func() {
+		It("Should generate .omit() for field omissions", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1194,7 +1191,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`email: z.string()`))
 		})
 
-		It("Should generate .omit() for multiple field omissions", func() {
+		It("Should generate .omit() for multiple field omissions", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1228,7 +1225,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: true`))
 		})
 
-		It("Should handle field override to make it optional using .partial()", func() {
+		It("Should handle field override to make it optional using .partial()", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1259,7 +1256,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`name: z.string().optional()`))
 		})
 
-		It("Should handle extension without new fields (only omissions)", func() {
+		It("Should handle extension without new fields (only omissions)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1288,7 +1285,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`.omit({ b: true })`))
 		})
 
-		It("Should generate .merge() chain for multiple extends", func() {
+		It("Should generate .merge() chain for multiple extends", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1321,7 +1318,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: z.boolean()`))
 		})
 
-		It("Should handle .omit() with multiple extends", func() {
+		It("Should handle .omit() with multiple extends", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1356,7 +1353,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: z.boolean()`))
 		})
 
-		It("Should handle three extends with extend chain", func() {
+		It("Should handle three extends with extend chain", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1393,7 +1390,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`c: z.number()`))
 		})
 
-		It("Should preserve field declaration order", func() {
+		It("Should preserve field declaration order", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -1421,7 +1418,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
 
-		It("Should generate type alias for generic struct reference", func() {
+		It("Should generate type alias for generic struct reference", func(ctx SpecContext) {
 			// Regression test: Status = status.Status<StatusDetails> should call the
 			// generic struct's factory function with the type argument, not return z.unknown()
 			source := `
@@ -1455,7 +1452,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`rackStatusZ = z.unknown()`))
 		})
 
-		It("Should wrap array type aliases with array.nullishToEmpty", func() {
+		It("Should wrap array type aliases with array.nullishToEmpty", func(ctx SpecContext) {
 			// Type aliases that ARE arrays should use nullishToEmpty to coerce
 			// null/undefined to [] since the type itself is fundamentally an array
 			source := `
@@ -1490,7 +1487,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`stratumZ = z.array(z.string())`))
 		})
 
-		It("Should not double-wrap arrays when using array helpers", func() {
+		It("Should not double-wrap arrays when using array helpers", func(ctx SpecContext) {
 			// Regression test: arrays should not be wrapped twice with z.array()
 			// The array helpers (nullishToEmpty, nullToUndefined) expect element schemas
 			source := `
@@ -1526,7 +1523,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("map types", func() {
-			It("Should handle map with primitive key and value types", func() {
+			It("Should handle map with primitive key and value types", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1541,7 +1538,7 @@ var _ = Describe("TS Types Plugin", func() {
 					)
 			})
 
-			It("Should handle map with different primitive types", func() {
+			It("Should handle map with different primitive types", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1554,7 +1551,7 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`counts: z.record(z.string(), z.int64())`)
 			})
 
-			It("Should handle map with struct value type", func() {
+			It("Should handle map with struct value type", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1573,7 +1570,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("@omit directive", func() {
-			It("Should skip types with @ts omit directive", func() {
+			It("Should skip types with @ts omit directive", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1594,7 +1591,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
 			})
 
-			It("Should skip enums with @ts omit directive", func() {
+			It("Should skip enums with @ts omit directive", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1617,7 +1614,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate JSDoc comments from doc domain", func() {
+			It("Should generate JSDoc comments from doc domain", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1655,7 +1652,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should import cross-namespace struct type", func() {
+			It("Should import cross-namespace struct type", func(ctx SpecContext) {
 				source := `
 					import "schemas/common"
 
@@ -1687,7 +1684,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should import cross-namespace enum type", func() {
+			It("Should import cross-namespace enum type", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
 
@@ -1706,7 +1703,7 @@ var _ = Describe("TS Types Plugin", func() {
 					)
 			})
 
-			It("Should not generate a local copy of cross-namespace enum", func() {
+			It("Should not generate a local copy of cross-namespace enum", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
 
@@ -1743,7 +1740,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should use internal prefix for same-package imports", func() {
+			It("Should use internal prefix for same-package imports", func(ctx SpecContext) {
 				source := `
 					import "schemas/common"
 
@@ -1761,7 +1758,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("typedef alias form", func() {
-			It("Should generate type alias for alias typedef", func() {
+			It("Should generate type alias for alias typedef", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1776,7 +1773,7 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain("keyZ")
 			})
 
-			It("Should generate typedef with array alias", func() {
+			It("Should generate typedef with array alias", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1789,7 +1786,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("struct with @ts type override on field", func() {
-			It("Should use type override for field type", func() {
+			It("Should use type override for field type", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1809,7 +1806,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("struct with forward reference", func() {
-			It("Should handle struct referencing a later-declared struct", func() {
+			It("Should handle struct referencing a later-declared struct", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1830,7 +1827,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("self-referencing struct", func() {
-			It("Should handle struct with self reference", func() {
+			It("Should handle struct with self reference", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1846,7 +1843,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("generic struct with type parameter", func() {
-			It("Should generate generic struct with zod function", func() {
+			It("Should generate generic struct with zod function", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1862,7 +1859,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("struct with map field", func() {
-			It("Should generate record type for map field", func() {
+			It("Should generate record type for map field", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1878,7 +1875,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("struct extends another struct", func() {
-			It("Should include parent fields in output", func() {
+			It("Should include parent fields in output", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1910,7 +1907,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should generate cross-namespace struct field reference with import", func() {
+			It("Should generate cross-namespace struct field reference with import", func(ctx SpecContext) {
 				source := `
 					import "schemas/common"
 
@@ -1929,7 +1926,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("coalesce_type_params", func() {
-			It("Should generate single schema param for type interface", func() {
+			It("Should generate single schema param for type interface", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1959,7 +1956,7 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`z.infer<S["config"]>`)
 			})
 
-			It("Should generate coalesced type for extends struct", func() {
+			It("Should generate coalesced type for extends struct", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1995,7 +1992,7 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`Task<S>`)
 			})
 
-			It("Should coalesce conditional field references", func() {
+			It("Should coalesce conditional field references", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -2019,7 +2016,7 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`S["data"]`)
 			})
 
-			It("Should coalesce extend fields referencing type params", func() {
+			It("Should coalesce extend fields referencing type params", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -2083,7 +2080,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`)
 			})
 
-			It("Should use package name for different package imports", func() {
+			It("Should use package name for different package imports", func(ctx SpecContext) {
 				source := `
 					import "schemas/telem"
 
@@ -2101,7 +2098,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("enum variant defaults", func() {
-			It("Should generate default for same-namespace enum variant", func() {
+			It("Should generate default for same-namespace enum variant", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -2119,7 +2116,7 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`mode: modeZ.default(Mode.automatic)`)
 			})
 
-			It("Should generate default for cross-namespace enum variant", func() {
+			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@ts output "x/ts/src/control"
 

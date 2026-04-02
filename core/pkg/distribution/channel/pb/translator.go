@@ -43,7 +43,7 @@ func translateOptionsBackward(opts *CreateOptions) channel.CreateOptions {
 }
 
 func (c CreateMessageTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg channel.CreateMessage,
 ) (*CreateMessage, error) {
 	channels, err := ChannelsToPB(msg.Channels)
@@ -57,7 +57,7 @@ func (c CreateMessageTranslator) Forward(
 }
 
 func (c CreateMessageTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
 	channels, err := ChannelsFromPB(msg.Channels)

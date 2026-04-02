@@ -14,8 +14,8 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -25,9 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -47,7 +48,6 @@ type (
 	StreamerRequest  = streamer.Request
 	StreamerResponse = streamer.Response
 	Streamer         = streamer.Streamer
-	Deleter          = deleter.Deleter
 )
 
 type ServiceConfig struct {
@@ -61,10 +61,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -95,15 +92,21 @@ type Service struct {
 	cfg      ServiceConfig
 }
 
-func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
+func (s *Service) OpenIterator(
+	ctx context.Context, cfg IteratorConfig,
+) (*Iterator, error) {
 	return s.Iterator.Open(ctx, cfg)
 }
 
-func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
+func (s *Service) NewStreamIterator(
+	ctx context.Context, cfg IteratorConfig,
+) (StreamIterator, error) {
 	return s.Iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+func (s *Service) NewStreamWriter(
+	ctx context.Context, cfg WriterConfig,
+) (StreamWriter, error) {
 	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
 }
 
@@ -111,55 +114,57 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 	return s.cfg.Framer.OpenWriter(ctx, cfg)
 }
 
-func (s *Service) NewDeleter() framer.Deleter { return s.cfg.Framer.NewDeleter() }
+func (s *Service) DeleteTimeRange(
+	ctx context.Context,
+	keys distchannel.Keys,
+	tr telem.TimeRange,
+) error {
+	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)
+}
 
-func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
+func (s *Service) NewStreamer(
+	ctx context.Context,
+	cfg StreamerConfig,
+) (Streamer, error) {
 	return s.Streamer.New(ctx, cfg)
 }
 
-func (s *Service) Close() error {
-	return s.closer.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-
+	s := &Service{cfg: cfg}
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:   cfg.Child("calculation"),
 		DB:                cfg.DB,
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		Arc:               cfg.Arc,
-		ChannelObservable: cfg.Channel.NewObservable(),
+		ChannelObservable: cfg.Channel.Observe(),
 		Status:            cfg.Status,
 	})
 	if err != nil {
 		return nil, err
 	}
-	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
+	s.closer = calcSvc
+	if s.Streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
-	})
-	if err != nil {
-		return nil, err
+	}); err != nil {
+		return nil, errors.Combine(err, s.Close())
 	}
-	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
-		DistFramer: cfg.Framer,
-		Channel:    cfg.Channel,
-		Arc:        cfg.Arc,
-	})
-	if err != nil {
-		return nil, err
+	if s.Iterator, err = iterator.NewService(iterator.ServiceConfig{
+		Instrumentation: cfg.Child("iterator"),
+		DistFramer:      cfg.Framer,
+		Channel:         cfg.Channel,
+		Arc:             cfg.Arc,
+	}); err != nil {
+		return nil, errors.Combine(err, s.Close())
 	}
-	return &Service{
-		cfg:      cfg,
-		Streamer: streamerSvc,
-		Iterator: iteratorSvc,
-		closer:   xio.MultiCloser{calcSvc},
-	}, nil
+	return s, nil
 }

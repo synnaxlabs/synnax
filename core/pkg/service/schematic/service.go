@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
@@ -39,6 +40,9 @@ type ServiceConfig struct {
 	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching schematics.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -53,6 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -61,6 +66,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("schematic")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -79,18 +85,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Schematic]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
 		Signals:  cfg.Signals,
+		Search:   cfg.Search,
 	}); err != nil {
 		return nil, err
 	}
@@ -113,6 +121,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.Ontology.NewWriter(tx),
 		otg:       s.Ontology,
+		table:     s.table,
 	}
 }
 
@@ -123,7 +132,7 @@ func (s *Service) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) err
 // NewRetrieve opens a new query build for retrieving logs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Schematic](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 	}
 }

@@ -71,7 +71,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("Analyze", func() {
-		It("Should correctly analyze a single function", func() {
+		It("Should correctly analyze a single function", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -103,7 +103,7 @@ var _ = Describe("Graph", func() {
 			Expect(params[1].Type).To(Equal(types.I64()))
 		})
 
-		It("Should correctly analyze a complete program", func() {
+		It("Should correctly analyze a complete program", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -161,7 +161,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		Describe("Polymorphic Stages", func() {
-			It("Should correctly infer types for polymorphic stages from F32 inputs", func() {
+			It("Should correctly infer types for polymorphic stages from F32 inputs", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
 				g := graph.Graph{
 					Functions: []ir.Function{
@@ -224,7 +224,7 @@ var _ = Describe("Graph", func() {
 				Expect(returnParam.Type).To(Equal(types.F32()))
 			})
 
-			It("Should correctly infer types for polymorphic stages from I64 inputs", func() {
+			It("Should correctly infer types for polymorphic stages from I64 inputs", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
 				g := graph.Graph{
 					Functions: []ir.Function{
@@ -278,7 +278,7 @@ var _ = Describe("Graph", func() {
 				Expect(returnParam.Type).To(Equal(types.I64()))
 			})
 
-			It("Should handle chained polymorphic stages", func() {
+			It("Should handle chained polymorphic stages", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
 				g := graph.Graph{
 					Functions: []ir.Function{
@@ -348,7 +348,7 @@ var _ = Describe("Graph", func() {
 				Expect(inputParam.Type).To(Equal(types.F64()))
 			})
 
-			It("Should detect type mismatches in polymorphic edge connections", func() {
+			It("Should detect type mismatches in polymorphic edge connections", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
 				g := graph.Graph{
 					Functions: []ir.Function{
@@ -398,7 +398,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("is not compatible with"))
 			})
 
-			It("Should detect non-numeric type mismatches with polymorphic stages", func() {
+			It("Should detect non-numeric type mismatches with polymorphic stages", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
 				g := graph.Graph{
 					Functions: []ir.Function{
@@ -436,7 +436,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("is not compatible with"))
 			})
 
-			It("Should handle missing edge connections", func() {
+			It("Should handle missing edge connections", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []ir.Function{
 						{
@@ -469,7 +469,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("edge target node 'nonexistent' not found"))
 			})
 
-			It("Should handle invalid parameter references in edges", func() {
+			It("Should handle invalid parameter references in edges", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []ir.Function{
 						{
@@ -502,7 +502,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("'invalid_param' not found"))
 			})
 
-			It("Should handle concrete type mismatches in edges", func() {
+			It("Should handle concrete type mismatches in edges", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []ir.Function{
 						{
@@ -537,7 +537,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		Describe("Integration", func() {
-			It("Should parse and analyze a complete alarm system graph", func() {
+			It("Should parse and analyze a complete alarm system graph", func(ctx SpecContext) {
 				g := arc.Graph{
 					Nodes: []graph.Node{
 						{
@@ -755,7 +755,7 @@ var _ = Describe("Graph", func() {
 			})
 		})
 
-		It("Should analyze set_authority with a non-uint8 channel", func() {
+		It("Should analyze set_authority with a non-uint8 channel", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -800,7 +800,7 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
-		It("Should reject set_authority with a read channel", func() {
+		It("Should reject set_authority with a read channel", func(ctx SpecContext) {
 			g := arc.Graph{
 				Nodes: []graph.Node{
 					{
@@ -831,7 +831,7 @@ var _ = Describe("Graph", func() {
 
 		Describe("Edge Validation", func() {
 			Describe("Type Matching", func() {
-				It("Should validate series type matching", func() {
+				It("Should validate series type matching", func(ctx SpecContext) {
 					g := graph.Graph{
 						Functions: []ir.Function{
 							{
@@ -864,7 +864,7 @@ var _ = Describe("Graph", func() {
 					Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 				})
 
-				It("Should succeed when all required inputs are connected", func() {
+				It("Should succeed when all required inputs are connected", func(ctx SpecContext) {
 					g := graph.Graph{
 						Functions: []ir.Function{
 							{
@@ -906,7 +906,7 @@ var _ = Describe("Graph", func() {
 					Expect(inter.Edges).To(HaveLen(2))
 				})
 
-				It("Should allow nodes with no inputs to exist without edges", func() {
+				It("Should allow nodes with no inputs to exist without edges", func(ctx SpecContext) {
 					g := graph.Graph{
 						Functions: []ir.Function{
 							{
@@ -930,7 +930,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			Describe("Missing Required Edges", func() {
-				It("Should return an error when a graph is missing a required edge", func() {
+				It("Should return an error when a graph is missing a required edge", func(ctx SpecContext) {
 					g := graph.Graph{
 						Functions: []ir.Function{
 							{
@@ -964,7 +964,7 @@ var _ = Describe("Graph", func() {
 					Expect(diagnostics).To(MatchError(ContainSubstring("missing required input 'b'")))
 				})
 
-				It("Should not return an error when the edge is optional", func() {
+				It("Should not return an error when the edge is optional", func(ctx SpecContext) {
 					g := graph.Graph{
 						Functions: []ir.Function{
 							{
@@ -1001,7 +1001,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		Describe("Duplicate Edge Targets", func() {
-			It("Should error when multiple edges target the same input parameter", func() {
+			It("Should error when multiple edges target the same input parameter", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []ir.Function{
 						{
@@ -1042,7 +1042,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("multiple edges"))
 			})
 
-			It("Should allow multiple edges from the same source parameter", func() {
+			It("Should allow multiple edges from the same source parameter", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []ir.Function{
 						{

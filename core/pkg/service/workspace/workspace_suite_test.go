@@ -10,13 +10,13 @@
 package workspace_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -34,7 +34,6 @@ func TestWorkspace(t *testing.T) {
 }
 
 var (
-	ctx          = context.Background()
 	db           *gorp.DB
 	otg          *ontology.Ontology
 	svc          *workspace.Service
@@ -48,36 +47,45 @@ var (
 	tx           gorp.Tx
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		EnableSearch: new(false),
-		DB:           db,
+		DB: db,
 	}))
+	searchIdx := MustSucceed(search.Open())
+	DeferCleanup(func() {
+		Expect(searchIdx.Close()).To(Succeed())
+	})
 	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 		Group:    groupSvc,
 	}))
 	lineplotSvc = MustSucceed(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	logSvc = MustSucceed(log.OpenService(ctx, log.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	tableSvc = MustSucceed(table.OpenService(ctx, table.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 		Group:    groupSvc,
 		ChildDeleters: []workspace.ChildDeleter{
 			schematicSvc, lineplotSvc, logSvc, tableSvc,
@@ -86,6 +94,7 @@ var _ = BeforeSuite(func() {
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 		Group:    groupSvc,
 	}))
 	author.Username = "test"
@@ -93,10 +102,10 @@ var _ = BeforeSuite(func() {
 })
 
 var (
-	_ = AfterSuite(func() {
+	_ = AfterSuite(func(ctx SpecContext) {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 )

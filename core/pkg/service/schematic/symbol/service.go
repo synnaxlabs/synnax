@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -39,6 +40,9 @@ type ServiceConfig struct {
 	// Signals is used to propagate changes to symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Search is the search index for fuzzy searching symbols.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -53,6 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -61,6 +66,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("symbol")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -80,7 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Symbol](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Symbol]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +102,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](cfg.DB)
+		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"
 		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
@@ -117,15 +124,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.Ontology.NewWriter(tx),
 		otg:       s.Ontology,
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Symbol](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
-		otg:    s.Ontology,
+		search: s.Search,
 	}
 }
 

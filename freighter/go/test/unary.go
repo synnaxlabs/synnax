@@ -26,12 +26,8 @@ func UnarySuite(
 		address.Address,
 	),
 ) {
-	var ctx context.Context
-	ginkgo.BeforeEach(func() {
-		ctx = context.Background()
-	})
 	ginkgo.Describe("Normal Operation", func() {
-		ginkgo.It("should send a request", func() {
+		ginkgo.It("should send a request", func(ctx ginkgo.SpecContext) {
 			server, client, addr := deps()
 			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
 				return Response(req), nil
@@ -42,7 +38,7 @@ func UnarySuite(
 	})
 
 	ginkgo.Describe("Details Handling", func() {
-		ginkgo.It("Should correctly return a custom error to the client", func() {
+		ginkgo.It("Should correctly return a custom error to the client", func(ctx ginkgo.SpecContext) {
 			server, client, addr := deps()
 			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
 				return Response{}, ErrCustom
@@ -52,7 +48,7 @@ func UnarySuite(
 	})
 
 	ginkgo.Describe("Middleware", func() {
-		ginkgo.It("Should correctly call the middleware", func() {
+		ginkgo.It("Should correctly call the middleware", func(ctx ginkgo.SpecContext) {
 			server, client, addr := deps()
 			c := 0
 			server.Use(freighter.MiddlewareFunc(func(
@@ -67,7 +63,11 @@ func UnarySuite(
 			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
 				return Response{}, nil
 			})
-			gomega.Expect(client.Send(ctx, addr, Request{ID: 1, Message: "hello"})).Error().ToNot(gomega.HaveOccurred())
+			gomega.Expect(client.Send(
+				ctx,
+				addr,
+				Request{ID: 1, Message: "hello"},
+			)).Error().ToNot(gomega.HaveOccurred())
 			gomega.Expect(c).To(gomega.Equal(2))
 		})
 	})

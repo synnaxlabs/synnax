@@ -14,14 +14,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Table", func() {
+		It("Should create a Table", func(ctx SpecContext) {
 			t := table.Table{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -31,32 +28,31 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Service Delete", func() {
-		It("Should delete a Table via the service", func() {
+		It("Should delete a Table via the service", func(ctx SpecContext) {
 			t := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, t.Key)).To(Succeed())
 			var res table.Table
-			Expect(gorp.NewRetrieve[uuid.UUID, table.Table]().
-				WhereKeys(t.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(svc.NewRetrieve().WhereKeys(t.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a Table", func() {
+		It("Should rename a Table", func(ctx SpecContext) {
 			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
 			var res table.Table
-			Expect(gorp.NewRetrieve[uuid.UUID, table.Table]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a Table", func() {
+		It("Should set the data of a Table", func(ctx SpecContext) {
 			s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res table.Table
-			Expect(gorp.NewRetrieve[uuid.UUID, table.Table]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})

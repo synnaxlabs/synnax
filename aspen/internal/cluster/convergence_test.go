@@ -68,7 +68,7 @@ var _ = Describe("Convergence", func() {
 			It(fmt.Sprintf("Should converge a Cluster size of %v in %v "+
 				"at an interval of %v seconds and a peer address count of %v",
 				values.clusterSize, values.convergenceThreshold,
-				values.gossipInterval, values.peerAddrCount), func() {
+				values.gossipInterval, values.peerAddrCount), func(ctx SpecContext) {
 				var (
 					clusters  []*cluster.Cluster
 					addresses []address.Address

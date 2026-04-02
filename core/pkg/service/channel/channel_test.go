@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should infer Int64 DataType from integer arithmetic", func() {
+		It("Should infer Int64 DataType from integer arithmetic", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: "return 1 + 1",
@@ -31,7 +31,7 @@ var _ = Describe("Writer", func() {
 			Expect(ch.DataType).To(Equal(telem.Int64T))
 		})
 
-		It("Should infer Float64 DataType from a channel reference expression", func() {
+		It("Should infer Float64 DataType from a channel reference expression", func(ctx SpecContext) {
 			base := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
@@ -47,7 +47,7 @@ var _ = Describe("Writer", func() {
 			Expect(ch.DataType).To(Equal(telem.Float64T))
 		})
 
-		It("Should infer Float64 DataType from float literal expression", func() {
+		It("Should infer Float64 DataType from float literal expression", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: "return 1.5 + 2.5",
@@ -57,7 +57,7 @@ var _ = Describe("Writer", func() {
 			Expect(ch.DataType).To(Equal(telem.Float64T))
 		})
 
-		It("Should overwrite caller-provided DataType with inferred type", func() {
+		It("Should overwrite caller-provided DataType with inferred type", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.StringT,
@@ -68,7 +68,7 @@ var _ = Describe("Writer", func() {
 			Expect(ch.DataType).To(Equal(telem.Int64T))
 		})
 
-		It("Should return a parse error for an invalid expression", func() {
+		It("Should return a parse error for an invalid expression", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: "return invalid_syntax {{",
@@ -79,7 +79,7 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		It("Should not modify DataType for non-calculated channels", func() {
+		It("Should not modify DataType for non-calculated channels", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -91,7 +91,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("CreateMany", func() {
-		It("Should infer types for calculated channels and pass through non-calculated", func() {
+		It("Should infer types for calculated channels and pass through non-calculated", func(ctx SpecContext) {
 			nonCalc := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
@@ -117,12 +117,12 @@ var _ = Describe("Writer", func() {
 			Expect(channels[1].DataType).To(Equal(telem.Float64T))
 		})
 
-		It("Should handle an empty slice without error", func() {
+		It("Should handle an empty slice without error", func(ctx SpecContext) {
 			channels := []svcChannel.Channel{}
 			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
 		})
 
-		It("Should resolve cross-references within the same batch", func() {
+		It("Should resolve cross-references within the same batch", func(ctx SpecContext) {
 			firstName := channel.NewRandomName()
 			channels := []svcChannel.Channel{
 				{
@@ -144,7 +144,7 @@ var _ = Describe("Writer", func() {
 })
 
 var _ = Describe("NewWriter", func() {
-	It("Should create a writer that infers types for calculated channels", func() {
+	It("Should create a writer that infers types for calculated channels", func(ctx SpecContext) {
 		w := svc.NewWriter(nil)
 		ch := svcChannel.Channel{
 			Name:       channel.NewRandomName(),
@@ -158,14 +158,14 @@ var _ = Describe("NewWriter", func() {
 
 var _ = Describe("Service Passthrough", func() {
 	Describe("Group", func() {
-		It("Should return a valid group", func() {
+		It("Should return a valid group", func(ctx SpecContext) {
 			g := svc.Group()
 			Expect(g.Key).ToNot(BeZero())
 		})
 	})
 
 	Describe("NewRetrieve", func() {
-		It("Should retrieve a channel created through the service", func() {
+		It("Should retrieve a channel created through the service", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
@@ -178,22 +178,22 @@ var _ = Describe("Service Passthrough", func() {
 		})
 	})
 
-	Describe("NewObservable", func() {
-		It("Should return a non-nil observable", func() {
-			obs := svc.NewObservable()
+	Describe("Observe", func() {
+		It("Should return a non-nil observable", func(ctx SpecContext) {
+			obs := svc.Observe()
 			Expect(obs).ToNot(BeNil())
 		})
 	})
 
 	Describe("CountExternalNonVirtual", func() {
-		It("Should return a count", func() {
+		It("Should return a count", func(ctx SpecContext) {
 			count := svc.CountExternalNonVirtual()
 			Expect(count).To(BeNumerically(">=", 0))
 		})
 	})
 
 	Describe("Delete", func() {
-		It("Should delete a channel by key", func() {
+		It("Should delete a channel by key", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
@@ -205,7 +205,7 @@ var _ = Describe("Service Passthrough", func() {
 	})
 
 	Describe("DeleteMany", func() {
-		It("Should delete multiple channels by key", func() {
+		It("Should delete multiple channels by key", func(ctx SpecContext) {
 			channels := []svcChannel.Channel{
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
@@ -217,7 +217,7 @@ var _ = Describe("Service Passthrough", func() {
 	})
 
 	Describe("DeleteByName", func() {
-		It("Should delete a channel by name", func() {
+		It("Should delete a channel by name", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
@@ -229,7 +229,7 @@ var _ = Describe("Service Passthrough", func() {
 	})
 
 	Describe("DeleteManyByNames", func() {
-		It("Should delete multiple channels by name", func() {
+		It("Should delete multiple channels by name", func(ctx SpecContext) {
 			channels := []svcChannel.Channel{
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
@@ -241,7 +241,7 @@ var _ = Describe("Service Passthrough", func() {
 	})
 
 	Describe("Rename", func() {
-		It("Should rename a channel", func() {
+		It("Should rename a channel", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
@@ -257,7 +257,7 @@ var _ = Describe("Service Passthrough", func() {
 	})
 
 	Describe("RenameMany", func() {
-		It("Should rename multiple channels", func() {
+		It("Should rename multiple channels", func(ctx SpecContext) {
 			channels := []svcChannel.Channel{
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
@@ -273,7 +273,7 @@ var _ = Describe("Service Passthrough", func() {
 	})
 
 	Describe("MapRename", func() {
-		It("Should rename channels via old-to-new name map", func() {
+		It("Should rename channels via old-to-new name map", func(ctx SpecContext) {
 			ch := svcChannel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,

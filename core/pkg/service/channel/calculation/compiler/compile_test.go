@@ -27,20 +27,19 @@ import (
 )
 
 var (
-	ctx    context.Context
 	arcSvc *arc.Service
 	dist   mock.Node
 )
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(labelSvc.Close()).To(Succeed())
@@ -51,6 +50,7 @@ var _ = BeforeSuite(func() {
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(statusSvc.Close()).To(Succeed())
@@ -61,6 +61,7 @@ var _ = BeforeSuite(func() {
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(rackService.Close()).To(Succeed())
@@ -71,6 +72,7 @@ var _ = BeforeSuite(func() {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(taskSvc.Close()).To(Succeed())
@@ -81,6 +83,7 @@ var _ = BeforeSuite(func() {
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   dist.Search,
 	}))
 })
 
@@ -89,7 +92,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = Describe("Compile", func() {
-	It("Should compile simple expression", func() {
+	It("Should compile simple expression", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
 		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
@@ -109,7 +112,7 @@ var _ = Describe("Compile", func() {
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
 	})
 
-	It("Should compile expression with operations", func() {
+	It("Should compile expression with operations", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
 		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
@@ -129,7 +132,7 @@ var _ = Describe("Compile", func() {
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
 	})
 
-	It("Should compile with multiple dependencies", func() {
+	It("Should compile with multiple dependencies", func(ctx SpecContext) {
 		channels := []channel.Channel{
 			{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			{Name: "base4", DataType: telem.Int64T, Virtual: true},
@@ -151,7 +154,7 @@ var _ = Describe("Compile", func() {
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
 	})
 
-	It("Should fail with invalid expression", func() {
+	It("Should fail with invalid expression", func(ctx SpecContext) {
 		calc := channel.Channel{
 			Name:       "calc4",
 			DataType:   telem.Int64T,

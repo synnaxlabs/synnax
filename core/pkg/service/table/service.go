@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -28,6 +29,9 @@ type ServiceConfig struct {
 	// Ontology is used to define relationships between tables and other entities in the
 	// Synnax resource graph.
 	Ontology *ontology.Ontology
+	// Search is the search index for fuzzy searching tables.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -40,6 +44,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -48,6 +53,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("table")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -65,12 +71,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Table](ctx, cfg.DB)
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Table]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -88,6 +95,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.Ontology.NewWriter(tx),
 		otg:       s.Ontology,
+		tbl:       s.table,
 	}
 }
 
@@ -98,7 +106,7 @@ func (s *Service) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) err
 // NewRetrieve opens a new query build for retrieving logs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Table](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 	}
 }

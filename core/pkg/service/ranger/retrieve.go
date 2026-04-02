@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -24,7 +25,7 @@ import (
 type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Range]
-	otg        *ontology.Ontology
+	search     *search.Index
 	label      *label.Service
 	searchTerm string
 }
@@ -87,8 +88,8 @@ func (r Retrieve) WhereHasLabels(matchLabels ...label.Key) Retrieve {
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: ontology.TypeRange,
+		ids, err := r.search.Search(ctx, search.Request{
+			Type: ontology.ResourceTypeRange,
 			Term: r.searchTerm,
 		})
 		if err != nil {

@@ -245,6 +245,81 @@ describe("queries", () => {
       });
     });
 
+    it("should filter racks by integration", async () => {
+      const niRack = await client.racks.create({
+        name: "ni-rack",
+        integrations: ["ni", "opc"],
+      });
+      const modbusRack = await client.racks.create({
+        name: "modbus-rack",
+        integrations: ["modbus"],
+      });
+
+      const { result } = renderHook(() => Rack.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({ integration: "ni" });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toContain(niRack.key);
+      expect(result.current.data).not.toContain(modbusRack.key);
+    });
+
+    it("should not include racks with no integrations when filtering", async () => {
+      const emptyRack = await client.racks.create({ name: "empty-integrations" });
+
+      const { result } = renderHook(() => Rack.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({ integration: "ni" });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).not.toContain(emptyRack.key);
+    });
+
+    it("should return all racks when no integration filter is set", async () => {
+      const rack1 = await client.racks.create({
+        name: "any-rack-1",
+        integrations: ["ni"],
+      });
+      const rack2 = await client.racks.create({
+        name: "any-rack-2",
+        integrations: ["modbus"],
+      });
+
+      const { result } = renderHook(() => Rack.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({});
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toContain(rack1.key);
+      expect(result.current.data).toContain(rack2.key);
+    });
+
+    it("should remove a rack from the filtered list when its integrations change", async () => {
+      const testRack = await client.racks.create({
+        name: "changing-rack",
+        integrations: ["ni", "opc"],
+      });
+
+      const { result } = renderHook(() => Rack.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({ integration: "ni" });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toContain(testRack.key);
+      });
+
+      await client.racks.create({
+        key: testRack.key,
+        name: "changing-rack",
+        integrations: ["modbus"],
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).not.toContain(testRack.key);
+      });
+    });
+
     it("should update rack status in the list", async () => {
       const testRack = await client.racks.create({
         name: "statusRack",

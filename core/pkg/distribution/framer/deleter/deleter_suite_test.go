@@ -10,16 +10,13 @@
 package deleter_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
-
-func TestWriter(t *testing.T) {
+func TestDeleter(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Deleter Suite")
 }

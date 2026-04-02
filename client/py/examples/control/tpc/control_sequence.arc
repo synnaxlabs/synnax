@@ -1,3 +1,5 @@
+authority 150
+
 start_seq_cmd => main
 
 func control_tpc() {

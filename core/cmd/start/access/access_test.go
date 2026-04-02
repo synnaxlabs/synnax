@@ -31,22 +31,22 @@ var _ = Describe("Access", Ordered, func() {
 		tx    gorp.Tx
 		roles access.ProvisionResult
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		roles = MustSucceed(access.Provision(ctx, tx, svc.RBAC))
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Provision", func() {
-		It("Should create all built-in roles", func() {
+		It("Should create all built-in roles", func(ctx SpecContext) {
 			Expect(roles.OwnerKey).ToNot(Equal(uuid.Nil))
 			Expect(roles.EngineerKey).ToNot(Equal(uuid.Nil))
 			Expect(roles.OperatorKey).ToNot(Equal(uuid.Nil))
 			Expect(roles.ViewerKey).ToNot(Equal(uuid.Nil))
 		})
-		It("Should create policies for each role", func() {
+		It("Should create policies for each role", func(ctx SpecContext) {
 			for _, roleKey := range []uuid.UUID{
 				roles.OwnerKey,
 				roles.EngineerKey,
@@ -62,14 +62,14 @@ var _ = Describe("Access", Ordered, func() {
 				Expect(policies).ToNot(BeEmpty())
 			}
 		})
-		It("Should be idempotent", func() {
+		It("Should be idempotent", func(ctx SpecContext) {
 			roles2 := MustSucceed(access.Provision(ctx, tx, svc.RBAC))
 			Expect(roles2.OwnerKey).To(Equal(roles.OwnerKey))
 			Expect(roles2.EngineerKey).To(Equal(roles.EngineerKey))
 			Expect(roles2.OperatorKey).To(Equal(roles.OperatorKey))
 			Expect(roles2.ViewerKey).To(Equal(roles.ViewerKey))
 		})
-		It("Should update existing policy objects on re-provision", func() {
+		It("Should update existing policy objects on re-provision", func(ctx SpecContext) {
 			// Retrieve the Owner policy and strip its objects
 			var ownerPolicy policy.Policy
 			Expect(svc.RBAC.Policy.NewRetrieve().
@@ -82,7 +82,7 @@ var _ = Describe("Access", Ordered, func() {
 			Expect(originalActions).ToNot(BeEmpty())
 
 			// Remove an object from the policy to simulate a stale DB
-			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
+			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy](nil).
 				WhereKeys(ownerPolicy.Key).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
@@ -105,7 +105,7 @@ var _ = Describe("Access", Ordered, func() {
 
 	Describe("MigratePermissions", func() {
 		Describe("Migration tracking", func() {
-			It("Should only run migration once", func() {
+			It("Should only run migration once", func(ctx SpecContext) {
 				u := &user.User{Username: "testuser1"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
@@ -115,7 +115,7 @@ var _ = Describe("Access", Ordered, func() {
 			})
 		})
 		Describe("Role assignment", func() {
-			It("Should assign Owner role to user with RootUser=true", func() {
+			It("Should assign Owner role to user with RootUser=true", func(ctx SpecContext) {
 				u := &user.User{Username: "rootuser", RootUser: true}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -123,19 +123,19 @@ var _ = Describe("Access", Ordered, func() {
 				hasOwner := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OwnerKey)
 				Expect(hasOwner).To(BeTrue())
 			})
-			It("Should assign Owner role to user with admin policy", func() {
+			It("Should assign Owner role to user with admin policy", func(ctx SpecContext) {
 				u := &user.User{Username: "adminuser"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				adminPolicy := access.LegacyPolicy{
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects: []ontology.ID{
-						{Type: ontology.TypeUser},
+						{Type: ontology.ResourceTypeUser},
 						{Type: "policy"},
 					},
 					Actions: []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&adminPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -143,7 +143,7 @@ var _ = Describe("Access", Ordered, func() {
 				hasOwner := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OwnerKey)
 				Expect(hasOwner).To(BeTrue())
 			})
-			It("Should assign Engineer role to user with schematic policy", func() {
+			It("Should assign Engineer role to user with schematic policy", func(ctx SpecContext) {
 				u := &user.User{Username: "schematicuser"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				schematicPolicy := access.LegacyPolicy{
@@ -154,7 +154,7 @@ var _ = Describe("Access", Ordered, func() {
 					},
 					Actions: []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -162,7 +162,7 @@ var _ = Describe("Access", Ordered, func() {
 				hasEngineer := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.EngineerKey)
 				Expect(hasEngineer).To(BeTrue())
 			})
-			It("Should assign Operator role to user with no special permissions", func() {
+			It("Should assign Operator role to user with no special permissions", func(ctx SpecContext) {
 				u := &user.User{Username: "regularuser"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -170,7 +170,7 @@ var _ = Describe("Access", Ordered, func() {
 				hasOperator := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OperatorKey)
 				Expect(hasOperator).To(BeTrue())
 			})
-			It("Should prioritize RootUser over policies", func() {
+			It("Should prioritize RootUser over policies", func(ctx SpecContext) {
 				u := &user.User{Username: "rootwithschematic", RootUser: true}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				schematicPolicy := access.LegacyPolicy{
@@ -179,7 +179,7 @@ var _ = Describe("Access", Ordered, func() {
 					Objects:  []ontology.ID{{Type: "schematic"}},
 					Actions:  []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
@@ -189,7 +189,7 @@ var _ = Describe("Access", Ordered, func() {
 			})
 		})
 		Describe("Legacy group relationship cleanup", func() {
-			It("Should remove old UsersGroup -> ParentOf -> User relationship", func() {
+			It("Should remove old UsersGroup -> ParentOf -> User relationship", func(ctx SpecContext) {
 				u := &user.User{Username: "legacygroupuser"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				userOntologyID := user.OntologyID(u.Key)
@@ -234,7 +234,7 @@ var _ = Describe("Access", Ordered, func() {
 			})
 		})
 		Describe("Legacy policy cleanup", func() {
-			It("Should delete legacy policies after migration", func() {
+			It("Should delete legacy policies after migration", func(ctx SpecContext) {
 				u := &user.User{Username: "cleanupuser"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				legacyPolicy := access.LegacyPolicy{
@@ -243,13 +243,13 @@ var _ = Describe("Access", Ordered, func() {
 					Objects:  []ontology.ID{{Type: "schematic"}},
 					Actions:  []svcAccess.Action{"all"},
 				}
-				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy](nil).
 					Entry(&legacyPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
 				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				var policies []access.LegacyPolicy
-				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy]().
+				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy](nil).
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())
 				legacyPolicies := make([]access.LegacyPolicy, 0)
@@ -274,7 +274,7 @@ func userHasSpecificRole(
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeRole).
+		WhereTypes(ontology.ResourceTypeRole).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {
 		return false

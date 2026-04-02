@@ -46,7 +46,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(os.RemoveAll(dbPath)).To(Succeed())
 		})
 
-		It("Should handle basic CRUD operations", func() {
+		It("Should handle basic CRUD operations", func(ctx SpecContext) {
 			key := []byte("key")
 			value := []byte("value")
 			Expect(db.Set(ctx, key, value)).To(Succeed())
@@ -61,7 +61,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should handle transactions correctly", func() {
+		It("Should handle transactions correctly", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			key := []byte("tx-key")
 			value := []byte("tx-value")
@@ -82,7 +82,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Get(ctx, rollbackKey)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should not return a value if a transaction hasn't been committed", func() {
+		It("Should not return a value if a transaction hasn't been committed", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			key := []byte("abc-tx-key")
 			value := []byte("abc-tx-value")
@@ -90,7 +90,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Get(ctx, key)).Error().To(HaveOccurredAs(query.ErrNotFound))
 		})
 
-		It("Should iterate over values correctly", func() {
+		It("Should iterate over values correctly", func(ctx SpecContext) {
 			// Setup test data
 			pairs := map[string]string{
 				"a": "1",
@@ -127,7 +127,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(i).To(Equal(len(expected)))
 		})
 
-		It("Should read transaction changes correctly", func() {
+		It("Should read transaction changes correctly", func(ctx SpecContext) {
 			tx := db.OpenTx()
 
 			Expect(tx.Set(ctx, []byte("k1"), []byte("v1"))).To(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Close()).To(Succeed())
 		})
 
-		It("Should handle iterator bounds correctly", func() {
+		It("Should handle iterator bounds correctly", func(ctx SpecContext) {
 			for i := range byte(5) {
 				key := []byte{i}
 				Expect(db.Set(ctx, key, []byte{i + 10})).To(Succeed())
@@ -181,7 +181,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should respect NoSync write options", func() {
+		It("Should respect NoSync write options", func(ctx SpecContext) {
 			key := []byte("nosync-key")
 			value := []byte("nosync-value")
 
@@ -214,7 +214,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should handle transaction Get operations", func() {
+		It("Should handle transaction Get operations", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			key := []byte("tx-get-key")
 			value := []byte("tx-get-value")
@@ -234,11 +234,11 @@ var _ = Describe("PebbleKV", func() {
 			Expect(report["engine"]).To(Equal("pebble"))
 		})
 
-		It("Should handle db.Commit as no-op", func() {
+		It("Should handle db.Commit as no-op", func(ctx SpecContext) {
 			Expect(db.Commit(ctx)).To(Succeed())
 		})
 
-		It("Should immediately return false when opening a reader directly on the DB", func() {
+		It("Should immediately return false when opening a reader directly on the DB", func(ctx SpecContext) {
 			Expect(db.Set(ctx, []byte("reader-key"), []byte("reader-value"))).To(Succeed())
 			reader := db.NewReader()
 			Expect(reader).ToNot(BeNil())
@@ -272,7 +272,7 @@ var _ = Describe("PebbleKV", func() {
 				open(false)
 			})
 
-			It("Should notify observers when using Set", func() {
+			It("Should notify observers when using Set", func(ctx SpecContext) {
 				notified := false
 				var receivedChanges []kv.Change
 
@@ -294,7 +294,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(receivedChanges[0].Value).To(Equal(value))
 			})
 
-			It("Should notify observers when committing a transaction", func() {
+			It("Should notify observers when committing a transaction", func(ctx SpecContext) {
 				notified := false
 				var receivedChanges []kv.Change
 
@@ -324,7 +324,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(receivedChanges[1].Value).To(Equal(value2))
 			})
 
-			It("Should notify observers on Delete operations", func() {
+			It("Should notify observers on Delete operations", func(ctx SpecContext) {
 				notified := false
 				var receivedChanges []kv.Change
 
@@ -347,7 +347,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(receivedChanges[0].Key).To(Equal(key))
 			})
 
-			It("Should provide fresh readers to each subscriber", func() {
+			It("Should provide fresh readers to each subscriber", func(ctx SpecContext) {
 				subscriber1Called := false
 				subscriber2Called := false
 
@@ -374,7 +374,7 @@ var _ = Describe("PebbleKV", func() {
 				open(false)
 			})
 
-			It("Should not panic when using Set without an observer", func() {
+			It("Should not panic when using Set without an observer", func(ctx SpecContext) {
 				key := []byte("no-observer-key")
 				value := []byte("no-observer-value")
 				Expect(db.Set(ctx, key, value)).To(Succeed())
@@ -384,7 +384,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(closer.Close()).To(Succeed())
 			})
 
-			It("Should not panic when committing transactions without an observer", func() {
+			It("Should not panic when committing transactions without an observer", func(ctx SpecContext) {
 				tx := db.OpenTx()
 				key := []byte("no-observer-tx-key")
 				value := []byte("no-observer-tx-value")
@@ -398,7 +398,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(closer.Close()).To(Succeed())
 			})
 
-			It("Should handle Delete operations without an observer", func() {
+			It("Should handle Delete operations without an observer", func(ctx SpecContext) {
 				key := []byte("no-observer-delete-key")
 				value := []byte("no-observer-delete-value")
 
@@ -408,7 +408,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 			})
 
-			It("Should perform basic operations correctly without observers", func() {
+			It("Should perform basic operations correctly without observers", func(ctx SpecContext) {
 				// Multiple operations to ensure no observer-related panics
 				for i := range 10 {
 					key := []byte{byte(100 + i)}
@@ -426,7 +426,7 @@ var _ = Describe("PebbleKV", func() {
 				}
 			})
 
-			It("Should handle batch operations in transactions without observers", func() {
+			It("Should handle batch operations in transactions without observers", func(ctx SpecContext) {
 				tx := db.OpenTx()
 
 				// Batch set

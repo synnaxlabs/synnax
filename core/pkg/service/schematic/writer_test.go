@@ -16,15 +16,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Schematic", func() {
+		It("Should create a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -34,38 +32,37 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a Schematic", func() {
+		It("Should rename a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
 			var res schematic.Schematic
-			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a Schematic", func() {
+		It("Should set the data of a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res schematic.Schematic
-			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})
 
 	Describe("Service Delete", func() {
-		It("Should delete a Schematic via the service", func() {
+		It("Should delete a Schematic via the service", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, s.Key)).To(Succeed())
 			var res schematic.Schematic
-			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().
-				WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 	Describe("Copy", func() {
-		It("Should copy a Schematic with a new name under the same workspace", func() {
+		It("Should copy a Schematic with a new name under the same workspace", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic
@@ -77,7 +74,7 @@ var _ = Describe("Writer", func() {
 			keys := lo.Map(res, func(r ontology.Resource, _ int) string { return r.ID.Key })
 			Expect(keys).To(ContainElement(cpy.Key.String()))
 		})
-		It("Should copy a Schematic into a snapshot that cannot be modified", func() {
+		It("Should copy a Schematic into a snapshot that cannot be modified", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic

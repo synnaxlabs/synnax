@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/synnaxlabs/x/binary"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 )
 
 var (
@@ -47,7 +47,7 @@ func (a Alignment) String() string {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (a *Alignment) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringUint64(b)
+	n, err := xjson.UnmarshalStringUint64(b)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (a *Alignment) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON implements json.Marshaler.
 func (a Alignment) MarshalJSON() ([]byte, error) {
-	return binary.MarshalStringUint64(uint64(a))
+	return xjson.MarshalStringUint64(uint64(a))
 }
 
 // AddSamples increments the sample index of the alignment.
