@@ -58,7 +58,7 @@ export class StreamMultiChannelLog
   private stopStreaming?: destructor.Destructor;
   private valid = false;
   private _evictedCount: number = 0;
-  private _channels: Array<number | string> = [];
+  private _channels: channel.Key[] = [];
   private readGeneration = 0;
 
   get evictedCount(): number {
@@ -75,7 +75,9 @@ export class StreamMultiChannelLog
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     this.now = now;
-    this._channels = this.props.channels;
+    this._channels = this.props.channels.filter(
+      (ch): ch is number => typeof ch === "number",
+    );
   }
 
   value(): LogEntry[] {
@@ -84,7 +86,7 @@ export class StreamMultiChannelLog
     return this.entries;
   }
 
-  setChannels(channels: Array<number | string>): void {
+  setChannels(channels: channel.Key[]): void {
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
     this.valid = false;
@@ -145,7 +147,7 @@ export class StreamMultiChannelLog
               const raw = buf.at(i, true);
               this.entries.push({
                 channelKey: chMeta.key,
-                timestamp: now.valueOf(),
+                timestamp: now,
                 value: isJSON ? JSON.stringify(raw) : String(raw),
               });
               pushed++;
@@ -197,7 +199,7 @@ export class StreamMultiChannelLog
   // the caller can adjust scroll offset and selection indices.
   private gcEntries(): number {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
-    const threshold = this.now().sub(keepFor).valueOf();
+    const threshold = this.now().sub(keepFor);
     // Single splice instead of shift() loop to avoid O(n²).
     const cutoff = this.entries.findIndex((e) => e.timestamp >= threshold);
     let evicted = 0;

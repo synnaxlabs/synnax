@@ -9,54 +9,25 @@
 
 import "@/log/Log.css";
 
-import { box, location, type optional, strings } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
-import { type z } from "zod";
+import { box, location, strings } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useRef } from "react";
 
-import { Aether } from "@/aether";
 import { Button } from "@/button";
-import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { log } from "@/log/aether";
-import { useMemoDeepEqual } from "@/memo";
+import { use,type UseProps } from "@/log/use";
 import { Menu } from "@/menu";
 import { Status } from "@/status/base";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
-
 
 const COPY_FLASH_DURATION_MS = 150;
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];
 const ESCAPE_TRIGGER: Triggers.Trigger = ["Escape"];
 
-// Worker-computed fields that the caller should not pass as props.
-export interface LogProps
-  extends
-    optional.Optional<
-      Omit<
-        z.input<typeof log.logState>,
-        | "region"
-        | "scrollPosition"
-        | "scrollback"
-        | "empty"
-        | "scrolling"
-        | "wheelPos"
-        | "selectionStart"
-        | "selectionEnd"
-        | "visibleStart"
-        | "selectedText"
-        | "selectedLines"
-        | "computedLineHeight"
-        | "copyFlash"
-        | "channelNames"
-      >,
-      "visible"
-    >,
-    Omit<Flex.BoxProps, "color">,
-    Aether.ComponentProps {
+export interface LogProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
 }
 
@@ -64,11 +35,11 @@ export const Log = ({
   aetherKey,
   font,
   className,
-  visible = true,
-  showChannelNames = true,
-  showReceiptTimestamp = true,
-  timestampPrecision = 0,
-  channels = [],
+  visible,
+  showChannelNames,
+  showReceiptTimestamp,
+  timestampPrecision,
+  channels,
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
       Empty Log
@@ -78,45 +49,18 @@ export const Log = ({
   telem,
   ...rest
 }: LogProps): ReactElement | null => {
-  const numericChannels = useMemo(
-    () =>
-      channels
-        .map((e) => e.channel)
-        .filter((ch): ch is number => typeof ch === "number" && ch > 0),
-    [channels],
-  );
-  const { data: retrievedChannels } = Channel.useRetrieveMultiple({
-    keys: numericChannels,
-  });
-  const channelNames = useMemo(() => {
-    const names: Record<string, string> = {};
-    if (retrievedChannels != null)
-      for (const ch of retrievedChannels) names[String(ch.key)] = ch.name;
-    return names;
-  }, [retrievedChannels]);
-
-  const memoProps = useMemoDeepEqual({
+  const { state, setState } = use({
+    aetherKey,
     font,
-    color,
-    telem,
     visible,
     showChannelNames,
     showReceiptTimestamp,
     timestampPrecision,
-    channelNames,
     channels,
+    color,
+    telem,
   });
-  const [, state, setState] = Aether.use({
-    type: log.Log.TYPE,
-    schema: log.logState,
-    initialState: {
-      empty: true,
-      region: box.ZERO,
-      scrolling: false,
-      wheelPos: 0,
-      ...memoProps,
-    },
-  });
+
   const {
     scrolling,
     empty,
@@ -127,10 +71,6 @@ export const Log = ({
     computedLineHeight,
     entryCount,
   } = state;
-
-  useEffect(() => {
-    setState((s) => ({ ...s, ...memoProps }));
-  }, [memoProps, setState]);
 
   const resizeRef = Canvas.useRegion(
     useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),

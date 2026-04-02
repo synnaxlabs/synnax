@@ -25,16 +25,21 @@ import { telemTest } from "@/telem/aether/test";
 export interface CreateTestWrapperOptions {
   registry: aether.ComponentRegistry;
   client?: SynnaxClient | null;
+  telemFactories?: telem.Factory[];
 }
 
 export const createTestWrapper = (
   options: CreateTestWrapperOptions,
 ): FC<PropsWithChildren> => {
-  const { registry, client = null } = options;
+  const { registry, client = null, telemFactories = [] } = options;
 
   const TelemProvider = telem.createProvider(
     () =>
-      new telem.CompoundFactory([new telemTest.TestFactory(), new telem.NoopFactory()]),
+      new telem.CompoundFactory([
+        new telemTest.TestFactory(),
+        new telem.NoopFactory(),
+        ...telemFactories,
+      ]),
   );
 
   const AetherProvider = aetherTest.createProvider({
@@ -59,3 +64,6 @@ export const createTestWrapper = (
 
   return TestWrapper;
 };
+
+// DONE: accepts custom telem factories via telemFactories option.
+

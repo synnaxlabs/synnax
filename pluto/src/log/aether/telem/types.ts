@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, type TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { type Source, sourceSpecZ } from "@/telem/aether/telem";
 
 export interface LogEntry {
-  channelKey: number;
-  timestamp: bigint;
+  channelKey: channel.Key;
+  timestamp: TimeStamp;
   value: string;
 }
 
 export interface LogSource extends Source<LogEntry[]> {
+  // Required on the interface (not just StreamMultiChannelLog) because the aether
+  // Log class uses it to adjust scroll offset and selection after GC.
   readonly evictedCount: number;
-  setChannels?: (channels: Array<number | string>) => void;
+  setChannels?: (channels: channel.Key[]) => void;
 }
 
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });

@@ -31,7 +31,7 @@ vi.mock("@/aether", async (importOriginal) => {
       use: (...args: unknown[]) => {
         const opts = args[0] as { type?: string } | undefined;
         if (opts?.type === "log") return mockAetherUse(...args);
-        return (realAether.use as Function)(...args);
+        return (realAether.use as (...a: unknown[]) => unknown)(...args);
       },
     },
   };

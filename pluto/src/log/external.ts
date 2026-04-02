@@ -12,3 +12,4 @@ export { streamMultiChannelLog } from "@/log/aether/telem/sources";
 export * from "@/log/Icons";
 export * from "@/log/Log";
 export * from "@/log/queries";
+export * from "@/log/use";

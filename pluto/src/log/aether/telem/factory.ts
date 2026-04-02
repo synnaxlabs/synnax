@@ -9,7 +9,7 @@
 
 import { NoopLogSource } from "@/log/aether/telem/noop";
 import { StreamMultiChannelLog } from "@/log/aether/telem/sources";
-import { telem } from "@/telem/aether";
+import { type telem } from "@/telem/aether";
 
 export class LogFactory implements telem.Factory {
   type = "log";

@@ -12,67 +12,69 @@ import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channelConfigZ, Log, logState } from "@/log/aether/Log";
-import { type LogEntry } from "@/log/aether/types";
+import {
+  MockLogSource,
+  mockLogSourceSpec,
+  registerMockLogSource,
+} from "@/log/aether/telem/mock";
+import { type LogEntry } from "@/log/aether/telem/types";
+import { Context as TelemContext } from "@/telem/aether/context";
+import { CompoundFactory } from "@/telem/aether/factory";
+import { TestFactory } from "@/telem/aether/test/factory";
+import { mockRenderContext } from "@/testutil/render";
 import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
 
 const MockSender = { send: vi.fn() };
 
 const THEME: Theme = themeZ.parse(SYNNAX_DARK);
 
-const mockLogSource = (entries: LogEntry[] = []) => ({
-  value: vi.fn(() => entries),
-  evictedCount: 0,
-  cleanup: vi.fn(),
-  onChange: vi.fn((_cb: () => void) => () => {}),
-  setChannels: vi.fn(),
-});
-
-const mockCanvas2DContext = () => ({
-  setLineDash: vi.fn(),
-  beginPath: vi.fn(),
-  closePath: vi.fn(),
-  stroke: vi.fn(),
-  fill: vi.fn(),
-  rect: vi.fn(),
-  roundRect: vi.fn(),
-  fillText: vi.fn(),
-  strokeRect: vi.fn(),
-  fillRect: vi.fn(),
-  save: vi.fn(),
-  restore: vi.fn(),
-  clip: vi.fn(),
-  clearRect: vi.fn(),
-  moveTo: vi.fn(),
-  lineTo: vi.fn(),
-  arc: vi.fn(),
-  fillStyle: "",
-  strokeStyle: "",
-  lineWidth: 1,
-  font: "",
-  measureText: vi.fn(() => ({ width: 8 })),
-});
-
-const mockRenderContext = () => {
-  const ctx2d = mockCanvas2DContext();
-  return {
-    loop: { set: vi.fn() },
-    erase: vi.fn(),
-    scissor: vi.fn(() => vi.fn()),
-    lower2d: {
-      canvas: { width: 800, height: 600 },
-      getContext: vi.fn(() => ctx2d),
-      ...ctx2d,
-      font: "",
-      scissor: vi.fn(() => vi.fn()),
-    },
+// DONE: uses registerInstance pattern from telem/aether/test/factory.ts.
+// The test owns the source instance and registers it before afterUpdate runs.
+let testIdCounter = 0;
+const createLogContext = (
+  entries: LogEntry[] = [],
+  theme: Theme = THEME,
+): {
+  log: Log;
+  source: MockLogSource;
+  renderCtx: ReturnType<typeof mockRenderContext>;
+  updateState: (overrides: Record<string, unknown>) => void;
+} => {
+  const testId = `log-test-${++testIdCounter}`;
+  const source = new MockLogSource();
+  registerMockLogSource(testId, source);
+  const telemCtx = new TelemContext(new CompoundFactory([new TestFactory()]));
+  const renderCtx = mockRenderContext();
+  const parentCtx = new Map<string, unknown>([
+    ["pluto-theming-context", theme],
+    ["pluto-render-context", renderCtx],
+    ["pluto-telem-context", telemCtx],
+  ]);
+  const log = createLog(parentCtx);
+  const spec = mockLogSourceSpec(testId);
+  const updateState = (overrides: Record<string, unknown>) => {
+    log._updateState({
+      path: ["test-log"],
+      state: logState.parse({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        telem: spec,
+        ...overrides,
+      }),
+      type: "log",
+      create: () => log,
+    });
   };
+  // Initial update wires the source via TestFactory's registerInstance lookup.
+  updateState({});
+  source.push(...entries);
+  // Second update so Log reads the entries.
+  updateState({});
+  return { log, source, renderCtx, updateState };
 };
-
-const mockTelemContext = (source: ReturnType<typeof mockLogSource>) => ({
-  key: "test-telem-ctx",
-  create: vi.fn(() => source),
-  child: vi.fn(),
-});
 
 const createLog = (parentCtx?: Map<string, unknown>) => {
   const ctx = parentCtx ?? new Map<string, unknown>();
@@ -89,7 +91,7 @@ const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
 const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   channelKey,
-  timestamp: BigInt(TimeStamp.milliseconds(i * 1000).valueOf()),
+  timestamp: TimeStamp.milliseconds(i * 1000),
   value: String(i),
 });
 
@@ -100,32 +102,35 @@ const setupWithContext = (
   theme: Theme = THEME,
 ): {
   log: Log;
-  source: ReturnType<typeof mockLogSource>;
+  source: MockLogSource;
   renderCtx: ReturnType<typeof mockRenderContext>;
 } => {
-  const source = mockLogSource(entries);
+  const testId = `log-setup-${++testIdCounter}`;
+  const source = new MockLogSource();
+  registerMockLogSource(testId, source);
+  const telemCtx = new TelemContext(new CompoundFactory([new TestFactory()]));
   const renderCtx = mockRenderContext();
-  const telemCtx = mockTelemContext(source);
   const parentCtx = new Map<string, unknown>([
     ["pluto-theming-context", theme],
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
   const log = createLog(parentCtx);
+  const spec = mockLogSourceSpec(testId);
   const state = logState.parse({
     region,
     wheelPos: 0,
     scrolling: false,
     empty: true,
     visible: true,
+    telem: spec,
     ...stateOverrides,
   });
-  log._updateState({
-    path: ["test-log"],
-    state,
-    type: "log",
-    create: () => log,
-  });
+  // First update wires the source via TestFactory lookup.
+  log._updateState({ path: ["test-log"], state, type: "log", create: () => log });
+  // Push entries and re-run so the Log reads them.
+  source.push(...entries);
+  log._updateState({ path: ["test-log"], state, type: "log", create: () => log });
   return { log, source, renderCtx };
 };
 
@@ -193,43 +198,25 @@ describe("log/aether/Log", () => {
 
     it("should enter scrollback when scrolling transitions from false to true", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, updateState } = createLogContext(entries);
 
       // First update: not scrolling
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
           empty: true,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Second update: start scrolling
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 100,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Scrollback should be initialized with current entry count
       expect(log.scrollState.offset).toBe(entries.length);
@@ -356,12 +343,17 @@ describe("log/aether/Log", () => {
   });
 
   describe("channel management", () => {
-    it("should call setChannels on telem source", () => {
-      const entries = [makeEntry(0)];
-      const { source } = setupWithContext(entries, REGION_500, {
+    it("should pass channel keys to telem source", () => {
+      const { source } = setupWithContext([], REGION_500, {
         channels: [{ channel: 1 }, { channel: 2 }, { channel: 3 }],
       });
-      expect(source.setChannels).toHaveBeenCalledWith([1, 2, 3]);
+      // afterUpdate calls setChannels on the source. Verify the filter works
+      // by pushing entries for configured and unconfigured channels.
+      source.push(makeEntry(0, 1), makeEntry(1, 2), makeEntry(2, 99));
+      const keys = source.value().map((e) => e.channelKey);
+      expect(keys).toContain(1);
+      expect(keys).toContain(2);
+      expect(keys).not.toContain(99);
     });
   });
 
@@ -398,60 +390,37 @@ describe("log/aether/Log", () => {
   describe("scrollback with continued scrolling", () => {
     it("should adjust offset based on wheel position delta", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, updateState } = createLogContext(entries);
 
       // First update: not scrolling
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
           empty: true,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Enter scrollback
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 100,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       const initialOffset = log.scrollState.offset;
       expect(initialOffset).toBe(entries.length);
 
       // Continue scrolling (wheel position changes)
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 200,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Offset should have changed based on the wheel delta
       expect(log.scrollState.offset).toBeLessThanOrEqual(entries.length);
@@ -460,55 +429,32 @@ describe("log/aether/Log", () => {
 
     it("should exit scrollback when offset reaches entry count", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
           empty: true,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 100,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Scroll back down past the end (large negative delta from scrollRef)
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: -5000,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Should have exited scrollback
       expect(log.state.scrolling).toBe(false);
@@ -518,19 +464,9 @@ describe("log/aether/Log", () => {
   describe("selection clamping on eviction", () => {
     it("should adjust selection indices when entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, source, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
@@ -538,16 +474,12 @@ describe("log/aether/Log", () => {
           visible: true,
           selectionStart: 5,
           selectionEnd: 10,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Simulate eviction via the onChange callback
-      const onChangeCallback = source.onChange.mock.calls[0][0];
       source.evictedCount = 3;
-      source.value.mockReturnValue(entries.slice(3));
-      onChangeCallback();
+      source.setEntries(entries.slice(3));
+      source.notify();
 
       // Selection should be adjusted by evictedCount
       expect(log.state.selectionStart).toBe(2);
@@ -556,19 +488,9 @@ describe("log/aether/Log", () => {
 
     it("should clear selection when all selected entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, source, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
@@ -576,16 +498,12 @@ describe("log/aether/Log", () => {
           visible: true,
           selectionStart: 0,
           selectionEnd: 2,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Evict more than the selection range
-      const onChangeCallback = source.onChange.mock.calls[0][0];
       source.evictedCount = 5;
-      source.value.mockReturnValue(entries.slice(5));
-      onChangeCallback();
+      source.setEntries(entries.slice(5));
+      source.notify();
 
       expect(log.state.selectionStart).toBe(-1);
       expect(log.state.selectionEnd).toBe(-1);
@@ -594,19 +512,9 @@ describe("log/aether/Log", () => {
 
     it("should not modify selection when no entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, source, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
@@ -614,15 +522,11 @@ describe("log/aether/Log", () => {
           visible: true,
           selectionStart: 5,
           selectionEnd: 10,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // No eviction
-      const onChangeCallback = source.onChange.mock.calls[0][0];
       source.evictedCount = 0;
-      onChangeCallback();
+      source.notify();
 
       expect(log.state.selectionStart).toBe(5);
       expect(log.state.selectionEnd).toBe(10);
@@ -630,19 +534,9 @@ describe("log/aether/Log", () => {
 
     it("should clamp selectionStart to 0 when partially evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, source, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
@@ -650,16 +544,12 @@ describe("log/aether/Log", () => {
           visible: true,
           selectionStart: 2,
           selectionEnd: 8,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Evict 4 entries — start goes negative, end stays positive
-      const onChangeCallback = source.onChange.mock.calls[0][0];
       source.evictedCount = 4;
-      source.value.mockReturnValue(entries.slice(4));
-      onChangeCallback();
+      source.setEntries(entries.slice(4));
+      source.notify();
 
       expect(log.state.selectionStart).toBe(0);
       expect(log.state.selectionEnd).toBe(4);
@@ -669,51 +559,32 @@ describe("log/aether/Log", () => {
   describe("scrollback offset adjustment on eviction", () => {
     it("should reduce scroll offset when entries are evicted during scrollback", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, source, updateState } = createLogContext(entries);
 
       // First update: not scrolling
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
           empty: true,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Enter scrollback
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 100,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       const offsetBeforeEviction = log.scrollState.offset;
 
       // Simulate eviction
-      const onChangeCallback = source.onChange.mock.calls[0][0];
       source.evictedCount = 10;
-      source.value.mockReturnValue(entries.slice(10));
-      onChangeCallback();
+      source.setEntries(entries.slice(10));
+      source.notify();
 
       expect(log.scrollState.offset).toBe(offsetBeforeEviction - 10);
     });
@@ -762,42 +633,24 @@ describe("log/aether/Log", () => {
   describe("render with scrollback", () => {
     it("should render the correct slice when scrolled back", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
           empty: true,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       // Enter scrollback
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 100,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       const result = log.render();
       expect(result).toBeTypeOf("function");
@@ -837,7 +690,7 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         {
           channelKey: 1,
-          timestamp: BigInt(TimeStamp.milliseconds(1000).valueOf()),
+          timestamp: TimeStamp.milliseconds(1000),
           value: "3.14159265",
         },
       ];
@@ -854,7 +707,7 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         {
           channelKey: 1,
-          timestamp: BigInt(TimeStamp.milliseconds(1000).valueOf()),
+          timestamp: TimeStamp.milliseconds(1000),
           value: "12345",
         },
       ];
@@ -973,41 +826,23 @@ describe("log/aether/Log", () => {
   describe("render scrollbar", () => {
     it("should render scrollbar when scrolling with many entries", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const source = mockLogSource(entries);
-      const renderCtx = mockRenderContext();
-      const telemCtx = mockTelemContext(source);
-      const parentCtx = new Map<string, unknown>([
-        ["pluto-theming-context", THEME],
-        ["pluto-render-context", renderCtx],
-        ["pluto-telem-context", telemCtx],
-      ]);
-      const log = createLog(parentCtx);
+      const { log, updateState } = createLogContext(entries);
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 0,
           scrolling: false,
           empty: true,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
-      log._updateState({
-        path: ["test-log"],
-        state: logState.parse({
+      updateState({
           region: REGION_500,
           wheelPos: 100,
           scrolling: true,
           empty: false,
           visible: true,
-        }),
-        type: "log",
-        create: () => log,
-      });
+        });
 
       const result = log.render();
       expect(result).toBeTypeOf("function");
@@ -1069,8 +904,9 @@ describe("log/aether/Log", () => {
     it("should clean up telem and erase render region", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log, source, renderCtx } = setupWithContext(entries);
+      const cleanupSpy = vi.spyOn(source, "cleanup");
       log.afterDelete();
-      expect(source.cleanup).toHaveBeenCalled();
+      expect(cleanupSpy).toHaveBeenCalled();
       expect(renderCtx.erase).toHaveBeenCalled();
     });
   });

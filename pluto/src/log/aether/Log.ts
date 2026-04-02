@@ -21,6 +21,7 @@ import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+
 import { noopLogSourceSpec } from "./telem/noop";
 
 export const channelConfigZ = z.object({
@@ -155,7 +156,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
     const channelsChanged = channelEntries !== prevEntries;
-    const channelKeys = channelEntries.map((e) => e.channel);
+    const channelKeys = channelEntries
+      .map((e) => e.channel)
+      .filter((ch): ch is number => typeof ch === "number");
     const configs: Record<string, z.infer<typeof channelConfigZ>> = {};
     for (const entry of channelEntries) configs[String(entry.channel)] = entry;
 
