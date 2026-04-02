@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Codec is an interface that extends binary.Codec to
+// Codec is an interface that extends encoding.Codec to
 // add an HTTP content-type.
 type Codec interface {
 	ContentType() string

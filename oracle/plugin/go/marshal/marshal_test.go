@@ -56,7 +56,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						"package test",
 						"w.String(s.Name)",
 						"w.Int32(int32(s.Age))",
-						"TestCodec xbinary.Codec",
+						"TestCodec xencoding.Codec",
 						"func EncodeTest(w *orc.Writer",
 						"func DecodeTest(r *orc.Reader",
 					)
@@ -138,7 +138,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec xbinary.Codec")
+					ToContain("TestCodec xencoding.Codec")
 			})
 		})
 
@@ -164,7 +164,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("GraphCodec xbinary.Codec")
+					ToContain("GraphCodec xencoding.Codec")
 			})
 		})
 
@@ -186,7 +186,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec xbinary.Codec")
+					ToContain("TestCodec xencoding.Codec")
 			})
 		})
 
@@ -217,7 +217,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
-					ToContain("TestCodec xbinary.Codec")
+					ToContain("TestCodec xencoding.Codec")
 			})
 		})
 
@@ -310,7 +310,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"ContainerCodec xbinary.Codec",
+						"ContainerCodec xencoding.Codec",
 						"EncodeType(w, &s.Type)",
 						"DecodeType(r, &s.Type)",
 					)
