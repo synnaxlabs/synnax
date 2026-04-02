@@ -68,6 +68,8 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/synnaxlabs/alamos v0.0.0 // indirect
 	github.com/uptrace/uptrace-go v1.41.0 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.lsp.dev/pkg v0.0.0-20210717090340-384b27a52fb2 // indirect
 	go.lsp.dev/uri v0.3.0 // indirect

@@ -9,18 +9,14 @@
 
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"testing"
 
-// Flag constants for type safety
-const (
-	verboseFlag = "verbose"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func configureRootFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolP(
-		verboseFlag,
-		"v",
-		false,
-		"Verbose output",
-	)
+func TestCmd(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cmd Suite")
 }

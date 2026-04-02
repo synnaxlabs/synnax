@@ -7,20 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package keywords_test
 
-import "github.com/spf13/cobra"
+import (
+	"testing"
 
-// Flag constants for type safety
-const (
-	verboseFlag = "verbose"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func configureRootFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolP(
-		verboseFlag,
-		"v",
-		false,
-		"Verbose output",
-	)
+func TestKeywords(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Keywords Suite")
 }
