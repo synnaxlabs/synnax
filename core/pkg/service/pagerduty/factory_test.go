@@ -10,6 +10,7 @@
 package pagerduty_test
 
 import (
+	"context"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -96,7 +97,7 @@ var _ = Describe("Factory", func() {
 			factory driver.Factory
 		)
 
-		BeforeEach(func(specCtx SpecContext) {
+		BeforeEach(func() {
 			sender = newMockSender()
 			factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
 				Status: statusSvc,
@@ -106,27 +107,27 @@ var _ = Describe("Factory", func() {
 
 		Describe("ConfigureTask", func() {
 			It("Should return ErrTaskNotHandled for non-pagerduty types",
-				func(specCtx SpecContext) {
+				func(ctx context.Context) {
 					t := task.Task{Key: 1, Name: "test", Type: "modbus_read"}
-					Expect(factory.ConfigureTask(specCtx, t)).Error().
+					Expect(factory.ConfigureTask(ctx, t)).Error().
 						To(MatchError(driver.ErrTaskNotHandled))
 				},
 			)
 
 			It("Should return an error for invalid config JSON",
-				func(specCtx SpecContext) {
+				func(ctx context.Context) {
 					t := task.Task{
 						Key:    1,
 						Name:   "test",
 						Type:   pd.AlertTaskType,
 						Config: binary.MsgpackEncodedJSON{"invalid": func() {}},
 					}
-					Expect(factory.ConfigureTask(specCtx, t)).Error().
+					Expect(factory.ConfigureTask(ctx, t)).Error().
 						To(MatchError(ContainSubstring("json")))
 				})
 
 			It("Should return a validation error for invalid routing key length",
-				func(specCtx SpecContext) {
+				func(ctx context.Context) {
 					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: "tooshort",
 						Alerts: []pd.AlertConfig{
@@ -137,13 +138,13 @@ var _ = Describe("Factory", func() {
 						Key: 1, Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
-					Expect(factory.ConfigureTask(specCtx, t)).Error().
+					Expect(factory.ConfigureTask(ctx, t)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 				},
 			)
 
 			It("Should return a validation error when no alerts are enabled",
-				func(specCtx SpecContext) {
+				func(ctx context.Context) {
 					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: strings.Repeat("a", 32),
 						Alerts: []pd.AlertConfig{
@@ -154,13 +155,13 @@ var _ = Describe("Factory", func() {
 						Key: 1, Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
-					Expect(factory.ConfigureTask(specCtx, t)).Error().
+					Expect(factory.ConfigureTask(ctx, t)).Error().
 						To(MatchError(ContainSubstring("alerts")))
 				},
 			)
 
 			It("Should configure a task successfully without auto-start",
-				func(specCtx SpecContext) {
+				func(ctx context.Context) {
 					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: strings.Repeat("a", 32),
 						AutoStart:  false,
@@ -172,12 +173,12 @@ var _ = Describe("Factory", func() {
 						Key: 1, Name: "PagerDuty Test",
 						Type: pd.AlertTaskType, Config: cfg,
 					}
-					tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
+					tsk := MustSucceed(factory.ConfigureTask(ctx, t))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 						WhereKeys(task.OntologyID(t.Key).String()).
-						Entry(&stat).Exec(specCtx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Task configured successfully"))
 					Expect(stat.Details.Running).To(BeFalse())
@@ -185,7 +186,7 @@ var _ = Describe("Factory", func() {
 				},
 			)
 
-			It("Should configure and auto-start a task", func(specCtx SpecContext) {
+			It("Should configure and auto-start a task", func(ctx context.Context) {
 				cfg := MustSucceed(pd.AlertTaskConfig{
 					RoutingKey: strings.Repeat("a", 32),
 					AutoStart:  true,
@@ -197,12 +198,12 @@ var _ = Describe("Factory", func() {
 					Key: 1, Name: "PagerDuty Test",
 					Type: pd.AlertTaskType, Config: cfg,
 				}
-				tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 					WhereKeys(task.OntologyID(t.Key).String()).
-					Entry(&stat).Exec(specCtx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Task started successfully"))
 				Expect(stat.Details.Running).To(BeTrue())

@@ -41,7 +41,7 @@ var (
 	closer    xio.MultiCloser
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func(ctx context.Context) {
 	db = gorp.Wrap(memkv.New())
 	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustSucceed(search.Open())
@@ -92,9 +92,9 @@ func (m *mockEventSender) SendEvent(
 	return &pagerduty.V2EventResponse{Status: "success", DedupKey: event.DedupKey}, nil
 }
 
-func (m *mockEventSender) SendCallCount() int32 { return m.sendCalls.Load() }
+func (m *mockEventSender) sendCallCount() int32 { return m.sendCalls.Load() }
 
-func (m *mockEventSender) Events() []pagerduty.V2Event {
+func (m *mockEventSender) getEvents() []pagerduty.V2Event {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cp := make([]pagerduty.V2Event, len(m.events))
@@ -102,13 +102,13 @@ func (m *mockEventSender) Events() []pagerduty.V2Event {
 	return cp
 }
 
-func (m *mockEventSender) SetError(err error) {
+func (m *mockEventSender) setError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.err = err
 }
 
-func (m *mockEventSender) SetAPIResponse(response *pagerduty.V2EventResponse) {
+func (m *mockEventSender) setAPIResponse(response *pagerduty.V2EventResponse) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.response = response

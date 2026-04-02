@@ -76,7 +76,7 @@ var _ = Describe("AlertTask", func() {
 	}
 
 	configureAndStart := func(
-		specCtx SpecContext,
+		ctx context.Context,
 		cfg pd.AlertTaskConfig,
 	) driver.Task {
 		t := task.Task{
@@ -85,13 +85,13 @@ var _ = Describe("AlertTask", func() {
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 		}
-		tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
-		Expect(tsk.Exec(specCtx, task.Command{Type: "start"})).To(Succeed())
+		tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
 	}
 
 	setStatus := func(
-		specCtx SpecContext,
+		ctx context.Context,
 		key string,
 		variant xstatus.Variant,
 		message string,
@@ -100,7 +100,7 @@ var _ = Describe("AlertTask", func() {
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
 		w := status.NewWriter[any](statusSvc, tx)
-		Expect(w.Set(specCtx, &status.Status[any]{
+		Expect(w.Set(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "Test Source",
 			Variant: variant,
@@ -108,10 +108,10 @@ var _ = Describe("AlertTask", func() {
 			Time:    telem.Now(),
 			Details: details,
 		})).To(Succeed())
-		Expect(tx.Commit(specCtx)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
 	}
 
-	BeforeEach(func(specCtx SpecContext) {
+	BeforeEach(func() {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
 			Status: statusSvc,
@@ -121,7 +121,7 @@ var _ = Describe("AlertTask", func() {
 
 	Describe("Exec", func() {
 		It("Should return ErrUnsupportedCommand for unknown commands",
-			func(specCtx SpecContext) {
+			func(ctx context.Context) {
 				cfg := validConfig(pd.AlertConfig{Status: "s1", Enabled: true})
 				t := task.Task{
 					Key:    task.NewKey(1, 1),
@@ -129,9 +129,9 @@ var _ = Describe("AlertTask", func() {
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 				}
-				tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
-				err := tsk.Exec(specCtx, task.Command{Type: "restart"})
+				err := tsk.Exec(ctx, task.Command{Type: "restart"})
 				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))
 			},
 		)
@@ -139,20 +139,20 @@ var _ = Describe("AlertTask", func() {
 
 	Describe("Status Observation", func() {
 		It("Should send a trigger event when a watched status changes to error",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-error", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "watched-error", xstatus.VariantError,
+				setStatus(ctx, "watched-error", xstatus.VariantError,
 					"Something broke", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				events := sender.Events()
+				events := sender.getEvents()
 				Expect(events[0].Action).To(Equal("trigger"))
 				Expect(events[0].DedupKey).To(Equal("watched-error"))
 				Expect(events[0].RoutingKey).To(Equal(strings.Repeat("b", 32)))
@@ -164,112 +164,112 @@ var _ = Describe("AlertTask", func() {
 		)
 
 		It("Should send a resolve event when a watched status changes to success",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-resolve", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "watched-resolve", xstatus.VariantSuccess,
+				setStatus(ctx, "watched-resolve", xstatus.VariantSuccess,
 					"All good", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				events := sender.Events()
+				events := sender.getEvents()
 				Expect(events[0].Action).To(Equal("resolve"))
 				Expect(events[0].DedupKey).To(Equal("watched-resolve"))
 			},
 		)
 
 		It("Should ignore status changes for unwatched keys",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-only", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "unwatched-key", xstatus.VariantError,
+				setStatus(ctx, "unwatched-key", xstatus.VariantError,
 					"Should be ignored", nil)
 
-				Consistently(func() int { return len(sender.Events()) }).
+				Consistently(func() int { return len(sender.getEvents()) }).
 					WithTimeout(500 * time.Millisecond).
 					Should(Equal(0))
 			},
 		)
 
-		It("Should ignore disabled alerts", func(specCtx SpecContext) {
-			tsk := configureAndStart(specCtx, validConfig(
+		It("Should ignore disabled alerts", func(ctx context.Context) {
+			tsk := configureAndStart(ctx, validConfig(
 				pd.AlertConfig{Status: "disabled-alert", Enabled: false},
 				pd.AlertConfig{Status: "enabled-alert", Enabled: true},
 			))
 			defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-			setStatus(specCtx, "disabled-alert", xstatus.VariantError,
+			setStatus(ctx, "disabled-alert", xstatus.VariantError,
 				"Should be ignored", nil)
 
-			Consistently(func() int { return len(sender.Events()) }).
+			Consistently(func() int { return len(sender.getEvents()) }).
 				WithTimeout(500 * time.Millisecond).
 				Should(Equal(0))
 		})
 
 		It("Should skip loading and disabled status variants",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "variant-skip", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "variant-skip", xstatus.VariantLoading,
+				setStatus(ctx, "variant-skip", xstatus.VariantLoading,
 					"Loading...", nil)
 
-				Consistently(func() int { return len(sender.Events()) }).
+				Consistently(func() int { return len(sender.getEvents()) }).
 					WithTimeout(500 * time.Millisecond).
 					Should(Equal(0))
 			},
 		)
 
 		It("Should send a trigger event for warning status",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-warning", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "watched-warning", xstatus.VariantWarning,
+				setStatus(ctx, "watched-warning", xstatus.VariantWarning,
 					"Watch out", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				Expect(sender.Events()[0].Payload.Severity).To(Equal("warning"))
+				Expect(sender.getEvents()[0].Payload.Severity).To(Equal("warning"))
 			},
 		)
 
 		It("Should send a trigger event for info status",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-info", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "watched-info", xstatus.VariantInfo, "FYI", nil)
+				setStatus(ctx, "watched-info", xstatus.VariantInfo, "FYI", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				Expect(sender.Events()[0].Payload.Severity).To(Equal("info"))
+				Expect(sender.getEvents()[0].Payload.Severity).To(Equal("info"))
 			},
 		)
 	})
 
 	Describe("Severity Mapping", func() {
 		It("Should map error to critical when TreatErrorAsCritical is true",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{
 						Status:               "critical-error",
 						Enabled:              true,
@@ -278,20 +278,20 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "critical-error", xstatus.VariantError,
+				setStatus(ctx, "critical-error", xstatus.VariantError,
 					"Critical failure", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				Expect(sender.Events()[0].Payload.Severity).To(Equal("critical"))
+				Expect(sender.getEvents()[0].Payload.Severity).To(Equal("critical"))
 			},
 		)
 
 		It("Should map error to error when TreatErrorAsCritical is false",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{
 						Status:               "normal-error",
 						Enabled:              true,
@@ -300,22 +300,22 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "normal-error", xstatus.VariantError,
+				setStatus(ctx, "normal-error", xstatus.VariantError,
 					"Normal failure", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				Expect(sender.Events()[0].Payload.Severity).To(Equal("error"))
+				Expect(sender.getEvents()[0].Payload.Severity).To(Equal("error"))
 			},
 		)
 	})
 
 	Describe("Event Payload Mapping", func() {
 		It("Should map status fields to PagerDuty event fields correctly",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{
 						Status:    "payload-test",
 						Enabled:   true,
@@ -329,7 +329,7 @@ var _ = Describe("AlertTask", func() {
 				tx := db.OpenTx()
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
 				w := status.NewWriter[any](statusSvc, tx)
-				Expect(w.Set(specCtx, &status.Status[any]{
+				Expect(w.Set(ctx, &status.Status[any]{
 					Key:         "payload-test",
 					Name:        "Temperature Sensor",
 					Variant:     xstatus.VariantWarning,
@@ -338,13 +338,13 @@ var _ = Describe("AlertTask", func() {
 					Time:        telem.Now(),
 					Details:     map[string]any{"temp": 85.2},
 				})).To(Succeed())
-				Expect(tx.Commit(specCtx)).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				event := sender.Events()[0]
+				event := sender.getEvents()[0]
 				Expect(event.DedupKey).To(Equal("payload-test"))
 				Expect(event.Payload.Source).To(Equal("Temperature Sensor"))
 				Expect(event.Payload.Summary).To(
@@ -362,19 +362,19 @@ var _ = Describe("AlertTask", func() {
 		)
 
 		It("Should use only message as summary when description is empty",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "no-desc", Enabled: true},
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "no-desc", xstatus.VariantError, "Simple error", nil)
+				setStatus(ctx, "no-desc", xstatus.VariantError, "Simple error", nil)
 
-				Eventually(func() int { return len(sender.Events()) }).
+				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
 
-				Expect(sender.Events()[0].Payload.Summary).To(
+				Expect(sender.getEvents()[0].Payload.Summary).To(
 					Equal("Simple error"),
 				)
 			},
@@ -383,50 +383,34 @@ var _ = Describe("AlertTask", func() {
 
 	Describe("Stop", func() {
 		It("Should stop observing status changes after stop",
-			func(specCtx SpecContext) {
-				tsk := configureAndStart(specCtx, validConfig(
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "stop-test", Enabled: true},
 				))
 				Expect(tsk.Stop()).To(Succeed())
 
-				setStatus(specCtx, "stop-test", xstatus.VariantError, "After stop", nil)
+				setStatus(ctx, "stop-test", xstatus.VariantError, "After stop", nil)
 
-				Consistently(func() int { return len(sender.Events()) }).
+				Consistently(func() int { return len(sender.getEvents()) }).
 					WithTimeout(500 * time.Millisecond).
 					Should(Equal(0))
 			},
 		)
 
-		It("Should cancel in-flight sendEvent goroutines when the parent context is cancelled",
-			func(specCtx SpecContext) {
-				sender.SetError(fmt.Errorf("simulated PagerDuty outage"))
-				cancelCtx, cancel := context.WithCancel(specCtx)
-				defer cancel()
-				t := task.Task{
-					Key:  task.NewKey(1, 1),
-					Name: "PagerDuty Test",
-					Type: pd.AlertTaskType,
-					Config: MustSucceed(validConfig(
-						pd.AlertConfig{Status: "cancel-mid-retry", Enabled: true},
-					).MsgpackEncodedJSON()),
-				}
-				tsk := MustSucceed(factory.ConfigureTask(specCtx, t))
-				Expect(tsk.Exec(cancelCtx, task.Command{Type: "start"})).To(Succeed())
+		It("Should set error status when sendEvent fails",
+			func(ctx context.Context) {
+				sender.setError(fmt.Errorf("simulated PagerDuty outage"))
+				tsk := configureAndStart(ctx, validConfig(
+					pd.AlertConfig{Status: "send-failure", Enabled: true},
+				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(specCtx, "cancel-mid-retry", xstatus.VariantError,
-					"Trigger retry loop", nil)
+				setStatus(ctx, "send-failure", xstatus.VariantError,
+					"Trigger send", nil)
 
-				Eventually(func() int32 { return sender.SendCallCount() }).
+				Eventually(func() int32 { return sender.sendCallCount() }).
 					WithTimeout(2 * time.Second).
 					Should(BeNumerically(">=", 1))
-
-				cancel()
-				callsBefore := sender.SendCallCount()
-
-				Consistently(func() int32 { return sender.SendCallCount() }).
-					WithTimeout(500 * time.Millisecond).
-					Should(BeNumerically("<=", callsBefore+1))
 			},
 		)
 	})

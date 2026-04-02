@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
@@ -140,10 +139,10 @@ func (t *alertTaskImpl) handleStatusChange(
 		switch s.Variant {
 		case xstatus.VariantError, xstatus.VariantWarning, xstatus.VariantInfo:
 			event := t.buildTriggerEvent(s, alertCfg)
-			go t.sendEvent(ctx, event)
+			t.sendEvent(ctx, event)
 		case xstatus.VariantSuccess:
 			event := t.buildResolveEvent(s.Key)
-			go t.sendEvent(ctx, event)
+			t.sendEvent(ctx, event)
 		default:
 			// loading, disabled — skip
 		}
@@ -203,47 +202,33 @@ func (t *alertTaskImpl) mapSeverity(
 }
 
 func (t *alertTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) {
-	b, err := breaker.NewBreaker(ctx, breaker.Config{
-		BaseInterval: 1 * time.Second,
-		Scale:        2,
-		MaxRetries:   5,
-	})
+	resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
 	if err != nil {
-		t.factoryCfg.L.Error("failed to create breaker", zap.Stringer("task", t.task), zap.Error(err))
+		t.factoryCfg.L.Error(
+			"failed to send PagerDuty event",
+			zap.Stringer("task", t.task),
+			zap.Error(err),
+		)
+		t.updateStatus(ctx, xstatus.VariantError, true,
+			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
 		return
 	}
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-		resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
-		if err == nil {
-			t.factoryCfg.L.Debug(
-				"PagerDuty event sent successfully",
-				zap.String("action", event.Action),
-				zap.String("dedup_key", resp.DedupKey),
-				zap.String("status", resp.Status),
-				zap.String("message", resp.Message),
-			)
-			return
-		}
-		if ctx.Err() != nil {
-			return
-		}
-		t.updateStatus(ctx, xstatus.VariantWarning, true,
-			fmt.Sprintf("Failed to send PagerDuty event, retrying: %s", err.Error()))
-		if !b.Wait() {
-			if ctx.Err() != nil {
-				return
-			}
-			t.updateStatus(ctx, xstatus.VariantError, true,
-				fmt.Sprintf("Failed to send PagerDuty event after retries: %s", err.Error()))
-			return
-		}
-	}
+	t.factoryCfg.L.Debug(
+		"PagerDuty event sent successfully",
+		zap.String("action", event.Action),
+		zap.Stringer("task", t.task),
+		zap.String("dedup_key", resp.DedupKey),
+		zap.String("status", resp.Status),
+		zap.String("message", resp.Message),
+	)
 }
 
-func (t *alertTaskImpl) updateStatus(ctx context.Context, variant xstatus.Variant, running bool, message string) {
+func (t *alertTaskImpl) updateStatus(
+	ctx context.Context,
+	variant xstatus.Variant,
+	running bool,
+	message string,
+) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
 		Name:    t.task.Name,
