@@ -92,7 +92,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{DB: cfg.ClusterDB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
+		DB:         cfg.ClusterDB,
+		Migrations: ChannelMigrations(),
+	})
 	if err != nil {
 		return nil, err
 	}
