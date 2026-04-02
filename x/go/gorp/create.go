@@ -12,7 +12,7 @@ package gorp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -21,12 +21,12 @@ import (
 type Create[K Key, E Entry[K]] struct {
 	entries  *Entries[K, E]
 	onUpdate onUpdate[K, E]
-	codec    binary.Codec
+	codec    encoding.Codec
 }
 
 // NewCreate opens a new Create query. If codec is non-nil, it overrides the
 // default DB codec for encoding entries.
-func NewCreate[K Key, E Entry[K]](codec binary.Codec) Create[K, E] {
+func NewCreate[K Key, E Entry[K]](codec encoding.Codec) Create[K, E] {
 	return Create[K, E]{entries: new(Entries[K, E]), codec: codec}
 }
 

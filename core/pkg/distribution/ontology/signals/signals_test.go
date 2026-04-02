@@ -124,7 +124,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Expect(s.Len()).To(Equal(int64(1)))
 			for s := range s.Samples() {
 				r := ontology.Resource{}
-				Expect((&json.Codec{}).Decode(ctx, s, &r)).To(Succeed())
+				Expect((json.Codec).Decode(ctx, s, &r)).To(Succeed())
 				Expect(r.ID).To(Equal(newChangeID(key)))
 			}
 			requests.Close()

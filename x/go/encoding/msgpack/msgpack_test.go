@@ -27,7 +27,7 @@ type toEncode struct {
 
 var _ = Describe("Codec", func() {
 	It("Should encode and decode", func(ctx SpecContext) {
-		codec := &msgpack.Codec{}
+		codec := msgpack.Codec
 		b := MustSucceed(codec.Encode(ctx, toEncode{1}))
 		var d toEncode
 		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
@@ -37,7 +37,7 @@ var _ = Describe("Codec", func() {
 		Expect(d2.Value).To(Equal(1))
 	})
 	It("Should add error info with custom type", func(ctx SpecContext) {
-		codec := &msgpack.Codec{}
+		codec := msgpack.Codec
 		type custom struct {
 			Chan  chan int
 			Value int
@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 		))
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
-		codec := &msgpack.Codec{}
+		codec := msgpack.Codec
 		_, err := codec.Encode(ctx, make(chan int))
 		Expect(err).To(HaveOccurred())
 		stack := errors.GetStackTrace(err)
@@ -58,7 +58,7 @@ var _ = Describe("Codec", func() {
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
 	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
-		codec := &msgpack.Codec{}
+		codec := msgpack.Codec
 		var d toEncode
 		err := codec.Decode(ctx, []byte("invalid"), &d)
 		Expect(err).To(HaveOccurred())
@@ -317,7 +317,7 @@ var _ = Describe("Codec", func() {
 			})
 		})
 		It("Should work with Codec", func() {
-			codec := &msgpack.Codec{}
+			codec := msgpack.Codec
 			ctx := context.Background()
 
 			jsonStr := `{"name":"test","value":123}`

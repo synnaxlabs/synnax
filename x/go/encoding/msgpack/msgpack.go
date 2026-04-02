@@ -17,48 +17,48 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ binary.Codec = (*Codec)(nil)
+// Codec is a msgpack implementation of encoding.Codec.
+var Codec = &codec{}
 
-// Codec is a msgpack implementation of binary.Codec.
-type Codec struct{}
+type codec struct{}
 
 // ContentType implements http.Codec to return the http content type for the codec.
-func (c *Codec) ContentType() string { return "application/msgpack" }
+func (c *codec) ContentType() string { return "application/msgpack" }
 
-// Encode implements the binary.Encoder interface.
-func (c *Codec) Encode(_ context.Context, value any) ([]byte, error) {
+// Encode implements the encoding.Encoder interface.
+func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
-	return b, binary.SugarEncodingErr(value, err)
+	return b, encoding.SugarEncodingErr(value, err)
 }
 
-// Decode implements the binary.Decoder interface.
-func (c *Codec) Decode(ctx context.Context, data []byte, value any) error {
+// Decode implements the encoding.Decoder interface.
+func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 	err := c.DecodeStream(ctx, bytes.NewReader(data), value)
-	return binary.SugarDecodingErr(data, value, err)
+	return encoding.SugarDecodingErr(data, value, err)
 }
 
-// DecodeStream implements the binary.Decoder interface.
-func (c *Codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+// DecodeStream implements the encoding.Decoder interface.
+func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return binary.SugarDecodingErr(data, value, err)
+		return encoding.SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
-// EncodeStream implements the binary.Encoder interface.
-func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+// EncodeStream implements the encoding.Encoder interface.
+func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
-		return binary.SugarEncodingErr(value, err)
+		return encoding.SugarEncodingErr(value, err)
 	}
 	_, err = w.Write(b)
-	return binary.SugarEncodingErr(value, err)
+	return encoding.SugarEncodingErr(value, err)
 }
 
 // EncodedJSON is a map[string]any that handles backwards-compatible msgpack

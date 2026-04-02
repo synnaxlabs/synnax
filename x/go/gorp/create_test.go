@@ -48,7 +48,7 @@ func (m grape) GorpKey() int32 { return m.ID }
 
 func (m grape) SetOptions() []any { return nil }
 
-var jsonCodec = &json.Codec{}
+var jsonCodec = json.Codec
 
 var _ = Describe("Create", Ordered, func() {
 	var (

@@ -34,7 +34,7 @@ func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryCo
 }
 
 var DefaultClientFactoryConfig = ClientFactoryConfig{
-	Codec: &msgpack.Codec{},
+	Codec: msgpack.Codec,
 }
 
 type ClientFactory struct {

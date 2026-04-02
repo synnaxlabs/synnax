@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package binary
+package encoding
 
 import (
 	"bytes"
@@ -108,7 +108,7 @@ func (f *decodeFallbackCodec) DecodeStream(
 	value any,
 ) error {
 	if len(f.Codecs) == 0 {
-		panic("[binary] - no codecs provided to decodeFallbackCodec")
+		panic("[encoding] - no codecs provided to decodeFallbackCodec")
 	}
 	// We need to read out all the data here, otherwise an initial codec that fails will
 	// leave the reader in a bad state. It's not ideal, but we need to do it.

@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/migrate"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 )
@@ -35,7 +35,7 @@ func Open(
 	ctx context.Context,
 	fs fs.FS,
 	ch channel.Channel,
-	codec binary.Codec,
+	codec encoding.Codec,
 ) (channel.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
@@ -68,7 +68,7 @@ func Open(
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (ch channel.Channel, err error) {
+func Read(ctx context.Context, fs fs.FS, codec encoding.Decoder) (ch channel.Channel, err error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return channel.Channel{}, err
@@ -91,7 +91,7 @@ func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (ch channel.Chann
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
-func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Channel) (err error) {
+func Create(ctx context.Context, fs fs.FS, codec encoding.Encoder, ch channel.Channel) (err error) {
 	if err = ch.Validate(); err != nil {
 		return err
 	}

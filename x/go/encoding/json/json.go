@@ -15,48 +15,48 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 )
 
-var _ binary.Codec = (*Codec)(nil)
+// Codec is a JSON implementation of encoding.Codec.
+var Codec = &codec{}
 
-// Codec is a JSON implementation of binary.Codec.
-type Codec struct{}
+type codec struct{}
 
 // ContentType implements http.Codec to return the http content type for the codec.
-func (c *Codec) ContentType() string { return "application/json" }
+func (c *codec) ContentType() string { return "application/json" }
 
-// Encode implements the binary.Encoder interface.
-func (c *Codec) Encode(_ context.Context, value any) ([]byte, error) {
+// Encode implements the encoding.Encoder interface.
+func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := json.Marshal(value)
-	return b, binary.SugarEncodingErr(value, err)
+	return b, encoding.SugarEncodingErr(value, err)
 }
 
-// Decode implements the binary.Decoder interface.
-func (c *Codec) Decode(_ context.Context, data []byte, value any) error {
+// Decode implements the encoding.Decoder interface.
+func (c *codec) Decode(_ context.Context, data []byte, value any) error {
 	if err := json.Unmarshal(data, value); err != nil {
-		return binary.SugarDecodingErr(data, value, err)
+		return encoding.SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
-// DecodeStream implements the binary.Decoder interface.
-func (c *Codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+// DecodeStream implements the encoding.Decoder interface.
+func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return binary.SugarDecodingErr(data, value, err)
+		return encoding.SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
-// EncodeStream implements the binary.Encoder interface.
-func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+// EncodeStream implements the encoding.Encoder interface.
+func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := c.Encode(ctx, value)
 	if err != nil {
 		return err
 	}
 	_, err = w.Write(b)
-	return binary.SugarEncodingErr(value, err)
+	return encoding.SugarEncodingErr(value, err)
 }
 
 // UnmarshalStringInt64 attempts to unmarshal an int64 directly. If that fails,

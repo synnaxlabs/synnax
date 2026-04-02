@@ -63,7 +63,7 @@ const (
 	extractedDriverDir = "driver"
 )
 
-var configCodec = &json.Codec{}
+var configCodec = json.Codec
 
 // Driver manages the lifecycle of an embedded C++ driver subprocess. The driver binary
 // is either extracted from an embedded filesystem or loaded from a configured path,

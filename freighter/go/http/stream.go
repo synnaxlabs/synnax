@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"go.uber.org/zap"
@@ -87,7 +87,7 @@ func newStreamCore[RQ, RS freighter.Payload](
 }
 
 type coreConfig struct {
-	codec binary.Codec
+	codec encoding.Codec
 	conn  *ws.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
@@ -401,7 +401,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 
 func (s *streamServer[RQ, RS]) handleSocket(
 	ctx freighter.Context,
-	codec binary.Codec,
+	codec encoding.Codec,
 	c *fiberws.Conn,
 ) {
 	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](

@@ -136,7 +136,7 @@ var _ = Describe("Open", func() {
 					StorageKey:           []byte("Cluster-join-test-storage"),
 					Storage:              kvDB,
 					StorageFlushInterval: cluster.FlushOnEvery,
-					Codec:                &msgpack.Codec{},
+					Codec:                msgpack.Codec,
 				}
 				clusterTwo := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))

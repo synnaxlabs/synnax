@@ -10,7 +10,7 @@
 package gorp
 
 import (
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/override"
 )
@@ -20,17 +20,17 @@ type Option func(o *options)
 // WithCodec sets the encoder (and decoder) used to serialize entries. It's
 // important to note that reading data encoded in a different format may cause
 // undefined behavior.
-func WithCodec(codec binary.Codec) Option {
+func WithCodec(codec encoding.Codec) Option {
 	return func(opts *options) { opts.Codec = codec }
 }
 
 type options struct {
-	binary.Codec
+	encoding.Codec
 }
 
 var _ Tools = options{}
 
-var defaultOptions = options{Codec: &msgpack.Codec{}}
+var defaultOptions = options{Codec: msgpack.Codec}
 
 func newOptions(opts []Option) options {
 	o := defaultOptions

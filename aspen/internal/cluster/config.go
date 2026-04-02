@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/gob"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/kv"
@@ -36,7 +36,7 @@ type Config struct {
 	Storage kv.DB
 	// Codec is the encoder/decoder to use for encoding and decoding the
 	// Cluster state.
-	Codec binary.Codec
+	Codec encoding.Codec
 	// Gossip is the configuration for propagating Cluster state through gossip.
 	// See the gossip package for more details on how to configure this.
 	Gossip gossip.Config
@@ -100,7 +100,7 @@ var (
 		StorageFlushInterval: 1 * time.Second,
 		// This used to be implemented by a gob codec, but we want to switch to msgpack.
 		// Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
-		Codec: binary.NewDecodeFallbackCodec(&json.Codec{}, &gob.Codec{}),
+		Codec: encoding.NewDecodeFallbackCodec(json.Codec, gob.Codec),
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Pledge: pledge.FastConfig,

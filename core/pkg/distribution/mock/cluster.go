@@ -103,7 +103,7 @@ func (c *Cluster) Provision(
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-			GorpCodec:            &json.Codec{},
+			GorpCodec:            json.Codec,
 			EnableServiceSignals: new(false),
 		}, c.cfg}, cfgs...)...))
 	)

@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
@@ -30,17 +30,17 @@ import (
 
 type Codec struct {
 	*codec.Codec
-	LowerPerfCodec xbinary.Codec
+	LowerPerfCodec xencoding.Codec
 }
 
 func NewWSFramerCodec(channelSvc *channel.Service) http.Codec {
 	return &Codec{
-		LowerPerfCodec: &json.Codec{},
+		LowerPerfCodec: json.Codec,
 		Codec:          codec.NewDynamic(channelSvc),
 	}
 }
 
-var _ xbinary.Codec = (*Codec)(nil)
+var _ xencoding.Codec = (*Codec)(nil)
 
 func (c *Codec) Decode(
 	ctx context.Context,

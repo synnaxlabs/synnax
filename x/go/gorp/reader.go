@@ -16,8 +16,8 @@ import (
 	"iter"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -29,17 +29,17 @@ import (
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
-	codec    binary.Codec
+	codec    encoding.Codec
 	reader   kv.Reader
 }
 
 // WrapReader wraps the given key-value reader and codec to provide a strongly typed
 // interface for reading entries from the DB.
-func WrapReader[K Key, E Entry[K]](base kv.Reader, codec binary.Codec) *Reader[K, E] {
+func WrapReader[K Key, E Entry[K]](base kv.Reader, codec encoding.Codec) *Reader[K, E] {
 	return &Reader[K, E]{reader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
-func wrapReader[K Key, E Entry[K]](base kv.Reader, codec binary.Codec) *Reader[K, E] {
+func wrapReader[K Key, E Entry[K]](base kv.Reader, codec encoding.Codec) *Reader[K, E] {
 	return &Reader[K, E]{reader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
@@ -117,7 +117,7 @@ type Iterator[E any] struct {
 	kv.Iterator
 	err   error
 	value *E
-	codec binary.Codec
+	codec encoding.Codec
 }
 
 // Value returns the decoded value from the iterator. Iterate.Alive must be true

@@ -12,7 +12,7 @@ package telem_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
@@ -3513,9 +3513,9 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("Encode + Decode", func() {
-		codecs := []binary.Codec{
-			&json.Codec{},
-			&msgpack.Codec{},
+		codecs := []encoding.Codec{
+			json.Codec,
+			msgpack.Codec,
 		}
 		for _, codec := range codecs {
 			It("Should encode and decode a frame", func(ctx SpecContext) {

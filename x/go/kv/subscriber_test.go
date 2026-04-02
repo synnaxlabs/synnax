@@ -28,7 +28,7 @@ var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func(ctx SpecContext) {
 		o := observe.New[dataStruct]()
 		db := memkv.New()
-		codec := &gob.Codec{}
+		codec := gob.Codec
 		flush := &kv.Subscriber[dataStruct]{
 			Key:         []byte("key"),
 			Store:       db,

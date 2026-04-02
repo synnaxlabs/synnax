@@ -14,7 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -28,12 +28,12 @@ type Retrieve[K Key, E Entry[K]] struct {
 	keys    *[]K
 	prefix  []byte
 	filters filters[K, E]
-	codec   binary.Codec
+	codec   encoding.Codec
 }
 
 // NewRetrieve opens a new Retrieve query. If codec is non-nil, it overrides the
 // default DB codec for decoding entries.
-func NewRetrieve[K Key, E Entry[K]](codec binary.Codec) Retrieve[K, E] {
+func NewRetrieve[K Key, E Entry[K]](codec encoding.Codec) Retrieve[K, E] {
 	return Retrieve[K, E]{entries: new(Entries[K, E]), codec: codec}
 }
 

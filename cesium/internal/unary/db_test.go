@@ -28,7 +28,7 @@ var _ = Describe("DB Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
 			fs         xfs.FS
-			codec      = &json.Codec{}
+			codec      = json.Codec
 			cleanUp    func() error
 			indexDBfs  xfs.FS
 			indexDBKey channel.Key
@@ -180,7 +180,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		BeforeEach(func(ctx SpecContext) {
 			db = MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
-				MetaCodec: &json.Codec{},
+				MetaCodec: json.Codec,
 				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
@@ -210,7 +210,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
 			db := MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
-				MetaCodec: &json.Codec{},
+				MetaCodec: json.Codec,
 				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",

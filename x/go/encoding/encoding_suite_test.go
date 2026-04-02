@@ -7,24 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary_test
+package encoding_test
 
 import (
 	"testing"
 
-	"github.com/synnaxlabs/x/encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 )
 
-var (
-	fileSystems = FileSystems
-	codec       = json.Codec
-)
-
-func TestUnary(t *testing.T) {
+func TestEncoding(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Unary Suite")
+	RunSpecs(t, "Encoding Suite")
 }

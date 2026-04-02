@@ -38,7 +38,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			StreamWriteDeadline: test.WriteDeadline,
 		})
 		factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: &json.Codec{},
+			Codec: json.Codec,
 		})
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)

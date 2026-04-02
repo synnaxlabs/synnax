@@ -36,7 +36,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		app = fiber.New(fiber.Config{})
 		router := fhttp.NewRouter(fhttp.RouterConfig{})
 		factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: &json.Codec{},
+			Codec: json.Codec,
 		})
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)

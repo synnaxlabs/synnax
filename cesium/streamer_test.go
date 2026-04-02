@@ -29,7 +29,7 @@ import (
 
 func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpdate, error) {
 	var u cesium.ControlUpdate
-	if err := (&json.Codec{}).Decode(ctx, s.Data, &u); err != nil {
+	if err := json.Codec.Decode(ctx, s.Data, &u); err != nil {
 		return cesium.ControlUpdate{}, err
 	}
 	return u, nil

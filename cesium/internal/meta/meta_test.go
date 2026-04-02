@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -33,11 +33,11 @@ var _ = Describe("Meta", func() {
 		var (
 			fs      fs.FS
 			cleanUp func() error
-			codec   binary.Codec
+			codec   encoding.Codec
 		)
 		BeforeEach(func() {
 			fs, cleanUp = makeFS()
-			codec = &json.Codec{}
+			codec = json.Codec
 		})
 		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, func() {
@@ -164,7 +164,7 @@ var _ = Describe("Meta", func() {
 
 type brokenCodec struct{}
 
-var _ binary.Codec = (*brokenCodec)(nil)
+var _ encoding.Codec = (*brokenCodec)(nil)
 
 var errEncoding = errors.New("broken codec")
 

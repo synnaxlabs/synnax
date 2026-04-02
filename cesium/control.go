@@ -152,7 +152,7 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
 	s.DataType = telem.StringT
-	s.Data, err = (&json.Codec{}).Encode(ctx, u)
+	s.Data, err = (json.Codec).Encode(ctx, u)
 	s.Data = append(s.Data, '\n')
 	return s, err
 }

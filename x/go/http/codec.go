@@ -10,7 +10,7 @@
 package http
 
 import (
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -20,10 +20,10 @@ import (
 // add an HTTP content-type.
 type Codec interface {
 	ContentType() string
-	binary.Codec
+	encoding.Codec
 }
 
-var codecs = []Codec{&json.Codec{}, &msgpack.Codec{}}
+var codecs = []Codec{json.Codec, msgpack.Codec}
 
 type CodecResolver func(contentType string) (Codec, error)
 

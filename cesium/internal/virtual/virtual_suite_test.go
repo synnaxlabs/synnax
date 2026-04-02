@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	codec       = &json.Codec{}
+	codec       = json.Codec
 	fileSystems = testutil.FileSystems
 )
 

@@ -31,7 +31,7 @@ var _ = Describe("Migration Test", func() {
 				db        *cesium.DB
 				fs        xfs.FS
 				cleanUp   func() error
-				jsonCodec = json.Codec{}
+				jsonCodec = json.Codec
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
