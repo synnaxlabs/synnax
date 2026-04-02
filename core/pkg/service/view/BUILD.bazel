@@ -1,0 +1,18 @@
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "view_proto",
+    srcs = ["pb/view.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@protobuf//:struct_proto",
+    ],
+)
+
+cpp_grpc_library(
+    name = "view_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":view_proto"],
+    visibility = ["//visibility:public"],
+)

@@ -14,7 +14,7 @@ package device
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/status"
 )
 
@@ -55,7 +55,7 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
-	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
+	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,

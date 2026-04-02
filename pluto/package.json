@@ -26,17 +26,16 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "3.13.6",
-    "@xyflow/react": "^12.10.0",
+    "@tanstack/react-virtual": "^3.13.23",
+    "@xyflow/react": "^12.10.2",
     "async-mutex": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
     "d3-scale": "^4.0.2",
     "fuse.js": "^7.1.0",
-    "mathjs": "^15.1.0",
+    "mathjs": "^15.1.1",
     "pluralize": "catalog:",
-    "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-color": "^2.19.3",
     "react-icons": "catalog:",
@@ -61,7 +60,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "jsdom": "^27.4.0",
+    "jsdom": "catalog:",
     "madge": "catalog:",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
@@ -72,14 +71,14 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/pluto.cjs",
+  "module": "./dist/pluto.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/pluto.js",
+      "require": "./dist/pluto.cjs"
     },
     "./ether": {
       "types": "./dist/src/ether.d.ts",

@@ -29,7 +29,7 @@ export const parseNodeID = (nodeIdStr: string): NodeId | null => {
   const match = nodeIdStr.match(NODE_ID_REGEX);
   if (match === null) return null;
 
-  const namespaceIndex = parseInt(match[1]);
+  const namespaceIndex = parseInt(match[1], 10);
   const typeCode = match[2];
   const identifier: string = match[3];
 
@@ -38,7 +38,7 @@ export const parseNodeID = (nodeIdStr: string): NodeId | null => {
   switch (typeCode) {
     case "I":
       identifierType = "Numeric";
-      return { namespaceIndex, identifierType, identifier: parseInt(identifier) };
+      return { namespaceIndex, identifierType, identifier: parseInt(identifier, 10) };
     case "S":
       identifierType = "String";
       break;

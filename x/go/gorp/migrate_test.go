@@ -19,7 +19,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/graph"
@@ -85,7 +86,7 @@ func (c jsonEntryCodec) DecodeStream(_ context.Context, r io.Reader, value any) 
 	return c.Decode(context.Background(), data, value)
 }
 
-var _ binary.Codec = jsonEntryCodec{}
+var _ encoding.Codec = jsonEntryCodec{}
 
 type failMarshalCodec struct{}
 
@@ -109,7 +110,7 @@ func (c failMarshalCodec) DecodeStream(_ context.Context, r io.Reader, value any
 	return c.Decode(context.Background(), data, value)
 }
 
-var _ binary.Codec = failMarshalCodec{}
+var _ encoding.Codec = failMarshalCodec{}
 
 type migrationDepProvider interface {
 	GetSuffix() string
@@ -121,9 +122,9 @@ func (p migrationDepProviderImpl) GetSuffix() string { return string(p) }
 
 // mapEntry mimics production types like Schematic that have a MsgpackEncodedJSON field.
 type mapEntry struct {
-	ID   int32                     `msgpack:"id"`
-	Name string                    `msgpack:"name"`
-	Data binary.MsgpackEncodedJSON `msgpack:"data"`
+	ID   int32               `msgpack:"id"`
+	Name string              `msgpack:"name"`
+	Data msgpack.EncodedJSON `msgpack:"data"`
 }
 
 func (e mapEntry) GorpKey() int32    { return e.ID }
@@ -182,7 +183,7 @@ func (c structpbCodec) DecodeStream(_ context.Context, r io.Reader, value any) e
 	return c.Decode(context.Background(), data, value)
 }
 
-var _ binary.Codec = structpbCodec{}
+var _ encoding.Codec = structpbCodec{}
 
 var _ = Describe("Gorp", func() {
 	Describe("Codec", func() {
@@ -377,10 +378,9 @@ var _ = Describe("Gorp", func() {
 			It("Should handle cross-type migration with manually seeded data", func(ctx SpecContext) {
 				testDB := gorp.Wrap(memkv.New())
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
-				codec := &binary.MsgPackCodec{}
 				prefix := "__gorp__//entryV2"
 				for _, e := range []entryV1{{ID: 1, Data: "one"}, {ID: 2, Data: "two"}} {
-					data := MustSucceed(codec.Encode(ctx, e))
+					data := MustSucceed(msgpack.Codec.Encode(ctx, e))
 					key := make([]byte, len(prefix)+4)
 					copy(key, prefix)
 					stdbinary.BigEndian.PutUint32(key[len(prefix):], uint32(e.ID))
@@ -756,7 +756,7 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, mapEntry{
 					ID:   1,
 					Name: "nested_test",
-					Data: binary.MsgpackEncodedJSON{
+					Data: msgpack.EncodedJSON{
 						"string_val": "hello",
 						"int_val":    42,
 						"float_val":  3.14,
@@ -984,7 +984,10 @@ var _ = Describe("Gorp", func() {
 					"enrich",
 					nil, nil,
 					func(ctx context.Context, old entryV1) (entryV1, error) {
-						svc := gorp.MigrationDep[*LookupService](ctx)
+						svc, err := gorp.MigrationDep[*LookupService](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
 						return entryV1{ID: old.ID, Data: old.Data + svc.Suffix}, nil
 					},
 				)
@@ -1013,8 +1016,14 @@ var _ = Describe("Gorp", func() {
 					"wrap",
 					nil, nil,
 					func(ctx context.Context, old entryV1) (entryV1, error) {
-						pre := gorp.MigrationDep[*PrefixService](ctx)
-						suf := gorp.MigrationDep[*SuffixService](ctx)
+						pre, err := gorp.MigrationDep[*PrefixService](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
+						suf, err := gorp.MigrationDep[*SuffixService](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
 						return entryV1{
 							ID:   old.ID,
 							Data: pre.Prefix + old.Data + suf.Suffix,
@@ -1029,11 +1038,10 @@ var _ = Describe("Gorp", func() {
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("pre_base_post"))
 			})
 
-			It("Should panic when a required dependency is missing", func(ctx SpecContext) {
+			It("Should return an error when a required dependency is missing", func(ctx SpecContext) {
 				type MissingService struct{}
-				Expect(func() {
-					gorp.MigrationDep[*MissingService](ctx)
-				}).To(PanicWith(ContainSubstring("missing migration dependency")))
+				_, err := gorp.MigrationDep[*MissingService](ctx)
+				Expect(err).To(HaveOccurredAs(gorp.ErrMissingMigrationDep))
 			})
 
 			It("Should return false from MigrationDepOpt when dependency is missing", func(ctx SpecContext) {
@@ -1064,7 +1072,10 @@ var _ = Describe("Gorp", func() {
 				migration := gorp.NewRawMigration(
 					"raw_with_dep",
 					func(ctx context.Context, tx gorp.Tx) error {
-						renamer := gorp.MigrationDep[*Renamer](ctx)
+						renamer, err := gorp.MigrationDep[*Renamer](ctx)
+						if err != nil {
+							return err
+						}
 						r := gorp.WrapReader[int32, entryV1](tx, tx)
 						e := MustSucceed(r.Get(ctx, 1))
 						e.Data = renamer.NewData
@@ -1092,7 +1103,10 @@ var _ = Describe("Gorp", func() {
 					"iface_dep",
 					nil, nil,
 					func(ctx context.Context, old entryV1) (entryV1, error) {
-						dp := gorp.MigrationDep[migrationDepProvider](ctx)
+						dp, err := gorp.MigrationDep[migrationDepProvider](ctx)
+						if err != nil {
+							return entryV1{}, err
+						}
 						return entryV1{ID: old.ID, Data: old.Data + dp.GetSuffix()}, nil
 					},
 				)
