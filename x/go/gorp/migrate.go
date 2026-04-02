@@ -242,29 +242,27 @@ func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, err
 	return sorted, nil
 }
 
-// Deprecated: ErrMigrationCountExceeded is returned when the number of migrations
-// exceeds the maximum of 255. Use the Migration interface with OpenTable instead.
+// ErrMigrationCountExceeded is returned when the number of migrations
+// exceeds the maximum of 255.
 var ErrMigrationCountExceeded = errors.New(
 	"[gorp] - migration count exceeded the maximum of 255",
 )
 
-// Deprecated: MigrationSpec defines a single migration for use with Migrator.
-// Use the Migration interface with OpenTable instead.
+// MigrationSpec defines a single migration for use with Migrator.
 type MigrationSpec struct {
 	Migrate func(context.Context, Tx) error
 	Name    string
 }
 
-// Deprecated: Migrator executes a series of migrations in order, tracking progress
-// with incrementing versions. Use the Migration interface with OpenTable instead.
+// Migrator executes a series of migrations in order, tracking progress
+// with incrementing versions.
 type Migrator struct {
 	Key        string
 	Migrations []MigrationSpec
 	Force      bool
 }
 
-// Deprecated: Run executes all migrations that haven't been completed yet.
-// Use the Migration interface with OpenTable instead.
+// Run executes all migrations that haven't been completed yet.
 func (r Migrator) Run(ctx context.Context, db *DB) error {
 	return db.WithTx(ctx, func(tx Tx) error {
 		migrationCount := len(r.Migrations)
