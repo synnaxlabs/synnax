@@ -20,10 +20,9 @@ export interface EnableDisableButtonProps extends Omit<
 
 export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps) => {
   const isSnapshot = useIsSnapshot();
-  const { get, set } = Form.useContext();
-  const fs = get<boolean>(path, { optional: true });
-  if (fs == null) return null;
-  const { value } = fs;
+  const { set } = Form.useContext();
+  const value = Form.useFieldValue<boolean>(path, { optional: true });
+  if (value == null) return null;
   return (
     <Button.Toggle
       disabled={isSnapshot}
