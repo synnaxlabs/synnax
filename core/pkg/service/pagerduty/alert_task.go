@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -63,12 +63,12 @@ type AlertTaskConfig struct {
 
 // MsgpackEncodedJSON converts the config into a binary.MsgpackEncodedJSON suitable
 // for use as a task.Task.Config value.
-func (c AlertTaskConfig) MsgpackEncodedJSON() (binary.MsgpackEncodedJSON, error) {
+func (c AlertTaskConfig) MsgpackEncodedJSON() (msgpack.EncodedJSON, error) {
 	b, err := json.Marshal(c)
 	if err != nil {
 		return nil, err
 	}
-	var m binary.MsgpackEncodedJSON
+	var m msgpack.EncodedJSON
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}

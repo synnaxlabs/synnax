@@ -19,7 +19,7 @@ import (
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -120,7 +120,7 @@ var _ = Describe("Factory", func() {
 						Key:    1,
 						Name:   "test",
 						Type:   pd.AlertTaskType,
-						Config: binary.MsgpackEncodedJSON{"invalid": func() {}},
+						Config: msgpack.EncodedJSON{"invalid": func() {}},
 					}
 					Expect(factory.ConfigureTask(ctx, t)).Error().
 						To(MatchError(ContainSubstring("json")))
