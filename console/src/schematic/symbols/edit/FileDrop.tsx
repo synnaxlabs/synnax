@@ -14,6 +14,8 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
+import { Import } from "@/import";
+import { Runtime } from "@/runtime";
 
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
@@ -54,17 +56,25 @@ export const FileDrop = ({
 
   const handleFileSelect = () =>
     handleError(async () => {
-      const path = await open({
-        directory: false,
-        filters: [{ name: "SVG Files", extensions: ["svg"] }],
-      });
-      if (path == null) return;
-      const contents = await readTextFile(path);
-      if (contents == null) return;
-      const filename = path
-        .split(/[/\\]/)
-        .pop()
-        ?.replace(/\.svg$/i, "");
+      let contents: string;
+      let filename: string | undefined;
+      if (Runtime.ENGINE === "tauri") {
+        const path = await open({
+          directory: false,
+          filters: [{ name: "SVG Files", extensions: ["svg"] }],
+        });
+        if (path == null) return;
+        contents = await readTextFile(path);
+        filename = path
+          .split(/[/\\]/)
+          .pop()
+          ?.replace(/\.svg$/i, "");
+      } else {
+        const files = await Import.pickFilesFromBrowser(".svg", false);
+        if (files == null || files.length === 0) return;
+        contents = await files[0].text();
+        filename = files[0].name.replace(/\.svg$/i, "");
+      }
       const properName = filename ? caseconv.toProperNoun(filename) : undefined;
       onContentsChange(contents, properName);
     }, "Failed to load SVG file");
