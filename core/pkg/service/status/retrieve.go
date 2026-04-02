@@ -11,20 +11,23 @@ package status
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 	xlabel "github.com/synnaxlabs/x/label"
+	"github.com/synnaxlabs/x/status"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
 type Retrieve[D any] struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[string, Status[D]]
-	otg        *ontology.Ontology
+	search     *search.Index
 	label      *label.Service
 	searchTerm string
 }
@@ -70,6 +73,14 @@ func (r Retrieve[D]) WhereKeyPrefix(prefix string) Retrieve[D] {
 	return r
 }
 
+// WhereVariants filters for statuses with the given variants.
+func (r Retrieve[D]) WhereVariants(variants ...status.Variant) Retrieve[D] {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return slices.Contains(variants, s.Variant), nil
+	})
+	return r
+}
+
 func (r Retrieve[D]) WhereHasLabels(matchLabels ...xlabel.Key) Retrieve[D] {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
@@ -90,8 +101,8 @@ func (r Retrieve[D]) WhereHasLabels(matchLabels ...xlabel.Key) Retrieve[D] {
 func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: ontology.TypeStatus,
+		ids, err := r.search.Search(ctx, search.Request{
+			Type: ontology.ResourceTypeStatus,
 			Term: r.searchTerm,
 		})
 		if err != nil {

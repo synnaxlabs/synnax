@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
@@ -31,21 +32,32 @@ var _ = Describe("User", Ordered, func() {
 		users []user.User
 		w     user.Writer
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		_, err := user.OpenService(ctx, user.ServiceConfig{})
-		Expect(err).To(HaveOccurred())
-		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{DB: db, Ontology: otg, Group: g}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
 		w = svc.NewWriter(nil)
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should create a new user", func() {
+		It("Should create a new user", func(ctx SpecContext) {
 			newKey := uuid.New()
 			u := &user.User{Username: "test1", Key: newKey}
 			Expect(w.Create(ctx, u)).To(Succeed())
@@ -57,7 +69,7 @@ var _ = Describe("User", Ordered, func() {
 			users = append(users, *u)
 		})
 
-		It("Should create a new user without a key", func() {
+		It("Should create a new user without a key", func(ctx SpecContext) {
 			u := &user.User{Username: "test2"}
 			Expect(w.Create(ctx, u)).To(Succeed())
 			Expect(u.Key).ToNot(Equal(uuid.Nil))
@@ -68,7 +80,7 @@ var _ = Describe("User", Ordered, func() {
 			users = append(users, *u)
 		})
 
-		It("Should create a user with a name", func() {
+		It("Should create a user with a name", func(ctx SpecContext) {
 			u := &user.User{Username: "test3", FirstName: "Patrick", LastName: "Star"}
 			Expect(w.Create(ctx, u)).To(Succeed())
 			Expect(u.FirstName).To(Equal("Patrick"))
@@ -79,64 +91,64 @@ var _ = Describe("User", Ordered, func() {
 			users = append(users, *u)
 		})
 
-		It("Should return an error if the user with the username already exists", func() {
+		It("Should return an error if the user with the username already exists", func(ctx SpecContext) {
 			u := &user.User{Username: "test1"}
 			Expect(errors.Is(w.Create(ctx, u), auth.RepeatedUsername)).To(BeTrue())
 		})
 	})
 	Describe("Retrieve", func() {
-		It("Should retrieve a user by its key", func() {
+		It("Should retrieve a user by its key", func(ctx SpecContext) {
 			var u user.User
 			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(Succeed())
 			Expect(u).To(Equal(users[0]))
 		})
-		It("Should retrieve multiple users by keys", func() {
+		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
 			var ret []user.User
 			Expect(svc.NewRetrieve().WhereKeys(users[0].Key, users[1].Key).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
-		It("Should return an error if the user does not exist", func() {
+		It("Should return an error if the user does not exist", func(ctx SpecContext) {
 			err := svc.NewRetrieve().WhereKeys(uuid.New()).Entry(nil).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})
-		It("Should retrieve a user by its username", func() {
+		It("Should retrieve a user by its username", func(ctx SpecContext) {
 			var user user.User
 			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username).Entry(&user).Exec(ctx, nil)).To(Succeed())
 			Expect(user).To(Equal(users[0]))
 		})
-		It("Should retrieve multiple users by usernames", func() {
+		It("Should retrieve multiple users by usernames", func(ctx SpecContext) {
 			var ret []user.User
 			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username, users[1].Username).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
-		It("Should return an error if the user does not exist", func() {
+		It("Should return an error if the user does not exist", func(ctx SpecContext) {
 			var user user.User
 			err := svc.NewRetrieve().WhereUsernames("test5").Entry(&user).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})
 	})
 	Describe("UsernameExists", func() {
-		It("Should return true if the username exists", func() {
+		It("Should return true if the username exists", func(ctx SpecContext) {
 			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeTrue())
 		})
-		It("Should return false if the username does not exist", func() {
+		It("Should return false if the username does not exist", func(ctx SpecContext) {
 			Expect(svc.UsernameExists(ctx, "This name does not exist")).To(BeFalse())
 		})
 	})
 	Describe("ChangeUsername", func() {
-		It("Should change the username of a user", func() {
+		It("Should change the username of a user", func(ctx SpecContext) {
 			newUsername := "newUsername"
 			Expect(w.ChangeUsername(ctx, users[0].Key, newUsername)).To(Succeed())
 			Expect(svc.UsernameExists(ctx, newUsername)).To(BeTrue())
 			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeFalse())
 			users[0].Username = newUsername
 		})
-		It("Should return an error if the username already exists", func() {
+		It("Should return an error if the username already exists", func(ctx SpecContext) {
 			Expect(errors.Is(w.ChangeUsername(ctx, users[0].Key, users[1].Username), auth.RepeatedUsername)).To(BeTrue())
 		})
 	})
 	Describe("ChangeName", func() {
-		It("Should change the names of a user", func() {
+		It("Should change the names of a user", func(ctx SpecContext) {
 			newFirstName := "Patrick"
 			newLastName := "Star"
 			Expect(w.ChangeName(ctx, users[0].Key, newFirstName, newLastName)).To(Succeed())
@@ -149,7 +161,7 @@ var _ = Describe("User", Ordered, func() {
 			users[0].FirstName = newFirstName
 			users[0].LastName = newLastName
 		})
-		It("Should only change one name if the other is blank", func() {
+		It("Should only change one name if the other is blank", func(ctx SpecContext) {
 			newFirstName := "Spongebob"
 			Expect(w.ChangeName(ctx, users[0].Key, newFirstName, "")).To(Succeed())
 			var u user.User
@@ -162,13 +174,13 @@ var _ = Describe("User", Ordered, func() {
 		})
 	})
 	Describe("Delete", func() {
-		It("Should delete a single user", func() {
+		It("Should delete a single user", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, users[0].Key)).To(Succeed())
 			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeFalse())
 			var u user.User
 			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
 		})
-		It("Should delete multiple users", func() {
+		It("Should delete multiple users", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, users[1].Key, users[2].Key)).To(Succeed())
 			Expect(svc.UsernameExists(ctx, users[1].Username)).To(BeFalse())
 			Expect(svc.UsernameExists(ctx, users[2].Username)).To(BeFalse())
@@ -176,7 +188,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(users[1].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
 			Expect(svc.NewRetrieve().WhereKeys(users[2].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
 		})
-		It("Should not delete the root user", func() {
+		It("Should not delete the root user", func(ctx SpecContext) {
 			u := &user.User{Username: "root", RootUser: true}
 			Expect(w.Create(ctx, u)).To(Succeed())
 			Expect(u.FirstName).To(Equal(""))

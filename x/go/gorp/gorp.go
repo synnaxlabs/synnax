@@ -13,13 +13,18 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
 
 // Wrap wraps the provided key-value database in a DB.
 func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
+
+// WrapTx creates a gorp.Tx from a raw kv.Tx and a encoding.Codec.
+func WrapTx(kvTx kv.Tx, codec encoding.Codec) Tx {
+	return tx{Tx: kvTx, options: options{Codec: codec}}
+}
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the transaction (Tx) interface. Using a DB as a Tx will execute the query
@@ -30,12 +35,7 @@ type DB struct {
 	options
 }
 
-var (
-	_ Tx             = (*DB)(nil)
-	_ BaseReader     = (*DB)(nil)
-	_ BaseWriter     = (*DB)(nil)
-	_ BaseObservable = (*DB)(nil)
-)
+var _ Tx = (*DB)(nil)
 
 // OpenTx begins a new Tx against the DB.
 func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
@@ -106,31 +106,6 @@ func checkForNilTx(method string, tx Tx) {
 
 var _ Tx = (*tx)(nil)
 
-// Tools provides the tools that gorp needs to translate key-value operations
-// to strongly-typed requests. It doesn't provide any functionality itself,
-// and is instead designed to be passed to the various other types that gorp uses.
-type Tools interface{ binary.Codec }
-
-// BaseReader is a simple extension of the kv.Reader interface that adds
-// gorp-required tooling. For semantic purposes, it can be considered as
-// equivalent to a kv.Reader.
-type BaseReader interface {
-	kv.Reader
-	Tools
-}
-
-// BaseWriter is a simple extension of the kv.Writer interface that
-// adds gorp-required tooling. For semantic purposes, it can be considered
-// as equivalent to a kv.Writer.
-type BaseWriter interface {
-	kv.Writer
-	Tools
-}
-
-// BaseObservable is a simple extension of the kv.Writer interface that
-// adds gorp-required tooling. For semantic purposes, it can be considered
-// as equivalent to a kv.Observable.
-type BaseObservable interface {
-	kv.Observable
-	Tools
-}
+// Tools provides the codec that gorp needs to translate key-value operations
+// to strongly-typed requests.
+type Tools interface{ encoding.Codec }

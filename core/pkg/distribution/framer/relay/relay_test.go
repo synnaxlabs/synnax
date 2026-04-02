@@ -10,6 +10,7 @@
 package relay_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -43,7 +44,7 @@ type scenario struct {
 var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
 
-		scenarios := []func() scenario{
+		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
 			peerOnlyScenario,
 			mixedScenario,
@@ -52,9 +53,9 @@ var _ = Describe("Relay", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			BeforeAll(func() { s = _sF() })
+			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
+			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
 				reader := MustSucceed(s.dist.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 					Keys: keys,
@@ -105,7 +106,7 @@ var _ = Describe("Relay", func() {
 		}
 	})
 	Describe("ExcludeGroups", Ordered, func() {
-		It("Should filter out frames from a matching group on gateway writes", func() {
+		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
 			builder := mock.ProvisionCluster(ctx, 1)
 			defer func() {
@@ -144,7 +145,7 @@ var _ = Describe("Relay", func() {
 			streamerReq.Close()
 			confluence.Drain(readerRes)
 		})
-		It("Should deliver frames from a non-matching group", func() {
+		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
 			builder := mock.ProvisionCluster(ctx, 1)
 			defer func() {
@@ -186,7 +187,7 @@ var _ = Describe("Relay", func() {
 			streamerReq.Close()
 			confluence.Drain(readerRes)
 		})
-		It("Should deliver frames with no group even when ExcludeGroups is set", func() {
+		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
 			builder := mock.ProvisionCluster(ctx, 1)
 			defer func() {
@@ -226,7 +227,7 @@ var _ = Describe("Relay", func() {
 			streamerReq.Close()
 			confluence.Drain(readerRes)
 		})
-		It("Should filter out free channel frames from a matching group", func() {
+		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
 			builder := mock.ProvisionCluster(ctx, 1)
 			defer func() {
@@ -272,7 +273,7 @@ var _ = Describe("Relay", func() {
 		})
 	})
 	Describe("Errors", func() {
-		It("Should raise an error if a channel is not found", func() {
+		It("Should raise an error if a channel is not found", func(ctx SpecContext) {
 			builder := mock.ProvisionCluster(ctx, 1)
 			defer func() {
 				Expect(builder.Close()).To(Succeed())
@@ -306,7 +307,7 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario() scenario {
+func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	svc := builder.Nodes[1]
@@ -320,7 +321,7 @@ func gatewayOnlyScenario() scenario {
 	}
 }
 
-func peerOnlyScenario() scenario {
+func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
@@ -343,7 +344,7 @@ func peerOnlyScenario() scenario {
 		close:    dist,
 	}
 }
-func mixedScenario() scenario {
+func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	clstr := mock.ProvisionCluster(ctx, 3)
 	node := clstr.Nodes[1]
@@ -367,7 +368,7 @@ func mixedScenario() scenario {
 	}
 }
 
-func freeScenario() scenario {
+func freeScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]

@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -25,18 +23,16 @@ import (
 
 var _ = Describe("Hover", func() {
 	var (
-		ctx    context.Context
 		server *lsp.Server
 		uri    protocol.DocumentURI
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		server, uri = SetupTestServer()
 	})
 
 	DescribeTable("keyword hover",
-		func(content string, char uint32, expectedTitle string, expectedSubstring string) {
+		func(ctx SpecContext, content string, char uint32, expectedTitle string, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
@@ -54,7 +50,7 @@ var _ = Describe("Hover", func() {
 	)
 
 	DescribeTable("type hover with range",
-		func(content string, char uint32, expectedType string) {
+		func(ctx SpecContext, content string, char uint32, expectedType string) {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
@@ -72,7 +68,7 @@ var _ = Describe("Hover", func() {
 	)
 
 	DescribeTable("type hover",
-		func(content string, line, char uint32, expectedType, expectedSubstring string) {
+		func(ctx SpecContext, content string, line, char uint32, expectedType, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, line, char)
 			Expect(hover).ToNot(BeNil())
@@ -86,7 +82,7 @@ var _ = Describe("Hover", func() {
 	)
 
 	Describe("Built-in Functions", func() {
-		It("should provide hover for 'len' function", func() {
+		It("should provide hover for 'len' function", func(ctx SpecContext) {
 			content := "length := len(data)"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -102,7 +98,7 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
 		})
 
-		It("should provide hover for 'set_authority' function", func() {
+		It("should provide hover for 'set_authority' function", func(ctx SpecContext) {
 			content := "set_authority{value=255}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -118,7 +114,7 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 
-		It("should provide hover for 'now' function", func() {
+		It("should provide hover for 'now' function", func(ctx SpecContext) {
 			content := "time := now()"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -136,7 +132,7 @@ var _ = Describe("Hover", func() {
 	})
 
 	Describe("User-Defined Symbols", func() {
-		It("should provide hover for user-defined functions", func() {
+		It("should provide hover for user-defined functions", func(ctx SpecContext) {
 			content := `func add(x i32, y i32) i32 {
     return x + y
 }
@@ -162,7 +158,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
 		})
 
-		It("should provide hover for user-defined functions", func() {
+		It("should provide hover for user-defined functions", func(ctx SpecContext) {
 			content := `func max{} (value f32) f32 {
     max_val $= value
     if (value > max_val) {
@@ -186,7 +182,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("value f32"))
 		})
 
-		It("should provide hover for stages with config", func() {
+		It("should provide hover for stages with config", func(ctx SpecContext) {
 			content := `func threshold{
     limit f64
 } (value f64) u8 {
@@ -212,7 +208,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("value f64"))
 		})
 
-		It("should provide hover for variables", func() {
+		It("should provide hover for variables", func(ctx SpecContext) {
 			content := `func test() {
     x i32 := 42
     y := x + 10
@@ -234,7 +230,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
 		})
 
-		It("should provide hover for stateful variables", func() {
+		It("should provide hover for stateful variables", func(ctx SpecContext) {
 			content := `func counter{} () u32 {
     count u32 $= 0
     count = count + 1
@@ -257,7 +253,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("Persists across executions"))
 		})
 
-		It("should provide hover for function parameters", func() {
+		It("should provide hover for function parameters", func(ctx SpecContext) {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }
@@ -278,7 +274,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("f64"))
 		})
 
-		It("should provide hover for sequence declarations", func() {
+		It("should provide hover for sequence declarations", func(ctx SpecContext) {
 			content := `sequence main {
     stage first {}
     stage second {}
@@ -300,7 +296,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("second"))
 		})
 
-		It("should provide hover for stage declarations within sequence", func() {
+		It("should provide hover for stage declarations within sequence", func(ctx SpecContext) {
 			content := `sequence main {
     stage first {}
 }`
@@ -318,7 +314,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("Stage"))
 		})
 
-		It("should include single-line doc comment in hover", func() {
+		It("should include single-line doc comment in hover", func(ctx SpecContext) {
 			content := `// Adds two numbers together
 func add(x i32, y i32) i32 {
     return x + y
@@ -337,7 +333,7 @@ func add(x i32, y i32) i32 {
 			Expect(hover.Contents.Value).To(ContainSubstring("Adds two numbers together"))
 		})
 
-		It("should include multi-line doc comment in hover", func() {
+		It("should include multi-line doc comment in hover", func(ctx SpecContext) {
 			content := `/* Computes the maximum of two values */
 func max(a i32, b i32) i32 {
     if a > b { return a }
@@ -357,7 +353,7 @@ func max(a i32, b i32) i32 {
 			Expect(hover.Contents.Value).To(ContainSubstring("Computes the maximum of two values"))
 		})
 
-		It("should include multiple consecutive single-line comments in hover", func() {
+		It("should include multiple consecutive single-line comments in hover", func(ctx SpecContext) {
 			content := `// Threshold function
 // Returns 1 if value exceeds limit, 0 otherwise
 func threshold(value f64) u8 {
@@ -377,7 +373,7 @@ func threshold(value f64) u8 {
 			Expect(hover.Contents.Value).To(ContainSubstring("Returns 1 if value exceeds limit"))
 		})
 
-		It("should not include comment separated by code from symbol", func() {
+		It("should not include comment separated by code from symbol", func(ctx SpecContext) {
 			content := `// Comment for helper
 func helper() i32 {
     return 0
@@ -402,7 +398,7 @@ func add(a i32, b i32) i32 {
 	})
 
 	DescribeTable("operator hover",
-		func(content string, char uint32, expectedOp, expectedSubstring string) {
+		func(ctx SpecContext, content string, char uint32, expectedOp, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
@@ -427,43 +423,43 @@ func add(a i32, b i32) i32 {
 	)
 
 	Describe("Edge Cases", func() {
-		It("should return nil for unknown words", func() {
+		It("should return nil for unknown words", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "unknown_identifier")
 			Expect(Hover(server, ctx, uri, 0, 5)).To(BeNil())
 		})
 
-		It("should return nil for position out of bounds", func() {
+		It("should return nil for position out of bounds", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func test() {}")
 			Expect(Hover(server, ctx, uri, 10, 0)).To(BeNil())
 		})
 
-		It("should return nil for closed document", func() {
+		It("should return nil for closed document", func(ctx SpecContext) {
 			hover := Hover(server, ctx, "file:///nonexistent.arc", 0, 0)
 			Expect(hover).To(BeNil())
 		})
 
-		It("should handle hovering at end of word", func() {
+		It("should handle hovering at end of word", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func")
 			hover := Hover(server, ctx, uri, 0, 3)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 		})
 
-		It("should handle hovering at start of word", func() {
+		It("should handle hovering at start of word", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func")
 			hover := Hover(server, ctx, uri, 0, 0)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 		})
 
-		It("should handle empty lines", func() {
+		It("should handle empty lines", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "\n\nfunc test() {}")
 			Expect(Hover(server, ctx, uri, 0, 0)).To(BeNil())
 		})
 	})
 
 	Describe("GlobalResolver", func() {
-		It("should provide hover for global variables from GlobalResolver", func() {
+		It("should provide hover for global variables from GlobalResolver", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{
 					Name: "myGlobal",
@@ -485,7 +481,7 @@ func add(a i32, b i32) i32 {
 
 	Describe("SemanticTokens", func() {
 		DescribeTable("Keywords",
-			func(content string, expectedType uint32) {
+			func(ctx SpecContext, content string, expectedType uint32) {
 				OpenArcDocument(server, ctx, uri, content)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
@@ -502,7 +498,7 @@ func add(a i32, b i32) i32 {
 		)
 
 		DescribeTable("Types",
-			func(content string, expectedType uint32) {
+			func(ctx SpecContext, content string, expectedType uint32) {
 				OpenArcDocument(server, ctx, uri, content)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
@@ -525,7 +521,7 @@ func add(a i32, b i32) i32 {
 		)
 
 		DescribeTable("Operators",
-			func(content string, expectedType uint32) {
+			func(ctx SpecContext, content string, expectedType uint32) {
 				OpenArcDocument(server, ctx, uri, content)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
@@ -554,7 +550,7 @@ func add(a i32, b i32) i32 {
 		)
 
 		DescribeTable("Single token types",
-			func(content string, expectedType uint32) {
+			func(ctx SpecContext, content string, expectedType uint32) {
 				OpenArcDocument(server, ctx, uri, content)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
@@ -571,7 +567,7 @@ func add(a i32, b i32) i32 {
 			Entry("multi-line comment", "/* comment */", uint32(lsp.SemanticTokenTypeComment)),
 		)
 
-		It("should tokenize function names as function type", func() {
+		It("should tokenize function names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func myFunc() {}")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -580,7 +576,7 @@ func add(a i32, b i32) i32 {
 			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
-		It("should tokenize input parameters as input type", func() {
+		It("should tokenize input parameters as input type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func myFunc(x f32) {}")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -594,7 +590,7 @@ func add(a i32, b i32) i32 {
 			Expect(foundInput).To(BeTrue())
 		})
 
-		It("should tokenize sequence names as sequence type", func() {
+		It("should tokenize sequence names as sequence type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -603,7 +599,7 @@ func add(a i32, b i32) i32 {
 			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeSequence)))
 		})
 
-		It("should tokenize stage names as stage type", func() {
+		It("should tokenize stage names as stage type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -620,7 +616,7 @@ func add(a i32, b i32) i32 {
 			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeStage)))
 		})
 
-		It("should tokenize stateful variables as statefulVariable type", func() {
+		It("should tokenize stateful variables as statefulVariable type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func counter{} () u32 {\n    count u32 $= 0\n    return count\n}")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -634,7 +630,7 @@ func add(a i32, b i32) i32 {
 			Expect(foundStateful).To(BeTrue())
 		})
 
-		It("should tokenize channel variables as channel type", func() {
+		It("should tokenize channel variables as channel type", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"sensorData": symbol.Symbol{
 					Name: "sensorData",

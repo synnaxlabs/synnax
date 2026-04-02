@@ -13,26 +13,35 @@ import (
 	"context"
 	"io"
 
+	"encoding/json"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
-	db *gorp.DB,
+	obs observe.Observable[gorp.TxReader[channel.Key, channel.Channel]],
 ) (io.Closer, error) {
-	cfg := signals.GorpPublisherConfigPureNumeric[channel.Key, channel.Channel](db, telem.Uint32T)
-	cfg.SetDataType = telem.JSONT
-	cfg.MarshalSet = func(c channel.Channel) ([]byte, error) {
-		v, err := (&binary.JSONCodec{}).Encode(ctx, channel.ToPayload(c))
-		if err != nil {
-			return nil, err
-		}
-		return append(v, '\n'), nil
+	cfg := signals.GorpPublisherConfig[channel.Key, channel.Channel]{
+		Observable:     obs,
+		DeleteDataType: telem.Uint32T,
+		SetDataType:    telem.JSONT,
+		MarshalDelete: func(k channel.Key) ([]byte, error) {
+			return xunsafe.CastToBytes(k), nil
+		},
+		MarshalSet: func(c channel.Channel) ([]byte, error) {
+			v, err := json.Marshal(channel.ToPayload(c))
+			if err != nil {
+				return nil, err
+			}
+			return append(v, '\n'), nil
+		},
 	}
 	return signals.PublishFromGorp(ctx, prov, cfg)
 }

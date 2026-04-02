@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("ProgramState", func() {
 	Describe("Input Alignment", func() {
-		It("Should correctly order the inputs regardless of edge order", func() {
+		It("Should correctly order the inputs regardless of edge order", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: graph.Nodes{
 					{Key: "in1", Type: "in1"},
@@ -96,7 +96,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(target1In3).To(telem.MatchSeriesDataV[uint8](3))
 		})
 
-		It("Should correctly align outputs of one node with inputs of another", func() {
+		It("Should correctly align outputs of one node with inputs of another", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: graph.Nodes{{Key: "first", Type: "first"}, {Key: "second", Type: "second"}},
 				Functions: []graph.Function{
@@ -133,7 +133,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(second.InputTime(0)).To(telem.MatchSeries(*first.OutputTime(0)))
 		})
 
-		It("Should not trigger recalculation with empty output", func() {
+		It("Should not trigger recalculation with empty output", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -170,7 +170,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(dest.RefreshInputs()).To(BeFalse())
 		})
 
-		It("Should track watermark to prevent reprocessing", func() {
+		It("Should track watermark to prevent reprocessing", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: ir.Functions{
 					{
@@ -208,7 +208,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(consumer.RefreshInputs()).To(BeFalse())
 		})
 
-		It("Should handle multiple inputs to single node", func() {
+		It("Should handle multiple inputs to single node", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -263,7 +263,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(target.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
-		It("Should select earliest timestamp as trigger", func() {
+		It("Should select earliest timestamp as trigger", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -316,7 +316,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(target.InputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100)))
 		})
 
-		It("Should accumulate multiple series before triggering", func() {
+		It("Should accumulate multiple series before triggering", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -357,7 +357,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(sink.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
 		})
 
-		It("Should handle partial input updates", func() {
+		It("Should handle partial input updates", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -414,7 +414,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(target.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
-		It("Should prune old series after watermark update", func() {
+		It("Should prune old series after watermark update", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -459,7 +459,7 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		Describe("Watermark Regression Tests", func() {
-			It("Should update all input watermarks on trigger", func() {
+			It("Should update all input watermarks on trigger", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []graph.Function{
 						{
@@ -512,7 +512,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(op.RefreshInputs()).To(BeFalse())
 			})
 
-			It("Should not trigger recalculation when non-trigger input unchanged", func() {
+			It("Should not trigger recalculation when non-trigger input unchanged", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []graph.Function{
 						{
@@ -566,7 +566,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(compute.RefreshInputs()).To(BeFalse())
 			})
 
-			It("Should correctly track watermarks with staggered timestamps", func() {
+			It("Should correctly track watermarks with staggered timestamps", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []graph.Function{
 						{
@@ -625,7 +625,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(target.RefreshInputs()).To(BeFalse())
 			})
 
-			It("Should prevent non-trigger input from causing spurious triggers", func() {
+			It("Should prevent non-trigger input from causing spurious triggers", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []graph.Function{
 						{
@@ -682,7 +682,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(thirdRefresh).To(BeFalse())
 			})
 
-			It("Should handle three inputs with same timestamp", func() {
+			It("Should handle three inputs with same timestamp", func(ctx SpecContext) {
 				g := graph.Graph{
 					Functions: []graph.Function{
 						{
@@ -754,7 +754,7 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("Optional Input Parameters", func() {
-		It("Should use default value for unconnected optional input", func() {
+		It("Should use default value for unconnected optional input", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -798,7 +798,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
-		It("Should override default value when input is connected", func() {
+		It("Should override default value when input is connected", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -855,7 +855,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
 		})
 
-		It("Should handle multiple optional parameters with defaults", func() {
+		It("Should handle multiple optional parameters with defaults", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -901,7 +901,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(calculator.Input(2)).To(telem.MatchSeries(telem.NewSeriesV[float64](2.5)))
 		})
 
-		It("Should handle mix of connected and unconnected optional inputs", func() {
+		It("Should handle mix of connected and unconnected optional inputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -961,7 +961,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(combiner.Input(2)).To(telem.MatchSeries(telem.NewSeriesV[int64](300)))
 		})
 
-		It("Should allow default values with different types", func() {
+		It("Should allow default values with different types", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -1006,7 +1006,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.Input(2)).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
 		})
 
-		It("Should persist default values across multiple executions", func() {
+		It("Should persist default values across multiple executions", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -1065,7 +1065,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.RefreshInputs()).To(BeFalse())
 		})
 
-		It("Should handle optional input with zero value as default", func() {
+		It("Should handle optional input with zero value as default", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -1108,7 +1108,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(adder.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int32](0)))
 		})
 
-		It("Should handle node with only optional inputs", func() {
+		It("Should handle node with only optional inputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
@@ -1142,7 +1142,7 @@ var _ = Describe("ProgramState", func() {
 		const outputParam = "output"
 
 		Describe("isSeriesTruthy helper", func() {
-			It("Should return false for empty series", func() {
+			It("Should return false for empty series", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1161,7 +1161,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
 			})
 
-			It("Should return false for series with last element 0 (float64)", func() {
+			It("Should return false for series with last element 0 (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1179,7 +1179,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
 			})
 
-			It("Should return true for series with last element non-zero (float64)", func() {
+			It("Should return true for series with last element non-zero (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1197,7 +1197,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
 			})
 
-			It("Should return false for series with last element 0 (uint8)", func() {
+			It("Should return false for series with last element 0 (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1215,7 +1215,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
 			})
 
-			It("Should return true for series with last element non-zero (uint8)", func() {
+			It("Should return true for series with last element non-zero (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1233,7 +1233,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
 			})
 
-			It("Should return false for series with last element 0 (int32)", func() {
+			It("Should return false for series with last element 0 (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1251,7 +1251,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
 			})
 
-			It("Should return true for series with last element non-zero (int32)", func() {
+			It("Should return true for series with last element non-zero (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1269,7 +1269,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
 			})
 
-			It("Should return false for non-existent param name", func() {
+			It("Should return false for non-existent param name", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1287,7 +1287,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy("nonexistent")).To(BeFalse())
 			})
 
-			It("Should check the last element only", func() {
+			It("Should check the last element only", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1309,7 +1309,7 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
 			})
 
-			It("Should handle timestamp type", func() {
+			It("Should handle timestamp type", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1332,7 +1332,7 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("Reset", func() {
-		It("Should not panic on a node with inputs and outputs", func() {
+		It("Should not panic on a node with inputs and outputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "src", Type: "src"},

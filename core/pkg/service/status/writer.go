@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -27,6 +28,7 @@ type Writer[D any] struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
+	codec     encoding.Codec
 }
 
 // Set creates or updates a status within the DB. If the Status already has a key and
@@ -52,11 +54,11 @@ func (w Writer[D]) SetWithParent(
 	if err := w.validate(*s); err != nil {
 		return err
 	}
-	exists, err := gorp.NewRetrieve[string, status.Status[D]]().WhereKeys(s.Key).Exists(ctx, w.tx)
+	exists, err := gorp.NewRetrieve[string, status.Status[D]](w.codec).WhereKeys(s.Key).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
-	if err = gorp.NewCreate[string, status.Status[D]]().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[string, status.Status[D]](w.codec).Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := OntologyID(s.Key)
@@ -124,7 +126,7 @@ func (w Writer[D]) SetManyWithParent(
 
 // Delete deletes the status with the given key. Delete is idempotent.
 func (w Writer[D]) Delete(ctx context.Context, key string) error {
-	if err := gorp.NewDelete[string, status.Status[D]]().
+	if err := gorp.NewDelete[string, status.Status[D]](w.codec).
 		WhereKeys(key).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err

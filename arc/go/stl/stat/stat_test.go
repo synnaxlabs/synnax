@@ -27,7 +27,7 @@ var _ = Describe("Stat", func() {
 
 	Describe("avg", func() {
 
-		It("Should compute running average with count-based reset", func() {
+		It("Should compute running average with count-based reset", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},
@@ -87,7 +87,7 @@ var _ = Describe("Stat", func() {
 	})
 
 	Describe("min", func() {
-		It("Should compute running minimum with duration-based reset", func() {
+		It("Should compute running minimum with duration-based reset", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},
@@ -153,7 +153,7 @@ var _ = Describe("Stat", func() {
 	})
 
 	Describe("max", func() {
-		It("Should compute running maximum with signal-based reset", func() {
+		It("Should compute running maximum with signal-based reset", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},
@@ -228,7 +228,7 @@ var _ = Describe("Stat", func() {
 			Expect(timeVals[0]).To(Equal(telem.SecondTS * 6)) // Last input timestamp after reset
 		})
 
-		It("Should work without optional reset signal connected", func() {
+		It("Should work without optional reset signal connected", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},
@@ -281,7 +281,7 @@ var _ = Describe("Stat", func() {
 			Expect(vals[0]).To(Equal(uint64(80))) // Max across both batches
 		})
 
-		It("Should catch fast reset pulses (1->0 transition)", func() {
+		It("Should catch fast reset pulses (1->0 transition)", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},
@@ -353,7 +353,7 @@ var _ = Describe("Stat", func() {
 	})
 
 	Describe("Alignment Propagation", func() {
-		It("Should propagate alignment from input to output", func() {
+		It("Should propagate alignment from input to output", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},
@@ -405,7 +405,7 @@ var _ = Describe("Stat", func() {
 			Expect(resultTime.TimeRange.End).To(Equal(300 * telem.SecondTS))
 		})
 
-		It("Should sum alignments when reset signal is connected", func() {
+		It("Should sum alignments when reset signal is connected", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},

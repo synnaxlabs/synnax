@@ -16,8 +16,8 @@ import (
 	"iter"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -29,33 +29,29 @@ import (
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
-	// BaseReader is the underlying key-value reader that the Reader is wrapping.
-	BaseReader
+	codec    encoding.Codec
+	reader   kv.Reader
 }
 
-// WrapReader wraps the given key-value reader to provide a strongly typed interface for
-// reading entries from the DB. It's important to note that the Reader only access to
-// the entries provided as the type arguments to this function. The following example
-// reads from a DB:
-//
-//	r := gorp.WrapReader[MyKey, MyEntry](db)
-//
-// The next example reads from a Tx:
-//
-//	r := gorp.WrapReader[MyKey, MyEntry](tx)
-func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
-	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
+// WrapReader wraps the given key-value reader and codec to provide a strongly typed
+// interface for reading entries from the DB.
+func WrapReader[K Key, E Entry[K]](base kv.Reader, codec encoding.Codec) *Reader[K, E] {
+	return &Reader[K, E]{reader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
+}
+
+func wrapReader[K Key, E Entry[K]](base kv.Reader, codec encoding.Codec) *Reader[K, E] {
+	return &Reader[K, E]{reader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
-	b, closer, err := r.BaseReader.Get(ctx, r.keyCodec.encode(key))
+	b, closer, err := r.reader.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return e, err
 	}
-	err = r.Decode(ctx, b, &e)
+	err = r.codec.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
 }
 
@@ -69,13 +65,10 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	for i := range keys {
 		e, err := r.Get(ctx, keys[i])
 		if err != nil {
-			// We keep iterating here to ensure that we return all entries that
-			// can be found.
 			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, keys[i])
 				continue
 			} else {
-				// All other errors are considered no-ops.
 				return entries, err
 			}
 		} else {
@@ -98,8 +91,8 @@ type IterOptions struct {
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
-	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
-	return WrapIterator[E](base, r), err
+	base, err := r.reader.OpenIterator(kv.IterPrefix(prefixedKey))
+	return &Iterator[E]{Iterator: base, codec: r.codec}, err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over
@@ -119,27 +112,24 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
-// before returning it to the caller. It provides no abstracted utilities for the
-// iteration itself, and is focused only on maintaining a nearly identical interface to
-// the underlying iterator. To create a new Iterator, call OpenIterator.
+// before returning it to the caller. To create a new Iterator, call OpenIterator.
 type Iterator[E any] struct {
 	kv.Iterator
-	err     error
-	value   *E
-	decoder binary.Decoder
-}
-
-// WrapIterator wraps the provided iterator. All valid calls to iter.Value are
-// decoded into the entry type E.
-func WrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[E] {
-	return &Iterator[E]{Iterator: wrapped, decoder: decoder}
+	err   error
+	value *E
+	codec encoding.Codec
 }
 
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
-// for calls to return a valid value.
+// for calls to return a valid value. The returned pointer is reused across calls,
+// so callers must copy the value if they need it to persist.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
-	k.value = new(E)
-	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
+	if k.value == nil {
+		k.value = new(E)
+	}
+	var zero E
+	*k.value = zero
+	if err := k.codec.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
 		k.err = err
 		return nil
 	}

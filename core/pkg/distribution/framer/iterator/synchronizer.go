@@ -35,14 +35,6 @@ func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segme
 }
 
 func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
-	if res.SeqNum == 0 {
-		s.ins.L.DPanic(
-			"received response with zero sequence number",
-			zap.Int("expected", s.cycle.res.SeqNum),
-		)
-		return res, false, nil
-	}
-
 	if res.Variant == ResponseVariantData {
 		return res, true, nil
 	}

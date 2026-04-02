@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -24,8 +25,9 @@ import (
 // Reader is used to retrieve aliases.
 type Reader struct {
 	tx              gorp.Tx
-	otg             *ontology.Ontology
+	search          *search.Index
 	parentRetriever ParentRetriever
+	table           *gorp.Table[string, Alias]
 }
 
 // Retrieve gets the alias for the given channel on the specified range.
@@ -37,7 +39,7 @@ func (r Reader) Retrieve(
 	ch channel.Key,
 ) (string, error) {
 	var res Alias
-	err := gorp.NewRetrieve[string, Alias]().
+	err := r.table.NewRetrieve().
 		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
@@ -75,8 +77,7 @@ func (r Reader) Resolve(
 			return a.Range == rng && rxp.MatchString(a.Alias), nil
 		}
 	}
-	err = gorp.
-		NewRetrieve[string, Alias]().
+	err = r.table.NewRetrieve().
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
@@ -119,7 +120,7 @@ func (r Reader) listAliases(
 	accumulated map[channel.Key]string,
 ) error {
 	var aliases []Alias
-	if err := gorp.NewRetrieve[string, Alias]().
+	if err := r.table.NewRetrieve().
 		Where(func(_ gorp.Context, a *Alias) (bool, error) {
 			return a.Range == rng, nil
 		}).
@@ -149,9 +150,9 @@ func (r Reader) Search(
 	rng uuid.UUID,
 	term string,
 ) ([]channel.Key, error) {
-	ids, err := r.otg.SearchIDs(
+	ids, err := r.search.Search(
 		ctx,
-		ontology.SearchRequest{Term: term, Type: ontology.TypeRangeAlias},
+		search.Request{Term: term, Type: ontology.ResourceTypeRangeAlias},
 	)
 	if err != nil {
 		return nil, err

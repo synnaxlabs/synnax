@@ -26,10 +26,10 @@ func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, e
 	return &counter{wrap: wrap}, err
 }
 
-func (c *counter) add(delta LocalKey) (LocalKey, error) {
+func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
 	if c.wrap.Value()+int64(delta) > int64(math.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}
-	next, err := c.wrap.Add(int64(delta))
+	next, err := c.wrap.Add(ctx, int64(delta))
 	return LocalKey(next), err
 }

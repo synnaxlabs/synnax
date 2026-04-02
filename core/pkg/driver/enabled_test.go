@@ -39,7 +39,7 @@ func newTestLogger() (*alamos.Logger, *bytes.Buffer) {
 	return logger, buffer
 }
 
-func openMockDriver(logger *alamos.Logger, overrides ...driver.Config) *driver.Driver {
+func openMockDriver(ctx context.Context, logger *alamos.Logger, overrides ...driver.Config) *driver.Driver {
 	base := driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 		BinaryPath:      mockBinaryPath,
@@ -48,24 +48,24 @@ func openMockDriver(logger *alamos.Logger, overrides ...driver.Config) *driver.D
 		ParentDirname:   GinkgoT().TempDir(),
 	}
 	cfgs := append([]driver.Config{base}, overrides...)
-	return MustSucceed(driver.Open(context.Background(), cfgs...))
+	return MustSucceed(driver.Open(ctx, cfgs...))
 }
 
 var _ = Describe("Open", func() {
 	Describe("contract", func() {
-		It("Should return a non-nil driver on success", func() {
+		It("Should return a non-nil driver on success", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
-			d := openMockDriver(logger)
+			d := openMockDriver(ctx, logger)
 			Expect(d).ToNot(BeNil())
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should return nil driver and kill the process promptly on timeout", func() {
+		It("Should return nil driver and kill the process promptly on timeout", func(ctx SpecContext) {
 			Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
 			defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
 			logger, _ := newTestLogger()
 			start := time.Now()
-			d, err := driver.Open(context.Background(), driver.Config{
+			d, err := driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				BinaryPath:      mockBinaryPath,
 				Insecure:        new(true),
@@ -83,11 +83,11 @@ var _ = Describe("Open", func() {
 			Expect(elapsed).To(BeNumerically("<", 5*time.Second))
 		})
 
-		It("Should return timeout error when driver crashes on startup", func() {
+		It("Should return timeout error when driver crashes on startup", func(ctx SpecContext) {
 			Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
 			defer func() { Expect(os.Unsetenv("MOCK_FAIL_START")).To(Succeed()) }()
 			logger, _ := newTestLogger()
-			d, err := driver.Open(context.Background(), driver.Config{
+			d, err := driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				BinaryPath:      mockBinaryPath,
 				Insecure:        new(true),
@@ -100,15 +100,15 @@ var _ = Describe("Open", func() {
 			Expect(d).To(BeNil())
 		})
 
-		It("Should return nil driver on config validation failure", func() {
-			d, err := driver.Open(context.Background(), driver.Config{})
+		It("Should return nil driver on config validation failure", func(ctx SpecContext) {
+			d, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())
 			Expect(d).To(BeNil())
 		})
 
-		It("Should return a non-nil driver when disabled", func() {
+		It("Should return a non-nil driver when disabled", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
-			d := MustSucceed(driver.Open(context.Background(), driver.Config{
+			d := MustSucceed(driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				Enabled:         new(false),
 				Insecure:        new(true),
@@ -119,9 +119,9 @@ var _ = Describe("Open", func() {
 	})
 
 	Describe("behavior", func() {
-		It("Should pass --debug flag when enabled", func() {
+		It("Should pass --debug flag when enabled", func(ctx SpecContext) {
 			logger, buffer := newTestLogger()
-			d := openMockDriver(logger, driver.Config{Debug: new(true)})
+			d := openMockDriver(ctx, logger, driver.Config{Debug: new(true)})
 			Expect(d.Close()).To(Succeed())
 			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 		})
@@ -130,31 +130,31 @@ var _ = Describe("Open", func() {
 
 var _ = Describe("Close", func() {
 	Describe("contract", func() {
-		It("Should shut down cleanly after successful Open", func() {
+		It("Should shut down cleanly after successful Open", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
-			d := openMockDriver(logger)
+			d := openMockDriver(ctx, logger)
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should be idempotent on an enabled driver", func() {
+		It("Should be idempotent on an enabled driver", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
-			d := openMockDriver(logger)
+			d := openMockDriver(ctx, logger)
 			Expect(d.Close()).To(Succeed())
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should handle a driver crash after successful startup", func() {
+		It("Should handle a driver crash after successful startup", func(ctx SpecContext) {
 			Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
 			defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
 			logger, _ := newTestLogger()
-			d := openMockDriver(logger)
+			d := openMockDriver(ctx, logger)
 			time.Sleep(200 * time.Millisecond)
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should be idempotent on a disabled driver", func() {
+		It("Should be idempotent on a disabled driver", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
-			d := MustSucceed(driver.Open(context.Background(), driver.Config{
+			d := MustSucceed(driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				Enabled:         new(false),
 				Insecure:        new(true),

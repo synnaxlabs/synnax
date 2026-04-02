@@ -125,7 +125,7 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(ontology.TypeRack)) {
+		if !strings.HasPrefix(ch.Key, string(ontology.ResourceTypeRack)) {
 			continue
 		}
 		key, err := parseKeyFromOntologyIDString(ch.Key)
@@ -157,7 +157,7 @@ func openMonitor(
 	ins alamos.Instrumentation,
 	svc *Service,
 ) (*monitor, error) {
-	obs := gorp.Observe[string, status.Status[any]](svc.DB)
+	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
 		Observer:         observe.New[Status](),

@@ -16,11 +16,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -38,6 +40,9 @@ type ServiceConfig struct {
 	// deleted.
 	Signals *signals.Provider
 	Label   *label.Service
+	// Search is the search index for fuzzy searching statuses.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -53,6 +58,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -63,6 +69,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -84,7 +91,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Status[any]](ctx, cfg.DB)
+	table, err := gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[Status[any]]{DB: cfg.DB},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +104,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, table: table, group: g}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Status[any]](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[Status[any]](s.table.Observe())
 	signalsCfg.SetName = "sy_status_set"
 	signalsCfg.DeleteName = "sy_status_delete"
 	if s.shutdownSignals, err = signals.PublishFromGorp(
@@ -121,6 +132,11 @@ func (s *Service) Close() error {
 	return errors.Join(err, s.table.Close())
 }
 
+// Observe returns an observable that notifies callers of changes to status entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[string, Status[any]]] {
+	return s.table.Observe()
+}
+
 // NewWriter opens a new Writer to create, update, and delete statuses. If tx is not
 // nil, the writer will use it to execute all operations. If tx is nil, the writer will
 // execute all operations directly against the underlying gorp.DB.
@@ -135,14 +151,15 @@ func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		group:     s.group,
+		codec:     s.table.Codec(),
 	}
 }
 
 func NewRetrieve[D any](s *Service) Retrieve[D] {
 	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[string, Status[D]](),
+		gorp:   gorp.NewRetrieve[string, Status[D]](s.table.Codec()),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		label:  s.cfg.Label,
 	}
 }

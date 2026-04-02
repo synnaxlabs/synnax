@@ -20,14 +20,14 @@ import (
 )
 
 var _ = Describe("Breaker", func() {
-	It("By default should not allow retry", func() {
-		ctx, cancel := context.WithCancel(context.Background())
+	It("By default should not allow retry", func(specCtx SpecContext) {
+		ctx, cancel := context.WithCancel(specCtx)
 		b := MustSucceed(breaker.NewBreaker(ctx))
 		Expect(b.Wait()).To(BeFalse())
 		cancel()
 	})
-	It("Should be canceled as the underlying context is canceled", func() {
-		ctx, cancel := context.WithCancel(context.Background())
+	It("Should be canceled as the underlying context is canceled", func(specCtx SpecContext) {
+		ctx, cancel := context.WithCancel(specCtx)
 		done := make(chan struct{})
 		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{BaseInterval: 1 * time.Hour}))
 		go func() {
@@ -40,8 +40,11 @@ var _ = Describe("Breaker", func() {
 		}()
 		Eventually(done).Should(Receive())
 	})
-	It("Should scale the timeout every time it fails", func() {
-		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{BaseInterval: 10 * time.Millisecond, Scale: 2, MaxRetries: 10}))
+	It("Should scale the timeout every time it fails", func(ctx SpecContext) {
+		b := MustSucceed(breaker.NewBreaker(
+			ctx,
+			breaker.Config{BaseInterval: 10 * time.Millisecond, Scale: 2, MaxRetries: 10}),
+		)
 		start := time.Now()
 		Expect(b.Wait()).To(BeTrue()) // 10ms
 		Expect(b.Wait()).To(BeTrue()) // 20ms

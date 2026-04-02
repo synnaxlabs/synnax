@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Identifier Compilation", func() {
 	Context("Local Variables", func() {
-		It("Should compile local variable references", func() {
+		It("Should compile local variable references", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			Expect(ctx.Scope.Add(
 				ctx,
@@ -36,7 +36,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
-		It("Should compile expressions using multiple local variables", func() {
+		It("Should compile expressions using multiple local variables", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scopeA := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "a", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scopeA).ToNot(BeNil())
@@ -54,7 +54,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
-		It("Should compile complex expressions with local variables", func() {
+		It("Should compile complex expressions with local variables", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			// Add variables with different types
 			scopeX := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.F64()}))
@@ -74,7 +74,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
-		It("Should compile comparisons using local variables", func() {
+		It("Should compile comparisons using local variables", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scopeLimit := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "limit", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scopeLimit).ToNot(BeNil())
@@ -89,7 +89,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.U8())) // Comparisons return boolean
 		})
 
-		It("Should compile logical operations with local variables", func() {
+		It("Should compile logical operations with local variables", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scopeEnabled := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "enabled", Kind: symbol.KindVariable, Type: types.U8()}))
 			Expect(scopeEnabled).ToNot(BeNil())
@@ -119,7 +119,7 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("Channel Reads", func() {
-		It("Should compile a channel read", func() {
+		It("Should compile a channel read", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			Expect(scope).ToNot(BeNil())
@@ -131,7 +131,7 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should correctly compile a channel read inside of an addition expression", func() {
+		It("Should correctly compile a channel read inside of an addition expression", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			Expect(scope).ToNot(BeNil())
@@ -145,7 +145,7 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should correctly compile a channel read inside of a comparison expression", func() {
+		It("Should correctly compile a channel read inside of a comparison expression", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
@@ -160,7 +160,7 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("Function Parameters", func() {
-		It("Should compile parameter references", func() {
+		It("Should compile parameter references", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "value",
@@ -173,7 +173,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
-		It("Should compile chan-typed input parameter read as channel_read", func() {
+		It("Should compile chan-typed input parameter read as channel_read", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "ch",
@@ -191,7 +191,7 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("Global Constants", func() {
-		It("Should compile i32 global constant", func() {
+		It("Should compile i32 global constant", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "MAX",
@@ -204,7 +204,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
-		It("Should compile i64 global constant", func() {
+		It("Should compile i64 global constant", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "LIMIT",
@@ -217,7 +217,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile f32 global constant", func() {
+		It("Should compile f32 global constant", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "RATE",
@@ -230,7 +230,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F32()))
 		})
 
-		It("Should compile f64 global constant", func() {
+		It("Should compile f64 global constant", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "PI",
@@ -243,7 +243,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
-		It("Should compile global constant in binary expression", func() {
+		It("Should compile global constant in binary expression", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "OFFSET",
@@ -265,7 +265,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile multiple global constants in expression", func() {
+		It("Should compile multiple global constants in expression", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "A",
@@ -288,7 +288,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile global constant in comparison", func() {
+		It("Should compile global constant in comparison", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name:         "THRESHOLD",
@@ -312,7 +312,7 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("Stateful Variables", func() {
-		It("Should compile i32 stateful variable load", func() {
+		It("Should compile i32 stateful variable load", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "counter",
@@ -328,7 +328,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
-		It("Should compile i64 stateful variable load", func() {
+		It("Should compile i64 stateful variable load", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "total",
@@ -344,7 +344,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile f32 stateful variable load", func() {
+		It("Should compile f32 stateful variable load", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "rate",
@@ -360,7 +360,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F32()))
 		})
 
-		It("Should compile f64 stateful variable load", func() {
+		It("Should compile f64 stateful variable load", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "accumulator",
@@ -376,7 +376,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
-		It("Should compile stateful variable in binary expression", func() {
+		It("Should compile stateful variable in binary expression", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "count",
@@ -394,7 +394,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile multiple stateful variables with correct IDs", func() {
+		It("Should compile multiple stateful variables with correct IDs", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "first",
@@ -419,7 +419,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile stateful variable in comparison", func() {
+		It("Should compile stateful variable in comparison", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "iterations",
@@ -439,7 +439,7 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("User-Defined Function Calls", func() {
-		It("Should compile a simple function call with no arguments", func() {
+		It("Should compile a simple function call with no arguments", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			ctx.Resolver.RegisterLocal("getVal", 5)
 
@@ -457,7 +457,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile a function call with arguments", func() {
+		It("Should compile a function call with arguments", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			ctx.Resolver.RegisterLocal("add", 3)
 
@@ -480,7 +480,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile nested function calls", func() {
+		It("Should compile nested function calls", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			ctx.Resolver.RegisterLocal("inner", 2)
 			ctx.Resolver.RegisterLocal("outer", 3)
@@ -503,7 +503,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
-		It("Should compile function call in binary expression", func() {
+		It("Should compile function call in binary expression", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			ctx.Resolver.RegisterLocal("getValue", 7)
 

@@ -11,14 +11,20 @@ import {
   ExtensionHostKind,
   registerExtension,
 } from "@codingame/monaco-vscode-api/extensions";
+import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
 import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
-import { MonacoLanguageClient } from "monaco-languageclient";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
-import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
+import {
+  BaseLanguageClient,
+  CloseAction,
+  ErrorAction,
+  type LanguageClientOptions,
+  type MessageTransports,
+} from "vscode-languageclient/browser";
 
 import arcLanguageConfigurationRaw from "@/arc/lsp/language-configuration.json?raw";
 
@@ -274,8 +280,25 @@ const createFreighterTransport = ({
   return { reader, writer, closed };
 };
 
+class ArcLanguageClient extends BaseLanguageClient {
+  private readonly transports: MessageTransports;
+
+  constructor(
+    name: string,
+    clientOptions: LanguageClientOptions,
+    transports: MessageTransports,
+  ) {
+    super(name.toLowerCase(), name, clientOptions);
+    this.transports = transports;
+  }
+
+  protected createMessageTransports(): Promise<MessageTransports> {
+    return Promise.resolve(this.transports);
+  }
+}
+
 export interface LSPClientHandle {
-  client: MonacoLanguageClient;
+  client: ArcLanguageClient;
   closed: Promise<void>;
 }
 
@@ -288,22 +311,22 @@ export const closeLSPStream = (stream: LSPStream): void => {
 
 export const startLSPClient = async (stream: LSPStream): Promise<LSPClientHandle> => {
   const { reader, writer, closed } = createFreighterTransport({ stream });
-  const client = new MonacoLanguageClient({
-    name: "Arc Language Server",
-    clientOptions: {
+  const client = new ArcLanguageClient(
+    "Arc Language Server",
+    {
       documentSelector: [LANGUAGE],
       errorHandler: {
         error: () => ({ action: ErrorAction.Continue }),
         closed: () => ({ action: CloseAction.DoNotRestart }),
       },
     },
-    messageTransports: { reader, writer },
-  });
+    { reader, writer },
+  );
   await client.start();
   return { client, closed };
 };
 
-export const stopLSPClient = async (client: MonacoLanguageClient): Promise<void> => {
+export const stopLSPClient = async (client: ArcLanguageClient): Promise<void> => {
   try {
     await client.stop();
   } catch {
@@ -352,8 +375,7 @@ const registerArcLanguage = async (): Promise<destructor.Async> => {
 
 const applySemanticTokenColors = async (): Promise<destructor.Async> => {
   try {
-    const vscode = await import("vscode");
-    const config = vscode.workspace.getConfiguration("editor");
+    const config = vscodeExtensionApi.workspace.getConfiguration("editor");
 
     await config.update(
       "semanticTokenColorCustomizations",
@@ -361,7 +383,7 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
         "[Default Dark+]": { rules: SEMANTIC_TOKEN_COLORS.dark },
         "[Default Light+]": { rules: SEMANTIC_TOKEN_COLORS.light },
       },
-      vscode.ConfigurationTarget.Global,
+      vscodeExtensionApi.ConfigurationTarget.Global,
     );
 
     await config.update(
@@ -370,7 +392,7 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
         "[Default Dark+]": { textMateRules: TEXTMATE_RULES.dark },
         "[Default Light+]": { textMateRules: TEXTMATE_RULES.light },
       },
-      vscode.ConfigurationTarget.Global,
+      vscodeExtensionApi.ConfigurationTarget.Global,
     );
   } catch (error) {
     console.warn("Failed to apply Arc semantic token colors:", error);
