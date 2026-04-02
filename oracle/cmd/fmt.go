@@ -19,10 +19,11 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var fmtCmd = &cobra.Command{
-	Use:   "fmt [files...]",
-	Short: "Format Oracle schema files",
-	Long: `Format Oracle schema files according to the canonical style.
+func newFmtCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "fmt [files...]",
+		Short: "Format Oracle schema files",
+		Long: `Format Oracle schema files according to the canonical style.
 
 If no files are specified, formats all .oracle files in the schemas/ directory.
 
@@ -30,21 +31,19 @@ Examples:
   oracle fmt                           # Format all schema files
   oracle fmt schemas/rack.oracle       # Format a specific file
   oracle fmt schemas/*.oracle          # Format matching files`,
-	RunE: runFmt,
+	}
+	cmd.Flags().BoolVarP(&fmtCheck, "check", "c", false,
+		"Check if files are formatted (exit 1 if not)")
+	cmd.Flags().BoolVarP(&fmtDiff, "diff", "d", false,
+		"Show diff instead of writing files")
+	cmd.RunE = runFmt
+	return cmd
 }
 
 var (
-	fmtCheck bool // Check mode - don't write, exit 1 if changes needed
-	fmtDiff  bool // Show diff instead of writing
+	fmtCheck bool
+	fmtDiff  bool
 )
-
-func init() {
-	fmtCmd.Flags().BoolVarP(&fmtCheck, "check", "c", false,
-		"Check if files are formatted (exit 1 if not)")
-	fmtCmd.Flags().BoolVarP(&fmtDiff, "diff", "d", false,
-		"Show diff instead of writing files")
-	rootCmd.AddCommand(fmtCmd)
-}
 
 func runFmt(cmd *cobra.Command, args []string) error {
 	printBanner()
@@ -55,7 +54,6 @@ func runFmt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Default to schemas/*.oracle if no args
 	patterns := args
 	if len(patterns) == 0 {
 		patterns = []string{"schemas/*.oracle"}
@@ -132,18 +130,15 @@ func formatFile(path string) (formatResult, error) {
 	}
 
 	if fmtCheck {
-		// In check mode, just report that changes are needed
 		printInfo(fmt.Sprintf("needs formatting: %s", path))
 		return formatResultChanged, nil
 	}
 
 	if fmtDiff {
-		// Show what would change
 		printInfo(fmt.Sprintf("would format: %s", path))
 		return formatResultChanged, nil
 	}
 
-	// Write the formatted file
 	if err := os.WriteFile(path, []byte(formatted), 0644); err != nil {
 		return formatResultUnchanged, err
 	}

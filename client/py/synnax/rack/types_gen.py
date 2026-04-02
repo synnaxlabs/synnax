@@ -45,6 +45,8 @@ class Base(BaseModel):
         task_counter: Is an internal counter used for generating unique local task keys.
         embedded: Is true if this rack is embedded within the Synnax server process.
         status: Is the current operational status of the rack.
+        integrations: Is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+            "labjack"). An empty or nil list means the rack supports no integrations.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -52,6 +54,7 @@ class Base(BaseModel):
     task_counter: int | None = Field(default=None, ge=0, le=4294967295)
     embedded: bool | None = None
     status: Status | None = None
+    integrations: list[str] | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -19,6 +19,12 @@ import (
 // ErrRecursionDepth is returned when decoding exceeds the maximum recursion depth.
 var ErrRecursionDepth = errors.New("[orc] recursion depth exceeded")
 
+// ErrExceedStringLen is returned when a string length prefix exceeds MaxStringLen.
+var ErrExceedStringLen = errors.New("[orc] string length exceeded")
+
+// ErrExceedCollectionLen is returned when a collection length prefix exceeds MaxCollectionLen.
+var ErrExceedCollectionLen = errors.New("[orc] collection length exceeded")
+
 // MaxStringLen is the maximum byte length of a string that can be decoded. In
 // direct mode (ResetBytes), the backing slice provides a natural bound. In
 // io.Reader mode, this limit prevents a corrupt length prefix from causing a
@@ -190,9 +196,7 @@ func (r *Reader) String() (string, error) {
 		return s, nil
 	}
 	if n > MaxStringLen {
-		return "", errors.Newf(
-			"orc: string length %d exceeds maximum %d", n, MaxStringLen,
-		)
+		return "", errors.Wrapf(ErrExceedStringLen, "length %d exceeds maximum %d", n, MaxStringLen)
 	}
 	buf := make([]byte, n)
 	if _, err = io.ReadFull(r.r, buf); err != nil {
@@ -210,9 +214,7 @@ func (r *Reader) CollectionLen() (uint32, error) {
 		return 0, err
 	}
 	if n > MaxCollectionLen {
-		return 0, errors.Newf(
-			"orc: collection length %d exceeds maximum %d", n, MaxCollectionLen,
-		)
+		return 0, errors.Wrapf(ErrExceedCollectionLen, "length %d exceeds maximum %d", n, MaxCollectionLen)
 	}
 	return n, nil
 }

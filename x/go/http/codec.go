@@ -7,46 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package httputil
+package http
 
 import (
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Codec is an interface that extends binary.Codec to
+// Codec is an interface that extends encoding.Codec to
 // add an HTTP content-type.
 type Codec interface {
 	ContentType() string
-	binary.Codec
+	encoding.Codec
 }
 
-type typedCodec struct {
-	binary.Codec
-	ct string
-}
-
-func (t typedCodec) ContentType() string { return t.ct }
-
-var (
-	JSONCodec = typedCodec{
-		ct:    "application/json",
-		Codec: &binary.JSONCodec{},
-	}
-	MsgPackCodec = typedCodec{
-		ct:    "application/msgpack",
-		Codec: &binary.MsgPackCodec{},
-	}
-)
-
-var codecs = []Codec{JSONCodec, MsgPackCodec}
+var codecs = []Codec{json.Codec, msgpack.Codec}
 
 type CodecResolver func(contentType string) (Codec, error)
 
 func ResolveCodec(contentType string) (Codec, error) {
-	for _, ecd := range codecs {
-		if ecd.ContentType() == contentType {
-			return ecd, nil
+	for _, codec := range codecs {
+		if codec.ContentType() == contentType {
+			return codec, nil
 		}
 	}
 	return nil, errors.Newf("[encoding] - unable to determine encoding type for %s", contentType)
@@ -56,8 +40,8 @@ var _ CodecResolver = ResolveCodec
 
 func SupportedContentTypes() []string {
 	var contentTypes []string
-	for _, ecd := range codecs {
-		contentTypes = append(contentTypes, ecd.ContentType())
+	for _, codec := range codecs {
+		contentTypes = append(contentTypes, codec.ContentType())
 	}
 	return contentTypes
 }

@@ -1,8 +1,8 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/*"], "html-escaper": ["node_modules/@types/html-escaper"] }
+    "types": ["html-escaper", "offscreencanvas", "react", "react-dom"],
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": [
     "src/**/*",

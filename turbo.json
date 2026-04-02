@@ -1,13 +1,26 @@
 {
   "$schema": "https://turborepo.org/schema.json",
+  "globalDependencies": [
+    "configs/vite/src/index.ts",
+    "configs/ts/*.json",
+    "pnpm-workspace.yaml"
+  ],
   "globalEnv": [
     "SYNNAX_TS_ENV",
     "TAURI_SIGNING_PRIVATE_KEY",
     "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
   ],
   "tasks": {
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".vercel/**"] },
-    "build-vite": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "vite.config.ts", "tsconfig*.json", "package.json"],
+      "outputs": ["dist/**", ".vercel/**"]
+    },
+    "build-vite": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "vite.config.ts", "tsconfig*.json", "package.json"],
+      "outputs": ["dist/**"]
+    },
     "lint": {},
     "stylelint": {},
     "check-types": { "dependsOn": ["^build"] },

@@ -14,8 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -115,7 +116,7 @@ var _ = Describe("Table", func() {
 	})
 
 	Describe("MigrateOldPrefixKeys", func() {
-		writeOldFormatEntry := func(ctx context.Context, codec *binary.MsgPackCodec, e entry) {
+		writeOldFormatEntry := func(ctx context.Context, codec encoding.Codec, e entry) {
 			typeName := types.Name[entry]()
 			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
 			encodedValue := MustSucceed(codec.Encode(ctx, e))
@@ -130,7 +131,7 @@ var _ = Describe("Table", func() {
 		}
 
 		It("Should migrate entries stored under old codec-based prefix", func(ctx SpecContext) {
-			codec := &binary.MsgPackCodec{}
+			codec := msgpack.Codec
 			writeOldFormatEntry(ctx, codec, entry{ID: 42, Data: "old format"})
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
@@ -143,7 +144,7 @@ var _ = Describe("Table", func() {
 		})
 
 		It("Should remove entries from the old prefix after migration", func(ctx SpecContext) {
-			codec := &binary.MsgPackCodec{}
+			codec := msgpack.Codec
 			writeOldFormatEntry(ctx, codec, entry{ID: 7, Data: "migrate me"})
 
 			oldPrefix := MustSucceed(codec.Encode(ctx, types.Name[entry]()))
@@ -162,7 +163,7 @@ var _ = Describe("Table", func() {
 		})
 
 		It("Should handle migration with multiple old-format entries", func(ctx SpecContext) {
-			codec := &binary.MsgPackCodec{}
+			codec := msgpack.Codec
 			for i := range 5 {
 				writeOldFormatEntry(ctx, codec, entry{ID: int32(i), Data: "old"})
 			}
@@ -191,7 +192,7 @@ var _ = Describe("Table", func() {
 		})
 
 		It("Should migrate old-format entries while preserving new-format entries", func(ctx SpecContext) {
-			codec := &binary.MsgPackCodec{}
+			codec := msgpack.Codec
 			writeOldFormatEntry(ctx, codec, entry{ID: 1, Data: "old"})
 
 			newEntry := entry{ID: 2, Data: "new"}

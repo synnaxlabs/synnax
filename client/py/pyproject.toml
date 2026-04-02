@@ -72,6 +72,7 @@ markers = [
     "control: mark test as a control test",
     "deprecation: mark test as a deprecation test",
     "device: mark test as a device test",
+    "view: mark test as a view test",
     "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",
     "http: mark test as an http test",

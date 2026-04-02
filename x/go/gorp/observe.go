@@ -14,14 +14,14 @@ import (
 	"context"
 	"iter"
 
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"go.uber.org/zap"
 )
 
-func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec binary.Codec) observe.Observable[iter.Seq[change.Change[K, E]]] {
+func newObservable[K Key, E Entry[K]](kvo kv.Observable, codec encoding.Codec) observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := newKeyCodec[K, E]()
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: kvo,
@@ -50,7 +50,7 @@ func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
 	kCodec *keyCodec[K, E],
-	codec binary.Codec,
+	codec encoding.Codec,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
 		for _, kvChange := range changes {

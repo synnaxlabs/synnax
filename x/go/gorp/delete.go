@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -22,12 +22,12 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	guards   guards[K, E]
-	codec    binary.Codec
+	codec    encoding.Codec
 }
 
 // NewDelete opens a new Delete query. If codec is non-nil, it overrides the
 // default DB codec for decoding entries.
-func NewDelete[K Key, E Entry[K]](codec binary.Codec) Delete[K, E] {
+func NewDelete[K Key, E Entry[K]](codec encoding.Codec) Delete[K, E] {
 	return Delete[K, E]{retrieve: NewRetrieve[K, E](codec), codec: codec}
 }
 
