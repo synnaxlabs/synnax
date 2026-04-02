@@ -200,8 +200,8 @@ func (m *rangeGroupsMigration) loadAllRanges(
 	ctx context.Context,
 	kvTx kv.Tx,
 	prefix []byte,
-) (map[uuid.UUID]Range, error) {
-	result := make(map[uuid.UUID]Range)
+) (result map[uuid.UUID]Range, err error) {
+	result = make(map[uuid.UUID]Range)
 	iter, err := kvTx.OpenIterator(kv.IterPrefix(prefix))
 	if err != nil {
 		return nil, err
@@ -243,15 +243,15 @@ func encodeUUIDKey(prefix []byte, id uuid.UUID) []byte {
 }
 
 // newRangeGroupsMigration constructs the migration. It uses gorp.Codec and
-// binary.Codec to remain independent of the DB's default codec — this is
+// binary.Codec to remain independent of the DB's default codec. This is
 // necessary because the migration runs AFTER NewCodecTransition and the
-// entries are already in protobuf format.
+// entries are already in ORC binary format.
 func newRangeGroupsMigration(cfg ServiceConfig) gorp.Migration {
-	return &rangeGroupsMigration{
+	return gorp.WithDependencies(&rangeGroupsMigration{
 		otg:   cfg.Ontology,
 		group: cfg.Group,
 		codec: RangeCodec,
-	}
+	}, "msgpack_to_binary")
 }
 
 // Ensure rangeGroupsMigration implements the Migration interface at compile time.
