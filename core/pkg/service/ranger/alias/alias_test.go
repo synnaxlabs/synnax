@@ -282,7 +282,7 @@ var _ = Describe("Alias", Ordered, func() {
 		Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Eventually(func(g Gomega) {
-			g.Expect(aliasSvc.NewReader(nil).Search(ctx, r.Key, "Alias")).To(ContainElement(ch.Key()))
+			g.Expect(aliasSvc.NewReader().Search(ctx, r.Key, "Alias")).To(ContainElement(ch.Key()))
 		}).Should(Succeed())
 	})
 
