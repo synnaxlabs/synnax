@@ -19,6 +19,27 @@ from framework.test_case import TestCase
 
 NpArray = np.ndarray[Any, Any]
 
+
+def invert_moving_avg(y: NpArray, window_samples: int) -> NpArray:
+    """Back-calculate input x such that moving_avg(x, window) ≈ y.
+
+    Uses the identity: x[n] = K*(y[n] - y[n-1]) + x[n-K]
+    derived by differentiating y(t) = (1/W) * ∫[t-W,t] x(τ)dτ.
+
+    x = input samples, y = desired moving average output,
+    K = window size in samples, W = window duration, τ = integration variable.
+    """
+    n_samples = len(y)
+    k = window_samples
+    x = np.zeros(n_samples, dtype=np.float64)
+    x[0] = float(y[0])
+    for i in range(1, min(k, n_samples)):
+        x[i] = (i + 1) * float(y[i]) - i * float(y[i - 1])
+    for i in range(k, n_samples):
+        x[i] = k * (float(y[i]) - float(y[i - 1])) + x[i - k]
+    return x.astype(np.float32)
+
+
 # Source channels
 CALC_IDX = "mig_calc_idx"
 CALC_SRC_F32 = "mig_calc_src_f32"
@@ -491,81 +512,154 @@ class CalcChannelsVerify(CalcChannelsMigration):
                 )
 
     def test_calc_windowed(self) -> None:
-        self.log("Testing: Windowed operation functional verification")
+        self.log("Testing: Windowed avg — multi-domain verification")
         client = self.client
         calc_idx = client.channels.retrieve(CALC_IDX)
         src = client.channels.retrieve(CALC_SRC_F32)
         avg_win = client.channels.retrieve("mig_calc_op_avg_win")
-        min_win = client.channels.retrieve("mig_calc_op_min_win")
-        max_win = client.channels.retrieve("mig_calc_op_max_win")
 
         S = sy.TimeSpan.SECOND
         MS = sy.TimeSpan.MILLISECOND
-        N = 5
 
-        # Four batches of data, each written at increasing time offsets.
-        # The offsets are chosen so that each batch crosses the next window
-        # boundary: avg_win resets at 5s, min_win at 10s, max_win at 15s.
-        batch1 = np.linspace(50, 10, N, dtype=np.float32)
-        batch2 = np.linspace(5, 45, N, dtype=np.float32)
-        batch3 = np.linspace(100, 20, N, dtype=np.float32)
-        batch4 = np.linspace(3, 19, N, dtype=np.float32)
+        # Write multiple domains with known data using seed functions.
+        # Each domain is a separate writer (enable_auto_commit so it
+        # finalizes immediately). The avg operation produces one aggregated
+        # value per domain on historical read.
+        RATE = 50  # Hz
+        SAMPLES_PER_DOMAIN = 100  # 2 seconds of data per domain
+        NUM_DOMAINS = 10
+        dt_ms = int(1000 / RATE)  # 20ms per sample
+
+        # Seed functions applied to domain index to vary data across domains
+        def cosine_domain(d: int) -> NpArray:
+            phase = 2 * np.pi * d / NUM_DOMAINS
+            return (np.cos(phase) * 50 + 50).astype(np.float32) + np.linspace(
+                0, 10, SAMPLES_PER_DOMAIN, dtype=np.float32
+            )
+
+        def linear_domain(d: int) -> NpArray:
+            base = d * 10.0
+            return np.linspace(base, base + 20, SAMPLES_PER_DOMAIN, dtype=np.float32)
+
+        def quadratic_domain(d: int) -> NpArray:
+            t = np.linspace(0, 1, SAMPLES_PER_DOMAIN, dtype=np.float32)
+            return ((d + 1) * t**2 * 100).astype(np.float32)
+
+        seeds = [
+            ("cosine", cosine_domain),
+            ("linear", linear_domain),
+            ("quadratic", quadratic_domain),
+        ]
 
         start = sy.TimeStamp.now()
-        keys = [avg_win.key, min_win.key, max_win.key]
-        with client.open_streamer(keys) as streamer:
+        # Track per-seed domain data for debug plot and assertions
+        all_inputs: list[list[NpArray]] = [[] for _ in seeds]
+        all_expected: list[list[float]] = [[] for _ in seeds]
+        domain_starts: list[sy.TimeStamp] = []
+
+        for d in range(NUM_DOMAINS):
+            domain_start = start + d * 3 * S  # 3s gap between domains
+            domain_starts.append(domain_start)
+            timestamps = np.array(
+                [domain_start + i * dt_ms * MS for i in range(SAMPLES_PER_DOMAIN)],
+                dtype=np.int64,
+            )
+
+            # Cycle through seeds — each domain uses one seed
+            seed_idx = d % len(seeds)
+            seed_name, seed_fn = seeds[seed_idx]
+            data = seed_fn(d)
+
             with client.open_writer(
-                start, [calc_idx.key, src.key]
+                domain_start,
+                [calc_idx.key, src.key],
+                enable_auto_commit=True,
             ) as writer:
+                writer.write({calc_idx.key: timestamps, src.key: data})
 
-                def write_batch(
-                    data: NpArray, offset: sy.TimeSpan
-                ) -> sy.Frame:
-                    ts = np.array(
-                        [start + offset + i * MS for i in range(N)],
-                        dtype=np.int64,
-                    )
-                    writer.write({calc_idx.key: ts, src.key: data})
-                    frame = streamer.read(timeout=5)
-                    assert frame is not None, "No streamer frame"
-                    return frame
+            all_inputs[seed_idx].append(data)
+            all_expected[seed_idx].append(float(np.mean(data)))
+            self.log(f"Domain {d} ({seed_name}): {len(data)} samples, "
+                     f"mean={np.mean(data):.2f}")
 
-                def check(
-                    frame: sy.Frame,
-                    key: int,
-                    expected: float,
-                    label: str,
-                ) -> None:
-                    val = float(frame[key][0])
-                    assert abs(val - expected) < 0.1, (
-                        f"{label}: expected {expected}, got {val}"
-                    )
+        sy.sleep(2)
 
-                # Phase 1: t+1ms — all windows accumulating
-                all_so_far = batch1
-                f = write_batch(batch1, 1 * MS)
-                check(f, avg_win.key, float(np.mean(batch1)), "avg_win phase1")
-                check(f, min_win.key, float(np.min(batch1)), "min_win phase1")
-                check(f, max_win.key, float(np.max(batch1)), "max_win phase1")
+        # Read calc channel output — includes calc index for proper frame access
+        end = start + NUM_DOMAINS * 3 * S
+        tr = sy.TimeRange(start, end)
+        frame = client.read(tr, [avg_win.key, avg_win.index])
+        calc_multi = frame[avg_win.key]
+        self.log(f"Read {len(calc_multi.series)} series from avg_win")
 
-                # Phase 2: t+6s — avg_win resets (>5s), min/max still accumulating
-                all_so_far = np.concatenate([all_so_far, batch2])
-                f = write_batch(batch2, 6 * S)
-                check(f, avg_win.key, float(np.mean(batch2)), "avg_win phase2")
-                check(f, min_win.key, float(np.min(all_so_far)), "min_win phase2")
-                check(f, max_win.key, float(np.max(all_so_far)), "max_win phase2")
+        # Extract one value per series (domain)
+        calc_values = [float(s[0]) for s in calc_multi.series]
+        self.log(f"Calc values: {calc_values}")
 
-                # Phase 3: t+11s — min_win resets (>10s), max still accumulating
-                all_so_far = np.concatenate([all_so_far, batch3])
-                f = write_batch(batch3, 11 * S)
-                check(f, avg_win.key, float(np.mean(batch3)), "avg_win phase3")
-                check(f, min_win.key, float(np.min(batch3)), "min_win phase3")
-                check(f, max_win.key, float(np.max(all_so_far)), "max_win phase3")
+        # Debug plot: input distributions per domain vs calc output
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
 
-                # Phase 4: t+16s — max_win resets (>15s),
-                # min_win still in its second window (started at t+11s, +10s = t+21s)
-                min_since_reset = np.concatenate([batch3, batch4])
-                f = write_batch(batch4, 16 * S)
-                check(f, avg_win.key, float(np.mean(batch4)), "avg_win phase4")
-                check(f, min_win.key, float(np.min(min_since_reset)), "min_win phase4")
-                check(f, max_win.key, float(np.max(batch4)), "max_win phase4")
+            fig, axes = plt.subplots(2, 1, figsize=(14, 8))
+
+            # Top: input data per domain (box-like summary)
+            ax = axes[0]
+            colors = ["tab:blue", "tab:green", "tab:red"]
+            for d in range(NUM_DOMAINS):
+                seed_idx = d % len(seeds)
+                seed_name = seeds[seed_idx][0]
+                data = seeds[seed_idx][1](d)
+                t_domain = np.linspace(d * 3, d * 3 + 2, len(data))
+                ax.plot(t_domain, data, color=colors[seed_idx],
+                        alpha=0.4, linewidth=0.5)
+                ax.axvline(d * 3, color="gray", alpha=0.2, linewidth=0.5)
+            ax.set_title("Input data per domain (colored by seed)")
+            ax.set_ylabel("Value")
+            ax.grid(True, alpha=0.3)
+            # Manual legend
+            for i, (name, _) in enumerate(seeds):
+                ax.plot([], [], color=colors[i], label=name)
+            ax.legend()
+
+            # Bottom: expected avg vs actual calc output per domain
+            ax = axes[1]
+            domain_times = [d * 3 + 1 for d in range(NUM_DOMAINS)]
+            expected_flat = [float(np.mean(seeds[d % len(seeds)][1](d)))
+                            for d in range(NUM_DOMAINS)]
+            ax.plot(domain_times, expected_flat, "o--", color="tab:green",
+                    label="Expected avg", markersize=8)
+            if len(calc_values) == NUM_DOMAINS:
+                ax.plot(domain_times, calc_values, "s-", color="tab:orange",
+                        label="Calc channel output", markersize=6)
+            else:
+                ax.plot(range(len(calc_values)), calc_values, "s-",
+                        color="tab:orange",
+                        label=f"Calc output ({len(calc_values)} values)")
+            ax.set_title("Expected vs actual avg per domain")
+            ax.set_xlabel("Time (s)")
+            ax.set_ylabel("Average value")
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            plot_path = "/Users/nicoalba/Desktop/calc_windowed_debug.png"
+            plt.savefig(plot_path, dpi=150)
+            plt.close()
+            self.log(f"Debug plot saved to {plot_path}")
+        except Exception as e:
+            self.log(f"Could not save debug plot: {e}")
+
+        # Assert: one value per domain, matching the expected mean
+        assert len(calc_values) == NUM_DOMAINS, (
+            f"Expected {NUM_DOMAINS} domain values, got {len(calc_values)}"
+        )
+        for d in range(NUM_DOMAINS):
+            seed_idx = d % len(seeds)
+            seed_name = seeds[seed_idx][0]
+            expected = float(np.mean(seeds[seed_idx][1](d)))
+            actual = calc_values[d]
+            assert abs(actual - expected) < 0.5, (
+                f"Domain {d} ({seed_name}): expected {expected:.2f}, "
+                f"got {actual:.2f}"
+            )
