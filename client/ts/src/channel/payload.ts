@@ -22,7 +22,6 @@ import {
 import { ontology } from "@/ontology";
 
 export type KeyOrName = Key | Name;
-export type Payloads = Payload[];
 export type KeysOrNames = Key[] | Name[];
 export type PrimitiveParams = KeyOrName | KeysOrNames;
 
