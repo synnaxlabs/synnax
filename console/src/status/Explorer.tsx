@@ -15,6 +15,7 @@ import { useCallback } from "react";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
+import { Filter } from "@/status/filter";
 import { Item } from "@/status/list/Item";
 import { View } from "@/view";
 
@@ -48,9 +49,11 @@ const Internal = () => {
       <View.Toolbar>
         <View.FilterMenu>
           <Label.Filter.MenuItem />
+          <Filter.MenuItem />
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
+        <Filter.Chips />
         {canCreate && (
           <Button.Button
             onClick={handleCreate}

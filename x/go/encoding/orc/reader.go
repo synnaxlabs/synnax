@@ -219,6 +219,21 @@ func (r *Reader) CollectionLen() (uint32, error) {
 	return n, nil
 }
 
+// ReadWithLen reads a length-prefixed byte slice (4-byte length + raw bytes).
+// The declared length is validated against MaxCollectionLen to prevent a corrupt
+// prefix from causing a massive allocation.
+func (r *Reader) ReadWithLen() ([]byte, error) {
+	n, err := r.CollectionLen()
+	if err != nil {
+		return nil, err
+	}
+	buf := make([]byte, n)
+	if _, err = r.Read(buf); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
 // Read reads exactly len(data) bytes into the provided buffer.
 func (r *Reader) Read(data []byte) (int, error) {
 	if r.data != nil {
