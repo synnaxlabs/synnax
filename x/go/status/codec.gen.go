@@ -31,8 +31,7 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
 	if s.Labels != nil {
 		w.Bool(true)
@@ -77,12 +76,8 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		s.Time = telem.TimeStamp(v)
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
 			return err
 		}
 		if err = json.Unmarshal(b, &s.Details); err != nil {
