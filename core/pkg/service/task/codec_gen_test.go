@@ -58,7 +58,7 @@ var _ = Describe("Codec", func() {
 							Cmd:     "test_15",
 						},
 						Labels: []label.Label{
-							{
+							label.Label{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 								Name: "test_18",
 								Color: color.Color{
@@ -127,7 +127,7 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 					Cmd:     "test_15",
 				},
 				Labels: []label.Label{
-					{
+					label.Label{
 						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 						Name: "test_18",
 						Color: color.Color{
@@ -199,7 +199,7 @@ func FuzzDecodeTask(f *testing.F) {
 						Cmd:     "test_15",
 					},
 					Labels: []label.Label{
-						{
+						label.Label{
 							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 							Name: "test_18",
 							Color: color.Color{

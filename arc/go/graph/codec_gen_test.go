@@ -40,17 +40,17 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", graph.Graph{
 				Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 				Functions: []ir.Function{
-					{
+					ir.Function{
 						Key:  "test_7",
 						Body: ir.Body{Raw: "test_9"},
 						Config: []types.Param{
-							{
+							types.Param{
 								Name: "test_11",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
+										Inputs:  []types.Param{types.Param{}},
+										Outputs: []types.Param{types.Param{}},
+										Config:  []types.Param{types.Param{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_17",
@@ -63,13 +63,13 @@ var _ = Describe("Codec", func() {
 							},
 						},
 						Inputs: []types.Param{
-							{
+							types.Param{
 								Name: "test_24",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
+										Inputs:  []types.Param{types.Param{}},
+										Outputs: []types.Param{types.Param{}},
+										Config:  []types.Param{types.Param{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_30",
@@ -82,13 +82,13 @@ var _ = Describe("Codec", func() {
 							},
 						},
 						Outputs: []types.Param{
-							{
+							types.Param{
 								Name: "test_37",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
+										Inputs:  []types.Param{types.Param{}},
+										Outputs: []types.Param{types.Param{}},
+										Config:  []types.Param{types.Param{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_43",
@@ -107,14 +107,14 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Edges: []ir.Edge{
-					{
+					ir.Edge{
 						Source: ir.Handle{Node: "test_54", Param: "test_55"},
 						Target: ir.Handle{Node: "test_57", Param: "test_58"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
 				Nodes: []graph.Node{
-					{
+					graph.Node{
 						Key:      "test_61",
 						Type:     "test_62",
 						Config:   map[string]interface{}{"key_63": "value_63"},
@@ -182,17 +182,17 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	g := graph.Graph{
 		Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 		Functions: []ir.Function{
-			{
+			ir.Function{
 				Key:  "test_7",
 				Body: ir.Body{Raw: "test_9"},
 				Config: []types.Param{
-					{
+					types.Param{
 						Name: "test_11",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
+								Inputs:  []types.Param{types.Param{}},
+								Outputs: []types.Param{types.Param{}},
+								Config:  []types.Param{types.Param{}},
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_17",
@@ -205,13 +205,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					},
 				},
 				Inputs: []types.Param{
-					{
+					types.Param{
 						Name: "test_24",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
+								Inputs:  []types.Param{types.Param{}},
+								Outputs: []types.Param{types.Param{}},
+								Config:  []types.Param{types.Param{}},
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_30",
@@ -224,13 +224,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					},
 				},
 				Outputs: []types.Param{
-					{
+					types.Param{
 						Name: "test_37",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
+								Inputs:  []types.Param{types.Param{}},
+								Outputs: []types.Param{types.Param{}},
+								Config:  []types.Param{types.Param{}},
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_43",
@@ -249,14 +249,14 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 			},
 		},
 		Edges: []ir.Edge{
-			{
+			ir.Edge{
 				Source: ir.Handle{Node: "test_54", Param: "test_55"},
 				Target: ir.Handle{Node: "test_57", Param: "test_58"},
 				Kind:   ir.EdgeKind(0),
 			},
 		},
 		Nodes: []graph.Node{
-			{
+			graph.Node{
 				Key:      "test_61",
 				Type:     "test_62",
 				Config:   map[string]interface{}{"key_63": "value_63"},
@@ -323,17 +323,17 @@ func FuzzDecodeGraph(f *testing.F) {
 		seed := graph.Graph{
 			Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 			Functions: []ir.Function{
-				{
+				ir.Function{
 					Key:  "test_7",
 					Body: ir.Body{Raw: "test_9"},
 					Config: []types.Param{
-						{
+						types.Param{
 							Name: "test_11",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
+									Inputs:  []types.Param{types.Param{}},
+									Outputs: []types.Param{types.Param{}},
+									Config:  []types.Param{types.Param{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_17",
@@ -346,13 +346,13 @@ func FuzzDecodeGraph(f *testing.F) {
 						},
 					},
 					Inputs: []types.Param{
-						{
+						types.Param{
 							Name: "test_24",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
+									Inputs:  []types.Param{types.Param{}},
+									Outputs: []types.Param{types.Param{}},
+									Config:  []types.Param{types.Param{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_30",
@@ -365,13 +365,13 @@ func FuzzDecodeGraph(f *testing.F) {
 						},
 					},
 					Outputs: []types.Param{
-						{
+						types.Param{
 							Name: "test_37",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
+									Inputs:  []types.Param{types.Param{}},
+									Outputs: []types.Param{types.Param{}},
+									Config:  []types.Param{types.Param{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_43",
@@ -390,14 +390,14 @@ func FuzzDecodeGraph(f *testing.F) {
 				},
 			},
 			Edges: []ir.Edge{
-				{
+				ir.Edge{
 					Source: ir.Handle{Node: "test_54", Param: "test_55"},
 					Target: ir.Handle{Node: "test_57", Param: "test_58"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
 			Nodes: []graph.Node{
-				{
+				graph.Node{
 					Key:      "test_61",
 					Type:     "test_62",
 					Config:   map[string]interface{}{"key_63": "value_63"},

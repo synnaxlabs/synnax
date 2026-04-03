@@ -54,7 +54,7 @@ var _ = Describe("Codec", func() {
 						Time:        telem.TimeStamp(12),
 						Details:     rack.StatusDetails{Rack: rack.Key(14)},
 						Labels: []label.Label{
-							{
+							label.Label{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
 								Name: "test_16",
 								Color: color.Color{
@@ -133,7 +133,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 				Time:        telem.TimeStamp(12),
 				Details:     rack.StatusDetails{Rack: rack.Key(14)},
 				Labels: []label.Label{
-					{
+					label.Label{
 						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
 						Name: "test_16",
 						Color: color.Color{
@@ -198,7 +198,7 @@ func FuzzDecodeRack(f *testing.F) {
 					Time:        telem.TimeStamp(12),
 					Details:     rack.StatusDetails{Rack: rack.Key(14)},
 					Labels: []label.Label{
-						{
+						label.Label{
 							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
 							Name: "test_16",
 							Color: color.Color{
