@@ -180,7 +180,6 @@ func (t *alertTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",
 		DedupKey:   statusKey,
-		Client:     "Synnax",
 	}
 }
 
