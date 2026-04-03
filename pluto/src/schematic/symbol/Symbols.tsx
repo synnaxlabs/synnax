@@ -17,6 +17,7 @@ import {
   location,
   type record,
   scale,
+  type TimeSpan,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -141,6 +142,7 @@ export type ToggleProps<T> = T &
     label?: LabelExtensionProps;
     control?: ControlStateProps;
     orientation?: location.Outer;
+    onClickDelay?: number | TimeSpan;
   };
 
 export const createToggle = <P extends object = record.Unknown>(
@@ -158,6 +160,7 @@ export const createToggle = <P extends object = record.Unknown>(
     onChange,
     selected,
     orientation = "left",
+    onClickDelay,
     position: _,
     ...rest
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
@@ -198,6 +201,7 @@ export const createToggle = <P extends object = record.Unknown>(
         <BaseSymbol
           enabled={enabled}
           onClick={toggle}
+          onClickDelay={onClickDelay}
           orientation={orientation}
           {...rest}
         />

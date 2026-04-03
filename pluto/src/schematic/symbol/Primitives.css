@@ -20,6 +20,7 @@
             calc(var(--pluto-diagram-zoom, 1) * -50%)
         );
     }
+
     &.pluto--location-bottom svg,
     & svg.pluto--location-bottom {
         & > g {
@@ -44,12 +45,12 @@
         }
     }
 
-    &:not(.pluto-symbol--custom) svg {
-        stroke-width: 2px;
-    }
-
     & svg {
         overflow: visible;
+    }
+
+    &:not(.pluto-symbol--custom) svg {
+        stroke-width: 2px;
     }
 
     &:not(.pluto-symbol-primitive-toggle) svg {
@@ -63,16 +64,19 @@
             fill: rgba(var(--pluto-symbol-color), 0.15) !important;
             stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
         }
+
         &.pluto--enabled svg {
             stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
             fill: rgba(var(--pluto-symbol-color), 0.85) !important;
         }
     }
+
     &:active {
         &:not(.pluto--enabled) svg {
             fill: rgba(var(--pluto-symbol-color), 0.25) !important;
             stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
         }
+
         &.pluto--enabled svg {
             stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
             fill: rgba(var(--pluto-symbol-color), 0.75) !important;
@@ -102,6 +106,28 @@
     &:not(.pluto--enabled) svg {
         fill: none;
     }
+
+    &.pluto-symbol-primitive-toggle--delayed {
+        position: relative;
+        backdrop-filter: brightness(1);
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            z-index: 1;
+            background: rgba(var(--pluto-symbol-color), 0.2);
+            pointer-events: none;
+        }
+
+        &:active::after {
+            animation: delay var(--pluto-toggle-delay) linear;
+            width: 100%;
+        }
+    }
 }
 
 .pluto-solenoid-valve.pluto--normally-open {
@@ -110,6 +136,7 @@
             stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
             fill: rgba(var(--pluto-symbol-color), 0.95) !important;
         }
+
         &:not(.pluto--enabled) svg {
             fill: rgba(var(--pluto-symbol-color), 0.25) !important;
         }
@@ -118,6 +145,7 @@
     & .pluto-body {
         fill: rgb(var(--pluto-symbol-color));
     }
+
     &.pluto--enabled {
         & .pluto-body {
             fill: none;
@@ -128,7 +156,7 @@
 .pluto-text-box {
     justify-content: center;
     padding: 2px;
-    width: "fit-content";
+    width: fit-content;
     white-space: nowrap;
     text-overflow: ellipsis;
     text-wrap: wrap;
@@ -136,6 +164,7 @@
     &.pluto--location-top {
         writing-mode: vertical-rl;
     }
+
     &.pluto--location-bottom {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
@@ -194,12 +223,15 @@
 
 .pluto-setpoint {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     .pluto-input {
         width: min-content;
     }
+
     input {
         min-width: 12rem;
     }
+
     &.pluto-setpoint--preview {
         input {
             flex-grow: 1;
@@ -210,12 +242,15 @@
 
 .pluto-input-symbol {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     .pluto-input {
         width: min-content;
     }
+
     input {
         min-width: 25rem;
     }
+
     &.pluto-input-symbol--preview {
         input {
             flex-grow: 1;
@@ -226,21 +261,26 @@
 
 .pluto-select-symbol {
     --pluto-border-color: var(--pluto-gray-l7-40);
+
     display: flex;
     align-items: center;
     gap: 0;
+
     .pluto-input {
         width: min-content;
     }
+
     .pluto-dialog__frame {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
     }
+
     .pluto-dialog__trigger {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
     }
+
     svg.pluto-caret-animated {
         color: var(--pluto-gray-l9);
         fill: currentColor;
@@ -267,18 +307,23 @@
     &.pluto--location-top {
         transform: rotate(-90deg);
     }
+
     &.pluto--location-bottom {
         transform: rotate(90deg);
     }
+
     &.pluto--location-left {
         transform: rotate(180deg);
+
         .pluto-text {
             transform: rotate(180deg);
         }
     }
+
     .wrapper {
         display: inline-block;
         filter: url("#goo");
+
         .outline {
             padding: 1px;
             clip-path: polygon(
@@ -300,10 +345,7 @@
                 margin-top: 1px;
                 margin-bottom: 1px;
                 margin-left: 1px;
-                padding-right: 2.5rem;
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-                padding-left: 1rem;
+                padding: 0.5rem 2.5rem 0.5rem 1rem;
                 background-color: var(--pluto-gray-l0);
                 width: calc(100% - 1px);
                 height: calc(100% - 2px);
