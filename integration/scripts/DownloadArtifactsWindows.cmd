@@ -133,8 +133,8 @@ rem Create binaries directory
 if not exist ".\binaries" mkdir ".\binaries"
 
 rem Download artifacts using GitHub CLI
-echo "Downloading synnax-core-windows artifact..."
-"%gh_cmd%" run download %REF_RUN_ID% --name synnax-core-windows --dir .\binaries --repo synnaxlabs/synnax
+echo "Downloading synnax-core *-windows artifact..."
+"%gh_cmd%" run download %REF_RUN_ID% -p "synnax-core*windows" --dir .\binaries --repo synnaxlabs/synnax
 
 rem Check both exit code and if files were actually downloaded
 if %errorlevel% neq 0 (
@@ -149,6 +149,14 @@ if not exist ".\binaries" (
     echo ❌ Error: Binaries directory was not created - download likely failed
     echo ❌ This is a critical failure - cannot proceed without artifacts
     exit /b 1
+)
+
+rem gh run download creates a subdirectory named after the artifact — flatten it
+for /d %%d in (.\binaries\synnax-core*) do (
+    for %%f in (%%d\synnax-v*.exe) do (
+        move /Y "%%f" ".\binaries\" >nul
+    )
+    rmdir "%%d" 2>nul
 )
 
 rem Check if any synnax executable was downloaded (binary is named synnax-v{VERSION}.exe)
