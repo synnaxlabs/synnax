@@ -29,10 +29,8 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -128,8 +126,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
-		DB:              cfg.DB,
-		Migrations:      RackMigrations(),
+		DB: cfg.DB,
+		Migrations: append(RackMigrations(),
+			&embeddedRackRenameMigration{cfg: cfg},
+			&statusBackfillMigration{cfg: cfg},
+		),
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -154,9 +155,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
-	if err = s.migrateStatusesForExistingRacks(ctx); err != nil {
-		return nil, err
-	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if s.monitor, err = openMonitor(s.Child("monitor"), s); err != nil {
@@ -179,81 +177,23 @@ func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) ob
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
-
-	// Check if a v1 rack exists.
 	var (
 		embeddedRack Rack
-		v1RackName   = fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
-		err          = s.NewRetrieve().WhereName(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
-		isNotFound   = errors.Is(err, query.ErrNotFound)
-		v2Name       = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
+		name         = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
 	)
-	if err != nil && !isNotFound {
+	err := s.NewRetrieve().
+		WhereName(name, gorp.Required()).
+		WhereEmbedded(true, gorp.Required()).
+		WhereNode(s.HostProvider.HostKey(), gorp.Required()).
+		Entry(&embeddedRack).Exec(ctx, s.DB)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-
-	// If a v1 rack does not exist, check if a v2 rack exists.
-	if isNotFound {
-		err = s.NewRetrieve().
-			WhereName(v2Name, gorp.Required()).
-			WhereEmbedded(true, gorp.Required()).
-			WhereNode(s.HostProvider.HostKey(), gorp.Required()).
-			Entry(&embeddedRack).Exec(ctx, s.DB)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-	}
-
-	// The key will get populated if a rack exists, in which case this will be an update.
-	embeddedRack.Name = v2Name
+	embeddedRack.Name = name
 	embeddedRack.Embedded = true
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
 	s.EmbeddedKey = embeddedRack.Key
 	return err
-}
-
-func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
-	var racks []Rack
-	if err := s.NewRetrieve().Entries(&racks).Exec(ctx, s.DB); err != nil {
-		return err
-	}
-	if len(racks) == 0 {
-		return nil
-	}
-	statusKeys := make([]string, len(racks))
-	for i, r := range racks {
-		statusKeys[i] = OntologyID(r.Key).String()
-	}
-	var existingStatuses []status.Status[StatusDetails]
-	if err := status.NewRetrieve[StatusDetails](s.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []status.Status[StatusDetails]
-	for _, r := range racks {
-		key := OntologyID(r.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
-				Key:     key,
-				Name:    r.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: "Status unknown",
-				Details: StatusDetails{Rack: r.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	s.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](s.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) Close() error {
