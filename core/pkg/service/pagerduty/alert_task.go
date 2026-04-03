@@ -161,6 +161,7 @@ func (t *alertTaskImpl) buildTriggerEvent(
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "trigger",
 		DedupKey:   s.Key,
+		Client:     "Synnax",
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
 			Source:    s.Name,
@@ -179,6 +180,7 @@ func (t *alertTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",
 		DedupKey:   statusKey,
+		Client:     "Synnax",
 	}
 }
 
