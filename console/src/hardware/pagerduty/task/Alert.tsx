@@ -37,7 +37,6 @@ import {
   ZERO_ALERT_CONFIG,
   ZERO_ALERT_PAYLOAD,
 } from "@/hardware/pagerduty/task/types";
-import { Selector } from "@/selector";
 
 export const ALERT_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -45,12 +44,6 @@ export const ALERT_LAYOUT: Common.Task.Layout = {
   name: ZERO_ALERT_PAYLOAD.name,
   icon: "Logo.PagerDuty",
 };
-
-export const AlertSelectable = Selector.createSimpleItem({
-  title: ZERO_ALERT_PAYLOAD.name,
-  icon: <Icon.Logo.PagerDuty />,
-  layout: ALERT_LAYOUT,
-});
 
 const Properties = () => (
   <Flex.Box x grow>
