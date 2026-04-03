@@ -29,9 +29,6 @@ type dagWriter struct {
 
 var _ Writer = dagWriter{}
 
-// ErrCycle is returned when a cycle is created in the graph.
-var ErrCycle = graph.ErrCyclicDependency
-
 // DefineResource implements the Writer interface.
 func (d dagWriter) DefineResource(ctx context.Context, tk ID) error {
 	if err := tk.Validate(); err != nil {
@@ -103,7 +100,7 @@ func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t Relationsh
 		return err
 	}
 	if _, exists := descendants[from]; exists {
-		return ErrCycle
+		return graph.ErrCyclicDependency
 	}
 	return d.relationshipTable.NewCreate().Entry(&rel).Exec(ctx, d.tx)
 }
@@ -123,7 +120,7 @@ func (d dagWriter) DefineFromOneToManyRelationships(ctx context.Context, from ID
 			return err
 		}
 		if _, exists := descendants[from]; exists {
-			return ErrCycle
+			return graph.ErrCyclicDependency
 		}
 	}
 	return d.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, d.tx)
@@ -231,7 +228,7 @@ func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship
 		return false, err
 	}
 	if reverseExists {
-		return true, ErrCycle
+		return true, graph.ErrCyclicDependency
 	}
 	return exists, nil
 }
