@@ -11,10 +11,10 @@ package gorp
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"iter"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -173,7 +173,7 @@ type normalizeKeysMigration[K Key, E Entry[K]] struct{}
 
 func (m *normalizeKeysMigration[K, E]) Name() string { return "normalize_keys" }
 
-func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx Tx, ins alamos.Instrumentation) error {
+func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx Tx, _ alamos.Instrumentation) error {
 	kc := newKeyCodec[K, E]()
 	oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
 	if err != nil {
@@ -240,18 +240,19 @@ func readAppliedMigrations(
 	defer func() {
 		err = errors.Combine(err, closer.Close())
 	}()
-	names := strings.Split(string(b), "\n")
+	var names []string
+	if err := json.Unmarshal(b, &names); err != nil {
+		return nil, err
+	}
 	applied := make(set.Set[string], len(names))
 	for _, name := range names {
-		if name != "" {
-			applied.Add(name)
-		}
+		applied.Add(name)
 	}
 	return applied, nil
 }
 
 // writeAppliedMigrations persists the set of applied migration names as a
-// newline-delimited string.
+// JSON string array.
 func writeAppliedMigrations(
 	ctx context.Context,
 	tx Tx,
@@ -260,5 +261,9 @@ func writeAppliedMigrations(
 ) error {
 	names := applied.Keys()
 	sort.Strings(names)
-	return tx.Set(ctx, key, []byte(strings.Join(names, "\n")))
+	b, err := json.Marshal(names)
+	if err != nil {
+		return err
+	}
+	return tx.Set(ctx, key, b)
 }
