@@ -487,6 +487,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(id.Type).To(Equal(ontology.ResourceType("channel")))
 			Expect(id.Key).To(Equal("42"))
 		})
+
 		It("Should read the ID at the current position, ignoring trailing data", func() {
 			w := orc.NewWriter(64)
 			w.String("device")
@@ -495,6 +496,14 @@ var _ = Describe("Retrieve", func() {
 			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
 			Expect(id.Type).To(Equal(ontology.ResourceType("device")))
 			Expect(id.Key).To(Equal("abc"))
+		})
+
+		It("Should not panic on a malformed ID", func() {
+			w := orc.NewWriter(1)
+			w.String("c")
+			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+			Expect(id.Type).To(Equal(ontology.ResourceType("c")))
+			Expect(id.Key).To(Equal(""))
 		})
 	})
 })
