@@ -9,10 +9,11 @@
 
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
-import { Alert, ALERT_LAYOUT } from "@/hardware/pagerduty/task/Alert";
+import { Alert, ALERT_LAYOUT, AlertSelectable } from "@/hardware/pagerduty/task/Alert";
 import { ALERT_SCHEMAS, ALERT_TYPE } from "@/hardware/pagerduty/task/types";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export * from "@/hardware/pagerduty/task/Alert";
 export * from "@/hardware/pagerduty/task/palette";
@@ -25,6 +26,8 @@ export const FILE_INGESTERS: Import.FileIngesters = {
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [ALERT_TYPE]: Alert };
+
+export const SELECTABLES: Selector.Selectable[] = [AlertSelectable];
 
 export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   [ALERT_TYPE]: ALERT_LAYOUT,
