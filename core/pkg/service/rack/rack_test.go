@@ -613,7 +613,7 @@ var _ = Describe("Migration", func() {
 			Key:  65538,
 			Name: "sy_node_1_rack",
 		}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack](nil).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
@@ -626,7 +626,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 
@@ -636,7 +636,7 @@ var _ = Describe("Migration", func() {
 			Name:     "Some Other Embedded Rack",
 			Embedded: true,
 		}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack](nil).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
 			Entry(&mismatchedRack).
 			Exec(ctx, db)).To(Succeed())
 
@@ -651,7 +651,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
 		Expect(count).To(Equal(2))
 	})
 
@@ -661,7 +661,7 @@ var _ = Describe("Migration", func() {
 			Name:     "Node 1 Embedded Driver",
 			Embedded: true,
 		}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack](nil).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
 			Entry(&existingRack).
 			Exec(ctx, db)).To(Succeed())
 
@@ -676,7 +676,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack](nil).Count(ctx, db))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 })

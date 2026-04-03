@@ -115,7 +115,7 @@ func runMigrateCreate(name string) (err error) {
 		return errors.Wrapf(err, "failed to discover existing migrations for %s", servicePath)
 	}
 
-	dependsOn := "msgpack_to_binary"
+	dependsOn := "msgpack_to_orc"
 	effectiveVersion := version
 	if len(existingVersions) > 0 {
 		latest := existingVersions[len(existingVersions)-1]

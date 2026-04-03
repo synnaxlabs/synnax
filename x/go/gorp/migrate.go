@@ -11,15 +11,13 @@ package gorp
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
 
@@ -28,17 +26,7 @@ type Migration interface {
 	// Name returns a human-readable identifier for this migration.
 	Name() string
 	// Run executes the migration within the provided kv.Tx.
-	Run(ctx context.Context, tx kv.Tx, cfg MigrationConfig) error
-}
-
-// MigrationConfig provides the configuration needed by Migration implementations
-// to locate and encode/decode entries. DBCodec is always the DB's default codec
-// (typically msgpack), used for decoding pre-transition legacy data. Individual
-// migrations carry their own codecs for version-specific encoding/decoding.
-type MigrationConfig struct {
-	Prefix  []byte
-	DBCodec encoding.Codec
-	L       *alamos.Logger
+	Run(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
 }
 
 // EntryCounter is optionally implemented by Migration types that track how many
@@ -71,52 +59,37 @@ func shouldLogProgress(entries int) bool {
 // TransformFunc transforms an old entry of type I into a new entry of type O.
 type TransformFunc[I, O any] func(ctx context.Context, old I) (O, error)
 
-type typedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
-	name        string
-	inputCodec  encoding.Codec
-	outputCodec encoding.Codec
-	transform   TransformFunc[I, O]
-	entries     int
+type entryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]] struct {
+	name      string
+	transform TransformFunc[I, O]
+	entries   int
 }
 
-// NewTypedMigration creates a Migration that iterates over all entries with the
-// configured prefix, decodes each as type I using inputCodec, transforms it to
-// type O via the transform function, and encodes the result using outputCodec.
-// If inputCodec is nil, MigrationConfig.DBCodec is used for decoding.
-// If outputCodec is nil, MigrationConfig.DBCodec is used for encoding.
-func NewTypedMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
+// NewEntryMigration creates a Migration that iterates over all entries with the
+// configured prefix, decodes each as type I, transforms it to type O via the
+// transform function, and encodes the result. Both decoding and encoding use
+// the DB's codec from MigrationContext.
+func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	name string,
-	inputCodec encoding.Codec,
-	outputCodec encoding.Codec,
 	transform TransformFunc[I, O],
 ) Migration {
-	return &typedMigration[IK, OK, I, O]{
-		name:        name,
-		inputCodec:  inputCodec,
-		outputCodec: outputCodec,
-		transform:   transform,
+	return &entryMigration[IK, OK, I, O]{
+		name:      name,
+		transform: transform,
 	}
 }
 
-func (m *typedMigration[IK, OK, I, O]) Name() string { return m.name }
+func (m *entryMigration[IK, OK, I, O]) Name() string { return m.name }
 
-func (m *typedMigration[IK, OK, I, O]) EntriesProcessed() int { return m.entries }
+func (m *entryMigration[IK, OK, I, O]) EntriesProcessed() int { return m.entries }
 
-func (m *typedMigration[IK, OK, I, O]) Run(
-	ctx context.Context,
-	kvTx kv.Tx,
-	cfg MigrationConfig,
-) (err error) {
+func (m *entryMigration[IK, OK, I, O]) Run(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
+	var (
+		reader = WrapReader[IK, I](tx)
+		writer = WrapWriter[OK, O](tx)
+	)
 	m.entries = 0
-	inCodec := m.inputCodec
-	if inCodec == nil {
-		inCodec = cfg.DBCodec
-	}
-	outCodec := m.outputCodec
-	if outCodec == nil {
-		outCodec = cfg.DBCodec
-	}
-	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
+	iter, err := reader.OpenIterator(IterOptions{})
 	if err != nil {
 		return err
 	}
@@ -126,106 +99,48 @@ func (m *typedMigration[IK, OK, I, O]) Run(
 	for iter.First(); iter.Valid(); iter.Next() {
 		m.entries++
 		if shouldLogProgress(m.entries) {
-			cfg.L.Debug(
+			ins.L.Debug(
 				"migration progress",
 				zap.String("migration", m.name),
 				zap.Int("entries", m.entries),
 			)
 		}
-		var old I
-		if err = inCodec.Decode(ctx, iter.Value(), &old); err != nil {
-			return errors.Wrapf(err, "entry %q (decode)", iter.Key())
+		old := iter.Value(ctx)
+		if old == nil {
+			if err := iter.Error(); err != nil {
+				return err
+			}
+			continue
 		}
-		newEntry, err := m.transform(ctx, old)
+		newEntry, err := m.transform(ctx, *old)
 		if err != nil {
-			return errors.Wrapf(err, "entry %v (transform)", old.GorpKey())
+			return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
 		}
-		var data []byte
-		if data, err = outCodec.Encode(ctx, newEntry); err != nil {
-			return errors.Wrapf(err, "entry %v (encode)", newEntry.GorpKey())
-		}
-		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
+		if err = writer.Set(ctx, newEntry); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-type codecTransitionMigration[K Key, E Entry[K]] struct {
-	name    string
-	codec   encoding.Codec
-	entries int
-}
-
-// NewCodecTransition creates a Migration that re-encodes all entries from the DB's
-// default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
-func NewCodecTransition[K Key, E Entry[K]](name string, codec encoding.Codec) Migration {
-	return &codecTransitionMigration[K, E]{name: name, codec: codec}
-}
-
-func (m *codecTransitionMigration[K, E]) Name() string { return m.name }
-
-func (m *codecTransitionMigration[K, E]) EntriesProcessed() int { return m.entries }
-
-func (m *codecTransitionMigration[K, E]) Run(
-	ctx context.Context,
-	kvTx kv.Tx,
-	cfg MigrationConfig,
-) (err error) {
-	m.entries = 0
-	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	for iter.First(); iter.Valid(); iter.Next() {
-		m.entries++
-		if shouldLogProgress(m.entries) {
-			cfg.L.Debug(
-				"migration progress",
-				zap.String("migration", m.name),
-				zap.Int("entries", m.entries),
-			)
-		}
-		var entry E
-		if err = cfg.DBCodec.Decode(ctx, iter.Value(), &entry); err != nil {
-			return errors.Wrapf(err, "entry %q (decode)", iter.Key())
-		}
-		var data []byte
-		if data, err = m.codec.Encode(ctx, entry); err != nil {
-			return errors.Wrapf(err, "entry %v (encode)", entry.GorpKey())
-		}
-		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
-			return err
-		}
-	}
-	return err
-}
-
-type rawMigration struct {
+type migration struct {
 	name string
-	fn   func(ctx context.Context, tx Tx) error
+	fn   func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
 }
 
-// NewRawMigration creates a Migration that receives a fully wrapped gorp.Tx,
+// NewMigration creates a Migration that receives a fully wrapped gorp.Tx,
 // allowing arbitrary read/write operations on the store.
-func NewRawMigration(
+func NewMigration(
 	name string,
-	fn func(ctx context.Context, tx Tx) error,
+	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error,
 ) Migration {
-	return &rawMigration{name: name, fn: fn}
+	return &migration{name: name, fn: fn}
 }
 
-func (m *rawMigration) Name() string { return m.name }
+func (m *migration) Name() string { return m.name }
 
-func (m *rawMigration) Run(
-	ctx context.Context,
-	kvTx kv.Tx,
-	cfg MigrationConfig,
-) error {
-	return m.fn(ctx, WrapTx(kvTx, cfg.DBCodec))
+func (m *migration) Run(ctx context.Context, tx Tx, ins alamos.Instrumentation) error {
+	return m.fn(ctx, tx, ins)
 }
 
 // DependencyDeclarer is optionally implemented by Migration values that
@@ -249,10 +164,6 @@ func (d *dependentMigration) Dependencies() []string { return d.deps }
 
 type depKey[T any] struct{}
 
-// ErrMissingMigrationDep is returned when MigrationDep is called for a type
-// that was not injected into the context via WithMigrationDep.
-var ErrMissingMigrationDep = errors.New("missing migration dependency")
-
 // WithMigrationDep injects a dependency into the context for use during migrations.
 // The dependency is keyed by its type, so each concrete type can be injected once.
 // Use this before calling OpenTable to make services or other resources available
@@ -266,21 +177,13 @@ func WithMigrationDep[T any](ctx context.Context, dep T) context.Context {
 func MigrationDep[T any](ctx context.Context) (T, error) {
 	v, ok := ctx.Value(depKey[T]{}).(T)
 	if !ok {
-		var zero T
-		return zero, errors.Wrapf(
-			ErrMissingMigrationDep,
-			"%T not found in context",
-			*new(T),
+		return v, errors.Wrapf(
+			query.ErrNotFound,
+			"%s not found in context",
+			types.Name[T](),
 		)
 	}
 	return v, nil
-}
-
-// MigrationDepOpt retrieves a dependency previously injected via WithMigrationDep.
-// Returns the dependency and true if found, or the zero value and false if not.
-func MigrationDepOpt[T any](ctx context.Context) (T, bool) {
-	v, ok := ctx.Value(depKey[T]{}).(T)
-	return v, ok
 }
 
 // topoSort filters out already-applied migrations, then produces a valid
@@ -290,7 +193,7 @@ func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, err
 	byName := make(map[string]Migration, len(migrations))
 	for _, m := range migrations {
 		if _, dup := byName[m.Name()]; dup {
-			return nil, fmt.Errorf("duplicate migration name %q", m.Name())
+			return nil, errors.Newf("duplicate migration name %q", m.Name())
 		}
 		byName[m.Name()] = m
 	}
@@ -342,18 +245,20 @@ func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, err
 	return sorted, nil
 }
 
+// ErrMigrationCountExceeded is returned when the number of migrations
+// exceeds the maximum of 255.
 var ErrMigrationCountExceeded = errors.New(
-	"migration count is greater than the maximum of 255",
+	"[gorp] - migration count exceeded the maximum of 255",
 )
 
-// MigrationSpec defines a single migration that should be run with a transaction.
+// MigrationSpec defines a single migration for use with Migrator.
 type MigrationSpec struct {
 	Migrate func(context.Context, Tx) error
 	Name    string
 }
 
-// Migrator executes a series of migrations in order, tracking progress with
-// incrementing versions.
+// Migrator executes a series of migrations in order, tracking progress
+// with incrementing versions.
 type Migrator struct {
 	Key        string
 	Migrations []MigrationSpec

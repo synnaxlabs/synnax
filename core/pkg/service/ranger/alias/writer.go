@@ -35,7 +35,7 @@ func (w Writer) Set(
 	ch channel.Key,
 	al string,
 ) error {
-	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel](nil).
+	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel]().
 		WhereKeys(ch).Exists(ctx, w.tx)
 	if err != nil {
 		return err
