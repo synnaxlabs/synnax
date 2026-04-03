@@ -14,7 +14,6 @@ import { z } from "zod";
 
 import {
   type KeyOrName,
-  type Keys,
   type KeysOrNames,
   type Params,
   type PrimitiveParams,
@@ -206,7 +205,7 @@ export interface PromiseFns<T> {
 // no interval
 export class DebouncedBatchRetriever implements Retriever {
   private readonly mu = new Mutex();
-  private readonly requests = new Map<Keys, PromiseFns<Payload[]>>();
+  private readonly requests = new Map<Key[], PromiseFns<Payload[]>>();
   private readonly wrapped: Retriever;
   private readonly debouncedRun: () => void;
 

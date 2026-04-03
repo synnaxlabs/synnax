@@ -21,12 +21,10 @@ import {
 } from "@/channel/types.gen";
 import { ontology } from "@/ontology";
 
-export type Keys = Key[];
 export type KeyOrName = Key | Name;
-export type Names = Name[];
 export type Payloads = Payload[];
-export type PrimitiveParams = Key | Keys | Names | Name;
-export type KeysOrNames = Keys | Names;
+export type KeysOrNames = Key[] | Name[];
+export type PrimitiveParams = KeyOrName | KeysOrNames;
 
 export const paramsZ = z.union([
   zod.toArray(keyZ),

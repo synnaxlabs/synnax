@@ -399,7 +399,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
 });
 
 export interface RetrieveMultipleQuery {
-  keys: ranger.Keys;
+  keys: ranger.Key[];
 }
 
 export const {
@@ -830,7 +830,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<ranger.New, FluxSubSto
   },
 });
 
-export type DeleteParams = ranger.Key | ranger.Keys;
+export type DeleteParams = ranger.Key | ranger.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,

@@ -57,7 +57,7 @@ const SEQ_NUM_SIZE = 4;
 const FLAGS_SIZE = 1;
 
 interface CodecState {
-  keys: channel.Keys;
+  keys: channel.Key[];
   keyDataTypes: Map<channel.Key, DataType>;
   hasVariableDataTypes: boolean;
 }
@@ -68,11 +68,11 @@ export class Codec {
   private currState: CodecState | undefined;
   private seqNum: number = 0;
 
-  constructor(keys: channel.Keys = [], dataTypes: DataType[] = []) {
+  constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
   }
 
-  update(keys: channel.Keys, dataTypes: DataType[]): void {
+  update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     const state = {
       keys,

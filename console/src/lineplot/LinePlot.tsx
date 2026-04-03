@@ -264,7 +264,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const rng = Range.useSelect();
 
   const handleChannelAxisDrop = useCallback(
-    (axis: string, channels: channel.Keys): void => {
+    (axis: string, channels: channel.Key[]): void => {
       if (X_AXIS_KEYS.includes(axis as XAxisKey))
         syncDispatch(
           setXChannel({

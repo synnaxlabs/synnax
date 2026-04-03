@@ -108,7 +108,7 @@ export class WriteAdapter {
     return adapter;
   }
 
-  async adaptParams(data: channel.Params): Promise<channel.Keys> {
+  async adaptParams(data: channel.Params): Promise<channel.Key[]> {
     const arrParams = channel.paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),

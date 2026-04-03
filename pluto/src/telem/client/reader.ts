@@ -16,7 +16,7 @@ import { type ReadClient } from "@/telem/client/client";
 
 /** A function that reads a telemetry frame from the Synnax cluster. */
 export interface ReadRemoteFunc {
-  (tr: TimeRange, keys: channel.Keys): Promise<framer.Frame>;
+  (tr: TimeRange, keys: channel.Key[]): Promise<framer.Frame>;
 }
 
 interface ReadRequest {

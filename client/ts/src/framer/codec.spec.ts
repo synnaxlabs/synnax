@@ -28,7 +28,7 @@ describe("encoder", () => {
   describe("base codec", () => {
     interface Spec {
       name: string;
-      channels: channel.Keys;
+      channels: channel.Key[];
       dataTypes: DataType[];
       frame: framer.Frame;
     }

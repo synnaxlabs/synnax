@@ -167,16 +167,16 @@ export class Frame {
    * @returns the channel keys if the frame is keyed by channel key, and throws an error
    * otherwise.
    */
-  get keys(): channel.Keys {
+  get keys(): channel.Key[] {
     if (this.colType === "name") throw new UnexpectedError("colType is not key");
-    return (this.columns as channel.Keys) ?? [];
+    return (this.columns as channel.Key[]) ?? [];
   }
 
   /**
    * @returns the unique channel keys if the frame is keyed by channel key, and throws an
    * error otherwise.
    */
-  get uniqueKeys(): channel.Keys {
+  get uniqueKeys(): channel.Key[] {
     return unique.unique(this.keys);
   }
 
@@ -284,7 +284,7 @@ export class Frame {
 
   get(key: channel.PrimitiveParams): MultiSeries | Frame {
     if (Array.isArray(key))
-      return this.filter((k) => (key as channel.Keys).includes(k as channel.Key));
+      return this.filter((k) => (key as channel.Key[]).includes(k as channel.Key));
     return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
   }
 
@@ -312,15 +312,15 @@ export class Frame {
       )
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
-      (this.columns as channel.Keys).push(...(keyOrFrame.columns as channel.Keys));
+      (this.columns as channel.Key[]).push(...(keyOrFrame.columns as channel.Key[]));
     } else {
       this.series.push(...v);
       if (typeof keyOrFrame === "string" && this.colType === "key")
         throw new ValidationError("keyVariant must match");
       else if (typeof keyOrFrame !== "string" && this.colType === "name")
         throw new ValidationError("keyVariant must match");
-      (this.columns as channel.Keys).push(
-        ...(Array.from({ length: v.length }, () => keyOrFrame) as channel.Keys),
+      (this.columns as channel.Key[]).push(
+        ...(Array.from({ length: v.length }, () => keyOrFrame) as channel.Key[]),
       );
     }
   }
@@ -330,7 +330,7 @@ export class Frame {
    * provided frame.
    */
   concat(frame: Frame): Frame {
-    return new Frame([...this.columns, ...frame.columns] as channel.Keys, [
+    return new Frame([...this.columns, ...frame.columns] as channel.Key[], [
       ...this.series,
       ...frame.series,
     ]);
@@ -343,7 +343,7 @@ export class Frame {
   has(channel: channel.KeyOrName): boolean {
     if (typeof channel === "string" && this.colType === "key") return false;
     if (typeof channel === "number" && this.colType === "name") return false;
-    return (this.columns as channel.Keys).includes(channel as channel.Key);
+    return (this.columns as channel.Key[]).includes(channel as channel.Key);
   }
 
   /**

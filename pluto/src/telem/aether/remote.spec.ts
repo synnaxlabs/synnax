@@ -45,7 +45,7 @@ describe("remote", () => {
 
       // Stream
       streamHandler: client.StreamHandler | null = null;
-      streamKeys: channel.Keys = [];
+      streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
@@ -70,7 +70,7 @@ describe("remote", () => {
 
       async stream(
         handler: client.StreamHandler,
-        keys: channel.Keys,
+        keys: channel.Key[],
       ): Promise<destructor.Async> {
         this.streamHandler = handler;
         this.streamKeys = keys;
@@ -339,7 +339,7 @@ describe("remote", () => {
 
       // Stream
       streamHandler: client.StreamHandler | null = null;
-      streamKeys: channel.Keys = [];
+      streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
@@ -376,7 +376,7 @@ describe("remote", () => {
 
       async stream(
         handler: client.StreamHandler,
-        keys: channel.Keys,
+        keys: channel.Key[],
       ): Promise<destructor.Async> {
         this.streamHandler = handler;
         this.streamKeys = keys;

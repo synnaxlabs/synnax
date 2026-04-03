@@ -56,7 +56,7 @@ export interface ReadClient {
 export interface StreamClient {
   stream: (
     handler: StreamHandler,
-    keys: channel.Keys,
+    keys: channel.Key[],
   ) => Promise<destructor.Destructor>;
 }
 
@@ -144,7 +144,7 @@ export class Core implements Client {
 
   async stream(
     handler: StreamHandler,
-    keys: channel.Keys,
+    keys: channel.Key[],
   ): Promise<destructor.Destructor> {
     return await this.streamer.stream(handler, keys);
   }

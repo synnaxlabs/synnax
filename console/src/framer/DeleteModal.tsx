@@ -83,7 +83,7 @@ interface FormStepProps {
 
 const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   const { validate, set } = Form.useContext();
-  const channelKeys = Form.useFieldValue<channel.Keys>("channels");
+  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const start = Form.useFieldValue<number>("timeRange.start");
   const end = Form.useFieldValue<number>("timeRange.end");
   const isFromBeginning = start === TimeRange.MAX.numeric.start;
@@ -112,7 +112,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
         Delete Data
       </Text.Text>
       <Flex.Box y full="x" gap="medium">
-        <Form.Field<channel.Keys> path="channels">{channelSelectRenderProp}</Form.Field>
+        <Form.Field<channel.Key[]> path="channels">{channelSelectRenderProp}</Form.Field>
         <Flex.Box x gap="medium" align="start">
           <Flex.Box y gap="small" className={CSS.BE("delete-modal", "time-range-side")}>
             <Flex.Box x align="center" gap="small">
@@ -194,19 +194,19 @@ interface ConfirmStepProps {
   onClose: () => void;
 }
 
-const newChannelStr = (channelKeys: channel.Keys): string =>
+const newChannelStr = (channelKeys: channel.Key[]): string =>
   channelKeys.length === 1 ? "one channel" : `${channelKeys.length} channels`;
 
 const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
   const { get } = Form.useContext();
-  const channelKeys = Form.useFieldValue<channel.Keys>("channels");
+  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const start = Form.useFieldValue<number>("timeRange.start");
   const end = Form.useFieldValue<number>("timeRange.end");
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const handleDelete = useCallback(() => {
-    const keys = get<channel.Keys>("channels").value;
+    const keys = get<channel.Key[]>("channels").value;
     const tr = get<NumericTimeRange>("timeRange").value;
     onClose();
     handleError(async () => {
