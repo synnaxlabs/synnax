@@ -180,6 +180,70 @@ class TestStatusClient:
         for i, variant in enumerate(variants):
             assert created[i].variant == variant
 
+    def test_retrieve_with_single_variant_filter(self, client: sy.Synnax):
+        """Should filter statuses by a single variant."""
+        statuses = [
+            sy.Status(
+                variant=sy.status.VARIANT_SUCCESS,
+                message="Success status",
+            ),
+            sy.Status(
+                variant=sy.status.VARIANT_ERROR,
+                message="Error status",
+            ),
+            sy.Status(
+                variant=sy.status.VARIANT_WARNING,
+                message="Warning status",
+            ),
+        ]
+        created = client.statuses.set(statuses)
+        keys = [s.key for s in created]
+
+        results = client.statuses.retrieve(keys=keys, variants=["error"])
+
+        assert len(results) == 1
+        assert results[0].variant == sy.status.VARIANT_ERROR
+        assert results[0].message == "Error status"
+
+    def test_retrieve_with_multiple_variant_filter(self, client: sy.Synnax):
+        """Should filter statuses by multiple variants."""
+        statuses = [
+            sy.Status(
+                variant=sy.status.VARIANT_INFO,
+                message="Info status",
+            ),
+            sy.Status(
+                variant=sy.status.VARIANT_ERROR,
+                message="Error status",
+            ),
+            sy.Status(
+                variant=sy.status.VARIANT_SUCCESS,
+                message="Success status",
+            ),
+        ]
+        created = client.statuses.set(statuses)
+        keys = [s.key for s in created]
+
+        results = client.statuses.retrieve(keys=keys, variants=["info", "success"])
+
+        assert len(results) == 2
+        result_variants = {s.variant for s in results}
+        assert "info" in result_variants
+        assert "success" in result_variants
+        assert "error" not in result_variants
+
+    def test_retrieve_with_no_matching_variants(self, client: sy.Synnax):
+        """Should return empty when no statuses match the variant filter."""
+        status = sy.Status(
+            variant=sy.status.VARIANT_INFO,
+            message="Info only",
+        )
+        created = client.statuses.set(status)
+
+        results = client.statuses.retrieve(keys=[created.key], variants=["error"])
+
+        assert len(results) == 0
+
     def test_status_with_description(self, client: sy.Synnax):
         """Should create status with description."""
         status = sy.Status(

@@ -26,7 +26,7 @@ import { CONNECT_LAYOUT, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
 import { Item } from "@/cluster/list/Item";
 import { useSelectMany } from "@/cluster/selectors";
 import { changeKey, remove } from "@/cluster/slice";
-import { Menu } from "@/components";
+import { EmptyAction, Menu } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -167,15 +167,23 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           </Button.Button>
         </Header.Header>
         <Flex.Box empty onContextMenu={menuProps.open} grow>
-          {keys.map((key, i) => (
-            <Item
-              key={key}
-              index={i}
-              itemKey={key}
-              validateName={validateName}
-              loading={testing === key}
+          {keys.length === 0 ? (
+            <EmptyAction
+              message="No Cores added."
+              action="Add a Core"
+              onClick={() => placeLayout(CONNECT_LAYOUT)}
             />
-          ))}
+          ) : (
+            keys.map((key, i) => (
+              <Item
+                key={key}
+                index={i}
+                itemKey={key}
+                validateName={validateName}
+                loading={testing === key}
+              />
+            ))
+          )}
         </Flex.Box>
       </Flex.Box>
     </Select.Frame>
