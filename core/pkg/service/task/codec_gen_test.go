@@ -58,7 +58,7 @@ var _ = Describe("Codec", func() {
 							Cmd:     "test_15",
 						},
 						Labels: []label.Label{
-							{
+							label.Label{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 								Name: "test_18",
 								Color: color.Color{
@@ -127,7 +127,7 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 					Cmd:     "test_15",
 				},
 				Labels: []label.Label{
-					{
+					label.Label{
 						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 						Name: "test_18",
 						Color: color.Color{
@@ -143,13 +143,13 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 		}(),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded task.Task
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -164,13 +164,13 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 		Cmd:     "test_3",
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded task.StatusDetails
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -199,7 +199,7 @@ func FuzzDecodeTask(f *testing.F) {
 						Cmd:     "test_15",
 					},
 					Labels: []label.Label{
-						{
+						label.Label{
 							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 							Name: "test_18",
 							Color: color.Color{

@@ -141,8 +141,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
 	if err := nv.Position.EncodeOrc(w); err != nil {
 		return err
@@ -159,12 +158,8 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
 			return err
 		}
 		if err = json.Unmarshal(b, &nv.Config); err != nil {

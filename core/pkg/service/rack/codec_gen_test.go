@@ -54,7 +54,7 @@ var _ = Describe("Codec", func() {
 						Time:        telem.TimeStamp(12),
 						Details:     rack.StatusDetails{Rack: rack.Key(14)},
 						Labels: []label.Label{
-							{
+							label.Label{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
 								Name: "test_16",
 								Color: color.Color{
@@ -133,7 +133,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 				Time:        telem.TimeStamp(12),
 				Details:     rack.StatusDetails{Rack: rack.Key(14)},
 				Labels: []label.Label{
-					{
+					label.Label{
 						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
 						Name: "test_16",
 						Color: color.Color{
@@ -150,13 +150,13 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		Integrations: []string{"test_22"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.Rack
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -167,13 +167,13 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	sd := rack.StatusDetails{Rack: rack.Key(2)}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.StatusDetails
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -198,7 +198,7 @@ func FuzzDecodeRack(f *testing.F) {
 					Time:        telem.TimeStamp(12),
 					Details:     rack.StatusDetails{Rack: rack.Key(14)},
 					Labels: []label.Label{
-						{
+						label.Label{
 							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
 							Name: "test_16",
 							Color: color.Color{

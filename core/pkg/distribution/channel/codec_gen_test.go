@@ -48,7 +48,7 @@ var _ = Describe("Codec", func() {
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
-					{
+					channel.Operation{
 						Type:         channel.OperationType("min"),
 						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
@@ -121,7 +121,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Concurrency: control.Concurrency(0),
 		Internal:    true,
 		Operations: []channel.Operation{
-			{
+			channel.Operation{
 				Type:         channel.OperationType("min"),
 				ResetChannel: channel.Key(13),
 				Duration:     telem.TimeSpan(14),
@@ -130,13 +130,13 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Expression: "test_14",
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Channel
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -151,13 +151,13 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 		Duration:     telem.TimeSpan(4),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := o.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Operation
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -178,7 +178,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Concurrency: control.Concurrency(0),
 			Internal:    true,
 			Operations: []channel.Operation{
-				{
+				channel.Operation{
 					Type:         channel.OperationType("min"),
 					ResetChannel: channel.Key(13),
 					Duration:     telem.TimeSpan(14),
