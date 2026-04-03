@@ -136,6 +136,7 @@ type RetrieveRequest struct {
 	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
 	IncludeLabels bool                   `protobuf:"varint,5,opt,name=include_labels,json=includeLabels,proto3" json:"include_labels,omitempty"`
 	HasLabels     []string               `protobuf:"bytes,6,rep,name=has_labels,json=hasLabels,proto3" json:"has_labels,omitempty"`
+	Variants      []string               `protobuf:"bytes,7,rep,name=variants,proto3" json:"variants,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -208,6 +209,13 @@ func (x *RetrieveRequest) GetIncludeLabels() bool {
 func (x *RetrieveRequest) GetHasLabels() []string {
 	if x != nil {
 		return x.HasLabels
+	}
+	return nil
+}
+
+func (x *RetrieveRequest) GetVariants() []string {
+	if x != nil {
+		return x.Variants
 	}
 	return nil
 }
@@ -310,7 +318,7 @@ const file_core_pkg_api_grpc_status_status_proto_rawDesc = "" +
 	"\x06parent\x18\x01 \x01(\tR\x06parent\x12/\n" +
 	"\bstatuses\x18\x02 \x03(\v2\x13.x.status.pb.StatusR\bstatuses\">\n" +
 	"\vSetResponse\x12/\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x13.x.status.pb.StatusR\bstatuses\"\xba\x01\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x13.x.status.pb.StatusR\bstatuses\"\xd6\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -319,7 +327,8 @@ const file_core_pkg_api_grpc_status_status_proto_rawDesc = "" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12%\n" +
 	"\x0einclude_labels\x18\x05 \x01(\bR\rincludeLabels\x12\x1d\n" +
 	"\n" +
-	"has_labels\x18\x06 \x03(\tR\thasLabels\"C\n" +
+	"has_labels\x18\x06 \x03(\tR\thasLabels\x12\x1a\n" +
+	"\bvariants\x18\a \x03(\tR\bvariants\"C\n" +
 	"\x10RetrieveResponse\x12/\n" +
 	"\bstatuses\x18\x01 \x03(\v2\x13.x.status.pb.StatusR\bstatuses\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/label/filter/Chips.css";
+import "@/status/filter/Chips.css";
 
-import { type label } from "@synnaxlabs/client";
-import { Flex, Form, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, Status, Tag, Text } from "@synnaxlabs/pluto";
+import { caseconv, type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -18,34 +18,32 @@ import { View } from "@/view";
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const field = Form.useField<label.Key[]>("query.hasLabels", {
+  const field = Form.useField<status.Variant[]>("query.variants", {
     optional: true,
   });
-  const hasLabels = field?.value;
-  const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
-  if (labels.length === 0 || field == null || hasLabels == null) return null;
-  const handleClose = (key: label.Key) =>
-    field.onChange(hasLabels.filter((l) => l !== key));
+  const variants = field?.value;
+  if (variants == null || variants.length === 0 || field == null) return null;
+  const handleClose = (variant: status.Variant) =>
+    field.onChange(variants.filter((v) => v !== variant));
   return (
     <Flex.Box x pack background={0}>
       <Text.Text
         bordered
-        className={CSS.BE("label", "filter-chips")}
+        className={CSS.BE("status-variant", "filter-chips")}
         size="small"
         borderColor={5}
         level="small"
       >
-        <Icon.Label />
-        Labels
+        Variants
       </Text.Text>
-      {labels.map(({ color, key, name }) => (
+      {variants.map((variant) => (
         <Tag.Tag
-          key={key}
-          color={color}
+          key={variant}
+          icon={<Status.Indicator variant={variant} />}
           size="small"
-          onClose={editable ? () => handleClose(key) : undefined}
+          onClose={editable ? () => handleClose(variant) : undefined}
         >
-          {name}
+          {caseconv.capitalize(variant)}
         </Tag.Tag>
       ))}
     </Flex.Box>

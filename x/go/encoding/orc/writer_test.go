@@ -95,6 +95,22 @@ var _ = Describe("Writer", func() {
 		Expect(w.Bytes()).To(Equal([]byte{1, 0, 1}))
 	})
 
+	It("Should write length-prefixed bytes", func() {
+		w := orc.NewWriter(0)
+		w.WriteWithLen([]byte{1, 2, 3})
+		w.WriteWithLen([]byte{})
+		w.WriteWithLen([]byte{4, 5})
+		Expect(w.Len()).To(Equal(4 + 3 + 4 + 0 + 4 + 2))
+
+		r := orc.NewReader(bytesReader(w.Bytes()))
+		b1 := MustSucceed(r.ReadWithLen())
+		Expect(b1).To(Equal([]byte{1, 2, 3}))
+		b2 := MustSucceed(r.ReadWithLen())
+		Expect(b2).To(Equal([]byte{}))
+		b3 := MustSucceed(r.ReadWithLen())
+		Expect(b3).To(Equal([]byte{4, 5}))
+	})
+
 	It("Should write length-prefixed strings", func() {
 		w := orc.NewWriter(0)
 		w.String("hello")

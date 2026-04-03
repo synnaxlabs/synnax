@@ -172,40 +172,23 @@ var (
 	childrenPrefixSuffix = []byte("->" + string(RelationshipTypeParentOf) + "->")
 )
 
-// parentsRawFilter builds a raw filter that checks relationship type == "parent"
-// and To.Type + To.Key match any of the given IDs, all without decoding.
-// Wire format: [From.Type][From.Key][Type][To.Type][To.Key] (each uint32 len + bytes).
 func parentsRawFilter(ids []ID) gorp.RawFilter {
-	type rawID struct{ typ, key []byte }
-	raw := make([]rawID, len(ids))
+	w := orc.NewWriter(64)
+	encoded := make([][]byte, len(ids))
 	for i, id := range ids {
-		raw[i] = rawID{typ: []byte(id.Type), key: []byte(id.Key)}
+		w.Reset()
+		w.String(string(id.Type))
+		w.String(id.Key)
+		encoded[i] = w.Copy()
 	}
 	return func(data []byte) bool {
-		// Skip From.Type and From.Key (fields 0, 1)
 		r := orc.Raw(data).SkipStrings(2)
-		if r == nil {
-			return true // malformed, fallback to full decode
+		typeVal, r := orc.Raw(r).ReadString()
+		if r == nil || !bytes.Equal(typeVal, parentBytes) {
+			return r == nil
 		}
-		// Read Type (field 2)
-		typeVal, r := r.ReadString()
-		if r == nil {
-			return true
-		}
-		if !bytes.Equal(typeVal, parentBytes) {
-			return false
-		}
-		// Read To.Type (field 3) and To.Key (field 4)
-		toType, r := r.ReadString()
-		if r == nil {
-			return true
-		}
-		toKey, _ := r.ReadString()
-		if toKey == nil {
-			return true
-		}
-		for _, id := range raw {
-			if bytes.Equal(toType, id.typ) && bytes.Equal(toKey, id.key) {
+		for _, enc := range encoded {
+			if bytes.HasPrefix(r, enc) {
 				return true
 			}
 		}

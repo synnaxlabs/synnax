@@ -350,15 +350,12 @@ func (b *encoderBuilder) processTypeParamField(getPath, setPath string, jsonOnly
 			ind+"{",
 			ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
 			ind+"\tif err != nil { return err }",
-			ind+"\tw.Uint32(uint32(len(b)))",
-			ind+"\tw.Write(b)",
+			ind+"\tw.WriteWithLen(b)",
 			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
 			ind+"{",
-			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
-			ind+"\tb := make([]byte, n)",
-			ind+"\tif _, err = r.Read(b); err != nil { return err }",
+			ind+"\tb, err := r.ReadWithLen(); if err != nil { return err }",
 			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
 			ind+"}",
 		)
@@ -369,17 +366,14 @@ func (b *encoderBuilder) processTypeParamField(getPath, setPath string, jsonOnly
 			ind+"} else {",
 			ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
 			ind+"\tif err != nil { return err }",
-			ind+"\tw.Uint32(uint32(len(b)))",
-			ind+"\tw.Write(b)",
+			ind+"\tw.WriteWithLen(b)",
 			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
 			ind+fmt.Sprintf("if m, ok := any(&%s).(orc.SelfDecoder); ok {", setPath),
 			ind+"\tif err := m.DecodeOrc(r); err != nil { return err }",
 			ind+"} else {",
-			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
-			ind+"\tb := make([]byte, n)",
-			ind+"\tif _, err = r.Read(b); err != nil { return err }",
+			ind+"\tb, err := r.ReadWithLen(); if err != nil { return err }",
 			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err }", setPath),
 			ind+"}",
 		)
@@ -703,13 +697,10 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", getPath),
 			ind+"\tif err != nil { return err }",
-			ind+"\tw.Uint32(uint32(len(b)))",
-			ind+"\tw.Write(b) }",
+			ind+"\tw.WriteWithLen(b) }",
 		)
 		b.decodeLines = append(b.decodeLines,
-			ind+"{ n, err := r.CollectionLen(); if err != nil { return err }",
-			ind+"\tb := make([]byte, n)",
-			ind+"\tif _, err = r.Read(b); err != nil { return err }",
+			ind+"{ b, err := r.ReadWithLen(); if err != nil { return err }",
 			ind+fmt.Sprintf("\tif err = json.Unmarshal(b, &%s); err != nil { return err } }", setPath),
 		)
 
@@ -718,16 +709,13 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
-			ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
-			ind+fmt.Sprintf("\tw.Write(%s)", getPath),
+			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", getPath),
 			ind+"}",
 		)
 		b.decodeLines = append(b.decodeLines,
 			ind+"{ present, err := r.Bool(); if err != nil { return err }",
 			ind+"if present {",
-			ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
-			ind+fmt.Sprintf("\t%s = make([]byte, n)", setPath),
-			ind+fmt.Sprintf("\tif _, err = r.Read(%s); err != nil { return err }", setPath),
+			ind+fmt.Sprintf("\t%s, err = r.ReadWithLen(); if err != nil { return err }", setPath),
 			ind+"} }",
 		)
 
