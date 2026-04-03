@@ -24,15 +24,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type groupsMigration struct {
-	cfg ServiceConfig
-}
+type groupMigration struct{ cfg ServiceConfig }
 
-var _ gorp.Migration = (*groupsMigration)(nil)
+var _ gorp.Migration = (*groupMigration)(nil)
 
-func (m *groupsMigration) Name() string { return "range_groups" }
+func (m *groupMigration) Name() string { return "range_groups" }
 
-func (m *groupsMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+func (m *groupMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 	ins.L.Debug("swapping invalid time ranges")
 	if err := m.swapRanges(ctx, tx); err != nil {
 		return err
@@ -161,7 +159,7 @@ func (m *groupsMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instru
 	return nil
 }
 
-func (m *groupsMigration) swapRanges(
+func (m *groupMigration) swapRanges(
 	ctx context.Context,
 	tx gorp.Tx,
 ) (err error) {
@@ -189,7 +187,7 @@ func (m *groupsMigration) swapRanges(
 	return err
 }
 
-func (m *groupsMigration) loadAllRanges(
+func (m *groupMigration) loadAllRanges(
 	ctx context.Context,
 	tx gorp.Tx,
 ) (result map[uuid.UUID]Range, err error) {
@@ -204,7 +202,7 @@ func (m *groupsMigration) loadAllRanges(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value(ctx)
-		if err := iter.Error(); err != nil {
+		if err = iter.Error(); err != nil {
 			return nil, err
 		}
 		result[v.Key] = *v
