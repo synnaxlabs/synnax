@@ -294,29 +294,35 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper x grow align="stretch">
-      <Input.Item label="State Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel as number}
-          onChange={handleSourceChange}
+    <FormWrapper y empty>
+      <Flex.Box x grow>
+        <Input.Item label="State Channel" grow padHelpText={false}>
+          <Channel.SelectSingle
+            value={source.channel as number}
+            onChange={handleSourceChange}
+          />
+        </Input.Item>
+        <Input.Item label="Command Channel" grow padHelpText={false}>
+          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+        </Input.Item>
+      </Flex.Box>
+      <Flex.Box x grow>
+        <Form.NumericField
+          label="Activation Delay"
+          path="onClickDelay"
+          grow
+          inputProps={ACTIVATION_DELAY_INPUT_PROPS}
+          hideIfNull
+          padHelpText={false}
         />
-      </Input.Item>
-      <Input.Item label="Command Channel" grow>
-        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
-      </Input.Item>
-      <Form.NumericField
-        label="Activation Delay"
-        path="onClickDelay"
-        inputProps={ACTIVATION_DELAY_INPUT_PROPS}
-        hideIfNull
-        padHelpText={false}
-      />
-      <Form.SwitchField
-        path="control.show"
-        label="Show Control Chip"
-        hideIfNull
-        optional
-      />
+        <Form.SwitchField
+          path="control.show"
+          label="Show Control Chip"
+          hideIfNull
+          optional
+          padHelpText={false}
+        />
+      </Flex.Box>
     </FormWrapper>
   );
 };

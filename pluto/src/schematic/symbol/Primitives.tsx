@@ -32,6 +32,7 @@ import {
   type MouseEventHandler,
   type PropsWithChildren,
   type ReactElement,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -238,9 +239,7 @@ const Toggle = ({
   ...rest
 }: ToggleValveButtonProps): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-  const timeoutRef = useRef<NodeJS.Timeout>(undefined);
-
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {
     if (parsedDelay.isZero) onClick?.(e);
@@ -249,24 +248,34 @@ const Toggle = ({
   const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
     onMouseDown?.(e);
     if (parsedDelay.isZero) return;
-    document.addEventListener("mouseup", () => clearTimeout(timeoutRef.current), {
-      once: true,
-    });
+    document.addEventListener(
+      "mouseup",
+      () => {
+        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      },
+      { once: true },
+    );
     timeoutRef.current = setTimeout(() => {
       onClick?.(e);
-      timeoutRef.current = undefined;
+      timeoutRef.current = null;
     }, parsedDelay.milliseconds);
   };
 
-  const pStyle: Record<string, string | number | undefined> = { ...style };
-  if (!parsedDelay.isZero)
-    pStyle[CSS.var("toggle-delay")] = `${parsedDelay.seconds.toString()}s`;
+  const pStyle = useMemo(() => {
+    if (parsedDelay.isZero) return style;
+    return {
+      ...style,
+      [CSS.var("toggle-delay")]: `${parsedDelay.seconds.toString()}s`,
+    };
+  }, [parsedDelay.milliseconds, style]);
 
   return (
     <button
       className={CSS(
         CSS.B("symbol-primitive"),
         CSS.B("symbol-primitive-toggle"),
+        !parsedDelay.isZero && CSS.BM("symbol-primitive-toggle", "delayed"),
         orientation != null && CSS.loc(orientation),
         enabled && CSS.M("enabled"),
         triggered && CSS.M("triggered"),

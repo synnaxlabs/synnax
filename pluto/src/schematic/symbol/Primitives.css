@@ -61,25 +61,25 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color) / 15%) !important;
-            stroke: rgb(var(--pluto-symbol-color) / 75%) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgb(var(--pluto-symbol-color) / 80%) !important;
-            fill: rgb(var(--pluto-symbol-color) / 85%) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
         }
     }
 
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color) / 25%) !important;
-            stroke: rgb(var(--pluto-symbol-color) / 90%) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgb(var(--pluto-symbol-color) / 70%) !important;
-            fill: rgb(var(--pluto-symbol-color) / 75%) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
         }
     }
 }
@@ -94,8 +94,6 @@
     background: none;
     border: none;
     padding: 0;
-    position: relative;
-    overflow: hidden;
 
     &:focus {
         outline: none;
@@ -109,33 +107,38 @@
         fill: none;
     }
 
-    &::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        width: 0%;
-        z-index: 1;
-        background: rgb(var(--pluto-symbol-color) / 20%);
-        pointer-events: none;
-    }
+    &.pluto-symbol-primitive-toggle--delayed {
+        position: relative;
+        backdrop-filter: brightness(1);
 
-    &:active::after {
-        animation: delay var(--pluto-toggle-delay, 0s) linear;
-        width: 100%;
+        &::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            z-index: 1;
+            background: rgba(var(--pluto-symbol-color), 0.2);
+            pointer-events: none;
+        }
+
+        &:active::after {
+            animation: delay var(--pluto-toggle-delay) linear;
+            width: 100%;
+        }
     }
 }
 
 .pluto-solenoid-valve.pluto--normally-open {
     &:hover {
         & svg {
-            stroke: rgb(var(--pluto-symbol-color) / 95%) !important;
-            fill: rgb(var(--pluto-symbol-color) / 95%) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.95) !important;
         }
 
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color) / 25%) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
         }
     }
 
@@ -169,7 +172,7 @@
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgb(var(--pluto-symbol-color-contrast) / 90%) !important;
+    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
 }
 
 .pluto-tank {
