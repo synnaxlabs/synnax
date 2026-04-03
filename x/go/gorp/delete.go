@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -22,13 +21,11 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	guards   guards[K, E]
-	codec    encoding.Codec
 }
 
-// NewDelete opens a new Delete query. If codec is non-nil, it overrides the
-// default DB codec for decoding entries.
-func NewDelete[K Key, E Entry[K]](codec encoding.Codec) Delete[K, E] {
-	return Delete[K, E]{retrieve: NewRetrieve[K, E](codec), codec: codec}
+// NewDelete opens a new Delete query.
+func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
+	return Delete[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
@@ -75,7 +72,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return wrapWriter[K, E](tx, resolveCodec(d.codec, tx)).Delete(ctx, keys...)
+	return WrapWriter[K, E](tx).Delete(ctx, keys...)
 }
 
 type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error

@@ -45,7 +45,7 @@ var _ = Describe("Table", func() {
 
 		It("Should be idempotent when called multiple times", func(ctx SpecContext) {
 			e := entry{ID: 1, Data: "data"}
-			Expect(gorp.NewCreate[int32, entry](nil).Entry(&e).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
@@ -54,7 +54,7 @@ var _ = Describe("Table", func() {
 			Expect(table.Close()).To(Succeed())
 
 			var res entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
 		})
@@ -65,14 +65,14 @@ var _ = Describe("Table", func() {
 				{ID: 2, Data: "two"},
 				{ID: 3, Data: "three"},
 			}
-			Expect(gorp.NewCreate[int32, entry](nil).
+			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(1, 2, 3).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
@@ -83,14 +83,14 @@ var _ = Describe("Table", func() {
 				{ID: 1, Data: "one"},
 				{ID: 999999999, Data: "big"},
 			}
-			Expect(gorp.NewCreate[uint64, uint64Entry](nil).
+			Expect(gorp.NewCreate[uint64, uint64Entry]().
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64Entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []uint64Entry
-			Expect(gorp.NewRetrieve[uint64, uint64Entry](nil).
+			Expect(gorp.NewRetrieve[uint64, uint64Entry]().
 				WhereKeys(1, 999999999).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(2))
@@ -101,14 +101,14 @@ var _ = Describe("Table", func() {
 				{ID: "alpha", Data: "first"},
 				{ID: "beta", Data: "second"},
 			}
-			Expect(gorp.NewCreate[string, stringEntry](nil).
+			Expect(gorp.NewCreate[string, stringEntry]().
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[stringEntry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []stringEntry
-			Expect(gorp.NewRetrieve[string, stringEntry](nil).
+			Expect(gorp.NewRetrieve[string, stringEntry]().
 				WhereKeys("alpha", "beta").
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
@@ -138,7 +138,7 @@ var _ = Describe("Table", func() {
 			Expect(table.Close()).To(Succeed())
 
 			var res entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(42).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res.Data).To(Equal("old format"))
 		})
@@ -172,20 +172,20 @@ var _ = Describe("Table", func() {
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(5))
 		})
 
 		It("Should not duplicate entries already stored under the new prefix", func(ctx SpecContext) {
 			e := entry{ID: 10, Data: "already new"}
-			Expect(gorp.NewCreate[int32, entry](nil).Entry(&e).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(1))
 			Expect(res[0]).To(Equal(e))
@@ -196,14 +196,14 @@ var _ = Describe("Table", func() {
 			writeOldFormatEntry(ctx, codec, entry{ID: 1, Data: "old"})
 
 			newEntry := entry{ID: 2, Data: "new"}
-			Expect(gorp.NewCreate[int32, entry](nil).
+			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&newEntry).Exec(ctx, db)).To(Succeed())
 
 			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(1, 2).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(2))
@@ -216,8 +216,7 @@ var _ = Describe("Table", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
-				DB:    db,
-				Codec: jsonCodec,
+				DB: db,
 			}))
 		})
 		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
