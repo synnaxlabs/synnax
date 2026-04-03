@@ -146,6 +146,71 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("C"))
 			})
 
+			It("Should retrieve the parent of a resource using ParentsTraverser", func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				var r ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(b).
+					TraverseTo(ontology.ParentsTraverser).
+					Entry(&r).
+					Exec(ctx, nil),
+				).To(Succeed())
+				var res Sample
+				Expect(r.Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("A"))
+			})
+
+			It("Should retrieve multiple parents of a resource using ParentsTraverser", func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				c := newSampleType("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				var r []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(c).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(HaveLen(2))
+				keys := lo.Map(r, func(res ontology.Resource, _ int) string {
+					var s Sample
+					lo.Must0(res.Parse(&s))
+					return s.Key
+				})
+				Expect(keys).To(ConsistOf("A", "B"))
+			})
+
+			It("Should traverse grandparents using ParentsTraverser", func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				c := newSampleType("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				var r ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(c).
+					TraverseTo(ontology.ParentsTraverser).
+					TraverseTo(ontology.ParentsTraverser).
+					Entry(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				var res Sample
+				Expect(r.Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("A"))
+			})
+
 			It("Should retrieve the resources of a parent by their type", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")
