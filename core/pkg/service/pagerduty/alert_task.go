@@ -209,6 +209,7 @@ func (t *alertTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) 
 		t.factoryCfg.L.Error(
 			"failed to send PagerDuty event",
 			zap.Stringer("task", t.task),
+			zap.Any("event", event),
 			zap.Error(err),
 		)
 		t.updateStatus(ctx, xstatus.VariantError, true,
@@ -217,11 +218,9 @@ func (t *alertTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) 
 	}
 	t.factoryCfg.L.Debug(
 		"PagerDuty event sent successfully",
-		zap.String("action", event.Action),
+		zap.Any("event", event),
+		zap.Any("response", resp),
 		zap.Stringer("task", t.task),
-		zap.String("dedup_key", resp.DedupKey),
-		zap.String("status", resp.Status),
-		zap.String("message", resp.Message),
 	)
 }
 
