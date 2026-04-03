@@ -9,6 +9,7 @@
 
 import { type PageNavNode } from "@/components/nav/Page";
 import { ETHERCAT_NAV } from "@/pages/reference/driver/ethercat/_nav";
+import { HTTP_NAV } from "@/pages/reference/driver/http/_nav";
 import { LABJACK_NAV } from "@/pages/reference/driver/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/driver/modbus/_nav";
 import { NI_NAV } from "@/pages/reference/driver/ni/_nav";
@@ -40,6 +41,7 @@ export const DRIVER_NAV: PageNavNode = {
       name: "Task Basics",
     },
     ETHERCAT_NAV,
+    HTTP_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
     NI_NAV,

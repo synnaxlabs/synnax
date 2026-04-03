@@ -44,6 +44,7 @@ message RetrieveRequest {
   int32 limit = 4;
   bool include_labels = 5;
   repeated string has_labels = 6;
+  repeated string variants = 7;
 }
 
 message RetrieveResponse {
