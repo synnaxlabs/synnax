@@ -15,18 +15,18 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeXY(w *orc.Writer, s *XY) error {
-	w.Float64(float64(s.X))
-	w.Float64(float64(s.Y))
+func (xy XY) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(xy.X))
+	w.Float64(float64(xy.Y))
 	return nil
 }
 
-func DecodeXY(r *orc.Reader, s *XY) error {
+func (xy *XY) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.X, err = r.Float64(); err != nil {
+	if xy.X, err = r.Float64(); err != nil {
 		return err
 	}
-	if s.Y, err = r.Float64(); err != nil {
+	if xy.Y, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

@@ -55,7 +55,8 @@ Status struct<Details?, V extends Variant = Variant> {
         @validate default now
     }
     details     Details?        {
-        @doc value "contains optional component-specific custom details for the status."
+        @doc value  "contains optional component-specific custom details for the status."
+        @go marshal json_only
     }
     labels      label.Label[]?  {
         @doc value "contains optional labels for categorization and filtering."

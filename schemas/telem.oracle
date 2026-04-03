@@ -64,7 +64,7 @@ TimeRange struct {
         @doc value "is the exclusive end of the time range."
     }
 
-    @doc value """
+    @doc value  """
         is a time interval defined by a start and end timestamp. The range is
         start-inclusive and end-exclusive, following standard interval conventions
         for predictable boundary handling.
@@ -72,6 +72,7 @@ TimeRange struct {
     @ts omit
     @cpp omit
     @py omit
+    @go marshal
 }
 
 TimeRangeBounded = TimeRange {

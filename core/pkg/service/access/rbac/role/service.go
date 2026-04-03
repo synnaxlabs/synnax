@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -26,6 +27,7 @@ import (
 )
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Search   *search.Index
@@ -40,6 +42,7 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
@@ -78,7 +81,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Role]{DB: cfg.DB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Role]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -114,7 +115,7 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		GorpCodec:            msgpack.Codec,
+		GorpCodec:            orc.NewCodec(msgpack.Codec),
 		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
 	}
@@ -249,9 +250,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Group, err = group.OpenService(
 		ctx,
 		group.ServiceConfig{
-			DB:       l.DB,
-			Ontology: l.Ontology,
-			Search:   l.Search,
+			Instrumentation: cfg.Child("group"),
+			DB:              l.DB,
+			Ontology:        l.Ontology,
+			Search:          l.Search,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -278,13 +280,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
-		HostResolver: l.Cluster,
-		ClusterDB:    l.DB,
-		TSChannel:    cfg.Storage.TS,
-		Transport:    cfg.ChannelTransport,
-		Ontology:     l.Ontology,
-		Search:       l.Search,
-		Group:        l.Group,
+		Instrumentation: cfg.Child("channel"),
+		HostResolver:    l.Cluster,
+		ClusterDB:       l.DB,
+		TSChannel:       cfg.Storage.TS,
+		Transport:       cfg.ChannelTransport,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Group:           l.Group,
 		IntOverflowCheck: lo.Ternary(
 			cfg.TestingIntOverflowCheck != nil,
 			cfg.TestingIntOverflowCheck,

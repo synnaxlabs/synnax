@@ -1,4 +1,4 @@
-# 28 - Telemetry Bypass
+# 32 - Telemetry Bypass
 
 **Feature Name**: Telemetry Bypass <br /> **Status**: Draft <br /> **Start Date**:
 2026-03-13 <br /> **Authors**: Emiliano Bonilla <br />
