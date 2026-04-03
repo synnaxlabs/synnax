@@ -300,7 +300,7 @@ var _ = Describe("Gorp", func() {
 				versionKey := []byte("__gorp_migration__//entryV1")
 				b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
 				Expect(closer.Close()).To(Succeed())
-				Expect(string(b)).To(Equal("noop\nnormalize_keys"))
+				Expect(string(b)).To(Equal("[\"noop\",\"normalize_keys\"]"))
 			})
 
 			It("Should skip already-completed migrations on re-run", func(ctx SpecContext) {

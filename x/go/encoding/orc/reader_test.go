@@ -92,6 +92,26 @@ var _ = Describe("Reader", func() {
 		Expect(r.Bool()).To(BeTrue())
 	})
 
+	It("Should read length-prefixed bytes", func() {
+		w := orc.NewWriter(0)
+		w.WriteWithLen([]byte{10, 20, 30})
+		w.WriteWithLen([]byte{})
+		r := orc.NewReader(bytesReader(w.Bytes()))
+		Expect(r.ReadWithLen()).To(Equal([]byte{10, 20, 30}))
+		Expect(r.ReadWithLen()).To(Equal([]byte{}))
+	})
+
+	It("Should reject ReadWithLen exceeding MaxCollectionLen", func() {
+		prev := orc.MaxCollectionLen
+		defer func() { orc.MaxCollectionLen = prev }()
+		orc.MaxCollectionLen = 2
+		w := orc.NewWriter(0)
+		w.WriteWithLen([]byte{1, 2, 3})
+		r := orc.NewReader(bytesReader(w.Bytes()))
+		_, err := r.ReadWithLen()
+		Expect(err).To(MatchError(orc.ErrExceedCollectionLen))
+	})
+
 	It("Should read length-prefixed strings", func() {
 		w := orc.NewWriter(0)
 		w.String("hello")
@@ -314,6 +334,16 @@ var _ = Describe("Reader", func() {
 			n, err := r.Read(buf)
 			Expect(n).To(Equal(0))
 			Expect(err).To(MatchError(io.EOF))
+		})
+
+		It("Should read length-prefixed bytes in direct mode", func() {
+			w := orc.NewWriter(0)
+			w.WriteWithLen([]byte{1, 2, 3})
+			w.WriteWithLen([]byte{})
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			Expect(r.ReadWithLen()).To(Equal([]byte{1, 2, 3}))
+			Expect(r.ReadWithLen()).To(Equal([]byte{}))
 		})
 
 		It("Should read length-prefixed strings", func() {

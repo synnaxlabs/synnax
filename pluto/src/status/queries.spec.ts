@@ -135,7 +135,6 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(1);
       expect(result.current.data).toContain("filter-label-test");
-      //set another status without the label
       await client.statuses.set({
         name: "Unlabeled Status",
         key: "unlabeled-status-test",
@@ -148,7 +147,6 @@ describe("Status queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).not.toContain("unlabeled-status-test");
-      //set a status with the label
       await client.statuses.set({
         name: "Labeled Status",
         key: "labeled-status-test",
@@ -162,6 +160,212 @@ describe("Status queries", () => {
       });
       await waitFor(() => expect(result.current.data.length).toEqual(2));
       expect(result.current.data).toContain("labeled-status-test");
+    });
+
+    it("should filter statuses by variants", async () => {
+      const prefix = `variant-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Success Status",
+          key: `${prefix}-success`,
+          variant: "success",
+          message: "ok",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Error Status",
+          key: `${prefix}-error`,
+          variant: "error",
+          message: "fail",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Warning Status",
+          key: `${prefix}-warning`,
+          variant: "warning",
+          message: "warn",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const { result } = renderHook(
+        () =>
+          Status.useList({
+            initialQuery: {
+              keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+              variants: ["error"],
+            },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({
+          keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+          variants: ["error"],
+        });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.data).toContain(`${prefix}-error`);
+      expect(result.current.data).not.toContain(`${prefix}-success`);
+      expect(result.current.data).not.toContain(`${prefix}-warning`);
+    });
+
+    it("should filter statuses by multiple variants", async () => {
+      const prefix = `variant-multi-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Info Status",
+          key: `${prefix}-info`,
+          variant: "info",
+          message: "info",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Error Status",
+          key: `${prefix}-error`,
+          variant: "error",
+          message: "error",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Success Status",
+          key: `${prefix}-success`,
+          variant: "success",
+          message: "success",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const { result } = renderHook(
+        () =>
+          Status.useList({
+            initialQuery: {
+              keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
+              variants: ["info", "success"],
+            },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({
+          keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
+          variants: ["info", "success"],
+        });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(2);
+      expect(result.current.data).toContain(`${prefix}-info`);
+      expect(result.current.data).toContain(`${prefix}-success`);
+      expect(result.current.data).not.toContain(`${prefix}-error`);
+    });
+
+    it("should reactively include a status when its variant changes to match the filter", async () => {
+      const prefix = `variant-listen-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Error Status",
+          key: `${prefix}-error`,
+          variant: "error",
+          message: "fail",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Warning Status",
+          key: `${prefix}-warning`,
+          variant: "warning",
+          message: "warn",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const { result } = renderHook(
+        () =>
+          Status.useList({
+            initialQuery: {
+              keys: [`${prefix}-error`, `${prefix}-warning`],
+              variants: ["error"],
+            },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({
+          keys: [`${prefix}-error`, `${prefix}-warning`],
+          variants: ["error"],
+        });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.data).toContain(`${prefix}-error`);
+
+      await client.statuses.set({
+        name: "Warning Status",
+        key: `${prefix}-warning`,
+        variant: "error",
+        message: "now an error",
+        time: TimeStamp.now(),
+      });
+
+      act(() => {
+        result.current.retrieve({
+          keys: [`${prefix}-error`, `${prefix}-warning`],
+          variants: ["error"],
+        });
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      expect(result.current.data).toContain(`${prefix}-warning`);
+    });
+
+    it("should reactively remove a status when its variant changes away from the filter", async () => {
+      const prefix = `variant-remove-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Error One",
+          key: `${prefix}-error-1`,
+          variant: "error",
+          message: "first error",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Error Two",
+          key: `${prefix}-error-2`,
+          variant: "error",
+          message: "second error",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const { result } = renderHook(
+        () =>
+          Status.useList({
+            initialQuery: {
+              keys: [`${prefix}-error-1`, `${prefix}-error-2`],
+              variants: ["error"],
+            },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({
+          keys: [`${prefix}-error-1`, `${prefix}-error-2`],
+          variants: ["error"],
+        });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(2);
+
+      await client.statuses.set({
+        name: "Error Two",
+        key: `${prefix}-error-2`,
+        variant: "warning",
+        message: "now a warning",
+        time: TimeStamp.now(),
+      });
+
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data).toContain(`${prefix}-error-1`);
+      expect(result.current.data).not.toContain(`${prefix}-error-2`);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -325,7 +529,6 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.name).toEqual("Original");
 
-      // Update the status
       await act(async () => {
         await client.statuses.set({
           name: "Updated",
