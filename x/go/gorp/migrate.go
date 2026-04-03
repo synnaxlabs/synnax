@@ -106,8 +106,11 @@ func (m *entryMigration[IK, OK, I, O]) Run(ctx context.Context, tx Tx, ins alamo
 			)
 		}
 		old := iter.Value(ctx)
-		if err := iter.Error(); err != nil {
-			return err
+		if old == nil {
+			if err := iter.Error(); err != nil {
+				return err
+			}
+			continue
 		}
 		newEntry, err := m.transform(ctx, *old)
 		if err != nil {
