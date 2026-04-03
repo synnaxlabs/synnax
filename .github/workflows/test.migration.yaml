@@ -14,8 +14,12 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
+      append_latest:
+        description: "Auto-append 'latest' (current build) to the chain"
+        type: boolean
+        default: true
       chain:
-        description: "Custom version chain (e.g. '0.52.0, 0.53.1, 0.54.2')"
+        description: "Custom version chain (e.g. '0.52.0, 0.53.1, latest')"
         type: string
         default: ""
 
@@ -38,6 +42,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CUSTOM_CHAIN: ${{ inputs.chain }}
+          APPEND_LATEST: ${{ inputs.append_latest }}
         run: integration/scripts/generate_migration_matrix.sh
 
   build-clients:

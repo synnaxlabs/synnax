@@ -59,6 +59,14 @@ collect_versions() {
 # Custom chain: normalize and output directly
 if [[ -n "${CUSTOM_CHAIN:-}" ]]; then
     CHAIN=$(echo "$CUSTOM_CHAIN" | tr -d ' ')
+
+    # Append latest if requested and not already present
+    if [[ "${APPEND_LATEST:-true}" == "true" ]]; then
+        if ! echo ",$CHAIN," | grep -q ",latest,"; then
+            CHAIN="${CHAIN},latest"
+        fi
+    fi
+
     echo "Custom chain: $CHAIN"
 
     MATRIX=$(output_matrix "custom=$CHAIN")
