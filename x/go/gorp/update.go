@@ -12,7 +12,6 @@ package gorp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -21,13 +20,11 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	changes  changes[K, E]
-	codec    encoding.Codec
 }
 
-// NewUpdate opens a new Update query. If codec is non-nil, it overrides the
-// default DB codec for encoding/decoding entries.
-func NewUpdate[K Key, E Entry[K]](codec encoding.Codec) Update[K, E] {
-	return Update[K, E]{retrieve: NewRetrieve[K, E](codec), codec: codec}
+// NewUpdate opens a new Update query.
+func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
+	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
 func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
@@ -58,7 +55,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return wrapWriter[K, E](tx, resolveCodec(u.codec, tx)).Set(ctx, entries...)
+	return WrapWriter[K, E](tx).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

@@ -103,6 +103,16 @@ func (w *Writer) String(v string) {
 // Write appends raw bytes without any length prefix.
 func (w *Writer) Write(data []byte) { w.buf = append(w.buf, data...) }
 
+// WriteWithLen appends a length-prefixed byte slice (4-byte length + raw bytes).
+// Panics if the slice length exceeds math.MaxUint32.
+func (w *Writer) WriteWithLen(data []byte) {
+	if len(data) > math.MaxUint32 {
+		panic("orc: bytes length exceeds maximum encodable size")
+	}
+	w.buf = order.AppendUint32(w.buf, uint32(len(data)))
+	w.buf = append(w.buf, data...)
+}
+
 // Bytes returns the encoded bytes. The returned slice is only valid until the
 // next call to Reset or any write method that triggers growth.
 func (w *Writer) Bytes() []byte { return w.buf }
