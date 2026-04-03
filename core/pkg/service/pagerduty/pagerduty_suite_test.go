@@ -66,7 +66,6 @@ var _ = AfterSuite(func() {
 type mockEventSender struct {
 	mu        sync.Mutex
 	events    []pagerduty.V2Event
-	response  *pagerduty.V2EventResponse
 	err       error
 	sendCalls atomic.Int32
 }
@@ -86,10 +85,11 @@ func (m *mockEventSender) SendEvent(
 		return nil, m.err
 	}
 	m.events = append(m.events, event)
-	if m.response != nil {
-		return m.response, nil
-	}
-	return &pagerduty.V2EventResponse{Status: "success", DedupKey: event.DedupKey}, nil
+	return &pagerduty.V2EventResponse{
+		Status:   "success",
+		DedupKey: event.DedupKey,
+		Message:  "Event processed",
+	}, nil
 }
 
 func (m *mockEventSender) sendCallCount() int32 { return m.sendCalls.Load() }
@@ -106,10 +106,4 @@ func (m *mockEventSender) setError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.err = err
-}
-
-func (m *mockEventSender) setAPIResponse(response *pagerduty.V2EventResponse) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.response = response
 }
