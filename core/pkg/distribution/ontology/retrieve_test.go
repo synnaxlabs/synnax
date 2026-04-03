@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -454,6 +455,46 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(len(r)).To(Equal(3))
+		})
+	})
+
+	Describe("RelationshipPrefix", func() {
+		It("Should return a prefix matching the relationship key format", func() {
+			prefix := ontology.RelationshipPrefix("parent")
+			id := ontology.ID{Type: "channel", Key: "123"}
+			Expect(string(prefix(id))).To(Equal("channel:123->parent->"))
+		})
+		It("Should produce a prefix that matches relationship GorpKeys", func() {
+			prefix := ontology.RelationshipPrefix(ontology.RelationshipTypeParentOf)
+			from := ontology.ID{Type: "rack", Key: "1"}
+			rel := ontology.Relationship{
+				From: from,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   ontology.ID{Type: "device", Key: "2"},
+			}
+			key := rel.GorpKey()
+			p := prefix(from)
+			Expect(string(key)).To(HavePrefix(string(p)))
+		})
+	})
+
+	Describe("ReadRawID", func() {
+		It("Should read an ID from orc-encoded bytes", func() {
+			w := orc.NewWriter(64)
+			w.String("channel")
+			w.String("42")
+			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+			Expect(id.Type).To(Equal(ontology.ResourceType("channel")))
+			Expect(id.Key).To(Equal("42"))
+		})
+		It("Should read the ID at the current position, ignoring trailing data", func() {
+			w := orc.NewWriter(64)
+			w.String("device")
+			w.String("abc")
+			w.String("trailing")
+			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+			Expect(id.Type).To(Equal(ontology.ResourceType("device")))
+			Expect(id.Key).To(Equal("abc"))
 		})
 	})
 })

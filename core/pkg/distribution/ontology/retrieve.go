@@ -140,15 +140,35 @@ func (d Direction) GetID(rel *Relationship) ID {
 // resulting ID to nextIDs. This avoids decoding the relationship entirely.
 type RawTraversal func(data []byte, nextIDs *[]ID)
 
+// RelationshipPrefix returns a FilterPrefix function that scopes traversal queries
+// to relationships of the given type originating from a specific resource.
+func RelationshipPrefix(relType RelationshipType) func(id ID) []byte {
+	suffix := []byte("->" + string(relType) + "->")
+	return func(id ID) []byte {
+		idStr := id.String()
+		prefix := make([]byte, 0, len(idStr)+len(suffix))
+		prefix = append(prefix, idStr...)
+		prefix = append(prefix, suffix...)
+		return prefix
+	}
+}
+
+// ReadRawID reads a Type+Key ID pair from the current position in raw data.
+func ReadRawID(r orc.Raw) ID {
+	t, r := r.ReadString()
+	k, _ := r.ReadString()
+	return ID{Type: ResourceType(t), Key: string(k)}
+}
+
 // Traverser is a struct that defines the traversal of a relationship between entities
 // in the ontology.
 type Traverser struct {
 	// Filter if a function that returns true if the given Resource and Relationship
 	// should be included in the traversal results.
 	Filter func(res *Resource, rel *Relationship) bool
-	// Prefix is an optional function that returns a prefix for efficient lookup.
+	// FilterPrefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
-	Prefix func(id ID) []byte
+	FilterPrefix func(id ID) []byte
 	// RawTraversal builds a raw byte callback for the given IDs that extracts
 	// matching relationship targets directly from encoded bytes without decoding.
 	// When set, traverseByScan uses this instead of Filter.
@@ -158,93 +178,49 @@ type Traverser struct {
 }
 
 var (
-	parentBytes = []byte(RelationshipTypeParentOf)
+	relationshipTypeParentOfBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
 	ParentsTraverser = Traverser{
-		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == RelationshipTypeParentOf && rel.To == res.ID
+		RawTraversal: func(ids []ID) RawTraversal {
+			w := orc.NewWriter(64)
+			encoded := make([][]byte, len(ids))
+			for i, id := range ids {
+				w.Reset()
+				w.String(string(id.Type))
+				w.String(id.Key)
+				encoded[i] = w.Copy()
+			}
+			return func(data []byte, nextIDs *[]ID) {
+				raw := orc.NewRaw(data)
+				fromType, r := raw.ReadString()
+				fromKey, r := r.ReadString()
+				relType, r := r.ReadString()
+				if bytes.Equal(relType, relationshipTypeParentOfBytes) {
+					for _, enc := range encoded {
+						if bytes.HasPrefix(r, enc) {
+							*nextIDs = append(*nextIDs, ID{
+								Type: ResourceType(fromType),
+								Key:  string(fromKey),
+							})
+						}
+					}
+				}
+			}
 		},
-		RawTraversal: parentsRawTraversal,
-		Direction:    DirectionBackward,
+		Direction: DirectionBackward,
 	}
 	// ChildrenTraverser traverse to the children of a resource.
 	ChildrenTraverser = Traverser{
-		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == RelationshipTypeParentOf && rel.From == res.ID
-		},
-		RawTraversal: childrenRawTraversal,
-		Direction:    DirectionForward,
-		Prefix:       childrenPrefix,
-	}
-	childrenPrefixSuffix = []byte("->" + string(RelationshipTypeParentOf) + "->")
-)
-
-func parentsRawTraversal(ids []ID) RawTraversal {
-	w := orc.NewWriter(64)
-	encoded := make([][]byte, len(ids))
-	for i, id := range ids {
-		w.Reset()
-		w.String(string(id.Type))
-		w.String(id.Key)
-		encoded[i] = w.Copy()
-	}
-	return func(data []byte, nextIDs *[]ID) {
-		raw := orc.NewRaw(data)
-		// Wire format: [From.Type][From.Key][Type][To.Type][To.Key]
-		fromType, r := raw.ReadString()
-		if r == nil {
-			return
-		}
-		fromKey, r := r.ReadString()
-		if r == nil {
-			return
-		}
-		relType, r := r.ReadString()
-		if r == nil || !bytes.Equal(relType, parentBytes) {
-			return
-		}
-		for _, enc := range encoded {
-			if bytes.HasPrefix(r, enc) {
-				*nextIDs = append(*nextIDs, ID{
-					Type: ResourceType(fromType),
-					Key:  string(fromKey),
-				})
-				return
+		RawTraversal: func(_ []ID) RawTraversal {
+			return func(data []byte, nextIDs *[]ID) {
+				r := orc.NewRaw(data).SkipStrings(3)
+				*nextIDs = append(*nextIDs, ReadRawID(r))
 			}
-		}
+		},
+		Direction:    DirectionForward,
+		FilterPrefix: RelationshipPrefix(RelationshipTypeParentOf),
 	}
-}
-
-func childrenRawTraversal(_ []ID) RawTraversal {
-	return func(data []byte, nextIDs *[]ID) {
-		// Wire format: [From.Type][From.Key][Type][To.Type][To.Key]
-		// Prefix already scoped to matching From+Type, just extract To.
-		r := orc.NewRaw(data).SkipStrings(3)
-		if r == nil {
-			return
-		}
-		toType, r := orc.Raw(r).ReadString()
-		if r == nil {
-			return
-		}
-		toKey, r := orc.Raw(r).ReadString()
-		if r == nil {
-			return
-		}
-		*nextIDs = append(*nextIDs, ID{
-			Type: ResourceType(toType),
-			Key:  string(toKey),
-		})
-	}
-}
-
-func childrenPrefix(id ID) []byte {
-	idStr := id.String()
-	prefix := make([]byte, 0, len(idStr)+len(childrenPrefixSuffix))
-	prefix = append(prefix, idStr...)
-	prefix = append(prefix, childrenPrefixSuffix...)
-	return prefix
-}
+)
 
 // TraverseTo traverses to the provided relationship type. All filtering methods will
 // now be applied to elements of the traversed relationship.
@@ -379,7 +355,7 @@ func (r Retrieve) traverse(
 	traverse Traverser,
 	ids []ID,
 ) ([]ID, error) {
-	if traverse.Prefix != nil {
+	if traverse.FilterPrefix != nil {
 		return r.traverseByPrefix(ctx, tx, traverse, ids)
 	}
 	return r.traverseByScan(ctx, tx, traverse, ids)
@@ -396,7 +372,7 @@ func (r Retrieve) traverseByPrefix(
 		rt := traverse.RawTraversal(ids)
 		for _, id := range ids {
 			q := r.relationshipTable.NewRetrieve().
-				WherePrefix(traverse.Prefix(id)).
+				WherePrefix(traverse.FilterPrefix(id)).
 				WhereRaw(func(data []byte) bool {
 					rt(data, &nextIDs)
 					return false
@@ -410,7 +386,7 @@ func (r Retrieve) traverseByPrefix(
 		for _, id := range ids {
 			relationships = relationships[:0]
 			if err := r.relationshipTable.NewRetrieve().
-				WherePrefix(traverse.Prefix(id)).
+				WherePrefix(traverse.FilterPrefix(id)).
 				Entries(&relationships).
 				Exec(ctx, tx); err != nil {
 				return nil, err

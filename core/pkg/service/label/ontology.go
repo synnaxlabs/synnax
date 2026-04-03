@@ -10,7 +10,6 @@
 package label
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"iter"
@@ -31,57 +30,17 @@ import (
 // LabelsOntologyTraverser is an ontology.Traverser that allows the caller to traverse
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.
-var (
-	labeledByBytes         = []byte(OntologyRelationshipTypeLabeledBy)
-	LabelsOntologyTraverser = ontology.Traverser{
-		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
-			return rel.Type == OntologyRelationshipTypeLabeledBy && rel.From == res.ID
-		},
-		RawTraversal: labelsRawTraversal,
-		Direction:    ontology.DirectionForward,
-	}
-)
-
-func labelsRawTraversal(ids []ontology.ID) ontology.RawTraversal {
-	w := orc.NewWriter(64)
-	encoded := make([][]byte, len(ids))
-	for i, id := range ids {
-		w.Reset()
-		w.String(string(id.Type))
-		w.String(id.Key)
-		encoded[i] = w.Copy()
-	}
-	return func(data []byte, nextIDs *[]ontology.ID) {
-		// Wire format: [From.Type][From.Key][Type][To.Type][To.Key]
-		raw := orc.NewRaw(data)
-		fromMatch := false
-		for _, enc := range encoded {
-			if bytes.HasPrefix(raw, enc) {
-				fromMatch = true
-				break
-			}
+var LabelsOntologyTraverser = ontology.Traverser{
+	RawTraversal: func(_ []ontology.ID) ontology.RawTraversal {
+		return func(data []byte, nextIDs *[]ontology.ID) {
+			*nextIDs = append(
+				*nextIDs,
+				ontology.ReadRawID(orc.NewRaw(data).SkipStrings(3)),
+			)
 		}
-		if !fromMatch {
-			return
-		}
-		r := raw.SkipStrings(2)
-		relType, r := orc.Raw(r).ReadString()
-		if r == nil || !bytes.Equal(relType, labeledByBytes) {
-			return
-		}
-		toType, r := orc.Raw(r).ReadString()
-		if r == nil {
-			return
-		}
-		toKey, r := orc.Raw(r).ReadString()
-		if r == nil {
-			return
-		}
-		*nextIDs = append(*nextIDs, ontology.ID{
-			Type: ontology.ResourceType(toType),
-			Key:  string(toKey),
-		})
-	}
+	},
+	Direction:    ontology.DirectionForward,
+	FilterPrefix: ontology.RelationshipPrefix(OntologyRelationshipTypeLabeledBy),
 }
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.
