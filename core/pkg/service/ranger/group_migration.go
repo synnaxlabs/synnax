@@ -28,7 +28,7 @@ type groupMigration struct{ cfg ServiceConfig }
 
 var _ gorp.Migration = (*groupMigration)(nil)
 
-func (m *groupMigration) Name() string { return "range_groups" }
+func (m *groupMigration) Name() string { return "range_groups_1" }
 
 func (m *groupMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 	ins.L.Debug("swapping invalid time ranges")
