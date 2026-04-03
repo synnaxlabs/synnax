@@ -5,6 +5,7 @@
       "sequence_name": "all",
       "tests": [
         { "case": "migration/channels" },
+        { "case": "migration/channels_calc" },
         { "case": "migration/workspace" },
         { "case": "migration/task_opc" }
       ]
