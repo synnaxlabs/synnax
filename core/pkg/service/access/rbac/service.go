@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -28,6 +29,7 @@ import (
 )
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Signals  *signals.Provider
@@ -42,6 +44,7 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
@@ -91,20 +94,22 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	policyService, err := policy.OpenService(ctx, policy.ServiceConfig{
-		DB:       cfg.DB,
-		Signals:  cfg.Signals,
-		Ontology: cfg.Ontology,
-		Search:   cfg.Search,
+		Instrumentation: cfg.Child("policy"),
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Ontology:        cfg.Ontology,
+		Search:          cfg.Search,
 	})
 	if err != nil {
 		return nil, err
 	}
 	roleService, err := role.OpenService(ctx, role.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Signals:  cfg.Signals,
-		Group:    cfg.Group,
-		Search:   cfg.Search,
+		Instrumentation: cfg.Child("role"),
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Signals:         cfg.Signals,
+		Group:           cfg.Group,
+		Search:          cfg.Search,
 	})
 	if err != nil {
 		return nil, errors.Combine(err, policyService.Close())

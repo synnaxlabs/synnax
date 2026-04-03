@@ -102,11 +102,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Search.RegisterService(s)
 
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Group:    cfg.Group,
-		Signals:  cfg.Signals,
-		Search:   cfg.Search,
+		Instrumentation: cfg.Child("symbol"),
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Group:           cfg.Group,
+		Signals:         cfg.Signals,
+		Search:          cfg.Search,
 	}); err != nil {
 		return nil, err
 	}

@@ -250,9 +250,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Group, err = group.OpenService(
 		ctx,
 		group.ServiceConfig{
-			DB:       l.DB,
-			Ontology: l.Ontology,
-			Search:   l.Search,
+			Instrumentation: cfg.Child("group"),
+			DB:              l.DB,
+			Ontology:        l.Ontology,
+			Search:          l.Search,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -279,13 +280,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
-		HostResolver: l.Cluster,
-		ClusterDB:    l.DB,
-		TSChannel:    cfg.Storage.TS,
-		Transport:    cfg.ChannelTransport,
-		Ontology:     l.Ontology,
-		Search:       l.Search,
-		Group:        l.Group,
+		Instrumentation: cfg.Child("channel"),
+		HostResolver:    l.Cluster,
+		ClusterDB:       l.DB,
+		TSChannel:       cfg.Storage.TS,
+		Transport:       cfg.ChannelTransport,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Group:           l.Group,
 		IntOverflowCheck: lo.Ternary(
 			cfg.TestingIntOverflowCheck != nil,
 			cfg.TestingIntOverflowCheck,
