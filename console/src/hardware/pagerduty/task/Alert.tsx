@@ -26,7 +26,7 @@ import {
 import { id } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { Menu } from "@/components";
+import { EmptyAction, Menu } from "@/components";
 import { Common } from "@/hardware/common";
 import {
   ALERT_SCHEMAS,
@@ -62,7 +62,10 @@ const Properties = () => (
 );
 
 const ROUTING_KEY_STYLE = { maxWidth: "70rem" };
-const ROUTING_KEY_INPUT_PROPS = { type: "password" };
+const ROUTING_KEY_INPUT_PROPS = {
+  type: "password",
+  placeholder: "R022XIJR9M266DX570EVE6EXP1AFBN6D",
+};
 
 const selectRackRenderProp = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
@@ -89,12 +92,33 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
           label="Treat error as critical"
         />
       </Flex.Box>
-      <PForm.TextField path={`${path}.component`} label="Component" optional />
-      <PForm.TextField path={`${path}.group`} label="Group" optional />
-      <PForm.TextField path={`${path}.class`} label="Class" optional />
+      <PForm.TextField
+        path={`${path}.component`}
+        label="Component"
+        optional
+        inputProps={COMPONENT_INPUT_PROPS}
+      />
+      <PForm.TextField
+        path={`${path}.group`}
+        label="Group"
+        optional
+        inputProps={GROUP_INPUT_PROPS}
+      />
+      <PForm.TextField
+        path={`${path}.class`}
+        label="Class"
+        optional
+        inputProps={CLASS_INPUT_PROPS}
+      />
     </Flex.Box>
   );
 };
+
+const COMPONENT_INPUT_PROPS = { placeholder: "engine-1" };
+
+const GROUP_INPUT_PROPS = { placeholder: "engines" };
+
+const CLASS_INPUT_PROPS = { placeholder: "engine-failure" };
 
 const selectStatusRenderProp = Component.renderProp(
   (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
@@ -102,6 +126,14 @@ const selectStatusRenderProp = Component.renderProp(
 
 const DETAILS_STYLE = { padding: "2rem", overflowY: "auto" } as const;
 const LIST_STYLE = { width: "300px", flexShrink: 0, overflowY: "auto" } as const;
+
+interface EmptyActionContentProps {
+  onAdd: () => void;
+}
+
+const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
+  <EmptyAction message="No alerts." action="Add an alert" onClick={onAdd} />
+);
 
 const AlertListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
@@ -145,12 +177,14 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   return (
     <PMenu.Menu level="small" gap="small">
       {canRemove && (
-        <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
-          <Icon.Close />
-          Remove
-        </PMenu.Item>
+        <>
+          <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
+            <Icon.Close />
+            Remove
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
       )}
-      {canRemove && <PMenu.Divider />}
       {canEnable && (
         <PMenu.Item itemKey="enable" onClick={() => onSetEnabled(keys, true)}>
           <Icon.Enable />
@@ -198,6 +232,17 @@ const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
     [set],
   );
 
+  const alertContextMenu = useCallback(
+    (p: PMenu.ContextMenuMenuProps) => (
+      <AlertContextMenu
+        {...p}
+        onRemove={handleRemove}
+        onSetEnabled={handleSetEnabled}
+      />
+    ),
+    [handleRemove, handleSetEnabled],
+  );
+
   return (
     <Flex.Box x grow empty>
       <Flex.Box direction="y" style={LIST_STYLE} empty>
@@ -217,16 +262,7 @@ const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
             </Button.Button>
           </Header.Actions>
         </Header.Header>
-        <PMenu.ContextMenu
-          {...menuProps}
-          menu={(p) => (
-            <AlertContextMenu
-              {...p}
-              onRemove={handleRemove}
-              onSetEnabled={handleSetEnabled}
-            />
-          )}
-        >
+        <PMenu.ContextMenu {...menuProps} menu={alertContextMenu}>
           <Select.Frame<string, AlertConfig>
             multiple
             data={data}
@@ -236,14 +272,22 @@ const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
             allowNone={false}
             autoSelectOnNone
           >
-            <List.Items<string, AlertConfig> full="y" onContextMenu={menuProps.open}>
+            <List.Items<string, AlertConfig>
+              full="y"
+              onContextMenu={menuProps.open}
+              emptyContent={<EmptyActionContent onAdd={handleAdd} />}
+            >
               {alertListItem}
             </List.Items>
           </Select.Frame>
         </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider direction="y" />
-      {selected.length > 0 && <AlertDetails itemKey={selected[0]} />}
+      {selected.length > 0 ? (
+        <AlertDetails itemKey={selected[0]} />
+      ) : (
+        <EmptyAction message="No alert selected." grow />
+      )}
     </Flex.Box>
   );
 };
