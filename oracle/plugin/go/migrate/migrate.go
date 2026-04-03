@@ -102,8 +102,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputEntries[goPath] = append(outputEntries[goPath], mEntry)
 	}
 
-	// Collect all migration entry type names so sub-package codecs can mark
-	// them with Adapter: true when they have their own migrations.
+	// Collect all migration entry type names for gorp entry method generation.
 	migrateEntryNames := make(set.Set[string])
 	for _, entries := range outputEntries {
 		for _, e := range entries {
@@ -189,9 +188,8 @@ func (p *Plugin) generateForEntry(
 			Content: typeContent,
 		})
 
-		// Generate frozen codec for this package with per-type Encode/Decode
-		// functions. The entry type's package gets the Codec adapter.
-		codecEntries := codecEntriesForTypes(types, migrateEntryNames, codecReachable)
+		// Generate frozen codec with EncodeOrc/DecodeOrc methods.
+		codecEntries := codecEntriesForTypes(types, codecReachable)
 		if len(codecEntries) > 0 {
 			codecContent, err := gomarshal.GenerateCodecFile(
 				versionDir, mirroredPath,
@@ -251,7 +249,6 @@ func (p *Plugin) generateForEntry(
 
 func codecEntriesForTypes(
 	types []resolution.Type,
-	migrateEntryNames set.Set[string],
 	reachable set.Set[string],
 ) []gomarshal.CodecEntry {
 	var entries []gomarshal.CodecEntry
@@ -263,11 +260,7 @@ func codecEntriesForTypes(
 			continue
 		}
 		goName := naming.GetGoName(t)
-		ce := gomarshal.CodecEntry{GoName: goName, Type: t}
-		if migrateEntryNames.Contains(goName) {
-			ce.Adapter = true
-		}
-		entries = append(entries, ce)
+		entries = append(entries, gomarshal.CodecEntry{GoName: goName, Type: t})
 	}
 	return entries
 }
@@ -603,22 +596,31 @@ import (
 {{range $entry := .Entries}}
 func {{$entry.GoName}}Migrations() []gorp.Migration {
 	return []gorp.Migration{
-		gorp.NewCodecTransition[Key, {{$entry.GoName}}]("msgpack_to_binary", {{$entry.GoName}}Codec),
 {{- range $entry.SchemaChanges}}
+{{- if .DependsOn}}
 {{- if .IsIntermediate}}
-		gorp.WithDependencies(gorp.NewTypedMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
+		gorp.WithDependencies(gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
-			{{.ImportAlias}}.{{$entry.GoName}}Codec,
-			{{.NextImportAlias}}.{{$entry.GoName}}Codec,
 			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
 		), "{{.DependsOn}}"),
 {{- else}}
-		gorp.WithDependencies(gorp.NewTypedMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
+		gorp.WithDependencies(gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
 			"v{{.Version}}_schema_migration",
-			{{.ImportAlias}}.{{$entry.GoName}}Codec,
-			{{$entry.GoName}}Codec,
 			Migrate{{$entry.GoName}},
 		), "{{.DependsOn}}"),
+{{- end}}
+{{- else}}
+{{- if .IsIntermediate}}
+		gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
+			"v{{.Version}}_schema_migration",
+			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
+		),
+{{- else}}
+		gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
+			"v{{.Version}}_schema_migration",
+			Migrate{{$entry.GoName}},
+		),
+{{- end}}
 {{- end}}
 {{- end}}
 	}
@@ -664,7 +666,7 @@ func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot st
 			importPath := gomod.ResolveImportPath(subPkg, repoRoot, gomod.DefaultModulePrefix)
 			importSet[vDir] = versionImport{Alias: vDir, Path: importPath}
 			isLast := i == len(allVersions)-1
-			dependsOn := "msgpack_to_binary"
+			dependsOn := ""
 			if i > 0 {
 				dependsOn = fmt.Sprintf("v%d_schema_migration", allVersions[i-1])
 			}
@@ -701,12 +703,12 @@ var transformTmpl = template.Must(template.New("transform").Parse(
 package {{.Package}}
 
 import (
-	"context"
+	"github.com/synnaxlabs/x/gorp"
 
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 
-func Migrate{{.GoName}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
+func Migrate{{.GoName}}(ctx gorp.MigrationContext, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
 	return AutoMigrate{{.GoName}}(ctx, old)
 }
 `))
@@ -729,13 +731,13 @@ var typeMigrateTmpl = template.Must(template.New("typeMigrate").Parse(
 package {{.Package}}
 
 import (
-	"context"
+	"github.com/synnaxlabs/x/gorp"
 {{range .Imports}}
 	{{.Alias}} "{{.Path}}"
 {{- end}}
 )
 {{range .Functions}}
-func Migrate{{.GoName}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+func Migrate{{.GoName}}(ctx gorp.MigrationContext, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
 	migrated, err := AutoMigrate{{.GoName}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err
