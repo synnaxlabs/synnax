@@ -1,4 +1,4 @@
-# 27 - Arc Scheduler Stage Transition Semantics
+# 32 - Arc Scheduler Stage Transition Semantics
 
 **Feature Name**: Arc Scheduler Stage Transition Semantics <br /> **Status**: Draft <br
 /> **Start Date**: 2026-03-11 <br /> **Authors**: Emiliano Bonilla <br />
