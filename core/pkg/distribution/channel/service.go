@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -40,6 +41,7 @@ type Service struct {
 type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	HostResolver     cluster.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
@@ -72,6 +74,7 @@ func (c ServiceConfig) Validate() error {
 }
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
@@ -92,7 +95,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{DB: cfg.ClusterDB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
+		DB:              cfg.ClusterDB,
+		Migrations:      ChannelMigrations(),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

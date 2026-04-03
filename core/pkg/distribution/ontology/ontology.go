@@ -83,11 +83,17 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
-	resourceTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Resource]{DB: cfg.DB})
+	resourceTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Resource]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
-	relationshipTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{DB: cfg.DB})
+	relationshipTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

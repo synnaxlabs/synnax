@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
@@ -23,6 +24,8 @@ import (
 
 // ServiceConfig is the configuration for opening a log service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the log service will store logs in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -42,6 +45,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
@@ -71,7 +75,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Log]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[Log]{
+		DB:              cfg.DB,
+		Migrations:      LogMigrations(),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

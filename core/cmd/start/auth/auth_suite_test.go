@@ -27,10 +27,11 @@ import (
 )
 
 var (
-	db  *gorp.DB
-	otg *ontology.Ontology
-	g   *group.Service
-	svc *service.Layer
+	db     *gorp.DB
+	otg    *ontology.Ontology
+	g      *group.Service
+	svc    *service.Layer
+	authKV *auth.KV
 )
 
 func TestAuth(t *testing.T) {
@@ -62,14 +63,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    g,
 		Search:   searchIdx,
 	}))
+	authKV = MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
 	svc = &service.Layer{
 		User: userSvc,
 		RBAC: rbacSvc,
-		Auth: MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: db})),
+		Auth: authKV,
 	}
 })
 
-var _ = AfterSuite(func(ctx SpecContext) {
+var _ = AfterSuite(func() {
+	Expect(authKV.Close()).To(Succeed())
 	Expect(svc.RBAC.Close()).To(Succeed())
 	Expect(g.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())

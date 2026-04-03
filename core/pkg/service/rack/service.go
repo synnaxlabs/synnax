@@ -127,7 +127,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Rack]{DB: cfg.DB})
+	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
+		DB:              cfg.DB,
+		Migrations:      RackMigrations(),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
