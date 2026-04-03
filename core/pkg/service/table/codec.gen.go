@@ -25,8 +25,7 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
 	return nil
 }
@@ -40,12 +39,8 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
 			return err
 		}
 		if err = json.Unmarshal(b, &t.Data); err != nil {

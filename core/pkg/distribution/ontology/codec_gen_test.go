@@ -83,13 +83,13 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeID(b *testing.B) {
 	id := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_2"}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := id.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ontology.ID
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -102,13 +102,13 @@ func BenchmarkEncodeDecodeResource(b *testing.B) {
 		ID: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ontology.Resource
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -123,13 +123,13 @@ func BenchmarkEncodeDecodeRelationship(b *testing.B) {
 		To:   ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded ontology.Relationship
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

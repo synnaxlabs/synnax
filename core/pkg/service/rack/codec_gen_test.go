@@ -150,13 +150,13 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		Integrations: []string{"test_22"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.Rack
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -167,13 +167,13 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	sd := rack.StatusDetails{Rack: rack.Key(2)}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded rack.StatusDetails
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

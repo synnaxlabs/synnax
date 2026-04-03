@@ -143,13 +143,13 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 		}(),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded task.Task
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -164,13 +164,13 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 		Cmd:     "test_3",
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded task.StatusDetails
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

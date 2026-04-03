@@ -17,142 +17,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (u Unit) EncodeOrc(w *orc.Writer) error {
-	if err := u.Dimensions.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Float64(float64(u.Scale))
-	w.String(u.Name)
-	return nil
-}
-
-func (u *Unit) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = u.Dimensions.DecodeOrc(r); err != nil {
-		return err
-	}
-	if u.Scale, err = r.Float64(); err != nil {
-		return err
-	}
-	if u.Name, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d Dimensions) EncodeOrc(w *orc.Writer) error {
-	w.Int8(int8(d.Length))
-	w.Int8(int8(d.Mass))
-	w.Int8(int8(d.Time))
-	w.Int8(int8(d.Current))
-	w.Int8(int8(d.Temperature))
-	w.Int8(int8(d.Angle))
-	w.Int8(int8(d.Count))
-	w.Int8(int8(d.Data))
-	return nil
-}
-
-func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if d.Length, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Mass, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Time, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Current, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Temperature, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Angle, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Count, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Data, err = r.Int8(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c Channels) EncodeOrc(w *orc.Writer) error {
-	w.Bool(c.Read != nil)
-	if c.Read != nil {
-		w.Uint32(uint32(len(c.Read)))
-		for key, val := range c.Read {
-			w.Uint32(uint32(key))
-			w.String(val)
-		}
-	}
-	w.Bool(c.Write != nil)
-	if c.Write != nil {
-		w.Uint32(uint32(len(c.Write)))
-		for key, val := range c.Write {
-			w.Uint32(uint32(key))
-			w.String(val)
-		}
-	}
-	return nil
-}
-
-func (c *Channels) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			c.Read = make(map[uint32]string, n)
-			for range n {
-				var key uint32
-				var val string
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.String(); err != nil {
-					return err
-				}
-				c.Read[key] = val
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			c.Write = make(map[uint32]string, n)
-			for range n {
-				var key uint32
-				var val string
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.String(); err != nil {
-					return err
-				}
-				c.Write[key] = val
-			}
-		}
-	}
-	return nil
-}
-
 func (p Param) EncodeOrc(w *orc.Writer) error {
 	w.String(p.Name)
 	if err := p.Type.EncodeOrc(w); err != nil {
@@ -163,8 +27,7 @@ func (p Param) EncodeOrc(w *orc.Writer) error {
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
 	return nil
 }
@@ -178,12 +41,8 @@ func (p *Param) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
 			return err
 		}
 		if err = json.Unmarshal(b, &p.Value); err != nil {
@@ -461,6 +320,142 @@ func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 				if err = fp.Config[j].DecodeOrc(r); err != nil {
 					return err
 				}
+			}
+		}
+	}
+	return nil
+}
+
+func (u Unit) EncodeOrc(w *orc.Writer) error {
+	if err := u.Dimensions.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Float64(float64(u.Scale))
+	w.String(u.Name)
+	return nil
+}
+
+func (u *Unit) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = u.Dimensions.DecodeOrc(r); err != nil {
+		return err
+	}
+	if u.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if u.Name, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d Dimensions) EncodeOrc(w *orc.Writer) error {
+	w.Int8(int8(d.Length))
+	w.Int8(int8(d.Mass))
+	w.Int8(int8(d.Time))
+	w.Int8(int8(d.Current))
+	w.Int8(int8(d.Temperature))
+	w.Int8(int8(d.Angle))
+	w.Int8(int8(d.Count))
+	w.Int8(int8(d.Data))
+	return nil
+}
+
+func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if d.Length, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Mass, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Time, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Current, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Temperature, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Angle, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Count, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Data, err = r.Int8(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c Channels) EncodeOrc(w *orc.Writer) error {
+	w.Bool(c.Read != nil)
+	if c.Read != nil {
+		w.Uint32(uint32(len(c.Read)))
+		for key, val := range c.Read {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
+	}
+	w.Bool(c.Write != nil)
+	if c.Write != nil {
+		w.Uint32(uint32(len(c.Write)))
+		for key, val := range c.Write {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
+	}
+	return nil
+}
+
+func (c *Channels) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Read = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				c.Read[key] = val
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Write = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				c.Write[key] = val
 			}
 		}
 	}

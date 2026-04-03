@@ -23,99 +23,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Unit", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original types.Unit) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded types.Unit
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", types.Unit{
-				Dimensions: types.Dimensions{
-					Length:      3,
-					Mass:        4,
-					Time:        5,
-					Current:     6,
-					Temperature: 7,
-					Angle:       8,
-					Count:       9,
-					Data:        10,
-				},
-				Scale: 10.5,
-				Name:  "test_11",
-			}),
-			Entry("zero values", types.Unit{
-				Dimensions: types.Dimensions{
-					Length:      0,
-					Mass:        0,
-					Time:        0,
-					Current:     0,
-					Temperature: 0,
-					Angle:       0,
-					Count:       0,
-					Data:        0,
-				},
-				Scale: 0,
-				Name:  "",
-			}),
-		)
-	})
-	Describe("Dimensions", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original types.Dimensions) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded types.Dimensions
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", types.Dimensions{
-				Length:      2,
-				Mass:        3,
-				Time:        4,
-				Current:     5,
-				Temperature: 6,
-				Angle:       7,
-				Count:       8,
-				Data:        9,
-			}),
-			Entry("zero values", types.Dimensions{
-				Length:      0,
-				Mass:        0,
-				Time:        0,
-				Current:     0,
-				Temperature: 0,
-				Angle:       0,
-				Count:       0,
-				Data:        0,
-			}),
-		)
-	})
-	Describe("Channels", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original types.Channels) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded types.Channels
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", types.Channels{
-				Read:  map[uint32]string{2: "test_1"},
-				Write: map[uint32]string{3: "test_2"},
-			}),
-			Entry("zero values", types.Channels{Read: nil, Write: nil}),
-			Entry("empty collections", types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
-		)
-	})
 	Describe("Param", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original types.Param) {
@@ -1643,83 +1550,100 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Unit", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original types.Unit) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded types.Unit
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", types.Unit{
+				Dimensions: types.Dimensions{
+					Length:      3,
+					Mass:        4,
+					Time:        5,
+					Current:     6,
+					Temperature: 7,
+					Angle:       8,
+					Count:       9,
+					Data:        10,
+				},
+				Scale: 10.5,
+				Name:  "test_11",
+			}),
+			Entry("zero values", types.Unit{
+				Dimensions: types.Dimensions{
+					Length:      0,
+					Mass:        0,
+					Time:        0,
+					Current:     0,
+					Temperature: 0,
+					Angle:       0,
+					Count:       0,
+					Data:        0,
+				},
+				Scale: 0,
+				Name:  "",
+			}),
+		)
+	})
+	Describe("Dimensions", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original types.Dimensions) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded types.Dimensions
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", types.Dimensions{
+				Length:      2,
+				Mass:        3,
+				Time:        4,
+				Current:     5,
+				Temperature: 6,
+				Angle:       7,
+				Count:       8,
+				Data:        9,
+			}),
+			Entry("zero values", types.Dimensions{
+				Length:      0,
+				Mass:        0,
+				Time:        0,
+				Current:     0,
+				Temperature: 0,
+				Angle:       0,
+				Count:       0,
+				Data:        0,
+			}),
+		)
+	})
+	Describe("Channels", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original types.Channels) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded types.Channels
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", types.Channels{
+				Read:  map[uint32]string{2: "test_1"},
+				Write: map[uint32]string{3: "test_2"},
+			}),
+			Entry("zero values", types.Channels{Read: nil, Write: nil}),
+			Entry("empty collections", types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
+		)
+	})
 })
-
-func BenchmarkEncodeDecodeUnit(b *testing.B) {
-	u := types.Unit{
-		Dimensions: types.Dimensions{
-			Length:      3,
-			Mass:        4,
-			Time:        5,
-			Current:     6,
-			Temperature: 7,
-			Angle:       8,
-			Count:       9,
-			Data:        10,
-		},
-		Scale: 10.5,
-		Name:  "test_11",
-	}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := u.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded types.Unit
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeDimensions(b *testing.B) {
-	d := types.Dimensions{
-		Length:      2,
-		Mass:        3,
-		Time:        4,
-		Current:     5,
-		Temperature: 6,
-		Angle:       7,
-		Count:       8,
-		Data:        9,
-	}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := d.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded types.Dimensions
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	c := types.Channels{
-		Read:  map[uint32]string{2: "test_1"},
-		Write: map[uint32]string{3: "test_2"},
-	}
-	w := orc.NewWriter(0)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := c.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded types.Channels
-		r := orc.NewReader(nil)
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeParam(b *testing.B) {
 	p := types.Param{
@@ -1950,13 +1874,13 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 		Value: map[string]interface{}{"key_137": "value_137"},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Param
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2664,13 +2588,13 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 		ChanDirection: types.ChanDirection(0),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.Type
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2904,13 +2828,13 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := fp.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded types.FunctionProperties
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2918,188 +2842,80 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 	}
 }
 
-func FuzzDecodeUnit(f *testing.F) {
-	{
-		seed := types.Unit{
-			Dimensions: types.Dimensions{
-				Length:      3,
-				Mass:        4,
-				Time:        5,
-				Current:     6,
-				Temperature: 7,
-				Angle:       8,
-				Count:       9,
-				Data:        10,
-			},
-			Scale: 10.5,
-			Name:  "test_11",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
+func BenchmarkEncodeDecodeUnit(b *testing.B) {
+	u := types.Unit{
+		Dimensions: types.Dimensions{
+			Length:      3,
+			Mass:        4,
+			Time:        5,
+			Current:     6,
+			Temperature: 7,
+			Angle:       8,
+			Count:       9,
+			Data:        10,
+		},
+		Scale: 10.5,
+		Name:  "test_11",
 	}
-	{
-		seed := types.Unit{
-			Dimensions: types.Dimensions{
-				Length:      0,
-				Mass:        0,
-				Time:        0,
-				Current:     0,
-				Temperature: 0,
-				Angle:       0,
-				Count:       0,
-				Data:        0,
-			},
-			Scale: 0,
-			Name:  "",
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := u.EncodeOrc(w); err != nil {
+			b.Fatal(err)
 		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded types.Unit
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded types.Unit
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
-func FuzzDecodeDimensions(f *testing.F) {
-	{
-		seed := types.Dimensions{
-			Length:      2,
-			Mass:        3,
-			Time:        4,
-			Current:     5,
-			Temperature: 6,
-			Angle:       7,
-			Count:       8,
-			Data:        9,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
+func BenchmarkEncodeDecodeDimensions(b *testing.B) {
+	d := types.Dimensions{
+		Length:      2,
+		Mass:        3,
+		Time:        4,
+		Current:     5,
+		Temperature: 6,
+		Angle:       7,
+		Count:       8,
+		Data:        9,
 	}
-	{
-		seed := types.Dimensions{
-			Length:      0,
-			Mass:        0,
-			Time:        0,
-			Current:     0,
-			Temperature: 0,
-			Angle:       0,
-			Count:       0,
-			Data:        0,
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := d.EncodeOrc(w); err != nil {
+			b.Fatal(err)
 		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded types.Dimensions
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded types.Dimensions
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
-func FuzzDecodeChannels(f *testing.F) {
-	{
-		seed := types.Channels{
-			Read:  map[uint32]string{2: "test_1"},
-			Write: map[uint32]string{3: "test_2"},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
+func BenchmarkEncodeDecodeChannels(b *testing.B) {
+	c := types.Channels{
+		Read:  map[uint32]string{2: "test_1"},
+		Write: map[uint32]string{3: "test_2"},
 	}
-	{
-		seed := types.Channels{Read: nil, Write: nil}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := c.EncodeOrc(w); err != nil {
+			b.Fatal(err)
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded types.Channels
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
+		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
-			return
+			b.Fatal(err)
 		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded types.Channels
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
+	}
 }
 
 func FuzzDecodeParam(f *testing.F) {
@@ -4713,6 +4529,190 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded types.FunctionProperties
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeUnit(f *testing.F) {
+	{
+		seed := types.Unit{
+			Dimensions: types.Dimensions{
+				Length:      3,
+				Mass:        4,
+				Time:        5,
+				Current:     6,
+				Temperature: 7,
+				Angle:       8,
+				Count:       9,
+				Data:        10,
+			},
+			Scale: 10.5,
+			Name:  "test_11",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := types.Unit{
+			Dimensions: types.Dimensions{
+				Length:      0,
+				Mass:        0,
+				Time:        0,
+				Current:     0,
+				Temperature: 0,
+				Angle:       0,
+				Count:       0,
+				Data:        0,
+			},
+			Scale: 0,
+			Name:  "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded types.Unit
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded types.Unit
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDimensions(f *testing.F) {
+	{
+		seed := types.Dimensions{
+			Length:      2,
+			Mass:        3,
+			Time:        4,
+			Current:     5,
+			Temperature: 6,
+			Angle:       7,
+			Count:       8,
+			Data:        9,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := types.Dimensions{
+			Length:      0,
+			Mass:        0,
+			Time:        0,
+			Current:     0,
+			Temperature: 0,
+			Angle:       0,
+			Count:       0,
+			Data:        0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded types.Dimensions
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded types.Dimensions
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeChannels(f *testing.F) {
+	{
+		seed := types.Channels{
+			Read:  map[uint32]string{2: "test_1"},
+			Write: map[uint32]string{3: "test_2"},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := types.Channels{Read: nil, Write: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded types.Channels
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded types.Channels
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

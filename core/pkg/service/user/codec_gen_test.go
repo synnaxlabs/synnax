@@ -62,13 +62,13 @@ func BenchmarkEncodeDecodeUser(b *testing.B) {
 		RootUser:  true,
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := u.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded user.User
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

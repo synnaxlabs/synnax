@@ -265,13 +265,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := g.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded graph.Graph
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -282,13 +282,13 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 func BenchmarkEncodeDecodeViewport(b *testing.B) {
 	vv := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := vv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded graph.Viewport
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -304,13 +304,13 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		Position: spatial.XY{X: 5.5, Y: 6.5},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := nv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded graph.Node
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

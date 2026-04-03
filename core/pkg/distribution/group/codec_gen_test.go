@@ -50,13 +50,13 @@ func BenchmarkEncodeDecodeGroup(b *testing.B) {
 		Name: "test_2",
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := g.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded group.Group
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

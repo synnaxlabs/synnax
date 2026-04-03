@@ -18,8 +18,7 @@ import (
 func (o Output) EncodeOrc(w *orc.Writer) error {
 	w.Bool(o.WASM != nil)
 	if o.WASM != nil {
-		w.Uint32(uint32(len(o.WASM)))
-		w.Write(o.WASM)
+		w.WriteWithLen(o.WASM)
 	}
 	w.Bool(o.OutputMemoryBases != nil)
 	if o.OutputMemoryBases != nil {
@@ -39,12 +38,8 @@ func (o *Output) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			n, err := r.CollectionLen()
+			o.WASM, err = r.ReadWithLen()
 			if err != nil {
-				return err
-			}
-			o.WASM = make([]byte, n)
-			if _, err = r.Read(o.WASM); err != nil {
 				return err
 			}
 		}

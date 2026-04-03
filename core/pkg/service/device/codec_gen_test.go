@@ -135,13 +135,13 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 		Parent: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_26"}; return &v }(),
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := d.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded device.Device
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -152,13 +152,13 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	sd := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded device.StatusDetails
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
