@@ -12,21 +12,21 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap/zapcore"
 )
 
 var _ = Describe("Instrumentation", func() {
 	Describe("ObservedInstrumentation", func() {
 		It("Should capture log entries at the configured level", func() {
-			ins, logs := testutil.ObservedInstrumentation(zapcore.InfoLevel)
+			ins, logs := ObservedInstrumentation(zapcore.InfoLevel)
 			ins.L.Info("hello")
 			Expect(logs.Len()).To(Equal(1))
 			Expect(logs.All()[0].Message).To(Equal("hello"))
 		})
 
 		It("Should not capture entries below the configured level", func() {
-			ins, logs := testutil.ObservedInstrumentation(zapcore.WarnLevel)
+			ins, logs := ObservedInstrumentation(zapcore.WarnLevel)
 			ins.L.Info("ignored")
 			ins.L.Warn("captured")
 			Expect(logs.Len()).To(Equal(1))
@@ -34,14 +34,14 @@ var _ = Describe("Instrumentation", func() {
 		})
 
 		It("Should return a non-zero instrumentation", func() {
-			ins, _ := testutil.ObservedInstrumentation(zapcore.InfoLevel)
+			ins, _ := ObservedInstrumentation(zapcore.InfoLevel)
 			Expect(ins.IsZero()).To(BeFalse())
 		})
 	})
 
 	Describe("PanicLogger", func() {
 		It("Should return a non-zero instrumentation", func() {
-			ins := testutil.PanicLogger()
+			ins := PanicLogger()
 			Expect(ins.IsZero()).To(BeFalse())
 		})
 	})
