@@ -31,96 +31,64 @@ type Migration interface {
 	Run(ctx context.Context, ins alamos.Instrumentation) error
 }
 
+// Config is the configuration for Migrate.
 type Config struct {
 	alamos.Instrumentation
+	// Migrations is the full list of migrations to consider.
 	Migrations []Migration
-	Applied    set.Set[string]
+	// Applied is the set of migration keys that have already been run. Migrate
+	// will skip these and only execute pending ones. A nil set is treated as empty.
+	Applied set.Set[string]
 }
 
+// Migrate topologically sorts the provided migrations, skips any that are already
+// applied, and runs the remaining ones in dependency order. It returns the updated
+// applied set. All migration keys must be unique.
 func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
-	migrationKeys := make(set.Set[string])
+	if cfg.Applied == nil {
+		cfg.Applied = make(set.Set[string])
+	}
+	byKey := make(map[string]Migration, len(cfg.Migrations))
+	adj := make(map[string][]string)
 	for _, m := range cfg.Migrations {
-		if migrationKeys.Contains(m.Key()) {
-			return nil, errors.Newf("duplicate migration name %q", m.Key())
+		k := m.Key()
+		if _, dup := byKey[k]; dup {
+			return nil, errors.Newf("duplicate migration name %q", k)
 		}
-		migrationKeys.Add(m.Key())
-	}
-	var notApplied = set.Difference(migrationKeys, cfg.Applied)
-	cfg.L.Info(
-		"running migrations",
-		zap.Strings("not_applied", notApplied.ToSlice()),
-		zap.Strings("applied", cfg.Applied.ToSlice()),
-	)
-	sorted, err := topoSort(cfg.Migrations, cfg.Applied)
-	if err != nil {
-		return nil, err
-	}
-	for _, m := range sorted {
-		cfg.L.Info(
-			"running migration",
-			zap.String("migration", m.Key()),
-		)
-		if err = m.Run(ctx, cfg.Instrumentation); err != nil {
-			cfg.L.Error(
-				"migration failed",
-				zap.String("migration", m.Key()),
-				zap.Error(err),
-			)
-			return nil, errors.Wrapf(err, "migration %s failed", m.Key())
+		byKey[k] = m
+		if cfg.Applied.Contains(k) {
+			continue
 		}
-		cfg.L.Info(
-			"migration completed",
-			zap.String("migration", m.Key()),
-		)
-		cfg.Applied.Add(m.Key())
-	}
-	return cfg.Applied, nil
-}
-
-// topoSort filters out already-applied migrations, then produces a valid
-// execution order. Dependencies that are already applied are considered
-// satisfied and do not need to appear in the pending set.
-func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, error) {
-	byName := make(map[string]Migration, len(migrations))
-	for _, m := range migrations {
-		if _, dup := byName[m.Key()]; dup {
-			return nil, errors.Newf("duplicate migration name %q", m.Key())
-		}
-		byName[m.Key()] = m
-	}
-
-	var pending []Migration
-	for _, m := range migrations {
-		if !applied.Contains(m.Key()) {
-			pending = append(pending, m)
-		}
-	}
-	if len(pending) == 0 {
-		return nil, nil
-	}
-
-	adj := make(map[string][]string, len(pending))
-	for _, m := range pending {
-		name := m.Key()
-		adj[name] = nil
+		adj[k] = nil
 		for dep := range m.Dependencies() {
-			if applied.Contains(dep) {
-				continue
+			if !cfg.Applied.Contains(dep) {
+				adj[k] = append(adj[k], dep)
 			}
-			adj[name] = append(adj[name], dep)
 		}
 	}
-
+	if len(adj) == 0 {
+		cfg.L.Info("all migrations already applied", zap.Int("applied", len(cfg.Applied)))
+		return cfg.Applied, nil
+	}
 	order, err := graph.TopoSort(adj)
 	if err != nil {
 		return nil, err
 	}
-
-	sorted := make([]Migration, len(order))
-	for i, name := range order {
-		sorted[i] = byName[name]
+	cfg.L.Info(
+		"running migrations",
+		zap.Strings("already_applied", cfg.Applied.ToSlice()),
+		zap.Strings("pending", order),
+	)
+	for _, key := range order {
+		cfg.L.Info("running migration", zap.String("migration", key))
+		if err = byKey[key].Run(ctx, cfg.Instrumentation); err != nil {
+			cfg.L.Error("migration failed", zap.String("migration", key), zap.Error(err))
+			return nil, errors.Wrapf(err, "migration %s failed", key)
+		}
+		cfg.L.Info("migration completed", zap.String("migration", key))
+		cfg.Applied.Add(key)
 	}
-	return sorted, nil
+	return cfg.Applied, nil
 }
 
 type addedDeps struct {
@@ -134,10 +102,14 @@ func (a *addedDeps) Dependencies() set.Set[string] {
 	return deps
 }
 
+// WithAddedDeps wraps a Migration to declare additional dependencies beyond what
+// it already declares. The original migration is not mutated.
 func WithAddedDeps(base Migration, deps ...string) Migration {
 	return &addedDeps{addedDeps: set.New(deps...), Migration: base}
 }
 
+// AllWithAddedDeps applies WithAddedDeps to every migration in the slice,
+// returning a new slice. The original migrations are not mutated.
 func AllWithAddedDeps(migrations []Migration, deps ...string) []Migration {
 	result := make([]Migration, len(migrations))
 	for i, m := range migrations {

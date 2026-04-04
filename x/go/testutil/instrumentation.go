@@ -22,6 +22,8 @@ import (
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type InstrumentationConfig struct {
@@ -92,6 +94,19 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 		options = append(options, alamos.WithReporter(newReports()))
 	}
 	return alamos.New(key, options...)
+}
+
+// ObservedInstrumentation returns an Instrumentation backed by a zap observer that
+// captures all log entries at or above the given level. Use the returned
+// *observer.ObservedLogs to assert on log output in tests.
+func ObservedInstrumentation(
+	level zapcore.Level,
+) (alamos.Instrumentation, *observer.ObservedLogs) {
+	core, logs := observer.New(level)
+	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+		ZapLogger: zap.New(core),
+	}))
+	return alamos.New("test", alamos.WithLogger(l)), logs
 }
 
 // PanicLogger returns an Instrumentation instance that only contains a logger that only
