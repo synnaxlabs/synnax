@@ -87,7 +87,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
     @classmethod
     def type(cls) -> ReaderType:
         """:returns : the type of reader."""
-        return ReaderType.Column
+        return ReaderType.COLUMN
 
     def path(self) -> Path:
         """:returns: the path to the file."""

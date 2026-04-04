@@ -8,22 +8,22 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum, StrEnum
 
 import synnax as sy
 
 
-class STATUS(Enum):
+class STATUS(StrEnum):
     """Enum representing the status of a test."""
 
-    INITIALIZING = auto()
-    RUNNING = auto()
-    PENDING = auto()
-    PASSED = auto()
-    FLAKY = auto()
-    FAILED = auto()
-    TIMEOUT = auto()
-    KILLED = auto()
+    INITIALIZING = "initializing"
+    RUNNING = "running"
+    PENDING = "pending"
+    PASSED = "passed"
+    FLAKY = "flaky"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    KILLED = "killed"
 
 
 class SYMBOLS(Enum):

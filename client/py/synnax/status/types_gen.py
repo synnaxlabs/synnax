@@ -11,27 +11,23 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeVar
+from enum import StrEnum
+from typing import Generic, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import label, telem
 
-VARIANT_SUCCESS: Literal["success"] = "success"
 
-VARIANT_INFO: Literal["info"] = "info"
+class Variant(StrEnum):
+    SUCCESS = "success"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    LOADING = "loading"
+    DISABLED = "disabled"
 
-VARIANT_WARNING: Literal["warning"] = "warning"
-
-VARIANT_ERROR: Literal["error"] = "error"
-
-VARIANT_LOADING: Literal["loading"] = "loading"
-
-VARIANT_DISABLED: Literal["disabled"] = "disabled"
-
-
-Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 Details = TypeVar("Details")
 

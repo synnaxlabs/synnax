@@ -10,12 +10,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Sequence, TypeAlias
+from typing import Sequence, TypeAlias
 
 from synnax import ontology
 from synnax.channel.types_gen import Key as Key
 from synnax.channel.types_gen import New as New
 from synnax.channel.types_gen import Operation as Operation
+from synnax.channel.types_gen import OperationType as OperationType
 from synnax.channel.types_gen import Payload as Payload
 from synnax.util.normalize import normalize
 
@@ -25,9 +26,6 @@ ONTOLOGY_TYPE = ontology.ID(type="channel")
 def ontology_id(key: Key) -> ontology.ID:
     """Returns the ontology ID for the Channel entity."""
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
-
-
-OPERATION_TYPES = Literal["min", "max", "avg", "none"]
 
 
 @dataclass

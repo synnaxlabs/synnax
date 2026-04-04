@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import IntEnum
 from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
@@ -38,14 +38,14 @@ from synnax.util.normalize import normalize
 from synnax.x.control import Authority, CrudeAuthority, Subject
 
 
-class WriterCommand(int, Enum):
+class WriterCommand(IntEnum):
     OPEN = 0
     WRITE = 1
     COMMIT = 2
     SET_AUTHORITY = 3
 
 
-class WriterMode(int, Enum):
+class WriterMode(IntEnum):
     PERSIST_STREAM = 1
     PERSIST = 2
     STREAM = 3

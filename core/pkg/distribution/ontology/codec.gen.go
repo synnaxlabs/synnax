@@ -15,6 +15,27 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (id ID) EncodeOrc(w *orc.Writer) error {
+	w.String(string(id.Type))
+	w.String(id.Key)
+	return nil
+}
+
+func (id *ID) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		id.Type = ResourceType(v)
+	}
+	if id.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (rv Resource) EncodeOrc(w *orc.Writer) error {
 	if err := rv.ID.EncodeOrc(w); err != nil {
 		return err
@@ -54,27 +75,6 @@ func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
 		rv.Type = RelationshipType(v)
 	}
 	if err = rv.To.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (id ID) EncodeOrc(w *orc.Writer) error {
-	w.String(string(id.Type))
-	w.String(id.Key)
-	return nil
-}
-
-func (id *ID) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		id.Type = ResourceType(v)
-	}
-	if id.Key, err = r.String(); err != nil {
 		return err
 	}
 	return nil

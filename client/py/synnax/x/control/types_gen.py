@@ -20,8 +20,8 @@ Authority: TypeAlias = int
 
 
 class Concurrency(IntEnum):
-    exclusive = 0
-    shared = 1
+    EXCLUSIVE = 0
+    SHARED = 1
 
 
 R = TypeVar("R")

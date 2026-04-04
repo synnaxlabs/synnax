@@ -92,7 +92,7 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     assert cli.client is not None
     assert cli.start is not None
     filtered_reader = initialize_reader(ctx, cli)
-    if cli.reader.type() == ReaderType.Row:
+    if cli.reader.type() == ReaderType.ROW:
         engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels, cli.start)
     else:
         raise NotImplementedError("Only row ingestion is supported at this time.")

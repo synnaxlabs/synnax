@@ -15,11 +15,12 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from synnax import ontology
+from synnax.access.types_gen import Action
 
-ACTION_CREATE = "create"
-ACTION_DELETE = "delete"
-ACTION_RETRIEVE = "retrieve"
-ACTION_UPDATE = "update"
+ACTION_CREATE = Action.CREATE
+ACTION_DELETE = Action.DELETE
+ACTION_RETRIEVE = Action.RETRIEVE
+ACTION_UPDATE = Action.UPDATE
 
 
 class Policy(BaseModel):

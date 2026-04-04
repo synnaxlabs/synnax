@@ -126,7 +126,7 @@ class CSVReader(CSVMatcher):  # type: ignore
 
     @classmethod
     def type(cls) -> ReaderType:
-        return ReaderType.Row
+        return ReaderType.ROW
 
     def path(self) -> Path:
         return self._path

@@ -15,7 +15,7 @@ import string
 import sys
 import threading
 from collections.abc import Callable
-from enum import Enum, auto
+from enum import StrEnum
 from typing import Any
 
 import synnax as sy
@@ -31,16 +31,16 @@ from framework.telemetry_client import TelemetryClient
 from framework.test_case import TestCase
 
 
-class STATE(Enum):
+class STATE(StrEnum):
     """Test conductor execution states."""
 
-    INITIALIZING = auto()
-    LOADING = auto()
-    RUNNING = auto()
-    CLEANUP = auto()
-    ERROR = auto()
-    SHUTDOWN = auto()
-    COMPLETED = auto()
+    INITIALIZING = "initializing"
+    LOADING = "loading"
+    RUNNING = "running"
+    CLEANUP = "cleanup"
+    ERROR = "error"
+    SHUTDOWN = "shutdown"
+    COMPLETED = "completed"
 
 
 class TestConductor:

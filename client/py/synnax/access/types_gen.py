@@ -11,15 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
-ACTION_CREATE: Literal["create"] = "create"
-
-ACTION_DELETE: Literal["delete"] = "delete"
-
-ACTION_RETRIEVE: Literal["retrieve"] = "retrieve"
-
-ACTION_UPDATE: Literal["update"] = "update"
+from enum import StrEnum
 
 
-Action = Literal["create", "delete", "retrieve", "update"]
+class Action(StrEnum):
+    CREATE = "create"
+    DELETE = "delete"
+    RETRIEVE = "retrieve"
+    UPDATE = "update"

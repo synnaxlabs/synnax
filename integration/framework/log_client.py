@@ -12,18 +12,18 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import StrEnum
 from typing import Protocol
 
 import synnax as sy
 from x import is_ci
 
 
-class LogMode(Enum):
+class LogMode(StrEnum):
     """Controls whether log entries are emitted immediately or buffered."""
 
-    REALTIME = auto()
-    BUFFERED = auto()
+    REALTIME = "realtime"
+    BUFFERED = "buffered"
 
 
 @dataclass

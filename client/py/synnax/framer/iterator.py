@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import IntEnum
 
 from alamos import NOOP, Instrumentation
 from freighter import EOF, Stream, StreamClient
@@ -24,7 +24,7 @@ from synnax.telem import TimeRange, TimeSpan, TimeStamp
 AUTO_SPAN = TimeSpan(-1)
 
 
-class _Command(int, Enum):
+class _Command(IntEnum):
     OPEN = 0
     NEXT = 1
     PREV = 2
@@ -36,7 +36,7 @@ class _Command(int, Enum):
     ERROR = 8
 
 
-class _ResponseVariant(int, Enum):
+class _ResponseVariant(IntEnum):
     NONE = 0
     ACK = 1
     DATA = 2

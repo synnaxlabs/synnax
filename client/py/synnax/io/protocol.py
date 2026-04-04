@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Iterator
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
@@ -27,9 +27,9 @@ __all__ = [
 ]
 
 
-class ReaderType(Enum):
-    Row = "row"
-    Column = "column"
+class ReaderType(StrEnum):
+    ROW = "row"
+    COLUMN = "column"
 
 
 class Matcher(Protocol):

@@ -15,15 +15,16 @@ from synnax.status.client import (
     ontology_id,
 )
 from synnax.status.types_gen import (
-    VARIANT_DISABLED,
-    VARIANT_ERROR,
-    VARIANT_INFO,
-    VARIANT_LOADING,
-    VARIANT_SUCCESS,
-    VARIANT_WARNING,
     Status,
     Variant,
 )
+
+VARIANT_SUCCESS = Variant.SUCCESS
+VARIANT_INFO = Variant.INFO
+VARIANT_WARNING = Variant.WARNING
+VARIANT_ERROR = Variant.ERROR
+VARIANT_LOADING = Variant.LOADING
+VARIANT_DISABLED = Variant.DISABLED
 from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {

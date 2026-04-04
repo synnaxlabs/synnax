@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from enum import StrEnum
+from typing import TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -23,16 +24,13 @@ from synnax.x import control
 
 Key: TypeAlias = int
 
-OPERATION_TYPE_MIN: Literal["min"] = "min"
 
-OPERATION_TYPE_MAX: Literal["max"] = "max"
+class OperationType(StrEnum):
+    MIN = "min"
+    MAX = "max"
+    AVG = "avg"
+    NONE = "none"
 
-OPERATION_TYPE_AVG: Literal["avg"] = "avg"
-
-OPERATION_TYPE_NONE: Literal["none"] = "none"
-
-
-OperationType = Literal["min", "max", "avg", "none"]
 
 Name: TypeAlias = str
 
