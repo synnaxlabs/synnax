@@ -816,7 +816,8 @@ func collectValidation(
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
 	enumName := domain.GetName(ev.Type, "py")
-	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
+	memberName := toScreamingSnake(ev.Variant.Name)
+	variantRef := fmt.Sprintf("%s.%s", enumName, memberName)
 	if ev.Type.Namespace != data.Namespace {
 		outputPath := enum.FindOutputPath(ev.Type, table, "py")
 		if outputPath == "" {
@@ -824,7 +825,7 @@ func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, dat
 		}
 		modulePath := toPythonModulePath(outputPath)
 		qualifiedEnum := addCrossNamespaceImport(modulePath, enumName, data)
-		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
+		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, memberName)
 	}
 	return variantRef
 }

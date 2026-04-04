@@ -28,7 +28,7 @@ from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
+from synnax.status import Variant
 from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
@@ -463,9 +463,9 @@ class Client:
                     continue
                 if status.details is None or status.details.task != task.key:
                     continue
-                if status.variant == VARIANT_SUCCESS:
+                if status.variant == Variant.SUCCESS:
                     break
-                if status.variant == VARIANT_ERROR:
+                if status.variant == Variant.ERROR:
                     raise ConfigurationError(status.message)
         return task
 

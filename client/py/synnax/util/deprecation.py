@@ -10,38 +10,41 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Callable, Mapping
+
+
+def _resolve(target: str, module_globals: dict[str, object]) -> object:
+    """Resolves a dotted name like 'Variant.SUCCESS' against module globals."""
+    parts = target.split(".")
+    val = module_globals[parts[0]]
+    for part in parts[1:]:
+        val = getattr(val, part)
+    return val
 
 
 def deprecated_getattr(
     module_name: str,
-    deprecated: Mapping[str, str | tuple[str, str]],
-    module_globals: dict[str, Any],
-) -> Any:
+    deprecated: Mapping[str, str],
+    module_globals: dict[str, object],
+) -> Callable[[str], object]:
     """Creates a module-level __getattr__ that warns on deprecated name access.
 
     :param module_name: The module's __name__ (used in AttributeError messages).
-    :param deprecated: Mapping of old_name to either new_name (str) or a tuple of
-        (display_name, globals_key) for cases where the display name in the warning
-        message differs from the key used to look up the value in module globals.
+    :param deprecated: Mapping of old_name to new_name. new_name supports dotted
+        paths (e.g. "Variant.SUCCESS") resolved against module_globals.
     :param module_globals: The module's globals() dict to resolve new names from.
     :returns: A __getattr__ function suitable for assignment at module level.
     """
 
-    def __getattr__(name: str) -> Any:
+    def __getattr__(name: str) -> object:
         if name in deprecated:
-            entry = deprecated[name]
-            if isinstance(entry, tuple):
-                display_name, globals_key = entry
-            else:
-                display_name = globals_key = entry
+            target = deprecated[name]
+            val = _resolve(target, module_globals)
             warnings.warn(
-                f"{name} is deprecated, use {display_name} instead",
+                f"{name} is deprecated, use {target} instead",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            val = module_globals[globals_key]
             module_globals[name] = val
             return val
         raise AttributeError(f"module {module_name!r} has no attribute {name!r}")

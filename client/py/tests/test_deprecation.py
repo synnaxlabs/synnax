@@ -66,31 +66,37 @@ class TestDeprecatedGetattr:
         with pytest.raises(AttributeError, match="test_module"):
             _ = mod.NonExistent
 
-    def test_tuple_form_custom_display_name(self):
-        """Should use the display name from a tuple entry in the warning."""
-        mod = _make_module(
-            {"OldName": ("package.module.NewName", "_internal")},
-            _internal="value",
-        )
+    def test_dotted_resolution(self):
+        """Should resolve dotted paths like 'Enum.MEMBER' via getattr."""
+        from enum import StrEnum
+
+        class Color(StrEnum):
+            RED = "red"
+            BLUE = "blue"
+
+        mod = _make_module({"OLD_RED": "Color.RED"}, Color=Color)
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always", DeprecationWarning)
-            result = mod.OldName
-        assert result == "value"
+            result = mod.OLD_RED
+        assert result == "red"
+        assert result is Color.RED
         assert len(w) == 1
-        assert "use package.module.NewName instead" in str(w[0].message)
+        assert "use Color.RED instead" in str(w[0].message)
 
-    def test_tuple_form_caches(self):
-        """Should cache after first access with tuple form."""
-        mod = _make_module(
-            {"OldName": ("pkg.New", "_internal")},
-            _internal="value",
-        )
+    def test_dotted_resolution_caches(self):
+        """Should cache after first access with dotted resolution."""
+        from enum import StrEnum
+
+        class Color(StrEnum):
+            RED = "red"
+
+        mod = _make_module({"OLD_RED": "Color.RED"}, Color=Color)
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always", DeprecationWarning)
-            _ = mod.OldName
+            _ = mod.OLD_RED
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always", DeprecationWarning)
-            _ = mod.OldName
+            _ = mod.OLD_RED
         assert len(w) == 0
 
     def test_multiple_deprecated_names(self):

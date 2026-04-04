@@ -212,13 +212,13 @@ var _ = Describe("Python Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from enum import IntEnum`))
 			Expect(content).To(ContainSubstring(`class TaskState(IntEnum):`))
-			Expect(content).To(ContainSubstring(`pending = 0`))
-			Expect(content).To(ContainSubstring(`running = 1`))
-			Expect(content).To(ContainSubstring(`completed = 2`))
+			Expect(content).To(ContainSubstring(`PENDING = 0`))
+			Expect(content).To(ContainSubstring(`RUNNING = 1`))
+			Expect(content).To(ContainSubstring(`COMPLETED = 2`))
 			Expect(content).To(ContainSubstring(`state: TaskState`))
 		})
 
-		It("Should generate Literal type for string enums", func(ctx SpecContext) {
+		It("Should generate StrEnum for string enums", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -243,14 +243,15 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`from typing import Literal`))
-			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT32: Literal["float32"] = "float32"`))
-			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT64: Literal["float64"] = "float64"`))
-			Expect(content).To(ContainSubstring(`DATA_TYPE_INT32: Literal["int32"] = "int32"`))
-			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
+			Expect(content).To(ContainSubstring(`from enum import StrEnum`))
+			Expect(content).To(ContainSubstring(`class DataType(StrEnum):`))
+			Expect(content).To(ContainSubstring(`FLOAT_32 = "float32"`))
+			Expect(content).To(ContainSubstring(`FLOAT_64 = "float64"`))
+			Expect(content).To(ContainSubstring(`INT_32 = "int32"`))
+			Expect(content).NotTo(ContainSubstring(`DATA_TYPE_FLOAT_32`))
 		})
 
-		It("Should generate screaming snake case for multi-word enum names", func(ctx SpecContext) {
+		It("Should generate StrEnum with screaming snake case members for multi-word enum names", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -275,9 +276,10 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MIN: Literal["min"] = "min"`))
-			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MAX: Literal["max"] = "max"`))
-			Expect(content).To(ContainSubstring(`OPERATION_TYPE_NONE: Literal["none"] = "none"`))
+			Expect(content).To(ContainSubstring(`class OperationType(StrEnum):`))
+			Expect(content).To(ContainSubstring(`MIN = "min"`))
+			Expect(content).To(ContainSubstring(`MAX = "max"`))
+			Expect(content).To(ContainSubstring(`NONE = "none"`))
 		})
 
 		Context("primitive type mappings", func() {
@@ -1356,7 +1358,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`mode: Mode = Field(default=Mode.automatic)`)
+					ToContain(`mode: Mode = Field(default=Mode.AUTOMATIC)`)
 			})
 
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
@@ -1379,7 +1381,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
+					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.EXCLUSIVE)`)
 			})
 		})
 	})

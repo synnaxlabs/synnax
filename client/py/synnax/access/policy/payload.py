@@ -16,11 +16,7 @@ from pydantic import BaseModel
 
 from synnax import ontology
 from synnax.access.types_gen import Action
-
-ACTION_CREATE = Action.CREATE
-ACTION_DELETE = Action.DELETE
-ACTION_RETRIEVE = Action.RETRIEVE
-ACTION_UPDATE = Action.UPDATE
+from synnax.util.deprecation import deprecated_getattr
 
 
 class Policy(BaseModel):
@@ -35,13 +31,15 @@ def ontology_id(key: UUID | None = None) -> ontology.ID:
     return ontology.ID(type="policy", key=key if key is None else str(key))
 
 
-from synnax.util.deprecation import deprecated_getattr
-
 _DEPRECATED = {
-    "CREATE_ACTION": "ACTION_CREATE",
-    "DELETE_ACTION": "ACTION_DELETE",
-    "RETRIEVE_ACTION": "ACTION_RETRIEVE",
-    "UPDATE_ACTION": "ACTION_UPDATE",
+    "ACTION_CREATE": "Action.CREATE",
+    "ACTION_DELETE": "Action.DELETE",
+    "ACTION_RETRIEVE": "Action.RETRIEVE",
+    "ACTION_UPDATE": "Action.UPDATE",
+    "CREATE_ACTION": "Action.CREATE",
+    "DELETE_ACTION": "Action.DELETE",
+    "RETRIEVE_ACTION": "Action.RETRIEVE",
+    "UPDATE_ACTION": "Action.UPDATE",
 }
 
 __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
