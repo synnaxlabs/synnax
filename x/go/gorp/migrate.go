@@ -124,6 +124,12 @@ func NewMigration(
 	return &migration{key: key, fn: fn, dependencies: set.New(deps...)}
 }
 
+func setMigrationTx(mig migrate.Migration, tx Tx) {
+	if tMig, ok := migrate.Unwrap(mig).(*migration); ok {
+		tMig.tx = tx
+	}
+}
+
 type MigrateConfig struct {
 	alamos.Instrumentation
 	DB         *DB
@@ -137,9 +143,7 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 		err = errors.Combine(err, txn.Close())
 	}()
 	for _, mig := range cfg.Migrations {
-		if tMig, ok := mig.(*migration); ok {
-			tMig.tx = txn
-		}
+		setMigrationTx(mig, txn)
 	}
 	applied, err := readAppliedMigrations(ctx, txn, cfg.Namespace)
 	if err != nil {

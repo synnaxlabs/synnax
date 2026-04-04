@@ -52,7 +52,8 @@ func OpenTable[K Key, E Entry[K]](
 	wrapped := make([]migrate.Migration, len(cfg.Migrations)+1)
 	copy(wrapped[1:], cfg.Migrations)
 	wrapped[0] = normalizeKeysMigration[K, E]()
-	migrate.AllWithAddedDeps(wrapped[1:], normalizeKeysMigrationKey)
+	withDeps := migrate.AllWithAddedDeps(wrapped[1:], normalizeKeysMigrationKey)
+	copy(wrapped[1:], withDeps)
 	if err = Migrate(ctx, MigrateConfig{
 		DB:              cfg.DB,
 		Namespace:       types.Name[E](),

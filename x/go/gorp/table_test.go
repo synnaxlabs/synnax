@@ -152,6 +152,46 @@ var _ = Describe("Table", func() {
 		})
 	})
 
+	Describe("Migration dependency ordering", func() {
+		It("Should run user migrations after normalize_keys", func(ctx SpecContext) {
+			testKV := memkv.New()
+			testDB := gorp.Wrap(testKV)
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+
+			codec := msgpack.Codec
+			typeName := types.Name[entry]()
+			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
+			encodedValue := MustSucceed(codec.Encode(ctx, entry{ID: 99, Data: "old"}))
+			encodedKey := MustSucceed(codec.Encode(ctx, int32(99)))
+			fullKey := make([]byte, len(oldPrefix)+len(encodedKey))
+			copy(fullKey, oldPrefix)
+			copy(fullKey[len(oldPrefix):], encodedKey)
+			Expect(testKV.Set(ctx, fullKey, encodedValue)).To(Succeed())
+
+			var sawEntry bool
+			userMigration := gorp.NewMigration(
+				"check_entries",
+				func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+					var res entry
+					err := gorp.NewRetrieve[int32, entry]().
+						WhereKeys(99).Entry(&res).Exec(ctx, tx)
+					if err == nil && res.Data == "old" {
+						sawEntry = true
+					}
+					return nil
+				},
+			)
+
+			MustSucceed(gorp.OpenTable[int32, entry](ctx, gorp.TableConfig[entry]{
+				DB:         testDB,
+				Migrations: []migrate.Migration{userMigration},
+			}))
+			Expect(sawEntry).To(BeTrue(),
+				"user migration should see entries under new prefix, "+
+					"meaning normalize_keys ran first")
+		})
+	})
+
 	Describe("MigrateOldPrefixKeys", func() {
 		writeOldFormatEntry := func(ctx context.Context, codec encoding.Codec, e entry) {
 			typeName := types.Name[entry]()

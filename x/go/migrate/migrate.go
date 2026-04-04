@@ -102,6 +102,21 @@ func (a *addedDeps) Dependencies() set.Set[string] {
 	return deps
 }
 
+// Unwrap returns the innermost Migration if m wraps another (e.g. via
+// WithAddedDeps). If m does not wrap anything, it returns m unchanged.
+func Unwrap(m Migration) Migration {
+	type wrapper interface{ Unwrap() Migration }
+	for {
+		w, ok := m.(wrapper)
+		if !ok {
+			return m
+		}
+		m = w.Unwrap()
+	}
+}
+
+func (a *addedDeps) Unwrap() Migration { return a.Migration }
+
 // WithAddedDeps wraps a Migration to declare additional dependencies beyond what
 // it already declares. The original migration is not mutated.
 func WithAddedDeps(base Migration, deps ...string) Migration {
