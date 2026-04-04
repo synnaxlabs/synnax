@@ -25,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-const migrationKey = "legacy_permission_assignment"
-
 // MigrationConfig contains the dependencies needed by the Phase 2 migration.
 type MigrationConfig struct {
 	User     *user.Service
@@ -41,7 +39,7 @@ type MigrationConfig struct {
 // relationships.
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		migrationKey,
+		"v0.permission_assignment",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			mappings, err := policy.ReadLegacyMappings(ctx, tx)
 			if err != nil {
