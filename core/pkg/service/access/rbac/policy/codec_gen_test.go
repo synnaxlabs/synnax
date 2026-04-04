@@ -40,7 +40,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", policy.Policy{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
-				Objects:  []ontology.ID{ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+				Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
 				Actions:  []access.Action{access.Action("create")},
 				Internal: true,
 			}),
@@ -66,7 +66,7 @@ func BenchmarkEncodeDecodePolicy(b *testing.B) {
 	p := policy.Policy{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:     "test_2",
-		Objects:  []ontology.ID{ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+		Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
 		Actions:  []access.Action{access.Action("create")},
 		Internal: true,
 	}
@@ -90,7 +90,7 @@ func FuzzDecodePolicy(f *testing.F) {
 		seed := policy.Policy{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
-			Objects:  []ontology.ID{ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+			Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
 			Actions:  []access.Action{access.Action("create")},
 			Internal: true,
 		}
