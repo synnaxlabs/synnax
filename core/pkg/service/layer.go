@@ -181,13 +181,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	l.Auth = authKV
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
+		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		Auth:            authKV,
 		RootCredentials: cfg.RootCredentials,
-	}); !ok(err, nil) {
+	}); !ok(err, l.User) {
 		return nil, err
 	}
 	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
@@ -198,7 +199,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           cfg.Distribution.Group,
 		Search:          cfg.Distribution.Search,
 		User:            l.User,
-	}); !ok(err, nil) {
+	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
 	if l.Token, err = token.NewService(token.ServiceConfig{
@@ -209,11 +210,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("label"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -228,7 +230,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-
 	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
 		Instrumentation: cfg.Child("kv"),
 		DB:              cfg.Distribution.DB,
@@ -381,8 +382,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
-			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("framer"),
+			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Arc:             l.Arc,
@@ -394,8 +395,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.ServiceConfig{
-			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("metrics"),
+			DB:              cfg.Distribution.DB,
 			Framer:          l.Framer,
 			Channel:         l.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
