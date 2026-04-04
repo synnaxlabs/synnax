@@ -104,7 +104,7 @@ var _ = Describe("Access", Ordered, func() {
 	})
 
 	Describe("MigratePermissions", func() {
-		Describe("migration tracking", func() {
+		Describe("Migration tracking", func() {
 			It("Should only run migration once", func(ctx SpecContext) {
 				u := &user.User{Username: "testuser1"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())

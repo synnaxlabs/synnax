@@ -780,7 +780,7 @@ var _ = Describe("Device", func() {
 				Key:      "migration-device",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
-				Name:     "migration Test Device",
+				Name:     "Migration Test Device",
 			}
 			Expect(gorp.NewCreate[string, device.Device]().
 				Entry(&d).
@@ -801,7 +801,7 @@ var _ = Describe("Device", func() {
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
-			Expect(restoredStatus.Message).To(Equal("migration Test Device state unknown"))
+			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
 

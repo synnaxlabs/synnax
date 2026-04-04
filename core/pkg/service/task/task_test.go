@@ -467,7 +467,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
-	Describe("migration", func() {
+	Describe("Migration", func() {
 		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
