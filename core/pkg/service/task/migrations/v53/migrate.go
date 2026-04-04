@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package rack
+package v53
 
 import (
 	"context"
@@ -24,53 +24,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func embeddedRackRenameMigration(cfg ServiceConfig) migrate.Migration {
-	return gorp.NewMigration(
-		"embedded_rack_rename_v1_to_v2",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			hostKey := cfg.HostProvider.HostKey()
-			v1Name := fmt.Sprintf("sy_node_%s_rack", hostKey)
-			v2Name := fmt.Sprintf("Node %s Embedded Driver", hostKey)
-
-			reader := gorp.WrapReader[Key, Rack](tx)
-			writer := gorp.WrapWriter[Key, Rack](tx)
-
-			iter, err := reader.OpenIterator(gorp.IterOptions{})
-			if err != nil {
-				return err
-			}
-			defer func() {
-				err = errors.Combine(err, iter.Close())
-			}()
-
-			for iter.First(); iter.Valid(); iter.Next() {
-				r := iter.Value(ctx)
-				if err = iter.Error(); err != nil {
-					return err
-				}
-				if r.Name == v1Name {
-					r.Name = v2Name
-					r.Embedded = true
-					if err = writer.Set(ctx, *r); err != nil {
-						return err
-					}
-					ins.L.Info("renamed embedded rack from v1 to v2",
-						zap.String("old", v1Name),
-						zap.String("new", v2Name),
-					)
-					return nil
-				}
-			}
-			return err
-		},
-	)
+type MigrationConfig struct {
+	Status *status.Service
 }
 
-func statusBackfillMigration(cfg ServiceConfig) migrate.Migration {
+func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"status_backfill",
+		"v53_status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			reader := gorp.WrapReader[Key, Rack](tx)
+			reader := gorp.WrapReader[Key, Task](tx)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})
 			if err != nil {
 				return err
@@ -79,21 +41,21 @@ func statusBackfillMigration(cfg ServiceConfig) migrate.Migration {
 				err = errors.Combine(err, iter.Close())
 			}()
 
-			var racks []Rack
+			var tasks []Task
 			for iter.First(); iter.Valid(); iter.Next() {
-				r := iter.Value(ctx)
+				t := iter.Value(ctx)
 				if err = iter.Error(); err != nil {
 					return err
 				}
-				racks = append(racks, *r)
+				tasks = append(tasks, *t)
 			}
-			if len(racks) == 0 {
+			if len(tasks) == 0 {
 				return nil
 			}
 
-			statusKeys := make([]string, len(racks))
-			for i, r := range racks {
-				statusKeys[i] = OntologyID(r.Key).String()
+			statusKeys := make([]string, len(tasks))
+			for i, t := range tasks {
+				statusKeys[i] = OntologyID(t.Key).String()
 			}
 			var existingStatuses []status.Status[StatusDetails]
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
@@ -107,23 +69,24 @@ func statusBackfillMigration(cfg ServiceConfig) migrate.Migration {
 				existingKeys[stat.Key] = true
 			}
 			var missingStatuses []status.Status[StatusDetails]
-			for _, r := range racks {
-				key := OntologyID(r.Key).String()
+			for _, t := range tasks {
+				key := OntologyID(t.Key).String()
 				if !existingKeys[key] {
 					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 						Key:     key,
-						Name:    r.Name,
+						Name:    t.Name,
 						Time:    telem.Now(),
 						Variant: xstatus.VariantWarning,
-						Message: "Status unknown",
-						Details: StatusDetails{Rack: r.Key},
+						Message: fmt.Sprintf("%s status unknown", t.Name),
+						Details: StatusDetails{Task: t.Key},
 					})
 				}
 			}
 			if len(missingStatuses) == 0 {
 				return nil
 			}
-			ins.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
+			ins.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
 			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
-		})
+		},
+	)
 }
