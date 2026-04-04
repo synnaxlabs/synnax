@@ -134,6 +134,14 @@ func (a *addedDeps) Dependencies() set.Set[string] {
 	return deps
 }
 
-func WithAddedDeps(base Migration, deps set.Set[string]) Migration {
-	return &addedDeps{addedDeps: deps, Migration: base}
+func WithAddedDeps(base Migration, deps ...string) Migration {
+	return &addedDeps{addedDeps: set.New(deps...), Migration: base}
+}
+
+func AllWithAddedDeps(migrations []Migration, deps ...string) []Migration {
+	result := make([]Migration, len(migrations))
+	for i, m := range migrations {
+		result[i] = WithAddedDeps(m, deps...)
+	}
+	return result
 }

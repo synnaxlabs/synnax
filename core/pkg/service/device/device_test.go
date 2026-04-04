@@ -744,7 +744,7 @@ var _ = Describe("Device", func() {
 			}).Should(Succeed())
 		})
 	})
-	Describe("Migration", func() {
+	Describe("migration", func() {
 		It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -787,7 +787,7 @@ var _ = Describe("Device", func() {
 				Key:      "migration-device",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
-				Name:     "Migration Test Device",
+				Name:     "migration Test Device",
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 			Expect(status.NewWriter[device.StatusDetails](stat, nil).Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
@@ -811,7 +811,7 @@ var _ = Describe("Device", func() {
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
-			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
+			Expect(restoredStatus.Message).To(Equal("migration Test Device state unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
 			Expect(svc.Close()).To(Succeed())

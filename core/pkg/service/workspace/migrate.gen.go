@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func WorkspaceMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func WorkspaceMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func LogMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func LogMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

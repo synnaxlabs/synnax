@@ -467,7 +467,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
-	Describe("Migration", func() {
+	Describe("migration", func() {
 		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -506,11 +506,11 @@ var _ = Describe("Task", Ordered, func() {
 				Status:   stat,
 				Search:   searchIdx,
 			}))
-			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			testRack := &rack.Rack{Name: "migration Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 			t := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Migration Test Task",
+				Name: "migration Test Task",
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 			Expect(status.NewWriter[task.StatusDetails](stat, nil).Delete(ctx, task.OntologyID(t.Key).String())).To(Succeed())
@@ -534,7 +534,7 @@ var _ = Describe("Task", Ordered, func() {
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
-			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
+			Expect(restoredStatus.Message).To(Equal("migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
 			Expect(svc.Close()).To(Succeed())
 			Expect(rackSvc.Close()).To(Succeed())

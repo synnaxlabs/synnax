@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func LinePlotMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func LinePlotMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

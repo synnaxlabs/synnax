@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func ArcMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func ArcMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func SchematicMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func SchematicMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

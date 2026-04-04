@@ -19,21 +19,24 @@ import (
 	"go.uber.org/zap"
 )
 
-// Migration is a versioned schema migration that transforms entries stored in gorp.
-type Migration struct {
+// migration is a versioned schema migration that transforms entries stored in gorp.
+type migration struct {
 	key          string
 	tx           Tx
 	dependencies set.Set[string]
 	fn           func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
 }
 
-var _ migrate.Migration = (*Migration)(nil)
+var _ migrate.Migration = (*migration)(nil)
 
-func (m *Migration) Key() string { return m.key }
+// Key implements migrate.Migration.
+func (m *migration) Key() string { return m.key }
 
-func (m *Migration) Dependencies() set.Set[string] { return m.dependencies }
+// Dependencies implements migrate.Migration.
+func (m *migration) Dependencies() set.Set[string] { return m.dependencies }
 
-func (m *Migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
+// Run implements migrate.Migration.
+func (m *migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
 	return m.fn(ctx, m.tx, ins)
 }
 
@@ -57,20 +60,21 @@ func shouldLogProgress(entries int) bool {
 	return entries == 1
 }
 
-// NewEntryMigration creates a Migration that iterates over all entries with the
+// NewEntryMigration creates a migration that iterates over all entries with the
 // configured prefix, decodes each as type I, transforms it to type O via the
 // transform function, and encodes the result. Both decoding and encoding use
 // the DB's codec from MigrationContext.
 func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
 	transform func(ctx context.Context, old I) (O, error),
-) *Migration {
+) migrate.Migration {
 	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error {
 		var (
 			reader    = WrapReader[IK, I](tx)
 			writer    = WrapWriter[OK, O](tx)
 			entries   int
 			iter, err = reader.OpenIterator(IterOptions{})
+			newEntry  O
 		)
 		if err != nil {
 			return err
@@ -89,12 +93,12 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 			}
 			old := iter.Value(ctx)
 			if old == nil {
-				if err := iter.Error(); err != nil {
+				if err = iter.Error(); err != nil {
 					return err
 				}
 				continue
 			}
-			newEntry, err := transform(ctx, *old)
+			newEntry, err = transform(ctx, *old)
 			if err != nil {
 				return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
 			}
@@ -107,12 +111,47 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	})
 }
 
-// NewMigration creates a Migration that receives a fully wrapped gorp.Tx,
+// NewMigration creates a migration that receives a fully wrapped gorp.Tx,
 // allowing arbitrary read/write operations on the store.
 func NewMigration(
 	key string,
 	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error,
 	deps ...string,
-) *Migration {
-	return &Migration{key: key, fn: fn, dependencies: set.New(deps...)}
+) migrate.Migration {
+	return &migration{key: key, fn: fn, dependencies: set.New(deps...)}
+}
+
+type MigrateConfig struct {
+	alamos.Instrumentation
+	DB         *DB
+	Namespace  string
+	Migrations []migrate.Migration
+}
+
+func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
+	tx := cfg.DB.OpenTx()
+	defer func() {
+		err = errors.Combine(err, tx.Close())
+	}()
+	for _, mig := range cfg.Migrations {
+		if tMig, ok := mig.(*migration); ok {
+			tMig.tx = tx
+		}
+	}
+	applied, err := readAppliedMigrations(ctx, tx, cfg.Namespace)
+	if err != nil {
+		return err
+	}
+	applied, err = migrate.Migrate(ctx, migrate.Config{
+		Migrations:      cfg.Migrations,
+		Applied:         applied,
+		Instrumentation: cfg.Instrumentation,
+	})
+	if err != nil {
+		return err
+	}
+	if err = writeAppliedMigrations(ctx, tx, cfg.Namespace, applied); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

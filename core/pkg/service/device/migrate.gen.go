@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func DeviceMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func DeviceMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

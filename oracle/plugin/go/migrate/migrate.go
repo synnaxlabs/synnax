@@ -594,8 +594,8 @@ import (
 {{- end}}
 )
 {{range $entry := .Entries}}
-func {{$entry.GoName}}Migrations() []gorp.Migration {
-	return []gorp.Migration{
+func {{$entry.GoName}}Migrations() []migrate.Migration {
+	return []migrate.Migration{
 {{- range $entry.SchemaChanges}}
 {{- if .DependsOn}}
 {{- if .IsIntermediate}}
@@ -708,7 +708,7 @@ import (
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 
-func Migrate{{.GoName}}(ctx gorp.MigrationContext, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
+func Migrate{{.GoName}}(ctx migrate.MigrationContext, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
 	return AutoMigrate{{.GoName}}(ctx, old)
 }
 `))
@@ -737,7 +737,7 @@ import (
 {{- end}}
 )
 {{range .Functions}}
-func Migrate{{.GoName}}(ctx gorp.MigrationContext, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+func Migrate{{.GoName}}(ctx migrate.MigrationContext, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
 	migrated, err := AutoMigrate{{.GoName}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err

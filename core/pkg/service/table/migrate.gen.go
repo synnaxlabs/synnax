@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func TableMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func TableMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

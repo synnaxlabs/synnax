@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func RangeMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func RangeMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

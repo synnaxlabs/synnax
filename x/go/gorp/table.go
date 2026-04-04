@@ -49,43 +49,16 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (_ *Table[K, E], err error) {
-	tableName := types.Name[E]()
-	versionKey := []byte(migrationVersionPrefix + tableName)
-	// Prepend built-in migrations that use the DB's default codec. These run
-	// once and are tracked alongside user migrations. They must execute before
-	// any codec transitions so that all entries are under the current prefix
-	// and key encoding.
-	// Wrap user migrations to depend on normalize_keys so they always run
-	// after key normalization.
-	tx := cfg.DB.OpenTx()
 	wrapped := make([]migrate.Migration, len(cfg.Migrations)+1)
-	wrapped[0] = &normalizeKeysMigration[K, E]{tx: tx}
-	depsToAdd := set.New("normalize_keys")
-	for i, mig := range cfg.Migrations {
-		if tMig, ok := mig.(*Migration); ok {
-			tMig.tx = tx
-		}
-		wrapped[i+1] = migrate.WithAddedDeps(mig, depsToAdd)
-	}
-	defer func() {
-		err = errors.Combine(err, tx.Close())
-	}()
-	applied, err := readAppliedMigrations(ctx, tx, versionKey)
-	if err != nil {
-		return nil, err
-	}
-	applied, err = migrate.Migrate(ctx, migrate.Config{
+	copy(wrapped[1:], cfg.Migrations)
+	wrapped[0] = normalizeKeysMigration[K, E]()
+	migrate.AllWithAddedDeps(wrapped[1:], normalizeKeysMigrationKey)
+	if err = Migrate(ctx, MigrateConfig{
+		DB:              cfg.DB,
+		Namespace:       types.Name[E](),
 		Migrations:      wrapped,
-		Applied:         applied,
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if err = writeAppliedMigrations(ctx, tx, versionKey, applied); err != nil {
-		return nil, err
-	}
-	if err = tx.Commit(ctx); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &Table[K, E]{DB: cfg.DB}, nil
@@ -117,49 +90,44 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	return WrapReader[K, E](t.DB).OpenNexter(ctx)
 }
 
-// normalizeKeysMigration moves entries from the old codec-encoded prefix to the
-// current literal prefix and re-encodes key suffixes to use primitive encoding.
-// Values are decoded with the DB's default codec only to extract GorpKey(); raw
-// value bytes are written back without re-encoding.
-type normalizeKeysMigration[K Key, E Entry[K]] struct{ tx Tx }
+var normalizeKeysMigrationKey = "normalize_keys"
 
-func (m *normalizeKeysMigration[K, E]) Key() string { return "normalize_keys" }
-
-func (m *normalizeKeysMigration[K, E]) Dependencies() set.Set[string] { return nil }
-
-func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, _ alamos.Instrumentation) error {
-	kc := newKeyCodec[K, E]()
-	oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
-	if err != nil {
-		return err
-	}
-	// Phase 1: move entries from old prefix to new prefix + new key encoding.
-	if string(oldPrefix) != string(kc.prefix) {
-		itr, err := m.tx.OpenIterator(kv.IterPrefix(oldPrefix))
+func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
+	return NewMigration(normalizeKeysMigrationKey, func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
+		kc := newKeyCodec[K, E]()
+		oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
 		if err != nil {
 			return err
 		}
+		if string(oldPrefix) == string(kc.prefix) {
+			return nil
+		}
+		itr, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Combine(err, itr.Close())
+		}()
 		for itr.First(); itr.Valid(); itr.Next() {
 			rawValue := itr.Value()
 			var entry E
-			if err = m.tx.Decode(ctx, rawValue, &entry); err != nil {
-				return errors.Combine(
-					errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key()),
-					itr.Close(),
-				)
+			if err = tx.Decode(ctx, rawValue, &entry); err != nil {
+				return errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key())
 			}
-			if err = m.tx.Delete(ctx, itr.Key()); err != nil {
-				return errors.Combine(err, itr.Close())
+			if err = tx.Delete(ctx, itr.Key()); err != nil {
+				return err
 			}
-			if err = m.tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
-				return errors.Combine(err, itr.Close())
+			if err = tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
+				return err
 			}
 		}
-		if err = itr.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
+}
+
+func migrationKey(namespace string) []byte {
+	return []byte(migrationVersionPrefix + namespace)
 }
 
 // readAppliedMigrations reads the set of applied migration names from the KV
@@ -167,8 +135,9 @@ func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, _ alamos.Instrum
 func readAppliedMigrations(
 	ctx context.Context,
 	tx Tx,
-	key []byte,
+	namespace string,
 ) (applied set.Set[string], err error) {
+	key := migrationKey(namespace)
 	b, closer, getErr := tx.Get(ctx, key)
 	if getErr != nil {
 		if errors.Is(getErr, query.ErrNotFound) {
@@ -195,9 +164,10 @@ func readAppliedMigrations(
 func writeAppliedMigrations(
 	ctx context.Context,
 	tx Tx,
-	key []byte,
+	namespace string,
 	applied set.Set[string],
 ) error {
+	key := migrationKey(namespace)
 	names := applied.ToSlice()
 	sort.Strings(names)
 	b, err := json.Marshal(names)

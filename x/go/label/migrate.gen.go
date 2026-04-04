@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func LabelMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func LabelMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

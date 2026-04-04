@@ -15,6 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-func ChannelMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func ChannelMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

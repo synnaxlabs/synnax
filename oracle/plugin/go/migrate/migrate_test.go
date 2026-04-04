@@ -500,7 +500,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("_ gorp.MigrationContext"))
+				Expect(content).To(ContainSubstring("_ migrate.MigrationContext"))
 				Expect(content).To(ContainSubstring(`"github.com/synnaxlabs/x/gorp"`))
 			})
 		})
@@ -905,7 +905,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
 			content := fileContent(resp, "migrate_auto.gen.go")
-			Expect(content).To(ContainSubstring("gorp.MigrationContext"))
+			Expect(content).To(ContainSubstring("migrate.MigrationContext"))
 			Expect(content).To(ContainSubstring("error"))
 			Expect(content).To(ContainSubstring("if err != nil"))
 		})

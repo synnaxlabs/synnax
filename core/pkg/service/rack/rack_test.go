@@ -531,7 +531,7 @@ var _ = Describe("Rack", Ordered, func() {
 	})
 })
 
-var _ = Describe("Migration", func() {
+var _ = Describe("migration", func() {
 	var (
 		db        *gorp.DB
 		otg       *ontology.Ontology

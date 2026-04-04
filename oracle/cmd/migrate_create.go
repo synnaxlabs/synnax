@@ -53,7 +53,7 @@ import (
 
 // New{{.PascalName}}Migration creates a hand-written migration.
 // TODO: implement migration logic.
-func New{{.PascalName}}Migration() gorp.Migration {
+func New{{.PascalName}}Migration() migrate.Migration {
 	return gorp.WithDependencies(
 		gorp.NewRawMigration("{{.Name}}", func(ctx context.Context, tx gorp.Tx) error {
 			// TODO: implement
