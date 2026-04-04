@@ -7,13 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  ontologyID,
-  type Policy,
-  policyZ,
-  TYPE_ONTOLOGY_ID,
-} from "@/access/policy/types.gen";
+// Exported as access for compatibility with policy generated types.
+export * as access from "@/access/action/types.gen";

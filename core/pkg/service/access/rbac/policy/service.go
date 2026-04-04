@@ -18,11 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v49"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -70,13 +68,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	v49Mig := v54.Migration()
-	oracleMigrations := migrate.AllWithAddedDeps(PolicyMigrations(), v49Mig.Key())
-	migrations := append([]migrate.Migration{v49Mig}, oracleMigrations...)
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-		Migrations:      migrations,
+		Migrations:      PolicyMigrations(),
 	})
 	if err != nil {
 		return nil, err

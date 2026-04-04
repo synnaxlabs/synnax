@@ -12,9 +12,10 @@
 package policy
 
 import (
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 func PolicyMigrations() []migrate.Migration {
-	return []migrate.Migration{}
+	return []migrate.Migration{v0.Migration()}
 }

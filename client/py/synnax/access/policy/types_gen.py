@@ -16,33 +16,30 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax import access, ontology
+from synnax import ontology
+from synnax.access import action
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
 
 
 class Policy(BaseModel):
-    """Is an access control policy that defines which actions are permitted on
-    which resources. Policies are attached to roles, and roles are assigned
-    to users via ontology relationships.
+    """Contains parameters for creating a new policy.
 
     Attributes:
-        key: Is the unique identifier for this policy.
+        key: Is an optional key for the policy. If not provided, one will be
+            automatically assigned.
         name: Is a human-readable name for the policy.
         objects: Is the list of ontology resources this policy applies to.
         actions: Is the list of actions this policy permits.
         internal: Is true if this is a built-in system policy that cannot be deleted.
     """
 
-    key: Key
+    key: Key | None = None
     name: str
     objects: list[ontology.ID]
-    actions: list[access.Action]
+    actions: list[action.Action]
     internal: bool | None = None
-
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 ONTOLOGY_TYPE = ID(type="policy")
