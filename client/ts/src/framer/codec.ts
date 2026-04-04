@@ -187,8 +187,9 @@ export class Codec {
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
       view.setBigUint64(offset, startTime?.valueOf() ?? 0n, true);
+      offset += TIMESTAMP_SIZE;
       view.setBigUint64(offset, endTime?.valueOf() ?? 0n, true);
-      offset += TIMESTAMP_SIZE * 2;
+      offset += TIMESTAMP_SIZE;
     }
 
     if (equalAlignmentsFlag && !zeroAlignmentsFlag) {
