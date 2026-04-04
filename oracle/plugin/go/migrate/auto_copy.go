@@ -106,11 +106,11 @@ import (
 )
 {{range $fn := .Funcs}}
 {{- if eq $fn.Kind "cast"}}
-func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} migrate.MigrationContext, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	return {{$fn.NewTypeName}}(old), nil
 }
 {{else if eq $fn.Kind "slice"}}
-func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} migrate.MigrationContext, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	result := make({{$fn.NewTypeName}}, len(old))
 	for i, v := range old {
 {{- if $fn.SliceHasErr}}
@@ -125,7 +125,7 @@ func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} migrate.M
 	return result, nil
 }
 {{else if eq $fn.Kind "struct"}}
-func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} migrate.MigrationContext, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- range $fn.Preamble}}
 {{- if eq .Kind "migrate"}}
 	{{.VarName}}, err := {{.Call}}
@@ -196,9 +196,9 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		c.pending = c.pending[1:]
 		c.ensureFunc(typ)
 	}
-	// Always import gorp because every AutoMigrate function signature
-	// includes migrate.MigrationContext as a parameter.
-	imps := []importEntry{{Path: "github.com/synnaxlabs/x/gorp"}}
+	// Always import context because every AutoMigrate function signature
+	// includes context.Context as a parameter.
+	imps := []importEntry{{Path: "context"}}
 	for _, imp := range c.imports {
 		imps = append(imps, imp)
 	}

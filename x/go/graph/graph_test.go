@@ -12,6 +12,7 @@ package graph_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/query"
 
 	"github.com/synnaxlabs/x/graph"
 	. "github.com/synnaxlabs/x/testutil"
@@ -273,10 +274,10 @@ var _ = Describe("TopoSort", func() {
 		})).Error().To(MatchError(graph.ErrCyclicDependency))
 	})
 
-	It("Should return ErrMissingDependency for an unknown dependency", func() {
+	It("Should return query.ErrNotFound for an unknown dependency", func() {
 		Expect(graph.TopoSort(map[string][]string{
 			"a": {"b"},
-		})).Error().To(MatchError(graph.ErrMissingDependency))
+		})).Error().To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should include node names in missing dependency error", func() {
