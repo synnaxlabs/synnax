@@ -20,20 +20,19 @@ from synnax.status.types_gen import (
 )
 from synnax.util.deprecation import deprecated_getattr
 
-VARIANT_SUCCESS: Variant = "success"
-VARIANT_INFO: Variant = "info"
-VARIANT_WARNING: Variant = "warning"
-VARIANT_ERROR: Variant = "error"
-VARIANT_LOADING: Variant = "loading"
-VARIANT_DISABLED: Variant = "disabled"
-
 _DEPRECATED = {
-    "SUCCESS_VARIANT": "VARIANT_SUCCESS",
-    "INFO_VARIANT": "VARIANT_INFO",
-    "WARNING_VARIANT": "VARIANT_WARNING",
-    "ERROR_VARIANT": "VARIANT_ERROR",
-    "DISABLED_VARIANT": "VARIANT_DISABLED",
-    "LOADING_VARIANT": "VARIANT_LOADING",
+    "VARIANT_SUCCESS": '"success"',
+    "VARIANT_INFO": '"info"',
+    "VARIANT_WARNING": '"warning"',
+    "VARIANT_ERROR": '"error"',
+    "VARIANT_LOADING": '"loading"',
+    "VARIANT_DISABLED": '"disabled"',
+    "SUCCESS_VARIANT": '"success"',
+    "INFO_VARIANT": '"info"',
+    "WARNING_VARIANT": '"warning"',
+    "ERROR_VARIANT": '"error"',
+    "DISABLED_VARIANT": '"disabled"',
+    "LOADING_VARIANT": '"loading"',
 }
 
 __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
@@ -44,11 +43,6 @@ __all__ = [
     "ONTOLOGY_TYPE",
     "SET_CHANNEL",
     "Status",
-    "VARIANT_DISABLED",
-    "VARIANT_ERROR",
-    "VARIANT_INFO",
-    "VARIANT_LOADING",
-    "VARIANT_SUCCESS",
     "Variant",
     "ontology_id",
 ]

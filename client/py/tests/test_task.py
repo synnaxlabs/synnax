@@ -52,7 +52,7 @@ class TestTaskClient:
                 client.statuses.set(
                     sy.Status(
                         key=str(sy.task.ontology_id(cmd["task"])),
-                        variant=sy.status.Variant.SUCCESS,
+                        variant="success",
                         message="Command executed.",
                         details=sy.task.StatusDetails(
                             task=int(cmd["task"]),
@@ -81,7 +81,7 @@ class TestTaskClient:
                 client.statuses.set(
                     sy.Status(
                         key=str(sy.task.ontology_id(int(key))),
-                        variant=sy.status.Variant.SUCCESS,
+                        variant="success",
                         message="Task configured.",
                         details=sy.task.StatusDetails(task=int(key), running=False),
                     )
@@ -106,7 +106,7 @@ class TestTaskClient:
                 client.statuses.set(
                     sy.Status(
                         key=str(sy.task.ontology_id(int(key))),
-                        variant=sy.status.Variant.ERROR,
+                        variant="error",
                         message="Invalid Configuration.",
                         details=sy.task.StatusDetails(task=int(key), running=False),
                     )

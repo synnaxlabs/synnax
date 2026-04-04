@@ -14,7 +14,15 @@ from collections.abc import Callable, Mapping
 
 
 def _resolve(target: str, module_globals: dict[str, object]) -> object:
-    """Resolves a dotted name like 'Variant.SUCCESS' against module globals."""
+    """Resolves a target against module globals.
+
+    Supports:
+    - Dotted paths like 'Variant.SUCCESS' (resolved via getattr chain)
+    - Simple names like 'NewName' (looked up in globals)
+    - Quoted literals like '"success"' (returned as the unquoted string)
+    """
+    if target.startswith('"') and target.endswith('"'):
+        return target[1:-1]
     parts = target.split(".")
     val = module_globals[parts[0]]
     for part in parts[1:]:

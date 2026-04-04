@@ -99,6 +99,16 @@ class TestDeprecatedGetattr:
             _ = mod.OLD_RED
         assert len(w) == 0
 
+    def test_quoted_literal_value(self):
+        """Should return unquoted string for quoted literal targets."""
+        mod = _make_module({"OLD_CONST": '"some_value"'})
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", DeprecationWarning)
+            result = mod.OLD_CONST
+        assert result == "some_value"
+        assert len(w) == 1
+        assert 'use "some_value" instead' in str(w[0].message)
+
     def test_multiple_deprecated_names(self):
         """Should handle multiple deprecated names independently."""
         mod = _make_module(
