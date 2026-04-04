@@ -190,11 +190,11 @@ func Open(
 }
 
 func (c *Calculator) WriteTo() channel.Keys {
-	return c.stateCfg.Writes.Keys()
+	return c.stateCfg.Writes.ToSlice()
 }
 
 func (c *Calculator) ReadFrom() channel.Keys {
-	return c.stateCfg.Reads.Keys()
+	return c.stateCfg.Reads.ToSlice()
 }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }

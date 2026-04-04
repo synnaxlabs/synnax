@@ -214,7 +214,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}))
 
 	drt.startTime = telem.Now()
-	drt.writeKeys = stateCfg.Writes.Keys()
+	drt.writeKeys = stateCfg.Writes.ToSlice()
 
 	pipeline := plumber.New()
 
@@ -232,7 +232,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		var streamer framer.Streamer
 		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
-			framer.StreamerConfig{Keys: stateCfg.Reads.Keys()},
+			framer.StreamerConfig{Keys: stateCfg.Reads.ToSlice()},
 		)
 		if err != nil {
 			t.setStatus(ctx, status.VariantError, false, err.Error())
@@ -249,9 +249,9 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}
 
 	if len(stateCfg.Writes) > 0 {
-		// Critical: Keys is extracted from a map, so we need to convert it to a
+		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
-		writeKeys := stateCfg.Writes.Keys()
+		writeKeys := stateCfg.Writes.ToSlice()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,
