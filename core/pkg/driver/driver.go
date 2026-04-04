@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -31,8 +32,7 @@ type Config struct {
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
-	// Username sets the username to authenticate to the cluster with.
-	Username string `json:"username"`
+	Credentials auth.InsecureCredentials
 	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
 	// communication. Not required if the CA is universally recognized or already
 	// installed on the users' system.
@@ -45,8 +45,6 @@ type Config struct {
 	ClientKeyFile string `json:"client_key_file"`
 	// Address is the reachable address of the cluster for the driver to connect to.
 	Address address.Address `json:"address"`
-	// Password sets the password to authenticate to the cluster with.
-	Password string `json:"password"`
 	// ParentDirname is the parent directory in which the driver will create a 'driver'
 	// directory to extract and execute the driver binary and extract configuration files
 	// into.
@@ -86,8 +84,7 @@ func (c Config) format() map[string]any {
 		"connection": map[string]any{
 			"host":             c.Address.Host(),
 			"port":             c.Address.Port(),
-			"username":         c.Username,
-			"password":         c.Password,
+			"credentials":      c.Credentials,
 			"ca_cert_file":     c.CACertPath,
 			"client_cert_file": c.ClientCertFile,
 			"client_key_file":  c.ClientKeyFile,
@@ -148,8 +145,7 @@ func (c Config) Override(other Config) Config {
 	c.CACertPath = override.String(c.CACertPath, other.CACertPath)
 	c.ClientCertFile = override.String(c.ClientCertFile, other.ClientCertFile)
 	c.ClientKeyFile = override.String(c.ClientKeyFile, other.ClientKeyFile)
-	c.Username = override.String(c.Username, other.Username)
-	c.Password = override.String(c.Password, other.Password)
+	c.Credentials = override.Zero(c.Credentials, other.Credentials)
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)

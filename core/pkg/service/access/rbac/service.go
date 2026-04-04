@@ -19,11 +19,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v49"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xmigrate "github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,6 +38,7 @@ type ServiceConfig struct {
 	Signals  *signals.Provider
 	Group    *group.Service
 	Search   *search.Index
+	User     *user.Service
 }
 
 var (
@@ -50,6 +54,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.User = override.Nil(c.User, other.User)
 	return c
 }
 
@@ -88,6 +93,7 @@ func (s *Service) RetrievePoliciesForSubject(
 }
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
+// It also provisions built-in roles/policies and runs legacy permission migrations.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
@@ -114,11 +120,45 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, errors.Combine(err, policyService.Close())
 	}
-	return &Service{
+	s := &Service{
 		Policy: policyService,
 		Role:   roleService,
 		cfg:    cfg,
-	}, nil
+	}
+
+	// Provision built-in roles and policies. This is idempotent and runs every
+	// startup to ensure policy definitions stay up to date.
+	tx := cfg.DB.OpenTx()
+	roles, err := s.provision(ctx, tx)
+	if err != nil {
+		return nil, errors.Join(err, tx.Close(), policyService.Close(), roleService.Close())
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, errors.Join(err, tx.Close(), policyService.Close(), roleService.Close())
+	}
+
+	// Phase 2 migration assigns users to roles based on the legacy mapping
+	// extracted by Phase 1 in the policy package. This runs after provisioning
+	// so the built-in roles exist in the ontology.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.DB,
+		Namespace:       "rbac",
+		Migrations: []xmigrate.Migration{v49.Migration(v49.MigrationConfig{
+			User:     cfg.User,
+			Ontology: cfg.Ontology,
+			Role:     roleService,
+			Roles: v49.ProvisionResult{
+				OwnerKey:    roles.ownerKey,
+				EngineerKey: roles.engineerKey,
+				OperatorKey: roles.operatorKey,
+				ViewerKey:   roles.viewerKey,
+			},
+		})},
+	}); err != nil {
+		return nil, errors.Join(err, policyService.Close(), roleService.Close())
+	}
+	return s, nil
 }
 
 func (e *Enforcer) retrievePolicies(

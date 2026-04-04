@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package access
+package rbac
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 )
 
-// allObjects is the complete list of ontology types used for permission definitions.
 var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypeLabel},
 	{Type: ontology.ResourceTypeLog},
@@ -44,7 +43,6 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypeView},
 }
 
-// Owner role - Full control of deployment, including user registration and security.
 var (
 	ownerRoleName = "Owner"
 	ownerRole     = role.Role{
@@ -60,7 +58,6 @@ var (
 	}
 )
 
-// Engineer role - Full access to system configuration, except for user management.
 var (
 	engineerRoleName = "Engineer"
 	engineerRole     = role.Role{
@@ -109,7 +106,6 @@ var (
 	}
 )
 
-// Operator role - Can view workspaces and control hardware tasks, cannot modify config.
 var (
 	operatorRoleName = "Operator"
 	operatorRole     = role.Role{
@@ -136,7 +132,6 @@ var (
 	}
 )
 
-// Viewer role - View access to all resources.
 var (
 	viewerRoleName = "Viewer"
 	viewerRole     = role.Role{

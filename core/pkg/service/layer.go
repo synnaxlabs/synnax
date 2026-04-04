@@ -63,6 +63,11 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// RootCredentials are the credentials for the root user. If provided, the root
+	// user will be provisioned during service layer initialization.
+	//
+	// [OPTIONAL]
+	RootCredentials auth.InsecureCredentials
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -83,6 +88,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -166,11 +172,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		err = cleanup(err)
 	}()
 
+	var authKV *auth.KV
+	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
+		Instrumentation: cfg.Child("auth"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, authKV) {
+		return nil, err
+	}
+	l.Auth = authKV
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Auth:            authKV,
+		RootCredentials: cfg.RootCredentials,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -181,18 +197,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         cfg.Distribution.Signals,
 		Group:           cfg.Distribution.Group,
 		Search:          cfg.Distribution.Search,
+		User:            l.User,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-
-	var authKV *auth.KV
-	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
-		Instrumentation: cfg.Child("auth"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, authKV) {
-		return nil, err
-	}
-	l.Auth = authKV
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,

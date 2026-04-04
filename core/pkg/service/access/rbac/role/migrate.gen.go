@@ -12,9 +12,9 @@
 package role
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func RoleMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func RoleMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

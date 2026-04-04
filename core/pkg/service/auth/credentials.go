@@ -22,6 +22,10 @@ type InsecureCredentials struct {
 	Password password.Raw `json:"password"  msgpack:"password"`
 }
 
+func (i InsecureCredentials) IsZero() bool {
+	return len(i.Username) == 0 && len(i.Password) == 0
+}
+
 // Validate validates the InsecureCredentials.
 func (i InsecureCredentials) Validate() error {
 	v := validate.New("auth.insecure_credentials")
