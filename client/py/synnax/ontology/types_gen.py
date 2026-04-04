@@ -11,31 +11,31 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from typing import Literal
 
-
-class ResourceType(StrEnum):
-    ARC = "arc"
-    BUILTIN = "builtin"
-    CHANNEL = "channel"
-    CLUSTER = "cluster"
-    DEVICE = "device"
-    FRAMER = "framer"
-    GROUP = "group"
-    LABEL = "label"
-    LINEPLOT = "lineplot"
-    LOG = "log"
-    NODE = "node"
-    POLICY = "policy"
-    RACK = "rack"
-    RANGE = "range"
-    RANGE_ALIAS = "range-alias"
-    ROLE = "role"
-    SCHEMATIC = "schematic"
-    SCHEMATIC_SYMBOL = "schematic_symbol"
-    STATUS = "status"
-    TABLE = "table"
-    TASK = "task"
-    USER = "user"
-    VIEW = "view"
-    WORKSPACE = "workspace"
+ResourceType = Literal[
+    "arc",
+    "builtin",
+    "channel",
+    "cluster",
+    "device",
+    "framer",
+    "group",
+    "label",
+    "lineplot",
+    "log",
+    "node",
+    "policy",
+    "rack",
+    "range",
+    "range-alias",
+    "role",
+    "schematic",
+    "schematic_symbol",
+    "status",
+    "table",
+    "task",
+    "user",
+    "view",
+    "workspace",
+]

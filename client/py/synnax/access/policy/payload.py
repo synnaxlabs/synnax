@@ -18,6 +18,11 @@ from synnax import ontology
 from synnax.access.types_gen import Action
 from synnax.util.deprecation import deprecated_getattr
 
+ACTION_CREATE: Action = "create"
+ACTION_DELETE: Action = "delete"
+ACTION_RETRIEVE: Action = "retrieve"
+ACTION_UPDATE: Action = "update"
+
 
 class Policy(BaseModel):
     key: UUID | None = None
@@ -32,14 +37,10 @@ def ontology_id(key: UUID | None = None) -> ontology.ID:
 
 
 _DEPRECATED = {
-    "ACTION_CREATE": "Action.CREATE",
-    "ACTION_DELETE": "Action.DELETE",
-    "ACTION_RETRIEVE": "Action.RETRIEVE",
-    "ACTION_UPDATE": "Action.UPDATE",
-    "CREATE_ACTION": "Action.CREATE",
-    "DELETE_ACTION": "Action.DELETE",
-    "RETRIEVE_ACTION": "Action.RETRIEVE",
-    "UPDATE_ACTION": "Action.UPDATE",
+    "CREATE_ACTION": "ACTION_CREATE",
+    "DELETE_ACTION": "ACTION_DELETE",
+    "RETRIEVE_ACTION": "ACTION_RETRIEVE",
+    "UPDATE_ACTION": "ACTION_UPDATE",
 }
 
 __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

@@ -218,7 +218,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`state: TaskState`))
 		})
 
-		It("Should generate StrEnum for string enums", func(ctx SpecContext) {
+		It("Should generate Literal type for string enums", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -243,43 +243,9 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`from enum import StrEnum`))
-			Expect(content).To(ContainSubstring(`class DataType(StrEnum):`))
-			Expect(content).To(ContainSubstring(`FLOAT_32 = "float32"`))
-			Expect(content).To(ContainSubstring(`FLOAT_64 = "float64"`))
-			Expect(content).To(ContainSubstring(`INT_32 = "int32"`))
-			Expect(content).NotTo(ContainSubstring(`DATA_TYPE_FLOAT_32`))
-		})
-
-		It("Should generate StrEnum with screaming snake case members for multi-word enum names", func(ctx SpecContext) {
-			source := `
-				@py output "out"
-
-				OperationType enum {
-					min  = "min"
-					max  = "max"
-					none = "none"
-				}
-
-				Config struct {
-					op OperationType
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`class OperationType(StrEnum):`))
-			Expect(content).To(ContainSubstring(`MIN = "min"`))
-			Expect(content).To(ContainSubstring(`MAX = "max"`))
-			Expect(content).To(ContainSubstring(`NONE = "none"`))
+			Expect(content).To(ContainSubstring(`from typing import Literal`))
+			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
+			Expect(content).NotTo(ContainSubstring(`DATA_TYPE_`))
 		})
 
 		Context("primitive type mappings", func() {

@@ -227,6 +227,7 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 		return enumData{Name: typ.Name}
 	}
 	values := make([]enumValueData, 0, len(form.Values))
+	var literalValues []string
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
 			Name:      v.Name,
@@ -234,16 +235,20 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 			IntValue:  v.IntValue(),
 			IsIntEnum: form.IsIntEnum,
 		})
+		if !form.IsIntEnum {
+			literalValues = append(literalValues, fmt.Sprintf("%q", v.StringValue()))
+		}
 	}
 	if form.IsIntEnum {
 		data.imports.addEnum("IntEnum")
 	} else {
-		data.imports.addEnum("StrEnum")
+		data.imports.addTyping("Literal")
 	}
 	return enumData{
-		Name:      typ.Name,
-		Values:    values,
-		IsIntEnum: form.IsIntEnum,
+		Name:          typ.Name,
+		Values:        values,
+		IsIntEnum:     form.IsIntEnum,
+		LiteralValues: strings.Join(literalValues, ", "),
 	}
 }
 
@@ -1323,9 +1328,10 @@ type fieldData struct {
 }
 
 type enumData struct {
-	Name      string
-	Values    []enumValueData
-	IsIntEnum bool
+	Name          string
+	LiteralValues string
+	Values        []enumValueData
+	IsIntEnum     bool
 }
 
 type enumValueData struct {
@@ -1447,10 +1453,7 @@ class {{ .Name }}(IntEnum):
 {{- else }}
 
 
-class {{ .Name }}(StrEnum):
-{{- range .Values }}
-    {{ screamingSnake .Name }} = "{{ .Value }}"
-{{- end }}
+{{ .Name }} = Literal[{{ .LiteralValues }}]
 {{- end }}
 {{- end }}
 {{- range .TypeVars }}
