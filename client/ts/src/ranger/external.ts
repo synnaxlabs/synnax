@@ -31,5 +31,6 @@ export {
   /** @deprecated Use {@link kv.createPairKey} instead. */
   createPairKey as kvPairKey,
 } from "@/ranger/kv/payload";
+export * from "@/ranger/payload";
 export * from "@/ranger/types.gen";
 export * from "@/ranger/writer";
