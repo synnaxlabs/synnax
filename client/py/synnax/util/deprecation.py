@@ -32,24 +32,32 @@ def _resolve(target: str, module_globals: dict[str, object]) -> object:
 
 def deprecated_getattr(
     module_name: str,
-    deprecated: Mapping[str, str],
+    deprecated: Mapping[str, str | tuple[str, str]],
     module_globals: dict[str, object],
 ) -> Callable[[str], object]:
     """Creates a module-level __getattr__ that warns on deprecated name access.
 
     :param module_name: The module's __name__ (used in AttributeError messages).
-    :param deprecated: Mapping of old_name to new_name. new_name supports dotted
-        paths (e.g. "Variant.SUCCESS") resolved against module_globals.
+    :param deprecated: Mapping of old_name to one of:
+        - A string target resolved via _resolve (supports dotted paths,
+          quoted literals, or simple globals lookups).
+        - A tuple (display_name, globals_key) where display_name is shown
+          in the warning and globals_key is looked up in module_globals.
     :param module_globals: The module's globals() dict to resolve new names from.
     :returns: A __getattr__ function suitable for assignment at module level.
     """
 
     def __getattr__(name: str) -> object:
         if name in deprecated:
-            target = deprecated[name]
-            val = _resolve(target, module_globals)
+            entry = deprecated[name]
+            if isinstance(entry, tuple):
+                display_name, globals_key = entry
+                val = module_globals[globals_key]
+            else:
+                display_name = entry
+                val = _resolve(entry, module_globals)
             warnings.warn(
-                f"{name} is deprecated, use {target} instead",
+                f"{name} is deprecated, use {display_name} instead",
                 DeprecationWarning,
                 stacklevel=2,
             )

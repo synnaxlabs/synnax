@@ -11,6 +11,7 @@ import types
 import warnings
 
 import pytest
+from enum import StrEnum
 
 from synnax.util.deprecation import deprecated_getattr
 
@@ -68,7 +69,6 @@ class TestDeprecatedGetattr:
 
     def test_dotted_resolution(self):
         """Should resolve dotted paths like 'Enum.MEMBER' via getattr."""
-        from enum import StrEnum
 
         class Color(StrEnum):
             RED = "red"
@@ -85,7 +85,6 @@ class TestDeprecatedGetattr:
 
     def test_dotted_resolution_caches(self):
         """Should cache after first access with dotted resolution."""
-        from enum import StrEnum
 
         class Color(StrEnum):
             RED = "red"
