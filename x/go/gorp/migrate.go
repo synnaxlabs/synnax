@@ -113,6 +113,9 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 
 // NewMigration creates a migration that receives a fully wrapped gorp.Tx,
 // allowing arbitrary read/write operations on the store.
+//
+// The returned migrate.Migration will ONLY work properly when run within the
+// context of gorp.OpenTable or gorp.Migrate.
 func NewMigration(
 	key string,
 	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error,
@@ -129,16 +132,16 @@ type MigrateConfig struct {
 }
 
 func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
-	tx := cfg.DB.OpenTx()
+	txn := cfg.DB.OpenTx()
 	defer func() {
-		err = errors.Combine(err, tx.Close())
+		err = errors.Combine(err, txn.Close())
 	}()
 	for _, mig := range cfg.Migrations {
 		if tMig, ok := mig.(*migration); ok {
-			tMig.tx = tx
+			tMig.tx = txn
 		}
 	}
-	applied, err := readAppliedMigrations(ctx, tx, cfg.Namespace)
+	applied, err := readAppliedMigrations(ctx, txn, cfg.Namespace)
 	if err != nil {
 		return err
 	}
@@ -150,8 +153,8 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = writeAppliedMigrations(ctx, tx, cfg.Namespace, applied); err != nil {
+	if err = writeAppliedMigrations(ctx, txn, cfg.Namespace, applied); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	return txn.Commit(ctx)
 }

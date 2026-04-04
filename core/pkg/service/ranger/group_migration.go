@@ -28,28 +28,32 @@ import (
 func groupMigration(cfg ServiceConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
 			ins.L.Debug("swapping invalid time ranges")
-			writer := gorp.WrapWriter[Key, Range](tx)
-			iter, err := gorp.WrapReader[Key, Range](tx).OpenIterator(gorp.IterOptions{})
+			var (
+				writer = gorp.WrapWriter[Key, Range](tx)
+				reader = gorp.WrapReader[Key, Range](tx)
+			)
+			iter, err := reader.OpenIterator(gorp.IterOptions{})
 			if err != nil {
 				return err
 			}
 			defer func() {
 				err = errors.Combine(err, iter.Close())
 			}()
+			rangeMap := make(map[uuid.UUID]Range)
 			for iter.First(); iter.Valid(); iter.Next() {
 				rng := iter.Value(ctx)
-				if err := iter.Error(); err != nil {
+				if err = iter.Error(); err != nil {
 					return errors.Wrap(err, "invalid range")
 				}
-				if rng.TimeRange.Valid() {
-					continue
+				if !rng.TimeRange.Valid() {
+					rng.TimeRange = rng.TimeRange.MakeValid()
+					if err = writer.Set(ctx, *rng); err != nil {
+						return err
+					}
 				}
-				rng.TimeRange = rng.TimeRange.MakeValid()
-				if err = writer.Set(ctx, *rng); err != nil {
-					return err
-				}
+				rangeMap[rng.Key] = *rng
 			}
 
 			var topLevelGroup group.Group
@@ -86,23 +90,6 @@ func groupMigration(cfg ServiceConfig) migrate.Migration {
 			}
 			if err := cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
 				return err
-			}
-
-			rangeMap := make(map[uuid.UUID]Range)
-			reader := gorp.WrapReader[Key, Range](tx)
-			iter, err = reader.OpenIterator(gorp.IterOptions{})
-			if err != nil {
-				return err
-			}
-			defer func() {
-				err = errors.Combine(err, iter.Close())
-			}()
-			for iter.First(); iter.Valid(); iter.Next() {
-				v := iter.Value(ctx)
-				if err = iter.Error(); err != nil {
-					return err
-				}
-				rangeMap[v.Key] = *v
 			}
 
 			for _, g := range groups {

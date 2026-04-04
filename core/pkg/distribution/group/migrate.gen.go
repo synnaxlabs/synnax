@@ -12,7 +12,7 @@
 package group
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func GroupMigrations() []migrate.Migration {

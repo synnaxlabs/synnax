@@ -12,7 +12,7 @@
 package ranger
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func RangeMigrations() []migrate.Migration {

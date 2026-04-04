@@ -12,7 +12,7 @@
 package label
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func LabelMigrations() []migrate.Migration {

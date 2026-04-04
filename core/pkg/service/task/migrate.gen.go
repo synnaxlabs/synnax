@@ -12,7 +12,7 @@
 package task
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func TaskMigrations() []migrate.Migration {

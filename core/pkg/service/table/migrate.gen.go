@@ -12,7 +12,7 @@
 package table
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func TableMigrations() []migrate.Migration {

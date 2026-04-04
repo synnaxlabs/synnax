@@ -12,7 +12,7 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func SchematicMigrations() []migrate.Migration {
