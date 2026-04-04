@@ -136,7 +136,7 @@ class StatusLifecycle(ConsoleCase):
         error_status_name = f"ErrorStatus_{self.suffix}"
         self.client.statuses.set(
             sy.Status(
-                variant=sy.status.Variant.ERROR,
+                variant="error",
                 message="Error for filter test",
                 name=error_status_name,
             )
