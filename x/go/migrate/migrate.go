@@ -7,147 +7,101 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package migrate provides utilities for handling data migrations between different
-// versions of a schema or data structure.
 package migrate
 
 import (
 	"context"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/version"
+	"github.com/synnaxlabs/x/graph"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
-// Migratable represents a type that can be migrated between versions
-type Migratable interface {
-	GetVersion() version.Counter
+// Migration is a high level interface that represents an abstract data migration.
+// A migration only runs once. It is identified by its key, which must be unique
+// across all migrations that are run together.
+type Migration interface {
+	// Key returns a unique identifier for the migration.
+	Key() string
+	// Dependencies returns a list of migration keys that this migration depends on.
+	Dependencies() []string
+	// Run executes the migration.
+	Run(ctx context.Context) error
 }
 
-// Context is provided for use by each migration.
-type Context struct {
-	// Context is the underlying std. context.
-	context.Context
-	// Instrumentation can be used for logging, tracing, etc.
+type Config struct {
 	alamos.Instrumentation
+	Migrations []Migration
+	Applied    set.Set[string]
 }
 
-// Migration represents a function that can migrate data from one version to another
-type Migration[I, O Migratable] func(Context, I) (O, error)
-
-// MigrationConfig holds the configuration for creating a migration
-type MigrationConfig[I, O Migratable] struct {
-	// Migrate is the migration function.
-	Migrate Migration[I, O]
-	// Name is the name of the migration
-	Name string
-}
-
-// CreateMigration creates a new migration with logging
-func CreateMigration[I, O Migratable](cfg MigrationConfig[I, O]) Migration[Migratable, Migratable] {
-	return func(ctx Context, input Migratable) (Migratable, error) {
-		var zero O
-		out, err := cfg.Migrate(ctx, input.(I))
-		if err != nil {
-			ctx.L.Error("migration failed",
-				zap.String("module", cfg.Name),
-				zap.Int("input_version", int(input.GetVersion())),
-				zap.Int("output_version", int(out.GetVersion())), zap.Error(err))
-			return zero, errors.Wrapf(err, "migration %s failed for version %s to %s", cfg.Name, input.GetVersion(), out.GetVersion())
-		}
-		ctx.L.Info("migration completed",
-			zap.String("module", cfg.Name),
-			zap.Int("input_version", int(input.GetVersion())),
-			zap.Int("output_version", int(out.GetVersion())),
-		)
-		return out, nil
-	}
-}
-
-// Migrations is a map of version strings to migration functions
-type Migrations map[version.Counter]Migration[Migratable, Migratable]
-
-// LatestVersion returns the most recent (highest) version in the migrations.
-func (m Migrations) LatestVersion() version.Counter {
-	var latestV version.Counter
-	for v := range m {
-		if v.NewerThan(latestV) {
-			latestV = v
-		}
-	}
-	return latestV
-}
-
-// MigratorConfig holds the configuration for creating a migrator
-type MigratorConfig[I, O Migratable] struct {
-	alamos.Instrumentation
-	Default    O
-	Migrations Migrations
-	Name       string
-}
-
-// NewMigrator creates a function that can migrate data from one version to another
-func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
-	if len(cfg.Migrations) == 0 {
-		return func(v I) O {
-			if v.GetVersion() != cfg.Default.GetVersion() {
-				cfg.L.Warn("no migrations available, using default",
-					zap.String("module", cfg.Name),
-					zap.Int("version", int(v.GetVersion())),
-					zap.Int("default_version", int(cfg.Default.GetVersion())),
-				)
-			}
-			return cfg.Default
-		}
-	}
-
-	var (
-		applied bool
-		migrate func(Migratable) (O, error)
-		latestV = cfg.Migrations.LatestVersion()
+func Migrate(
+	ctx context.Context,
+	cfg Config,
+) (set.Set[string], error) {
+	start := time.Now()
+	set.Mapped[]{}
+	cfg.L.Info(
+		"starting migrations",
 	)
-	migrate = func(old Migratable) (O, error) {
-		v := old.GetVersion()
-		if old.GetVersion().NewerThan(latestV) {
-			if applied {
-				cfg.L.Info("migration complete",
-					zap.String("module", cfg.Name),
-					zap.Int("version", int(v)),
-				)
-			} else {
-				cfg.L.Info("version up to date",
-					zap.String("module", cfg.Name),
-					zap.Int("version", int(v)),
-					zap.Int("target_version", int(cfg.Default.GetVersion())),
-				)
+	sorted, err := topoSort(cfg.Migrations, cfg.Applied)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range sorted {
+		if err = m.Run(ctx); err != nil {
+			return nil, err
+		}
+		cfg.Applied.Add(m.Key())
+	}
+	return cfg.Applied, nil
+}
+
+// topoSort filters out already-applied migrations, then produces a valid
+// execution order. Dependencies that are already applied are considered
+// satisfied and do not need to appear in the pending set.
+func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, error) {
+	byName := make(map[string]Migration, len(migrations))
+	for _, m := range migrations {
+		if _, dup := byName[m.Key()]; dup {
+			return nil, errors.Newf("duplicate migration name %q", m.Key())
+		}
+		byName[m.Key()] = m
+	}
+
+	var pending []Migration
+	for _, m := range migrations {
+		if !applied.Contains(m.Key()) {
+			pending = append(pending, m)
+		}
+	}
+	if len(pending) == 0 {
+		return nil, nil
+	}
+
+	adj := make(map[string][]string, len(pending))
+	for _, m := range pending {
+		name := m.Key()
+		adj[name] = nil
+		for _, dep := range m.Dependencies() {
+			if applied.Contains(dep) {
+				continue
 			}
-			return old.(O), nil
+			adj[name] = append(adj[name], dep)
 		}
-
-		migration, ok := cfg.Migrations[v]
-		if !ok {
-			return cfg.Default, errors.Newf("no migration found for v %v", int(v))
-		}
-
-		next, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)
-		if err != nil {
-			return cfg.Default, err
-		}
-
-		applied = true
-		return migrate(next)
 	}
 
-	return func(v I) O {
-		result, err := migrate(v)
-		if err != nil {
-			cfg.L.Error("migration failed",
-				zap.String("module", cfg.Name),
-				zap.Error(err),
-			)
-			return cfg.Default
-		}
-		return result
+	order, err := graph.TopoSort(adj)
+	if err != nil {
+		return nil, err
 	}
+
+	sorted := make([]Migration, len(order))
+	for i, name := range order {
+		sorted[i] = byName[name]
+	}
+	return sorted, nil
 }

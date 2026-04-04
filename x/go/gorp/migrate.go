@@ -14,9 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
@@ -184,63 +182,4 @@ func MigrationDep[T any](ctx context.Context) (T, error) {
 		)
 	}
 	return v, nil
-}
-
-// topoSort filters out already-applied migrations, then produces a valid
-// execution order. Dependencies that are already applied are considered
-// satisfied and do not need to appear in the pending set.
-func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, error) {
-	byName := make(map[string]Migration, len(migrations))
-	for _, m := range migrations {
-		if _, dup := byName[m.Name()]; dup {
-			return nil, errors.Newf("duplicate migration name %q", m.Name())
-		}
-		byName[m.Name()] = m
-	}
-
-	var pending []Migration
-	for _, m := range migrations {
-		if !applied.Contains(m.Name()) {
-			pending = append(pending, m)
-		}
-	}
-	if len(pending) == 0 {
-		return nil, nil
-	}
-
-	hasDeps := false
-	for _, m := range pending {
-		if _, ok := m.(DependencyDeclarer); ok {
-			hasDeps = true
-			break
-		}
-	}
-	if !hasDeps {
-		return pending, nil
-	}
-
-	adj := make(map[string][]string, len(pending))
-	for _, m := range pending {
-		name := m.Name()
-		adj[name] = nil
-		if dd, ok := m.(DependencyDeclarer); ok {
-			for _, dep := range dd.Dependencies() {
-				if applied.Contains(dep) {
-					continue
-				}
-				adj[name] = append(adj[name], dep)
-			}
-		}
-	}
-
-	order, err := graph.TopoSort(adj)
-	if err != nil {
-		return nil, err
-	}
-
-	sorted := make([]Migration, len(order))
-	for i, name := range order {
-		sorted[i] = byName[name]
-	}
-	return sorted, nil
 }
