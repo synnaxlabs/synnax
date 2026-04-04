@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -55,7 +54,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(ch.Key()): "sensor_1"},
+								Read: map[uint32]string{uint32(ch.Key()): "sensor_1"},
 							},
 						},
 					},
@@ -85,7 +84,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "actuator_1"},
+								Write: map[uint32]string{uint32(ch.Key()): "actuator_1"},
 							},
 						},
 					},
@@ -112,7 +111,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "any_node",
 							Type: "constant",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "output_1"},
+								Write: map[uint32]string{uint32(ch.Key()): "output_1"},
 							},
 						},
 					},
@@ -148,7 +147,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(dataCh.Key()): "data_with_index"},
+								Read: map[uint32]string{uint32(dataCh.Key()): "data_with_index"},
 							},
 						},
 					},
@@ -185,7 +184,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{uint32(dataCh.Key()): "write_data_with_index"},
+								Write: map[uint32]string{uint32(dataCh.Key()): "write_data_with_index"},
 							},
 						},
 					},
@@ -219,8 +218,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "mixed_node",
 							Type: "transform",
 							Channels: types.Channels{
-								Read:  set.Mapped[uint32, string]{uint32(readCh.Key()): "input_sensor"},
-								Write: set.Mapped[uint32, string]{uint32(writeCh.Key()): "output_actuator"},
+								Read:  map[uint32]string{uint32(readCh.Key()): "input_sensor"},
+								Write: map[uint32]string{uint32(writeCh.Key()): "output_actuator"},
 							},
 						},
 					},
@@ -248,14 +247,14 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "node_1",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(sharedCh.Key()): "shared_channel"},
+								Read: map[uint32]string{uint32(sharedCh.Key()): "shared_channel"},
 							},
 						},
 						{
 							Key:  "node_2",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(sharedCh.Key()): "shared_channel"},
+								Read: map[uint32]string{uint32(sharedCh.Key()): "shared_channel"},
 							},
 						},
 					},
@@ -307,7 +306,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "invalid_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{999999: "nonexistent"},
+								Read: map[uint32]string{999999: "nonexistent"},
 							},
 						},
 					},
@@ -334,7 +333,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(virtualCh.Key()): "virtual_no_index"},
+								Read: map[uint32]string{uint32(virtualCh.Key()): "virtual_no_index"},
 							},
 						},
 					},
@@ -475,7 +474,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{
+								Read: map[uint32]string{
 									uint32(readCh1.Key()): "complex_read_1",
 									uint32(readCh2.Key()): "complex_read_2",
 								},
@@ -485,7 +484,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{
+								Write: map[uint32]string{
 									uint32(readCh1.Key()): "complex_read_1",
 									uint32(writeCh.Key()): "complex_write",
 								},
