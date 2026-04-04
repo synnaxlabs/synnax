@@ -33,9 +33,10 @@ Policy struct {
         @doc value "is the list of actions this policy permits."
     }
     internal bool?           {
-        @doc value """
+        @doc value        """
             is true if this is a built-in system policy that cannot be deleted.
         """
+        @validate default false
     }
 
     @doc value     """
@@ -43,9 +44,10 @@ Policy struct {
         which resources. Policies are attached to roles, and roles are assigned
         to users via ontology relationships.
     """
-    @ontology type "policy"
+    @py omit
     @go marshal
     @go migrate
+    @ontology type "policy"
 }
 
 New struct extends Policy {
@@ -59,5 +61,5 @@ New struct extends Policy {
     @doc value    "contains parameters for creating a new policy."
     @ts use_input
     @go omit
-    @py omit
+    @py name      "Policy"
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v49
+package v0
 
 import (
 	"context"
@@ -18,14 +18,12 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	policyv49 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v49"
+	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )
-
-const migrationKey = "legacy_permission_assignment"
 
 // MigrationConfig contains the dependencies needed by the Phase 2 migration.
 type MigrationConfig struct {
@@ -41,9 +39,9 @@ type MigrationConfig struct {
 // relationships.
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		migrationKey,
+		"v0.permission_assignment",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			mappings, err := policyv49.ReadLegacyMappings(ctx, tx)
+			mappings, err := policy.ReadLegacyMappings(ctx, tx)
 			if err != nil {
 				return err
 			}
@@ -56,7 +54,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				return nil
 			}
 
-			policyByUser := make(map[string][]policyv49.Policy)
+			policyByUser := make(map[string][]policy.Policy)
 			for _, m := range mappings {
 				policyByUser[m.UserOntologyID.String()] = m.Policies
 			}
@@ -81,7 +79,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			}
 
 			if len(mappings) > 0 {
-				return policyv49.DeleteLegacyMappings(ctx, tx)
+				return policy.DeleteLegacyMappings(ctx, tx)
 			}
 			return nil
 		},
@@ -91,7 +89,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 // determineRole maps a legacy user to a built-in role. Operator is the intentional
 // default because all pre-RBAC users had write access. Viewer is not used here
 // since no legacy deployment had read-only users.
-func determineRole(u user.User, policies []policyv49.Policy, roles builtin.ProvisionResult) uuid.UUID {
+func determineRole(u user.User, policies []policy.Policy, roles builtin.ProvisionResult) uuid.UUID {
 	if u.RootUser {
 		return roles.OwnerKey
 	}
@@ -104,7 +102,7 @@ func determineRole(u user.User, policies []policyv49.Policy, roles builtin.Provi
 	return roles.OperatorKey
 }
 
-func isAdminPolicy(p policyv49.Policy) bool {
+func isAdminPolicy(p policy.Policy) bool {
 	hasUserType := false
 	hasPolicyType := false
 	for _, obj := range p.Objects {
@@ -118,7 +116,7 @@ func isAdminPolicy(p policyv49.Policy) bool {
 	return hasUserType && hasPolicyType && lo.Contains(p.Actions, "all")
 }
 
-func isSchematicPolicy(p policyv49.Policy) bool {
+func isSchematicPolicy(p policy.Policy) bool {
 	for _, obj := range p.Objects {
 		if obj.Type == "schematic" {
 			return lo.Contains(p.Actions, "all")

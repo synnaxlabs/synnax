@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v49
+package v0
 
 import (
 	"context"
@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	migrationKey                = "v49_permission_extraction"
 	legacyMigrationPerformedKey = "sy_rbac_migration_performed"
 	LegacyMappingKVKey          = "sy_rbac_legacy_permission_mapping"
 )
@@ -42,7 +41,7 @@ type LegacyUserMapping struct {
 // re-encode entries and lose the Subjects field.
 func Migration() migrate.Migration {
 	return gorp.NewMigration(
-		migrationKey,
+		"v0.policy_conversion",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			if alreadyMigrated(ctx, tx) {
 				return nil

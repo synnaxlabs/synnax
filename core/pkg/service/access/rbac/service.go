@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	v49 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v49"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -141,7 +141,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
 		Namespace:       "rbac",
-		Migrations: []xmigrate.Migration{v49.Migration(v49.MigrationConfig{
+		Migrations: []xmigrate.Migration{v0.Migration(v0.MigrationConfig{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     roleService,

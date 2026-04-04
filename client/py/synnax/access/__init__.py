@@ -10,7 +10,7 @@
 from freighter import UnaryClient
 
 from synnax.access import policy, role
-from synnax.access.types_gen import Action
+from synnax.access.action import Action
 
 
 class Client:

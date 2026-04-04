@@ -12,7 +12,7 @@
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { access } from "@/access";
+import { access } from "@/access/action";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.uuid();
@@ -33,7 +33,7 @@ export const policyZ = z.object({
   /** actions is the list of actions this policy permits. */
   actions: array.nullishToEmpty(access.actionZ),
   /** internal is true if this is a built-in system policy that cannot be deleted. */
-  internal: z.boolean().optional(),
+  internal: z.boolean().default(false).optional(),
 });
 export interface Policy extends z.infer<typeof policyZ> {}
 
