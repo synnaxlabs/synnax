@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,8 +26,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -116,8 +113,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
-		DB:              cfg.DB,
-		Migrations:      TaskMigrations(),
+		DB: cfg.DB,
+		Migrations: append(
+			TaskMigrations(),
+			statusBackfillMigration(cfg),
+		),
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -131,9 +131,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
-	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
-		return nil, err
-	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
@@ -210,50 +207,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}
-}
-
-func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
-	var tasks []Task
-	if err := s.NewRetrieve().Entries(&tasks).Exec(ctx, nil); err != nil {
-		return err
-	}
-	if len(tasks) == 0 {
-		return nil
-	}
-	statusKeys := make([]string, len(tasks))
-	for i, t := range tasks {
-		statusKeys[i] = OntologyID(t.Key).String()
-	}
-	var existingStatuses []Status
-	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []Status
-	for _, t := range tasks {
-		key := OntologyID(t.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
-				Key:     key,
-				Name:    t.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: fmt.Sprintf("%s status unknown", t.Name),
-				Details: StatusDetails{Task: t.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	s.cfg.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
