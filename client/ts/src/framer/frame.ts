@@ -43,13 +43,13 @@ const validateMatchedColsAndSeries = (
   const colsArr = array.toArray(columns);
   if (colsArr.length === series.length) return;
   const colType = columnType(columns);
-  if (columnType === null)
+  if (colType === null)
     throw new ValidationError(
       "[Frame] - channel keys or names must be provided when constructing a frame.",
     );
   throw new ValidationError(
-    `[Frame] - ${colType as string}s and series must be the same length.
-    Got ${colsArr.length} ${colType as string}s and ${series.length} series.`,
+    `[Frame] - ${colType}s and series must be the same length.
+    Got ${colsArr.length} ${colType}s and ${series.length} series.`,
   );
 };
 
