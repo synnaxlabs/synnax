@@ -31,12 +31,12 @@ import (
 func userHasSpecificRole(
 	ctx context.Context,
 	tx gorp.Tx,
-	otg_ *ontology.Ontology,
+	otg *ontology.Ontology,
 	userID ontology.ID,
 	roleKey uuid.UUID,
 ) bool {
 	var roles []ontology.Resource
-	if err := otg_.NewRetrieve().
+	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(ontology.ResourceTypeRole).
