@@ -30,7 +30,7 @@ type mockMigration struct {
 	fn   func(ctx context.Context, ins alamos.Instrumentation) error
 }
 
-func (m *mockMigration) Key() string                  { return m.key }
+func (m *mockMigration) Key() string                   { return m.key }
 func (m *mockMigration) Dependencies() set.Set[string] { return m.deps }
 func (m *mockMigration) Run(ctx context.Context, ins alamos.Instrumentation) error {
 	return m.fn(ctx, ins)
