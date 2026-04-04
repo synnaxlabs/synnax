@@ -43,6 +43,8 @@ User struct {
         Users can have roles assigned for permission management.
     """
     @ontology type "user"
+    @go marshal
+    @go migrate
     @pb
 }
 

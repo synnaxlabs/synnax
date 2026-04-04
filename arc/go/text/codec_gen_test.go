@@ -43,13 +43,13 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeText(b *testing.B) {
 	t := text.Text{Raw: "test_1"}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded text.Text
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

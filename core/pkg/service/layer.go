@@ -176,18 +176,20 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Signals:  cfg.Distribution.Signals,
-		Group:    cfg.Distribution.Group,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("rbac"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Signals:         cfg.Distribution.Signals,
+		Group:           cfg.Distribution.Group,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 
 	var authKV *auth.KV
 	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
-		DB: cfg.Distribution.DB,
+		Instrumentation: cfg.Child("auth"),
+		DB:              cfg.Distribution.DB,
 	}); !ok(err, authKV) {
 		return nil, err
 	}
@@ -228,41 +230,46 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("workspace"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("schematic"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("lineplot"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("log"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
+		Instrumentation: cfg.Child("table"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
 	}); !ok(err, nil) {
 		return nil, err
 	}

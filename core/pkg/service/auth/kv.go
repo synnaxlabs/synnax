@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -23,12 +24,16 @@ import (
 )
 
 // KVConfig is the configuration for opening the KV backed authenticator.
-type KVConfig struct{ DB *gorp.DB }
+type KVConfig struct {
+	DB *gorp.DB
+	alamos.Instrumentation
+}
 
 var _ config.Config[KVConfig] = KVConfig{}
 
 // Override implements config.Config.
 func (c KVConfig) Override(other KVConfig) KVConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
@@ -54,7 +59,10 @@ func OpenKV(ctx context.Context, cfgs ...KVConfig) (*KV, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{DB: cfg.DB})
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

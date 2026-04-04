@@ -50,13 +50,13 @@ func BenchmarkEncodeDecodeOutput(b *testing.B) {
 		OutputMemoryBases: map[string]uint32{"test_2": 3},
 	}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := o.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded compiler.Output
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

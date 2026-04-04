@@ -69,11 +69,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Search:   searchIdx,
 		}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
-			Status:              stat,
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
@@ -196,6 +197,23 @@ var _ = Describe("Rack", Ordered, func() {
 			var res rack.Rack
 			Expect(svc.NewRetrieve().WhereEmbedded(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Embedded).To(BeTrue())
+		})
+		Describe("Count", func() {
+			It("Should return the number of matching racks", func(ctx SpecContext) {
+				initialCount := MustSucceed(svc.NewRetrieve().Count(ctx, tx))
+				r1 := &rack.Rack{Name: "count-rack-1"}
+				r2 := &rack.Rack{Name: "count-rack-2"}
+				Expect(writer.Create(ctx, r1)).To(Succeed())
+				Expect(writer.Create(ctx, r2)).To(Succeed())
+				newCount := MustSucceed(svc.NewRetrieve().Count(ctx, tx))
+				Expect(newCount).To(Equal(initialCount + 2))
+			})
+			It("Should return the count of racks matching a key filter", func(ctx SpecContext) {
+				r := &rack.Rack{Name: "count-specific-rack"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				count := MustSucceed(svc.NewRetrieve().WhereKeys(r.Key).Count(ctx, tx))
+				Expect(count).To(Equal(1))
+			})
 		})
 		Describe("WhereName", func() {
 			It("Should retrieve a rack by its exact name", func(ctx SpecContext) {
@@ -570,33 +588,15 @@ var _ = Describe("Migration", func() {
 	}
 
 	It("Should create unknown statuses for racks missing them", func(ctx SpecContext) {
-		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
-		r := &rack.Rack{Name: "test rack"}
-		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
-		Expect(status.NewWriter[rack.StatusDetails](stat, nil).Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
-		var deletedStatus rack.Status
-		Expect(status.NewRetrieve[rack.StatusDetails](stat).
-			WhereKeys(rack.OntologyID(r.Key).String()).
-			Entry(&deletedStatus).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-		Expect(svc.Close()).To(Succeed())
+		r := rack.Rack{
+			Key:  rack.NewKey(1, 50),
+			Name: "rack without status",
+		}
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+			Entry(&r).
+			Exec(ctx, db)).To(Succeed())
 
-		svc2 := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
-		DeferCleanup(func() { Expect(svc2.Close()).To(Succeed()) })
+		openService(ctx)
 
 		var restoredStatus rack.Status
 		Expect(status.NewRetrieve[rack.StatusDetails](stat).
@@ -626,7 +626,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 
@@ -651,7 +651,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(2))
 	})
 
@@ -676,7 +676,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 })

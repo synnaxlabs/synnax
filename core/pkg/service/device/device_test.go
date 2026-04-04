@@ -775,6 +775,17 @@ var _ = Describe("Device", func() {
 				Status:       stat,
 				Search:       searchIdx,
 			}))
+
+			d := device.Device{
+				Key:      "migration-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Migration Test Device",
+			}
+			Expect(gorp.NewCreate[string, device.Device]().
+				Entry(&d).
+				Exec(ctx, db)).To(Succeed())
+
 			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -783,28 +794,7 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc,
 				Search:   searchIdx,
 			}))
-			d := device.Device{
-				Key:      "migration-device",
-				Rack:     rackSvc.EmbeddedKey,
-				Location: "loc",
-				Name:     "Migration Test Device",
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
-			Expect(status.NewWriter[device.StatusDetails](stat, nil).Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
-			var deletedStatus device.Status
-			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				WhereKeys(device.OntologyID(d.Key).String()).
-				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
-				Status:   stat,
-				Rack:     rackSvc,
-				Search:   searchIdx,
-			}))
+
 			var restoredStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
 				WhereKeys(device.OntologyID(d.Key).String()).
@@ -814,6 +804,71 @@ var _ = Describe("Device", func() {
 			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
+
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(groupSvc.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
+
+		It("Should not create statuses for devices that already have them", func(ctx SpecContext) {
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustSucceed(search.Open())
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Search:   searchIdx,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        groupSvc,
+				HostProvider: mock.StaticHostKeyProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+				Search:   searchIdx,
+			}))
+
+			d := device.Device{
+				Key:      "existing-status-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Device With Status",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+
+			var deviceStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deviceStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
+
 			Expect(svc.Close()).To(Succeed())
 			Expect(rackSvc.Close()).To(Succeed())
 			Expect(stat.Close()).To(Succeed())

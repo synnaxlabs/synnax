@@ -43,13 +43,13 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
 	tr := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
 	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
 		if err := tr.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded telem.TimeRange
-		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)

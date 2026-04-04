@@ -85,7 +85,7 @@ func OpenTable[K Key, E Entry[K]](
 			zap.Int("pending", len(pending)),
 		)
 		if len(applied) > 0 {
-			appliedNames := applied.Keys()
+			appliedNames := applied.ToSlice()
 			sort.Strings(appliedNames)
 			cfg.L.Debug(
 				"already applied",
@@ -259,7 +259,7 @@ func writeAppliedMigrations(
 	key []byte,
 	applied set.Set[string],
 ) error {
-	names := applied.Keys()
+	names := applied.ToSlice()
 	sort.Strings(names)
 	b, err := json.Marshal(names)
 	if err != nil {

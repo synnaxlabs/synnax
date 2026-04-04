@@ -50,6 +50,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -90,7 +91,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
 		return nil, err
 	}
-	s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{DB: s.cfg.DB})
+	s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{
+		DB:              s.cfg.DB,
+		Instrumentation: s.cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
