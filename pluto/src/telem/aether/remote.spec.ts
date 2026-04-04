@@ -225,7 +225,7 @@ describe("remote", () => {
         [this.channel.index]: new MultiSeries([]),
       };
 
-      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
         this.retrieveChannelMock(key);
         if (key === this.channel.key) return this.channel;
         if (key === this.channel.index) return this.indexChannel;
@@ -363,7 +363,7 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
         if (key === this.channel.key) return this.channel;
         if (key === this.channel.index) return this.indexChannel;
         throw new Error(`Channel with key ${key} not found`);

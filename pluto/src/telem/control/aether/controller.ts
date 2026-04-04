@@ -232,7 +232,7 @@ export class Controller
   // would be stale relative to the new writer's start after a reconnection.
   async set(
     buildFrame: () => Promise<
-      framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>
+      framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>
     >,
   ): Promise<void> {
     await this.withRetry(async () => this.writer?.write(await buildFrame()));
@@ -330,7 +330,9 @@ export class SetChannelValue
         throw new ValidationError("No command channel specified for actuator");
       await this.controller.set(async () => {
         const ch = await client.channels.retrieve(this.props.channel);
-        const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
+        const fr: Record<channel.Key | channel.Name, CrudeSeries> = {
+          [ch.key]: values,
+        };
         if (ch.index !== 0) {
           const index = await client.channels.retrieve(ch.index);
           const now = TimeStamp.now();
