@@ -17,6 +17,41 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (p Param) EncodeOrc(w *orc.Writer) error {
+	w.String(p.Name)
+	if err := p.Type.EncodeOrc(w); err != nil {
+		return err
+	}
+	{
+		b, err := json.Marshal(p.Value)
+		if err != nil {
+			return err
+		}
+		w.WriteWithLen(b)
+	}
+	return nil
+}
+
+func (p *Param) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if p.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = p.Type.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		b, err := r.ReadWithLen()
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &p.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t Type) EncodeOrc(w *orc.Writer) error {
 	if t.Inputs != nil {
 		w.Bool(true)
@@ -422,41 +457,6 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 				}
 				c.Write[key] = val
 			}
-		}
-	}
-	return nil
-}
-
-func (p Param) EncodeOrc(w *orc.Writer) error {
-	w.String(p.Name)
-	if err := p.Type.EncodeOrc(w); err != nil {
-		return err
-	}
-	{
-		b, err := json.Marshal(p.Value)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
-	}
-	return nil
-}
-
-func (p *Param) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if p.Name, err = r.String(); err != nil {
-		return err
-	}
-	if err = p.Type.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &p.Value); err != nil {
-			return err
 		}
 	}
 	return nil
