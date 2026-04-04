@@ -157,6 +157,26 @@ describe("encoder", () => {
         ),
       },
       {
+        name: "Different Non-Zero Time Ranges",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(2000000000).spanRange(3000000000),
+            }),
+          ],
+        ),
+      },
+      {
         name: "Partial Present, Different Lengths",
         channels: [1, 2, 3],
         dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],

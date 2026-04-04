@@ -212,8 +212,9 @@ export class Codec {
       offset += series.data.byteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         view.setBigUint64(offset, series.timeRange?.start.valueOf() ?? 0n, true);
+        offset += TIMESTAMP_SIZE;
         view.setBigUint64(offset, series.timeRange?.end.valueOf() ?? 0n, true);
-        offset += TIMESTAMP_SIZE * 2;
+        offset += TIMESTAMP_SIZE;
       }
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
         view.setBigUint64(offset, series.alignment ?? 0n, true);
