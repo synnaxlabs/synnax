@@ -17,9 +17,6 @@ import (
 	"github.com/samber/lo"
 )
 
-// Set is a generic map-based collection that associates keys of type T with values
-// of type V. It serves as the foundation for the Set type.
-
 // Set is a generic collection of unique elements of type T. It is implemented as a map
 // where the keys are the set elements and the values are empty structs to minimize
 // memory usage.
