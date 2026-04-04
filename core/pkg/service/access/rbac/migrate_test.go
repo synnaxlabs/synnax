@@ -87,7 +87,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(testUserSvc.NewWriter(tx).Create(ctx, regularUser)).To(Succeed())
 
 		// Seed legacy policies with Subjects field
-		adminPolicy := v49.Policy{
+		adminPolicy := v54.Policy{
 			Key:      uuid.New(),
 			Subjects: []ontology.ID{user.OntologyID(adminUser.Key)},
 			Objects: []ontology.ID{
@@ -96,13 +96,13 @@ var _ = Describe("Legacy Permission Migration", func() {
 			},
 			Actions: []access.Action{"all"},
 		}
-		schematicPolicy := v49.Policy{
+		schematicPolicy := v54.Policy{
 			Key:      uuid.New(),
 			Subjects: []ontology.ID{user.OntologyID(schematicUser.Key)},
 			Objects:  []ontology.ID{{Type: "schematic"}},
 			Actions:  []access.Action{"all"},
 		}
-		writer := gorp.WrapWriter[uuid.UUID, v49.Policy](tx)
+		writer := gorp.WrapWriter[uuid.UUID, v54.Policy](tx)
 		Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
 		Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(userHasSpecificRole(ctx, tx2, testOtg, user.OntologyID(regularUser.Key), operatorRole.Key)).To(BeTrue())
 
 		// Legacy policies should be deleted
-		reader := gorp.WrapReader[uuid.UUID, v49.Policy](tx2)
+		reader := gorp.WrapReader[uuid.UUID, v54.Policy](tx2)
 		iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
 		defer func() { Expect(iter.Close()).To(Succeed()) }()
 		legacyCount := 0

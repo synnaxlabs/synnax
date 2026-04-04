@@ -32,6 +32,8 @@ type Config struct {
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
+	// Credentials are the authentication credentials the driver should use when
+	// connecting to the Core.
 	Credentials auth.InsecureCredentials
 	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
 	// communication. Not required if the CA is universally recognized or already

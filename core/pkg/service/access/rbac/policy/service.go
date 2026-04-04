@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	v49Mig := v49.Migration()
+	v49Mig := v54.Migration()
 	oracleMigrations := migrate.AllWithAddedDeps(PolicyMigrations(), v49Mig.Key())
 	migrations := append([]migrate.Migration{v49Mig}, oracleMigrations...)
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
