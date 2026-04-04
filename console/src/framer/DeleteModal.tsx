@@ -112,7 +112,9 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
         Delete Data
       </Text.Text>
       <Flex.Box y full="x" gap="medium">
-        <Form.Field<channel.Key[]> path="channels">{channelSelectRenderProp}</Form.Field>
+        <Form.Field<channel.Key[]> path="channels">
+          {channelSelectRenderProp}
+        </Form.Field>
         <Flex.Box x gap="medium" align="start">
           <Flex.Box y gap="small" className={CSS.BE("delete-modal", "time-range-side")}>
             <Flex.Box x align="center" gap="small">
