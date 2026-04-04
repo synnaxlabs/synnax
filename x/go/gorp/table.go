@@ -15,22 +15,21 @@ import (
 	"io"
 	"iter"
 	"sort"
-	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
-	"go.uber.org/zap"
 )
 
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
 	DB         *DB
-	Migrations []Migration
+	Migrations []migrate.Migration
 	alamos.Instrumentation
 }
 
@@ -56,16 +55,18 @@ func OpenTable[K Key, E Entry[K]](
 	// once and are tracked alongside user migrations. They must execute before
 	// any codec transitions so that all entries are under the current prefix
 	// and key encoding.
-	builtIn := []Migration{&normalizeKeysMigration[K, E]{}}
 	// Wrap user migrations to depend on normalize_keys so they always run
 	// after key normalization.
-	wrapped := make([]Migration, len(cfg.Migrations))
-	for i, m := range cfg.Migrations {
-		wrapped[i] = &afterBuiltIn{Migration: m}
-	}
-	migrations := append(builtIn, wrapped...)
-
 	tx := cfg.DB.OpenTx()
+	wrapped := make([]migrate.Migration, len(cfg.Migrations)+1)
+	wrapped[0] = &normalizeKeysMigration[K, E]{tx: tx}
+	depsToAdd := set.New("normalize_keys")
+	for i, mig := range cfg.Migrations {
+		if tMig, ok := mig.(*Migration); ok {
+			tMig.tx = tx
+		}
+		wrapped[i+1] = migrate.WithAddedDeps(mig, depsToAdd)
+	}
 	defer func() {
 		err = errors.Combine(err, tx.Close())
 	}()
@@ -73,65 +74,16 @@ func OpenTable[K Key, E Entry[K]](
 	if err != nil {
 		return nil, err
 	}
-	pending, err := topoSort(migrations, applied)
+	applied, err = migrate.Migrate(ctx, migrate.Config{
+		Migrations:      wrapped,
+		Applied:         applied,
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
-	if len(pending) > 0 {
-		totalStart := time.Now()
-		cfg.L.Info(
-			"starting migrations",
-			zap.String("table", tableName),
-			zap.Int("pending", len(pending)),
-		)
-		if len(applied) > 0 {
-			appliedNames := applied.ToSlice()
-			sort.Strings(appliedNames)
-			cfg.L.Debug(
-				"already applied",
-				zap.String("table", tableName),
-				zap.Strings("applied", appliedNames),
-			)
-		}
-		for _, m := range pending {
-			mStart := time.Now()
-			if err := m.Run(ctx, tx, cfg.Instrumentation); err != nil {
-				entries := 0
-				if ec, ok := m.(EntryCounter); ok {
-					entries = ec.EntriesProcessed()
-				}
-				cfg.L.Error(
-					"migration failed",
-					zap.String("table", tableName),
-					zap.String("migration", m.Name()),
-					zap.Int("entries_processed", entries),
-					zap.Duration("elapsed", time.Since(mStart)),
-					zap.Error(err),
-				)
-				return nil, errors.Wrapf(err, "migration (%s) failed", m.Name())
-			}
-			entries := 0
-			if ec, ok := m.(EntryCounter); ok {
-				entries = ec.EntriesProcessed()
-			}
-			cfg.L.Info(
-				"migration complete",
-				zap.String("table", tableName),
-				zap.String("migration", m.Name()),
-				zap.Int("entries", entries),
-				zap.Duration("elapsed", time.Since(mStart)),
-			)
-			applied.Add(m.Name())
-			if err := writeAppliedMigrations(ctx, tx, versionKey, applied); err != nil {
-				return nil, err
-			}
-		}
-		cfg.L.Info(
-			"migrations complete",
-			zap.String("table", tableName),
-			zap.Int("migrations", len(pending)),
-			zap.Duration("elapsed", time.Since(totalStart)),
-		)
+	if err = writeAppliedMigrations(ctx, tx, versionKey, applied); err != nil {
+		return nil, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
@@ -169,11 +121,13 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 // current literal prefix and re-encodes key suffixes to use primitive encoding.
 // Values are decoded with the DB's default codec only to extract GorpKey(); raw
 // value bytes are written back without re-encoding.
-type normalizeKeysMigration[K Key, E Entry[K]] struct{}
+type normalizeKeysMigration[K Key, E Entry[K]] struct{ tx Tx }
 
-func (m *normalizeKeysMigration[K, E]) Name() string { return "normalize_keys" }
+func (m *normalizeKeysMigration[K, E]) Key() string { return "normalize_keys" }
 
-func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx Tx, _ alamos.Instrumentation) error {
+func (m *normalizeKeysMigration[K, E]) Dependencies() set.Set[string] { return nil }
+
+func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, _ alamos.Instrumentation) error {
 	kc := newKeyCodec[K, E]()
 	oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
 	if err != nil {
@@ -181,23 +135,23 @@ func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx Tx, _ alamos.
 	}
 	// Phase 1: move entries from old prefix to new prefix + new key encoding.
 	if string(oldPrefix) != string(kc.prefix) {
-		itr, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
+		itr, err := m.tx.OpenIterator(kv.IterPrefix(oldPrefix))
 		if err != nil {
 			return err
 		}
 		for itr.First(); itr.Valid(); itr.Next() {
 			rawValue := itr.Value()
 			var entry E
-			if err = tx.Decode(ctx, rawValue, &entry); err != nil {
+			if err = m.tx.Decode(ctx, rawValue, &entry); err != nil {
 				return errors.Combine(
 					errors.Wrapf(err, "normalize_keys: failed to decode entry at old prefix key %x", itr.Key()),
 					itr.Close(),
 				)
 			}
-			if err = tx.Delete(ctx, itr.Key()); err != nil {
+			if err = m.tx.Delete(ctx, itr.Key()); err != nil {
 				return errors.Combine(err, itr.Close())
 			}
-			if err = tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
+			if err = m.tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
 				return errors.Combine(err, itr.Close())
 			}
 		}
@@ -208,28 +162,13 @@ func (m *normalizeKeysMigration[K, E]) Run(ctx context.Context, tx Tx, _ alamos.
 	return nil
 }
 
-// afterBuiltIn wraps a user-provided Migration so that it depends on the
-// built-in reencode_keys migration. This guarantees all built-in key
-// normalization completes before any user codec transitions run.
-type afterBuiltIn struct {
-	Migration
-}
-
-func (a *afterBuiltIn) Dependencies() []string {
-	var deps []string
-	if dd, ok := a.Migration.(DependencyDeclarer); ok {
-		deps = dd.Dependencies()
-	}
-	return append(deps, "normalize_keys")
-}
-
 // readAppliedMigrations reads the set of applied migration names from the KV
 // store. Names are stored as a newline-delimited string.
 func readAppliedMigrations(
 	ctx context.Context,
 	tx Tx,
 	key []byte,
-) (_ set.Set[string], err error) {
+) (applied set.Set[string], err error) {
 	b, closer, getErr := tx.Get(ctx, key)
 	if getErr != nil {
 		if errors.Is(getErr, query.ErrNotFound) {
@@ -244,7 +183,7 @@ func readAppliedMigrations(
 	if err := json.Unmarshal(b, &names); err != nil {
 		return nil, err
 	}
-	applied := make(set.Set[string], len(names))
+	applied = make(set.Set[string], len(names))
 	for _, name := range names {
 		applied.Add(name)
 	}

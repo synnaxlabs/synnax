@@ -11,7 +11,6 @@ package migrate
 
 import (
 	"context"
-	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
@@ -27,9 +26,9 @@ type Migration interface {
 	// Key returns a unique identifier for the migration.
 	Key() string
 	// Dependencies returns a list of migration keys that this migration depends on.
-	Dependencies() []string
+	Dependencies() set.Set[string]
 	// Run executes the migration.
-	Run(ctx context.Context) error
+	Run(ctx context.Context, ins alamos.Instrumentation) error
 }
 
 type Config struct {
@@ -38,23 +37,41 @@ type Config struct {
 	Applied    set.Set[string]
 }
 
-func Migrate(
-	ctx context.Context,
-	cfg Config,
-) (set.Set[string], error) {
-	start := time.Now()
-	set.Mapped[]{}
+func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
+	migrationKeys := make(set.Set[string])
+	for _, m := range cfg.Migrations {
+		if migrationKeys.Contains(m.Key()) {
+			return nil, errors.Newf("duplicate migration name %q", m.Key())
+		}
+		migrationKeys.Add(m.Key())
+	}
+	var notApplied = set.Difference(migrationKeys, cfg.Applied)
 	cfg.L.Info(
-		"starting migrations",
+		"running migrations",
+		zap.Strings("not_applied", notApplied.ToSlice()),
+		zap.Strings("applied", cfg.Applied.ToSlice()),
 	)
 	sorted, err := topoSort(cfg.Migrations, cfg.Applied)
 	if err != nil {
 		return nil, err
 	}
 	for _, m := range sorted {
-		if err = m.Run(ctx); err != nil {
-			return nil, err
+		cfg.L.Info(
+			"running migration",
+			zap.String("migration", m.Key()),
+		)
+		if err = m.Run(ctx, cfg.Instrumentation); err != nil {
+			cfg.L.Error(
+				"migration failed",
+				zap.String("migration", m.Key()),
+				zap.Error(err),
+			)
+			return nil, errors.Wrapf(err, "migration %s failed", m.Key())
 		}
+		cfg.L.Info(
+			"migration completed",
+			zap.String("migration", m.Key()),
+		)
 		cfg.Applied.Add(m.Key())
 	}
 	return cfg.Applied, nil
@@ -86,7 +103,7 @@ func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, err
 	for _, m := range pending {
 		name := m.Key()
 		adj[name] = nil
-		for _, dep := range m.Dependencies() {
+		for dep := range m.Dependencies() {
 			if applied.Contains(dep) {
 				continue
 			}
@@ -104,4 +121,19 @@ func topoSort(migrations []Migration, applied set.Set[string]) ([]Migration, err
 		sorted[i] = byName[name]
 	}
 	return sorted, nil
+}
+
+type addedDeps struct {
+	addedDeps set.Set[string]
+	Migration
+}
+
+func (a *addedDeps) Dependencies() set.Set[string] {
+	deps := a.Migration.Dependencies().Copy()
+	deps.Add(a.addedDeps.ToSlice()...)
+	return deps
+}
+
+func WithAddedDeps(base Migration, deps set.Set[string]) Migration {
+	return &addedDeps{addedDeps: deps, Migration: base}
 }
