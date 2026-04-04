@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	policyv49 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v49"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -25,22 +25,14 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-const MigrationKey = "legacy_permission_assignment"
-
-// ProvisionResult contains the keys of all provisioned built-in roles.
-type ProvisionResult struct {
-	OwnerKey    uuid.UUID
-	EngineerKey uuid.UUID
-	OperatorKey uuid.UUID
-	ViewerKey   uuid.UUID
-}
+const migrationKey = "legacy_permission_assignment"
 
 // MigrationConfig contains the dependencies needed by the Phase 2 migration.
 type MigrationConfig struct {
 	User     *user.Service
 	Ontology *ontology.Ontology
 	Role     *role.Service
-	Roles    ProvisionResult
+	Roles    builtin.ProvisionResult
 }
 
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV
@@ -49,7 +41,7 @@ type MigrationConfig struct {
 // relationships.
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		MigrationKey,
+		migrationKey,
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			mappings, err := policyv49.ReadLegacyMappings(ctx, tx)
 			if err != nil {
@@ -96,7 +88,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 	)
 }
 
-func determineRole(u user.User, policies []policyv49.Policy, roles ProvisionResult) uuid.UUID {
+func determineRole(u user.User, policies []policyv49.Policy, roles builtin.ProvisionResult) uuid.UUID {
 	if u.RootUser {
 		return roles.OwnerKey
 	}
@@ -120,13 +112,13 @@ func isAdminPolicy(p policyv49.Policy) bool {
 			hasPolicyType = true
 		}
 	}
-	return hasUserType && hasPolicyType && lo.Contains(p.Actions, access.Action("all"))
+	return hasUserType && hasPolicyType && lo.Contains(p.Actions, "all")
 }
 
 func isSchematicPolicy(p policyv49.Policy) bool {
 	for _, obj := range p.Objects {
 		if obj.Type == "schematic" {
-			return lo.Contains(p.Actions, access.Action("all"))
+			return lo.Contains(p.Actions, "all")
 		}
 	}
 	return false

@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	LegacyExtractionMigrationKey = "legacy_permission_extraction"
-	LegacyMappingKVKey           = "sy_rbac_legacy_permission_mapping"
-	legacyMigrationPerformedKey  = "sy_rbac_migration_performed"
+	migrationKey                = "v49_permission_extraction"
+	legacyMigrationPerformedKey = "sy_rbac_migration_performed"
+	LegacyMappingKVKey          = "sy_rbac_legacy_permission_mapping"
 )
 
 // LegacyUserMapping stores the legacy permission data for a single user,
@@ -42,7 +42,7 @@ type LegacyUserMapping struct {
 // re-encode entries and lose the Subjects field.
 func Migration() migrate.Migration {
 	return gorp.NewMigration(
-		LegacyExtractionMigrationKey,
+		migrationKey,
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			if alreadyMigrated(ctx, tx) {
 				return nil

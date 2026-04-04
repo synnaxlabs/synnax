@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v49"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
+	v49 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v49"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -128,13 +129,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 	// Provision built-in roles and policies. This is idempotent and runs every
 	// startup to ensure policy definitions stay up to date.
-	tx := cfg.DB.OpenTx()
-	roles, err := s.provision(ctx, tx)
+	roles, err := builtin.Provision(ctx, cfg.DB, policyService, roleService)
 	if err != nil {
-		return nil, errors.Join(err, tx.Close(), policyService.Close(), roleService.Close())
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, errors.Join(err, tx.Close(), policyService.Close(), roleService.Close())
+		return nil, errors.Join(err, policyService.Close(), roleService.Close())
 	}
 
 	// Phase 2 migration assigns users to roles based on the legacy mapping
@@ -148,12 +145,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     roleService,
-			Roles: v49.ProvisionResult{
-				OwnerKey:    roles.ownerKey,
-				EngineerKey: roles.engineerKey,
-				OperatorKey: roles.operatorKey,
-				ViewerKey:   roles.viewerKey,
-			},
+			Roles:    roles,
 		})},
 	}); err != nil {
 		return nil, errors.Join(err, policyService.Close(), roleService.Close())
