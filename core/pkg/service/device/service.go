@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	v53 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v53"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -112,7 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
 		DB: cfg.DB,
-		Migrations: append(DeviceMigrations(), v53.Migration(v53.MigrationConfig{
+		Migrations: append(DeviceMigrations(), v0.Migration(v0.MigrationConfig{
 			Status: cfg.Status,
 		})),
 		Instrumentation: cfg.Instrumentation,

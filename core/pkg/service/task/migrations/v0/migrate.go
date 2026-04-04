@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v53
+package v0
 
 import (
 	"context"
@@ -30,9 +30,9 @@ type MigrationConfig struct {
 
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"v53_device_migration",
+		"v53_status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			reader := gorp.WrapReader[Key, Device](tx)
+			reader := gorp.WrapReader[Key, Task](tx)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})
 			if err != nil {
 				return err
@@ -41,21 +41,21 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				err = errors.Combine(err, iter.Close())
 			}()
 
-			var devices []Device
+			var tasks []Task
 			for iter.First(); iter.Valid(); iter.Next() {
-				d := iter.Value(ctx)
+				t := iter.Value(ctx)
 				if err = iter.Error(); err != nil {
 					return err
 				}
-				devices = append(devices, *d)
+				tasks = append(tasks, *t)
 			}
-			if len(devices) == 0 {
+			if len(tasks) == 0 {
 				return nil
 			}
 
-			statusKeys := make([]string, len(devices))
-			for i, d := range devices {
-				statusKeys[i] = OntologyID(d.Key).String()
+			statusKeys := make([]string, len(tasks))
+			for i, t := range tasks {
+				statusKeys[i] = OntologyID(t.Key).String()
 			}
 			var existingStatuses []status.Status[StatusDetails]
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
@@ -69,23 +69,24 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				existingKeys[stat.Key] = true
 			}
 			var missingStatuses []status.Status[StatusDetails]
-			for _, d := range devices {
-				key := OntologyID(d.Key).String()
+			for _, t := range tasks {
+				key := OntologyID(t.Key).String()
 				if !existingKeys[key] {
 					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 						Key:     key,
-						Name:    d.Name,
+						Name:    t.Name,
 						Time:    telem.Now(),
 						Variant: xstatus.VariantWarning,
-						Message: fmt.Sprintf("%s state unknown", d.Name),
-						Details: StatusDetails{Rack: d.Rack, Device: d.Key},
+						Message: fmt.Sprintf("%s status unknown", t.Name),
+						Details: StatusDetails{Task: t.Key},
 					})
 				}
 			}
 			if len(missingStatuses) == 0 {
 				return nil
 			}
-			ins.L.Info("creating unknown statuses for existing devices", zap.Int("count", len(missingStatuses)))
+			ins.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
 			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
-		})
+		},
+	)
 }

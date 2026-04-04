@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v53
+package v0
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -40,7 +40,7 @@ type Device struct {
 
 var _ gorp.Entry[Key] = Device{}
 
-func (d Device) GorpKey() Key    { return d.Key }
+func (d Device) GorpKey() Key      { return d.Key }
 func (d Device) SetOptions() []any { return nil }
 
 func OntologyID(key string) ontology.ID {

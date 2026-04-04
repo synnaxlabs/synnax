@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	v53 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v53"
+	"github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -115,7 +115,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
 		DB: cfg.DB,
-		Migrations: append(TaskMigrations(), v53.Migration(v53.MigrationConfig{
+		Migrations: append(TaskMigrations(), v0.Migration(v0.MigrationConfig{
 			Status: cfg.Status,
 		})),
 		Instrumentation: cfg.Instrumentation,
