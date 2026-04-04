@@ -32,7 +32,7 @@ type MigrationConfig struct {
 
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"v53_rack_migration",
+		"v0.embedded_rack_rename_status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			if err := renameEmbeddedRack(ctx, tx, ins, cfg); err != nil {
 				return err

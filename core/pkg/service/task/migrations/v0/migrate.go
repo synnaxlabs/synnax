@@ -30,7 +30,7 @@ type MigrationConfig struct {
 
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"v53_status_backfill",
+		"v0.status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			reader := gorp.WrapReader[Key, Task](tx)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})
@@ -40,7 +40,6 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			defer func() {
 				err = errors.Combine(err, iter.Close())
 			}()
-
 			var tasks []Task
 			for iter.First(); iter.Valid(); iter.Next() {
 				t := iter.Value(ctx)

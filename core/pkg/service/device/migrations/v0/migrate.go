@@ -30,7 +30,7 @@ type MigrationConfig struct {
 
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"v53_device_migration",
+		"v0.status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			reader := gorp.WrapReader[Key, Device](tx)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})
