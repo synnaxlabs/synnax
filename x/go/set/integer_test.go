@@ -15,246 +15,617 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-var _ = Describe("Integer Set", Ordered, func() {
-	var (
-		s    set.Integer[int]
-		nums [100]int
-	)
-	BeforeAll(func() {
-		for i := range 100 {
-			nums[i] = i
-		}
-	})
+var _ = Describe("Integer", func() {
+	var s set.Integer[int]
+
 	BeforeEach(func() {
 		s = set.Integer[int]{}
 	})
-	Describe("Test Integer.Insert", func() {
-		It("Inserting integers should work", func() {
-			Expect(len(s)).To(Equal(0))
-			s.Insert(0)
-			Expect(s.Contains(0)).To(BeTrue())
-			Expect(s.NumGreaterThan(0)).To(Equal(0))
-			Expect(s.NumLessThan(0)).To(Equal(0))
-			s.Insert(1)
-			Expect(s.NumLessThan(2)).To(Equal(2))
-			Expect(s.Size()).To(Equal(2))
-			s.Insert(nums[0:3]...)
-			Expect(s.NumLessThan(3)).To(Equal(3))
-			Expect(s.Size()).To(Equal(3))
-			s.Insert(nums[0:10]...)
-			Expect(s.NumLessThan(10)).To(Equal(10))
-			Expect(s.Size()).To(Equal(10))
 
-			s.Insert(nums[15:20]...)
-			s.Insert(nums[25:30]...)
-			s.Insert(nums[10:40]...)
-			Expect(len(s)).To(Equal(1))
-			Expect(s.Size()).To(Equal(40))
+	Describe("NewInteger", func() {
+		It("Should create a set from sorted contiguous input", func() {
+			s := set.NewInteger([]int{1, 2, 3, 4, 5})
+			Expect(s.Size()).To(Equal(5))
+			Expect(*s).To(HaveLen(1))
+		})
 
-			s.Remove(nums[10:100]...)
-			newSlice := make([]int, 40)
-			copy(newSlice[0:10], nums[0:10])
-			copy(newSlice[10:30], nums[20:40])
-			copy(newSlice[30:40], nums[50:60])
-			s.Insert(newSlice...)
-			Expect(len(s)).To(Equal(3))
-			Expect(s.NumLessThan(45)).To(Equal(30))
-			Expect(s.Size()).To(Equal(40))
+		It("Should create a set from sorted non-contiguous input", func() {
+			s := set.NewInteger([]int{1, 2, 5, 6})
+			Expect(s.Size()).To(Equal(4))
+			Expect(*s).To(HaveLen(2))
 		})
-		It("Should insert a single integer", func() {
-			s.Insert(88)
-			Expect(s.NumLessThan(10)).To(Equal(0))
-			Expect(len(s)).To(Equal(1))
-		})
-	})
-	Describe("Check compression", func() {
-		It("Should create a compressed set", func() {
-			Expect(len(s)).To(Equal(0))
-			s.Insert(nums[0:10]...)
-			Expect(len(s)).To(Equal(1))
-			s.Insert(11)
-			Expect(len(s)).To(Equal(2))
-			s.Insert(nums[14:20]...)
-			Expect(len(s)).To(Equal(3))
-			s.Insert(10)
-			Expect(len(s)).To(Equal(2))
-			s.Insert(nums[12:14]...)
-			Expect(s.NumLessThan(nums[20])).To(Equal(20))
-			Expect(len(s)).To(Equal(1))
-		})
-		It("should check edge cases", func() {
-			s.Insert(nums[2:12]...)
-			s.Insert(nums[0:2]...)
-			s.Insert(nums[15:20]...)
-			s.Insert(nums[20:24]...)
-			s.Insert(nums[12:15]...)
-			Expect(len(s)).To(Equal(1))
-			Expect(s.NumLessThan(nums[24])).To(Equal(24))
-		})
-	})
-	Describe("Check retrieval of nums", func() {
-		It("Should retrieve the correct number while in the middle of an intRange", func() {
-			s.Insert(nums[0:25]...)
-			Expect(s.NumLessThan(nums[15])).To(Equal(15))
-		})
-	})
-	Describe("Check removal of nums", func() {
-		It("Should accurately delete and reinsert slices of nums", func() {
-			s.Insert(nums[0:25]...)
-			s.Remove(nums[10:20]...)
-			Expect(len(s)).To(Equal(2))
-			Expect(s.NumLessThan(nums[25])).To(Equal(15))
-			Expect(s.NumLessThan(nums[10])).To(Equal(10))
-			Expect(s.NumLessThan(nums[20])).To(Equal(10))
-			s.Remove(nums[0:10]...)
-			s.Remove(nums[20:25]...)
-			Expect(len(s)).To(Equal(0))
-			Expect(s.NumLessThan(nums[10])).To(Equal(0))
-		})
-		It("Should be idempotent when removing nums", func() {
-			s.Remove(nums[0:100]...)
-			Expect(len(s)).To(Equal(0))
-			Expect(s.NumLessThan(nums[50])).To(Equal(0))
-			s.Insert(nums[0:10]...)
-			s.Insert(nums[25:50]...)
-			s.Remove(nums[5:30]...)
-			Expect(len(s)).To(Equal(2))
-			Expect(s.NumLessThan(nums[99])).To(Equal(25))
-		})
-	})
-	Describe("Testing with an empty set", func() {
-		It("Should be able to get sizes from an empty set", func() {
-			Expect(s.NumLessThan(nums[10])).To(Equal(0))
-			Expect(len(s)).To(Equal(0))
-			s.Insert(nums[0:10]...)
-			s.Remove(nums[0:10]...)
-			s.Remove(nums[0:10]...)
-			Expect(s.Size()).To(Equal(0))
-			Expect(s.Contains(0)).To(BeFalse())
-			Expect(s.NumGreaterThan(0)).To(Equal(0))
-			Expect(s.NumLessThan(0)).To(Equal(0))
-		})
-	})
-	Describe("Testing Copy method", func() {
-		It("should create a copy that is independent of the original", func() {
-			s.Insert(1, 2, 3, 4, 5)
-			copySet := s.Copy()
-			Expect(copySet.Size()).To(Equal(s.Size()))
-			// Modify the original.
-			s.Remove(3)
-			// The copy should remain unchanged.
-			Expect(copySet.Size()).To(Equal(5))
-			Expect(copySet.Contains(3)).To(BeTrue())
-		})
-		It("should return an empty set when copying an empty set", func() {
-			copySet := s.Copy()
-			Expect(copySet.Size()).To(Equal(0))
-		})
-	})
-	Describe("Testing unsorted input", func() {
-		It("should insert unsorted integers correctly", func() {
-			// Provide unsorted input.
-			s.Insert(5, 1, 4, 3, 2)
-			// The resulting set should contain numbers 1 through 5.
+
+		It("Should create a set from unsorted input", func() {
+			s := set.NewInteger([]int{5, 1, 3, 2, 4})
 			Expect(s.Size()).To(Equal(5))
 			for i := 1; i <= 5; i++ {
 				Expect(s.Contains(i)).To(BeTrue())
 			}
-			// Verify that the set has compressed the range into a single interval.
-			Expect(len(s)).To(Equal(1))
 		})
-		It("should handle unsorted input with duplicates", func() {
-			// Insert unsorted input with duplicates.
+
+		It("Should handle empty input", func() {
+			s := set.NewInteger([]int{})
+			Expect(s.Size()).To(Equal(0))
+			Expect(*s).To(HaveLen(0))
+		})
+
+		It("Should handle a single element", func() {
+			s := set.NewInteger([]int{42})
+			Expect(s.Size()).To(Equal(1))
+			Expect(s.Contains(42)).To(BeTrue())
+		})
+
+		It("Should deduplicate input", func() {
+			s := set.NewInteger([]int{1, 1, 2, 2, 3})
+			Expect(s.Size()).To(Equal(3))
+		})
+
+		It("Should handle nil input", func() {
+			s := set.NewInteger[int](nil)
+			Expect(s.Size()).To(Equal(0))
+		})
+	})
+
+	Describe("Insert", func() {
+		It("Should insert a single element into an empty set", func() {
+			s.Insert(42)
+			Expect(s.Size()).To(Equal(1))
+			Expect(s.Contains(42)).To(BeTrue())
+		})
+
+		It("Should insert a contiguous ascending sequence as one interval", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(5))
+		})
+
+		It("Should insert non-contiguous elements as separate intervals", func() {
+			s.Insert(1, 3, 5)
+			Expect(s).To(HaveLen(3))
+			Expect(s.Size()).To(Equal(3))
+		})
+
+		It("Should be idempotent for duplicate insertions", func() {
+			s.Insert(1, 2, 3)
+			s.Insert(1, 2, 3)
+			Expect(s.Size()).To(Equal(3))
+			Expect(s).To(HaveLen(1))
+		})
+
+		It("Should be a no-op with no arguments", func() {
+			s.Insert(1, 2, 3)
+			s.Insert()
+			Expect(s.Size()).To(Equal(3))
+		})
+
+		It("Should handle unsorted contiguous input", func() {
+			s.Insert(7, 3, 4, 1, 2, 5, 6)
+			Expect(s.Size()).To(Equal(7))
+			Expect(s).To(HaveLen(1))
+		})
+
+		It("Should handle unsorted non-contiguous input", func() {
+			s.Insert(50, 20, 40, 10, 30)
+			Expect(s.Size()).To(Equal(5))
+			Expect(s).To(HaveLen(5))
+		})
+
+		It("Should handle unsorted input with duplicates", func() {
 			s.Insert(10, 5, 5, 8, 1, 3, 8, 2, 4)
-			// The expected unique set is numbers: 1, 2, 3, 4, 5, 8, 10.
 			Expect(s.Size()).To(Equal(7))
 			expected := []int{1, 2, 3, 4, 5, 8, 10}
 			for _, num := range expected {
 				Expect(s.Contains(num)).To(BeTrue())
 			}
 		})
-		It("should correctly merge intervals from unsorted input", func() {
-			// Insert unsorted input that should produce multiple intervals.
-			s.Insert(20, 18, 19, 5, 6, 7, 15)
-			// The sorted unique values are: 5,6,7,15,18,19,20.
-			// Note: 15 is isolated (not adjacent to 18), so we expect three intervals:
-			// [5,8) covering 5,6,7; [15,16) covering 15; and [18,21) covering 18,19,20.
+
+		It("Should handle negative numbers", func() {
+			s.Insert(-3, -2, -1)
+			Expect(s.Size()).To(Equal(3))
+			Expect(s).To(HaveLen(1))
+			Expect(s.Contains(-3)).To(BeTrue())
+			Expect(s.Contains(-1)).To(BeTrue())
+			Expect(s.Contains(0)).To(BeFalse())
+		})
+
+		It("Should handle a mix of negative and positive numbers", func() {
+			s.Insert(-2, -1, 0, 1, 2)
+			Expect(s.Size()).To(Equal(5))
+			Expect(s).To(HaveLen(1))
+			for i := -2; i <= 2; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+		})
+
+		It("Should handle non-contiguous negative and positive ranges", func() {
+			s.Insert(-5, -4, -3, 3, 4, 5)
+			Expect(s.Size()).To(Equal(6))
+			Expect(s).To(HaveLen(2))
+		})
+
+		It("Should compress adjacent intervals on left insertion", func() {
+			s.Insert(5, 6, 7)
+			s.Insert(4)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(4))
+			Expect(s.Contains(4)).To(BeTrue())
+		})
+
+		It("Should compress adjacent intervals on right insertion", func() {
+			s.Insert(5, 6, 7)
+			s.Insert(8)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(4))
+			Expect(s.Contains(8)).To(BeTrue())
+		})
+
+		It("Should bridge two intervals when the gap is filled", func() {
+			s.Insert(1, 2, 3)
+			s.Insert(5, 6, 7)
+			Expect(s).To(HaveLen(2))
+			s.Insert(4)
+			Expect(s).To(HaveLen(1))
 			Expect(s.Size()).To(Equal(7))
-			Expect(len(s)).To(Equal(3))
-			// Verify membership.
-			for i := 5; i < 8; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
-			Expect(s.Contains(15)).To(BeTrue())
-			for i := 18; i < 21; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
+		})
+
+		It("Should merge overlapping insertions", func() {
+			s.Insert(1, 2, 3, 4, 5)
+			s.Insert(3, 4, 5, 6, 7)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(7))
+		})
+
+		It("Should extend an existing interval to the left", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			s.Insert(3, 4, 5)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(7))
+			Expect(s.Contains(3)).To(BeTrue())
+		})
+
+		It("Should extend an existing interval to the right", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			s.Insert(8, 9, 10, 11)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(7))
+			Expect(s.Contains(11)).To(BeTrue())
+		})
+
+		It("Should handle inserting a range fully contained in an existing interval", func() {
+			s.Insert(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+			s.Insert(4, 5, 6)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(10))
+		})
+
+		It("Should handle inserting a range that spans multiple existing intervals", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(5, 6, 7)
+			s.Insert(10, 11, 12)
+			Expect(s).To(HaveLen(3))
+			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(13))
+		})
+
+		It("Should handle zero", func() {
+			s.Insert(0)
+			Expect(s.Size()).To(Equal(1))
+			Expect(s.Contains(0)).To(BeTrue())
+			Expect(s.Contains(-1)).To(BeFalse())
+			Expect(s.Contains(1)).To(BeFalse())
 		})
 	})
-	Describe("Comprehensive unsorted input tests", func() {
-		It("should correctly handle a completely unsorted contiguous sequence", func() {
-			// Unsorted contiguous sequence.
-			input := []int{7, 3, 4, 1, 2, 5, 6}
-			s.Insert(input...)
-			// Expected: a single interval [1,8) with size 7.
-			Expect(s.Size()).To(Equal(7))
-			Expect(len(s)).To(Equal(1))
-			for i := 1; i <= 7; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
-		})
-		It("should correctly handle unsorted non-contiguous inputs", func() {
-			// Unsorted non-contiguous input.
-			input := []int{50, 20, 40, 10, 30, 70, 60, 90, 80}
-			s.Insert(input...)
-			// Since these numbers are not consecutive, each should form its own interval.
+
+	Describe("Remove", func() {
+		It("Should remove a single element from the middle of a range", func() {
+			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+			s.Remove(5)
+			Expect(s).To(HaveLen(2))
 			Expect(s.Size()).To(Equal(9))
-			Expect(len(s)).To(Equal(9))
-			for _, num := range input {
-				Expect(s.Contains(num)).To(BeTrue())
-			}
+			Expect(s.Contains(5)).To(BeFalse())
+			Expect(s.Contains(4)).To(BeTrue())
+			Expect(s.Contains(6)).To(BeTrue())
 		})
-		It("should correctly handle unsorted input with multiple contiguous groups and duplicates", func() {
-			// Unsorted input with duplicates and distinct groups.
-			input := []int{100, 102, 101, 200, 202, 201, 200, 150, 149, 151, 149, 152}
-			s.Insert(input...)
-			// Expected groups:
-			// Group 1: [100,101,102] -> 3 numbers.
-			// Group 2: [149,150,151,152] -> 4 numbers.
-			// Group 3: [200,201,202] -> 3 numbers.
-			Expect(s.Size()).To(Equal(3 + 4 + 3))
-			Expect(len(s)).To(Equal(3))
-			for i := 100; i <= 102; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
-			for i := 149; i <= 152; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
-			for i := 200; i <= 202; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
+
+		It("Should remove from the start of a range", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			s.Remove(0)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(4))
+			Expect(s.Contains(0)).To(BeFalse())
+			Expect(s.Contains(1)).To(BeTrue())
 		})
-		It("should correctly merge unsorted input with an existing set", func() {
-			// Start with a sorted input.
+
+		It("Should remove from the end of a range", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			s.Remove(4)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(4))
+			Expect(s.Contains(4)).To(BeFalse())
+			Expect(s.Contains(3)).To(BeTrue())
+		})
+
+		It("Should remove an entire range", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(5, 6, 7)
+			s.Remove(0, 1, 2)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Size()).To(Equal(3))
+			Expect(s.Contains(0)).To(BeFalse())
+			Expect(s.Contains(5)).To(BeTrue())
+		})
+
+		It("Should remove a contiguous sub-range from the middle", func() {
+			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+			s.Remove(3, 4, 5, 6)
+			Expect(s).To(HaveLen(2))
+			Expect(s.Size()).To(Equal(6))
+			Expect(s.Contains(2)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeFalse())
+			Expect(s.Contains(6)).To(BeFalse())
+			Expect(s.Contains(7)).To(BeTrue())
+		})
+
+		It("Should remove elements spanning multiple ranges", func() {
+			s.Insert(0, 1, 2, 3, 4)
 			s.Insert(10, 11, 12, 13, 14)
-			// Then insert unsorted values that extend the existing interval.
-			s.Insert(15, 9)
-			// Expected final interval is [9,16) with size 7.
-			Expect(s.Size()).To(Equal(7))
-			Expect(len(s)).To(Equal(1))
-			for i := 9; i <= 15; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
+			s.Remove(3, 4, 10, 11)
+			Expect(s).To(HaveLen(2))
+			Expect(s.Size()).To(Equal(6))
+			Expect(s.Contains(2)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeFalse())
+			Expect(s.Contains(10)).To(BeFalse())
+			Expect(s.Contains(12)).To(BeTrue())
+		})
+
+		It("Should be idempotent for non-existent elements", func() {
+			s.Insert(1, 2, 3)
+			s.Remove(10, 20, 30)
+			Expect(s.Size()).To(Equal(3))
+		})
+
+		It("Should be a no-op on an empty set", func() {
+			s.Remove(1, 2, 3)
+			Expect(s).To(HaveLen(0))
+		})
+
+		It("Should be a no-op with no arguments", func() {
+			s.Insert(1, 2, 3)
+			s.Remove()
+			Expect(s.Size()).To(Equal(3))
+		})
+
+		It("Should remove all elements", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			s.Remove(0, 1, 2, 3, 4)
+			Expect(s).To(HaveLen(0))
+			Expect(s.Size()).To(Equal(0))
+		})
+
+		It("Should handle removing negative numbers", func() {
+			s.Insert(-5, -4, -3, -2, -1)
+			s.Remove(-3)
+			Expect(s).To(HaveLen(2))
+			Expect(s.Size()).To(Equal(4))
+			Expect(s.Contains(-3)).To(BeFalse())
+			Expect(s.Contains(-4)).To(BeTrue())
+			Expect(s.Contains(-2)).To(BeTrue())
+		})
+
+		It("Should handle a mix of existing and non-existent elements", func() {
+			s.Insert(1, 2, 3, 4, 5)
+			s.Remove(2, 4, 10, 20)
+			Expect(s.Size()).To(Equal(3))
+			Expect(s.Contains(2)).To(BeFalse())
+			Expect(s.Contains(4)).To(BeFalse())
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+			Expect(s.Contains(5)).To(BeTrue())
 		})
 	})
-	Describe("Duplicate Insertion", func() {
-		It("should not increase the size when inserting duplicate contiguous values", func() {
+
+	Describe("Contains", func() {
+		It("Should return true for the first element of a range", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.Contains(5)).To(BeTrue())
+		})
+
+		It("Should return true for the last element of a range", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.Contains(9)).To(BeTrue())
+		})
+
+		It("Should return true for a middle element of a range", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.Contains(7)).To(BeTrue())
+		})
+
+		It("Should return false just before the start of a range", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.Contains(4)).To(BeFalse())
+		})
+
+		It("Should return false just after the end of a range", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.Contains(10)).To(BeFalse())
+		})
+
+		It("Should return false for elements in gaps between ranges", func() {
 			s.Insert(1, 2, 3)
-			sizeAfterFirst := s.Size()
+			s.Insert(7, 8, 9)
+			Expect(s.Contains(5)).To(BeFalse())
+		})
+
+		It("Should return false for elements before all ranges", func() {
+			s.Insert(10, 11, 12)
+			Expect(s.Contains(0)).To(BeFalse())
+		})
+
+		It("Should return false for elements after all ranges", func() {
 			s.Insert(1, 2, 3)
-			// The size should remain the same and only one interval should exist.
-			Expect(s.Size()).To(Equal(sizeAfterFirst))
-			Expect(len(s)).To(Equal(1))
+			Expect(s.Contains(100)).To(BeFalse())
+		})
+
+		It("Should return false on an empty set", func() {
+			Expect(s.Contains(0)).To(BeFalse())
+			Expect(s.Contains(42)).To(BeFalse())
+		})
+
+		It("Should handle negative numbers", func() {
+			s.Insert(-5, -4, -3)
+			Expect(s.Contains(-5)).To(BeTrue())
+			Expect(s.Contains(-3)).To(BeTrue())
+			Expect(s.Contains(-6)).To(BeFalse())
+			Expect(s.Contains(-2)).To(BeFalse())
+		})
+
+		It("Should handle a single-element range", func() {
+			s.Insert(42)
+			Expect(s.Contains(42)).To(BeTrue())
+			Expect(s.Contains(41)).To(BeFalse())
+			Expect(s.Contains(43)).To(BeFalse())
+		})
+
+		It("Should handle multiple ranges with exact boundary checks", func() {
+			s.Insert(1, 2, 3)
+			s.Insert(10, 11, 12)
+			s.Insert(20, 21, 22)
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+			Expect(s.Contains(4)).To(BeFalse())
+			Expect(s.Contains(9)).To(BeFalse())
+			Expect(s.Contains(10)).To(BeTrue())
+			Expect(s.Contains(12)).To(BeTrue())
+			Expect(s.Contains(13)).To(BeFalse())
+			Expect(s.Contains(19)).To(BeFalse())
+			Expect(s.Contains(20)).To(BeTrue())
+			Expect(s.Contains(22)).To(BeTrue())
+			Expect(s.Contains(23)).To(BeFalse())
+		})
+	})
+
+	Describe("NumLessThan", func() {
+		It("Should return 0 when value is less than all elements", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.NumLessThan(5)).To(Equal(0))
+			Expect(s.NumLessThan(0)).To(Equal(0))
+		})
+
+		It("Should return the full size when value exceeds all elements", func() {
+			s.Insert(1, 2, 3, 4, 5)
+			Expect(s.NumLessThan(6)).To(Equal(5))
+			Expect(s.NumLessThan(100)).To(Equal(5))
+		})
+
+		It("Should count correctly for a value in the middle of a range", func() {
+			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+			Expect(s.NumLessThan(5)).To(Equal(5))
+		})
+
+		It("Should count correctly for a value at the start of a range", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.NumLessThan(5)).To(Equal(0))
+		})
+
+		It("Should count correctly at the exclusive end of a range", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			Expect(s.NumLessThan(5)).To(Equal(5))
+		})
+
+		It("Should count correctly for a value in a gap between ranges", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(8, 9, 10, 11)
+			Expect(s.NumLessThan(5)).To(Equal(3))
+		})
+
+		It("Should return 0 for an empty set", func() {
+			Expect(s.NumLessThan(0)).To(Equal(0))
+			Expect(s.NumLessThan(100)).To(Equal(0))
+		})
+
+		It("Should handle negative numbers", func() {
+			s.Insert(-5, -4, -3, -2, -1)
+			Expect(s.NumLessThan(-3)).To(Equal(2))
+			Expect(s.NumLessThan(0)).To(Equal(5))
+			Expect(s.NumLessThan(-10)).To(Equal(0))
+		})
+
+		It("Should count across multiple ranges", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(5, 6, 7)
+			s.Insert(10, 11, 12)
+			Expect(s.NumLessThan(8)).To(Equal(6))
+			Expect(s.NumLessThan(11)).To(Equal(7))
+		})
+
+		It("Should handle a single-element set", func() {
+			s.Insert(5)
+			Expect(s.NumLessThan(5)).To(Equal(0))
+			Expect(s.NumLessThan(6)).To(Equal(1))
+			Expect(s.NumLessThan(4)).To(Equal(0))
+		})
+	})
+
+	Describe("NumGreaterThan", func() {
+		It("Should return 0 when value exceeds all elements", func() {
+			s.Insert(1, 2, 3, 4, 5)
+			Expect(s.NumGreaterThan(5)).To(Equal(0))
+			Expect(s.NumGreaterThan(100)).To(Equal(0))
+		})
+
+		It("Should return the full size when value is less than all elements", func() {
+			s.Insert(5, 6, 7, 8, 9)
+			Expect(s.NumGreaterThan(4)).To(Equal(5))
+			Expect(s.NumGreaterThan(0)).To(Equal(5))
+		})
+
+		It("Should count correctly for a value in the middle of a range", func() {
+			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+			Expect(s.NumGreaterThan(5)).To(Equal(4))
+		})
+
+		It("Should count correctly for a value at the start of a range", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			Expect(s.NumGreaterThan(0)).To(Equal(4))
+		})
+
+		It("Should count correctly for the last element of a range", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			Expect(s.NumGreaterThan(4)).To(Equal(0))
+		})
+
+		It("Should count correctly for a value in a gap between ranges", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(8, 9, 10, 11)
+			Expect(s.NumGreaterThan(5)).To(Equal(4))
+		})
+
+		It("Should return 0 for an empty set", func() {
+			Expect(s.NumGreaterThan(0)).To(Equal(0))
+			Expect(s.NumGreaterThan(-100)).To(Equal(0))
+		})
+
+		It("Should handle negative numbers", func() {
+			s.Insert(-5, -4, -3, -2, -1)
+			Expect(s.NumGreaterThan(-3)).To(Equal(2))
+			Expect(s.NumGreaterThan(-6)).To(Equal(5))
+			Expect(s.NumGreaterThan(-1)).To(Equal(0))
+		})
+
+		It("Should count across multiple ranges", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(5, 6, 7)
+			s.Insert(10, 11, 12)
+			Expect(s.NumGreaterThan(1)).To(Equal(7))
+			Expect(s.NumGreaterThan(6)).To(Equal(4))
+		})
+
+		It("Should handle a single-element set", func() {
+			s.Insert(5)
+			Expect(s.NumGreaterThan(5)).To(Equal(0))
+			Expect(s.NumGreaterThan(4)).To(Equal(1))
+			Expect(s.NumGreaterThan(6)).To(Equal(0))
+		})
+	})
+
+	Describe("Size", func() {
+		It("Should return 0 for an empty set", func() {
+			Expect(s.Size()).To(Equal(0))
+		})
+
+		It("Should return 1 for a single element", func() {
+			s.Insert(42)
+			Expect(s.Size()).To(Equal(1))
+		})
+
+		It("Should return the correct size for a single contiguous range", func() {
+			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+			Expect(s.Size()).To(Equal(10))
+		})
+
+		It("Should return the correct size for multiple ranges", func() {
+			s.Insert(0, 1, 2)
+			s.Insert(5, 6, 7)
+			s.Insert(10, 11, 12)
+			Expect(s.Size()).To(Equal(9))
+		})
+
+		It("Should increase after insertions", func() {
+			Expect(s.Size()).To(Equal(0))
+			s.Insert(1, 2, 3)
+			Expect(s.Size()).To(Equal(3))
+			s.Insert(5, 6)
+			Expect(s.Size()).To(Equal(5))
+		})
+
+		It("Should decrease after removals", func() {
+			s.Insert(0, 1, 2, 3, 4)
+			Expect(s.Size()).To(Equal(5))
+			s.Remove(2)
+			Expect(s.Size()).To(Equal(4))
+			s.Remove(0, 1, 3, 4)
+			Expect(s.Size()).To(Equal(0))
+		})
+
+		It("Should not change for duplicate insertions", func() {
+			s.Insert(1, 2, 3)
+			Expect(s.Size()).To(Equal(3))
+			s.Insert(1, 2, 3)
+			Expect(s.Size()).To(Equal(3))
+		})
+
+		It("Should not change for removing non-existent elements", func() {
+			s.Insert(1, 2, 3)
+			Expect(s.Size()).To(Equal(3))
+			s.Remove(10, 20)
+			Expect(s.Size()).To(Equal(3))
+		})
+	})
+
+	Describe("Copy", func() {
+		It("Should create an independent copy with a single interval", func() {
+			s.Insert(1, 2, 3, 4, 5)
+			copied := s.Copy()
+			Expect(copied.Size()).To(Equal(5))
+			s.Remove(3)
+			Expect(copied.Size()).To(Equal(5))
+			Expect(copied.Contains(3)).To(BeTrue())
+		})
+
+		It("Should create an independent copy with multiple intervals", func() {
+			s.Insert(1, 2, 3)
+			s.Insert(10, 11, 12)
+			copied := s.Copy()
+			Expect(copied.Size()).To(Equal(6))
+			Expect(copied).To(HaveLen(2))
+			s.Remove(2)
+			Expect(copied.Size()).To(Equal(6))
+		})
+
+		It("Should handle copying an empty set", func() {
+			copied := s.Copy()
+			Expect(copied.Size()).To(Equal(0))
+		})
+
+		It("Should not be affected when the original is modified", func() {
+			s.Insert(1, 2, 3)
+			copied := s.Copy()
+			s.Insert(4, 5, 6)
+			s.Remove(1)
+			Expect(copied.Size()).To(Equal(3))
+			Expect(copied.Contains(1)).To(BeTrue())
+			Expect(copied.Contains(4)).To(BeFalse())
+		})
+
+		It("Should not affect the original when the copy is modified", func() {
+			s.Insert(1, 2, 3)
+			copied := s.Copy()
+			copied.Insert(4, 5, 6)
+			copied.Remove(1)
+			Expect(s.Size()).To(Equal(3))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(4)).To(BeFalse())
 		})
 	})
 })
