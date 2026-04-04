@@ -92,9 +92,9 @@ func provisionRole(
 		if err := w.Create(ctx, &rol); err != nil {
 			return uuid.Nil, err
 		}
-		if err := policySvc.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
-			return uuid.Nil, err
-		}
+	}
+	if err := policySvc.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
+		return uuid.Nil, err
 	}
 	return rol.Key, nil
 }
