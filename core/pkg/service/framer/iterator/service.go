@@ -230,14 +230,14 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	if len(concreteBaseKeys) > 0 {
 		if err := s.cfg.Channel.NewRetrieve().
 			Entries(&concreteBaseChannels).
-			WhereKeys(concreteBaseKeys.Keys()...).
+			WhereKeys(concreteBaseKeys.ToSlice()...).
 			Exec(ctx, nil); err != nil {
 			return nil, err
 		}
 	}
 
-	// Update cfg.Keys to include concrete base keys and their indices
-	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Keys()...))
+	// Update cfg.ToSlice to include concrete base keys and their indices
+	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.ToSlice()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
 		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {
@@ -245,7 +245,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 		})...,
 	))
 
-	// Remove ALL calculated keys (including nested ones) from cfg.Keys
+	// Remove ALL calculated keys (including nested ones) from cfg.ToSlice
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})

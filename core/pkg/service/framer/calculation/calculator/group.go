@@ -32,7 +32,7 @@ func (g Group) ReadFrom() channel.Keys {
 		keys.Add(c.ReadFrom()...)
 		calcKeys.Add(c.Channel().Key(), c.Channel().Index())
 	}
-	return set.Difference(keys, calcKeys).Keys()
+	return set.Difference(keys, calcKeys).ToSlice()
 }
 
 func (g Group) WriteTo() channel.Keys {
@@ -40,7 +40,7 @@ func (g Group) WriteTo() channel.Keys {
 	for _, c := range g {
 		keys.Add(c.WriteTo()...)
 	}
-	return keys.Keys()
+	return keys.ToSlice()
 }
 
 func (g Group) Next(
