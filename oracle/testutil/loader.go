@@ -24,6 +24,11 @@ func NewMockFileLoader() *MockFileLoader {
 	return &MockFileLoader{Files: make(map[string]string), root: "/mock/repo"}
 }
 
+// NewMockFileLoaderWithRoot creates a new MockFileLoader with a custom repo root.
+func NewMockFileLoaderWithRoot(root string) *MockFileLoader {
+	return &MockFileLoader{Files: make(map[string]string), root: root}
+}
+
 // Add adds a file to the mock loader and returns the loader for chaining.
 func (m *MockFileLoader) Add(path, content string) *MockFileLoader {
 	m.Files[path] = content

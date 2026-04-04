@@ -12,9 +12,9 @@
 package task
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func TaskMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func TaskMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

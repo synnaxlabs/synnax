@@ -19,193 +19,156 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
-type groupMigration struct{ cfg ServiceConfig }
-
-var _ gorp.Migration = (*groupMigration)(nil)
-
-func (m *groupMigration) Name() string { return "range_groups_1" }
-
-func (m *groupMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-	ins.L.Debug("swapping invalid time ranges")
-	if err := m.swapRanges(ctx, tx); err != nil {
-		return err
-	}
-
-	var topLevelGroup group.Group
-	if err := m.cfg.Group.
-		NewRetrieve().
-		Entry(&topLevelGroup).
-		WhereNames("Ranges").
-		Exec(ctx, tx); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return nil
-		}
-		return err
-	}
-
-	var groups []ontology.Resource
-	if err := m.cfg.Ontology.
-		NewRetrieve().
-		WhereIDs(topLevelGroup.OntologyID()).
-		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypeGroup).
-		Entries(&groups).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	m.cfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
-
-	otgWriter := m.cfg.Ontology.NewWriter(tx)
-	if err := otgWriter.DeleteOutgoingRelationshipsOfType(
-		ctx,
-		topLevelGroup.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-	); err != nil {
-		return err
-	}
-	if err := m.cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
-		return err
-	}
-
-	rangeMap, err := m.loadAllRanges(ctx, tx)
-	if err != nil {
-		return err
-	}
-
-	writer := gorp.WrapWriter[Key, Range](tx)
-
-	for _, g := range groups {
-		var childRanges []ontology.Resource
-		// ExcludeFieldData is required because this migration runs during
-		// OpenService before the range ontology service is registered. Without
-		// it, the ontology would panic trying to retrieve range resources.
-		if err = m.cfg.Ontology.
-			NewRetrieve().
-			WhereIDs(g.ID).
-			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypeRange).
-			ExcludeFieldData(true).
-			Entries(&childRanges).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		m.cfg.L.Debug(
-			"migrating range group",
-			zap.String("group", g.Name),
-			zap.Int("children", len(childRanges)),
-		)
-		gKey, err := uuid.Parse(g.ID.Key)
-		if err != nil {
-			return err
-		}
-		if err = otgWriter.DeleteOutgoingRelationshipsOfType(
-			ctx,
-			g.ID,
-			ontology.RelationshipTypeParentOf,
-		); err != nil {
-			return err
-		}
-		if err = m.cfg.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
-			return err
-		}
-		if len(childRanges) == 0 {
-			continue
-		}
-		tr := telem.TimeRange{Start: telem.TimeStampMax, End: telem.TimeStampMin}
-		for _, cr := range childRanges {
-			rKey, err := uuid.Parse(cr.ID.Key)
+func groupMigration(cfg ServiceConfig) migrate.Migration {
+	return gorp.NewMigration(
+		"range_groups_1",
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
+			ins.L.Debug("swapping invalid time ranges")
+			var (
+				writer = gorp.WrapWriter[Key, Range](tx)
+				reader = gorp.WrapReader[Key, Range](tx)
+			)
+			iter, err := reader.OpenIterator(gorp.IterOptions{})
 			if err != nil {
 				return err
 			}
-			r, ok := rangeMap[rKey]
-			if !ok {
-				continue
+			defer func() {
+				err = errors.Combine(err, iter.Close())
+			}()
+			rangeMap := make(map[uuid.UUID]Range)
+			for iter.First(); iter.Valid(); iter.Next() {
+				rng := iter.Value(ctx)
+				if err = iter.Error(); err != nil {
+					return errors.Wrap(err, "invalid range")
+				}
+				if !rng.TimeRange.Valid() {
+					rng.TimeRange = rng.TimeRange.MakeValid()
+					if err = writer.Set(ctx, *rng); err != nil {
+						return err
+					}
+				}
+				rangeMap[rng.Key] = *rng
 			}
-			if r.TimeRange.Start.Before(tr.Start) {
-				tr.Start = r.TimeRange.Start
+
+			var topLevelGroup group.Group
+			if err = cfg.Group.
+				NewRetrieve().
+				Entry(&topLevelGroup).
+				WhereNames("Ranges").
+				Exec(ctx, tx); err != nil {
+				if errors.Is(err, query.ErrNotFound) {
+					return nil
+				}
+				return err
 			}
-			if r.TimeRange.End.After(tr.End) {
-				tr.End = r.TimeRange.End
+
+			var groups []ontology.Resource
+			if err = cfg.Ontology.
+				NewRetrieve().
+				WhereIDs(topLevelGroup.OntologyID()).
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(ontology.ResourceTypeGroup).
+				Entries(&groups).
+				Exec(ctx, tx); err != nil {
+				return err
 			}
-		}
-		newParentRange := Range{
-			Key:       uuid.New(),
-			Name:      g.Name,
-			TimeRange: tr.MakeValid(),
-		}
-		if err = writer.Set(ctx, newParentRange); err != nil {
-			return err
-		}
-		if err = otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
-			return err
-		}
-		if err = otgWriter.DefineFromOneToManyRelationships(
-			ctx,
-			newParentRange.OntologyID(),
-			ontology.RelationshipTypeParentOf,
-			lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
-				return r.ID
-			}),
-		); err != nil {
-			return err
-		}
-	}
+			cfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
 
-	return nil
-}
+			otgWriter := cfg.Ontology.NewWriter(tx)
+			if err := otgWriter.DeleteOutgoingRelationshipsOfType(
+				ctx,
+				topLevelGroup.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+			); err != nil {
+				return err
+			}
+			if err := cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
+				return err
+			}
 
-func (m *groupMigration) swapRanges(
-	ctx context.Context,
-	tx gorp.Tx,
-) (err error) {
-	writer := gorp.WrapWriter[Key, Range](tx)
-	iter, err := gorp.WrapReader[Key, Range](tx).OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	for iter.First(); iter.Valid(); iter.Next() {
-		rng := iter.Value(ctx)
-		if err := iter.Error(); err != nil {
-			return errors.Wrap(err, "invalid range")
-		}
-		if rng.TimeRange.Valid() {
-			continue
-		}
-		rng.TimeRange = rng.TimeRange.MakeValid()
-		if err = writer.Set(ctx, *rng); err != nil {
-			return err
-		}
-	}
-	return err
-}
-
-func (m *groupMigration) loadAllRanges(
-	ctx context.Context,
-	tx gorp.Tx,
-) (result map[uuid.UUID]Range, err error) {
-	result = make(map[uuid.UUID]Range)
-	reader := gorp.WrapReader[Key, Range](tx)
-	iter, err := reader.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	for iter.First(); iter.Valid(); iter.Next() {
-		v := iter.Value(ctx)
-		if err = iter.Error(); err != nil {
-			return nil, err
-		}
-		result[v.Key] = *v
-	}
-	return result, err
+			for _, g := range groups {
+				var childRanges []ontology.Resource
+				// ExcludeFieldData is required because this migration runs during
+				// OpenService before the range ontology service is registered. Without
+				// it, the ontology would panic trying to retrieve range resources.
+				if err = cfg.Ontology.
+					NewRetrieve().
+					WhereIDs(g.ID).
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(ontology.ResourceTypeRange).
+					ExcludeFieldData(true).
+					Entries(&childRanges).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				cfg.L.Debug(
+					"migrating range group",
+					zap.String("group", g.Name),
+					zap.Int("children", len(childRanges)),
+				)
+				gKey, err := uuid.Parse(g.ID.Key)
+				if err != nil {
+					return err
+				}
+				if err = otgWriter.DeleteOutgoingRelationshipsOfType(
+					ctx,
+					g.ID,
+					ontology.RelationshipTypeParentOf,
+				); err != nil {
+					return err
+				}
+				if err = cfg.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
+					return err
+				}
+				if len(childRanges) == 0 {
+					continue
+				}
+				tr := telem.TimeRange{Start: telem.TimeStampMax, End: telem.TimeStampMin}
+				for _, cr := range childRanges {
+					rKey, err := uuid.Parse(cr.ID.Key)
+					if err != nil {
+						return err
+					}
+					r, ok := rangeMap[rKey]
+					if !ok {
+						continue
+					}
+					if r.TimeRange.Start.Before(tr.Start) {
+						tr.Start = r.TimeRange.Start
+					}
+					if r.TimeRange.End.After(tr.End) {
+						tr.End = r.TimeRange.End
+					}
+				}
+				newParentRange := Range{
+					Key:       uuid.New(),
+					Name:      g.Name,
+					TimeRange: tr.MakeValid(),
+				}
+				if err = writer.Set(ctx, newParentRange); err != nil {
+					return err
+				}
+				if err = otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
+					return err
+				}
+				if err = otgWriter.DefineFromOneToManyRelationships(
+					ctx,
+					newParentRange.OntologyID(),
+					ontology.RelationshipTypeParentOf,
+					lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
+						return r.ID
+					}),
+				); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
 }
