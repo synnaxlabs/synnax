@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -977,10 +978,10 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				outputSet := make(map[ir.Handle]bool)
+				outputSet := make(set.Set[ir.Handle])
 				for _, n := range inter.Nodes {
 					for _, p := range n.Outputs {
-						outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+						outputSet.Add(ir.Handle{Node: n.Key, Param: p.Name})
 					}
 				}
 				for _, edge := range inter.Edges {
@@ -1709,10 +1710,10 @@ var _ = Describe("Text", func() {
 			// Verify that every edge source references a node output that actually exists.
 			// This is the invariant that was violated when void functions appeared mid-chain,
 			// causing a nil pointer dereference in state.Node().
-			outputSet := make(map[ir.Handle]bool)
+			outputSet := make(set.Set[ir.Handle])
 			for _, n := range inter.Nodes {
 				for _, p := range n.Outputs {
-					outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+					outputSet.Add(ir.Handle{Node: n.Key, Param: p.Name})
 				}
 			}
 			for _, edge := range inter.Edges {

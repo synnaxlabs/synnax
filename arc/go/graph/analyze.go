@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -165,19 +166,19 @@ func Analyze(
 	}
 
 	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
-	connectedInputs := make(map[string]map[string]bool)
+	connectedInputs := make(map[string]set.Set[string])
 	for _, edge := range g.Edges {
 		if connectedInputs[edge.Target.Node] == nil {
-			connectedInputs[edge.Target.Node] = make(map[string]bool)
+			connectedInputs[edge.Target.Node] = make(set.Set[string])
 		}
-		if connectedInputs[edge.Target.Node][edge.Target.Param] {
+		if connectedInputs[edge.Target.Node].Contains(edge.Target.Param) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
 				"multiple edges target node '%s' parameter '%s'",
 				edge.Target.Node,
 				edge.Target.Param,
 			))
 		}
-		connectedInputs[edge.Target.Node][edge.Target.Param] = true
+		connectedInputs[edge.Target.Node].Add(edge.Target.Param)
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
@@ -191,7 +192,7 @@ func Analyze(
 		}
 		connected := connectedInputs[n.Key]
 		for _, inputParam := range freshType.Inputs {
-			if !connected[inputParam.Name] {
+			if !connected.Contains(inputParam.Name) {
 				// Check if this parameter has a default value (is optional)
 				if inputParam.Value == nil {
 					// Required parameter is missing

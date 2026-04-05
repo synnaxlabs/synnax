@@ -12,7 +12,6 @@ package set_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -24,7 +23,7 @@ var _ = Describe("Set", func() {
 	})
 
 	Describe("New", func() {
-		It("Should create a set from multiple entries", func() {
+		It("Should create a set from multiple elements", func() {
 			s = set.New(1, 2, 3)
 			Expect(s).To(HaveLen(3))
 			Expect(s.Contains(1)).To(BeTrue())
@@ -32,14 +31,14 @@ var _ = Describe("Set", func() {
 			Expect(s.Contains(3)).To(BeTrue())
 		})
 
-		It("Should create a set from a single entry", func() {
+		It("Should create a set from a single element", func() {
 			s = set.New(1)
 			Expect(s).To(HaveLen(1))
 			Expect(s.Contains(1)).To(BeTrue())
 			Expect(s.Contains(2)).To(BeFalse())
 		})
 
-		It("Should deduplicate entries", func() {
+		It("Should deduplicate elements", func() {
 			s = set.New(1, 2, 3, 2, 1)
 			Expect(s).To(HaveLen(3))
 			Expect(s.Contains(1)).To(BeTrue())
@@ -47,35 +46,9 @@ var _ = Describe("Set", func() {
 			Expect(s.Contains(3)).To(BeTrue())
 		})
 
-		It("Should create an empty set with no arguments", func() {
+		It("Should create an empty set with no elements", func() {
 			s = set.New[int]()
 			Expect(s).To(HaveLen(0))
-		})
-	})
-
-	Describe("FromSlice", func() {
-		It("Should create a set from a slice", func() {
-			s = set.FromSlice([]int{1, 2, 3})
-			Expect(s).To(HaveLen(3))
-			Expect(s.Contains(1)).To(BeTrue())
-			Expect(s.Contains(2)).To(BeTrue())
-			Expect(s.Contains(3)).To(BeTrue())
-		})
-
-		It("Should deduplicate slice entries", func() {
-			s = set.FromSlice([]int{1, 2, 3, 2, 1})
-			Expect(s).To(HaveLen(3))
-		})
-
-		It("Should handle an empty slice", func() {
-			s = set.FromSlice([]int{})
-			Expect(s).To(HaveLen(0))
-		})
-
-		It("Should handle a single-element slice", func() {
-			s = set.FromSlice([]int{42})
-			Expect(s).To(HaveLen(1))
-			Expect(s.Contains(42)).To(BeTrue())
 		})
 	})
 
@@ -120,7 +93,7 @@ var _ = Describe("Set", func() {
 	})
 
 	Describe("Remove", func() {
-		It("Should remove specified elements", func() {
+		It("Should remove multiple elements", func() {
 			s.Add(1, 2, 3, 4, 5)
 			s.Remove(2, 4)
 			Expect(s).To(HaveLen(3))
@@ -142,7 +115,7 @@ var _ = Describe("Set", func() {
 			Expect(s).To(HaveLen(0))
 		})
 
-		It("Should be a no-op with no arguments", func() {
+		It("Should be a no-op with no elements", func() {
 			s.Add(1, 2)
 			s.Remove()
 			Expect(s).To(HaveLen(2))
@@ -170,14 +143,14 @@ var _ = Describe("Set", func() {
 	})
 
 	Describe("Contains", func() {
-		It("Should return true for existing elements", func() {
+		It("Should return true for elements that exist", func() {
 			s.Add(1, 3, 5)
 			Expect(s.Contains(1)).To(BeTrue())
 			Expect(s.Contains(3)).To(BeTrue())
 			Expect(s.Contains(5)).To(BeTrue())
 		})
 
-		It("Should return false for non-existing elements", func() {
+		It("Should return false for elements that do not exist", func() {
 			s.Add(1, 3, 5)
 			Expect(s.Contains(2)).To(BeFalse())
 			Expect(s.Contains(4)).To(BeFalse())
@@ -198,7 +171,7 @@ var _ = Describe("Set", func() {
 			Expect(s.ToSlice()).To(BeEmpty())
 		})
 
-		It("Should return a single-element slice", func() {
+		It("Should return a slice with a single element", func() {
 			s.Add(42)
 			Expect(s.ToSlice()).To(ConsistOf(42))
 		})

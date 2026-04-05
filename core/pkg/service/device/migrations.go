@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -62,14 +63,14 @@ func (m *statusBackfillMigration) Run(ctx context.Context, tx gorp.Tx, ins alamo
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	existingKeys := make(map[string]bool)
+	existingKeys := make(set.Set[string])
 	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
+		existingKeys.Add(stat.Key)
 	}
 	var missingStatuses []status.Status[StatusDetails]
 	for _, d := range devices {
 		key := OntologyID(d.Key).String()
-		if !existingKeys[key] {
+		if !existingKeys.Contains(key) {
 			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 				Key:     key,
 				Name:    d.Name,

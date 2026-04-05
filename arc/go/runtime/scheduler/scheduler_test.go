@@ -20,12 +20,13 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // MockNode is a configurable mock for testing scheduler behavior.
 type MockNode struct {
-	ParamTruthy   map[string]bool
+	ParamTruthy   set.Set[string]
 	OnNext        func(node.Context)
 	ElapsedValues []telem.TimeSpan
 	NextCalled    int
@@ -33,7 +34,7 @@ type MockNode struct {
 }
 
 func NewMockNode() *MockNode {
-	return &MockNode{ParamTruthy: make(map[string]bool)}
+	return &MockNode{ParamTruthy: make(set.Set[string])}
 }
 
 func (m *MockNode) Next(ctx node.Context) {
@@ -49,7 +50,7 @@ func (m *MockNode) Reset() {
 }
 
 func (m *MockNode) IsOutputTruthy(param string) bool {
-	return m.ParamTruthy[param]
+	return m.ParamTruthy.Contains(param)
 }
 
 // MarkOnNext configures the node to mark a parameter as changed when Next() is called.
@@ -138,7 +139,7 @@ var _ = Describe("Scheduler", func() {
 			mock("B")
 
 			triggerA.MarkOnNext("activate")
-			triggerA.ParamTruthy["activate"] = true
+			triggerA.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -477,7 +478,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -497,7 +498,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = false
+			nodeA.ParamTruthy.Remove("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -519,10 +520,10 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -551,7 +552,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -579,10 +580,10 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -616,7 +617,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = false // Falsy, but continuous edge
+			nodeA.ParamTruthy.Remove("output") // Falsy, but continuous edge
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -658,7 +659,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -685,7 +686,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -713,7 +714,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -741,11 +742,11 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 			nodeA.MarkOnNext("to_b")
-			nodeA.ParamTruthy["to_b"] = true
+			nodeA.ParamTruthy.Add("to_b")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -780,7 +781,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -810,9 +811,9 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger1.MarkOnNext("activate")
-			trigger1.ParamTruthy["activate"] = true
+			trigger1.ParamTruthy.Add("activate")
 			trigger2.MarkOnNext("activate")
-			trigger2.ParamTruthy["activate"] = true
+			trigger2.ParamTruthy.Add("activate")
 			entry1.ActivateOnNext()
 			entry2.ActivateOnNext()
 
@@ -851,14 +852,14 @@ var _ = Describe("Scheduler", func() {
 			nodeC := mock("C")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 			entryC.ActivateOnNext()
 			nodeA.MarkOnNext("to_b")
-			nodeA.ParamTruthy["to_b"] = true
+			nodeA.ParamTruthy.Add("to_b")
 			nodeB.MarkOnNext("to_c")
-			nodeB.ParamTruthy["to_c"] = true
+			nodeB.ParamTruthy.Add("to_c")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -900,13 +901,13 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryActive.ActivateOnNext()
 			// Both conditions output truthy and trigger their entry nodes
 			condA.MarkOnNext("transition")
-			condA.ParamTruthy["transition"] = true
+			condA.ParamTruthy.Add("transition")
 			condB.MarkOnNext("transition")
-			condB.ParamTruthy["transition"] = true
+			condB.ParamTruthy.Add("transition")
 			entryStageA.ActivateOnNext()
 			entryStageB.ActivateOnNext()
 
@@ -953,12 +954,12 @@ var _ = Describe("Scheduler", func() {
 			abortNode := mock("abort_node")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryOn.ActivateOnNext()
 			entryAbort.ActivateOnNext()
 
 			toAbort.MarkOnNext("check")
-			toAbort.ParamTruthy["check"] = true
+			toAbort.ParamTruthy.Add("check")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -1001,13 +1002,13 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryActive.ActivateOnNext()
 
 			condA.MarkOnNext("check")
-			condA.ParamTruthy["check"] = true
+			condA.ParamTruthy.Add("check")
 			condB.MarkOnNext("check")
-			condB.ParamTruthy["check"] = true
+			condB.ParamTruthy.Add("check")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 
@@ -1059,13 +1060,13 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryActive.ActivateOnNext()
 
 			condA.MarkOnNext("check")
-			condA.ParamTruthy["check"] = true
+			condA.ParamTruthy.Add("check")
 			condB.MarkOnNext("check")
-			condB.ParamTruthy["check"] = true
+			condB.ParamTruthy.Add("check")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 
@@ -1109,7 +1110,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -1138,7 +1139,7 @@ var _ = Describe("Scheduler", func() {
 			nodeC := mock("C")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 			entryC.ActivateOnNext()
@@ -1178,7 +1179,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -1204,11 +1205,11 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 			// A triggers entry which re-activates the stage (infinite loop attempt)
 			nodeA.MarkOnNext("reenter")
-			nodeA.ParamTruthy["reenter"] = true
+			nodeA.ParamTruthy.Add("reenter")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -1236,7 +1237,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 			nodeA.MarkOnNext("output")
@@ -1360,7 +1361,7 @@ var _ = Describe("Scheduler", func() {
 
 			nodeA.MarkOnNext("output")
 			nodeB.MarkOnNext("output")
-			nodeB.ParamTruthy["output"] = true
+			nodeB.ParamTruthy.Add("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -1386,7 +1387,7 @@ var _ = Describe("Scheduler", func() {
 			stagedNode := mock("S")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 			globalNode.MarkOnNext("output")
 
@@ -1420,9 +1421,9 @@ var _ = Describe("Scheduler", func() {
 			staged2 := mock("S2")
 
 			trigger1.MarkOnNext("activate")
-			trigger1.ParamTruthy["activate"] = true
+			trigger1.ParamTruthy.Add("activate")
 			trigger2.MarkOnNext("activate")
-			trigger2.ParamTruthy["activate"] = true
+			trigger2.ParamTruthy.Add("activate")
 			entry1.ActivateOnNext()
 			entry2.ActivateOnNext()
 			globalNode.MarkOnNext("output")
@@ -1474,16 +1475,16 @@ var _ = Describe("Scheduler", func() {
 			reentryTrigger := mock("reentry_trigger")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryStart.ActivateOnNext()
 			entryStop.ActivateOnNext()
 			entryYield.ActivateOnNext()
 			stopTrigger.MarkOnNext("to_stop")
-			stopTrigger.ParamTruthy["to_stop"] = true
+			stopTrigger.ParamTruthy.Add("to_stop")
 			yieldTrigger.MarkOnNext("to_yield")
-			yieldTrigger.ParamTruthy["to_yield"] = true
+			yieldTrigger.ParamTruthy.Add("to_yield")
 			reentryTrigger.MarkOnNext("to_start")
-			reentryTrigger.ParamTruthy["to_start"] = false
+			reentryTrigger.ParamTruthy.Remove("to_start")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -1561,12 +1562,12 @@ var _ = Describe("Scheduler", func() {
 			reentryTrigger := mock("reentry_trigger")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryStart.ActivateOnNext()
 			entryStop.ActivateOnNext()
 			entryYield.ActivateOnNext()
 			reentryTrigger.MarkOnNext("to_start")
-			reentryTrigger.ParamTruthy["to_start"] = true
+			reentryTrigger.ParamTruthy.Add("to_start")
 
 			// stop_trigger fires on tick 1 (cascading start → stop).
 			// yield_trigger fires on tick 2 (cascading stop → yield → start re-entry).
@@ -1579,7 +1580,7 @@ var _ = Describe("Scheduler", func() {
 					nCtx.MarkChanged("to_stop")
 				}
 			}
-			stopTrigger.ParamTruthy["to_stop"] = true
+			stopTrigger.ParamTruthy.Add("to_stop")
 
 			yieldCallCount := 0
 			yieldTrigger.OnNext = func(nCtx node.Context) {
@@ -1588,7 +1589,7 @@ var _ = Describe("Scheduler", func() {
 					nCtx.MarkChanged("to_yield")
 				}
 			}
-			yieldTrigger.ParamTruthy["to_yield"] = true
+			yieldTrigger.ParamTruthy.Add("to_yield")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -1657,7 +1658,7 @@ var _ = Describe("Scheduler", func() {
 			entryNext := mock("entry_seq_next")
 
 			comparison.MarkOnNext("output")
-			comparison.ParamTruthy["output"] = true
+			comparison.ParamTruthy.Add("output")
 
 			// Wait simulates a 1s timer: calls MarkSelfChanged while timing,
 			// then calls MarkChanged("output") when done.
@@ -1679,14 +1680,14 @@ var _ = Describe("Scheduler", func() {
 				}
 				nCtx.MarkChanged("output")
 			}
-			wait.ParamTruthy["output"] = true
+			wait.ParamTruthy.Add("output")
 
 			entryNext.ActivateOnNext()
 
 			trigger := mock("trigger")
 			entry := mock("entry_seq_first")
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			prog := testutil.NewIRBuilder().
@@ -1729,7 +1730,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("output")
-			trigger.ParamTruthy["output"] = true
+			trigger.ParamTruthy.Add("output")
 
 			callCount := 0
 			nodeA.OnNext = func(nCtx node.Context) {
@@ -1774,7 +1775,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			entryB.ActivateOnNext()
 
@@ -1787,7 +1788,7 @@ var _ = Describe("Scheduler", func() {
 					nCtx.MarkChanged("to_b")
 				}
 			}
-			nodeA.ParamTruthy["to_b"] = true
+			nodeA.ParamTruthy.Add("to_b")
 
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
@@ -1944,7 +1945,7 @@ var _ = Describe("Scheduler", func() {
 
 			trigger := NewMockNode()
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["trigger"] = trigger
 			nodes["trigger"] = trigger
 
