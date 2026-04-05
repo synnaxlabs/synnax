@@ -9,6 +9,7 @@
 
 @ts output "client/ts/src/access/role"
 @py output "client/py/synnax/access/role"
+@go output "core/pkg/service/access/rbac/role"
 
 Key = uuid {
     @doc value "is a unique identifier for a role, represented as a UUID."
@@ -43,6 +44,8 @@ Role struct {
         perform on resources.
     """
     @ontology type "role"
+    @go marshal
+    @go migrate
     @py name       "Base"
 }
 
@@ -56,5 +59,6 @@ New struct extends Role {
 
     @doc value    "contains parameters for creating a new role."
     @ts use_input
+    @go omit
     @py name      "Role"
 }
