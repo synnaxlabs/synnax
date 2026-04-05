@@ -28,6 +28,8 @@ dev = [
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
 tc = "framework.test_conductor:main"
+migration-conductor = "migration_conductor:main"
+mc = "migration_conductor:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["driver", "framework", "tests"]
