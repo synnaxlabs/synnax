@@ -44,11 +44,6 @@ func WhereNames(vals ...string) gorp.Filter[Key, Arc] {
 	})
 }
 
-func (r Retrieve) WhereNames(vals ...string) Retrieve {
-	r.gorp = r.gorp.Where(WhereNames(vals...))
-	return r
-}
-
 // Where applies the provided filters to the query.
 func (r Retrieve) Where(filters ...gorp.Filter[Key, Arc]) Retrieve {
 	r.gorp = r.gorp.Where(filters...)

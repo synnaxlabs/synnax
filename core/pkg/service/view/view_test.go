@@ -192,12 +192,12 @@ var _ = Describe("View", func() {
 		Describe("WhereTypes", func() {
 			It("Should retrieve views by type", func(ctx SpecContext) {
 				var resViews []view.View
-				Expect(svc.NewRetrieve().WhereTypes("testa").Entries(&resViews).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(view.WhereTypes("testa")).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(2))
 			})
 			It("Should also retrieve views by type and key", func(ctx SpecContext) {
 				var resViews []view.View
-				Expect(svc.NewRetrieve().WhereTypes("testa").WhereKeys(views[0].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(view.WhereTypes("testa")).WhereKeys(views[0].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].Key).To(Equal(views[0].Key))
 			})

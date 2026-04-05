@@ -27,18 +27,18 @@ type Retrieve struct {
 	searchTerm string
 }
 
-// WhereOverlapsWith filters for ranges whose TimeRange overlaps with the provided range.
-func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, rng *Range) (bool, error) {
+// OverlapsWith returns a filter that matches ranges whose TimeRange overlaps with the
+// provided range.
+func OverlapsWith(tr telem.TimeRange) gorp.Filter[uuid.UUID, Range] {
+	return gorp.Match(func(_ gorp.Context, rng *Range) (bool, error) {
 		return rng.TimeRange.OverlapsWith(tr), nil
 	})
-	return r
 }
 
-// WhereHasLabels filters for ranges that have all of the provided labels.
-func (r Retrieve) WhereHasLabels(matchLabels ...label.Key) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
+// HasLabels returns a filter that matches ranges that have any of the provided labels.
+func HasLabels(svc *label.Service, matchLabels ...label.Key) gorp.Filter[uuid.UUID, Range] {
+	return gorp.Match(func(ctx gorp.Context, rng *Range) (bool, error) {
+		labels, err := svc.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
@@ -47,5 +47,4 @@ func (r Retrieve) WhereHasLabels(matchLabels ...label.Key) Retrieve {
 			return lo.Contains(matchLabels, l)
 		}), nil
 	})
-	return r
 }

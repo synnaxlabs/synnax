@@ -134,10 +134,10 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if len(req.HasLabels) > 0 {
-		q = q.WhereHasLabels(req.HasLabels...)
+		q = q.Where(status.WhereHasLabels[any](s.label, req.HasLabels...))
 	}
 	if len(req.Variants) > 0 {
-		q = q.WhereVariants(req.Variants...)
+		q = q.Where(status.WhereVariants[any](req.Variants...))
 	}
 	if len(req.Keys) != 0 {
 		q = q.WhereKeys(req.Keys...)

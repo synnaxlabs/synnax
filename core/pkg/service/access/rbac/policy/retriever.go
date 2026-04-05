@@ -13,54 +13,25 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Retriever struct {
-	baseTx        gorp.Tx
+type Retrieve struct {
+	baseTX        gorp.Tx
 	gorp          gorp.Retrieve[uuid.UUID, Policy]
 	ontology      *ontology.Ontology
 	whereSubjects []ontology.ID
 }
 
-func (r Retriever) WhereKeys(keys ...uuid.UUID) Retriever {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
-func (r Retriever) WhereNames(names ...string) Retriever {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, e *Policy) (bool, error) {
-		return lo.Contains(names, e.Name), nil
-	})
-	return r
-}
-
-func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
+// WhereSubjects accumulates subject IDs for ontology traversal during Exec.
+func (r Retrieve) WhereSubjects(subjects ...ontology.ID) Retrieve {
 	r.whereSubjects = append(r.whereSubjects, subjects...)
 	return r
 }
 
-func (r Retriever) WhereInternal(internal bool) Retriever {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, p *Policy) (bool, error) {
-		return p.Internal == internal, nil
-	})
-	return r
-}
-
-func (r Retriever) Limit(limit int) Retriever {
-	r.gorp = r.gorp.Limit(limit)
-	return r
-}
-
-func (r Retriever) Offset(offset int) Retriever {
-	r.gorp = r.gorp.Offset(offset)
-	return r
-}
-
-func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTx, tx)
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+	tx = gorp.OverrideTx(r.baseTX, tx)
 	if len(r.whereSubjects) > 0 {
 		var policyResources []ontology.Resource
 		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
@@ -80,14 +51,4 @@ func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 		r = r.WhereKeys(keys...)
 	}
 	return r.gorp.Exec(ctx, tx)
-}
-
-func (r Retriever) Entry(p *Policy) Retriever {
-	r.gorp = r.gorp.Entry(p)
-	return r
-}
-
-func (r Retriever) Entries(ps *[]Policy) Retriever {
-	r.gorp = r.gorp.Entries(ps)
-	return r
 }

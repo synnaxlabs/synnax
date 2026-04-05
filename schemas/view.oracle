@@ -29,6 +29,7 @@ View struct {
         @doc value """
             is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
         """
+        @filter
     }
     query record {
         @doc value """
@@ -37,12 +38,14 @@ View struct {
         """
     }
 
-    @doc value     """
+    @doc value       """
         is a persisted view configuration storing visualization settings and
         query parameters for line plots, tables, schematics, and other view
         types.
     """
-    @ontology type "view"
+    @ontology type   "view"
+    @retrieve custom
+    @search
 }
 
 New struct extends View {

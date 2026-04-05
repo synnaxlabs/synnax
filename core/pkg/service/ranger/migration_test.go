@@ -128,15 +128,15 @@ var _ = Describe("Migrate", func() {
 
 		// The "Ranges" group and "Subgroup" should be deleted.
 		var g group.Group
-		Expect(gSvc.NewRetrieve().WhereNames("Ranges").Entry(&g).Exec(ctx, nil)).
+		Expect(gSvc.NewRetrieve().Where(group.WhereNames("Ranges")).Entry(&g).Exec(ctx, nil)).
 			To(MatchError(query.ErrNotFound))
-		Expect(gSvc.NewRetrieve().WhereNames("Subgroup").Entry(&g).Exec(ctx, nil)).
+		Expect(gSvc.NewRetrieve().Where(group.WhereNames("Subgroup")).Entry(&g).Exec(ctx, nil)).
 			To(MatchError(query.ErrNotFound))
 
 		// There should be a new parent range named "Subgroup" whose time range
 		// is the union of r1 and r2.
 		var parentRange ranger.Range
-		Expect(svc.NewRetrieve().WhereNames("Subgroup").
+		Expect(svc.NewRetrieve().Where(ranger.WhereNames("Subgroup")).
 			Entry(&parentRange).Exec(ctx, nil)).To(Succeed())
 		Expect(parentRange.TimeRange).To(Equal(telem.TimeRange{
 			Start: telem.TimeStamp(10 * telem.Second),

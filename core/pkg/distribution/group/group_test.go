@@ -100,7 +100,7 @@ var _ = Describe("Group", Ordered, func() {
 			created := MustSucceed(w.Create(ctx, "name-test", ontology.RootID))
 
 			var g group.Group
-			Expect(svc.NewRetrieve().WhereNames(created.Name).Entry(&g).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(group.WhereNames(created.Name)).Entry(&g).Exec(ctx, nil)).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 	})

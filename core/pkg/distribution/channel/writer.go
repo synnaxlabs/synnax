@@ -81,7 +81,7 @@ func (w Writer) DeleteManyByNames(ctx context.Context, names []string, allowInte
 func (w Writer) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
 	oldNames := lo.Keys(names)
 	oldChannels := make([]Channel, 0, len(oldNames))
-	if err := w.svc.NewRetrieve().WhereNames(oldNames...).Entries(&oldChannels).Exec(ctx, w.tx); err != nil {
+	if err := w.svc.NewRetrieve().Where(WhereNames(oldNames...)).Entries(&oldChannels).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	newNames := make([]string, 0, len(oldChannels))

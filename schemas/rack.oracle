@@ -46,6 +46,7 @@ Rack struct {
     name         string    {
         @doc value         "is a human-readable name for the rack."
         @validate required
+        @filter
     }
     task_counter uint32?   {
         @doc value """
@@ -56,6 +57,7 @@ Rack struct {
         @doc value """
             is true if this rack is embedded within the Synnax server process.
         """
+        @filter
     }
     status       Status??  {
         @doc value "is the current operational status of the rack."

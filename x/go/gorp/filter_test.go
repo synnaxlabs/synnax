@@ -58,14 +58,14 @@ var _ = Describe("Filter Combinators", func() {
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
-		Expect(gorp.NewCreate[int32, entry](nil).Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("And", func() {
 		It("Should match entries satisfying all filters", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And(idGT(2), idLT(6))).
 				Exec(ctx, tx)).To(Succeed())
@@ -74,7 +74,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should return no results when filters are mutually exclusive", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And(idGT(5), idLT(3))).
 				Exec(ctx, tx)).To(Succeed())
@@ -83,7 +83,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should pass through with a single filter", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And(idEQ(3))).
 				Exec(ctx, tx)).To(Succeed())
@@ -92,7 +92,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should match all entries with no filters", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And[int32, entry]()).
 				Exec(ctx, tx)).To(Succeed())
@@ -106,7 +106,7 @@ var _ = Describe("Filter Combinators", func() {
 				callCount++
 				return true, nil
 			})
-			err := gorp.NewRetrieve[int32, entry](nil).
+			err := gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And(errFilter(), second)).
 				Exec(ctx, tx)
@@ -116,7 +116,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should compose three or more filters", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And(idGT(1), idLT(8), dataEQ("data"))).
 				Exec(ctx, tx)).To(Succeed())
@@ -127,7 +127,7 @@ var _ = Describe("Filter Combinators", func() {
 	Describe("Or", func() {
 		It("Should match entries satisfying any filter", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(idEQ(1), idEQ(5), idEQ(9))).
 				Exec(ctx, tx)).To(Succeed())
@@ -136,7 +136,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should return no results when no branch matches", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(idEQ(100), idEQ(200))).
 				Exec(ctx, tx)).To(Succeed())
@@ -145,7 +145,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should pass through with a single filter", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(idEQ(7))).
 				Exec(ctx, tx)).To(Succeed())
@@ -154,7 +154,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should match no entries with no filters", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or[int32, entry]()).
 				Exec(ctx, tx)).To(Succeed())
@@ -171,7 +171,7 @@ var _ = Describe("Filter Combinators", func() {
 				return true, nil
 			})
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(alwaysTrue, second)).
 				Exec(ctx, tx)).To(Succeed())
@@ -180,7 +180,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should short-circuit on error", func(ctx SpecContext) {
 			var res []entry
-			err := gorp.NewRetrieve[int32, entry](nil).
+			err := gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(errFilter(), idEQ(1))).
 				Exec(ctx, tx)
@@ -191,7 +191,7 @@ var _ = Describe("Filter Combinators", func() {
 	Describe("Not", func() {
 		It("Should invert a filter", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Not(idGT(5))).
 				Exec(ctx, tx)).To(Succeed())
@@ -203,7 +203,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should propagate errors", func(ctx SpecContext) {
 			var res []entry
-			err := gorp.NewRetrieve[int32, entry](nil).
+			err := gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Not(errFilter())).
 				Exec(ctx, tx)
@@ -212,7 +212,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should double-negate to the original", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Not(gorp.Not(idLT(3)))).
 				Exec(ctx, tx)).To(Succeed())
@@ -223,7 +223,7 @@ var _ = Describe("Filter Combinators", func() {
 	Describe("Nested Composition", func() {
 		It("Should support Or(And, And)", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(
 					gorp.And(idGT(0), idLT(3)),
@@ -235,7 +235,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should support And(Or, Not)", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.And(
 					gorp.Or(idEQ(1), idEQ(2), idEQ(3), idEQ(4)),
@@ -247,7 +247,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should support Or(Not, Not)", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(
 					gorp.Not(idGT(0)),
@@ -259,7 +259,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should support three levels of nesting", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(
 					gorp.And(idGT(0), gorp.Not(idGT(2))),
@@ -273,7 +273,7 @@ var _ = Describe("Filter Combinators", func() {
 	Describe("Combinators with WhereKeys", func() {
 		It("Should apply filters after key lookup", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				WhereKeys(1, 2, 3, 4, 5).
 				Where(idGT(3)).
@@ -283,7 +283,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should apply Or filter after key lookup", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				WhereKeys(1, 2, 3, 4, 5).
 				Where(gorp.Or(idEQ(1), idEQ(5))).
@@ -293,7 +293,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should apply Not filter after key lookup", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				WhereKeys(1, 2, 3, 4, 5).
 				Where(gorp.Not(idEQ(3))).
@@ -304,19 +304,19 @@ var _ = Describe("Filter Combinators", func() {
 
 	Describe("Combinators with Count", func() {
 		It("Should count with And filter", func(ctx SpecContext) {
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Where(gorp.And(idGT(2), idLT(7))).
 				Count(ctx, tx)).To(Equal(4))
 		})
 
 		It("Should count with Or filter", func(ctx SpecContext) {
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Where(gorp.Or(idEQ(0), idEQ(9))).
 				Count(ctx, tx)).To(Equal(2))
 		})
 
 		It("Should count with nested filter", func(ctx SpecContext) {
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Where(gorp.And(
 					gorp.Or(idEQ(1), idEQ(2), idEQ(3)),
 					gorp.Not(idEQ(2)),
@@ -327,13 +327,13 @@ var _ = Describe("Filter Combinators", func() {
 
 	Describe("Combinators with Exists", func() {
 		It("Should return true when Or filter has a match", func(ctx SpecContext) {
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Where(gorp.Or(idEQ(1), idEQ(999))).
 				Exists(ctx, tx)).To(BeTrue())
 		})
 
 		It("Should return false when And filter excludes all", func(ctx SpecContext) {
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Where(gorp.And(idGT(100), idLT(200))).
 				Exists(ctx, tx)).To(BeFalse())
 		})
@@ -341,23 +341,23 @@ var _ = Describe("Filter Combinators", func() {
 
 	Describe("Combinators with Delete", func() {
 		It("Should delete entries matching an Or filter", func(ctx SpecContext) {
-			Expect(gorp.NewDelete[int32, entry](nil).
+			Expect(gorp.NewDelete[int32, entry]().
 				Where(gorp.Or(idEQ(0), idEQ(9))).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(0).Exists(ctx, tx)).To(BeFalse())
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(9).Exists(ctx, tx)).To(BeFalse())
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				WhereKeys(5).Exists(ctx, tx)).To(BeTrue())
 		})
 
 		It("Should delete entries matching a Not filter", func(ctx SpecContext) {
-			Expect(gorp.NewDelete[int32, entry](nil).
+			Expect(gorp.NewDelete[int32, entry]().
 				Where(gorp.Not(idLT(8))).
 				Exec(ctx, tx)).To(Succeed())
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(HaveLen(8))
@@ -367,7 +367,7 @@ var _ = Describe("Filter Combinators", func() {
 	Describe("Multiple Where Calls", func() {
 		It("Should AND three Where calls together", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(idGT(1)).
 				Where(idLT(8)).
@@ -378,7 +378,7 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should AND a Where call with an Or filter", func(ctx SpecContext) {
 			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry](nil).
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Or(idEQ(1), idEQ(2), idEQ(3), idEQ(4))).
 				Where(idGT(2)).

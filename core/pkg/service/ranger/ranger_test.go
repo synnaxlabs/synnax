@@ -285,7 +285,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().WhereNames(r.Name).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.WhereNames(r.Name)).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It("Should retrieve any ranges that overlap a given time range", func(ctx SpecContext) {
@@ -298,10 +298,10 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().WhereOverlapsWith(telem.TimeRange{
+			Expect(svc.NewRetrieve().Where(ranger.OverlapsWith(telem.TimeRange{
 				Start: telem.TimeStamp(7 * telem.Second),
 				End:   telem.TimeStamp(9 * telem.Second),
-			}).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
+			})).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It("Should retrieve ranges that have a specific label", func(ctx SpecContext) {
@@ -319,7 +319,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
 			Expect(labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []label.Key{l.Key})).To(Succeed())
 			var results []ranger.Range
-			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.HasLabels(labelSvc, l.Key)).Entries(&results).Exec(ctx, tx)).To(Succeed())
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Key).To(Equal(r1.Key))
 		})
@@ -332,7 +332,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var results []ranger.Range
-			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.HasLabels(labelSvc, l.Key)).Entries(&results).Exec(ctx, tx)).To(Succeed())
 			Expect(results).To(BeEmpty())
 		})
 	})

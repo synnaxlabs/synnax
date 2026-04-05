@@ -44,11 +44,6 @@ func WhereAuthor(v uuid.UUID) gorp.Filter[Key, Workspace] {
 	})
 }
 
-func (r Retrieve) WhereAuthor(v uuid.UUID) Retrieve {
-	r.gorp = r.gorp.Where(WhereAuthor(v))
-	return r
-}
-
 // Where applies the provided filters to the query.
 func (r Retrieve) Where(filters ...gorp.Filter[Key, Workspace]) Retrieve {
 	r.gorp = r.gorp.Where(filters...)

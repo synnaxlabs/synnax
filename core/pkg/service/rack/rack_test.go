@@ -190,12 +190,12 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().WhereNodeIsHost(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(rack.WhereNodeIsHost(mock.StaticHostKeyProvider(1), true)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal(*r))
 		})
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack
-			Expect(svc.NewRetrieve().WhereEmbedded(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(rack.WhereEmbedded(true)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Embedded).To(BeTrue())
 		})
 		Describe("Count", func() {
@@ -220,7 +220,7 @@ var _ = Describe("Rack", Ordered, func() {
 				r := &rack.Rack{Name: "unique-rack-name"}
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res rack.Rack
-				Expect(svc.NewRetrieve().WhereName("unique-rack-name").Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(rack.WhereName("unique-rack-name")).Entry(&res).Exec(ctx, tx)).To(Succeed())
 				Expect(res.Key).To(Equal(r.Key))
 				Expect(res.Name).To(Equal("unique-rack-name"))
 			})
@@ -229,7 +229,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereName("nonexistent-rack", gorp.Required()).
+					Where(rack.WhereName("nonexistent-rack")).
 					Entry(&res).
 					Exec(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
 			})
@@ -239,7 +239,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r1)).To(Succeed())
 				Expect(writer.Create(ctx, r2)).To(Succeed())
 				var res rack.Rack
-				Expect(svc.NewRetrieve().WhereName("filter-rack-beta").Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(rack.WhereName("filter-rack-beta")).Entry(&res).Exec(ctx, tx)).To(Succeed())
 				Expect(res.Key).To(Equal(r2.Key))
 				Expect(res.Name).To(Equal("filter-rack-beta"))
 			})
@@ -250,7 +250,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegration("ni").
+					Where(rack.WhereIntegration("ni")).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).ToNot(BeEmpty())
@@ -263,7 +263,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegration("ni").
+					Where(rack.WhereIntegration("ni")).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
@@ -275,7 +275,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegration("ni").
+					Where(rack.WhereIntegration("ni")).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {
@@ -287,7 +287,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, r)).To(Succeed())
 				var res []rack.Rack
 				Expect(svc.NewRetrieve().
-					WhereIntegration("ni").
+					Where(rack.WhereIntegration("ni")).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(slices.ContainsFunc(res, func(r rack.Rack) bool {

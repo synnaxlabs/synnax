@@ -252,12 +252,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot)).To(Succeed())
 			var snapshots []task.Task
-			Expect(svc.NewRetrieve().WhereSnapshot(true).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.WhereSnapshot(true)).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
 			Expect(snapshots).To(HaveLen(1))
 			Expect(snapshots[0].Name).To(Equal("Snapshot Task"))
 			Expect(snapshots[0].Snapshot).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().WhereSnapshot(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.WhereSnapshot(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
 			Expect(len(regulars)).To(BeNumerically(">", 0))
 			for _, t := range regulars {
 				Expect(t.Snapshot).To(BeFalse())
@@ -278,7 +278,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().WhereSnapshot(true).WhereNames("Snapshot Task 1").Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.WhereSnapshot(true), task.WhereNames("Snapshot Task 1")).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("Snapshot Task 1"))
 			Expect(res.Snapshot).To(BeTrue())
 		})
@@ -296,12 +296,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal)).To(Succeed())
 			var internals []task.Task
-			Expect(svc.NewRetrieve().WhereInternal(true).Entries(&internals).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.WhereInternal(true)).Entries(&internals).Exec(ctx, tx)).To(Succeed())
 			Expect(internals).To(HaveLen(1))
 			Expect(internals[0].Name).To(Equal("Internal Task"))
 			Expect(internals[0].Internal).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().WhereInternal(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.WhereInternal(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
 			Expect(len(regulars)).To(BeNumerically(">", 0))
 			for _, t := range regulars {
 				Expect(t.Internal).To(BeFalse())
@@ -322,7 +322,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().WhereInternal(true).WhereNames("Internal Task 1").Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.WhereInternal(true), task.WhereNames("Internal Task 1")).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("Internal Task 1"))
 			Expect(res.Internal).To(BeTrue())
 		})

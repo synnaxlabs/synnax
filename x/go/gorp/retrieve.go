@@ -26,14 +26,12 @@ type RawFilter func(data []byte) bool
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries   *Entries[K, E]
-	limit     int
-	offset    int
-	keys      *[]K
-	prefix    []byte
-	filter    *Filter[K, E]
-	codec     binary.Codec
-	rawFilter rawFilters
+	entries *Entries[K, E]
+	limit   int
+	offset  int
+	keys    *[]K
+	prefix  []byte
+	filter  *Filter[K, E]
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -97,14 +95,9 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 
 // WhereRaw adds a raw byte filter that is evaluated before decoding each entry.
 // Entries whose raw bytes cause the filter to return false are skipped without
-// being decoded. Supports the same options as Where (e.g. Required).
-func (r Retrieve[K, E]) WhereRaw(filter RawFilter, opts ...FilterOption) Retrieve[K, E] {
-	o := &filterOptions{}
-	for _, opt := range opts {
-		opt(o)
-	}
-	r.rawFilters = append(r.rawFilters, rawFilter{f: filter, filterOptions: *o})
-	return r
+// being decoded.
+func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
+	return r.Where(MatchRaw[K, E](filter))
 }
 
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
@@ -188,7 +181,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.rawFilters.exec(iter.Iterator.Value()) {
+		if !r.matchRaw(iter.Iterator.Value()) {
 			continue
 		}
 		v := iter.Value(ctx)
@@ -206,40 +199,18 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	return count, err
 }
 
-type rawFilter struct {
-	f RawFilter
-	filterOptions
-}
-
-type rawFilters []rawFilter
-
-func (rf rawFilters) exec(data []byte) bool {
-	if len(rf) == 0 {
-		return true
-	}
-	match := false
-	for _, f := range rf {
-		if f.f(data) {
-			match = true
-		} else if f.required {
-			return false
-		}
-	}
-	return match
-}
-
-type filter[K Key, E Entry[K]] struct {
-	f FilterFunc[K, E]
-	filterOptions
-}
-
-type filters[K Key, E Entry[K]] []filter[K, E]
-
-func (f filters[K, E]) exec(ctx Context, entry *E) (bool, error) {
-	if len(f) == 0 {
+func (r Retrieve[K, E]) match(ctx Context, e *E) (bool, error) {
+	if r.filter == nil || r.filter.Eval == nil {
 		return true, nil
 	}
 	return r.filter.Eval(ctx, e)
+}
+
+func (r Retrieve[K, E]) matchRaw(data []byte) bool {
+	if r.filter == nil || r.filter.Raw == nil {
+		return true
+	}
+	return r.filter.Raw(data)
 }
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
@@ -286,7 +257,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.rawFilters.exec(iter.Iterator.Value()) {
+		if !r.matchRaw(iter.Iterator.Value()) {
 			continue
 		}
 		v := iter.Value(ctx)

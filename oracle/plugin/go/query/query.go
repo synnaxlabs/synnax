@@ -365,11 +365,6 @@ func Where{{.GoName}}(v bool) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return e.{{.GoName}} == v, nil
 	})
 }
-
-func (r Retrieve) Where{{.GoName}}(v bool) Retrieve {
-	r.gorp = r.gorp.Where(Where{{.GoName}}(v))
-	return r
-}
 {{else if .IsScalar}}
 // Where{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
 func Where{{.GoName}}(v {{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -377,22 +372,12 @@ func Where{{.GoName}}(v {{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName
 		return e.{{.GoName}} == v, nil
 	})
 }
-
-func (r Retrieve) Where{{.GoName}}(v {{.GoType}}) Retrieve {
-	r.gorp = r.gorp.Where(Where{{.GoName}}(v))
-	return r
-}
 {{else}}
 // Where{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
 func Where{{.GoName | pluralize}}(vals ...{{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return lo.Contains(vals, e.{{.GoName}}), nil
 	})
-}
-
-func (r Retrieve) Where{{.GoName | pluralize}}(vals ...{{.GoType}}) Retrieve {
-	r.gorp = r.gorp.Where(Where{{.GoName | pluralize}}(vals...))
-	return r
 }
 {{end}}
 {{- end}}

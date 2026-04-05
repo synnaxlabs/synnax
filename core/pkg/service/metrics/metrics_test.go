@@ -108,7 +108,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[0]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.WhereNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -120,7 +120,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[1]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.WhereNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -132,7 +132,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[2]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.WhereNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -144,7 +144,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[3]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.WhereNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[4]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.WhereNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -168,7 +168,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[5]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.WhereNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -191,7 +191,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.
 				Channel.
 				NewRetrieve().
-				WhereNames(names...).
+				Where(channel.WhereNames(names...)).
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -215,7 +215,7 @@ var _ = Describe("Metrics", func() {
 
 			var cpuChannel channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(names[1]).
+				Where(channel.WhereNames(names[1])).
 				Entry(&cpuChannel).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -294,7 +294,7 @@ var _ = Describe("Metrics", func() {
 
 			var memChannel channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(names[2]).
+				Where(channel.WhereNames(names[2])).
 				Entry(&memChannel).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -395,7 +395,7 @@ var _ = Describe("Metrics", func() {
 			var channels []channel.Channel
 			names := getNames(dist.Cluster.HostKey())
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(names...).
+				Where(channel.WhereNames(names...)).
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())

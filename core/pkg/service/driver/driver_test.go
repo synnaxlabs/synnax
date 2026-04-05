@@ -35,8 +35,7 @@ var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		var r rack.Rack
 		Expect(rackService.NewRetrieve().
-			WhereEmbedded(true).
-			WhereName("Node 1").
+			Where(rack.WhereEmbedded(true), rack.WhereName("Node 1")).
 			Entry(&r).
 			Exec(ctx, nil)).To(Succeed())
 		return r.Key
@@ -113,8 +112,7 @@ var _ = Describe("Driver", func() {
 			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereEmbedded(true).
-				WhereName("Node 1").
+				Where(rack.WhereEmbedded(true), rack.WhereName("Node 1")).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
@@ -151,8 +149,7 @@ var _ = Describe("Driver", func() {
 
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereEmbedded(true).
-				WhereName("Node 1").
+				Where(rack.WhereEmbedded(true), rack.WhereName("Node 1")).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))

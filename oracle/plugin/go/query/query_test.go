@@ -153,11 +153,12 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func (r Retrieve) WhereInternal(v bool, opts ...gorp.FilterOption) Retrieve",
+						"func WhereInternal(v bool) gorp.Filter[uuid.UUID, Task]",
 					).
 					ToNotContain(
 						"WhereInternals(",
 						"lo.Contains",
+						"func (r Retrieve) WhereInternal(",
 					)
 			})
 
@@ -180,12 +181,15 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func (r Retrieve) WhereAuthor(v uuid.UUID, opts ...gorp.FilterOption) Retrieve",
+						"func WhereAuthor(v uuid.UUID) gorp.Filter[uuid.UUID, Workspace]",
 					).
-					ToNotContain("WhereAuthors(")
+					ToNotContain(
+						"WhereAuthors(",
+						"func (r Retrieve) WhereAuthor(",
+					)
 			})
 
-			It("Should generate a slice filter without required", func(ctx SpecContext) {
+			It("Should generate a slice filter", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -204,34 +208,10 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func (r Retrieve) WhereUsernames(vals ...string) Retrieve",
+						"func WhereUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
 						"lo.Contains(vals, e.Username)",
 					).
-					ToNotContain("gorp.Required()")
-			})
-
-			It("Should generate a slice filter with required", func(ctx SpecContext) {
-				source := `
-					@go output "core/pkg/service/task"
-
-					Task struct {
-						key uuid {
-							@key
-						}
-						name string {
-							@filter required
-						}
-						@ontology type "task"
-						@retrieve
-					}
-				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
-
-				ExpectContent(resp, "retrieve.gen.go").
-					ToContain(
-						"func (r Retrieve) WhereNames(vals ...string) Retrieve",
-						"gorp.Required()",
-					)
+					ToNotContain("func (r Retrieve) WhereUsernames(")
 			})
 
 			It("Should generate a filter with a cross-namespace type", func(ctx SpecContext) {
@@ -251,7 +231,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						rack rack.Key {
-							@filter required
+							@filter
 						}
 						@ontology type "device"
 						@retrieve
@@ -261,10 +241,10 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func (r Retrieve) WhereRacks(vals ...rack.Key) Retrieve",
+						"func WhereRacks(vals ...rack.Key) gorp.Filter[string, Device]",
 						"lo.Contains(vals, e.Rack)",
-						"gorp.Required()",
-					)
+					).
+					ToNotContain("func (r Retrieve) WhereRacks(")
 			})
 		})
 
@@ -502,8 +482,9 @@ var _ = Describe("Go Query Plugin", func() {
 					"// Retrieve is used to retrieve Foo records",
 					"// Search sets a fuzzy search term",
 					"// WhereKeys filters for foos whose key",
-					"// WhereNames filters for foos whose Name",
-					"// WhereActive filters for foos by their Active",
+					"// WhereNames returns a filter for foos whose Name",
+					"// WhereActive returns a filter for foos by their Active",
+					"// Where applies the provided filters",
 					"// Entry binds the provided foo as the result",
 					"// Entries binds the provided slice of foos",
 					"// Limit sets the maximum number of foos",

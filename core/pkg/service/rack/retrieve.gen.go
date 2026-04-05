@@ -13,6 +13,7 @@ package rack
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,6 +26,20 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
+}
+
+// WhereNames returns a filter for racks whose Name matches any of the provided values.
+func WhereNames(vals ...string) gorp.Filter[Key, Rack] {
+	return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
+		return lo.Contains(vals, e.Name), nil
+	})
+}
+
+// WhereEmbedded returns a filter for racks by their Embedded field.
+func WhereEmbedded(v bool) gorp.Filter[Key, Rack] {
+	return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
+		return e.Embedded == v, nil
+	})
 }
 
 // Where applies the provided filters to the query.

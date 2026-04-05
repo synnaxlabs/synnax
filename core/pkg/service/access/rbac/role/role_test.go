@@ -307,7 +307,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve a role by name", func(ctx SpecContext) {
 			var r role.Role
 			Expect(svc.NewRetrieve().
-				WhereName("admin").
+				Where(role.WhereNames("admin")).
 				Entry(&r).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(r.Name).To(Equal("admin"))
@@ -316,7 +316,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return error when name not found", func(ctx SpecContext) {
 			var r role.Role
 			err := svc.NewRetrieve().
-				WhereName("nonexistent").
+				Where(role.WhereNames("nonexistent")).
 				Entry(&r).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -373,7 +373,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve only internal roles", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
-				WhereInternal(true).
+				Where(role.WhereInternal(true)).
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			for _, r := range rs {
@@ -385,7 +385,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve only non-internal roles", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
-				WhereInternal(false).
+				Where(role.WhereInternal(false)).
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			for _, r := range rs {

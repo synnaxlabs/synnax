@@ -116,19 +116,19 @@ func (s *Service) Retrieve(
 	)
 	q := s.task.NewRetrieve()
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal, gorp.Required())
+		q = q.Where(task.WhereInternal(*req.Internal))
 	}
 	if req.Snapshot != nil {
-		q = q.WhereSnapshot(*req.Snapshot, gorp.Required())
+		q = q.Where(task.WhereSnapshot(*req.Snapshot))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(task.WhereNames(req.Names...))
 	}
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasTypes {
-		q = q.WhereTypes(req.Types...)
+		q = q.Where(task.WhereTypes(req.Types...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -140,7 +140,7 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if !req.Rack.IsZero() {
-		q = q.WhereRacks(req.Rack)
+		q = q.Where(task.WhereRacks(req.Rack))
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)
 	if err != nil {

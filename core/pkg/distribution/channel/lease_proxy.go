@@ -61,9 +61,9 @@ func newLeaseProxy(
 	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
 	var externalNonVirtualChannels []Channel
 	if err := table.NewRetrieve().
-		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			return !c.Internal && !c.Virtual, nil
-		}).
+		})).
 		Entries(&externalNonVirtualChannels).
 		Exec(ctx, cfg.ClusterDB); err != nil {
 		return nil, err
@@ -371,9 +371,9 @@ func (lp *leaseProxy) validateChannelNames(
 	}
 	var conflictingChannels []Channel
 	if err := lp.table.NewRetrieve().
-		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			return namesSeen.Contains(c.Name), nil
-		}).
+		})).
 		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
 		return errors.Skip(err, query.ErrNotFound)
 	}
@@ -419,7 +419,7 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = lp.table.NewRetrieve().Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		if err = lp.table.NewRetrieve().Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			v := lo.IndexOf(names, c.Name)
 			exists := v != -1
 			if exists {
@@ -431,7 +431,7 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 				}
 			}
 			return exists, nil
-		}).Exec(ctx, tx); err != nil {
+		})).Exec(ctx, tx); err != nil {
 			return
 		}
 	}
@@ -464,7 +464,7 @@ func (lp *leaseProxy) deleteOverwritten(
 ) error {
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
 	if err := lp.table.NewDelete().
-		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
 				return ch.Name == c.Name && ch.Key() != c.Key()
 			})
@@ -477,7 +477,7 @@ func (lp *leaseProxy) deleteOverwritten(
 				(*channels)[i] = *c
 			}
 			return shouldDelete, nil
-		}).Exec(ctx, tx); err != nil {
+		})).Exec(ctx, tx); err != nil {
 		return err
 	}
 	return lp.cfg.TSChannel.DeleteChannels(storageToDelete)
@@ -577,9 +577,9 @@ func (lp *leaseProxy) createRemote(
 
 func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := lp.table.NewRetrieve().Entries(&res).Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+	if err := lp.table.NewRetrieve().Entries(&res).Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
 		return lo.Contains(names, c.Name), nil
-	}).Exec(ctx, tx); err != nil {
+	})).Exec(ctx, tx); err != nil {
 		return err
 	}
 	keys := KeysFromChannels(res)
@@ -591,9 +591,9 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 		internalChannels := make([]Channel, 0, len(keys))
 		if err := lp.table.NewRetrieve().
 			WhereKeys(keys...).
-			Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+			Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
 				return c.Internal, nil
-			}).
+			})).
 			Entries(&internalChannels).
 			Exec(ctx, tx); err != nil {
 			return err

@@ -66,24 +66,30 @@ func (r Retrieve[D]) WhereKeys(keys ...string) Retrieve[D] {
 	return r
 }
 
-func (r Retrieve[D]) WhereKeyPrefix(prefix string) Retrieve[D] {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, s *Status[D]) (bool, error) {
+// Where applies the provided filters to the query.
+func (r Retrieve[D]) Where(filters ...gorp.Filter[string, Status[D]]) Retrieve[D] {
+	r.gorp = r.gorp.Where(filters...)
+	return r
+}
+
+// WhereKeyPrefix returns a filter for statuses whose key starts with the provided prefix.
+func WhereKeyPrefix[D any](prefix string) gorp.Filter[string, Status[D]] {
+	return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 		return strings.HasPrefix(s.Key, prefix), nil
 	})
-	return r
 }
 
-// WhereVariants filters for statuses with the given variants.
-func (r Retrieve[D]) WhereVariants(variants ...status.Variant) Retrieve[D] {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, s *Status[D]) (bool, error) {
+// WhereVariants returns a filter for statuses with the given variants.
+func WhereVariants[D any](variants ...status.Variant) gorp.Filter[string, Status[D]] {
+	return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 		return slices.Contains(variants, s.Variant), nil
 	})
-	return r
 }
 
-func (r Retrieve[D]) WhereHasLabels(matchLabels ...xlabel.Key) Retrieve[D] {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, s *Status[D]) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
+// WhereHasLabels returns a filter for statuses that have any of the provided labels.
+func WhereHasLabels[D any](svc *label.Service, matchLabels ...xlabel.Key) gorp.Filter[string, Status[D]] {
+	return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
+		labels, err := svc.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
@@ -92,7 +98,6 @@ func (r Retrieve[D]) WhereHasLabels(matchLabels ...xlabel.Key) Retrieve[D] {
 			return lo.Contains(matchLabels, l)
 		}), nil
 	})
-	return r
 }
 
 // Exec executes the query and fills the results into the provided Status or slice of

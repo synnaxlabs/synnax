@@ -46,7 +46,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	if err == nil {
 		q = q.WhereKeys(channel.Key(key))
 	} else {
-		q = q.WhereNames(name)
+		q = q.Where(channel.WhereNames(name))
 	}
 	if err = q.Exec(ctx, r.tx); err != nil {
 		return arc.Symbol{}, err
@@ -57,7 +57,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol, error) {
 	var results []channel.Channel
 	if err := r.channelSvc.NewRetrieve().
-		WhereInternal(false).
+		Where(channel.WhereInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.tx); err != nil {
 		return nil, err

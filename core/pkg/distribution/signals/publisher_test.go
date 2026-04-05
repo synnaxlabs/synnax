@@ -51,12 +51,12 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		}
 		closer = MustSucceed(dist.Signals.PublishFromObservable(ctx, cfg))
 		Expect(dist.Channel.NewRetrieve().
-			WhereNames(publisherSetChannelName).
+			Where(channel.WhereNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
 		Expect(dist.Channel.NewRetrieve().
-			WhereNames(publisherDeleteChannelName).
+			Where(channel.WhereNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),
 		).To(Succeed())

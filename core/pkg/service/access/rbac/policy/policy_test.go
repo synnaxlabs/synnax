@@ -289,7 +289,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve a policy by name", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereNames("alpha-policy").
+				Where(policy.WhereNames("alpha-policy")).
 				Entry(&p).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(p.Name).To(Equal("alpha-policy"))
@@ -298,7 +298,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve multiple policies by names", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereNames("alpha-policy", "beta-policy").
+				Where(policy.WhereNames("alpha-policy", "beta-policy")).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
@@ -419,7 +419,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereInternal(true).
+				Where(policy.WhereInternal(true)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			for _, p := range ps {
@@ -431,7 +431,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only non-internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereInternal(false).
+				Where(policy.WhereInternal(false)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			for _, p := range ps {
