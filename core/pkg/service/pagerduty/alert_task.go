@@ -181,7 +181,7 @@ func (t *alertTask) buildTriggerEvent(
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
 			Source:    s.Name,
-			Severity:  t.mapSeverity(s.Variant, alertCfg.TreatErrorAsCritical),
+			Severity:  mapSeverity(s.Variant, alertCfg.TreatErrorAsCritical),
 			Timestamp: s.Time.Time().Format(time.RFC3339),
 			Component: alertCfg.Component,
 			Group:     alertCfg.Group,
@@ -199,10 +199,7 @@ func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	}
 }
 
-func (t *alertTask) mapSeverity(
-	variant xstatus.Variant,
-	treatErrorAsCritical bool,
-) string {
+func mapSeverity(variant xstatus.Variant, treatErrorAsCritical bool) string {
 	switch variant {
 	case xstatus.VariantError:
 		if treatErrorAsCritical {
@@ -253,9 +250,8 @@ func (t *alertTask) updateStatus(
 		Time:    telem.Now(),
 		Details: task.StatusDetails{Task: t.task.Key, Running: running},
 	}
-	err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
-		Set(ctx, &stat)
-	if err != nil {
+	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
+		Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))
 	}
 }

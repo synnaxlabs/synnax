@@ -111,9 +111,8 @@ func (f *factory) setConfigStatus(
 		Time:    telem.Now(),
 		Details: task.StatusDetails{Task: t.Key, Running: false},
 	}
-	err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
-		Set(ctx, &stat)
-	if err != nil {
+	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
+		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status",
 			zap.Stringer("task", t),
