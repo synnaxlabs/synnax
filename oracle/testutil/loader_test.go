@@ -28,6 +28,14 @@ var _ = Describe("MockFileLoader", func() {
 		})
 	})
 
+	Describe("NewMockFileLoaderWithRoot", func() {
+		It("should use the provided repo root", func() {
+			loader := NewMockFileLoaderWithRoot("/custom/root")
+			Expect(loader.RepoRoot()).To(Equal("/custom/root"))
+			Expect(loader.Files).To(BeEmpty())
+		})
+	})
+
 	Describe("Add", func() {
 		It("should add file and return loader for chaining", func() {
 			loader := NewMockFileLoader().
