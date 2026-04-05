@@ -337,7 +337,7 @@ var _ = Describe("Set", func() {
 		It("Should return elements in a but not in b", func() {
 			a := set.New(1, 2, 3, 4, 5)
 			b := set.New(3, 4, 5, 6, 7)
-			diff := set.Difference(a, b)
+			diff := a.Difference(b)
 			Expect(diff).To(HaveLen(2))
 			Expect(diff.Contains(1)).To(BeTrue())
 			Expect(diff.Contains(2)).To(BeTrue())
@@ -347,13 +347,13 @@ var _ = Describe("Set", func() {
 		It("Should return empty when a is a subset of b", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 3, 4, 5)
-			Expect(set.Difference(a, b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(HaveLen(0))
 		})
 
 		It("Should return all of a when b is empty", func() {
 			a := set.New(1, 2, 3)
 			b := make(set.Set[int])
-			diff := set.Difference(a, b)
+			diff := a.Difference(b)
 			Expect(diff).To(HaveLen(3))
 			Expect(diff.Contains(1)).To(BeTrue())
 			Expect(diff.Contains(2)).To(BeTrue())
@@ -363,19 +363,19 @@ var _ = Describe("Set", func() {
 		It("Should return empty when a is empty", func() {
 			a := make(set.Set[int])
 			b := set.New(1, 2, 3)
-			Expect(set.Difference(a, b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(HaveLen(0))
 		})
 
 		It("Should return empty when both are empty", func() {
 			a := make(set.Set[int])
 			b := make(set.Set[int])
-			Expect(set.Difference(a, b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(HaveLen(0))
 		})
 
 		It("Should return all of a when there is no overlap", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(4, 5, 6)
-			diff := set.Difference(a, b)
+			diff := a.Difference(b)
 			Expect(diff).To(HaveLen(3))
 			Expect(diff.Contains(1)).To(BeTrue())
 			Expect(diff.Contains(2)).To(BeTrue())
@@ -385,13 +385,13 @@ var _ = Describe("Set", func() {
 		It("Should return empty when sets are identical", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 3)
-			Expect(set.Difference(a, b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(HaveLen(0))
 		})
 
 		It("Should not modify the original sets", func() {
 			a := set.New(1, 2, 3, 4)
 			b := set.New(3, 4, 5, 6)
-			_ = set.Difference(a, b)
+			_ = a.Difference(b)
 			Expect(a).To(HaveLen(4))
 			Expect(b).To(HaveLen(4))
 			Expect(a.Contains(3)).To(BeTrue())
@@ -401,8 +401,8 @@ var _ = Describe("Set", func() {
 		It("Should be asymmetric", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(2, 3, 4)
-			ab := set.Difference(a, b)
-			ba := set.Difference(b, a)
+			ab := a.Difference(b)
+			ba := b.Difference(a)
 			Expect(ab).To(HaveLen(1))
 			Expect(ab.Contains(1)).To(BeTrue())
 			Expect(ba).To(HaveLen(1))

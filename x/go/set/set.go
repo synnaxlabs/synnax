@@ -29,15 +29,16 @@ func New[T comparable](elements ...T) Set[T] {
 	return s
 }
 
-// Difference returns a new Set containing elements that are in a but not in b (a - b).
-func Difference[T comparable](a, b Set[T]) Set[T] {
-	s := make(Set[T], len(a))
-	for e := range a {
-		if !b.Contains(e) {
-			s[e] = struct{}{}
+// Difference returns a new Set containing elements that are in s but not in other (s -
+// other).
+func (s Set[T]) Difference(other Set[T]) Set[T] {
+	new := make(Set[T], len(s))
+	for e := range s {
+		if !other.Contains(e) {
+			new[e] = struct{}{}
 		}
 	}
-	return s
+	return new
 }
 
 // Copy creates and returns a shallow copy of the Set. The returned Set contains the
