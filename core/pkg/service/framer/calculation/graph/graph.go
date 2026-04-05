@@ -263,7 +263,7 @@ func (g *Graph) updateSingle(ctx context.Context, ch channel.Channel, info *chan
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
-	dependencies := mod.StateConfig.Reads.ToSlice()
+	dependencies := mod.StateConfig.Reads.Slice()
 
 	// Process new dependencies
 	var newCalcDeps []channel.Key
@@ -464,7 +464,7 @@ func (g *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error
 		}
 
 		// Get all dependencies for this member
-		deps := info.module.StateConfig.Reads.ToSlice()
+		deps := info.module.StateConfig.Reads.Slice()
 		if len(deps) == 0 {
 			continue
 		}
@@ -511,7 +511,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
-	dependencies := mod.StateConfig.Reads.ToSlice()
+	dependencies := mod.StateConfig.Reads.Slice()
 
 	var calcDeps []channel.Key
 	var depChannels []channel.Channel
@@ -605,7 +605,7 @@ func (g *Graph) resolveBaseDependencies(
 				return nil, err
 			}
 			// Recursively resolve - fetch the dependency's dependencies
-			depDeps := info.module.StateConfig.Reads.ToSlice()
+			depDeps := info.module.StateConfig.Reads.Slice()
 			var depDepChannels []channel.Channel
 			if len(depDeps) > 0 {
 				depDepChannels, err = g.fetchChannels(ctx, depDeps)
@@ -957,7 +957,7 @@ func (g *Graph) formatDependencyTree(ctx context.Context, key channel.Key) strin
 	}
 
 	// Resolve and add base dependencies
-	deps := info.module.StateConfig.Reads.ToSlice()
+	deps := info.module.StateConfig.Reads.Slice()
 	if len(deps) > 0 {
 		depChannels, err := g.fetchChannels(ctx, deps)
 		if err == nil {

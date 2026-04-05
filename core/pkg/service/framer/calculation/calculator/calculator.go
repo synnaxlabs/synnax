@@ -189,13 +189,9 @@ func Open(
 	return c, nil
 }
 
-func (c *Calculator) WriteTo() channel.Keys {
-	return c.stateCfg.Writes.ToSlice()
-}
+func (c *Calculator) WriteTo() channel.Keys { return c.stateCfg.Writes.Slice() }
 
-func (c *Calculator) ReadFrom() channel.Keys {
-	return c.stateCfg.Reads.ToSlice()
-}
+func (c *Calculator) ReadFrom() channel.Keys { return c.stateCfg.Reads.Slice() }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
 

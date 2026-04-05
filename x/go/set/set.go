@@ -68,9 +68,9 @@ func (s Set[T]) Contains(element T) bool {
 	return ok
 }
 
-// ToSlice returns a slice containing all elements in the Set. The order of the elements
+// Slice returns a slice containing all elements in the Set. The order of the elements
 // in the returned slice is not guaranteed.
-func (s Set[T]) ToSlice() []T { return lo.Keys(s) }
+func (s Set[T]) Slice() []T { return lo.Keys(s) }
 
 // Equals checks if two Sets contain exactly the same elements.
 func (s Set[T]) Equals(other Set[T]) bool {

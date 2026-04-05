@@ -161,19 +161,19 @@ var _ = Describe("Set", func() {
 		})
 	})
 
-	Describe("ToSlice", func() {
+	Describe("Slice", func() {
 		It("Should return all elements", func() {
 			s.Add(1, 2, 3)
-			Expect(s.ToSlice()).To(ConsistOf(1, 2, 3))
+			Expect(s.Slice()).To(ConsistOf(1, 2, 3))
 		})
 
 		It("Should return an empty slice for an empty set", func() {
-			Expect(s.ToSlice()).To(BeEmpty())
+			Expect(s.Slice()).To(BeEmpty())
 		})
 
 		It("Should return a slice with a single element", func() {
 			s.Add(42)
-			Expect(s.ToSlice()).To(ConsistOf(42))
+			Expect(s.Slice()).To(ConsistOf(42))
 		})
 	})
 
