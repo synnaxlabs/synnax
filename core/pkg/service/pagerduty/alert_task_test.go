@@ -28,6 +28,38 @@ import (
 
 var _ = Describe("AlertTask", func() {
 	Describe("Config", func() {
+		Describe("Validate", func() {
+			It("Should return an error for invalid routing key length", func() {
+				cfg := pd.AlertTaskConfig{
+					RoutingKey: "tooshort",
+					Alerts: []pd.AlertConfig{
+						{Status: "test-status", Enabled: true},
+					},
+				}
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring("routing_key")))
+			})
+
+			It("Should return an error when no alerts are enabled", func() {
+				cfg := pd.AlertTaskConfig{
+					RoutingKey: strings.Repeat("a", 32),
+					Alerts: []pd.AlertConfig{
+						{Status: "test-status", Enabled: false},
+					},
+				}
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring("alerts")))
+			})
+
+			It("Should succeed with a valid config", func() {
+				cfg := pd.AlertTaskConfig{
+					RoutingKey: strings.Repeat("a", 32),
+					Alerts: []pd.AlertConfig{
+						{Status: "test-status", Enabled: true},
+					},
+				}
+				Expect(cfg.Validate()).To(Succeed())
+			})
+		})
+
 		Describe("MsgpackEncodedJSON", func() {
 			It("Should round-trip all fields correctly", func() {
 				cfg := pd.AlertTaskConfig{

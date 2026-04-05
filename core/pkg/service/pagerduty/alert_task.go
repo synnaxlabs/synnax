@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -59,6 +60,21 @@ type AlertTaskConfig struct {
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 	// Alerts is the list of alert configurations to send.
 	Alerts []AlertConfig `json:"alerts" msgpack:"alerts"`
+}
+
+// Validate validates the alert task configuration.
+func (c AlertTaskConfig) Validate() error {
+	v := validate.New("pagerduty.alert_task_config")
+	v.Ternary("routing_key", len(c.RoutingKey) != 32, "must be exactly 32 characters")
+	var hasEnabled bool
+	for _, a := range c.Alerts {
+		if a.Enabled {
+			hasEnabled = true
+			break
+		}
+	}
+	v.Ternary("alerts", !hasEnabled, "at least one alert must be enabled")
+	return v.Error()
 }
 
 // MsgpackEncodedJSON converts the config into a binary.MsgpackEncodedJSON suitable

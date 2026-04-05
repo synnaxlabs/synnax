@@ -126,7 +126,7 @@ var _ = Describe("Factory", func() {
 						To(MatchError(ContainSubstring("json")))
 				})
 
-			It("Should return a validation error for invalid routing key length",
+			It("Should return a validation error for invalid task config",
 				func(ctx context.Context) {
 					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: "tooshort",
@@ -142,24 +142,6 @@ var _ = Describe("Factory", func() {
 						To(MatchError(ContainSubstring("routing_key")))
 				},
 			)
-
-			It("Should return a validation error when no alerts are enabled",
-				func(ctx context.Context) {
-					cfg := MustSucceed(pd.AlertTaskConfig{
-						RoutingKey: strings.Repeat("a", 32),
-						Alerts: []pd.AlertConfig{
-							{Status: "test-status", Enabled: false},
-						},
-					}.MsgpackEncodedJSON())
-					t := task.Task{
-						Key: 1, Name: "test", Type: pd.AlertTaskType,
-						Config: cfg,
-					}
-					Expect(factory.ConfigureTask(ctx, t)).Error().
-						To(MatchError(ContainSubstring("alerts")))
-				},
-			)
-
 			It("Should configure a task successfully without auto-start",
 				func(ctx context.Context) {
 					cfg := MustSucceed(pd.AlertTaskConfig{

@@ -80,17 +80,7 @@ func (f *factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
-	v := validate.New("pagerduty.alert_task_config")
-	v.Ternary("routing_key", len(cfg.RoutingKey) != 32, "must be exactly 32 characters")
-	var hasEnabled bool
-	for _, a := range cfg.Alerts {
-		if a.Enabled {
-			hasEnabled = true
-			break
-		}
-	}
-	v.Ternary("alerts", !hasEnabled, "at least one alert must be enabled")
-	if err := v.Error(); err != nil {
+	if err := cfg.Validate(); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
