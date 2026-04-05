@@ -17,72 +17,72 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
-type statusBackfillMigration struct{ cfg ServiceConfig }
+func statusBackfillMigration(cfg ServiceConfig) migrate.Migration {
+	return gorp.NewMigration(
+		"status_backfill",
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+			reader := gorp.WrapReader[Key, Task](tx)
+			iter, err := reader.OpenIterator(gorp.IterOptions{})
+			if err != nil {
+				return err
+			}
+			defer func() {
+				err = errors.Combine(err, iter.Close())
+			}()
 
-var _ gorp.Migration = (*statusBackfillMigration)(nil)
+			var tasks []Task
+			for iter.First(); iter.Valid(); iter.Next() {
+				t := iter.Value(ctx)
+				if err = iter.Error(); err != nil {
+					return err
+				}
+				tasks = append(tasks, *t)
+			}
+			if len(tasks) == 0 {
+				return nil
+			}
 
-func (m *statusBackfillMigration) Name() string { return "task_status_backfill" }
-
-func (m *statusBackfillMigration) Run(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-	reader := gorp.WrapReader[Key, Task](tx)
-	iter, err := reader.OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-
-	var tasks []Task
-	for iter.First(); iter.Valid(); iter.Next() {
-		t := iter.Value(ctx)
-		if err = iter.Error(); err != nil {
-			return err
-		}
-		tasks = append(tasks, *t)
-	}
-	if len(tasks) == 0 {
-		return nil
-	}
-
-	statusKeys := make([]string, len(tasks))
-	for i, t := range tasks {
-		statusKeys[i] = OntologyID(t.Key).String()
-	}
-	var existingStatuses []Status
-	if err = status.NewRetrieve[StatusDetails](m.cfg.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []Status
-	for _, t := range tasks {
-		key := OntologyID(t.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
-				Key:     key,
-				Name:    t.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: fmt.Sprintf("%s status unknown", t.Name),
-				Details: StatusDetails{Task: t.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	ins.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](m.cfg.Status, nil).SetMany(ctx, &missingStatuses)
+			statusKeys := make([]string, len(tasks))
+			for i, t := range tasks {
+				statusKeys[i] = OntologyID(t.Key).String()
+			}
+			var existingStatuses []Status
+			if err = status.NewRetrieve[StatusDetails](cfg.Status).
+				WhereKeys(statusKeys...).
+				Entries(&existingStatuses).
+				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+				return err
+			}
+			existingKeys := make(map[string]bool)
+			for _, stat := range existingStatuses {
+				existingKeys[stat.Key] = true
+			}
+			var missingStatuses []Status
+			for _, t := range tasks {
+				key := OntologyID(t.Key).String()
+				if !existingKeys[key] {
+					missingStatuses = append(missingStatuses, Status{
+						Key:     key,
+						Name:    t.Name,
+						Time:    telem.Now(),
+						Variant: xstatus.VariantWarning,
+						Message: fmt.Sprintf("%s status unknown", t.Name),
+						Details: StatusDetails{Task: t.Key},
+					})
+				}
+			}
+			if len(missingStatuses) == 0 {
+				return nil
+			}
+			ins.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
+			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
+		},
+	)
 }

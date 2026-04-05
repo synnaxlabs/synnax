@@ -12,9 +12,9 @@
 package arc
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func ArcMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func ArcMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

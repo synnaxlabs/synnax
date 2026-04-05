@@ -12,9 +12,9 @@
 package lineplot
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func LinePlotMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func LinePlotMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }
