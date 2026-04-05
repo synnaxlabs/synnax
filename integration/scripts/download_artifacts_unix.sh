@@ -26,19 +26,19 @@ install_github_cli() {
     fi
 }
 
-# Detect OS and set artifact name
-get_artifact_name() {
+# Detect OS suffix for artifact name matching
+get_os_suffix() {
     if [[ "$(uname)" == "Darwin" ]]; then
-        echo "synnax-core-macos"
+        echo "macos"
     else
-        echo "synnax-core-linux"
+        echo "linux"
     fi
 }
 
 # Download artifacts from run
 download_artifacts() {
     local run_id=$1
-    local artifact_name=$(get_artifact_name)
+    local os_suffix=$(get_os_suffix)
     echo "Downloading artifacts from run: $run_id"
 
     # Verify the run exists
@@ -48,9 +48,15 @@ download_artifacts() {
     # Create binaries directory
     mkdir -p ./binaries
 
-    # Download artifacts using GitHub CLI
-    echo "Downloading $artifact_name artifact..."
-    gh run download $run_id --name $artifact_name --dir ./binaries
+    # Download core artifact matching this OS
+    echo "Downloading synnax-core *-${os_suffix} artifact..."
+    gh run download $run_id -p "synnax-core*${os_suffix}" --dir ./binaries
+
+    # gh run download creates a subdirectory named after the artifact — flatten it
+    if ls ./binaries/synnax-core*/synnax-v* 1> /dev/null 2>&1; then
+        mv ./binaries/synnax-core*/synnax-v* ./binaries/
+        rmdir ./binaries/synnax-core*/ 2> /dev/null || true
+    fi
 
     # Verify artifacts were downloaded (binary is named synnax-v{VERSION})
     if ! ls ./binaries/synnax-v* 1> /dev/null 2>&1; then
