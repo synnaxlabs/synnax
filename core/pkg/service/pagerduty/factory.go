@@ -94,7 +94,7 @@ func (f *factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
-	pdTask := &alertTaskImpl{factoryCfg: f.cfg, task: t, cfg: cfg}
+	pdTask := &alertTask{factoryCfg: f.cfg, task: t, cfg: cfg}
 	if cfg.AutoStart {
 		if err := pdTask.start(ctx); err != nil {
 			return nil, err

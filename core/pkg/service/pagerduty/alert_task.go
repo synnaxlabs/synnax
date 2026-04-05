@@ -75,7 +75,7 @@ func (c AlertTaskConfig) MsgpackEncodedJSON() (msgpack.EncodedJSON, error) {
 	return m, nil
 }
 
-type alertTaskImpl struct {
+type alertTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        AlertTaskConfig
@@ -84,9 +84,9 @@ type alertTaskImpl struct {
 	alertsByStatus map[string]AlertConfig
 }
 
-var _ driver.Task = (*alertTaskImpl)(nil)
+var _ driver.Task = (*alertTask)(nil)
 
-func (t *alertTaskImpl) Exec(ctx context.Context, cmd task.Command) error {
+func (t *alertTask) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
@@ -97,7 +97,7 @@ func (t *alertTaskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	}
 }
 
-func (t *alertTaskImpl) start(ctx context.Context) error {
+func (t *alertTask) start(ctx context.Context) error {
 	if t.disconnect != nil {
 		return nil
 	}
@@ -112,9 +112,9 @@ func (t *alertTaskImpl) start(ctx context.Context) error {
 	return nil
 }
 
-func (t *alertTaskImpl) Stop() error { return t.stop(context.TODO()) }
+func (t *alertTask) Stop() error { return t.stop(context.TODO()) }
 
-func (t *alertTaskImpl) stop(ctx context.Context) error {
+func (t *alertTask) stop(ctx context.Context) error {
 	if t.disconnect != nil {
 		t.disconnect()
 		t.disconnect = nil
@@ -123,7 +123,7 @@ func (t *alertTaskImpl) stop(ctx context.Context) error {
 	return nil
 }
 
-func (t *alertTaskImpl) handleStatusChange(
+func (t *alertTask) handleStatusChange(
 	ctx context.Context,
 	reader gorp.TxReader[string, status.Status[any]],
 ) {
@@ -149,7 +149,7 @@ func (t *alertTaskImpl) handleStatusChange(
 	}
 }
 
-func (t *alertTaskImpl) buildTriggerEvent(
+func (t *alertTask) buildTriggerEvent(
 	s status.Status[any],
 	alertCfg AlertConfig,
 ) pagerduty.V2Event {
@@ -175,7 +175,7 @@ func (t *alertTaskImpl) buildTriggerEvent(
 	}
 }
 
-func (t *alertTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
+func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",
@@ -183,7 +183,7 @@ func (t *alertTaskImpl) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	}
 }
 
-func (t *alertTaskImpl) mapSeverity(
+func (t *alertTask) mapSeverity(
 	variant xstatus.Variant,
 	treatErrorAsCritical bool,
 ) string {
@@ -202,7 +202,7 @@ func (t *alertTaskImpl) mapSeverity(
 	}
 }
 
-func (t *alertTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) {
+func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 	resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
 	if err != nil {
 		t.factoryCfg.L.Error(
@@ -223,7 +223,7 @@ func (t *alertTaskImpl) sendEvent(ctx context.Context, event pagerduty.V2Event) 
 	)
 }
 
-func (t *alertTaskImpl) updateStatus(
+func (t *alertTask) updateStatus(
 	ctx context.Context,
 	variant xstatus.Variant,
 	running bool,
