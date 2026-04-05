@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
@@ -77,7 +77,7 @@ func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, overr
 // if they desire to do so, or simply use the DB directly otherwise.
 type Tx interface {
 	kv.Tx
-	Tools
+	encoding.Codec
 }
 
 // Context is an extension of the built-in context.Context type that adds additional
@@ -98,9 +98,3 @@ func checkForNilTx(method string, tx Tx) {
 		panic("[gorp] - nil transaction - please provide transaction to " + method)
 	}
 }
-
-var _ Tx = (*tx)(nil)
-
-// Tools provides the codec that gorp needs to translate key-value operations
-// to strongly-typed requests.
-type Tools interface{ binary.Codec }

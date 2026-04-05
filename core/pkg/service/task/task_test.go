@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -116,7 +116,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = &binary.MsgPackCodec{}
+		var codec = msgpack.Codec
 		DescribeTable("Should decode task.Key from various types",
 			func(ctx SpecContext, value any, expected task.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))
@@ -498,6 +498,18 @@ var _ = Describe("Task", Ordered, func() {
 				Status:       stat,
 				Search:       searchIdx,
 			}))
+
+			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+
+			t := task.Task{
+				Key:  task.NewKey(testRack.Key, 99),
+				Name: "Migration Test Task",
+			}
+			Expect(gorp.NewCreate[task.Key, task.Task]().
+				Entry(&t).
+				Exec(ctx, db)).To(Succeed())
+
 			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -506,28 +518,7 @@ var _ = Describe("Task", Ordered, func() {
 				Status:   stat,
 				Search:   searchIdx,
 			}))
-			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Migration Test Task",
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-			Expect(status.NewWriter[task.StatusDetails](stat, nil).Delete(ctx, task.OntologyID(t.Key).String())).To(Succeed())
-			var deletedStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(t.Key).String()).
-				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-				Search:   searchIdx,
-			}))
+
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(t.Key).String()).
@@ -536,6 +527,73 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
+
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(g.Close()).To(Succeed())
+			Expect(searchIdx.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
+
+		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustSucceed(search.Open())
+			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    g,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        g,
+				HostProvider: mock.StaticHostKeyProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
+
+			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+
+			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+				Search:   searchIdx,
+			}))
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Task With Status",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+
+			var taskStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(t.Key).String()).
+				Entry(&taskStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Message).To(Equal("Task With Status status unknown"))
+
 			Expect(svc.Close()).To(Succeed())
 			Expect(rackSvc.Close()).To(Succeed())
 			Expect(stat.Close()).To(Succeed())

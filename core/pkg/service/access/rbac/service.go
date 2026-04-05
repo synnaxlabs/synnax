@@ -13,26 +13,33 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xmigrate "github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Signals  *signals.Provider
 	Group    *group.Service
 	Search   *search.Index
+	User     *user.Service
 }
 
 var (
@@ -42,11 +49,13 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.User = override.Nil(c.User, other.User)
 	return c
 }
 
@@ -85,35 +94,63 @@ func (s *Service) RetrievePoliciesForSubject(
 }
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
+// It also provisions built-in roles/policies and runs legacy permission migrations.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	policyService, err := policy.OpenService(ctx, policy.ServiceConfig{
-		DB:       cfg.DB,
-		Signals:  cfg.Signals,
-		Ontology: cfg.Ontology,
-		Search:   cfg.Search,
+		Instrumentation: cfg.Child("policy"),
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Ontology:        cfg.Ontology,
+		Search:          cfg.Search,
 	})
 	if err != nil {
 		return nil, err
 	}
 	roleService, err := role.OpenService(ctx, role.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Signals:  cfg.Signals,
-		Group:    cfg.Group,
-		Search:   cfg.Search,
+		Instrumentation: cfg.Child("role"),
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Signals:         cfg.Signals,
+		Group:           cfg.Group,
+		Search:          cfg.Search,
 	})
 	if err != nil {
 		return nil, errors.Combine(err, policyService.Close())
 	}
-	return &Service{
+	s := &Service{
 		Policy: policyService,
 		Role:   roleService,
 		cfg:    cfg,
-	}, nil
+	}
+
+	// Provision built-in roles and policies. This is idempotent and runs every
+	// startup to ensure policy definitions stay up to date.
+	roles, err := builtin.Provision(ctx, cfg.DB, policyService, roleService)
+	if err != nil {
+		return nil, errors.Join(err, policyService.Close(), roleService.Close())
+	}
+
+	// Phase 2 migration assigns users to roles based on the legacy mapping
+	// extracted by Phase 1 in the policy package. This runs after provisioning
+	// so the built-in roles exist in the ontology.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.DB,
+		Namespace:       "rbac",
+		Migrations: []xmigrate.Migration{v0.Migration(v0.MigrationConfig{
+			User:     cfg.User,
+			Ontology: cfg.Ontology,
+			Role:     roleService,
+			Roles:    roles,
+		})},
+	}); err != nil {
+		return nil, errors.Join(err, policyService.Close(), roleService.Close())
+	}
+	return s, nil
 }
 
 func (e *Enforcer) retrievePolicies(

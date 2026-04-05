@@ -38,6 +38,8 @@ Table struct {
     """
     @ontology type "table"
     @retrieve
+    @go marshal
+    @go migrate
 }
 
 New struct extends Table {

@@ -11,6 +11,7 @@ package migrate_test
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -181,7 +182,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate frozen codec", func() {
 				content := fileContent(resp, "migrations/v1/codec.gen.go")
 				Expect(content).To(ContainSubstring("package v1"))
-				Expect(content).To(ContainSubstring("EntryCodec"))
+				Expect(content).To(ContainSubstring("func (e Entry) EncodeOrc"))
+				Expect(content).To(ContainSubstring("func (e *Entry) DecodeOrc"))
 			})
 
 			It("Should generate auto-copy with error propagation", func() {
@@ -1003,8 +1005,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 	})
 
-	Describe("WithDependencies in migrate.gen.go", func() {
-		It("Should wrap schema migrations with gorp.WithDependencies", func() {
+	Describe("migrate.gen.go imports and wiring", func() {
+		It("Should import both gorp and migrate packages", func() {
 			oldSchema := `
 				@go output "out"
 				Key = uuid
@@ -1026,8 +1028,335 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
 			content := fileContent(resp, "migrate.gen.go")
-			Expect(content).To(ContainSubstring("gorp.WithDependencies"))
-			Expect(content).To(ContainSubstring(`"msgpack_to_binary"`))
+			Expect(content).To(ContainSubstring("gorp.NewEntryMigration"))
+			Expect(content).To(ContainSubstring("v1_schema_migration"))
+			Expect(content).To(ContainSubstring(`"github.com/synnaxlabs/x/gorp"`))
+			Expect(content).To(ContainSubstring(`"github.com/synnaxlabs/x/migrate"`))
+		})
+
+		It("Should use migrate.WithAddedDeps for chained migrations", func() {
+			tmpDir := GinkgoT().TempDir()
+			v1Dir := tmpDir + "/out/migrations/v1"
+			Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/migrate.go", []byte("package v1"), 0644)).To(Succeed())
+
+			schemaV2 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					@go migrate
+				}
+			`
+			schemaV3 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					label string
+					@go migrate
+				}
+			`
+			customLoader := testutil.NewMockFileLoaderWithRoot(tmpDir)
+			oldTable := MustSucceed(analyze(ctx, schemaV2, "test", customLoader))
+			newTable := MustSucceed(analyze(ctx, schemaV3, "test", customLoader))
+			req := &plugin.Request{
+				Resolutions:     newTable,
+				OldResolutions:  oldTable,
+				SnapshotVersion: 2,
+				RepoRoot:        tmpDir,
+			}
+			resp := MustSucceed(p.Generate(req))
+			content := fileContent(resp, "migrate.gen.go")
+			Expect(content).To(ContainSubstring("migrate.WithAddedDeps"))
+			Expect(content).NotTo(ContainSubstring("gorp.WithDependencies"))
+			Expect(content).To(ContainSubstring("v1_schema_migration"))
+			Expect(content).To(ContainSubstring("v2_schema_migration"))
+		})
+	})
+
+	Describe("retarget generates sub-package auto-copy", func() {
+		It("Should generate migrate_auto.gen.go in the version sub-package during retarget", func() {
+			tmpDir := GinkgoT().TempDir()
+			v1Dir := tmpDir + "/out/migrations/v1"
+			Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/migrate.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(tmpDir+"/out/migrate.go", []byte(`package out
+func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoMigrateEntry(old) }
+`), 0644)).To(Succeed())
+
+			schemaV1 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					@go migrate
+				}
+			`
+			schemaV2 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					@go migrate
+				}
+			`
+			schemaV3 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					label string
+					@go migrate
+				}
+			`
+			customLoader := testutil.NewMockFileLoaderWithRoot(tmpDir)
+			v1Table := MustSucceed(analyze(ctx, schemaV1, "test", customLoader))
+			oldTable := MustSucceed(analyze(ctx, schemaV2, "test", customLoader))
+			newTable := MustSucceed(analyze(ctx, schemaV3, "test", customLoader))
+			req := &plugin.Request{
+				Resolutions:     newTable,
+				OldResolutions:  oldTable,
+				SnapshotVersion: 2,
+				RepoRoot:        tmpDir,
+				LoadSnapshot: func(version int) (*resolution.Table, error) {
+					if version == 1 {
+						return v1Table, nil
+					}
+					return nil, nil
+				},
+			}
+			resp := MustSucceed(p.Generate(req))
+			autoCopy := fileContent(resp, "out/migrations/v2/migrate_auto.gen.go")
+			Expect(autoCopy).NotTo(BeEmpty())
+			Expect(autoCopy).To(ContainSubstring("AutoMigrateEntry"))
+			Expect(autoCopy).To(ContainSubstring("context.Context"))
+			// Should copy v1 fields (Key, Name) but NOT v2-added field (Age)
+			Expect(autoCopy).To(ContainSubstring("old.Name"))
+			Expect(autoCopy).NotTo(ContainSubstring("old.Age"))
+			// Should import the v1 sub-package as the old type source
+			Expect(autoCopy).To(ContainSubstring("migrations/v1"))
+		})
+
+		It("Should generate cross-package auto-copy with versioned imports during retarget", func() {
+			tmpDir := GinkgoT().TempDir()
+			v1Dir := tmpDir + "/out/migrations/v1"
+			v1DepDir := tmpDir + "/dep/migrations/v1"
+			Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+			Expect(os.MkdirAll(v1DepDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/migrate.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1DepDir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(tmpDir+"/out/migrate.go", []byte(`package out
+func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoMigrateEntry(old) }
+`), 0644)).To(Succeed())
+
+			depV1 := `@go output "dep"  Inner struct { value int32 }`
+			depV2 := `@go output "dep"  Inner struct { value int32  extra string }`
+
+			schemaV1 := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					inner dep.Inner
+					@go migrate
+				}
+			`
+			schemaV2 := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					inner dep.Inner
+					label string
+					@go migrate
+				}
+			`
+			schemaV3 := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key       {@key}
+					inner dep.Inner
+					label string
+					tag string
+					@go migrate
+				}
+			`
+			customLoader := testutil.NewMockFileLoaderWithRoot(tmpDir)
+			customLoader.Add("schemas/dep", depV1)
+			v1Table := MustSucceed(analyze(ctx, schemaV1, "test", customLoader))
+			customLoader.Add("schemas/dep", depV2)
+			oldTable := MustSucceed(analyze(ctx, schemaV2, "test", customLoader))
+			newTable := MustSucceed(analyze(ctx, schemaV3, "test", customLoader))
+			req := &plugin.Request{
+				Resolutions:     newTable,
+				OldResolutions:  oldTable,
+				SnapshotVersion: 2,
+				RepoRoot:        tmpDir,
+				LoadSnapshot: func(version int) (*resolution.Table, error) {
+					if version == 1 {
+						return v1Table, nil
+					}
+					return nil, nil
+				},
+			}
+			resp := MustSucceed(p.Generate(req))
+			autoCopy := fileContent(resp, "out/migrations/v2/migrate_auto.gen.go")
+			Expect(autoCopy).NotTo(BeEmpty())
+			Expect(autoCopy).To(ContainSubstring("AutoMigrateEntry"))
+			// Should import the v1 versioned sub-package, not the live dep package
+			Expect(autoCopy).To(ContainSubstring("migrations/v1"))
+			// Should copy v1 fields (Key, Inner) but NOT v2-added field (Label)
+			Expect(autoCopy).To(ContainSubstring("old.Inner"))
+			Expect(autoCopy).NotTo(ContainSubstring("old.Label"))
+		})
+	})
+
+	Describe("retarget regenerates developer template", func() {
+		It("Should generate a new top-level migrate.go after retargeting the previous one", func() {
+			tmpDir := GinkgoT().TempDir()
+			v1Dir := tmpDir + "/out/migrations/v1"
+			Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/migrate.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(tmpDir+"/out/migrate.go", []byte(`package out
+func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoMigrateEntry(old) }
+`), 0644)).To(Succeed())
+
+			schemaV2 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					@go migrate
+				}
+			`
+			schemaV3 := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					label string
+					@go migrate
+				}
+			`
+			customLoader := testutil.NewMockFileLoaderWithRoot(tmpDir)
+			oldTable := MustSucceed(analyze(ctx, schemaV2, "test", customLoader))
+			newTable := MustSucceed(analyze(ctx, schemaV3, "test", customLoader))
+			req := &plugin.Request{
+				Resolutions:     newTable,
+				OldResolutions:  oldTable,
+				SnapshotVersion: 2,
+				RepoRoot:        tmpDir,
+			}
+			resp := MustSucceed(p.Generate(req))
+			tmpl := fileContent(resp, "out/migrate.go")
+			Expect(tmpl).NotTo(BeEmpty())
+			Expect(tmpl).To(ContainSubstring("MigrateEntry"))
+			Expect(tmpl).To(ContainSubstring("context.Context"))
+			Expect(tmpl).To(ContainSubstring("v2"))
+		})
+	})
+
+	Describe("context.Context in generated code", func() {
+		It("Should use context.Context in developer transform template", func() {
+			oldSchema := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					@go migrate
+				}
+			`
+			newSchema := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					@go migrate
+				}
+			`
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			content := fileContent(resp, "out/migrate.go")
+			Expect(content).To(ContainSubstring("context.Context"))
+			Expect(content).NotTo(ContainSubstring("MigrationContext"))
+			Expect(content).To(ContainSubstring(`"context"`))
+		})
+
+		It("Should pass ctx to nested AutoMigrate calls", func() {
+			oldSchema := `
+				@go output "out"
+				Key = uuid
+				Inner struct { value int32 }
+				Entry struct {
+					key Key     {@key}
+					inner Inner
+					@go migrate
+				}
+			`
+			newSchema := `
+				@go output "out"
+				Key = uuid
+				Inner struct { value int32  extra string }
+				Entry struct {
+					key Key     {@key}
+					inner Inner
+					@go migrate
+				}
+			`
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			content := fileContent(resp, "migrate_auto.gen.go")
+			Expect(content).To(ContainSubstring("AutoMigrateInner(ctx,"))
+			Expect(content).To(ContainSubstring("ctx context.Context"))
+		})
+
+		It("Should not reference gorp in auto-copy imports", func() {
+			oldSchema := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					@go migrate
+				}
+			`
+			newSchema := `
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					name string
+					age int32
+					@go migrate
+				}
+			`
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			content := fileContent(resp, "migrate_auto.gen.go")
+			Expect(content).NotTo(ContainSubstring(`"github.com/synnaxlabs/x/gorp"`))
+			Expect(content).To(ContainSubstring(`"context"`))
 		})
 	})
 

@@ -52,6 +52,8 @@ Range struct {
     @retrieve custom
     @search type     "range"
     @pb
+    @go marshal
+    @go migrate
     @cpp name        "Base"
     @ts name         "Base"
     @py name         "Base"

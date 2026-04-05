@@ -74,6 +74,8 @@ Rack struct {
     """
     @ts name         "Payload"
     @ontology type   "rack"
+    @go marshal
+    @go migrate
     @retrieve custom
     @search
     @py name         "Base"

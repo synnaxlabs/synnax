@@ -38,6 +38,8 @@ LinePlot struct {
     """
     @ontology type "lineplot"
     @retrieve
+    @go marshal
+    @go migrate
 }
 
 New struct extends LinePlot {

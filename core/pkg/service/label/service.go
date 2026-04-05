@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -44,6 +46,8 @@ type ServiceConfig struct {
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -66,6 +70,7 @@ func (c ServiceConfig) Validate() error {
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -90,7 +95,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Label]{DB: cfg.DB})
+	table, err := gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Label]{
+		DB:              cfg.DB,
+		Migrations:      label.LabelMigrations(),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

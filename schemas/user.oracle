@@ -45,6 +45,8 @@ User struct {
     """
     @ontology type "user"
     @retrieve
+    @go marshal
+    @go migrate
     @pb
 }
 

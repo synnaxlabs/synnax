@@ -16,8 +16,8 @@ import (
 	"iter"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -29,29 +29,24 @@ import (
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
-	codec    binary.Codec
-	reader   kv.Reader
+	tx       Tx
 }
 
-// WrapReader wraps the given key-value reader and codec to provide a strongly typed
-// interface for reading entries from the DB.
-func WrapReader[K Key, E Entry[K]](base kv.Reader, codec binary.Codec) *Reader[K, E] {
-	return &Reader[K, E]{reader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
-}
-
-func wrapReader[K Key, E Entry[K]](base kv.Reader, codec binary.Codec) *Reader[K, E] {
-	return &Reader[K, E]{reader: base, keyCodec: newKeyCodec[K, E](), codec: codec}
+// WrapReader wraps the given BaseReader to provide a strongly typed interface for reading
+// entries from the DB.
+func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
+	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
-	b, closer, err := r.reader.Get(ctx, r.keyCodec.encode(key))
+	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return e, err
 	}
-	err = r.codec.Decode(ctx, b, &e)
+	err = r.tx.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
 }
 
@@ -91,8 +86,8 @@ type IterOptions struct {
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
-	base, err := r.reader.OpenIterator(kv.IterPrefix(prefixedKey))
-	return &Iterator[E]{Iterator: base, codec: r.codec}, err
+	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
+	return &Iterator[E]{Iterator: base, codec: r.tx}, err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over
@@ -104,7 +99,11 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	}
 	return func(yield func(E) bool) {
 		for i.First(); i.Valid(); i.Next() {
-			if !yield(*i.Value(ctx)) {
+			v := i.Value(ctx)
+			if v == nil {
+				continue
+			}
+			if !yield(*v) {
 				return
 			}
 		}
@@ -117,13 +116,18 @@ type Iterator[E any] struct {
 	kv.Iterator
 	err   error
 	value *E
-	codec binary.Codec
+	codec encoding.Codec
 }
 
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
-// for calls to return a valid value.
+// for calls to return a valid value. The returned pointer is reused across calls,
+// so callers must copy the value if they need it to persist.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
-	k.value = new(E)
+	if k.value == nil {
+		k.value = new(E)
+	}
+	var zero E
+	*k.value = zero
 	if err := k.codec.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
 		k.err = err
 		return nil

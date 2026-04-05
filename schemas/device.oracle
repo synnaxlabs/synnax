@@ -105,6 +105,8 @@ Device struct<
         Instruments, OPC UA servers, or Modbus devices.
     """
     @ontology type     "device"
+    @go marshal
+    @go migrate
     @retrieve
     @search
     @ts concrete_types

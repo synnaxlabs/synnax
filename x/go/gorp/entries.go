@@ -179,7 +179,8 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
-const magicPrefix = "__gorp__//"
+const magicPrefix = "gorp."
+const migrationVersionPrefix = "gorp.migration."
 
 type keyCodec[K Key, E Entry[K]] struct {
 	prefix  []byte

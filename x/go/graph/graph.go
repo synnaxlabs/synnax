@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -88,10 +89,6 @@ func TarjanSCC[T cmp.Ordered](adj map[T][]T) [][]T {
 // ErrCyclicDependency is returned by TopoSort when the graph contains a cycle.
 var ErrCyclicDependency = errors.New("cyclic dependency detected")
 
-// ErrMissingDependency is returned by TopoSort when an edge references a node
-// that does not exist in the graph.
-var ErrMissingDependency = errors.New("missing dependency")
-
 // TopoSort returns a topological ordering of the directed acyclic graph
 // represented by the adjacency list adj (where adj[a] = [b, c] means a depends
 // on b and c, i.e. b and c must come before a). Returns ErrCyclicDependency if
@@ -103,7 +100,7 @@ func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
 		for _, dep := range deps {
 			if _, exists := adj[dep]; !exists {
 				return nil, errors.Wrapf(
-					ErrMissingDependency,
+					query.ErrNotFound,
 					"%v depends on %v which does not exist",
 					node, dep,
 				)

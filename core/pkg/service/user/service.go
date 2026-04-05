@@ -14,14 +14,17 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,6 +45,14 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Auth is used to register credentials for the root user during provisioning.
+	// [OPTIONAL] - If nil, root user provisioning is skipped.
+	Auth auth.Authenticator
+	// RootCredentials are the credentials for the root user.
+	// [OPTIONAL] - Only used when Auth is provided.
+	RootCredentials auth.InsecureCredentials
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -51,11 +62,14 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -83,7 +97,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[User]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
+		DB:              cfg.DB,
+		Migrations:      UserMigrations(),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +110,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	cfg.Search.RegisterService(s)
 
 	if cfg.Signals != nil {
-		cdcS, err := signals.PublishFromGorp(
+		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
@@ -102,7 +120,33 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 			return nil, err
 		}
 	}
+	if cfg.Auth != nil {
+		if err = s.provisionRoot(ctx, cfg); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
+}
+
+func (s *Service) provisionRoot(ctx context.Context, cfg ServiceConfig) error {
+	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var rootUser User
+		if err := s.NewRetrieve().
+			WhereUsernames(cfg.RootCredentials.Username).
+			Entry(&rootUser).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if rootUser.Key != uuid.Nil {
+			return nil
+		}
+		rootUser.Username = cfg.RootCredentials.Username
+		rootUser.RootUser = true
+		if err := cfg.Auth.NewWriter(tx).Register(ctx, cfg.RootCredentials); err != nil {
+			return err
+		}
+		return s.NewWriter(tx).Create(ctx, &rootUser)
+	})
 }
 
 // NewWriter opens a new writer capable of creating, updating, and deleting Users. The

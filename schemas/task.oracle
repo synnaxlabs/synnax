@@ -129,6 +129,8 @@ Task struct<
     @ontology type "task"
     @retrieve
     @search
+    @go marshal
+    @go migrate
     @py name       "Payload"
 }
 

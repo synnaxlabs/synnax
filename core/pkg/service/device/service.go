@@ -11,7 +11,6 @@ package device
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -26,8 +26,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -74,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -111,7 +110,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Device]{DB: cfg.DB})
+	table, err := gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
+		DB: cfg.DB,
+		Migrations: append(DeviceMigrations(), v0.Migration(v0.MigrationConfig{
+			Status: cfg.Status,
+		})),
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -123,9 +128,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		cfg:   cfg,
 		group: g,
 		table: table,
-	}
-	if err = s.migrateStatusesForExistingDevices(ctx); err != nil {
-		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
@@ -177,50 +179,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}
-}
-
-func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
-	var devices []Device
-	if err := s.NewRetrieve().Entries(&devices).Exec(ctx, nil); err != nil {
-		return err
-	}
-	if len(devices) == 0 {
-		return nil
-	}
-	statusKeys := make([]string, len(devices))
-	for i, d := range devices {
-		statusKeys[i] = OntologyID(d.Key).String()
-	}
-	var existingStatuses []status.Status[StatusDetails]
-	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []status.Status[StatusDetails]
-	for _, d := range devices {
-		key := OntologyID(d.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
-				Key:     key,
-				Name:    d.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: fmt.Sprintf("%s state unknown", d.Name),
-				Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	s.cfg.L.Info("creating unknown statuses for existing devices", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {

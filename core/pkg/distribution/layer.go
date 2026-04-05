@@ -30,8 +30,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -55,7 +57,7 @@ type LayerConfig struct {
 	// cluster meta-data DB (gorp).
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
-	GorpCodec binary.Codec
+	GorpCodec encoding.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
 	//
@@ -113,7 +115,7 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		GorpCodec:            &binary.MsgPackCodec{},
+		GorpCodec:            orc.NewCodec(msgpack.Codec),
 		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
 	}
@@ -226,11 +228,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	l.Cluster = aspenDB.Cluster
 	l.DB = gorp.Wrap(
 		aspenDB,
-		gorp.WithCodec(&binary.TracingCodec{
-			Level:           alamos.EnvironmentBench,
-			Instrumentation: cfg.Instrumentation,
-			Codec:           cfg.GorpCodec,
-		}),
+		gorp.WithCodec(cfg.GorpCodec),
 	)
 
 	if l.Ontology, err = ontology.Open(
@@ -252,9 +250,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Group, err = group.OpenService(
 		ctx,
 		group.ServiceConfig{
-			DB:       l.DB,
-			Ontology: l.Ontology,
-			Search:   l.Search,
+			Instrumentation: cfg.Child("group"),
+			DB:              l.DB,
+			Ontology:        l.Ontology,
+			Search:          l.Search,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -281,13 +280,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
-		HostResolver: l.Cluster,
-		ClusterDB:    l.DB,
-		TSChannel:    cfg.Storage.TS,
-		Transport:    cfg.ChannelTransport,
-		Ontology:     l.Ontology,
-		Search:       l.Search,
-		Group:        l.Group,
+		Instrumentation: cfg.Child("channel"),
+		HostResolver:    l.Cluster,
+		ClusterDB:       l.DB,
+		TSChannel:       cfg.Storage.TS,
+		Transport:       cfg.ChannelTransport,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Group:           l.Group,
 		IntOverflowCheck: lo.Ternary(
 			cfg.TestingIntOverflowCheck != nil,
 			cfg.TestingIntOverflowCheck,
