@@ -656,7 +656,7 @@ func (g *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 	}
 
 	for groupID, group := range g.groups {
-		if group.baseDeps.Equals(baseDeps) {
+		if group.baseDeps.Equal(baseDeps) {
 			g.L.Debug("channel assigned to existing group with exact base dependency match",
 				zap.Int("group_id", groupID),
 				zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),

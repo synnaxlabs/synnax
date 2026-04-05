@@ -73,8 +73,8 @@ func (s Set[T]) Contains(element T) bool {
 // in the returned slice is not guaranteed.
 func (s Set[T]) Slice() []T { return lo.Keys(s) }
 
-// Equals checks if two Sets contain exactly the same elements.
-func (s Set[T]) Equals(other Set[T]) bool {
+// Equals compares if two Sets contain exactly the same elements.
+func (s Set[T]) Equal(other Set[T]) bool {
 	if len(s) != len(other) {
 		return false
 	}

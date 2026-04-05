@@ -215,53 +215,53 @@ var _ = Describe("Set", func() {
 		})
 	})
 
-	Describe("Equals", func() {
+	Describe("Equal", func() {
 		It("Should return true for identical sets", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 3)
-			Expect(a.Equals(b)).To(BeTrue())
+			Expect(a.Equal(b)).To(BeTrue())
 		})
 
 		It("Should return true for empty sets", func() {
 			a := make(set.Set[int])
 			b := make(set.Set[int])
-			Expect(a.Equals(b)).To(BeTrue())
+			Expect(a.Equal(b)).To(BeTrue())
 		})
 
 		It("Should return false for different lengths", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2)
-			Expect(a.Equals(b)).To(BeFalse())
+			Expect(a.Equal(b)).To(BeFalse())
 		})
 
 		It("Should return false for same length but different elements", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 4)
-			Expect(a.Equals(b)).To(BeFalse())
+			Expect(a.Equal(b)).To(BeFalse())
 		})
 
 		It("Should be order-independent", func() {
 			a := set.New(3, 1, 2)
 			b := set.New(1, 2, 3)
-			Expect(a.Equals(b)).To(BeTrue())
+			Expect(a.Equal(b)).To(BeTrue())
 		})
 
 		It("Should be symmetric", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(4, 5, 6)
-			Expect(a.Equals(b)).To(Equal(b.Equals(a)))
+			Expect(a.Equal(b)).To(Equal(b.Equal(a)))
 		})
 
 		It("Should work with string sets", func() {
 			a := set.New("apple", "banana", "cherry")
 			b := set.New("cherry", "apple", "banana")
-			Expect(a.Equals(b)).To(BeTrue())
+			Expect(a.Equal(b)).To(BeTrue())
 		})
 
 		It("Should return false when one set is a superset of the other", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 3, 4, 5)
-			Expect(a.Equals(b)).To(BeFalse())
+			Expect(a.Equal(b)).To(BeFalse())
 		})
 	})
 
