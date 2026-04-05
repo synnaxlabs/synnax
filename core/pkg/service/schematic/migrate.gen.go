@@ -12,9 +12,9 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func SchematicMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func SchematicMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

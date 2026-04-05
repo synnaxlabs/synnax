@@ -113,7 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DB: cfg.DB,
 		Migrations: append(
 			DeviceMigrations(),
-			&statusBackfillMigration{cfg: cfg},
+			statusBackfillMigration(cfg),
 		),
 		Instrumentation: cfg.Instrumentation,
 	})

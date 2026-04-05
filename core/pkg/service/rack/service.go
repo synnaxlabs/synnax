@@ -129,8 +129,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		DB: cfg.DB,
 		Migrations: append(
 			RackMigrations(),
-			&embeddedRackRenameMigration{cfg: cfg},
-			&statusBackfillMigration{cfg: cfg},
+			embeddedRackRenameMigration(cfg),
+			statusBackfillMigration(cfg),
 		),
 		Instrumentation: cfg.Instrumentation,
 	})
