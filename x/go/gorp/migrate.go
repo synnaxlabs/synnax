@@ -162,3 +162,26 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 	}
 	return txn.Commit(ctx)
 }
+
+func CodecMigration[K Key, E Entry[K]](key string, deps ...string) migrate.Migration {
+	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
+		writer := WrapWriter[K, E](tx)
+		iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Combine(err, iter.Close())
+		}()
+		for iter.First(); iter.Valid(); iter.Next() {
+			v := iter.Value(ctx)
+			if iter.Error() != nil {
+				return iter.Error()
+			}
+			if err = writer.Set(ctx, *v); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, deps...)
+}
