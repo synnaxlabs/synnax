@@ -13,8 +13,8 @@ arbitrary fields while keeping primary data in Pebble as the sole source of trut
 # 1 - Motivation
 
 RFC 0026 identified the lack of efficient query mechanisms as the top problem with our
-metadata toolchains. The core issue: gorp supports fast lookups by key but nothing
-else. Any filter-based query iterates every entry in the table, deserializing each one.
+metadata toolchains. The core issue: gorp supports fast lookups by key but nothing else.
+Any filter-based query iterates every entry in the table, deserializing each one.
 
 Concrete examples of queries that currently trigger full table scans:
 
@@ -36,8 +36,8 @@ on deserialization and in GC pressure from the throwaway allocations.
    primary data without loss. No index-only fields, no denormalized aggregates.
 
 2. **Table owns its indexes.** The `Table[K, E]` type is responsible for registering,
-   maintaining, and exposing indexes. This keeps the index lifecycle co-located with
-   the data lifecycle.
+   maintaining, and exposing indexes. This keeps the index lifecycle co-located with the
+   data lifecycle.
 
 3. **Indexes are node-local.** Two cluster nodes may have momentarily different index
    states during Aspen replication lag. Queries always run against the local node's
@@ -70,10 +70,10 @@ Use cases: "list schematics ordered by last modified", "paginate ranges by time"
 
 ### 2.1.2 - Type-Specialized Backing Structures
 
-Because the `IndexedFilter` carries the concrete value type `V` as a generic parameter
-(see 2.2), the index implementation can select a specialized backing structure based on
-the type of value being indexed. This is a core part of the design, not a future
-optimization.
+Because the index structs (`Lookup[K, E, V]`, `Sorted[K, E, V]`) carry the concrete
+value type `V` as a generic parameter (see 2.2), the index implementation can select a
+specialized backing structure based on the type of value being indexed. This is a core
+part of the design, not a future optimization.
 
 The internal `storage` interface abstracts the backing structure:
 
@@ -90,20 +90,20 @@ based on type reflection on `V`:
 
 **Lookup index strategies:**
 
-| Value type `V`        | Backing structure     | Why                            |
-| --------------------- | --------------------- | ------------------------------ |
-| `bool`                | Two key lists          | Only two possible values. No map overhead, no hashing. Just two slices. |
-| Small integers (`uint8`, `int8`, `uint16`, `int16`) | Dense array `[maxV][]K` | Value space is bounded (256 or 65536 slots). Direct array indexing is faster than map hashing. No hash collisions. |
-| `string`              | `map[string][]K`      | Variable-length, unbounded value space. Standard map is the right tool. |
-| Other `comparable` types (`int32`, `int64`, `uint32`, `uint64`, struct types) | `map[V][]K` | Generic fallback. Go maps handle any comparable type. |
+| Value type `V`                                                                | Backing structure       | Why                                                                                                                |
+| ----------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `bool`                                                                        | Two key lists           | Only two possible values. No map overhead, no hashing. Just two slices.                                            |
+| Small integers (`uint8`, `int8`, `uint16`, `int16`)                           | Dense array `[maxV][]K` | Value space is bounded (256 or 65536 slots). Direct array indexing is faster than map hashing. No hash collisions. |
+| `string`                                                                      | `map[string][]K`        | Variable-length, unbounded value space. Standard map is the right tool.                                            |
+| Other `comparable` types (`int32`, `int64`, `uint32`, `uint64`, struct types) | `map[V][]K`             | Generic fallback. Go maps handle any comparable type.                                                              |
 
 **Sorted index strategies:**
 
-| Value type `V`        | Backing structure       | Why                          |
-| --------------------- | ----------------------- | ---------------------------- |
-| Integer/timestamp types (`int64`, `uint64`, `telem.TimeStamp`) | `[]sortedEntry[K, V]` with native `<` comparison | No comparator function call per comparison during binary search. The compiler can inline the comparison. |
-| `string`              | `[]sortedEntry[K, V]` with string comparison | Strings require lexicographic comparison. Still uses binary search, but each comparison touches string bytes. |
-| Other ordered types   | `[]sortedEntry[K, V]` with caller-provided `Less` function | Fallback for types where the ordering isn't obvious from the type alone. |
+| Value type `V`                                                 | Backing structure                                          | Why                                                                                                           |
+| -------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Integer/timestamp types (`int64`, `uint64`, `telem.TimeStamp`) | `[]sortedEntry[K, V]` with native `<` comparison           | No comparator function call per comparison during binary search. The compiler can inline the comparison.      |
+| `string`                                                       | `[]sortedEntry[K, V]` with string comparison               | Strings require lexicographic comparison. Still uses binary search, but each comparison touches string bytes. |
+| Other ordered types                                            | `[]sortedEntry[K, V]` with caller-provided `Less` function | Fallback for types where the ordering isn't obvious from the type alone.                                      |
 
 The key insight: these optimizations are only possible because the index knows `V` at
 construction time. If we erased `V` to `string` (as the original design proposed), every
@@ -112,22 +112,21 @@ would be hashed as strings instead of compared as integers. Booleans would go th
 hash map instead of indexing into two buckets. The generic `V` parameter keeps the door
 open for the implementation to do the right thing per type.
 
-All of this is invisible to the caller. `MatchNames` and `MatchDataTypes` have the same
-external API. The specialization is an internal implementation detail.
+All of this is invisible to the caller. `channel.ByName` and `channel.ByDataType` have
+the same external API. The specialization is an internal implementation detail.
 
-For the sorted index, insertions use binary search to find the correct position
-(O(log n) search + O(n) shift for slice-backed storage). For the dataset sizes we're
-targeting (< 100k entries per type), this is acceptable. If profiling reveals the shift
-cost is a problem, we can swap the backing structure to a B-tree without changing the
-public API.
+For the sorted index, insertions use binary search to find the correct position (O(log
+n) search + O(n) shift for slice-backed storage). For the dataset sizes we're targeting
+(< 100k entries per type), this is acceptable. If profiling reveals the shift cost is a
+problem, we can swap the backing structure to a B-tree without changing the public API.
 
 ### 2.1.3 - Why Not Composite Indexes?
 
 Composite indexes (indexing on multiple fields simultaneously) add significant
-complexity: you need to define field ordering, handle partial prefix queries, and
-the number of possible composites grows combinatorially. For our access patterns,
-chaining a sorted index with a post-filter on the remaining fields is sufficient.
-We can revisit composite indexes if profiling shows a real need.
+complexity: you need to define field ordering, handle partial prefix queries, and the
+number of possible composites grows combinatorially. For our access patterns, chaining a
+sorted index with a post-filter on the remaining fields is sufficient. We can revisit
+composite indexes if profiling shows a real need.
 
 ## 2.2 - Two Layers: Gorp Primitives and Oracle-Generated Filters
 
@@ -174,9 +173,9 @@ func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E]
 Equivalent types exist for `Sorted[K, E, V]`.
 
 The primitives are fully usable without oracle. Hand-written code can call
-`idx.Filter(values...)` directly, or use `idx.Get(values...)` for raw key lookups.
-This is slightly less ergonomic than the oracle-generated path but fully functional
-and type-safe.
+`idx.Filter(values...)` directly, or use `idx.Get(values...)` for raw key lookups. This
+is slightly less ergonomic than the oracle-generated path but fully functional and
+type-safe.
 
 ### 2.2.1 - Oracle Layer: Generated Filter Functions
 
@@ -224,8 +223,8 @@ var Indexes = []gorp.Index{nameIndex, dataTypeIndex, createdAtIndex}
 ```
 
 Oracle generates all of this from the `.oracle` file. The struct field names, types, and
-index annotations are all available at generation time. No runtime reflection, no generic
-type gymnastics.
+index annotations are all available at generation time. No runtime reflection, no
+generic type gymnastics.
 
 ### 2.2.2 - Registration Site
 
@@ -272,8 +271,8 @@ unaware of indexes.
 
 Here's the lifecycle:
 
-1. **Definition time.** `NewLookup` creates the index struct as a package-level var.
-   Its backing data pointer is nil. The index is defined but unpopulated.
+1. **Definition time.** `NewLookup` creates the index struct as a package-level var. Its
+   backing data pointer is nil. The index is defined but unpopulated.
 
 2. **Registration time.** `OpenTable` scans all entries and populates the backing
    structure. It writes the populated data into the index struct. This is a one-time
@@ -328,30 +327,29 @@ Registering indexes at open time (rather than lazily on first query) gives us:
 1. **Deterministic startup cost.** The full scan to populate indexes happens once,
    predictably, during server boot.
 2. **No cold-query penalty.** Every query after startup hits a warm index.
-3. **Simpler concurrency model.** Indexes exist for the full lifetime of the table.
-   No races around lazy initialization.
+3. **Simpler concurrency model.** Indexes exist for the full lifetime of the table. No
+   races around lazy initialization.
 
 ## 2.3 - Index Population
 
 When `OpenTable` is called, after migrations complete:
 
 1. Open a Pebble iterator over the table's key prefix.
-2. For each entry, decode it and pass it to every registered index's `Extract`
-   function.
+2. For each entry, decode it and pass it to every registered index's `Extract` function.
 3. Insert the extracted value and primary key into the appropriate index structure.
 
 This is a single sequential scan. For a table with N entries and M indexes, the cost is
-O(N * M) extract calls plus the insertion cost for each index structure.
+O(N \* M) extract calls plus the insertion cost for each index structure.
 
 ### 2.3.0 - Startup Performance Expectations
 
 For our target scale (< 100k entries per type, typically < 10k), population should
 complete in low milliseconds. If a specific table proves slow, we can:
 
-- Populate indexes asynchronously and serve queries from Pebble until the index is
-  ready (adds complexity, defer until needed).
-- Use a snapshot-based warm start where index state is periodically serialized to
-  disk (adds durability concerns, defer until needed).
+- Populate indexes asynchronously and serve queries from Pebble until the index is ready
+  (adds complexity, defer until needed).
+- Use a snapshot-based warm start where index state is periodically serialized to disk
+  (adds durability concerns, defer until needed).
 
 Neither optimization is planned for the initial implementation.
 
@@ -404,10 +402,14 @@ update/delete. The reverse map costs roughly 40 bytes per entry (for a uint32 ke
 
 ### 2.4.2 - Consistency Model
 
-Index updates are applied synchronously during the commit of the underlying KV
-transaction. This means:
+Index updates are applied via the observer, which fires immediately after the KV
+transaction commits (pebblekv applies the batch to disk, then calls `NotifyGenerator`).
+This means there is a tiny window (microseconds) between when the data is committed to
+Pebble and when the index reflects it. In practice:
 
-- Within a single node, the index is always consistent with the committed data.
+- Within a single node, the index is consistent with committed data within microseconds
+  of each commit. For our metadata write rates (tens of writes per second), this is
+  indistinguishable from synchronous.
 - Across nodes, the index reflects whatever Aspen has replicated so far. This is the
   same consistency model as the primary data itself, so indexes don't introduce new
   inconsistency windows.
@@ -428,22 +430,24 @@ with the committed index at query time.
 
 ## 2.5 - Query Integration
 
-Because the `IndexedFilter` produces a standard `Filter[K, E]`, index-backed queries
-flow through the existing `Where` API. No new query methods are needed for basic
-lookup operations.
+Because `Lookup.Filter` and `Sorted.Filter` produce standard `Filter[K, E]` values,
+index-backed queries flow through the existing `Where` API. No new query methods are
+needed for basic lookup operations.
 
 ### 2.5.0 - Execution Path
 
-When `Retrieve.Exec` runs, it inspects the filter chain for index-backed filters:
+`Retrieve` does not know about indexes. The intelligence lives in the `Filter`'s `Eval`
+closure, which the index's `.Filter(values...)` method produces:
 
-1. If a filter carries an index back-reference and that index is registered on the
-   table, extract the candidate keys from the index.
-2. Fetch those entries from Pebble by key (the existing fast `execKeys` path).
-3. Apply any remaining non-indexed `Where` filters as post-filters.
-4. Apply `Limit` and `Offset` to the final result set.
+1. If the index's backing data is populated, the `Eval` closure looks up candidate keys
+   directly from the in-memory map, fetches those entries from Pebble by key, and
+   returns the matches. This converts the query into the existing fast `execKeys` path
+   internally.
+2. If the backing data is nil (index not registered), the `Eval` closure falls back to a
+   field comparison against each decoded entry, the same as any non-indexed filter.
 
-If no filter is index-backed (or the index isn't registered), fall through to the
-existing full-scan path. Behavior is identical, just slower.
+From `Retrieve`'s perspective, it's just calling `Eval` on a `Filter`. The filter
+decides whether to use the fast path or the slow path.
 
 ### 2.5.1 - Composing Indexed and Non-Indexed Filters
 
@@ -451,30 +455,23 @@ Index narrowing composes naturally with post-filtering:
 
 ```go
 table.NewRetrieve().
-    Where(MatchDataTypes(telem.Float32)).
+    Where(channel.ByDataType(telem.Float32)).
     Where(channel.IsVirtual()).
     Entries(&results).
     Exec(ctx, tx)
 ```
 
-Execution: the `MatchDataTypes` filter hits the index and produces candidate keys.
-Those entries are fetched from Pebble and then filtered through `IsVirtual`. This is
-a significant improvement over scanning the entire table even when the post-filter
-is needed.
+Execution: the `ByDataType` filter's closure hits the index and produces candidate keys.
+Those entries are fetched from Pebble and then filtered through `IsVirtual`. This is a
+significant improvement over scanning the entire table even when the post-filter is
+needed.
 
 ### 2.5.2 - Multiple Indexed Filters
 
-When multiple indexed filters appear in the same query, there are two strategies:
-
-1. **Intersect candidate sets.** Each index produces a set of keys. Intersect them
-   before fetching from Pebble. Optimal when both indexes are selective.
-2. **Use one index, post-filter the rest.** Pick the most selective index, fetch
-   candidates, apply the other indexed filter as a regular `Eval`. Simpler and
-   sufficient when one index is much more selective than the other.
-
-For the initial implementation, strategy 2 (use the first index-backed filter
-encountered, post-filter the rest). We can add intersection as an optimization later
-if profiling shows it matters.
+When multiple indexed filters appear in the same query, the first index-backed filter
+encountered produces candidate keys. The remaining filters (indexed or not) are applied
+as post-filters on those candidates. We can add index intersection as an optimization
+later if profiling shows it matters.
 
 ### 2.5.3 - Sorted Index Queries
 
@@ -483,21 +480,21 @@ cursor-based pagination, we add methods to `Retrieve`:
 
 ```go
 table.NewRetrieve().
-    OrderBy(MatchCreatedAt, gorp.Desc).
+    OrderBy(channel.ByCreatedAt, gorp.Desc).
     Limit(20).
     After(lastSeenCursor).
     Entries(&results).
     Exec(ctx, tx)
 ```
 
-`OrderBy` accepts a sorted `IndexedFilter` directly (not a string name), maintaining
-the same type-safe pattern. `After` takes a cursor value (the sort value of the last
-entry from the previous page) and uses binary search to start iteration from that
-point, giving O(log n + limit) pagination instead of O(offset + limit).
+`OrderBy` accepts an oracle-generated filter function that is backed by a `Sorted`
+index. `After` takes a cursor value (the sort value of the last entry from the previous
+page) and uses binary search to start iteration from that point, giving O(log n + limit)
+pagination instead of O(offset + limit).
 
 Note: `OrderBy` is a separate method from `Where` because it expresses a different
-intent (ordering, not filtering). A sorted `IndexedFilter` can appear in either
-position: in `Where` for range filtering, in `OrderBy` for result ordering.
+intent (ordering, not filtering). A sorted index filter can appear in either position:
+in `Where` for exact match filtering, in `OrderBy` for result ordering.
 
 ## 2.6 - Concurrency
 
@@ -506,35 +503,40 @@ Index structures must be safe for concurrent reads and writes.
 ### 2.6.0 - Read-Write Lock
 
 The simplest approach: a `sync.RWMutex` per index. Reads acquire a read lock, writes
-acquire a write lock. Given that our write rate for metadata is low (tens of writes
-per second at most) and reads are fast (map lookup or binary search), contention
-should be negligible.
+acquire a write lock. Given that our write rate for metadata is low (tens of writes per
+second at most) and reads are fast (map lookup or binary search), contention should be
+negligible.
 
 ### 2.6.1 - Lock Granularity
 
-One lock per index (not per table or per DB). This allows concurrent reads on different
-indexes of the same table, and concurrent reads on the same index with writes on a
-different one.
+Starting with one lock per index (not per table or per DB). This allows concurrent reads
+on different indexes of the same table, and concurrent reads on the same index with
+writes on a different one.
+
+If profiling shows the per-index lock overhead is a problem, the first optimization is
+collapsing to per-table locks. Since the single observer per table already serializes
+writes to all that table's indexes, per-table write locking loses nothing. This is a
+one-line internal change with no API impact.
 
 ## 2.7 - Memory Overhead
 
 For a lookup index on a table with N entries:
 
-- Forward map: N entries, each a string key + slice of primary keys. For channels
-  with ~20 byte names and uint32 keys: ~(20 + 8 + 24) = ~52 bytes per entry.
-- Reverse map: N entries, each a uint32 key + string value: ~(4 + 20 + 16) = ~40
-  bytes per entry.
+- Forward map: N entries, each a string key + slice of primary keys. For channels with
+  ~20 byte names and uint32 keys: ~(20 + 8 + 24) = ~52 bytes per entry.
+- Reverse map: N entries, each a uint32 key + string value: ~(4 + 20 + 16) = ~40 bytes
+  per entry.
 - Total: ~92 bytes per entry per index.
 
 At 100k channels with 2 lookup indexes: ~18 MB. Acceptable.
 
-For sorted indexes, similar math applies with the addition of the sorted slice
-overhead (24 bytes for slice header, 8 bytes per entry for the value pointer).
+For sorted indexes, similar math applies with the addition of the sorted slice overhead
+(24 bytes for slice header, 8 bytes per entry for the value pointer).
 
 ## 2.8 - Rebuild and Recovery
 
-Since indexes are purely derived, recovery from any corruption is simple: drop the
-index and rebuild from primary data. This can be triggered:
+Since indexes are purely derived, recovery from any corruption is simple: drop the index
+and rebuild from primary data. This can be triggered:
 
 1. Automatically on startup (the current plan, since startup always rebuilds).
 2. Manually via an admin API if needed in the future.
@@ -543,9 +545,9 @@ There is no WAL, no crash recovery log, and no durability concern for index data
 
 # 3 - What This RFC Does Not Cover
 
-- **Oracle code generation for IndexedFilters.** Oracle should generate `IndexedFilter`
-  variables from schema annotations. This is a natural follow-up and the design is
-  explicitly oracle-friendly, but the generation logic is separate.
+- **Detailed oracle generation logic.** Phase 3 covers wiring oracle to generate index
+  variables and filter functions, but the specifics of `.oracle` schema annotation
+  syntax and the generator implementation are not specified here.
 
 - **Composite indexes.** As discussed in 2.1.2, deferred until measured need.
 
@@ -567,9 +569,11 @@ There is no WAL, no crash recovery log, and no durability concern for index data
 
 ## Phase 1: Gorp Index Primitives
 
-1. Define the `Index` interface and the internal backing structures for lookup
-   (`map[V][]K` + reverse map) and sorted (`[]sortedEntry`) indexes.
-2. Implement type-specialized backing structure selection in `NewLookup` and `NewSorted`.
+1. Define the `Index` interface and the `Lookup[K, E, V]` and `Sorted[K, E, V]` structs
+   with their internal backing structures (forward map + reverse map for lookup, sorted
+   slice for sorted).
+2. Implement type-specialized backing structure selection in `NewLookup` and
+   `NewSorted`.
 3. Implement `Lookup.Filter` and `Sorted.Filter` methods: when backing data is
    populated, short-circuit to key-based fetch; when nil, fall back to field comparison.
 4. Add the `Indexes []Index` field to `TableConfig`.
@@ -595,10 +599,10 @@ There is no WAL, no crash recovery log, and no durability concern for index data
 # 5 - Resolved Decisions
 
 1. **Two-layer design: gorp primitives + oracle generation.** Gorp provides generic
-   index structs (`Lookup[K, E, V]`, `Sorted[K, E, V]`) with backing data and an
-   `Index` interface. Oracle generates the ergonomic layer: callable filter functions
-   (`ByName`, `ByDataType`), index variables, and the `Indexes` registration slice.
-   This avoids fighting Go's type system to make a single value both callable and
+   index structs (`Lookup[K, E, V]`, `Sorted[K, E, V]`) with backing data and an `Index`
+   interface. Oracle generates the ergonomic layer: callable filter functions (`ByName`,
+   `ByDataType`), index variables, and the `Indexes` registration slice. This avoids
+   fighting Go's type system to make a single value both callable and
    interface-satisfying. Oracle resolves everything at compile time.
 
 2. **The index struct holds its own backing data.** `Retrieve` does not need to discover
@@ -611,23 +615,22 @@ There is no WAL, no crash recovery log, and no durability concern for index data
    based on the value type (dense arrays for small integers, two-bucket lists for
    booleans, native comparison for numeric/timestamp sorted indexes).
 
-4. **Unregistered `IndexedFilter` usage fires `zap.DPanic`.** If an `IndexedFilter` is
-   used in `Where` but was never registered on a table, it falls back to a full scan
+4. **Unregistered index usage fires `zap.DPanic`.** If an index's `.Filter()` method is
+   called but the index was never registered on a table, it falls back to a full scan
    (correctness is preserved) and fires a `DPanic`. This panics in development (catching
-   the mistake immediately) and logs at error level in production (not crashing a running
-   deployment over a performance issue). The `DPanic` fires once per `IndexedFilter` via
+   the mistake immediately) and logs at error level in production (not crashing a
+   running deployment over a performance issue). The `DPanic` fires once per index via
    `sync.Once`, not once per query.
 
-5. **Double registration fires `zap.DPanic`.** If `OpenTable` encounters an
-   `IndexedFilter` whose backing data pointer is already non-nil (meaning it was
-   already registered on another table, or registered twice on the same table), it
-   fires a `DPanic`. Same rationale: panic in development, log in production. This
-   catches both cross-table double registration and duplicate entries in the `Indexes`
-   slice.
+5. **Double registration fires `zap.DPanic`.** If `OpenTable` encounters an index whose
+   backing data pointer is already non-nil (meaning it was already registered on another
+   table, or registered twice on the same table), it fires a `DPanic`. Same rationale:
+   panic in development, log in production. This catches both cross-table double
+   registration and duplicate entries in the `Indexes` slice.
 
 6. **Sorted index range queries are deferred.** The MVP supports exact match via `Where`
    and ordering/cursor pagination via `OrderBy`/`After`. Range queries (`.Between`,
-   `.After`, `.Before` methods on sorted `IndexedFilter`) are left as post-filters for
-   now. The sorted index backing structure supports range operations naturally, so
-   adding them later does not require architectural changes. We want real usage patterns
-   before committing to the API shape.
+   `.After`, `.Before` methods on the `Sorted` struct) are left as post-filters for now.
+   The sorted index backing structure supports range operations naturally, so adding
+   them later does not require architectural changes. We want real usage patterns before
+   committing to the API shape.
