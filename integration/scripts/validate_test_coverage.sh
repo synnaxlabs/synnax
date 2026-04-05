@@ -21,7 +21,8 @@
 set -euo pipefail
 
 TESTS_DIR="integration/tests"
-EXEMPT="example"
+# Test prefixes exempt from the integration matrix — these run in dedicated workflows.
+EXEMPT="example migration"
 
 # Matrix definition (single source of truth)
 # Format: "name:target" where target can be comma-separated file prefixes
