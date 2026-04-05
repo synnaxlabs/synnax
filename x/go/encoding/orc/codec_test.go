@@ -71,7 +71,7 @@ var _ = Describe("Codec", func() {
 
 		It("Should return an error for non-SelfEncoder values", func(ctx SpecContext) {
 			_, err := orc.Codec.Encode(ctx, &jsonOnlyRecord{ID: 1, Name: "nope"})
-			Expect(err).To(MatchError(ContainSubstring("does not implement SelfEncoder")))
+			Expect(err).To(MatchError(ContainSubstring("orc: *orc_test.jsonOnlyRecord does not implement SelfEncoder")))
 		})
 	})
 
@@ -94,7 +94,7 @@ var _ = Describe("Codec", func() {
 		It("Should return an error for non-SelfDecoder values", func(ctx SpecContext) {
 			data := MustSucceed(orc.Codec.Encode(ctx, &testRecord{ID: 1, Name: "a"}))
 			Expect(orc.Codec.Decode(ctx, data, &jsonOnlyRecord{})).
-				To(MatchError(ContainSubstring("does not implement SelfDecoder")))
+				To(MatchError(ContainSubstring("orc: *orc_test.jsonOnlyRecord does not implement SelfDecoder")))
 		})
 	})
 
