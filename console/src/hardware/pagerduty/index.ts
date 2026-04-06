@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ContextMenu as CMenu } from "@/components";
-import { Layout } from "@/layout";
-
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <CMenu.Menu>
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </CMenu.Menu>
-);
+export * as PagerDuty from "@/hardware/pagerduty/external";
