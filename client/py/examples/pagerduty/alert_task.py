@@ -23,7 +23,7 @@ import time
 
 import synnax as sy
 
-ROUTING_KEY = "your-32-character-pagerduty-integration-key"
+ROUTING_KEY = "12345678901234567890123456789012"  # Example key, replace with your own
 
 client = sy.Synnax()
 
