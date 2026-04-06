@@ -58,7 +58,7 @@ class TaskOPCUAVerify(ReadTaskMigrationVerify, TaskOPCUAMigration):
     task_class = sy.opcua.ReadTask
     channel_prefix = CHANNEL_PREFIX
     num_channels = NUM_CHANNELS
-    pre_start_sleep = 2
+    pre_start_sleep = 5
 
 
 class TaskOPCUAConsoleVerify(ReadTaskConsoleVerify):

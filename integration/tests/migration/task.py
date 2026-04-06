@@ -123,7 +123,13 @@ class ReadTaskMigrationVerify(ReadTaskMigration):
             assert len(data) > 0, f"Channel '{ch.name}' has no data after migration"
 
         if self.pre_start_sleep:
+            self.log(f"Sleeping {self.pre_start_sleep}s before start/stop")
             sy.sleep(self.pre_start_sleep)
+
+        self.log(f"Task key: {self.tsk.key if self.tsk else 'None'}")
+        self.log(f"Task type: {self.tsk._internal.type if self.tsk else 'None'}")
+        channel_keys = self._channel_keys(self.tsk)
+        self.log(f"Channel keys: {channel_keys}")
         self.test_start_and_stop()
 
 
