@@ -14,10 +14,11 @@ The Synnax Driver supports hardware from a variety of vendors, such as
 [National Instruments](https://ni.com), [LabJack](https://labjack.com), and
 [EtherCAT](https://ethercat.org) devices. The Driver also supports acquiring data from
 servers via HTTP JSON REST APIs, [Modbus TCP/IP](https://modbus.org), and
-[OPC UA](https://opcfoundation.org). Finally, the Driver supports running
-[Arc automations](/reference/control/arc/introduction), Synnax's automation language for
-hardware control. Synnax also supports building custom drivers for devices that are not
-natively supported.
+[OPC UA](https://opcfoundation.org). The Driver also supports sending alerts to
+[PagerDuty](https://www.pagerduty.com/) when statuses change. Finally, the Driver
+supports running [Arc automations](/reference/control/arc/introduction), Synnax's
+automation language for hardware control. Synnax also supports building custom drivers
+for devices that are not natively supported.
 
 <Divider.Divider x />
 
@@ -29,7 +30,8 @@ The Driver natively supports acquiring data from and sending commands to
 [LabJack](/reference/driver/labjack/get-started) hardware; connecting to
 [HTTP](/reference/driver/http/get-started),
 [OPC UA](/reference/driver/opc-ua/connect-server), and
-[Modbus](/reference/driver/modbus/get-started) servers; and running
+[Modbus](/reference/driver/modbus/get-started) servers; sending alerts to
+[PagerDuty](/reference/driver/pagerduty/get-started); and running
 [Arc automations](/reference/control/arc/introduction).
 
 ### Embedded Driver
