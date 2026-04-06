@@ -49,34 +49,34 @@ class TestTiming:
         assert t.elapsed() < sy.TimeSpan.MILLISECOND * 11
         assert t.elapsed() > sy.TimeSpan.MILLISECOND * 9
 
-    def test_poll_returns_true_when_condition_met(self):
-        """Should return True when the condition is met before the timeout."""
+    def test_poll_returns_value_when_condition_met(self):
+        """Should return the non-None value when the condition is met."""
         call_count = 0
 
-        def condition() -> bool:
+        def condition() -> str | None:
             nonlocal call_count
             call_count += 1
-            return call_count >= 3
+            return "done" if call_count >= 3 else None
 
         result = sy.poll(
             condition,
             timeout=5 * sy.TimeSpan.SECOND,
             interval=10 * sy.TimeSpan.MILLISECOND,
         )
-        assert result is True
+        assert result == "done"
         assert call_count == 3
 
-    def test_poll_returns_false_on_timeout(self):
-        """Should return False when the timeout expires."""
+    def test_poll_returns_none_on_timeout(self):
+        """Should return None when the timeout expires."""
         result = sy.poll(
-            lambda: False,
+            lambda: None,
             timeout=50 * sy.TimeSpan.MILLISECOND,
             interval=10 * sy.TimeSpan.MILLISECOND,
         )
-        assert result is False
+        assert result is None
 
-    def test_poll_returns_true_immediately(self):
-        """Should return True immediately if the condition is already met."""
+    def test_poll_returns_immediately(self):
+        """Should return immediately if the condition is already met."""
         t = sy.Timer()
         result = sy.poll(
             lambda: True,

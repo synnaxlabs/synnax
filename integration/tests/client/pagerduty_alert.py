@@ -8,18 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import os
+from typing import Any
 
 import pagerduty
 import synnax as sy
+from x import get_random_name
 
 from framework.test_case import TestCase
-from x import get_random_name
 
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
 API_KEY = os.environ.get("PAGERDUTY_API_KEY")
-
-if ROUTING_KEY is None or API_KEY is None:
-    raise RuntimeError("PAGERDUTY_ROUTING_KEY and PAGERDUTY_API_KEY must be set")
 
 
 class PagerDutyAlert(TestCase):
@@ -33,8 +31,13 @@ class PagerDutyAlert(TestCase):
         self.set_manual_timeout(60)
         self.suffix = get_random_name()
         self.status_key = f"test-pd-status-{self.suffix}"
+        if ROUTING_KEY is None:
+            raise RuntimeError("PAGERDUTY_ROUTING_KEY must be set")
+        if API_KEY is None:
+            raise RuntimeError("PAGERDUTY_API_KEY must be set")
         self.events = pagerduty.EventsApiV2Client(ROUTING_KEY)
         self.rest = pagerduty.RestApiV2Client(API_KEY)
+        self.open_alert_key: str | None = None
         super().setup()
 
     def run(self) -> None:
@@ -116,6 +119,7 @@ class PagerDutyAlert(TestCase):
             return
 
         # 5. Trigger an alert by setting the status to error
+        self.open_alert_key = self.status_key
         error_message = f"Integration test error {self.suffix}"
         self.log(f"Setting status to ERROR: {error_message}")
         client.statuses.set(
@@ -130,26 +134,25 @@ class PagerDutyAlert(TestCase):
 
         # 6. Poll PagerDuty for the incident (up to 10s, checking every 2s)
         self.log("Polling PagerDuty for triggered incident...")
-        matching: list[dict] = []
 
-        def find_triggered_incident() -> bool:
+        def find_triggered_incidents() -> list[dict[str, Any]] | None:
             incidents = self.rest.list_all(
                 "incidents", params={"statuses[]": "triggered"}
             )
-            matching.clear()
-            matching.extend(
+            found = [
                 inc
                 for inc in incidents
                 if error_message in inc.get("title", "")
                 or self.status_key in (inc.get("incident_key") or "")
-            )
-            return len(matching) > 0
+            ]
+            return found if found else None
 
-        if not sy.poll(
-            find_triggered_incident,
+        matching = sy.poll(
+            find_triggered_incidents,
             timeout=10 * sy.TimeSpan.SECOND,
             interval=2 * sy.TimeSpan.SECOND,
-        ):
+        )
+        if matching is None:
             self.fail(
                 f"Expected to find a PagerDuty incident for '{self.status_key}', "
                 f"but none was found after 10s."
@@ -171,19 +174,27 @@ class PagerDutyAlert(TestCase):
         self.log("Polling PagerDuty for incident resolution...")
         incident_id = matching[0]["id"]
 
+        def check_resolved() -> bool | None:
+            rget = getattr(self.rest, "rget")
+            if not callable(rget):
+                return None
+            incident = rget(f"/incidents/{incident_id}")
+            return True if incident.get("status") == "resolved" else None
+
         resolved = sy.poll(
-            lambda: self.rest.rget(f"/incidents/{incident_id}").get("status")
-            == "resolved",
+            check_resolved,
             timeout=10 * sy.TimeSpan.SECOND,
             interval=2 * sy.TimeSpan.SECOND,
         )
 
-        if not resolved:
+        if resolved is None:
             self.log("Warning: incident was not resolved in PagerDuty within 10s")
         else:
+            self.open_alert_key = None
             self.log("Incident resolved in PagerDuty")
 
     def teardown(self) -> None:
-        self.events.resolve(self.status_key)
-        self.log("Cleanup: resolved PagerDuty event")
+        if self.open_alert_key is not None:
+            self.events.resolve(self.open_alert_key)
+            self.log(f"Cleanup: resolved PagerDuty event {self.open_alert_key}")
         super().teardown()

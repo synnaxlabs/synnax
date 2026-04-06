@@ -12,7 +12,9 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Callable
-from typing import Literal
+from typing import Literal, TypeVar
+
+T = TypeVar("T")
 
 from synnax.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
@@ -160,22 +162,24 @@ class Loop:
 
 
 def poll(
-    func: Callable[[], bool],
+    func: Callable[[], T | None],
     timeout: CrudeTimeSpan,
     interval: CrudeTimeSpan = TimeSpan.SECOND,
-) -> bool:
-    """Repeatedly calls func until it returns True or the timeout expires.
+) -> T | None:
+    """Repeatedly calls func until it returns a non-None value or the timeout expires.
 
-    :param func: A callable that returns a boolean. Polling stops when it returns True.
+    :param func: A callable that returns a value or None. Polling stops when it returns
+    a non-None value.
     :param timeout: Maximum time to poll for.
     :param interval: Time to sleep between calls to func.
-    :returns: True if func returned True before the timeout, False otherwise.
+    :returns: The first non-None return value from func, or None if the timeout expired.
     """
     timeout = TimeSpan(timeout)
     interval = TimeSpan(interval)
     timer = Timer()
     while timer.elapsed() < timeout:
-        if func():
-            return True
+        result = func()
+        if result is not None:
+            return result
         sleep(interval)
-    return False
+    return None
