@@ -69,10 +69,9 @@ class PagerDutyAlert(TestCase):
         # We stream sy_status_set to wait for the factory's configuration
         # acknowledgment instead of sleeping.
         self.log("Creating PagerDuty alert task...")
-        task_key = (go_rack.key << 32) + 0
         streamer = client.open_streamer(["sy_status_set"])
         created = client.tasks.create(
-            key=task_key,
+            rack=go_rack.key,
             name=f"PD Integration Test {self.suffix}",
             type="pagerduty_alert",
             config=sy.pagerduty.AlertTaskConfig(
