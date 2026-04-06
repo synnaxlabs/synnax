@@ -26,7 +26,7 @@ import {
 import { id } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { EmptyAction, Menu } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
 import {
   ALERT_SCHEMAS,
@@ -152,7 +152,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
   const isNotDefined = status == null;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
-      <Flex.Box x align="center" gap={4}>
+      <Flex.Box x align="center" gap={1}>
         <Status.Indicator variant={isNotDefined ? "disabled" : status.variant} />
         <Text.Text
           level="p"
@@ -182,7 +182,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const canDisable = alerts.some(({ enabled }) => enabled);
   const canEnable = alerts.some(({ enabled }) => !enabled);
   return (
-    <PMenu.Menu level="small" gap="small">
+    <ContextMenu.Menu>
       {canRemove && (
         <>
           <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
@@ -205,8 +205,8 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
         </PMenu.Item>
       )}
       {(canDisable || canEnable) && <PMenu.Divider />}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 
@@ -290,11 +290,17 @@ const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
         </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider direction="y" />
-      {selected.length > 0 ? (
-        <AlertDetails itemKey={selected[0]} />
-      ) : (
-        <EmptyAction message="No alert selected." grow />
-      )}
+      <Flex.Box y grow empty>
+        <Common.Task.Layouts.DetailsHeader
+          path={selected.length > 0 ? `config.alerts.${selected[0]}` : ""}
+          disabled={selected.length === 0}
+        />
+        {selected.length > 0 ? (
+          <AlertDetails itemKey={selected[0]} />
+        ) : (
+          <EmptyAction message="No alert selected." grow />
+        )}
+      </Flex.Box>
     </Flex.Box>
   );
 };
