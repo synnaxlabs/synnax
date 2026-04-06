@@ -49,6 +49,43 @@ class TestTiming:
         assert t.elapsed() < sy.TimeSpan.MILLISECOND * 11
         assert t.elapsed() > sy.TimeSpan.MILLISECOND * 9
 
+    def test_poll_returns_value_when_condition_met(self):
+        """Should return the non-None value when the condition is met."""
+        call_count = 0
+
+        def condition() -> str | None:
+            nonlocal call_count
+            call_count += 1
+            return "done" if call_count >= 3 else None
+
+        result = sy.poll(
+            condition,
+            timeout=5 * sy.TimeSpan.SECOND,
+            interval=10 * sy.TimeSpan.MILLISECOND,
+        )
+        assert result == "done"
+        assert call_count == 3
+
+    def test_poll_returns_none_on_timeout(self):
+        """Should return None when the timeout expires."""
+        result = sy.poll(
+            lambda: None,
+            timeout=50 * sy.TimeSpan.MILLISECOND,
+            interval=10 * sy.TimeSpan.MILLISECOND,
+        )
+        assert result is None
+
+    def test_poll_returns_immediately(self):
+        """Should return immediately if the condition is already met."""
+        t = sy.Timer()
+        result = sy.poll(
+            lambda: True,
+            timeout=5 * sy.TimeSpan.SECOND,
+            interval=sy.TimeSpan.SECOND,
+        )
+        assert result is True
+        assert t.elapsed() < 100 * sy.TimeSpan.MILLISECOND
+
     def test_loop(self):
         """Test that the loop holds timing consistent even when operations in the loop
         take a long time.

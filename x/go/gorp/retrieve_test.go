@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
@@ -366,22 +367,35 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) bool {
-					return bytes.Contains(data, []byte("data"))
+				WhereRaw(func(data []byte) (bool, error) {
+					return bytes.Contains(data, []byte("data")), nil
 				}).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(HaveLen(10))
 		})
+
 		It("Should skip entries that do not match the raw filter", func(ctx SpecContext) {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) bool {
-					return false
+				WhereRaw(func(data []byte) (bool, error) {
+					return false, nil
 				}).
 				Exec(ctx, tx),
 			).To(Succeed())
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Should return an error if the filter encounters an error", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereRaw(func(data []byte) (bool, error) {
+					return true, errors.New("cat")
+				}).
+				Exec(ctx, tx),
+			).To(MatchError(ContainSubstring("cat")))
 			Expect(res).To(BeEmpty())
 		})
 	})

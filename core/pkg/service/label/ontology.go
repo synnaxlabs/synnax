@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -30,10 +31,18 @@ import (
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.
 var LabelsOntologyTraverser = ontology.Traverser{
-	Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
-		return rel.Type == OntologyRelationshipTypeLabeledBy && rel.From == res.ID
+	Traverse: func(_ []ontology.ID) ontology.RawTraversal {
+		return func(data []byte, nextIDs *[]ontology.ID) error {
+			raw, err := orc.NewRaw(data)
+			if err != nil {
+				return err
+			}
+			*nextIDs = append(*nextIDs, ontology.ReadRawID(raw.SkipStrings(3)))
+			return nil
+		}
 	},
-	Direction: ontology.DirectionForward,
+	Direction:    ontology.DirectionForward,
+	FilterPrefix: ontology.RelationshipPrefix(OntologyRelationshipTypeLabeledBy),
 }
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.

@@ -48,7 +48,7 @@ func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
 func (p *Plugin) Name() string                { return "go/marshal" }
 func (p *Plugin) Domains() []string           { return []string{"go"} }
-func (p *Plugin) Requires() []string          { return []string{"go/types", "go/pb"} }
+func (p *Plugin) Requires() []string          { return []string{"go/types"} }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
@@ -70,7 +70,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	var entryTypes []entryInfo
 	for _, entry := range req.Resolutions.StructTypes() {
-		if !domain.HasExprFromType(entry, "go", "marshal") || !output.HasPB(entry) {
+		if !domain.HasExprFromType(entry, "go", "marshal") {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")
@@ -83,6 +83,26 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 		}
 		entryTypes = append(entryTypes, entryInfo{goName: naming.GetGoName(entry), goPath: goPath})
+	}
+
+	// Collect DistinctForm types with @go marshal flex.
+	flexByPkg := make(map[string][]FlexCodec)
+	for _, dt := range req.Resolutions.DistinctTypes() {
+		marshalVal := domain.GetStringFromType(dt, "go", "marshal")
+		if marshalVal != "flex" {
+			continue
+		}
+		goPath := output.GetPath(dt, "go")
+		if goPath == "" {
+			continue
+		}
+		form := dt.Form.(resolution.DistinctForm)
+		goName := naming.GetGoName(dt)
+		flexByPkg[goPath] = append(flexByPkg[goPath], FlexCodec{
+			GoName:   goName,
+			Receiver: ReceiverName(goName),
+			BaseType: form.Base.Name,
+		})
 	}
 
 	// Merge all entry types' dependency trees per package.
@@ -106,15 +126,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
+	// Collect all packages that need a codec file (from structs or flex types).
+	allPkgs := make(map[string]bool)
+	for goPath := range merged {
+		allPkgs[goPath] = true
+	}
+	for goPath := range flexByPkg {
+		allPkgs[goPath] = true
+	}
+
 	// Generate one file per package.
-	for goPath, typeMap := range merged {
+	for goPath := range allPkgs {
 		packageName := naming.DerivePackageName(goPath)
-		entries := buildCodecEntries(typeMap)
-		if len(entries) == 0 {
+		entries := buildCodecEntries(merged[goPath])
+		flex := flexByPkg[goPath]
+		if len(entries) == 0 && len(flex) == 0 {
 			continue
 		}
 		content, err := generateEncoderCodecFile(
-			packageName, goPath, entries, req.Resolutions, req.RepoRoot,
+			packageName, goPath, entries, flex, req.Resolutions, req.RepoRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate codec for %s", goPath)
@@ -172,10 +202,11 @@ func GenerateCodecFile(
 	packageName string,
 	parentPath string,
 	entries []CodecEntry,
+	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	return generateEncoderCodecFile(packageName, parentPath, entries, table, repoRoot)
+	return generateEncoderCodecFile(packageName, parentPath, entries, flex, table, repoRoot)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {

@@ -9,7 +9,6 @@
 
 """Shared Python utilities for the Synnax monorepo."""
 
-
 from x.color import rgb_to_hex
 from x.env import is_ci
 from x.os import (

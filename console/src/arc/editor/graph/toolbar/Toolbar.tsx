@@ -40,8 +40,8 @@ const NotEditableContent = ({
   name,
 }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const hasEditingPermissions = Access.useUpdateGranted(arc.ontologyID(layoutKey));
-  const isEditable = hasEditingPermissions;
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const isEditable = hasUpdatePermission;
   return (
     <Flex.Box x gap="small" center>
       <Text.Text status="disabled">
@@ -76,8 +76,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const editMode = useSelectEditable(layoutKey);
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
-  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
-  const canEdit = hasEditPermission && editMode;
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasUpdatePermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
       if (!canEdit) return <NotEditableContent layoutKey={layoutKey} name={name} />;
@@ -127,7 +127,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               ontologyID={arc.ontologyID(layoutKey)}
             />
           </Flex.Box>
-          {hasEditPermission && (
+          {hasUpdatePermission && (
             <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />
           )}
         </Flex.Box>
