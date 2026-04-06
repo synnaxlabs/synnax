@@ -56,7 +56,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			for i, t := range tasks {
 				statusKeys[i] = OntologyID(t.Key).String()
 			}
-			var existingStatuses []status.Status[StatusDetails]
+			var existingStatuses []Status
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
 				WhereKeys(statusKeys...).
 				Entries(&existingStatuses).
@@ -67,11 +67,11 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			for _, stat := range existingStatuses {
 				existingKeys[stat.Key] = true
 			}
-			var missingStatuses []status.Status[StatusDetails]
+			var missingStatuses []Status
 			for _, t := range tasks {
 				key := OntologyID(t.Key).String()
 				if !existingKeys[key] {
-					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
+					missingStatuses = append(missingStatuses, Status{
 						Key:     key,
 						Name:    t.Name,
 						Time:    telem.Now(),

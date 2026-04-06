@@ -73,6 +73,8 @@ type Command struct {
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
+type Status = status.Status[StatusDetails]
+
 var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key      { return t.Key }

@@ -163,16 +163,13 @@ func ReadRawID(r orc.Raw) ID {
 // Traverser is a struct that defines the traversal of a relationship between entities
 // in the ontology.
 type Traverser struct {
-	// Filter if a function that returns true if the given Resource and Relationship
-	// should be included in the traversal results.
-	Filter func(res *Resource, rel *Relationship) bool
 	// FilterPrefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
 	FilterPrefix func(id ID) []byte
-	// RawTraversal builds a raw byte callback for the given IDs that extracts
+	// Traverse builds a raw byte callback for the given IDs that extracts
 	// matching relationship targets directly from encoded bytes without decoding.
 	// When set, traverseByScan uses this instead of Filter.
-	RawTraversal func(ids []ID) RawTraversal
+	Traverse func(ids []ID) RawTraversal
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
@@ -181,7 +178,7 @@ var (
 	relationshipTypeParentOfBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
 	ParentsTraverser = Traverser{
-		RawTraversal: func(ids []ID) RawTraversal {
+		Traverse: func(ids []ID) RawTraversal {
 			w := orc.NewWriter(64)
 			encoded := make([][]byte, len(ids))
 			for i, id := range ids {
@@ -211,7 +208,7 @@ var (
 	}
 	// ChildrenTraverser traverse to the children of a resource.
 	ChildrenTraverser = Traverser{
-		RawTraversal: func(_ []ID) RawTraversal {
+		Traverse: func(_ []ID) RawTraversal {
 			return func(data []byte, nextIDs *[]ID) {
 				r := orc.NewRaw(data).SkipStrings(3)
 				*nextIDs = append(*nextIDs, ReadRawID(r))
@@ -368,8 +365,8 @@ func (r Retrieve) traverseByPrefix(
 	ids []ID,
 ) ([]ID, error) {
 	nextIDs := make([]ID, 0, len(ids)*4)
-	if traverse.RawTraversal != nil {
-		rt := traverse.RawTraversal(ids)
+	if traverse.Traverse != nil {
+		rt := traverse.Traverse(ids)
 		for _, id := range ids {
 			q := r.relationshipTable.NewRetrieve().
 				WherePrefix(traverse.FilterPrefix(id)).
@@ -406,35 +403,14 @@ func (r Retrieve) traverseByScan(
 	ids []ID,
 ) ([]ID, error) {
 	nextIDs := make([]ID, 0, len(ids)*4)
-	if traverse.RawTraversal != nil {
-		rt := traverse.RawTraversal(ids)
-		q := r.relationshipTable.NewRetrieve().
-			WhereRaw(func(data []byte) bool {
-				rt(data, &nextIDs)
-				return false
-			})
-		if err := q.Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-	} else {
-		var (
-			relationships []Relationship
-			res           Resource
-		)
-		q := r.relationshipTable.NewRetrieve().
-			Entries(&relationships).
-			Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
-				for _, id := range ids {
-					res.ID = id
-					if traverse.Filter(&res, rel) {
-						nextIDs = append(nextIDs, traverse.Direction.GetID(rel))
-					}
-				}
-				return false, nil
-			})
-		if err := q.Exec(ctx, tx); err != nil {
-			return nil, err
-		}
+	rt := traverse.Traverse(ids)
+	q := r.relationshipTable.NewRetrieve().
+		WhereRaw(func(data []byte) bool {
+			rt(data, &nextIDs)
+			return false
+		})
+	if err := q.Exec(ctx, tx); err != nil {
+		return nil, err
 	}
 	return nextIDs, nil
 }
