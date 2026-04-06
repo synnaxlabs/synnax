@@ -42,7 +42,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
         setYChannels({
           key: layoutKey,
           axisKey: key as YAxisKey,
-          channels: value as channel.Keys,
+          channels: value as channel.Key[],
         }),
       );
     },

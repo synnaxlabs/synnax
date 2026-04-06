@@ -57,7 +57,7 @@ const SEQ_NUM_SIZE = 4;
 const FLAGS_SIZE = 1;
 
 interface CodecState {
-  keys: channel.Keys;
+  keys: channel.Key[];
   keyDataTypes: Map<channel.Key, DataType>;
   hasVariableDataTypes: boolean;
 }
@@ -68,11 +68,11 @@ export class Codec {
   private currState: CodecState | undefined;
   private seqNum: number = 0;
 
-  constructor(keys: channel.Keys = [], dataTypes: DataType[] = []) {
+  constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
   }
 
-  update(keys: channel.Keys, dataTypes: DataType[]): void {
+  update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     const state = {
       keys,
@@ -187,8 +187,9 @@ export class Codec {
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
       view.setBigUint64(offset, startTime?.valueOf() ?? 0n, true);
+      offset += TIMESTAMP_SIZE;
       view.setBigUint64(offset, endTime?.valueOf() ?? 0n, true);
-      offset += TIMESTAMP_SIZE * 2;
+      offset += TIMESTAMP_SIZE;
     }
 
     if (equalAlignmentsFlag && !zeroAlignmentsFlag) {
@@ -211,8 +212,9 @@ export class Codec {
       offset += series.data.byteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         view.setBigUint64(offset, series.timeRange?.start.valueOf() ?? 0n, true);
+        offset += TIMESTAMP_SIZE;
         view.setBigUint64(offset, series.timeRange?.end.valueOf() ?? 0n, true);
-        offset += TIMESTAMP_SIZE * 2;
+        offset += TIMESTAMP_SIZE;
       }
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
         view.setBigUint64(offset, series.alignment ?? 0n, true);

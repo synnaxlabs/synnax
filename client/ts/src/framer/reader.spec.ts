@@ -281,7 +281,7 @@ describe("Reader", () => {
     it("should handle large amounts of channels", async () => {
       const numGroups = 5;
       const channelsPerGroup = 3;
-      const dataKeys: channel.Keys = [];
+      const dataKeys: channel.Key[] = [];
       const expectedColumns = numGroups * (1 + channelsPerGroup);
 
       // Store timestamps written per group for building expected rows later
@@ -298,7 +298,7 @@ describe("Reader", () => {
           dataType: DataType.TIMESTAMP,
           isIndex: true,
         });
-        const groupChannels: channel.Keys = [index.key];
+        const groupChannels: channel.Key[] = [index.key];
         for (let c = 0; c < channelsPerGroup; c++) {
           const data = await client.channels.create({
             name: id.create(),

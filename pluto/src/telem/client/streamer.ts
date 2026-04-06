@@ -71,7 +71,7 @@ export class Streamer {
   /** Implements StreamClient. */
   async stream(
     handler: StreamHandler,
-    keys: channel.Keys,
+    keys: channel.Key[],
   ): Promise<destructor.Destructor> {
     const { cache, instrumentation: ins } = this.props;
     if (this.closed) return () => {};

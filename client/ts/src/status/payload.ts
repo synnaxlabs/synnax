@@ -15,8 +15,6 @@ import { ontology } from "@/ontology";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export type Params = Key | Key[];
-
 // Wrapper functions with single-param style
 export const statusZ = <Details extends z.ZodType = z.ZodNever>(
   detailsSchema?: Details,

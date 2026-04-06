@@ -127,7 +127,7 @@ interface SelectedChannelProperties extends Pick<
 
 const fetchChannelProperties = async (
   client: client.ChannelClient,
-  ch: channel.KeyOrName,
+  ch: channel.Key | channel.Name,
   fetchIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
   const c = await client.retrieveChannel(ch);
