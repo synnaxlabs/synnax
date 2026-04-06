@@ -33,6 +33,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const LINK_HANDLERS: Record<string, Link.Handler> = {
+  device: Device.handleLink,
   task: Task.handleLink,
 };
 

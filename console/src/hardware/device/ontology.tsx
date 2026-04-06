@@ -10,22 +10,16 @@
 import "@/hardware/device/ontology.css";
 
 import { device, type ontology } from "@synnaxlabs/client";
-import {
-  Access,
-  Device,
-  Flex,
-  Icon,
-  Menu as PMenu,
-  Text,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
-import { Menu } from "@/components";
+import { Cluster } from "@/cluster";
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
 import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -48,49 +42,59 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const handleSelect = {
-    delete: handleDelete,
-    rename,
-    group: () => group(props),
-  };
   const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {canEdit && singleResource && <Menu.RenameItem />}
+    <ContextMenu.Menu>
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => group(props)}
+        />
+      )}
+      {hasUpdatePermission && singleResource && (
+        <ContextMenu.RenameItem onClick={rename} />
+      )}
       {customMenuItems != null && (
         <>
-          <PMenu.Divider />
+          <Menu.Divider />
           {customMenuItems}
         </>
       )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
-          <PMenu.Divider />
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
+          <Menu.Divider />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
         </>
       )}
-      <PMenu.Divider />
+      <Menu.Divider />
       {singleResource && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Link.CopyContextMenuItem
+            onClick={() =>
+              handleLink({
+                name: first.name,
+                ontologyID: device.ontologyID(first.id.key),
+              })
+            }
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

@@ -15,7 +15,7 @@ import {
   Icon,
   Input,
   List as PList,
-  Menu as PMenu,
+  Menu,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
@@ -23,7 +23,7 @@ import { bounds, color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { EmptyAction, Menu } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectAxes, useSelectRule, useSelectRules } from "@/lineplot/selectors";
@@ -94,7 +94,7 @@ const List = ({
   layoutKey,
   onLabelChange,
 }: ListProps): ReactElement => {
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const { data } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
     <Flex.Box x pack style={{ width: "20%" }} align="start">
@@ -112,19 +112,13 @@ const List = ({
         replaceOnSingle
         allowNone={false}
       >
-        <PMenu.ContextMenu
+        <Menu.ContextMenu
           menu={({ keys }) => (
-            <PMenu.Menu
-              onChange={{ remove: () => onRemoveAnnotations(keys) }}
-              level="small"
-            >
-              <PMenu.Item itemKey="remove" size="small">
-                <Icon.Delete />
-                Delete
-              </PMenu.Item>
+            <ContextMenu.Menu>
+              <ContextMenu.DeleteItem onClick={() => onRemoveAnnotations(keys)} />
               <Divider.Divider x />
-              <Menu.ReloadConsoleItem />
-            </PMenu.Menu>
+              <ContextMenu.ReloadConsoleItem />
+            </ContextMenu.Menu>
           )}
           {...menuProps}
         >
@@ -138,7 +132,7 @@ const List = ({
               />
             )}
           </PList.Items>
-        </PMenu.ContextMenu>
+        </Menu.ContextMenu>
       </Select.Frame>
     </Flex.Box>
   );

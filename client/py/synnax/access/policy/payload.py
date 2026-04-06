@@ -7,34 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.access.policy.types_gen import Key, Policy, ontology_id
+from synnax.util.deprecation import deprecated_getattr
 
-from __future__ import annotations
-
-from uuid import UUID
-
-from pydantic import BaseModel
-
-from synnax import ontology
+__all__ = [
+    "Key",
+    "Policy",
+    "ontology_id",
+    "ACTION_CREATE",
+    "ACTION_DELETE",
+    "ACTION_RETRIEVE",
+    "ACTION_UPDATE",
+]
 
 ACTION_CREATE = "create"
 ACTION_DELETE = "delete"
 ACTION_RETRIEVE = "retrieve"
 ACTION_UPDATE = "update"
 
-
-class Policy(BaseModel):
-    key: UUID | None = None
-    name: str
-    objects: list[ontology.ID] = []
-    actions: list[str] = []
-    internal: bool = False
-
-
-def ontology_id(key: UUID | None = None) -> ontology.ID:
-    return ontology.ID(type="policy", key=key if key is None else str(key))
-
-
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "CREATE_ACTION": "ACTION_CREATE",

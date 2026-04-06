@@ -56,6 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
+		User:     userSvc,
 	}))
 })
 

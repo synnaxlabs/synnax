@@ -130,7 +130,7 @@ func Open(configs ...Config) (*DB, error) {
 	idx.indexPersist = idxPst
 	idx.mu.pointers, err = idxPst.load()
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, idxPst.Close())
 	}
 	var initialSize int64
 	for _, p := range idx.mu.pointers {
@@ -140,7 +140,7 @@ func Open(configs ...Config) (*DB, error) {
 	idx.totalSize.Store(initialSize)
 	controller, err := openFileController(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, idx.close())
 	}
 	return &DB{
 		cfg:           cfg,

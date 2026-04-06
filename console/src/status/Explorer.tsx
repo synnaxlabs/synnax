@@ -16,6 +16,7 @@ import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { Filter } from "@/status/filter";
+import { contextMenu } from "@/status/list/ContextMenu";
 import { Item } from "@/status/list/Item";
 import { View } from "@/view";
 
@@ -43,7 +44,7 @@ const Internal = () => {
   });
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
-  const canCreate = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>
       <View.Toolbar>
@@ -54,7 +55,7 @@ const Internal = () => {
         <View.Search />
         <Label.Filter.Chips />
         <Filter.Chips />
-        {canCreate && (
+        {hasCreatePermission && (
           <Button.Button
             onClick={handleCreate}
             tooltipLocation={location.BOTTOM_LEFT}
@@ -64,7 +65,7 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items>{item}</View.Items>
+      <View.Items contextMenu={contextMenu}>{item}</View.Items>
     </View.Form>
   );
 };

@@ -121,19 +121,24 @@ const (
 	observableRelayBuffer = 500
 )
 
-func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	db := &DB{
+	db = &DB{
 		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
 		shutdown:   signal.NewHardShutdown(sCtx, cancel),
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, db.shutdown.Close())
+		}
+	}()
 
 	va, err := newVersionAssigner(ctx, cfg)
 	if err != nil {
