@@ -31,7 +31,7 @@ import (
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.
 var LabelsOntologyTraverser = ontology.Traverser{
-	RawTraversal: func(_ []ontology.ID) ontology.RawTraversal {
+	Traverse: func(_ []ontology.ID) ontology.RawTraversal {
 		return func(data []byte, nextIDs *[]ontology.ID) {
 			*nextIDs = append(
 				*nextIDs,
