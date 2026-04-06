@@ -8,6 +8,7 @@
         { "case": "migration/channels_calc" },
         { "case": "migration/ranges" },
         { "case": "migration/workspace" },
+        { "case": "migration/rbac" },
         { "case": "migration/task_opc" },
         { "case": "migration/task_modbus" },
         { "case": "migration/task_ni" }
