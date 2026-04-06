@@ -8,7 +8,6 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
-      - freighter/go/**
       - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
@@ -22,7 +21,6 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
-      - freighter/go/**
       - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
