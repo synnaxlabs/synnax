@@ -11,6 +11,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel
+from x.deprecation import deprecated_getattr
 
 from synnax import ontology
 
@@ -97,8 +98,6 @@ class Payload(BaseModel):
     graph: Graph = Graph()
     """Visual graph representation of the program."""
 
-
-from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ARC_ONTOLOGY_TYPE": "ONTOLOGY_TYPE",

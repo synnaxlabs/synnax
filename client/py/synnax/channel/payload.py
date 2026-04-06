@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Sequence, TypeAlias
 
+from x.deprecation import deprecated_getattr
 from x.normalize import normalize
 
 from synnax import ontology
@@ -95,8 +96,6 @@ def has_params(channels: Params | None) -> bool:
         return True
     return len(channels) > 0
 
-
-from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ChannelKey": "Key",

@@ -11,6 +11,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 from x.color import Color
+from x.deprecation import deprecated_getattr
 
 from synnax import ontology
 from synnax.telem import TimeRange
@@ -38,8 +39,6 @@ Key = UUID | str
 """The type for the names of a Range. A tuple or list of strings."""
 RangeParams = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
 """Parameters that can be used to query a range"""
-
-from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "RangePayload": "Payload",

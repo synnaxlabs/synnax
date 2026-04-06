@@ -13,7 +13,7 @@ from x import color
 from x.color import Color
 from x.deprecation import deprecated_getattr
 
-from synnax import ethercat, http, labjack, modbus, ni, opcua, status
+from synnax import ethercat, http, labjack, modbus, ni, opcua, pagerduty, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -87,7 +87,7 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
-from synnax.timing import Loop, Timer, sleep
+from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
 
@@ -141,6 +141,7 @@ __all__ = [
     "MultipleFoundError",
     "NotFoundError",
     "Options",
+    "poll",
     "Policy",
     "Position",
     "QueryError",
@@ -175,6 +176,7 @@ __all__ = [
     "modbus",
     "ni",
     "opcua",
+    "pagerduty",
     "ontology",
     "status",
     "Status",

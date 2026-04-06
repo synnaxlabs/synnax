@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from x.telem import Rate, TimeSpan
-from x.timing import Loop, Timer, sleep
+from x.timing import Loop, Timer, poll, sleep
 
 
 @pytest.mark.timing
@@ -48,6 +48,43 @@ class TestTiming:
         sleep(100 * Rate.HZ, precise=True)
         assert t.elapsed() < TimeSpan.MILLISECOND * 11
         assert t.elapsed() > TimeSpan.MILLISECOND * 9
+
+    def test_poll_returns_value_when_condition_met(self) -> None:
+        """Should return the non-None value when the condition is met."""
+        call_count = 0
+
+        def condition() -> str | None:
+            nonlocal call_count
+            call_count += 1
+            return "done" if call_count >= 3 else None
+
+        result = poll(
+            condition,
+            timeout=5 * TimeSpan.SECOND,
+            interval=10 * TimeSpan.MILLISECOND,
+        )
+        assert result == "done"
+        assert call_count == 3
+
+    def test_poll_returns_none_on_timeout(self) -> None:
+        """Should return None when the timeout expires."""
+        result = poll(
+            lambda: None,
+            timeout=50 * TimeSpan.MILLISECOND,
+            interval=10 * TimeSpan.MILLISECOND,
+        )
+        assert result is None
+
+    def test_poll_returns_immediately(self) -> None:
+        """Should return immediately if the condition is already met."""
+        t = Timer()
+        result = poll(
+            lambda: True,
+            timeout=5 * TimeSpan.SECOND,
+            interval=TimeSpan.SECOND,
+        )
+        assert result is True
+        assert t.elapsed() < 100 * TimeSpan.MILLISECOND
 
     def test_loop(self) -> None:
         """Test that the loop holds timing consistent even when operations in the loop

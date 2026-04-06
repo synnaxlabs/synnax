@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import math
 import time
-from typing import Literal
+from collections.abc import Callable
+from typing import Literal, TypeVar
 
-from x.telem import Rate, TimeSpan, TimeStamp
+from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
+
+T = TypeVar("T")
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 
@@ -156,3 +159,27 @@ class Loop:
         """
         self.__next__()
         return True
+
+
+def poll(
+    func: Callable[[], T | None],
+    timeout: CrudeTimeSpan,
+    interval: CrudeTimeSpan = TimeSpan.SECOND,
+) -> T | None:
+    """Repeatedly calls func until it returns a non-None value or the timeout expires.
+
+    :param func: A callable that returns a value or None. Polling stops when it returns
+    a non-None value.
+    :param timeout: Maximum time to poll for.
+    :param interval: Time to sleep between calls to func.
+    :returns: The first non-None return value from func, or None if the timeout expired.
+    """
+    timeout = TimeSpan(timeout)
+    interval = TimeSpan(interval)
+    timer = Timer()
+    while timer.elapsed() < timeout:
+        result = func()
+        if result is not None:
+            return result
+        sleep(interval)
+    return None

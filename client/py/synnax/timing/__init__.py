@@ -8,10 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 # Re-exports from x.timing. Canonical definitions live in x/py/x/timing/.
-from x.timing import Loop, Timer, sleep
+from x.timing import Loop, Timer, poll, sleep
 
 __all__ = [
     "Loop",
+    "poll",
     "sleep",
     "Timer",
 ]
