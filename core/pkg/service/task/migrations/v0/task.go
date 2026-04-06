@@ -39,6 +39,8 @@ type Task struct {
 	Status   *status.Status[StatusDetails] `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
+type Status = status.Status[StatusDetails]
+
 var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key      { return t.Key }
