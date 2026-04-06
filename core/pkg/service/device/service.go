@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -112,11 +113,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
 	if s.table, err = gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
 		DB: cfg.DB,
-		Migrations: append(DeviceMigrations(), v0.Migration(v0.MigrationConfig{
-			Status: cfg.Status,
-		})),
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[string, Device]("msgpack_to_orc", v0Mig.Key()),
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

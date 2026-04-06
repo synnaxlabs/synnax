@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -144,6 +145,71 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("B"))
 				Expect(final[0].Parse(&res)).To(Succeed())
 				Expect(res.Key).To(Equal("C"))
+			})
+
+			It("Should retrieve the parent of a resource using ParentsTraverser", func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				var r ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(b).
+					TraverseTo(ontology.ParentsTraverser).
+					Entry(&r).
+					Exec(ctx, nil),
+				).To(Succeed())
+				var res Sample
+				Expect(r.Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("A"))
+			})
+
+			It("Should retrieve multiple parents of a resource using ParentsTraverser", func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				c := newSampleType("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				var r []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(c).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(r).To(HaveLen(2))
+				keys := lo.Map(r, func(res ontology.Resource, _ int) string {
+					var s Sample
+					lo.Must0(res.Parse(&s))
+					return s.Key
+				})
+				Expect(keys).To(ConsistOf("A", "B"))
+			})
+
+			It("Should traverse grandparents using ParentsTraverser", func(ctx SpecContext) {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				c := newSampleType("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				var r ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(c).
+					TraverseTo(ontology.ParentsTraverser).
+					TraverseTo(ontology.ParentsTraverser).
+					Entry(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				var res Sample
+				Expect(r.Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("A"))
 			})
 
 			It("Should retrieve the resources of a parent by their type", func(ctx SpecContext) {
@@ -389,6 +455,55 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(len(r)).To(Equal(3))
+		})
+	})
+
+	Describe("RelationshipPrefix", func() {
+		It("Should return a prefix matching the relationship key format", func() {
+			prefix := ontology.RelationshipPrefix("parent")
+			id := ontology.ID{Type: "channel", Key: "123"}
+			Expect(string(prefix(id))).To(Equal("channel:123->parent->"))
+		})
+		It("Should produce a prefix that matches relationship GorpKeys", func() {
+			prefix := ontology.RelationshipPrefix(ontology.RelationshipTypeParentOf)
+			from := ontology.ID{Type: "rack", Key: "1"}
+			rel := ontology.Relationship{
+				From: from,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   ontology.ID{Type: "device", Key: "2"},
+			}
+			key := rel.GorpKey()
+			p := prefix(from)
+			Expect(string(key)).To(HavePrefix(string(p)))
+		})
+	})
+
+	Describe("ReadRawID", func() {
+		It("Should read an ID from orc-encoded bytes", func() {
+			w := orc.NewWriter(64)
+			w.String("channel")
+			w.String("42")
+			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+			Expect(id.Type).To(Equal(ontology.ResourceType("channel")))
+			Expect(id.Key).To(Equal("42"))
+		})
+
+		It("Should read the ID at the current position, ignoring trailing data", func() {
+			w := orc.NewWriter(64)
+			w.String("device")
+			w.String("abc")
+			w.String("trailing")
+			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+			Expect(id.Type).To(Equal(ontology.ResourceType("device")))
+			Expect(id.Key).To(Equal("abc"))
+		})
+
+		It("Should not panic on a malformed ID", func() {
+			w := orc.NewWriter(1)
+			w.String("c")
+			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
+			Expect(id.Type).To(Equal(ontology.ResourceType("c")))
+			Expect(id.Key).To(Equal(""))
 		})
 	})
 })

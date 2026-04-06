@@ -13,9 +13,12 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
+
+// Status is rack-specific status information including operational state.
+type Status = status.Status[StatusDetails]
 
 type Key uint32
 
