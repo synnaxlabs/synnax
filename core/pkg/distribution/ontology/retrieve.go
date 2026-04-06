@@ -138,7 +138,7 @@ func (d Direction) GetID(rel *Relationship) ID {
 // RawTraversal is a callback that operates on raw orc-encoded relationship bytes.
 // It checks whether the row matches any of the target IDs and, if so, appends the
 // resulting ID to nextIDs. This avoids decoding the relationship entirely.
-type RawTraversal func(data []byte, nextIDs *[]ID)
+type RawTraversal func(data []byte, nextIDs *[]ID) error
 
 // RelationshipPrefix returns a FilterPrefix function that scopes traversal queries
 // to relationships of the given type originating from a specific resource.
@@ -187,8 +187,11 @@ var (
 				w.String(id.Key)
 				encoded[i] = w.Copy()
 			}
-			return func(data []byte, nextIDs *[]ID) {
-				raw := orc.NewRaw(data)
+			return func(data []byte, nextIDs *[]ID) error {
+				raw, err := orc.NewRaw(data)
+				if err != nil {
+					return err
+				}
 				fromType, r := raw.ReadString()
 				fromKey, r := r.ReadString()
 				relType, r := r.ReadString()
@@ -202,6 +205,7 @@ var (
 						}
 					}
 				}
+				return nil
 			}
 		},
 		Direction: DirectionBackward,
@@ -209,9 +213,13 @@ var (
 	// ChildrenTraverser traverse to the children of a resource.
 	ChildrenTraverser = Traverser{
 		Traverse: func(_ []ID) RawTraversal {
-			return func(data []byte, nextIDs *[]ID) {
-				r := orc.NewRaw(data).SkipStrings(3)
-				*nextIDs = append(*nextIDs, ReadRawID(r))
+			return func(data []byte, nextIDs *[]ID) error {
+				reader, err := orc.NewRaw(data)
+				if err != nil {
+					return err
+				}
+				*nextIDs = append(*nextIDs, ReadRawID(reader.SkipStrings(3)))
+				return nil
 			}
 		},
 		Direction:    DirectionForward,
