@@ -12,9 +12,9 @@
 package ranger
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func RangeMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func RangeMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

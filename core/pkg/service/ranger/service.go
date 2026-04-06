@@ -20,11 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -88,56 +91,53 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entrypoint for managing ranges within Synnax. It provides
 // mechanisms for creating, deleting, and listening to changes in ranges.
 type Service struct {
-	shutdownSignals io.Closer
-	table           *gorp.Table[uuid.UUID, Range]
-	cfg             ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[uuid.UUID, Range]
+	cfg    ServiceConfig
 }
 
 // OpenService opens a new ranger.Service with the provided configuration. If error is
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
-		DB:              cfg.DB,
-		Migrations:      append(RangeMigrations(), &groupMigration{cfg: cfg}),
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+		DB: cfg.DB,
+		Migrations: append(RangeMigrations(), v0.Migration(v0.MigrationConfig{
+			Ontology:        cfg.Ontology,
+			Group:           cfg.Group,
+			Instrumentation: cfg.Instrumentation,
+		})),
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	rangeSignals, err := signals.PublishFromGorp(
+	var sig io.Closer
+	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signals.GorpPublisherConfigUUID[Range](s.table.Observe()),
-	)
-	if err != nil {
+	); !ok(err, sig) {
 		return nil, err
 	}
-	s.shutdownSignals = rangeSignals
 	return s, nil
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).
-func (s *Service) Close() error {
-	var err error
-	if s.shutdownSignals != nil {
-		err = s.shutdownSignals.Close()
-	}
-	err = errors.Join(err, s.table.Close())
-	return err
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,
 // the writer will use it to execute all operations. If tx is nil, the writer will

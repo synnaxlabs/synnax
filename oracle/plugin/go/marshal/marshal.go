@@ -48,7 +48,7 @@ func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
 func (p *Plugin) Name() string                { return "go/marshal" }
 func (p *Plugin) Domains() []string           { return []string{"go"} }
-func (p *Plugin) Requires() []string          { return []string{"go/types", "go/pb"} }
+func (p *Plugin) Requires() []string          { return []string{"go/types"} }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
@@ -70,7 +70,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	var entryTypes []entryInfo
 	for _, entry := range req.Resolutions.StructTypes() {
-		if !domain.HasExprFromType(entry, "go", "marshal") || !output.HasPB(entry) {
+		if !domain.HasExprFromType(entry, "go", "marshal") {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")

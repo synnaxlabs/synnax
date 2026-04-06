@@ -20,9 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -63,49 +64,47 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg             ServiceConfig
-	shutdownSignals io.Closer
-	table           *gorp.Table[uuid.UUID, Workspace]
-	group           group.Group
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[uuid.UUID, Workspace]
+	group  group.Group
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{
 		DB:              cfg.DB,
 		Migrations:      WorkspaceMigrations(),
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Workspaces", ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Workspaces", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	if s.shutdownSignals, err = signals.PublishFromGorp(
+	var sig io.Closer
+	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signals.GorpPublisherConfigUUID[Workspace](s.table.Observe()),
-	); err != nil {
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Service) Close() error {
-	err := s.shutdownSignals.Close()
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{

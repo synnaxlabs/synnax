@@ -1,0 +1,51 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v0
+
+import (
+	"strconv"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+)
+
+type Key uint64
+
+func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
+
+type StatusDetails struct {
+	Task    Key                 `json:"task" msgpack:"task"`
+	Running bool                `json:"running" msgpack:"running"`
+	Cmd     string              `json:"cmd" msgpack:"cmd"`
+	Data    msgpack.EncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
+}
+
+type Task struct {
+	Key      Key                           `json:"key" msgpack:"key"`
+	Name     string                        `json:"name" msgpack:"name"`
+	Type     string                        `json:"type" msgpack:"type"`
+	Config   msgpack.EncodedJSON           `json:"config" msgpack:"config"`
+	Internal bool                          `json:"internal" msgpack:"internal"`
+	Snapshot bool                          `json:"snapshot" msgpack:"snapshot"`
+	Status   *status.Status[StatusDetails] `json:"status,omitempty" msgpack:"status,omitempty"`
+}
+
+type Status = status.Status[StatusDetails]
+
+var _ gorp.Entry[Key] = Task{}
+
+func (t Task) GorpKey() Key      { return t.Key }
+func (t Task) SetOptions() []any { return nil }
+
+func OntologyID(k Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
+}

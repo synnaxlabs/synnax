@@ -12,9 +12,9 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func ChannelMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func ChannelMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

@@ -8,17 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, ontology } from "@synnaxlabs/client";
-import {
-  Access,
-  Icon,
-  LinePlot as Base,
-  Menu as PMenu,
-  Mosaic,
-} from "@synnaxlabs/pluto";
+import { Access, Icon, LinePlot as Base, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -62,48 +56,43 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = LinePlot.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const canDelete = Access.useDeleteGranted(ids);
-  const canEdit = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
   const first = getResource(firstID);
-  const onSelect = {
-    delete: handleDelete,
-    rename,
-    link: () => handleLink({ name: first.name, ontologyID: firstID }),
-    export: () => handleExport(first.id.key),
-    group: () => group(props),
-  };
   return (
-    <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {canEdit && (
+    <ContextMenu.Menu>
+      {hasUpdatePermission && (
         <>
           {isSingle && (
             <>
-              <Menu.RenameItem />
-              <PMenu.Divider />
+              <ContextMenu.RenameItem onClick={rename} />
+              <Menu.Divider />
             </>
           )}
-          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-          {canDelete && (
-            <PMenu.Item itemKey="delete">
-              <Icon.Delete />
-              Delete
-            </PMenu.Item>
-          )}
-          <PMenu.Divider />
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={() => group(props)}
+          />
         </>
       )}
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

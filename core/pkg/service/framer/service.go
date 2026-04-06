@@ -11,7 +11,6 @@ package framer
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -25,9 +24,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -86,7 +86,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 type Service struct {
-	closer   io.Closer
+	closer   io.MultiCloser
 	Streamer *streamer.Service
 	Iterator *iterator.Service
 	cfg      ServiceConfig
@@ -131,13 +131,16 @@ func (s *Service) NewStreamer(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
-	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	var calcSvc *calculation.Service
+	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:   cfg.Child("calculation"),
 		DB:                cfg.DB,
 		Channel:           cfg.Channel,
@@ -145,26 +148,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Arc:               cfg.Arc,
 		ChannelObservable: cfg.Channel.Observe(),
 		Status:            cfg.Status,
-	})
-	if err != nil {
+	}); !ok(err, calcSvc) {
 		return nil, err
 	}
-	s.closer = calcSvc
 	if s.Streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
-	}); err != nil {
-		return nil, errors.Combine(err, s.Close())
+	}); !ok(err, nil) {
+		return nil, err
 	}
 	if s.Iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
 		Arc:             cfg.Arc,
-	}); err != nil {
-		return nil, errors.Combine(err, s.Close())
+	}); !ok(err, nil) {
+		return nil, err
 	}
 	return s, nil
 }

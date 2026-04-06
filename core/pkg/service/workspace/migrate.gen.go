@@ -12,9 +12,9 @@
 package workspace
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func WorkspaceMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func WorkspaceMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }

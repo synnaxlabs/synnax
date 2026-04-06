@@ -22,11 +22,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -79,49 +80,42 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing channel aliases on ranges.
 type Service struct {
-	shutdownSignals io.Closer
-	table           *gorp.Table[string, Alias]
-	cfg             ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[string, Alias]
+	cfg    ServiceConfig
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Alias]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Alias]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.Signals == nil {
-		return s, nil
+	if cfg.Signals != nil {
+		signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
+		signalsCfg.SetName = "sy_range_alias_set"
+		signalsCfg.DeleteName = "sy_range_alias_delete"
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg); !ok(err, sig) {
+			return nil, err
+		}
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
-	signalsCfg.SetName = "sy_range_alias_set"
-	signalsCfg.DeleteName = "sy_range_alias_delete"
-	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
-	if err != nil {
-		return nil, err
-	}
-	s.shutdownSignals = aliasSignals
 	return s, nil
 }
 
 // Close closes the service and releases any resources.
-func (s *Service) Close() error {
-	var err error
-	if s.shutdownSignals != nil {
-		err = s.shutdownSignals.Close()
-	}
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewWriter opens a new Writer to create and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

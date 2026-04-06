@@ -8,32 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  type Flux,
-  Icon,
-  Menu as PMenu,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Access, Component, type Flux, Menu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectFavoriteSet } from "@/status/selectors";
 import { addFavorites, removeFavorites } from "@/status/slice";
 
-export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {}
-
-export const ContextMenu = ({ keys }: ContextMenuProps) => {
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const q = Status.useRetrieveMultiple({ keys });
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
-  const canEdit = Access.useUpdateGranted(ids);
-  const canDelete = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
 
   const confirm = useConfirmDelete({
     type: "Status",
@@ -66,46 +57,33 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
   );
   if (q.variant !== "success") return null;
   const statuses = q.data;
-  const handleSelect: PMenu.MenuProps["onChange"] = {
-    delete: () => {
-      handleError(async () => {
-        const confirmed = await confirm(statuses);
-        if (confirmed) del(keys);
-      }, "Failed to delete status");
-    },
-    rename: () => {
-      rename.update(statuses[0]);
-    },
-    favorite: () => {
-      dispatch(addFavorites(keys));
-    },
-    unfavorite: () => {
-      dispatch(removeFavorites(keys));
-    },
-  };
-
   const isEmpty = statuses.length === 0;
   const isSingle = statuses.length === 1;
 
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {anyNotFavorited && (
-        <PMenu.Item itemKey="favorite">
-          <Icon.StarFilled />
-          Favorite
-        </PMenu.Item>
+    <CMenu.Menu>
+      <CMenu.FavoriteItems
+        anyFavorited={anyFavorited}
+        anyNotFavorited={anyNotFavorited}
+        onFavorite={() => dispatch(addFavorites(keys))}
+        onUnfavorite={() => dispatch(removeFavorites(keys))}
+      />
+      {(anyFavorited || anyNotFavorited) && <Menu.Divider />}
+      {hasDeletePermission && !isEmpty && (
+        <CMenu.DeleteItem
+          onClick={() => {
+            handleError(async () => {
+              const confirmed = await confirm(statuses);
+              if (confirmed) del(keys);
+            }, "Failed to delete status");
+          }}
+        />
       )}
-      {anyFavorited && (
-        <PMenu.Item itemKey="unfavorite">
-          <Icon.StarOutlined />
-          Unfavorite
-        </PMenu.Item>
+      {hasUpdatePermission && isSingle && (
+        <CMenu.RenameItem onClick={() => rename.update(statuses[0])} />
       )}
-      {(anyFavorited || anyNotFavorited) && <PMenu.Divider />}
-      {canDelete && !isEmpty && <Menu.DeleteItem />}
-      {canEdit && isSingle && <Menu.RenameItem />}
-    </PMenu.Menu>
+    </CMenu.Menu>
   );
 };
 
-export const contextMenuRenderProp = Component.renderProp(ContextMenu);
+export const contextMenu = Component.renderProp(ContextMenu);

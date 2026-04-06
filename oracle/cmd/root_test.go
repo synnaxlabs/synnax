@@ -258,7 +258,7 @@ var _ = Describe("migrate create command", Ordered, func() {
 		content := string(MustSucceed(os.ReadFile(migrationFile)))
 		Expect(content).To(ContainSubstring("package v53"))
 		Expect(content).To(ContainSubstring("NewAddEmailMigration"))
-		Expect(content).To(ContainSubstring("gorp.Migration"))
+		Expect(content).To(ContainSubstring("migrate.Migration"))
 	})
 
 	It("should error when migration file already exists", func() {

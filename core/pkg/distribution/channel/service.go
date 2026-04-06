@@ -20,8 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -29,8 +31,9 @@ import (
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating and retrieving channels.
 type Service struct {
-	cfg ServiceConfig
-	db  *gorp.DB
+	cfg    ServiceConfig
+	db     *gorp.DB
+	closer io.MultiCloser
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
@@ -90,36 +93,28 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultServiceConfig = ServiceConfig{ValidateNames: new(true), ForceMigration: new(false)}
 
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
+	s = &Service{cfg: cfg, db: cfg.ClusterDB, otg: cfg.Ontology}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
 		DB:              cfg.ClusterDB,
 		Migrations:      ChannelMigrations(),
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	var g group.Group
 	if cfg.Group != nil {
-		if g, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); err != nil {
+		if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); !ok(err, nil) {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(ctx, cfg, g, table)
-	if err != nil {
+	if s.proxy, err = newLeaseProxy(ctx, cfg, s.group, s.table); !ok(err, nil) {
 		return nil, err
-	}
-	s := &Service{
-		cfg:   cfg,
-		db:    cfg.ClusterDB,
-		proxy: proxy,
-		otg:   cfg.Ontology,
-		group: g,
-		table: table,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -157,9 +152,7 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 	return uint32(s.proxy.mu.externalNonVirtualSet.Size())
 }
 
-func (s *Service) Close() error {
-	return s.table.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	res := make([]Channel, 0, len(channels))

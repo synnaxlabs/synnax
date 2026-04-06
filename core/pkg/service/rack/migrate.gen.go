@@ -12,9 +12,9 @@
 package rack
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func RackMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func RackMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }
