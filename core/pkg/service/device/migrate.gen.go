@@ -12,9 +12,9 @@
 package device
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func DeviceMigrations() []gorp.Migration {
-	return []gorp.Migration{}
+func DeviceMigrations() []migrate.Migration {
+	return []migrate.Migration{}
 }
