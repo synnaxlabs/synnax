@@ -10,9 +10,9 @@
 import numpy as np
 import pandas as pd
 import pytest
+from x.strings import random_name
 
 import synnax as sy
-from synnax.util.random import random_name
 from tests.telem import seconds_linspace
 
 

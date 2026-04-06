@@ -23,6 +23,8 @@ from freighter import (
 from freighter.transport import P
 from freighter.websocket import Message
 from pydantic import BaseModel
+from x.control import Authority, CrudeAuthority, Subject
+from x.normalize import normalize
 
 import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
@@ -34,8 +36,6 @@ from synnax.framer.codec import (
 )
 from synnax.framer.frame import CrudeFrame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
-from synnax.util.normalize import normalize
-from synnax.x.control import Authority, CrudeAuthority, Subject
 
 
 class WriterCommand(int, Enum):

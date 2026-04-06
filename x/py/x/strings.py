@@ -29,3 +29,8 @@ def validate_and_sanitize_name(name: str) -> str:
 def get_random_name() -> str:
     """Get a random name, which is a random 6-character string."""
     return "".join(random.choices(string.ascii_letters + string.digits, k=6))
+
+
+def random_name() -> str:
+    """Get a random name, which is a random 15-character alphabetic string."""
+    return "".join(random.choice(string.ascii_letters) for _ in range(15))

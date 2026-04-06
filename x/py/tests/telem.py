@@ -6,3 +6,10 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
+from x.telem import TimeSpan
+
+
+def seconds_linspace(start: int, count: int) -> list[TimeSpan]:
+    """Generates a list of TimeSpan values from start to start + count"""
+    return [start * TimeSpan.SECOND + i * TimeSpan.SECOND for i in range(count)]

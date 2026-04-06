@@ -20,7 +20,7 @@ from numpy.typing import DTypeLike
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import core_schema
 
-from synnax.exceptions import ContiguityError
+from x.exceptions import ContiguityError
 
 
 class TimeStamp(int):

@@ -12,12 +12,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Sequence, TypeAlias
 
+from x.normalize import normalize
+
 from synnax import ontology
 from synnax.channel.types_gen import Key as Key
 from synnax.channel.types_gen import New as New
 from synnax.channel.types_gen import Operation as Operation
 from synnax.channel.types_gen import Payload as Payload
-from synnax.util.normalize import normalize
 
 ONTOLOGY_TYPE = ontology.ID(type="channel")
 
@@ -95,7 +96,7 @@ def has_params(channels: Params | None) -> bool:
     return len(channels) > 0
 
 
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ChannelKey": "Key",

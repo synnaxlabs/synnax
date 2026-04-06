@@ -10,7 +10,7 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
-from x import rgb_to_hex
+from x.color import Color
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -1146,7 +1146,7 @@ class RangesClient:
         color = icon.get_attribute("color")
         if color is None:
             return None
-        return rgb_to_hex(color)
+        return Color(color).hex()
 
     def get_all_labels_in_toolbar(self, range_name: str) -> list[str]:
         """Get all labels currently visible for a range in the toolbar.

@@ -12,6 +12,7 @@ from typing import cast, overload
 import pandas as pd
 from alamos import NOOP, Instrumentation
 from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
+from x.control import Authority, CrudeAuthority
 
 import synnax.channel.payload as channel
 from synnax import ontology
@@ -30,7 +31,6 @@ from synnax.telem import (
     TimeRange,
     TimeSpan,
 )
-from synnax.x.control import Authority, CrudeAuthority
 
 ontology_type = ontology.ID(type="framer")
 

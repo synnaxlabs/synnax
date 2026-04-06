@@ -12,7 +12,7 @@ from re import search as re_search
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
-from x import rgb_to_hex
+from x.color import Color
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -107,7 +107,7 @@ class LabelClient:
         if match is None:
             raise ValueError(f"Label '{name}' does not have --pluto-swatch-color")
         rgba = match.group(1)
-        color = rgb_to_hex(rgba)
+        color = Color(rgba).hex()
         self._close_edit_modal()
         return color
 

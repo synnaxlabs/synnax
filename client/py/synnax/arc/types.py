@@ -57,7 +57,7 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         self.config = TaskConfig(arc_key=str(arc_key), auto_start=auto_start)
 
 
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ArcTask": "Task",

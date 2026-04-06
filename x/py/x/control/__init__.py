@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.x.control.authority import Authority, CrudeAuthority
-from synnax.x.control.types_gen import Concurrency, State, Subject, Transfer, Update
+from x.control.authority import Authority, CrudeAuthority
+from x.control.types_gen import Concurrency, State, Subject, Transfer, Update
 
 __all__ = [
     "Authority",

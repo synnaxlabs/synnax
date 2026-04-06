@@ -48,7 +48,7 @@ def ontology_id(key: UUID) -> ontology.ID:
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "NewUser": "New",

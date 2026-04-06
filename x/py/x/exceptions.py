@@ -7,9 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
-import string
 
-
-def random_name() -> str:
-    return "".join(random.choice(string.ascii_letters) for _ in range(15))
+class ContiguityError(Exception):
+    """Raised when time-series data is not contiguous."""

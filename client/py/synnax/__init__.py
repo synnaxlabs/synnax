@@ -9,7 +9,11 @@
 
 from importlib.metadata import version as _version
 
-from synnax import color, ethercat, http, labjack, modbus, ni, opcua, status
+from x import color
+from x.color import Color
+from x.deprecation import deprecated_getattr
+
+from synnax import ethercat, http, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -25,7 +29,6 @@ from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
-from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
@@ -86,7 +89,6 @@ from synnax.telem import (
 )
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
-from synnax.util.deprecation import deprecated_getattr
 from synnax.view import View
 
 __version__ = _version("synnax")

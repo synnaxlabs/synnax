@@ -9,7 +9,6 @@
 
 """Shared Python utilities for the Synnax monorepo."""
 
-from x.color import rgb_to_hex
 from x.env import is_ci
 from x.os import (
     Platform,
@@ -41,7 +40,6 @@ __all__ = [
     "ignore_websocket_errors",
     "is_ci",
     "is_websocket_error",
-    "rgb_to_hex",
     "suppress_websocket_errors",
     "validate_and_sanitize_name",
 ]

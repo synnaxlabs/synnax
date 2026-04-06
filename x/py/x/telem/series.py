@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, PrivateAttr
 
-from synnax.telem.telem import (
+from x.interop import overload_comparison_operators
+from x.telem.telem import (
     Alignment,
     Bounds,
     CrudeAlignment,
@@ -30,7 +31,6 @@ from synnax.telem.telem import (
     TimeSpan,
     TimeStamp,
 )
-from synnax.util.interop import overload_comparison_operators
 
 
 class Series(BaseModel):

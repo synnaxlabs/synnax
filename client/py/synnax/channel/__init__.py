@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from x.deprecation import deprecated_getattr
+
 from synnax.channel.client import Channel, Client
 from synnax.channel.payload import (
     Key,
@@ -24,7 +26,6 @@ from synnax.channel.retrieve import (
 )
 from synnax.channel.types_gen import Operation, Payload
 from synnax.channel.writer import Writer
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ChannelClient": "Client",

@@ -7,35 +7,34 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# Re-exports from x.telem. Canonical definitions live in x/py/x/telem/.
-from x.telem import (
+from x.control import Authority, CrudeAuthority, Subject
+from x.telem.series import (
+    CrudeSeries,
+    MultiSeries,
+    SampleValue,
+    Series,
+    TypedCrudeSeries,
+    elapsed_seconds,
+)
+from x.telem.telem import (
     Alignment,
-    Authority,
     Bounds,
     CrudeAlignment,
-    CrudeAuthority,
     CrudeDataType,
     CrudeDensity,
     CrudeRate,
-    CrudeSeries,
     CrudeSize,
     CrudeTimeSpan,
     CrudeTimeStamp,
     DataType,
     Density,
-    MultiSeries,
     Rate,
-    SampleValue,
-    Series,
     Size,
-    Subject,
     TimeRange,
     TimeSpan,
     TimeSpanUnits,
     TimeStamp,
-    TypedCrudeSeries,
     convert_time_units,
-    elapsed_seconds,
 )
 
 __all__ = [

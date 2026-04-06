@@ -70,9 +70,10 @@ class UnexpectedError(Exception):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
 
 
-class ContiguityError(Exception):
-    """Raised when time-series data is not contiguous."""
+from x.exceptions import ContiguityError as _ContiguityError
 
+
+class ContiguityError(_ContiguityError):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "contiguity"
 
 

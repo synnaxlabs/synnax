@@ -1096,6 +1096,7 @@ func toPythonModulePath(repoPath string) string {
 		"client/py/",
 		"alamos/py/",
 		"freighter/py/",
+		"x/py/",
 	}
 
 	path := repoPath

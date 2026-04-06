@@ -10,9 +10,9 @@
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from x.color import Color
 
 from synnax import ontology
-from synnax.color import Color
 from synnax.telem import TimeRange
 
 ONTOLOGY_TYPE = ontology.ID(type="range")
@@ -39,7 +39,7 @@ Key = UUID | str
 RangeParams = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
 """Parameters that can be used to query a range"""
 
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "RangePayload": "Payload",

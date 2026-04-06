@@ -114,7 +114,7 @@ class Client:
             self.token = refresh
 
 
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "AuthenticationClient": "Client",
