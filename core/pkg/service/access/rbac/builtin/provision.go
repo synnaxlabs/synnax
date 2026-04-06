@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package access
+package builtin
 
 import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/errors"
@@ -29,27 +28,31 @@ type ProvisionResult struct {
 	ViewerKey   uuid.UUID
 }
 
+// Provision creates or updates all built-in roles and their associated policies.
+// This is idempotent and should be called on every startup to ensure policy
+// definitions stay up to date.
 func Provision(
 	ctx context.Context,
-	tx gorp.Tx,
-	service *rbac.Service,
-) (ProvisionResult, error) {
-	var result ProvisionResult
-	var err error
-
-	if result.ViewerKey, err = provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, service); err != nil {
-		return ProvisionResult{}, err
-	}
-	if result.OperatorKey, err = provisionRole(ctx, operatorRole, operatorPolicies, tx, service); err != nil {
-		return ProvisionResult{}, err
-	}
-	if result.EngineerKey, err = provisionRole(ctx, engineerRole, engineerPolicies, tx, service); err != nil {
-		return ProvisionResult{}, err
-	}
-	if result.OwnerKey, err = provisionRole(ctx, ownerRole, []policy.Policy{ownerPolicy}, tx, service); err != nil {
-		return ProvisionResult{}, err
-	}
-	return result, nil
+	db *gorp.DB,
+	policySvc *policy.Service,
+	roleSvc *role.Service,
+) (result ProvisionResult, err error) {
+	err = db.WithTx(ctx, func(tx gorp.Tx) error {
+		if result.ViewerKey, err = provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, policySvc, roleSvc); err != nil {
+			return err
+		}
+		if result.OperatorKey, err = provisionRole(ctx, operatorRole, operatorPolicies, tx, policySvc, roleSvc); err != nil {
+			return err
+		}
+		if result.EngineerKey, err = provisionRole(ctx, engineerRole, engineerPolicies, tx, policySvc, roleSvc); err != nil {
+			return err
+		}
+		if result.OwnerKey, err = provisionRole(ctx, ownerRole, []policy.Policy{ownerPolicy}, tx, policySvc, roleSvc); err != nil {
+			return err
+		}
+		return nil
+	})
+	return result, err
 }
 
 func provisionRole(
@@ -57,16 +60,15 @@ func provisionRole(
 	rol role.Role,
 	policies []policy.Policy,
 	tx gorp.Tx,
-	service *rbac.Service,
+	policySvc *policy.Service,
+	roleSvc *role.Service,
 ) (uuid.UUID, error) {
 	policyKeys := make([]uuid.UUID, 0, len(policies))
-
-	// Create or update all policies
 	for i := range policies {
 		pol := &policies[i]
 		desiredObjects := pol.Objects
 		desiredActions := pol.Actions
-		if err := service.Policy.NewRetrieve().
+		if err := policySvc.NewRetrieve().
 			WhereNames(pol.Name).
 			Entry(pol).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
@@ -74,28 +76,25 @@ func provisionRole(
 		}
 		pol.Objects = desiredObjects
 		pol.Actions = desiredActions
-		if err := service.Policy.NewWriter(tx, true).Create(ctx, pol); err != nil {
+		if err := policySvc.NewWriter(tx, true).Create(ctx, pol); err != nil {
 			return uuid.Nil, err
 		}
 		policyKeys = append(policyKeys, pol.Key)
 	}
-
-	// Create or retrieve the role
-	if err := service.Role.NewRetrieve().
+	if err := roleSvc.NewRetrieve().
 		WhereName(rol.Name).
 		Entry(&rol).
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return uuid.Nil, err
 	}
 	if rol.Key == uuid.Nil {
-		w := service.Role.NewWriter(tx, true)
+		w := roleSvc.NewWriter(tx, true)
 		if err := w.Create(ctx, &rol); err != nil {
 			return uuid.Nil, err
 		}
-		// Associate all policies with the role
-		if err := service.Policy.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
-			return uuid.Nil, err
-		}
+	}
+	if err := policySvc.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
+		return uuid.Nil, err
 	}
 	return rol.Key, nil
 }
