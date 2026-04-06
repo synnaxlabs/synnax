@@ -20,6 +20,7 @@ import {
 import { useCallback, useState } from "react";
 
 import { ContextMenu } from "@/arc/ContextMenu";
+import { useRename } from "@/arc/hooks";
 import { Item, type ItemProps } from "@/arc/list/Item";
 
 export interface ListProps
@@ -28,7 +29,7 @@ export interface ListProps
       Flux.UseListReturn<PList.PagerParams, arc.Key, arc.Arc>,
       "data" | "getItem" | "subscribe" | "retrieve"
     >,
-    Pick<ItemProps, "showStatus"> {
+    Pick<ItemProps, "textIdPrefix"> {
   enableSearch?: boolean;
 }
 
@@ -38,16 +39,17 @@ export const List = ({
   subscribe,
   retrieve,
   enableSearch = false,
-  showStatus = true,
+  textIdPrefix = "text",
 }: ListProps) => {
   const { fetchMore, search } = PList.usePager({ retrieve });
   const [value, setValue] = useState<arc.Key[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const menuProps = Menu.useContextMenu();
+  const { update: handleRename } = useRename(getItem);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+    (props) => <ContextMenu {...props} getItem={getItem} textIdPrefix={textIdPrefix} />,
+    [getItem, textIdPrefix],
   );
 
   return (
@@ -82,7 +84,14 @@ export const List = ({
           </Flex.Box>
         )}
         <PList.Items<arc.Key> onContextMenu={menuProps.open}>
-          {({ key, ...rest }) => <Item key={key} {...rest} showStatus={showStatus} />}
+          {({ key, ...rest }) => (
+            <Item
+              key={key}
+              {...rest}
+              textIdPrefix={textIdPrefix}
+              onRename={(name) => handleRename({ key, name })}
+            />
+          )}
         </PList.Items>
       </Select.Frame>
     </Menu.ContextMenu>

@@ -21,10 +21,11 @@ import {
 import { useMemo } from "react";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
-  showStatus?: boolean;
+  onRename?: (name: string) => void;
+  textIdPrefix?: string;
 }
 
-export const Item = ({ showStatus: _, ...props }: ItemProps) => {
+export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
@@ -66,7 +67,13 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
             onChange={onSelect}
             onClick={stopPropagation}
           />
-          <Text.Text level="p">{name}</Text.Text>
+          <Text.MaybeEditable
+            id={`${textIdPrefix}-${itemKey}`}
+            level="p"
+            value={name}
+            onChange={onRename}
+            allowDoubleClick={false}
+          />
         </Flex.Box>
       </Form.Form>
     </List.Item>
