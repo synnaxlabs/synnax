@@ -77,7 +77,8 @@ export const components = mdxOverrides;
 </Diagram>
 
 In this article we'll compare the performance of Synnax to two other leading time series
-databases: [TimescaleDB](https://timescale.com) and [InfluxDB](https://influxdata.com).
+databases: [TimescaleDB](https://www.tigerdata.com/timescaledb) and
+[InfluxDB](https://www.influxdata.com/).
 
 Performance is one of many factors to consider when evaluating the time series database
 for your use case: scalability, reliability, and query language are also important to
@@ -97,7 +98,7 @@ the authors had different workloads and feature priorities in mind when building
 
 ### Synnax
 
-[Synnax](https://synnaxlabs.com) is specifically built for storing and streaming
+[Synnax](https://www.synnaxlabs.com/) is specifically built for storing and streaming
 hardware sensor data. Unlike the other two databases, it is not designed for general
 purpose time series workloads, such as user analytics, log data, or financial tracking.
 
@@ -131,9 +132,9 @@ critical environments such as firing rocket and jet engines.
 
 ### Timescale
 
-[TimescaleDB](https://timescale.com) is a general-purpose time series database built on
-top of PostgreSQL. Its flexibility allows it to serve a number of workloads including
-IoT, user analytics, and financial data.
+[TimescaleDB](https://www.tigerdata.com/timescaledb) is a general-purpose time series
+database built on top of PostgreSQL. Its flexibility allows it to serve a number of
+workloads including IoT, user analytics, and financial data.
 
 #### Data Model
 
@@ -155,14 +156,14 @@ MATLAB and NumPy.
 #### Performance Characteristics
 
 Timescale uses
-[hypertables](https://tigerdata.com/docs/use-timescale/latest/hypertables) to increase
-query performance and reduce storage overhead when compared to Postgres. While a large
-step up from vanilla Postgres, Timescale follows a row-based storage model, which
-struggles when ingesting and querying data at very high rates.
+[hypertables](https://www.tigerdata.com/docs/use-timescale/latest/hypertables) to
+increase query performance and reduce storage overhead when compared to Postgres. While
+a large step up from vanilla Postgres, Timescale follows a row-based storage model,
+which struggles when ingesting and querying data at very high rates.
 
 ### Influx
 
-[InfluxDB](https://influxdata.com) is a NoSQL time series database also built for
+[InfluxDB](https://www.influxdata.com/) is a NoSQL time series database also built for
 general purpose time series workloads. Its primary focus is on ease of use, allowing
 users to quickly ingest and query data without needing to define a schema upfront. It
 also integrates well with popular analytics tools, such as
@@ -171,7 +172,7 @@ also integrates well with popular analytics tools, such as
 #### Data Model
 
 InfluxDB uses a
-[tagset](https://docs.influxdata.com/influxdb/cloud-serverless/write-data/best-practices/schema-design/)
+[tagset](https://docs.influxdata.com/influxdb3/cloud-serverless/write-data/best-practices/schema-design/)
 data model. Each measurement has a set of tags, which are key-value pairs that describe
 the data. This makes Influx ideal for storing and querying data with many dimensions,
 such as user analytics.
@@ -209,7 +210,7 @@ We'll pull the latest open source versions of each database, which, at the time 
 writing, are:
 
 - [Synnax v0.32](/reference/core/installation?platform=linux)
-- [InfluxDB v2.7.10](https://influxdata.com/downloads/)
+- [InfluxDB v2.7.10](https://www.influxdata.com/downloads)
 - [Timescale v2.17.1](https://github.com/timescale/timescaledb/releases)
 
 ### Disclaimer
@@ -1041,9 +1042,9 @@ and Influx remain relatively stable.
 ## <TextComponent.Step level="h2" name="Test" step={3}>  One Billion Row Ingestion</TextComponent.Step>
 
 Inspired by the
-[One Billion Row Challenge](https://morling.dev/blog/one-billion-row-challenge/), we'll
-be inserting one billion rows of data into each database to see how they handle the
-load.
+[One Billion Row Challenge](https://www.morling.dev/blog/one-billion-row-challenge/),
+we'll be inserting one billion rows of data into each database to see how they handle
+the load.
 
 We'll use 50 channels, each with a batch size of 50,000 rows per channel to insert the
 data.
@@ -1180,4 +1181,4 @@ patterns.
 
 Synnax, on the other hand, is built for fast reads and writes of time-series sensor
 data. If this is the use case you're interested in, we'd love to hear from you.
-[Contact us](https://synnaxlabs.com/contact) to learn more.
+[Contact us](https://www.synnaxlabs.com/#contact) to learn more.
