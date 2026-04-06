@@ -115,6 +115,7 @@ func Unwrap(m Migration) Migration {
 	}
 }
 
+// Unwrap implements wrapper.
 func (a *addedDeps) Unwrap() Migration { return a.Migration }
 
 // WithAddedDeps wraps a Migration to declare additional dependencies beyond what

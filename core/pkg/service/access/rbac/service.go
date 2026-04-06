@@ -20,14 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	xmigrate "github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -83,6 +83,8 @@ func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	return s.NewEnforcer(nil).Enforce(ctx, req)
 }
 
+const migrationNamespace = "RBAC"
+
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
 // This includes all policies from roles assigned to the subject via ontology relationships.
 func (s *Service) RetrievePoliciesForSubject(
@@ -134,8 +136,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
-		Namespace:       "rbac",
-		Migrations: []xmigrate.Migration{v0.Migration(v0.MigrationConfig{
+		Namespace:       migrationNamespace,
+		Migrations: []migrate.Migration{v0.Migration(v0.MigrationConfig{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,

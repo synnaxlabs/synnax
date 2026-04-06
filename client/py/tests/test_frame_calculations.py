@@ -2585,7 +2585,6 @@ class TestStatOperationsAlignment:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    @pytest.mark.focus
     def test_literal_minus_f32_should_succeed(self, client: sy.Synnax):
         """Regression: literal on left side of f32 channel should coerce to f32.
 
@@ -2622,7 +2621,6 @@ class TestStatOperationsAlignment:
         )
         assert len(res[calc.key]) == 2
 
-    @pytest.mark.focus
     def test_float_literal_div_f32_should_succeed(self, client: sy.Synnax):
         """Regression: float literal on left side of f32 channel should coerce.
 
@@ -2658,7 +2656,6 @@ class TestStatOperationsAlignment:
         )
         assert len(res[calc.key]) == 2
 
-    @pytest.mark.focus
     def test_mixed_f32_f64_with_literal_should_reject_at_creation(
         self, client: sy.Synnax
     ):
@@ -2700,7 +2697,6 @@ class TestCalcChannelStress:
     """Stress test: deep calc chains, multi-domain writes, writer/streamer lifecycle
     chaos, cross-index references, and full numerical verification."""
 
-    @pytest.mark.focus
     def test_deep_chain_multi_domain_writer_streamer_chaos(self, client: sy.Synnax):
         S = sy.TimeSpan.SECOND
 
