@@ -152,7 +152,12 @@ func Open(
 		stringsMod.SetMemory(guest.Memory())
 		errorsMod.SetMemory(guest.Memory())
 		closers = append(closers,
-			io.CloserFunc(func() error { return guest.Close(ctx) }),
+			io.CloserFunc(func() error {
+				// Pass context.TODO() to the closer here, instead of the ctx passed
+				// into open for safety reasons. WASM says that the context is only
+				// used for tracing purposes.
+				return guest.Close(context.TODO())
+			}),
 		)
 		f = append(f, &wasm.Module{
 			Module:        guest,
