@@ -46,7 +46,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 		for _, iter := range internal {
 			if iter != nil {
-				err = errors.Join(err, iter.Close())
+				err = errors.Combine(err, iter.Close())
 			}
 		}
 	}()

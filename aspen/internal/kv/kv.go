@@ -136,7 +136,7 @@ func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 	}
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, db.shutdown.Close())
+			err = errors.Combine(err, db.shutdown.Close())
 		}
 	}()
 

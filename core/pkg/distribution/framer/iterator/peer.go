@@ -76,7 +76,7 @@ func (s *Service) closePeerClients(
 	originalErr error,
 ) error {
 	for _, sender := range senders {
-		originalErr = errors.Join(originalErr, sender.CloseSend())
+		originalErr = errors.Combine(originalErr, sender.CloseSend())
 	}
 	return originalErr
 }

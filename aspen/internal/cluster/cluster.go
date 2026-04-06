@@ -71,7 +71,7 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 	}
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, c.shutdown.Close())
+			err = errors.Combine(err, c.shutdown.Close())
 		}
 	}()
 
