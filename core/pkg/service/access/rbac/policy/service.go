@@ -19,9 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -58,31 +59,33 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg     ServiceConfig
-	signals io.Closer
-	table   *gorp.Table[uuid.UUID, Policy]
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[uuid.UUID, Policy]
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Migrations:      PolicyMigrations(),
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	if cfg.Signals != nil {
-		if s.signals, err = signals.PublishFromGorp(
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[Policy](s.table.Observe()),
-		); err != nil {
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -91,13 +94,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
-func (s *Service) Close() error {
-	var err error
-	if s.signals != nil {
-		err = s.signals.Close()
-	}
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)

@@ -22,10 +22,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -95,49 +95,46 @@ var DefaultServiceConfig = ServiceConfig{}
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg                           ServiceConfig
-	shutdownSignals               io.Closer
-	disconnectSuspectRackObserver observe.Disconnect
-	table                         *gorp.Table[string, Device]
-	group                         group.Group
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[string, Device]
+	group  group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close to
 // prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
 		DB: cfg.DB,
 		Migrations: append(DeviceMigrations(), v0.Migration(v0.MigrationConfig{
 			Status: cfg.Status,
 		})),
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID); !ok(err, nil) {
 		return nil, err
-	}
-	s := &Service{
-		cfg:   cfg,
-		group: g,
-		table: table,
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
+	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
+	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
-		if s.shutdownSignals, err = signals.PublishFromGorp(
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigString[Device](s.table.Observe()),
-		); err != nil {
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -145,13 +142,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // Close closes the device service and releases any resources that it may have acquired.
-func (s *Service) Close() error {
-	s.disconnectSuspectRackObserver()
-	if s.shutdownSignals == nil {
-		return s.table.Close()
-	}
-	return errors.Combine(s.shutdownSignals.Close(), s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // RootGroup returns the permanent group for devices. Note that racks will be children
 // of this group, and devices will be children of racks (or children of groups that are
