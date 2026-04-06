@@ -19,8 +19,6 @@ Usage:
     uv run python examples/pagerduty/alert_task.py
 """
 
-import time
-
 import synnax as sy
 
 ROUTING_KEY = "12345678901234567890123456789012"  # Example key, replace with your own
@@ -75,7 +73,7 @@ try:
                 description="Connection to database lost",
             )
         )
-        time.sleep(5)
+        sy.sleep(5)
 
         # Resolve by setting status back to success
         print("Setting status to SUCCESS to resolve the incident...")
@@ -87,7 +85,7 @@ try:
                 message="Service recovered",
             )
         )
-        time.sleep(3)
+        sy.sleep(3)
 
         print("Done! Check your PagerDuty dashboard for the incident.")
 
