@@ -7,10 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Tree } from "@synnaxlabs/pluto";
+import { group, ontology } from "@synnaxlabs/client";
+import { Access, Icon, Menu, Tree } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const canGroupSelection = (
+export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {
+  ids: ontology.ID[];
+  rootID: ontology.ID;
+  shape: Tree.Shape;
+  showBottomDivider?: boolean;
+}
+
+export const ContextMenuItem = ({
+  ids,
+  shape,
+  showBottomDivider = false,
+  rootID,
+  ...rest
+}: ContextMenuItemProps): ReactElement | null => {
+  const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission || !canGroupSelection(ids, shape, rootID)) return null;
+  return (
+    <>
+      <Menu.Item itemKey="group" {...rest}>
+        <Icon.Group />
+        Group selection
+      </Menu.Item>
+      {showBottomDivider && <Menu.Divider />}
+    </>
+  );
+};
+
+const canGroupSelection = (
   selection: ontology.ID[],
   shape: Tree.Shape,
   rootID: ontology.ID,

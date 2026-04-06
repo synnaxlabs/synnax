@@ -8,10 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const MenuItem = () => (
-  <Menu.Item itemKey="export">
-    <Icon.Export />
-    Export
+export interface CopyContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
+
+export const CopyContextMenuItem = (props: CopyContextMenuItemProps): ReactElement => (
+  <Menu.Item {...props} itemKey="link">
+    <Icon.Link />
+    Copy link
   </Menu.Item>
 );

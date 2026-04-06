@@ -7,6 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/group/ContextMenuItem";
-export * from "@/group/useCreateEmpty";
-export * from "@/group/useCreateFromSelection";
+import { Icon, Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
+
+export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
+
+export const ContextMenuItem = (props: ContextMenuItemProps): ReactElement => (
+  <Menu.Item itemKey="export" {...props}>
+    <Icon.Export />
+    Export
+  </Menu.Item>
+);

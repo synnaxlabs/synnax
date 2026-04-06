@@ -15,12 +15,12 @@ import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import { Selector } from "@/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -32,4 +32,4 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);

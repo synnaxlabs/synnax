@@ -10,9 +10,11 @@
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export const RenameItem = (): ReactElement => (
-  <Menu.Item itemKey="rename" size="small">
-    <Icon.Rename />
-    Rename
+export interface DeleteItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
+
+export const DeleteItem = (props: DeleteItemProps): ReactElement => (
+  <Menu.Item itemKey="delete" {...props}>
+    <Icon.Delete />
+    Delete
   </Menu.Item>
 );
