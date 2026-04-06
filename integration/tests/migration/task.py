@@ -18,10 +18,13 @@ alongside its protocol-specific ReadTaskCase and only needs to define:
       ``num_channels``, and optionally ``pre_start_sleep``.
 """
 
+import platform
 from abc import abstractmethod
 
 import synnax as sy
 
+from console.case import ConsoleCase
+from console.task_page import TaskPage
 from tests.driver.task import ReadTaskCase
 
 
@@ -122,3 +125,59 @@ class ReadTaskMigrationVerify(ReadTaskMigration):
         if self.pre_start_sleep:
             sy.sleep(self.pre_start_sleep)
         self.test_start_and_stop()
+
+
+class ReadTaskConsoleVerify(ConsoleCase):
+    """Verify a read task's configuration renders correctly in the console UI.
+
+    Subclasses must set:
+        task_name:            Task name to search for.
+        expected_channels:    Channel identifiers expected in the config pane.
+        expected_sample_rate: If set, assert the Sample Rate field matches.
+        expected_stream_rate: If set, assert the Stream Rate field matches.
+    """
+
+    task_name: str
+    expected_channels: list[str]
+    expected_sample_rate: str | None = None
+    expected_stream_rate: str | None = None
+    requires_platform: str | None = None
+
+    def setup(self) -> None:
+        if (
+            self.requires_platform is not None
+            and platform.system().lower() != self.requires_platform
+        ):
+            self.auto_pass(
+                msg=f"Requires {self.requires_platform}, "
+                f"running on {platform.system().lower()}"
+            )
+            return
+        super().setup()
+
+    def run(self) -> None:
+        self.test_task_form()
+
+    def test_task_form(self) -> None:
+        self.log(f"Testing: Task form for '{self.task_name}' in console")
+        console = self.console
+
+        task_page = console.workspace.open_from_search(TaskPage, self.task_name)
+
+        layout = console.layout
+        assert layout.get_input_field("Name") == self.task_name, "Task name mismatch"
+        assert layout.get_toggle("Data Saving") is True, "Data saving should be on"
+        assert layout.get_toggle("Auto Start") is False, "Auto start should be off"
+
+        if self.expected_sample_rate is not None:
+            actual = layout.get_input_field("Sample Rate")
+            assert (
+                actual == self.expected_sample_rate
+            ), f"Sample rate: expected {self.expected_sample_rate}, got {actual}"
+        if self.expected_stream_rate is not None:
+            actual = layout.get_input_field("Stream Rate")
+            assert (
+                actual == self.expected_stream_rate
+            ), f"Stream rate: expected {self.expected_stream_rate}, got {actual}"
+
+        task_page.verify_config(self.expected_channels)

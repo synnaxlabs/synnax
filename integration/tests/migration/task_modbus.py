@@ -12,6 +12,7 @@ import synnax as sy
 from tests.driver.modbus_task import ModbusReadTaskCase
 from tests.driver.task import create_channel, create_index
 from tests.migration.task import (
+    ReadTaskConsoleVerify,
     ReadTaskMigration,
     ReadTaskMigrationSetup,
     ReadTaskMigrationVerify,
@@ -58,3 +59,12 @@ class TaskModbusVerify(ReadTaskMigrationVerify, TaskModbusMigration):
     channel_prefix = CHANNEL_PREFIX
     num_channels = NUM_CHANNELS
     pre_start_sleep = 2
+
+
+class TaskModbusConsoleVerify(ReadTaskConsoleVerify):
+    """Verify the Modbus read task configuration renders correctly in the console UI."""
+
+    task_name = TASK_NAME
+    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
+    expected_sample_rate = "50"
+    expected_stream_rate = "10"

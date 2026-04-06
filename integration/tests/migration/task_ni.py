@@ -12,6 +12,7 @@ import synnax as sy
 from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
 from tests.migration.task import (
+    ReadTaskConsoleVerify,
     ReadTaskMigration,
     ReadTaskMigrationSetup,
     ReadTaskMigrationVerify,
@@ -63,3 +64,11 @@ class TaskNIVerify(ReadTaskMigrationVerify, TaskNIMigration):
     task_class = sy.ni.AnalogReadTask
     channel_prefix = CHANNEL_PREFIX
     num_channels = NUM_CHANNELS
+
+
+class TaskNIConsoleVerify(ReadTaskConsoleVerify):
+    """Verify the NI analog read task configuration renders correctly in the console UI."""
+
+    task_name = TASK_NAME
+    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
+    requires_platform = "windows"
