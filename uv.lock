@@ -17,7 +17,7 @@ members = [
     "synnax-freighter",
     "synnax-test-framework",
     "synnax-workspace",
-    "x",
+    "synnax-x",
 ]
 
 [[package]]
@@ -1719,8 +1719,8 @@ dependencies = [
     { name = "pydantic" },
     { name = "rich" },
     { name = "synnax-freighter" },
+    { name = "synnax-x" },
     { name = "urllib3" },
-    { name = "x" },
 ]
 
 [package.dev-dependencies]
@@ -1750,8 +1750,8 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.5,<3" },
     { name = "rich", specifier = ">=14.3.3,<15" },
     { name = "synnax-freighter", editable = "freighter/py" },
+    { name = "synnax-x", editable = "x/py" },
     { name = "urllib3", specifier = ">=2.6.3,<3" },
-    { name = "x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]
@@ -1777,9 +1777,9 @@ dependencies = [
     { name = "alamos" },
     { name = "msgpack" },
     { name = "pydantic" },
+    { name = "synnax-x" },
     { name = "urllib3" },
     { name = "websockets" },
-    { name = "x" },
 ]
 
 [package.dev-dependencies]
@@ -1797,9 +1797,9 @@ requires-dist = [
     { name = "alamos", editable = "alamos/py" },
     { name = "msgpack", specifier = ">=1.1.2,<2" },
     { name = "pydantic", specifier = ">=2.12.5,<3" },
+    { name = "synnax-x", editable = "x/py" },
     { name = "urllib3", specifier = ">=2.6.3,<3" },
     { name = "websockets", specifier = ">=16.0,<17" },
-    { name = "x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]
@@ -1828,7 +1828,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pymodbus" },
     { name = "synnax" },
-    { name = "x" },
+    { name = "synnax-x" },
 ]
 
 [package.dev-dependencies]
@@ -1852,7 +1852,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.2.2,<8" },
     { name = "pymodbus", specifier = ">=3.12.1,<4" },
     { name = "synnax", editable = "client/py" },
-    { name = "x", editable = "x/py" },
+    { name = "synnax-x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]
@@ -1877,6 +1877,45 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "vermin", specifier = ">=1.8.0,<2" }]
+
+[[package]]
+name = "synnax-x"
+version = "0.54.0"
+source = { editable = "x/py" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pydantic" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "black" },
+    { name = "isort" },
+    { name = "mypy" },
+    { name = "pandas-stubs" },
+    { name = "pytest" },
+    { name = "python-dateutil" },
+    { name = "types-python-dateutil" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=2.4.3,<3" },
+    { name = "pandas", specifier = ">=3.0.1,<4" },
+    { name = "pydantic", specifier = ">=2.12.5,<3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black", specifier = ">=26.3.1,<27" },
+    { name = "isort", specifier = ">=8.0.1,<9" },
+    { name = "mypy", specifier = ">=1.19.1,<2" },
+    { name = "pandas-stubs", specifier = ">=3.0.0,<4" },
+    { name = "pytest", specifier = ">=9.0.2,<10" },
+    { name = "python-dateutil", specifier = ">=2.9.0,<3" },
+    { name = "types-python-dateutil", specifier = ">=2.9.0,<3" },
+]
 
 [[package]]
 name = "types-psutil"
@@ -2037,45 +2076,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/57/54/35a84d0a4d23ea675994104e667ceff49227ce473ba6a59ba2c84f250b74/wrapt-1.17.3-cp313-cp313-win_amd64.whl", hash = "sha256:1f0b2f40cf341ee8cc1a97d51ff50dddb9fcc73241b9143ec74b30fc4f44f6cb", size = 38885, upload-time = "2025-08-12T05:53:08.695Z" },
     { url = "https://files.pythonhosted.org/packages/01/77/66e54407c59d7b02a3c4e0af3783168fff8e5d61def52cda8728439d86bc/wrapt-1.17.3-cp313-cp313-win_arm64.whl", hash = "sha256:7425ac3c54430f5fc5e7b6f41d41e704db073309acfc09305816bc6a0b26bb16", size = 36896, upload-time = "2025-08-12T05:52:55.34Z" },
     { url = "https://files.pythonhosted.org/packages/1f/f6/a933bd70f98e9cf3e08167fc5cd7aaaca49147e48411c0bd5ae701bb2194/wrapt-1.17.3-py3-none-any.whl", hash = "sha256:7171ae35d2c33d326ac19dd8facb1e82e5fd04ef8c6c0e394d7af55a55051c22", size = 23591, upload-time = "2025-08-12T05:53:20.674Z" },
-]
-
-[[package]]
-name = "x"
-version = "0.0.0"
-source = { editable = "x/py" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "pydantic" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "black" },
-    { name = "isort" },
-    { name = "mypy" },
-    { name = "pandas-stubs" },
-    { name = "pytest" },
-    { name = "python-dateutil" },
-    { name = "types-python-dateutil" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "numpy", specifier = ">=2.4.3,<3" },
-    { name = "pandas", specifier = ">=3.0.1,<4" },
-    { name = "pydantic", specifier = ">=2.12.5,<3" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "black", specifier = ">=26.3.1,<27" },
-    { name = "isort", specifier = ">=8.0.1,<9" },
-    { name = "mypy", specifier = ">=1.19.1,<2" },
-    { name = "pandas-stubs", specifier = ">=3.0.0,<4" },
-    { name = "pytest", specifier = ">=9.0.2,<10" },
-    { name = "python-dateutil", specifier = ">=2.9.0,<3" },
-    { name = "types-python-dateutil", specifier = ">=2.9.0,<3" },
 ]
 
 [[package]]
