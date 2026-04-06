@@ -57,7 +57,7 @@ var _ = Describe("Relay", func() {
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
-				reader := MustSucceed(s.dist.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+				reader := MustSucceed(s.dist.Framer.NewStreamer(ctx, relay.StreamerConfig{
 					Keys: keys,
 				}))
 				sCtx, _ := signal.Isolated()
@@ -116,7 +116,7 @@ var _ = Describe("Relay", func() {
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -155,7 +155,7 @@ var _ = Describe("Relay", func() {
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -197,7 +197,7 @@ var _ = Describe("Relay", func() {
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -242,7 +242,7 @@ var _ = Describe("Relay", func() {
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{55},
 			}))
@@ -279,7 +279,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			_, err := svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
 			Expect(err).To(HaveOccurredAs(query.ErrNotFound))

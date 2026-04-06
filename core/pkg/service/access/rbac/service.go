@@ -25,10 +25,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/io"
 	xmigrate "github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -72,12 +73,11 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	Policy *policy.Service
 	Role   *role.Service
+	closer io.MultiCloser
 	cfg    ServiceConfig
 }
 
-func (s *Service) Close() error {
-	return errors.Join(s.Policy.Close(), s.Role.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	return s.NewEnforcer(nil).Enforce(ctx, req)
@@ -95,45 +95,39 @@ func (s *Service) RetrievePoliciesForSubject(
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
 // It also provisions built-in roles/policies and runs legacy permission migrations.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	policyService, err := policy.OpenService(ctx, policy.ServiceConfig{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.Policy, err = policy.OpenService(ctx, policy.ServiceConfig{
 		Instrumentation: cfg.Child("policy"),
 		DB:              cfg.DB,
 		Signals:         cfg.Signals,
 		Ontology:        cfg.Ontology,
 		Search:          cfg.Search,
-	})
-	if err != nil {
+	}); !ok(err, s.Policy) {
 		return nil, err
 	}
-	roleService, err := role.OpenService(ctx, role.ServiceConfig{
+	if s.Role, err = role.OpenService(ctx, role.ServiceConfig{
 		Instrumentation: cfg.Child("role"),
 		DB:              cfg.DB,
 		Ontology:        cfg.Ontology,
 		Signals:         cfg.Signals,
 		Group:           cfg.Group,
 		Search:          cfg.Search,
-	})
-	if err != nil {
-		return nil, errors.Combine(err, policyService.Close())
+	}); !ok(err, s.Role) {
+		return nil, err
 	}
-	s := &Service{
-		Policy: policyService,
-		Role:   roleService,
-		cfg:    cfg,
-	}
-
 	// Provision built-in roles and policies. This is idempotent and runs every
 	// startup to ensure policy definitions stay up to date.
-	roles, err := builtin.Provision(ctx, cfg.DB, policyService, roleService)
-	if err != nil {
-		return nil, errors.Join(err, policyService.Close(), roleService.Close())
+	var roles builtin.ProvisionResult
+	if roles, err = builtin.Provision(ctx, cfg.DB, s.Policy, s.Role); !ok(err, nil) {
+		return nil, err
 	}
-
 	// Phase 2 migration assigns users to roles based on the legacy mapping
 	// extracted by Phase 1 in the policy package. This runs after provisioning
 	// so the built-in roles exist in the ontology.
@@ -144,11 +138,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		Migrations: []xmigrate.Migration{v0.Migration(v0.MigrationConfig{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
-			Role:     roleService,
+			Role:     s.Role,
 			Roles:    roles,
 		})},
-	}); err != nil {
-		return nil, errors.Join(err, policyService.Close(), roleService.Close())
+	}); !ok(err, nil) {
+		return nil, err
 	}
 	return s, nil
 }

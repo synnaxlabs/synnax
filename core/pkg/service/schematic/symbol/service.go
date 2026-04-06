@@ -20,9 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -76,45 +77,41 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
 	ServiceConfig
-	signals io.Closer
-	group   group.Group
-	table   *gorp.Table[uuid.UUID, Symbol]
+	closer xio.MultiCloser
+	group  group.Group
+	table  *gorp.Table[uuid.UUID, Symbol]
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Symbol]{
+	s = &Service{ServiceConfig: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Symbol]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, table: table}
-
-	// Create or retrieve the permanent symbols group
 	if cfg.Group != nil {
-		g, err := cfg.Group.CreateOrRetrieve(ctx, "Schematic Symbols", ontology.RootID)
-		if err != nil {
+		if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Schematic Symbols", ontology.RootID); !ok(err, nil) {
 			return nil, err
 		}
-		s.group = g
 	}
-
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"
 		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
-		if err != nil {
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -147,9 +144,4 @@ func (s *Service) NewRetrieve() Retrieve {
 func (s *Service) Group() group.Group { return s.group }
 
 // Close closes the symbol service, shutting down signal publishers.
-func (s *Service) Close() error {
-	if s.signals != nil {
-		return errors.Combine(s.signals.Close(), s.table.Close())
-	}
-	return s.table.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }

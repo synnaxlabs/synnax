@@ -23,8 +23,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -85,43 +87,41 @@ func (c ServiceConfig) Validate() error {
 
 // A Service is how users are managed in the Synnax cluster.
 type Service struct {
-	cfg             ServiceConfig
-	shutdownSignals io.Closer
-	table           *gorp.Table[uuid.UUID, User]
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[uuid.UUID, User]
 }
 
 // OpenService opens a new Service with the given context ctx and configurations configs.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(defaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-
-	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
 		DB:              cfg.DB,
 		Migrations:      UserMigrations(),
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-
 	if cfg.Signals != nil {
-		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
-		)
-		s.shutdownSignals = cdcS
-		if err != nil {
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
 	if cfg.Auth != nil {
-		if err = s.provisionRoot(ctx, cfg); err != nil {
+		if err = s.provisionRoot(ctx, cfg); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -178,10 +178,4 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 }
 
 // Close closes the service and stops any signal publishing.
-func (s *Service) Close() error {
-	var err error
-	if s.shutdownSignals != nil {
-		err = s.shutdownSignals.Close()
-	}
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }

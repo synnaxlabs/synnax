@@ -12,14 +12,14 @@ package domain
 import (
 	"context"
 
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
 type Reader struct {
-	xio.ReaderAtCloser
+	io.ReaderAtCloser
 	ptr pointer
 }
 
@@ -28,7 +28,7 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.size))
+	reader := io.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.size))
 	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 

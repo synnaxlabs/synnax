@@ -42,7 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -151,7 +151,7 @@ type Layer struct {
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// closer is for properly shutting down the service layer.
-	closer xio.MultiCloser
+	closer io.MultiCloser
 }
 
 // Close shuts down the service layer, returning any error encountered.
@@ -262,7 +262,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
@@ -270,7 +270,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Log) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
@@ -278,7 +278,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Table) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(
