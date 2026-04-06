@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -72,8 +72,6 @@ type Command struct {
 	// Args contains optional arguments for the command.
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
-
-type Status = status.Status[StatusDetails]
 
 var _ gorp.Entry[Key] = Task{}
 
