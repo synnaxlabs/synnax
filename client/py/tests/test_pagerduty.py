@@ -117,7 +117,9 @@ class TestPagerDutyAlertTask:
 
     def test_routing_key_wrong_length(self):
         """Test that routing_key must be exactly 32 characters."""
-        with pytest.raises(ValueError, match="routing_key must be exactly 32 characters"):
+        with pytest.raises(
+            ValueError, match="routing_key must be exactly 32 characters"
+        ):
             sy.pagerduty.AlertTaskConfig(
                 routing_key="too-short",
                 alerts=[sy.pagerduty.AlertConfig(status="s", enabled=True)],
@@ -125,7 +127,9 @@ class TestPagerDutyAlertTask:
 
     def test_routing_key_too_long(self):
         """Test that routing_key rejects keys longer than 32 characters."""
-        with pytest.raises(ValueError, match="routing_key must be exactly 32 characters"):
+        with pytest.raises(
+            ValueError, match="routing_key must be exactly 32 characters"
+        ):
             sy.pagerduty.AlertTaskConfig(
                 routing_key="a" * 33,
                 alerts=[sy.pagerduty.AlertConfig(status="s", enabled=True)],
@@ -191,7 +195,17 @@ class TestPagerDutyAlertTask:
             type="pagerduty_alert",
             config=task.config.model_dump(by_alias=True, exclude_none=True),
         )
-        sy.pagerduty.AlertTask(created)
+        tsk = sy.pagerduty.AlertTask(created)
+        assert tsk.config.routing_key == task.config.routing_key
+        assert tsk.config.auto_start == task.config.auto_start
+        assert len(tsk.config.alerts) == len(task.config.alerts)
+        for orig, retr in zip(task.config.alerts, tsk.config.alerts):
+            assert retr.status == orig.status
+            assert retr.enabled == orig.enabled
+            assert retr.treat_error_as_critical == orig.treat_error_as_critical
+            assert retr.component == orig.component
+            assert retr.group == orig.group
+            assert retr.alert_class == orig.alert_class
 
     def test_alert_task_serialization_round_trip(self, client: sy.Synnax):
         """Test that task can be serialized and deserialized correctly."""
