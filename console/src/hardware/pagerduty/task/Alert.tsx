@@ -152,7 +152,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
   const isNotDefined = status == null;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
-      <Flex.Box x align="center" gap={4}>
+      <Flex.Box x align="center" gap={1}>
         <Status.Indicator variant={isNotDefined ? "disabled" : status.variant} />
         <Text.Text
           level="p"
