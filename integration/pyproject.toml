@@ -14,6 +14,7 @@ dependencies = [
     "asyncua>=1.1.8,<2",
     "nidaqmx>=1.4.1,<2",
     "nisyscfg>=0.2.1,<1",
+    "pagerduty>=6.2.1,<7",
 ]
 classifiers = ["Private :: Do Not Upload"]
 
