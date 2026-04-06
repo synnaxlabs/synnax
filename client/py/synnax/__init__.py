@@ -12,6 +12,7 @@ from importlib.metadata import version as _version
 from x import color
 from x.color import Color
 from x.deprecation import deprecated_getattr
+from x.exceptions import ContiguityError
 
 from synnax import ethercat, http, labjack, modbus, ni, opcua, pagerduty, status
 from synnax.access.policy import Policy
@@ -34,7 +35,6 @@ from synnax.device import Device
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
-    ContiguityError,
     ControlError,
     ExpiredToken,
     InvalidToken,
