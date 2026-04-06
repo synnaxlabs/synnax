@@ -18,7 +18,7 @@ import {
   type Flux,
   Icon,
   List,
-  Menu as PMenu,
+  Menu,
   Select,
   Text,
   View as PView,
@@ -34,7 +34,7 @@ import {
   useState,
 } from "react";
 
-import { Controls, Menu } from "@/components";
+import { ContextMenu as CMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
@@ -71,8 +71,8 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
   const [selected, setSelected] = useState(staticViews[0].key);
-  const canUpdateView = Access.useUpdateGranted(view.ontologyID(selected));
-  const [editable, setEditable] = useState(canUpdateView);
+  const hasUpdatePermission = Access.useUpdateGranted(view.ontologyID(selected));
+  const [editable, setEditable] = useState(hasUpdatePermission);
   const getInitialView = useCallback(() => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
@@ -90,12 +90,19 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     () => ({
       resourceType,
       selected,
-      editable: editable && canUpdateView,
+      editable: editable && hasUpdatePermission,
       staticViews: staticViewKeys,
       select: setSelected,
       getInitialView,
     }),
-    [resourceType, selected, editable, canUpdateView, staticViewKeys, getInitialView],
+    [
+      resourceType,
+      selected,
+      editable,
+      hasUpdatePermission,
+      staticViewKeys,
+      getInitialView,
+    ],
   );
 
   return (
@@ -103,7 +110,9 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={staticViewKeys.includes(selected) ? true : canUpdateView}
+          showEditButton={
+            staticViewKeys.includes(selected) ? true : hasUpdatePermission
+          }
           editable={editable}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
@@ -145,8 +154,8 @@ const Selector = ({
 }: SelectorProps): ReactElement => {
   const { getItem } = listProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
-  const contextMenuProps = PMenu.useContextMenu();
-  const canCreate = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
+  const contextMenuProps = Menu.useContextMenu();
+  const hasCreatePermission = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
   const renameModal = Modals.useRename();
   const { update: create } = PView.useCreate({
     beforeUpdate: useCallback(
@@ -183,7 +192,7 @@ const Selector = ({
       onFetchMore={onFetchMore}
     >
       <Controls x>
-        {canCreate && editable && (
+        {hasCreatePermission && editable && (
           <Button.Button
             onClick={handleCreate}
             tooltip="Create a view"
@@ -205,7 +214,7 @@ const Selector = ({
           </Button.Toggle>
         )}
       </Controls>
-      <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
+      <Menu.ContextMenu {...contextMenuProps} menu={contextMenu}>
         <List.Items
           className={CSS.BE("view", "views")}
           x
@@ -215,12 +224,12 @@ const Selector = ({
         >
           {item}
         </List.Items>
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
     </Select.Frame>
   );
 };
 
-const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const { selected, select, staticViews, resourceType } = useContext("View.Selector");
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
@@ -246,25 +255,16 @@ const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null 
   const canRename = filteredViews.length === 1;
   const canDelete = filteredViews.length > 0;
   return (
-    <PMenu.Menu level="small" gap="small">
+    <CMenu.Menu>
       {canRename && (
-        <PMenu.Item itemKey="rename" onClick={() => Text.edit(filteredViews[0].key)}>
-          <Icon.Rename />
-          Rename
-        </PMenu.Item>
+        <CMenu.RenameItem onClick={() => Text.edit(filteredViews[0].key)} />
       )}
       {canDelete && (
-        <PMenu.Item
-          itemKey="delete"
-          onClick={() => del(filteredViews.map(({ key }) => key))}
-        >
-          <Icon.Delete />
-          Delete
-        </PMenu.Item>
+        <CMenu.DeleteItem onClick={() => del(filteredViews.map(({ key }) => key))} />
       )}
-      {(canRename || canDelete) && <PMenu.Divider />}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      {(canRename || canDelete) && <Menu.Divider />}
+      <CMenu.ReloadConsoleItem />
+    </CMenu.Menu>
   );
 };
 

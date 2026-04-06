@@ -17,7 +17,6 @@ import {
   Flex,
   Haul,
   Icon,
-  Menu as PMenu,
   Schematic as Base,
   User,
   useSyncedRef,
@@ -74,9 +73,9 @@ const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElemen
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" gap="small">
+  <CContextMenu.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
+  </CContextMenu.Menu>
 );
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
@@ -89,11 +88,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { data: doc } = Base.useRetrieve({ key: layoutKey });
   const dispatch = useDispatch();
 
-  const hasEditPermission =
+  const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
     !(doc?.snapshot ?? false);
   const editableState = useSelectEditable(layoutKey);
-  const editable = hasEditPermission && editableState;
+  const editable = hasUpdatePermission && editableState;
   const fitViewOnResize = useSelectFitViewOnResize(layoutKey);
   const selected = useSelectSelected(layoutKey);
   const control = useSelectControlStatus(layoutKey);
@@ -222,7 +221,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             <Diagram.Controls.SelectViewportMode />
             <Diagram.Controls.FitView />
             <Flex.Box x pack>
-              {hasEditPermission && (
+              {hasUpdatePermission && (
                 <Diagram.Controls.ToggleEdit disabled={control === "acquired"} />
               )}
               {!(doc?.snapshot ?? false) && <ControlToggleButton control={control} />}
@@ -247,12 +246,12 @@ export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -264,7 +263,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export interface CreateArg extends Partial<Layout.BaseState> {
   key?: string;

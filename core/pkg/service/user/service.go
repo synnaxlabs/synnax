@@ -19,10 +19,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -43,6 +46,12 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Auth is used to register credentials for the root user during provisioning.
+	// [OPTIONAL] - If nil, root user provisioning is skipped.
+	Auth auth.Authenticator
+	// RootCredentials are the credentials for the root user.
+	// [OPTIONAL] - Only used when Auth is provided.
+	RootCredentials auth.InsecureCredentials
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -60,6 +69,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -89,8 +100,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
 		DB:              cfg.DB,
-		Codec:           UserCodec,
-		Migrations:      UserMigrations(),
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, User]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -111,7 +121,33 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 			return nil, err
 		}
 	}
+	if cfg.Auth != nil {
+		if err = s.provisionRoot(ctx, cfg); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
+}
+
+func (s *Service) provisionRoot(ctx context.Context, cfg ServiceConfig) error {
+	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var rootUser User
+		if err := s.NewRetrieve().
+			WhereUsernames(cfg.RootCredentials.Username).
+			Entry(&rootUser).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if rootUser.Key != uuid.Nil {
+			return nil
+		}
+		rootUser.Username = cfg.RootCredentials.Username
+		rootUser.RootUser = true
+		if err := cfg.Auth.NewWriter(tx).Register(ctx, cfg.RootCredentials); err != nil {
+			return err
+		}
+		return s.NewWriter(tx).Create(ctx, &rootUser)
+	})
 }
 
 // NewWriter opens a new writer capable of creating, updating, and deleting Users. The

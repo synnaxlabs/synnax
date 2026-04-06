@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import { Access, Icon, Menu as PMenu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -55,37 +55,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = Table.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const canEdit = Access.useUpdateGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const firstID = ids[0];
   const first = getResource(firstID);
-  const onSelect = {
-    delete: handleDelete,
-    rename,
-    link: () => handleLink({ name: first.name, ontologyID: firstID }),
-    export: () => handleExport(first.id.key),
-    group: () => group(props),
-  };
   const isSingle = ids.length === 1;
   return (
-    <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {canEdit && (
+    <ContextMenu.Menu>
+      {hasUpdatePermission && (
         <>
-          <Menu.RenameItem />
-          <Menu.DeleteItem />
-          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={rename} />
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={() => group(props)}
+          />
         </>
       )}
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

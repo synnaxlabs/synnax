@@ -170,9 +170,6 @@ class ConfigClient:
                 case_path: str = test["case"]
                 if not seq_name_matches and not target_filter.matches_case(case_path):
                     continue
-                if seq_name_matches and target_filter.case_filter is not None:
-                    if not target_filter.matches_case(case_path):
-                        continue
 
                 test_def = TestDefinition(
                     case=case_path,
@@ -181,7 +178,19 @@ class ConfigClient:
                     matrix=test.get("matrix", None),
                 )
 
-                for class_def in self._expand_test_classes(test_def):
+                class_defs = self._expand_test_classes(test_def)
+                for class_def in class_defs:
+                    # -f matches against both the file path (e.g. "migration/channels")
+                    # and the class name (e.g. "ChannelsSetup"), so you can filter into
+                    # individual classes: `tc migration -f setup` matches *Setup classes.
+                    if target_filter.case_filter is not None:
+                        matches_case = target_filter.matches_case(case_path)
+                        matches_class = (
+                            class_def.name is not None
+                            and target_filter.matches_case(class_def.name)
+                        )
+                        if not matches_case and not matches_class:
+                            continue
                     expanded_tests.extend(self._expand_parameters(class_def))
 
             if not seq_name_matches and not expanded_tests:
@@ -287,10 +296,9 @@ class ConfigClient:
             return expanded_defs
 
         except Exception as e:
-            self._log(
-                f"Warning: Failed to expand test classes for {test_def.case}: {e}"
-            )
-            return [test_def]
+            raise ImportError(
+                f"Failed to expand test classes for {test_def.case}: {e}"
+            ) from e
 
     # ----- Dynamic class loading -----
 

@@ -15,7 +15,6 @@ import {
   Component,
   Diagram,
   Haul,
-  Menu as PMenu,
   Theming,
   useSyncedRef,
   Viewport,
@@ -49,7 +48,7 @@ import {
   setViewportMode,
   type State,
 } from "@/arc/slice";
-import { Controls as BaseControls } from "@/components";
+import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -99,9 +98,9 @@ const ArcDiagram = Base.create({
 });
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" gap="small">
+  <CMenu.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
+  </CMenu.Menu>
 );
 
 export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
@@ -121,8 +120,8 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
-  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
-  const canEdit = hasEditPermission && state.graph.editable;
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasUpdatePermission && state.graph.editable;
 
   const selected = useSelectSelected(layoutKey);
 
@@ -277,6 +276,9 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
           onViewportChange={handleViewportChange}
           edges={state.graph.edges}
           nodes={state.graph.nodes}
+          // Turns out that setting the zoom value to 1 here doesn't have any negative
+          // effects on the arc sizing and ensures that we position all the lines
+          // in the correct place.
           viewport={{ ...state.graph.viewport, zoom: 1 }}
           selected={selected}
           onSelectionChange={handleSelectionChange}
@@ -294,7 +296,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
           <Diagram.Background />
           <BaseControls x>
             <Diagram.Controls.FitView />
-            {hasEditPermission && <Diagram.Controls.ToggleEdit />}
+            {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
           </BaseControls>
         </ArcDiagram>
         <Controls state={state} />

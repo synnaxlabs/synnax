@@ -12,32 +12,27 @@
 package task
 
 import (
-	"context"
 	"encoding/json"
-	xencoding "github.com/synnaxlabs/x/encoding"
+
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/status"
-	"io"
-	"sync"
 )
 
-func EncodeTask(w *orc.Writer, s *Task) error {
-	w.Uint64(uint64(s.Key))
-	w.String(s.Name)
-	w.String(s.Type)
+func (t Task) EncodeOrc(w *orc.Writer) error {
+	w.Uint64(uint64(t.Key))
+	w.String(t.Name)
+	w.String(t.Type)
 	{
-		b, err := json.Marshal(s.Config)
+		b, err := json.Marshal(t.Config)
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
-	w.Bool(s.Internal)
-	w.Bool(s.Snapshot)
-	if s.Status != nil {
+	w.Bool(t.Internal)
+	w.Bool(t.Snapshot)
+	if t.Status != nil {
 		w.Bool(true)
-		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
+		if err := (*t.Status).EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -46,38 +41,34 @@ func EncodeTask(w *orc.Writer, s *Task) error {
 	return nil
 }
 
-func DecodeTask(r *orc.Reader, s *Task) error {
+func (t *Task) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
 		v, err := r.Uint64()
 		if err != nil {
 			return err
 		}
-		s.Key = Key(v)
+		t.Key = Key(v)
 	}
-	if s.Name, err = r.String(); err != nil {
+	if t.Name, err = r.String(); err != nil {
 		return err
 	}
-	if s.Type, err = r.String(); err != nil {
+	if t.Type, err = r.String(); err != nil {
 		return err
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
 			return err
 		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Config); err != nil {
+		if err = json.Unmarshal(b, &t.Config); err != nil {
 			return err
 		}
 	}
-	if s.Internal, err = r.Bool(); err != nil {
+	if t.Internal, err = r.Bool(); err != nil {
 		return err
 	}
-	if s.Snapshot, err = r.Bool(); err != nil {
+	if t.Snapshot, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -87,28 +78,27 @@ func DecodeTask(r *orc.Reader, s *Task) error {
 		}
 		if present {
 			var v Status
-			if err = status.DecodeStatus[StatusDetails](r, &v, DecodeStatusDetails); err != nil {
+			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Status = &v
+			t.Status = &v
 		}
 	}
 	return nil
 }
 
-func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
-	w.Uint64(uint64(s.Task))
-	w.Bool(s.Running)
-	w.String(s.Cmd)
-	if s.Data != nil {
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Uint64(uint64(sd.Task))
+	w.Bool(sd.Running)
+	w.String(sd.Cmd)
+	if sd.Data != nil {
 		w.Bool(true)
 		{
-			b, err := json.Marshal(s.Data)
+			b, err := json.Marshal(sd.Data)
 			if err != nil {
 				return err
 			}
-			w.Uint32(uint32(len(b)))
-			w.Write(b)
+			w.WriteWithLen(b)
 		}
 	} else {
 		w.Bool(false)
@@ -116,19 +106,19 @@ func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
 	return nil
 }
 
-func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
 		v, err := r.Uint64()
 		if err != nil {
 			return err
 		}
-		s.Task = Key(v)
+		sd.Task = Key(v)
 	}
-	if s.Running, err = r.Bool(); err != nil {
+	if sd.Running, err = r.Bool(); err != nil {
 		return err
 	}
-	if s.Cmd, err = r.String(); err != nil {
+	if sd.Cmd, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -138,62 +128,15 @@ func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
 		}
 		if present {
 			{
-				n, err := r.CollectionLen()
+				b, err := r.ReadWithLen()
 				if err != nil {
 					return err
 				}
-				b := make([]byte, n)
-				if _, err = r.Read(b); err != nil {
-					return err
-				}
-				if err = json.Unmarshal(b, &s.Data); err != nil {
+				if err = json.Unmarshal(b, &sd.Data); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type taskCodec struct{}
-
-var TaskCodec xencoding.Codec = taskCodec{}
-
-func (taskCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Task)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeTask(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c taskCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (taskCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Task)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeTask(r, s)
-}
-
-func (c taskCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

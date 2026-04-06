@@ -7,12 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type ontology, workspace } from "@synnaxlabs/client";
 import {
+  DisconnectedError,
+  lineplot,
+  log,
+  type ontology,
+  schematic,
+  table,
+  workspace,
+} from "@synnaxlabs/client";
+import {
+  Access,
   Icon,
   LinePlot as PLinePlot,
   Log as PLog,
-  Menu as PMenu,
+  Menu,
   Schematic as PSchematic,
   Synnax,
   Table as PTable,
@@ -23,7 +32,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Import } from "@/import";
@@ -200,62 +209,79 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
-  const handleSelect = {
-    delete: handleDelete,
-    rename: handleRename,
-    group: () => group(props),
-    createLog,
-    createPlot,
-    createTable,
-    createSchematic,
-    import: () => importComponent(firstID.key),
-    export: () => handleExport(first.id.key),
-    link: () => handleLink({ name: first.name, ontologyID: first.id }),
-  };
   const singleResource = resources.length === 1;
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const hasLinePlotCreatePermission = Access.useCreateGranted(
+    lineplot.TYPE_ONTOLOGY_ID,
+  );
+  const hasLogCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
+  const hasTableCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
+  const hasSchematicCreatePermission = Access.useCreateGranted(
+    schematic.TYPE_ONTOLOGY_ID,
+  );
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" background={1} gap="small">
-      {singleResource && (
+    <ContextMenu.Menu>
+      {hasUpdatePermission && singleResource && (
         <>
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={handleRename} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      <PMenu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => group(props)}
+        />
+      )}
+      {hasUpdatePermission || (hasDeletePermission && <Menu.Divider />)}
       {singleResource && (
         <>
-          <PMenu.Item itemKey="createPlot">
-            <PLinePlot.CreateIcon />
-            Create line plot
-          </PMenu.Item>
-          <PMenu.Item itemKey="createLog">
-            <PLog.CreateIcon />
-            Create log
-          </PMenu.Item>
-          <PMenu.Item itemKey="createTable">
-            <PTable.CreateIcon />
-            Create table
-          </PMenu.Item>
-          <PMenu.Item itemKey="createSchematic">
-            <PSchematic.CreateIcon />
-            Create schematic
-          </PMenu.Item>
-          <PMenu.Divider />
-          <PMenu.Item itemKey="import">
-            <Icon.Import />
-            Import component(s)
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          {hasLinePlotCreatePermission && (
+            <Menu.Item itemKey="createPlot" onClick={createPlot}>
+              <PLinePlot.CreateIcon />
+              Create line plot
+            </Menu.Item>
+          )}
+          {hasLogCreatePermission && (
+            <Menu.Item itemKey="createLog" onClick={createLog}>
+              <PLog.CreateIcon />
+              Create log
+            </Menu.Item>
+          )}
+          {hasTableCreatePermission && (
+            <Menu.Item itemKey="createTable" onClick={createTable}>
+              <PTable.CreateIcon />
+              Create table
+            </Menu.Item>
+          )}
+          {hasSchematicCreatePermission && (
+            <Menu.Item itemKey="createSchematic" onClick={createSchematic}>
+              <PSchematic.CreateIcon />
+              Create schematic
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {hasUpdatePermission && (
+            <Menu.Item itemKey="import" onClick={() => importComponent(firstID.key)}>
+              <Icon.Import />
+              Import component(s)
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

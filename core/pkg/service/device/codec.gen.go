@@ -12,44 +12,39 @@
 package device
 
 import (
-	"context"
 	"encoding/json"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/status"
-	"io"
-	"sync"
 )
 
-func EncodeDevice(w *orc.Writer, s *Device) error {
-	w.String(s.Key)
-	w.Uint32(uint32(s.Rack))
-	w.String(s.Location)
-	w.String(s.Make)
-	w.String(s.Model)
-	w.String(s.Name)
-	w.Bool(s.Configured)
+func (d Device) EncodeOrc(w *orc.Writer) error {
+	w.String(d.Key)
+	w.Uint32(uint32(d.Rack))
+	w.String(d.Location)
+	w.String(d.Make)
+	w.String(d.Model)
+	w.String(d.Name)
+	w.Bool(d.Configured)
 	{
-		b, err := json.Marshal(s.Properties)
+		b, err := json.Marshal(d.Properties)
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
-	if s.Status != nil {
+	if d.Status != nil {
 		w.Bool(true)
-		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
+		if err := (*d.Status).EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Parent != nil {
+	if d.Parent != nil {
 		w.Bool(true)
-		if err := ontology.EncodeID(w, &(*s.Parent)); err != nil {
+		if err := (*d.Parent).EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -58,9 +53,9 @@ func EncodeDevice(w *orc.Writer, s *Device) error {
 	return nil
 }
 
-func DecodeDevice(r *orc.Reader, s *Device) error {
+func (d *Device) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.Key, err = r.String(); err != nil {
+	if d.Key, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -68,33 +63,29 @@ func DecodeDevice(r *orc.Reader, s *Device) error {
 		if err != nil {
 			return err
 		}
-		s.Rack = rack.Key(v)
+		d.Rack = rack.Key(v)
 	}
-	if s.Location, err = r.String(); err != nil {
+	if d.Location, err = r.String(); err != nil {
 		return err
 	}
-	if s.Make, err = r.String(); err != nil {
+	if d.Make, err = r.String(); err != nil {
 		return err
 	}
-	if s.Model, err = r.String(); err != nil {
+	if d.Model, err = r.String(); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if d.Name, err = r.String(); err != nil {
 		return err
 	}
-	if s.Configured, err = r.Bool(); err != nil {
+	if d.Configured, err = r.Bool(); err != nil {
 		return err
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
 			return err
 		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Properties); err != nil {
+		if err = json.Unmarshal(b, &d.Properties); err != nil {
 			return err
 		}
 	}
@@ -105,10 +96,10 @@ func DecodeDevice(r *orc.Reader, s *Device) error {
 		}
 		if present {
 			var v Status
-			if err = status.DecodeStatus[StatusDetails](r, &v, DecodeStatusDetails); err != nil {
+			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Status = &v
+			d.Status = &v
 		}
 	}
 	{
@@ -118,75 +109,32 @@ func DecodeDevice(r *orc.Reader, s *Device) error {
 		}
 		if present {
 			var v ontology.ID
-			if err = ontology.DecodeID(r, &v); err != nil {
+			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Parent = &v
+			d.Parent = &v
 		}
 	}
 	return nil
 }
 
-func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
-	w.Uint32(uint32(s.Rack))
-	w.String(s.Device)
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(sd.Rack))
+	w.String(sd.Device)
 	return nil
 }
 
-func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
 		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		s.Rack = rack.Key(v)
+		sd.Rack = rack.Key(v)
 	}
-	if s.Device, err = r.String(); err != nil {
+	if sd.Device, err = r.String(); err != nil {
 		return err
 	}
 	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type deviceCodec struct{}
-
-var DeviceCodec xencoding.Codec = deviceCodec{}
-
-func (deviceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Device)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeDevice(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c deviceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (deviceCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Device)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeDevice(r, s)
-}
-
-func (c deviceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

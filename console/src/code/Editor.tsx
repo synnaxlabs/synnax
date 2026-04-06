@@ -13,14 +13,14 @@ import {
   Flex,
   Icon,
   type Input,
-  Menu as PMenu,
+  Menu,
   Theming,
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 
 const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
@@ -100,7 +100,7 @@ interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
-  openContextMenu?: PMenu.ContextMenuProps["open"];
+  openContextMenu?: Menu.ContextMenuProps["open"];
 }
 
 const useTheme = (language: string) => {
@@ -218,7 +218,7 @@ export const Editor = ({
   scrollBeyondLastLine,
   ...rest
 }: EditorProps) => {
-  const { className: menuClassName, ...menuProps } = PMenu.useContextMenu();
+  const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
   const { containerRef, editorRef } = use({
     value,
     onChange,
@@ -228,13 +228,16 @@ export const Editor = ({
     openContextMenu: menuProps.open,
   });
 
-  const handleMenuSelect = useCallback((key: string) => {
-    const editor = editorRef.current;
-    if (editor == null) return;
-    editor.focus();
-    const action = MENU_EDITOR_ACTIONS[key];
-    editor.trigger("contextMenu", action, null);
-  }, []);
+  const createMenuAction = useCallback(
+    (key: string) => () => {
+      const editor = editorRef.current;
+      if (editor == null) return;
+      editor.focus();
+      const action = MENU_EDITOR_ACTIONS[key];
+      editor.trigger("contextMenu", action, null);
+    },
+    [],
+  );
 
   const menuContent = useCallback(() => {
     const editor = editorRef.current;
@@ -251,59 +254,68 @@ export const Editor = ({
     const canRename = wordAtCursor != null;
 
     return (
-      <PMenu.Menu level="small" onChange={handleMenuSelect}>
-        <PMenu.Item
+      <ContextMenu.Menu>
+        <Menu.Item
           itemKey="cut"
           trigger={CUT_TRIGGER}
           triggerIndicator
           disabled={!hasSelection}
+          onClick={createMenuAction("cut")}
         >
           <Icon.Cut />
           Cut
-        </PMenu.Item>
-        <PMenu.Item
+        </Menu.Item>
+        <Menu.Item
           itemKey="copy"
           trigger={COPY_TRIGGER}
           triggerIndicator
           disabled={!hasSelection}
+          onClick={createMenuAction("copy")}
         >
           <Icon.Copy />
           Copy
-        </PMenu.Item>
-        <PMenu.Item itemKey="paste" trigger={PASTE_TRIGGER} triggerIndicator>
+        </Menu.Item>
+        <Menu.Item
+          itemKey="paste"
+          trigger={PASTE_TRIGGER}
+          triggerIndicator
+          onClick={createMenuAction("paste")}
+        >
           <Icon.Paste />
           Paste
-        </PMenu.Item>
-        <PMenu.Divider />
-        <PMenu.Item
-          itemKey="rename"
+        </Menu.Item>
+        <Menu.Divider />
+        <ContextMenu.RenameItem
           trigger={RENAME_TRIGGER}
           triggerIndicator
           disabled={!canRename}
+          onClick={createMenuAction("rename")}
+        />
+        <Menu.Divider />
+        <Menu.Item
+          itemKey="format"
+          trigger={FORMAT_TRIGGER}
+          triggerIndicator
+          onClick={createMenuAction("format")}
         >
-          <Icon.Rename />
-          Rename
-        </PMenu.Item>
-        <PMenu.Divider />
-        <PMenu.Item itemKey="format" trigger={FORMAT_TRIGGER} triggerIndicator>
           <Icon.TextAlign.Left />
           Format
-        </PMenu.Item>
-        <PMenu.Divider />
-        <Menu.ReloadConsoleItem />
-      </PMenu.Menu>
+        </Menu.Item>
+        <Menu.Divider />
+        <ContextMenu.ReloadConsoleItem />
+      </ContextMenu.Menu>
     );
-  }, [handleMenuSelect]);
+  }, [createMenuAction]);
 
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
-      <PMenu.ContextMenu
+      <Menu.ContextMenu
         className={CSS(CSS.BE("editor", "context-menu"), className)}
         menu={menuContent}
         {...menuProps}
       >
         <Flex.Box ref={containerRef} full role="textbox" />
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
     </Flex.Box>
   );
 };

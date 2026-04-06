@@ -23,6 +23,7 @@ import {
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
@@ -149,10 +150,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
   return (
     <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
+      <ContextMenu.RenameItem onClick={handleRename} />
       <Menu.Divider />
     </>
   );

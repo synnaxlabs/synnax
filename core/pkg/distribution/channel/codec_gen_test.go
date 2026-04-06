@@ -13,13 +13,11 @@ package channel_test
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -32,11 +30,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original channel.Channel) {
 				w := orc.NewWriter(0)
-				Expect(channel.EncodeChannel(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded channel.Channel
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(channel.DecodeChannel(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", channel.Channel{
@@ -50,7 +48,7 @@ var _ = Describe("Codec", func() {
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
-					channel.Operation{
+					{
 						Type:         channel.OperationType("min"),
 						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
@@ -90,11 +88,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original channel.Operation) {
 				w := orc.NewWriter(0)
-				Expect(channel.EncodeOperation(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded channel.Operation
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(channel.DecodeOperation(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", channel.Operation{
@@ -109,66 +107,10 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("ChannelCodec", func() {
-		DescribeTable("should round-trip through the Codec interface",
-			func(original channel.Channel) {
-				ctx := context.Background()
-				data := MustSucceed(channel.ChannelCodec.Encode(ctx, original))
-				var decoded channel.Channel
-				Expect(channel.ChannelCodec.Decode(ctx, data, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", channel.Channel{
-				Name:        "test_1",
-				Leaseholder: cluster.NodeKey(3),
-				DataType:    telem.DataType("test_3"),
-				IsIndex:     false,
-				LocalKey:    channel.LocalKey(6),
-				LocalIndex:  channel.LocalKey(7),
-				Virtual:     true,
-				Concurrency: control.Concurrency(0),
-				Internal:    true,
-				Operations: []channel.Operation{
-					channel.Operation{
-						Type:         channel.OperationType("min"),
-						ResetChannel: channel.Key(13),
-						Duration:     telem.TimeSpan(14),
-					},
-				},
-				Expression: "test_14",
-			}),
-			Entry("zero values", channel.Channel{
-				Name:        "",
-				Leaseholder: cluster.NodeKey(0),
-				DataType:    telem.DataType(""),
-				IsIndex:     false,
-				LocalKey:    channel.LocalKey(0),
-				LocalIndex:  channel.LocalKey(0),
-				Virtual:     false,
-				Concurrency: control.Concurrency(0),
-				Internal:    false,
-				Operations:  nil,
-				Expression:  "",
-			}),
-			Entry("empty collections", channel.Channel{
-				Name:        "test_1",
-				Leaseholder: cluster.NodeKey(3),
-				DataType:    telem.DataType("test_3"),
-				IsIndex:     false,
-				LocalKey:    channel.LocalKey(6),
-				LocalIndex:  channel.LocalKey(7),
-				Virtual:     true,
-				Concurrency: control.Concurrency(0),
-				Internal:    true,
-				Operations:  []channel.Operation{},
-				Expression:  "test_11",
-			}),
-		)
-	})
 })
 
 func BenchmarkEncodeDecodeChannel(b *testing.B) {
-	s := channel.Channel{
+	c := channel.Channel{
 		Name:        "test_1",
 		Leaseholder: cluster.NodeKey(3),
 		DataType:    telem.DataType("test_3"),
@@ -179,7 +121,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Concurrency: control.Concurrency(0),
 		Internal:    true,
 		Operations: []channel.Operation{
-			channel.Operation{
+			{
 				Type:         channel.OperationType("min"),
 				ResetChannel: channel.Key(13),
 				Duration:     telem.TimeSpan(14),
@@ -191,19 +133,19 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := channel.EncodeChannel(w, &s); err != nil {
+		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Channel
 		r.ResetBytes(w.Bytes())
-		if err := channel.DecodeChannel(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeOperation(b *testing.B) {
-	s := channel.Operation{
+	o := channel.Operation{
 		Type:         channel.OperationType("min"),
 		ResetChannel: channel.Key(3),
 		Duration:     telem.TimeSpan(4),
@@ -212,12 +154,12 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := channel.EncodeOperation(w, &s); err != nil {
+		if err := o.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded channel.Operation
 		r.ResetBytes(w.Bytes())
-		if err := channel.DecodeOperation(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -236,7 +178,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Concurrency: control.Concurrency(0),
 			Internal:    true,
 			Operations: []channel.Operation{
-				channel.Operation{
+				{
 					Type:         channel.OperationType("min"),
 					ResetChannel: channel.Key(13),
 					Duration:     telem.TimeSpan(14),
@@ -245,7 +187,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Expression: "test_14",
 		}
 		w := orc.NewWriter(0)
-		if err := channel.EncodeChannel(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -265,7 +207,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Expression:  "",
 		}
 		w := orc.NewWriter(0)
-		if err := channel.EncodeChannel(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -285,7 +227,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Expression:  "test_11",
 		}
 		w := orc.NewWriter(0)
-		if err := channel.EncodeChannel(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -294,20 +236,20 @@ func FuzzDecodeChannel(f *testing.F) {
 		var decoded channel.Channel
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := channel.DecodeChannel(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := channel.EncodeChannel(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded channel.Channel
 		r.ResetBytes(w1.Bytes())
-		if err := channel.DecodeChannel(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := channel.EncodeChannel(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -324,7 +266,7 @@ func FuzzDecodeOperation(f *testing.F) {
 			Duration:     telem.TimeSpan(4),
 		}
 		w := orc.NewWriter(0)
-		if err := channel.EncodeOperation(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -336,7 +278,7 @@ func FuzzDecodeOperation(f *testing.F) {
 			Duration:     telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
-		if err := channel.EncodeOperation(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -345,20 +287,20 @@ func FuzzDecodeOperation(f *testing.F) {
 		var decoded channel.Operation
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := channel.DecodeOperation(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := channel.EncodeOperation(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded channel.Operation
 		r.ResetBytes(w1.Bytes())
-		if err := channel.DecodeOperation(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := channel.EncodeOperation(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -83,21 +84,21 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
-	resourceTable, err := gorp.OpenTable[string, Resource](ctx, gorp.TableConfig[Resource]{
-		DB:    cfg.DB,
-		Codec: ResourceCodec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[string, Resource]("msgpack_to_binary", ResourceCodec),
+	resourceTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Resource]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[string, Resource]("msgpack_to_orc"),
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, gorp.TableConfig[Relationship]{
-		DB:    cfg.DB,
-		Codec: RelationshipCodec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_binary", RelationshipCodec),
+	relationshipTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[[]byte, Relationship]("msgpack_to_orc"),
 		},
 	})
 	if err != nil {

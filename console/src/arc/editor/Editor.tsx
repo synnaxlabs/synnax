@@ -80,7 +80,7 @@ export const Selectable: Selector.Selectable = ({
   onPlace,
   handleError,
 }) => {
-  const visible = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const createArcModal = useCreateModal();
 
   const handleClick = useCallback(() => {
@@ -91,11 +91,11 @@ export const Selectable: Selector.Selectable = ({
     }, "Failed to create Arc program");
   }, [onPlace, layoutKey, createArcModal, handleError]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item title="Arc Automation" icon={<Icon.Arc />} onClick={handleClick} />
   );
 };
 Selectable.type = TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);

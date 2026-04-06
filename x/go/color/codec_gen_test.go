@@ -27,11 +27,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original color.Color) {
 				w := orc.NewWriter(0)
-				Expect(color.EncodeColor(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded color.Color
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(color.DecodeColor(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", color.Color{
@@ -51,7 +51,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeColor(b *testing.B) {
-	s := color.Color{
+	c := color.Color{
 		R: 2,
 		G: 3,
 		B: 4,
@@ -61,12 +61,12 @@ func BenchmarkEncodeDecodeColor(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := color.EncodeColor(w, &s); err != nil {
+		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded color.Color
 		r.ResetBytes(w.Bytes())
-		if err := color.DecodeColor(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -81,7 +81,7 @@ func FuzzDecodeColor(f *testing.F) {
 			A: 4.5,
 		}
 		w := orc.NewWriter(0)
-		if err := color.EncodeColor(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -94,7 +94,7 @@ func FuzzDecodeColor(f *testing.F) {
 			A: 0,
 		}
 		w := orc.NewWriter(0)
-		if err := color.EncodeColor(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -103,20 +103,20 @@ func FuzzDecodeColor(f *testing.F) {
 		var decoded color.Color
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := color.DecodeColor(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := color.EncodeColor(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded color.Color
 		r.ResetBytes(w1.Bytes())
-		if err := color.DecodeColor(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := color.EncodeColor(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

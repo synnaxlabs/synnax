@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("update", func() {
@@ -28,19 +27,19 @@ var _ = Describe("update", func() {
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
-		Expect(gorp.NewCreate[int32, entry](nil).Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	It("Should correctly update set of entries", func(ctx SpecContext) {
-		Expect(gorp.NewUpdate[int32, entry](nil).
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
 			}).Exec(ctx, tx)).To(Succeed())
 		var res entry
-		Expect(gorp.NewRetrieve[int32, entry](nil).
+		Expect(gorp.NewRetrieve[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
@@ -48,23 +47,23 @@ var _ = Describe("update", func() {
 	})
 
 	It("Should return an error if no change function was specified", func(ctx SpecContext) {
-		Expect(gorp.NewUpdate[int32, entry](nil).
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
-			Exec(ctx, tx)).To(HaveOccurredAs(query.ErrInvalidParameters))
+			Exec(ctx, tx)).To(MatchError(query.ErrInvalidParameters))
 	})
 
 	It("Should return an error if the the key cannot be found", func(ctx SpecContext) {
-		Expect(gorp.NewUpdate[int32, entry](nil).
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(999).
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
-			}).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+			}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should pass the correct transaction into the gorp.Context in the where function", func(ctx SpecContext) {
 		count := 0
-		Expect(gorp.NewUpdate[int32, entry](nil).
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Change(func(gCtx gorp.Context, e entry) entry {
 				e.Data = "new data"

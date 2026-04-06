@@ -12,26 +12,32 @@
 package status
 
 import (
+	"encoding/json"
+
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
-func EncodeStatus[Details any](w *orc.Writer, s *Status[Details], encodeDetails func(*orc.Writer, *Details) error) error {
+func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Key)
 	w.String(s.Name)
 	w.String(string(s.Variant))
 	w.String(s.Message)
 	w.String(s.Description)
 	w.Int64(int64(s.Time))
-	if err := encodeDetails(w, &s.Details); err != nil {
-		return err
+	{
+		b, err := json.Marshal(s.Details)
+		if err != nil {
+			return err
+		}
+		w.WriteWithLen(b)
 	}
 	if s.Labels != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(s.Labels)))
 		for j := range s.Labels {
-			if err := label.EncodeLabel(w, &s.Labels[j]); err != nil {
+			if err := s.Labels[j].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -41,7 +47,7 @@ func EncodeStatus[Details any](w *orc.Writer, s *Status[Details], encodeDetails 
 	return nil
 }
 
-func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails func(*orc.Reader, *Details) error) error {
+func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
@@ -69,8 +75,14 @@ func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails 
 		}
 		s.Time = telem.TimeStamp(v)
 	}
-	if err = decodeDetails(r, &s.Details); err != nil {
-		return err
+	{
+		b, err := r.ReadWithLen()
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &s.Details); err != nil {
+			return err
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -84,7 +96,7 @@ func DecodeStatus[Details any](r *orc.Reader, s *Status[Details], decodeDetails 
 			}
 			s.Labels = make([]label.Label, n)
 			for j := range s.Labels {
-				if err = label.DecodeLabel(r, &s.Labels[j]); err != nil {
+				if err = s.Labels[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}

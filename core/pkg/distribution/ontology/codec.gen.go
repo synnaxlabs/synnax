@@ -12,28 +12,38 @@
 package ontology
 
 import (
-	"context"
-	"encoding/json"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"io"
-	"sync"
 )
 
-func EncodeRelationship(w *orc.Writer, s *Relationship) error {
-	if err := EncodeID(w, &s.From); err != nil {
-		return err
-	}
-	w.String(string(s.Type))
-	if err := EncodeID(w, &s.To); err != nil {
+func (rv Resource) EncodeOrc(w *orc.Writer) error {
+	if err := rv.ID.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
 }
 
-func DecodeRelationship(r *orc.Reader, s *Relationship) error {
+func (rv *Resource) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if err = DecodeID(r, &s.From); err != nil {
+	if err = rv.ID.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rv Relationship) EncodeOrc(w *orc.Writer) error {
+	if err := rv.From.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(rv.Type))
+	if err := rv.To.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = rv.From.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -41,154 +51,31 @@ func DecodeRelationship(r *orc.Reader, s *Relationship) error {
 		if err != nil {
 			return err
 		}
-		s.Type = RelationshipType(v)
+		rv.Type = RelationshipType(v)
 	}
-	if err = DecodeID(r, &s.To); err != nil {
+	if err = rv.To.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
 }
 
-func EncodeID(w *orc.Writer, s *ID) error {
-	w.String(string(s.Type))
-	w.String(s.Key)
+func (id ID) EncodeOrc(w *orc.Writer) error {
+	w.String(string(id.Type))
+	w.String(id.Key)
 	return nil
 }
 
-func DecodeID(r *orc.Reader, s *ID) error {
+func (id *ID) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		s.Type = ResourceType(v)
+		id.Type = ResourceType(v)
 	}
-	if s.Key, err = r.String(); err != nil {
+	if id.Key, err = r.String(); err != nil {
 		return err
 	}
 	return nil
-}
-
-func EncodeResource(w *orc.Writer, s *Resource) error {
-	if err := EncodeID(w, &s.ID); err != nil {
-		return err
-	}
-	w.String(s.Name)
-	{
-		b, err := json.Marshal(s.Data)
-		if err != nil {
-			return err
-		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
-	}
-	return nil
-}
-
-func DecodeResource(r *orc.Reader, s *Resource) error {
-	var err error
-	if err = DecodeID(r, &s.ID); err != nil {
-		return err
-	}
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	{
-		n, err := r.CollectionLen()
-		if err != nil {
-			return err
-		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Data); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type relationshipCodec struct{}
-
-var RelationshipCodec xencoding.Codec = relationshipCodec{}
-
-func (relationshipCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Relationship)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeRelationship(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c relationshipCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (relationshipCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Relationship)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeRelationship(r, s)
-}
-
-func (c relationshipCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
-}
-
-type resourceCodec struct{}
-
-var ResourceCodec xencoding.Codec = resourceCodec{}
-
-func (resourceCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Resource)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeResource(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
-}
-
-func (c resourceCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (resourceCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Resource)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeResource(r, s)
-}
-
-func (c resourceCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
 }

@@ -133,6 +133,7 @@ export type ToggleProps<T> = T &
     label?: LabelExtensionProps;
     control?: ControlStateProps;
     orientation?: location.Outer;
+    onClickDelay?: number | TimeSpan;
   };
 
 export const createToggle = <P extends object = object>(
@@ -148,7 +149,7 @@ export const createToggle = <P extends object = object>(
     position: _,
     data,
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
-    const { control, source, sink, label, orientation = "left", ...rest } = data;
+    const { control, source, sink, label, orientation = "left", onClickDelay, ...rest } = data;
     const { enabled, toggle } = Toggle.use({
       aetherKey: symbolKey,
       source,
@@ -186,6 +187,7 @@ export const createToggle = <P extends object = object>(
         <BaseSymbol
           enabled={enabled}
           onClick={toggle}
+          onClickDelay={onClickDelay}
           orientation={orientation}
           {...rest}
         />

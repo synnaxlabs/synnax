@@ -13,14 +13,12 @@ package user_test
 
 import (
 	"bytes"
-	"context"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
@@ -30,36 +28,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original user.User) {
 				w := orc.NewWriter(0)
-				Expect(user.EncodeUser(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded user.User
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(user.DecodeUser(r, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", user.User{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Username:  "test_2",
-				FirstName: "test_3",
-				LastName:  "test_4",
-				RootUser:  true,
-			}),
-			Entry("zero values", user.User{
-				Key:       uuid.Nil,
-				Username:  "",
-				FirstName: "",
-				LastName:  "",
-				RootUser:  false,
-			}),
-		)
-	})
-	Describe("UserCodec", func() {
-		DescribeTable("should round-trip through the Codec interface",
-			func(original user.User) {
-				ctx := context.Background()
-				data := MustSucceed(user.UserCodec.Encode(ctx, original))
-				var decoded user.User
-				Expect(user.UserCodec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", user.User{
@@ -81,7 +54,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeUser(b *testing.B) {
-	s := user.User{
+	u := user.User{
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Username:  "test_2",
 		FirstName: "test_3",
@@ -92,12 +65,12 @@ func BenchmarkEncodeDecodeUser(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := user.EncodeUser(w, &s); err != nil {
+		if err := u.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded user.User
 		r.ResetBytes(w.Bytes())
-		if err := user.DecodeUser(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -113,7 +86,7 @@ func FuzzDecodeUser(f *testing.F) {
 			RootUser:  true,
 		}
 		w := orc.NewWriter(0)
-		if err := user.EncodeUser(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -127,7 +100,7 @@ func FuzzDecodeUser(f *testing.F) {
 			RootUser:  false,
 		}
 		w := orc.NewWriter(0)
-		if err := user.EncodeUser(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -136,20 +109,20 @@ func FuzzDecodeUser(f *testing.F) {
 		var decoded user.User
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := user.DecodeUser(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := user.EncodeUser(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded user.User
 		r.ResetBytes(w1.Bytes())
-		if err := user.DecodeUser(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := user.EncodeUser(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

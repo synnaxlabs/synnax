@@ -46,6 +46,8 @@ ResourceType enum {
 RelationshipType string {
     @go omit
     @ts omit
+    @cpp omit
+    @py omit
 }
 
 ID struct {
@@ -83,10 +85,12 @@ Resource struct {
         @doc value "is the unique identifier for this resource."
     }
     name string  {
-        @doc value "is a human-readable name for the resource."
+        @doc value  "is a human-readable name for the resource."
+        @go marshal skip
     }
     data record? {
-        @doc value "is optional metadata associated with the resource."
+        @doc value  "is optional metadata associated with the resource."
+        @go marshal skip
     }
 
     @doc value  """

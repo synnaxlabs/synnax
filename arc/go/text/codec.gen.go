@@ -15,14 +15,14 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeText(w *orc.Writer, s *Text) error {
-	w.String(s.Raw)
+func (t Text) EncodeOrc(w *orc.Writer) error {
+	w.String(t.Raw)
 	return nil
 }
 
-func DecodeText(r *orc.Reader, s *Text) error {
+func (t *Text) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.Raw, err = r.String(); err != nil {
+	if t.Raw, err = r.String(); err != nil {
 		return err
 	}
 	return nil

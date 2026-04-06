@@ -13,38 +13,38 @@ package graph
 
 import (
 	"encoding/json"
+
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/spatial"
 )
 
-func EncodeGraph(w *orc.Writer, s *Graph) error {
-	if err := EncodeViewport(w, &s.Viewport); err != nil {
+func (g Graph) EncodeOrc(w *orc.Writer) error {
+	if err := g.Viewport.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(s.Functions != nil)
-	if s.Functions != nil {
-		w.Uint32(uint32(len(s.Functions)))
-		for i := range s.Functions {
-			if err := ir.EncodeFunction(w, &s.Functions[i]); err != nil {
+	w.Bool(g.Functions != nil)
+	if g.Functions != nil {
+		w.Uint32(uint32(len(g.Functions)))
+		for i := range g.Functions {
+			if err := g.Functions[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
-	w.Bool(s.Edges != nil)
-	if s.Edges != nil {
-		w.Uint32(uint32(len(s.Edges)))
-		for i := range s.Edges {
-			if err := ir.EncodeEdge(w, &s.Edges[i]); err != nil {
+	w.Bool(g.Edges != nil)
+	if g.Edges != nil {
+		w.Uint32(uint32(len(g.Edges)))
+		for i := range g.Edges {
+			if err := g.Edges[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
-	w.Bool(s.Nodes != nil)
-	if s.Nodes != nil {
-		w.Uint32(uint32(len(s.Nodes)))
-		for i := range s.Nodes {
-			if err := EncodeNode(w, &s.Nodes[i]); err != nil {
+	w.Bool(g.Nodes != nil)
+	if g.Nodes != nil {
+		w.Uint32(uint32(len(g.Nodes)))
+		for i := range g.Nodes {
+			if err := g.Nodes[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -52,9 +52,9 @@ func EncodeGraph(w *orc.Writer, s *Graph) error {
 	return nil
 }
 
-func DecodeGraph(r *orc.Reader, s *Graph) error {
+func (g *Graph) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if err = DecodeViewport(r, &s.Viewport); err != nil {
+	if err = g.Viewport.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -67,9 +67,9 @@ func DecodeGraph(r *orc.Reader, s *Graph) error {
 			if err != nil {
 				return err
 			}
-			s.Functions = make([]ir.Function, n)
-			for i := range s.Functions {
-				if err = ir.DecodeFunction(r, &s.Functions[i]); err != nil {
+			g.Functions = make([]ir.Function, n)
+			for i := range g.Functions {
+				if err = g.Functions[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -85,9 +85,9 @@ func DecodeGraph(r *orc.Reader, s *Graph) error {
 			if err != nil {
 				return err
 			}
-			s.Edges = make([]ir.Edge, n)
-			for i := range s.Edges {
-				if err = ir.DecodeEdge(r, &s.Edges[i]); err != nil {
+			g.Edges = make([]ir.Edge, n)
+			for i := range g.Edges {
+				if err = g.Edges[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -103,9 +103,9 @@ func DecodeGraph(r *orc.Reader, s *Graph) error {
 			if err != nil {
 				return err
 			}
-			s.Nodes = make([]Node, n)
-			for i := range s.Nodes {
-				if err = DecodeNode(r, &s.Nodes[i]); err != nil {
+			g.Nodes = make([]Node, n)
+			for i := range g.Nodes {
+				if err = g.Nodes[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -114,64 +114,59 @@ func DecodeGraph(r *orc.Reader, s *Graph) error {
 	return nil
 }
 
-func EncodeViewport(w *orc.Writer, s *Viewport) error {
-	if err := spatial.EncodeXY(w, &s.Position); err != nil {
+func (vv Viewport) EncodeOrc(w *orc.Writer) error {
+	if err := vv.Position.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Float64(float64(s.Zoom))
+	w.Float64(float64(vv.Zoom))
 	return nil
 }
 
-func DecodeViewport(r *orc.Reader, s *Viewport) error {
+func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if err = spatial.DecodeXY(r, &s.Position); err != nil {
+	if err = vv.Position.DecodeOrc(r); err != nil {
 		return err
 	}
-	if s.Zoom, err = r.Float64(); err != nil {
+	if vv.Zoom, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func EncodeNode(w *orc.Writer, s *Node) error {
-	w.String(s.Key)
-	w.String(s.Type)
+func (nv Node) EncodeOrc(w *orc.Writer) error {
+	w.String(nv.Key)
+	w.String(nv.Type)
 	{
-		b, err := json.Marshal(s.Config)
+		b, err := json.Marshal(nv.Config)
 		if err != nil {
 			return err
 		}
-		w.Uint32(uint32(len(b)))
-		w.Write(b)
+		w.WriteWithLen(b)
 	}
-	if err := spatial.EncodeXY(w, &s.Position); err != nil {
+	if err := nv.Position.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
 }
 
-func DecodeNode(r *orc.Reader, s *Node) error {
+func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.Key, err = r.String(); err != nil {
+	if nv.Key, err = r.String(); err != nil {
 		return err
 	}
-	if s.Type, err = r.String(); err != nil {
+	if nv.Type, err = r.String(); err != nil {
 		return err
 	}
 	{
-		n, err := r.CollectionLen()
+		b, err := r.ReadWithLen()
 		if err != nil {
 			return err
 		}
-		b := make([]byte, n)
-		if _, err = r.Read(b); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &s.Config); err != nil {
+		if err = json.Unmarshal(b, &nv.Config); err != nil {
 			return err
 		}
 	}
-	if err = spatial.DecodeXY(r, &s.Position); err != nil {
+	if err = nv.Position.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil

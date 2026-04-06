@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -26,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -99,8 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
 		DB:              cfg.DB,
-		Codec:           SchematicCodec,
-		Migrations:      SchematicMigrations(),
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Schematic]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -111,11 +109,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Search.RegisterService(s)
 
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Group:    cfg.Group,
-		Signals:  cfg.Signals,
-		Search:   cfg.Search,
+		Instrumentation: cfg.Child("symbol"),
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Group:           cfg.Group,
+		Signals:         cfg.Signals,
+		Search:          cfg.Search,
 	}); err != nil {
 		return nil, err
 	}

@@ -13,14 +13,12 @@ package arc_test
 
 import (
 	"bytes"
-	"context"
 	"github.com/google/uuid"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
@@ -41,11 +39,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original arc.Arc) {
 				w := orc.NewWriter(0)
-				Expect(arc.EncodeArc(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded arc.Arc
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(arc.DecodeArc(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", arc.Arc{
@@ -55,25 +53,25 @@ var _ = Describe("Codec", func() {
 				Graph: graph.Graph{
 					Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 					Functions: []ir.Function{
-						ir.Function{
+						{
 							Key:  "test_11",
 							Body: ir.Body{Raw: "test_13"},
 							Config: []types.Param{
-								types.Param{
+								{
 									Name:  "test_15",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_17": "value_17"},
 								},
 							},
 							Inputs: []types.Param{
-								types.Param{
+								{
 									Name:  "test_19",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_21": "value_21"},
 								},
 							},
 							Outputs: []types.Param{
-								types.Param{
+								{
 									Name:  "test_23",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_25": "value_25"},
@@ -86,14 +84,14 @@ var _ = Describe("Codec", func() {
 						},
 					},
 					Edges: []ir.Edge{
-						ir.Edge{
+						{
 							Source: ir.Handle{Node: "test_31", Param: "test_32"},
 							Target: ir.Handle{Node: "test_34", Param: "test_35"},
 							Kind:   ir.EdgeKind(0),
 						},
 					},
 					Nodes: []graph.Node{
-						graph.Node{
+						{
 							Key:      "test_38",
 							Type:     "test_39",
 							Config:   map[string]interface{}{"key_40": "value_40"},
@@ -106,25 +104,25 @@ var _ = Describe("Codec", func() {
 					v := program.Program{
 						IR: ir.IR{
 							Functions: []ir.Function{
-								ir.Function{
+								{
 									Key:  "test_48",
 									Body: ir.Body{Raw: "test_50"},
 									Config: []types.Param{
-										types.Param{
+										{
 											Name:  "test_52",
 											Type:  types.Type{},
 											Value: map[string]interface{}{"key_54": "value_54"},
 										},
 									},
 									Inputs: []types.Param{
-										types.Param{
+										{
 											Name:  "test_56",
 											Type:  types.Type{},
 											Value: map[string]interface{}{"key_58": "value_58"},
 										},
 									},
 									Outputs: []types.Param{
-										types.Param{
+										{
 											Name:  "test_60",
 											Type:  types.Type{},
 											Value: map[string]interface{}{"key_62": "value_62"},
@@ -137,25 +135,25 @@ var _ = Describe("Codec", func() {
 								},
 							},
 							Nodes: []ir.Node{
-								ir.Node{
+								{
 									Key:  "test_67",
 									Type: "test_68",
 									Config: []types.Param{
-										types.Param{
+										{
 											Name:  "test_70",
 											Type:  types.Type{},
 											Value: map[string]interface{}{"key_72": "value_72"},
 										},
 									},
 									Inputs: []types.Param{
-										types.Param{
+										{
 											Name:  "test_74",
 											Type:  types.Type{},
 											Value: map[string]interface{}{"key_76": "value_76"},
 										},
 									},
 									Outputs: []types.Param{
-										types.Param{
+										{
 											Name:  "test_78",
 											Type:  types.Type{},
 											Value: map[string]interface{}{"key_80": "value_80"},
@@ -168,21 +166,21 @@ var _ = Describe("Codec", func() {
 								},
 							},
 							Edges: []ir.Edge{
-								ir.Edge{
+								{
 									Source: ir.Handle{Node: "test_86", Param: "test_87"},
 									Target: ir.Handle{Node: "test_89", Param: "test_90"},
 									Kind:   ir.EdgeKind(0),
 								},
 							},
-							Strata: [][]string{[]string{"test_92"}},
+							Strata: [][]string{{"test_92"}},
 							Sequences: []ir.Sequence{
-								ir.Sequence{
+								{
 									Key: "test_94",
 									Stages: []ir.Stage{
-										ir.Stage{
+										{
 											Key:    "test_96",
 											Nodes:  []string{"test_97"},
-											Strata: [][]string{[]string{"test_98"}},
+											Strata: [][]string{{"test_98"}},
 										},
 									},
 								},
@@ -209,7 +207,7 @@ var _ = Describe("Codec", func() {
 						Time:        telem.TimeStamp(111),
 						Details:     arc.StatusDetails{Running: false},
 						Labels: []label.Label{
-							label.Label{
+							{
 								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
 								Name: "test_115",
 								Color: color.Color{
@@ -244,247 +242,46 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original arc.StatusDetails) {
 				w := orc.NewWriter(0)
-				Expect(arc.EncodeStatusDetails(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded arc.StatusDetails
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(arc.DecodeStatusDetails(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", arc.StatusDetails{Running: true}),
 			Entry("zero values", arc.StatusDetails{Running: false}),
 		)
 	})
-	Describe("ArcCodec", func() {
-		DescribeTable("should round-trip through the Codec interface",
-			func(original arc.Arc) {
-				ctx := context.Background()
-				data := MustSucceed(arc.ArcCodec.Encode(ctx, original))
-				var decoded arc.Arc
-				Expect(arc.ArcCodec.Decode(ctx, data, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", arc.Arc{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-				Mode: arc.Mode("text"),
-				Graph: graph.Graph{
-					Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
-					Functions: []ir.Function{
-						ir.Function{
-							Key:  "test_11",
-							Body: ir.Body{Raw: "test_13"},
-							Config: []types.Param{
-								types.Param{
-									Name:  "test_15",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_17": "value_17"},
-								},
-							},
-							Inputs: []types.Param{
-								types.Param{
-									Name:  "test_19",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_21": "value_21"},
-								},
-							},
-							Outputs: []types.Param{
-								types.Param{
-									Name:  "test_23",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_25": "value_25"},
-								},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{28: "test_27"},
-								Write: map[uint32]string{29: "test_28"},
-							},
-						},
-					},
-					Edges: []ir.Edge{
-						ir.Edge{
-							Source: ir.Handle{Node: "test_31", Param: "test_32"},
-							Target: ir.Handle{Node: "test_34", Param: "test_35"},
-							Kind:   ir.EdgeKind(0),
-						},
-					},
-					Nodes: []graph.Node{
-						graph.Node{
-							Key:      "test_38",
-							Type:     "test_39",
-							Config:   map[string]interface{}{"key_40": "value_40"},
-							Position: spatial.XY{X: 42.5, Y: 43.5},
-						},
-					},
-				},
-				Text: text.Text{Raw: "test_45"},
-				Program: func() *program.Program {
-					v := program.Program{
-						IR: ir.IR{
-							Functions: []ir.Function{
-								ir.Function{
-									Key:  "test_48",
-									Body: ir.Body{Raw: "test_50"},
-									Config: []types.Param{
-										types.Param{
-											Name:  "test_52",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_54": "value_54"},
-										},
-									},
-									Inputs: []types.Param{
-										types.Param{
-											Name:  "test_56",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_58": "value_58"},
-										},
-									},
-									Outputs: []types.Param{
-										types.Param{
-											Name:  "test_60",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_62": "value_62"},
-										},
-									},
-									Channels: types.Channels{
-										Read:  map[uint32]string{65: "test_64"},
-										Write: map[uint32]string{66: "test_65"},
-									},
-								},
-							},
-							Nodes: []ir.Node{
-								ir.Node{
-									Key:  "test_67",
-									Type: "test_68",
-									Config: []types.Param{
-										types.Param{
-											Name:  "test_70",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_72": "value_72"},
-										},
-									},
-									Inputs: []types.Param{
-										types.Param{
-											Name:  "test_74",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_76": "value_76"},
-										},
-									},
-									Outputs: []types.Param{
-										types.Param{
-											Name:  "test_78",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_80": "value_80"},
-										},
-									},
-									Channels: types.Channels{
-										Read:  map[uint32]string{83: "test_82"},
-										Write: map[uint32]string{84: "test_83"},
-									},
-								},
-							},
-							Edges: []ir.Edge{
-								ir.Edge{
-									Source: ir.Handle{Node: "test_86", Param: "test_87"},
-									Target: ir.Handle{Node: "test_89", Param: "test_90"},
-									Kind:   ir.EdgeKind(0),
-								},
-							},
-							Strata: [][]string{[]string{"test_92"}},
-							Sequences: []ir.Sequence{
-								ir.Sequence{
-									Key: "test_94",
-									Stages: []ir.Stage{
-										ir.Stage{
-											Key:    "test_96",
-											Nodes:  []string{"test_97"},
-											Strata: [][]string{[]string{"test_98"}},
-										},
-									},
-								},
-							},
-							Authorities: ir.Authorities{
-								Default:  func() *uint8 { v := uint8(101); return &v }(),
-								Channels: map[uint32]uint8{102: 102},
-							},
-						},
-						Output: compiler.Output{
-							WASM:              []byte{102, 103, 104},
-							OutputMemoryBases: map[string]uint32{"test_103": 104},
-						},
-					}
-					return &v
-				}(),
-				Status: func() *status.Status[arc.StatusDetails] {
-					v := status.Status[arc.StatusDetails]{
-						Key:         "test_105",
-						Name:        "test_106",
-						Variant:     status.Variant("success"),
-						Message:     "test_108",
-						Description: "test_109",
-						Time:        telem.TimeStamp(111),
-						Details:     arc.StatusDetails{Running: false},
-						Labels: []label.Label{
-							label.Label{
-								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-								Name: "test_115",
-								Color: color.Color{
-									R: 118,
-									G: 119,
-									B: 120,
-									A: 120.5,
-								},
-							},
-						},
-					}
-					return &v
-				}(),
-			}),
-			Entry("zero values", arc.Arc{
-				Key:  uuid.Nil,
-				Name: "",
-				Mode: arc.Mode(""),
-				Graph: graph.Graph{
-					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-					Functions: nil,
-					Edges:     nil,
-					Nodes:     nil,
-				},
-				Text:    text.Text{Raw: ""},
-				Program: nil,
-				Status:  nil,
-			}),
-		)
-	})
 })
 
 func BenchmarkEncodeDecodeArc(b *testing.B) {
-	s := arc.Arc{
+	a := arc.Arc{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
 		Mode: arc.Mode("text"),
 		Graph: graph.Graph{
 			Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 			Functions: []ir.Function{
-				ir.Function{
+				{
 					Key:  "test_11",
 					Body: ir.Body{Raw: "test_13"},
 					Config: []types.Param{
-						types.Param{
+						{
 							Name:  "test_15",
 							Type:  types.Type{},
 							Value: map[string]interface{}{"key_17": "value_17"},
 						},
 					},
 					Inputs: []types.Param{
-						types.Param{
+						{
 							Name:  "test_19",
 							Type:  types.Type{},
 							Value: map[string]interface{}{"key_21": "value_21"},
 						},
 					},
 					Outputs: []types.Param{
-						types.Param{
+						{
 							Name:  "test_23",
 							Type:  types.Type{},
 							Value: map[string]interface{}{"key_25": "value_25"},
@@ -497,14 +294,14 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				},
 			},
 			Edges: []ir.Edge{
-				ir.Edge{
+				{
 					Source: ir.Handle{Node: "test_31", Param: "test_32"},
 					Target: ir.Handle{Node: "test_34", Param: "test_35"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
 			Nodes: []graph.Node{
-				graph.Node{
+				{
 					Key:      "test_38",
 					Type:     "test_39",
 					Config:   map[string]interface{}{"key_40": "value_40"},
@@ -517,25 +314,25 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			v := program.Program{
 				IR: ir.IR{
 					Functions: []ir.Function{
-						ir.Function{
+						{
 							Key:  "test_48",
 							Body: ir.Body{Raw: "test_50"},
 							Config: []types.Param{
-								types.Param{
+								{
 									Name:  "test_52",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_54": "value_54"},
 								},
 							},
 							Inputs: []types.Param{
-								types.Param{
+								{
 									Name:  "test_56",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_58": "value_58"},
 								},
 							},
 							Outputs: []types.Param{
-								types.Param{
+								{
 									Name:  "test_60",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_62": "value_62"},
@@ -548,25 +345,25 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						},
 					},
 					Nodes: []ir.Node{
-						ir.Node{
+						{
 							Key:  "test_67",
 							Type: "test_68",
 							Config: []types.Param{
-								types.Param{
+								{
 									Name:  "test_70",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_72": "value_72"},
 								},
 							},
 							Inputs: []types.Param{
-								types.Param{
+								{
 									Name:  "test_74",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_76": "value_76"},
 								},
 							},
 							Outputs: []types.Param{
-								types.Param{
+								{
 									Name:  "test_78",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_80": "value_80"},
@@ -579,21 +376,21 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						},
 					},
 					Edges: []ir.Edge{
-						ir.Edge{
+						{
 							Source: ir.Handle{Node: "test_86", Param: "test_87"},
 							Target: ir.Handle{Node: "test_89", Param: "test_90"},
 							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Strata: [][]string{[]string{"test_92"}},
+					Strata: [][]string{{"test_92"}},
 					Sequences: []ir.Sequence{
-						ir.Sequence{
+						{
 							Key: "test_94",
 							Stages: []ir.Stage{
-								ir.Stage{
+								{
 									Key:    "test_96",
 									Nodes:  []string{"test_97"},
-									Strata: [][]string{[]string{"test_98"}},
+									Strata: [][]string{{"test_98"}},
 								},
 							},
 						},
@@ -620,7 +417,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				Time:        telem.TimeStamp(111),
 				Details:     arc.StatusDetails{Running: false},
 				Labels: []label.Label{
-					label.Label{
+					{
 						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
 						Name: "test_115",
 						Color: color.Color{
@@ -639,29 +436,29 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := arc.EncodeArc(w, &s); err != nil {
+		if err := a.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded arc.Arc
 		r.ResetBytes(w.Bytes())
-		if err := arc.DecodeArc(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	s := arc.StatusDetails{Running: true}
+	sd := arc.StatusDetails{Running: true}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := arc.EncodeStatusDetails(w, &s); err != nil {
+		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded arc.StatusDetails
 		r.ResetBytes(w.Bytes())
-		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -676,25 +473,25 @@ func FuzzDecodeArc(f *testing.F) {
 			Graph: graph.Graph{
 				Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 				Functions: []ir.Function{
-					ir.Function{
+					{
 						Key:  "test_11",
 						Body: ir.Body{Raw: "test_13"},
 						Config: []types.Param{
-							types.Param{
+							{
 								Name:  "test_15",
 								Type:  types.Type{},
 								Value: map[string]interface{}{"key_17": "value_17"},
 							},
 						},
 						Inputs: []types.Param{
-							types.Param{
+							{
 								Name:  "test_19",
 								Type:  types.Type{},
 								Value: map[string]interface{}{"key_21": "value_21"},
 							},
 						},
 						Outputs: []types.Param{
-							types.Param{
+							{
 								Name:  "test_23",
 								Type:  types.Type{},
 								Value: map[string]interface{}{"key_25": "value_25"},
@@ -707,14 +504,14 @@ func FuzzDecodeArc(f *testing.F) {
 					},
 				},
 				Edges: []ir.Edge{
-					ir.Edge{
+					{
 						Source: ir.Handle{Node: "test_31", Param: "test_32"},
 						Target: ir.Handle{Node: "test_34", Param: "test_35"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
 				Nodes: []graph.Node{
-					graph.Node{
+					{
 						Key:      "test_38",
 						Type:     "test_39",
 						Config:   map[string]interface{}{"key_40": "value_40"},
@@ -727,25 +524,25 @@ func FuzzDecodeArc(f *testing.F) {
 				v := program.Program{
 					IR: ir.IR{
 						Functions: []ir.Function{
-							ir.Function{
+							{
 								Key:  "test_48",
 								Body: ir.Body{Raw: "test_50"},
 								Config: []types.Param{
-									types.Param{
+									{
 										Name:  "test_52",
 										Type:  types.Type{},
 										Value: map[string]interface{}{"key_54": "value_54"},
 									},
 								},
 								Inputs: []types.Param{
-									types.Param{
+									{
 										Name:  "test_56",
 										Type:  types.Type{},
 										Value: map[string]interface{}{"key_58": "value_58"},
 									},
 								},
 								Outputs: []types.Param{
-									types.Param{
+									{
 										Name:  "test_60",
 										Type:  types.Type{},
 										Value: map[string]interface{}{"key_62": "value_62"},
@@ -758,25 +555,25 @@ func FuzzDecodeArc(f *testing.F) {
 							},
 						},
 						Nodes: []ir.Node{
-							ir.Node{
+							{
 								Key:  "test_67",
 								Type: "test_68",
 								Config: []types.Param{
-									types.Param{
+									{
 										Name:  "test_70",
 										Type:  types.Type{},
 										Value: map[string]interface{}{"key_72": "value_72"},
 									},
 								},
 								Inputs: []types.Param{
-									types.Param{
+									{
 										Name:  "test_74",
 										Type:  types.Type{},
 										Value: map[string]interface{}{"key_76": "value_76"},
 									},
 								},
 								Outputs: []types.Param{
-									types.Param{
+									{
 										Name:  "test_78",
 										Type:  types.Type{},
 										Value: map[string]interface{}{"key_80": "value_80"},
@@ -789,21 +586,21 @@ func FuzzDecodeArc(f *testing.F) {
 							},
 						},
 						Edges: []ir.Edge{
-							ir.Edge{
+							{
 								Source: ir.Handle{Node: "test_86", Param: "test_87"},
 								Target: ir.Handle{Node: "test_89", Param: "test_90"},
 								Kind:   ir.EdgeKind(0),
 							},
 						},
-						Strata: [][]string{[]string{"test_92"}},
+						Strata: [][]string{{"test_92"}},
 						Sequences: []ir.Sequence{
-							ir.Sequence{
+							{
 								Key: "test_94",
 								Stages: []ir.Stage{
-									ir.Stage{
+									{
 										Key:    "test_96",
 										Nodes:  []string{"test_97"},
-										Strata: [][]string{[]string{"test_98"}},
+										Strata: [][]string{{"test_98"}},
 									},
 								},
 							},
@@ -830,7 +627,7 @@ func FuzzDecodeArc(f *testing.F) {
 					Time:        telem.TimeStamp(111),
 					Details:     arc.StatusDetails{Running: false},
 					Labels: []label.Label{
-						label.Label{
+						{
 							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
 							Name: "test_115",
 							Color: color.Color{
@@ -846,7 +643,7 @@ func FuzzDecodeArc(f *testing.F) {
 			}(),
 		}
 		w := orc.NewWriter(0)
-		if err := arc.EncodeArc(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -867,7 +664,7 @@ func FuzzDecodeArc(f *testing.F) {
 			Status:  nil,
 		}
 		w := orc.NewWriter(0)
-		if err := arc.EncodeArc(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -876,20 +673,20 @@ func FuzzDecodeArc(f *testing.F) {
 		var decoded arc.Arc
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := arc.DecodeArc(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := arc.EncodeArc(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded arc.Arc
 		r.ResetBytes(w1.Bytes())
-		if err := arc.DecodeArc(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := arc.EncodeArc(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
@@ -902,7 +699,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 	{
 		seed := arc.StatusDetails{Running: true}
 		w := orc.NewWriter(0)
-		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -910,7 +707,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 	{
 		seed := arc.StatusDetails{Running: false}
 		w := orc.NewWriter(0)
-		if err := arc.EncodeStatusDetails(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -919,20 +716,20 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		var decoded arc.StatusDetails
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := arc.DecodeStatusDetails(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := arc.EncodeStatusDetails(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded arc.StatusDetails
 		r.ResetBytes(w1.Bytes())
-		if err := arc.DecodeStatusDetails(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := arc.EncodeStatusDetails(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

@@ -14,17 +14,21 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Search   *search.Index
@@ -38,6 +42,7 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -65,7 +70,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Policy]{DB: cfg.DB})
+	v0Mig := v0.Migration()
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[uuid.UUID, Policy]("msgpack_to_orc", v0Mig.Key()),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

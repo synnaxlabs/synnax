@@ -20,9 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -101,10 +103,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	v0Mig := v0.Migration(v0.MigrationConfig{
+		Ontology:        cfg.Ontology,
+		Group:           cfg.Group,
+		Instrumentation: cfg.Instrumentation,
+	})
 	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
-		DB:              cfg.DB,
-		Codec:           RangeCodec,
-		Migrations:      append(RangeMigrations(), newRangeGroupsMigration(cfg)),
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[uuid.UUID, Range]("msgpack_to_orc", v0Mig.Key()),
+		},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

@@ -27,11 +27,11 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original text.Text) {
 				w := orc.NewWriter(0)
-				Expect(text.EncodeText(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded text.Text
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(text.DecodeText(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", text.Text{Raw: "test_1"}),
@@ -41,17 +41,17 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeText(b *testing.B) {
-	s := text.Text{Raw: "test_1"}
+	t := text.Text{Raw: "test_1"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := text.EncodeText(w, &s); err != nil {
+		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded text.Text
 		r.ResetBytes(w.Bytes())
-		if err := text.DecodeText(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -61,7 +61,7 @@ func FuzzDecodeText(f *testing.F) {
 	{
 		seed := text.Text{Raw: "test_1"}
 		w := orc.NewWriter(0)
-		if err := text.EncodeText(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -69,7 +69,7 @@ func FuzzDecodeText(f *testing.F) {
 	{
 		seed := text.Text{Raw: ""}
 		w := orc.NewWriter(0)
-		if err := text.EncodeText(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -78,20 +78,20 @@ func FuzzDecodeText(f *testing.F) {
 		var decoded text.Text
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := text.DecodeText(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := text.EncodeText(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded text.Text
 		r.ResetBytes(w1.Bytes())
-		if err := text.DecodeText(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := text.EncodeText(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

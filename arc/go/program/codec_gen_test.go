@@ -30,27 +30,27 @@ var _ = Describe("Codec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original program.Program) {
 				w := orc.NewWriter(0)
-				Expect(program.EncodeProgram(w, &original)).To(Succeed())
+				Expect(original.EncodeOrc(w)).To(Succeed())
 				var decoded program.Program
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
-				Expect(program.DecodeProgram(r, &decoded)).To(Succeed())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", program.Program{
 				IR: ir.IR{
 					Functions: []ir.Function{
-						ir.Function{
+						{
 							Key:  "test_2",
 							Body: ir.Body{Raw: "test_4"},
 							Config: []types.Param{
-								types.Param{
+								{
 									Name: "test_6",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{types.Param{}},
-											Outputs: []types.Param{types.Param{}},
-											Config:  []types.Param{types.Param{}},
+											Inputs:  []types.Param{{}},
+											Outputs: []types.Param{{}},
+											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
 										Name:          "test_12",
@@ -63,13 +63,13 @@ var _ = Describe("Codec", func() {
 								},
 							},
 							Inputs: []types.Param{
-								types.Param{
+								{
 									Name: "test_19",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{types.Param{}},
-											Outputs: []types.Param{types.Param{}},
-											Config:  []types.Param{types.Param{}},
+											Inputs:  []types.Param{{}},
+											Outputs: []types.Param{{}},
+											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
 										Name:          "test_25",
@@ -82,13 +82,13 @@ var _ = Describe("Codec", func() {
 								},
 							},
 							Outputs: []types.Param{
-								types.Param{
+								{
 									Name: "test_32",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{types.Param{}},
-											Outputs: []types.Param{types.Param{}},
-											Config:  []types.Param{types.Param{}},
+											Inputs:  []types.Param{{}},
+											Outputs: []types.Param{{}},
+											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
 										Name:          "test_38",
@@ -107,17 +107,17 @@ var _ = Describe("Codec", func() {
 						},
 					},
 					Nodes: []ir.Node{
-						ir.Node{
+						{
 							Key:  "test_48",
 							Type: "test_49",
 							Config: []types.Param{
-								types.Param{
+								{
 									Name: "test_51",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{types.Param{}},
-											Outputs: []types.Param{types.Param{}},
-											Config:  []types.Param{types.Param{}},
+											Inputs:  []types.Param{{}},
+											Outputs: []types.Param{{}},
+											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
 										Name:          "test_57",
@@ -130,13 +130,13 @@ var _ = Describe("Codec", func() {
 								},
 							},
 							Inputs: []types.Param{
-								types.Param{
+								{
 									Name: "test_64",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{types.Param{}},
-											Outputs: []types.Param{types.Param{}},
-											Config:  []types.Param{types.Param{}},
+											Inputs:  []types.Param{{}},
+											Outputs: []types.Param{{}},
+											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
 										Name:          "test_70",
@@ -149,13 +149,13 @@ var _ = Describe("Codec", func() {
 								},
 							},
 							Outputs: []types.Param{
-								types.Param{
+								{
 									Name: "test_77",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{types.Param{}},
-											Outputs: []types.Param{types.Param{}},
-											Config:  []types.Param{types.Param{}},
+											Inputs:  []types.Param{{}},
+											Outputs: []types.Param{{}},
+											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
 										Name:          "test_83",
@@ -174,21 +174,21 @@ var _ = Describe("Codec", func() {
 						},
 					},
 					Edges: []ir.Edge{
-						ir.Edge{
+						{
 							Source: ir.Handle{Node: "test_94", Param: "test_95"},
 							Target: ir.Handle{Node: "test_97", Param: "test_98"},
 							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Strata: [][]string{[]string{"test_100"}},
+					Strata: [][]string{{"test_100"}},
 					Sequences: []ir.Sequence{
-						ir.Sequence{
+						{
 							Key: "test_102",
 							Stages: []ir.Stage{
-								ir.Stage{
+								{
 									Key:    "test_104",
 									Nodes:  []string{"test_105"},
-									Strata: [][]string{[]string{"test_106"}},
+									Strata: [][]string{{"test_106"}},
 								},
 							},
 						},
@@ -233,20 +233,20 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeProgram(b *testing.B) {
-	s := program.Program{
+	p := program.Program{
 		IR: ir.IR{
 			Functions: []ir.Function{
-				ir.Function{
+				{
 					Key:  "test_2",
 					Body: ir.Body{Raw: "test_4"},
 					Config: []types.Param{
-						types.Param{
+						{
 							Name: "test_6",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{types.Param{}},
-									Outputs: []types.Param{types.Param{}},
-									Config:  []types.Param{types.Param{}},
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_12",
@@ -259,13 +259,13 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 						},
 					},
 					Inputs: []types.Param{
-						types.Param{
+						{
 							Name: "test_19",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{types.Param{}},
-									Outputs: []types.Param{types.Param{}},
-									Config:  []types.Param{types.Param{}},
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_25",
@@ -278,13 +278,13 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 						},
 					},
 					Outputs: []types.Param{
-						types.Param{
+						{
 							Name: "test_32",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{types.Param{}},
-									Outputs: []types.Param{types.Param{}},
-									Config:  []types.Param{types.Param{}},
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_38",
@@ -303,17 +303,17 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				},
 			},
 			Nodes: []ir.Node{
-				ir.Node{
+				{
 					Key:  "test_48",
 					Type: "test_49",
 					Config: []types.Param{
-						types.Param{
+						{
 							Name: "test_51",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{types.Param{}},
-									Outputs: []types.Param{types.Param{}},
-									Config:  []types.Param{types.Param{}},
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_57",
@@ -326,13 +326,13 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 						},
 					},
 					Inputs: []types.Param{
-						types.Param{
+						{
 							Name: "test_64",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{types.Param{}},
-									Outputs: []types.Param{types.Param{}},
-									Config:  []types.Param{types.Param{}},
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_70",
@@ -345,13 +345,13 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 						},
 					},
 					Outputs: []types.Param{
-						types.Param{
+						{
 							Name: "test_77",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{types.Param{}},
-									Outputs: []types.Param{types.Param{}},
-									Config:  []types.Param{types.Param{}},
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_83",
@@ -370,21 +370,21 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				},
 			},
 			Edges: []ir.Edge{
-				ir.Edge{
+				{
 					Source: ir.Handle{Node: "test_94", Param: "test_95"},
 					Target: ir.Handle{Node: "test_97", Param: "test_98"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Strata: [][]string{[]string{"test_100"}},
+			Strata: [][]string{{"test_100"}},
 			Sequences: []ir.Sequence{
-				ir.Sequence{
+				{
 					Key: "test_102",
 					Stages: []ir.Stage{
-						ir.Stage{
+						{
 							Key:    "test_104",
 							Nodes:  []string{"test_105"},
-							Strata: [][]string{[]string{"test_106"}},
+							Strata: [][]string{{"test_106"}},
 						},
 					},
 				},
@@ -403,12 +403,12 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := program.EncodeProgram(w, &s); err != nil {
+		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded program.Program
 		r.ResetBytes(w.Bytes())
-		if err := program.DecodeProgram(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -419,17 +419,17 @@ func FuzzDecodeProgram(f *testing.F) {
 		seed := program.Program{
 			IR: ir.IR{
 				Functions: []ir.Function{
-					ir.Function{
+					{
 						Key:  "test_2",
 						Body: ir.Body{Raw: "test_4"},
 						Config: []types.Param{
-							types.Param{
+							{
 								Name: "test_6",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{types.Param{}},
-										Outputs: []types.Param{types.Param{}},
-										Config:  []types.Param{types.Param{}},
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_12",
@@ -442,13 +442,13 @@ func FuzzDecodeProgram(f *testing.F) {
 							},
 						},
 						Inputs: []types.Param{
-							types.Param{
+							{
 								Name: "test_19",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{types.Param{}},
-										Outputs: []types.Param{types.Param{}},
-										Config:  []types.Param{types.Param{}},
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_25",
@@ -461,13 +461,13 @@ func FuzzDecodeProgram(f *testing.F) {
 							},
 						},
 						Outputs: []types.Param{
-							types.Param{
+							{
 								Name: "test_32",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{types.Param{}},
-										Outputs: []types.Param{types.Param{}},
-										Config:  []types.Param{types.Param{}},
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_38",
@@ -486,17 +486,17 @@ func FuzzDecodeProgram(f *testing.F) {
 					},
 				},
 				Nodes: []ir.Node{
-					ir.Node{
+					{
 						Key:  "test_48",
 						Type: "test_49",
 						Config: []types.Param{
-							types.Param{
+							{
 								Name: "test_51",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{types.Param{}},
-										Outputs: []types.Param{types.Param{}},
-										Config:  []types.Param{types.Param{}},
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_57",
@@ -509,13 +509,13 @@ func FuzzDecodeProgram(f *testing.F) {
 							},
 						},
 						Inputs: []types.Param{
-							types.Param{
+							{
 								Name: "test_64",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{types.Param{}},
-										Outputs: []types.Param{types.Param{}},
-										Config:  []types.Param{types.Param{}},
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_70",
@@ -528,13 +528,13 @@ func FuzzDecodeProgram(f *testing.F) {
 							},
 						},
 						Outputs: []types.Param{
-							types.Param{
+							{
 								Name: "test_77",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{types.Param{}},
-										Outputs: []types.Param{types.Param{}},
-										Config:  []types.Param{types.Param{}},
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_83",
@@ -553,21 +553,21 @@ func FuzzDecodeProgram(f *testing.F) {
 					},
 				},
 				Edges: []ir.Edge{
-					ir.Edge{
+					{
 						Source: ir.Handle{Node: "test_94", Param: "test_95"},
 						Target: ir.Handle{Node: "test_97", Param: "test_98"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Strata: [][]string{[]string{"test_100"}},
+				Strata: [][]string{{"test_100"}},
 				Sequences: []ir.Sequence{
-					ir.Sequence{
+					{
 						Key: "test_102",
 						Stages: []ir.Stage{
-							ir.Stage{
+							{
 								Key:    "test_104",
 								Nodes:  []string{"test_105"},
-								Strata: [][]string{[]string{"test_106"}},
+								Strata: [][]string{{"test_106"}},
 							},
 						},
 					},
@@ -583,7 +583,7 @@ func FuzzDecodeProgram(f *testing.F) {
 			},
 		}
 		w := orc.NewWriter(0)
-		if err := program.EncodeProgram(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -601,7 +601,7 @@ func FuzzDecodeProgram(f *testing.F) {
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 		}
 		w := orc.NewWriter(0)
-		if err := program.EncodeProgram(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -622,7 +622,7 @@ func FuzzDecodeProgram(f *testing.F) {
 			Output: compiler.Output{WASM: []byte{9, 10, 11}, OutputMemoryBases: map[string]uint32{}},
 		}
 		w := orc.NewWriter(0)
-		if err := program.EncodeProgram(w, &seed); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
 		}
 		f.Add(w.Bytes())
@@ -631,20 +631,20 @@ func FuzzDecodeProgram(f *testing.F) {
 		var decoded program.Program
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
-		if err := program.DecodeProgram(r, &decoded); err != nil {
+		if err := decoded.DecodeOrc(r); err != nil {
 			return
 		}
 		w1 := orc.NewWriter(len(data))
-		if err := program.EncodeProgram(w1, &decoded); err != nil {
+		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded program.Program
 		r.ResetBytes(w1.Bytes())
-		if err := program.DecodeProgram(r, &redecoded); err != nil {
+		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
 		w2 := orc.NewWriter(w1.Len())
-		if err := program.EncodeProgram(w2, &redecoded); err != nil {
+		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
 		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {

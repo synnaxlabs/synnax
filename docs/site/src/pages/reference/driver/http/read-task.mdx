@@ -1,0 +1,345 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP Read Task"
+description: "Learn how to acquire data from HTTP endpoints with Synnax."
+next: "Write Task"
+nextURL: "/reference/driver/http/write-task"
+prev: "Connect to a Server"
+prevURL: "/reference/driver/http/connect-server"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter     | Type    | Required | Default | Description                                                          |
+| ------------- | ------- | -------- | ------- | -------------------------------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                                             |
+| `device`      | string  | Yes      | -       | Key of the HTTP server device                                        |
+| `rate`        | number  | Yes      | -       | Polling rate (Hz)                                                    |
+| `data_saving` | boolean | No       | `true`  | Enable permanent storage in Synnax                                   |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration or on Driver bootup     |
+| `endpoints`   | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
+
+<Divider.Divider x />
+
+## Endpoint Configuration Reference
+
+Each endpoint defines an HTTP request to poll and a set of fields to extract from its
+JSON response.
+
+| Parameter      | Type   | Required | Default | Description                                                        |
+| -------------- | ------ | -------- | ------- | ------------------------------------------------------------------ |
+| `method`       | string | No       | `"GET"` | HTTP method                                                        |
+| `path`         | string | Yes      | -       | URL path relative to the device base URL (e.g., `/api/v1/data`)    |
+| `headers`      | object | No       | -       | Additional request headers                                         |
+| `query_params` | object | No       | -       | Query parameters                                                   |
+| `body`         | string | No       | -       | Request body (for POST or other methods that accept a body)        |
+| `fields`       | array  | Yes      | -       | [Fields to extract](#field-extraction-reference) from the response |
+
+<Divider.Divider x />
+
+## Field Extraction Reference
+
+Fields define how to extract values from a JSON response body using
+[JSON Pointers](https://datatracker.ietf.org/doc/html/rfc6901) (RFC 6901). Each field
+maps a location in the response to a Synnax channel.
+
+For example, given this response:
+
+```json
+{ "temperature": 23.5, "sensors": { "pressure": 101.3 } }
+```
+
+A pointer of `/temperature` extracts `23.5`, and `/sensors/pressure` extracts `101.3`.
+
+| Parameter          | Type    | Required | Default     | Description                                                                                                    |
+| ------------------ | ------- | -------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
+| `pointer`          | string  | Yes      | -           | JSON Pointer path to the value (e.g., `/temperature`)                                                          |
+| `channel`          | number  | Yes      | -           | Synnax channel key to write the extracted value to                                                             |
+| `data_type`        | string  | No       | `"float64"` | Data type of the channel                                                                                       |
+| `name`             | string  | No       | -           | Human-readable name for the field                                                                              |
+| `enabled`          | boolean | No       | `true`      | Whether this field is active                                                                                   |
+| `timestamp_format` | string  | No       | -           | [Timestamp format](#timestamp-handling) (required when the channel data type is `TIMESTAMP`)                   |
+| `enum_values`      | array   | No       | -           | String-to-number mapping for enum fields (e.g., `[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}]`) |
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Enum Values</Text.Text>
+
+When the HTTP response contains string values that represent discrete states, use
+`enum_values` to map them to numbers. The driver converts matching strings to their
+numeric equivalents before writing to the channel.
+
+```python
+http.ReadField(
+    pointer="/status",
+    channel=status_ch.key,
+    data_type="float64",
+    enum_values=[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}, {"label": "ERROR", "value": 2}],
+)
+```
+
+If the response value does not match any key in the map, the driver reports an error.
+
+</Details>
+
+<Divider.Divider x />
+
+## Timestamp Handling
+
+By default, the driver automatically generates timestamps for each poll cycle using
+software timing. If your HTTP response includes a timestamp field, you can extract it
+directly by setting `timestamp_format` on a field whose channel data type is
+`TIMESTAMP`.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Supported Timestamp Formats</Text.Text>
+
+| Format     | Description                   | Example                      |
+| ---------- | ----------------------------- | ---------------------------- |
+| `iso8601`  | ISO 8601 date-time string     | `"2024-01-15T10:30:00.000Z"` |
+| `unix_sec` | Seconds since Unix epoch      | `1705312200`                 |
+| `unix_ms`  | Milliseconds since Unix epoch | `1705312200000`              |
+| `unix_us`  | Microseconds since Unix epoch | `1705312200000000`           |
+| `unix_ns`  | Nanoseconds since Unix epoch  | `1705312200000000000`        |
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Software vs. Hardware Timing</Text.Text>
+
+**Software timing** (default): The Driver generates a timestamp at each poll cycle. All
+fields that share the same index channel are written atomically. No `timestamp_format`
+is needed on any field.
+
+**Hardware timing**: If your response includes a timestamp, create a `TIMESTAMP` channel
+as the index and add a field that extracts it with a `timestamp_format`. Other fields
+using that index channel will be grouped with the extracted timestamp.
+
+</Details>
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+<Video client:only="react" id="device-drivers/http/read-task/read" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+<Details open>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+from synnax import http
+
+client = sy.Synnax()
+
+# Retrieve the HTTP device
+dev = client.devices.retrieve(name="My HTTP Server")
+
+# Create an index channel for timestamps
+http_time = client.channels.create(
+    name="http_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create data channels
+temperature = client.channels.create(
+    name="http_temperature",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+pressure = client.channels.create(
+    name="http_pressure",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+# Create the read task
+task = http.ReadTask(
+    name="HTTP Read Task",
+    device=dev.key,
+    rate=1,  # Poll at 1 Hz
+    data_saving=True,
+    endpoints=[
+        http.ReadEndpoint(
+            method="GET",
+            path="/api/v1/data",
+            fields=[
+                http.ReadField(
+                    pointer="/temperature",
+                    channel=temperature.key,
+                    data_type="float64",
+                    name="Temperature",
+                ),
+                http.ReadField(
+                    pointer="/pressure",
+                    channel=pressure.key,
+                    data_type="float64",
+                    name="Pressure",
+                ),
+            ],
+        ),
+    ],
+)
+
+# Configure the task with Synnax
+client.tasks.configure(task)
+
+# Start task and read data
+with task.run():
+    with client.open_streamer(
+        ["http_temperature", "http_pressure"]
+    ) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(frame)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Poll multiple endpoints</Text.Text>
+
+```python
+import synnax as sy
+from synnax import http
+
+client = sy.Synnax()
+dev = client.devices.retrieve(name="My HTTP Server")
+
+http_time = client.channels.create(
+    name="http_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+temperature = client.channels.create(
+    name="http_temperature",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+uptime = client.channels.create(
+    name="http_uptime",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+task = http.ReadTask(
+    name="Multi-Endpoint Read",
+    device=dev.key,
+    rate=1,
+    data_saving=True,
+    endpoints=[
+        http.ReadEndpoint(
+            method="GET",
+            path="/api/v1/data",
+            fields=[
+                http.ReadField(
+                    pointer="/temperature",
+                    channel=temperature.key,
+                    data_type="float64",
+                ),
+            ],
+        ),
+        http.ReadEndpoint(
+            method="GET",
+            path="/api/v1/status",
+            fields=[
+                http.ReadField(
+                    pointer="/uptime",
+                    channel=uptime.key,
+                    data_type="float64",
+                ),
+            ],
+        ),
+    ],
+)
+
+client.tasks.configure(task)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Use enum values</Text.Text>
+
+```python
+import synnax as sy
+from synnax import http
+
+client = sy.Synnax()
+dev = client.devices.retrieve(name="My HTTP Server")
+
+http_time = client.channels.create(
+    name="http_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+power = client.channels.create(
+    name="http_power",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+task = http.ReadTask(
+    name="Enum Read",
+    device=dev.key,
+    rate=1,
+    data_saving=True,
+    endpoints=[
+        http.ReadEndpoint(
+            method="GET",
+            path="/api/v1/device",
+            fields=[
+                http.ReadField(
+                    pointer="/power",
+                    channel=power.key,
+                    data_type="float64",
+                    enum_values=[
+                      {"label": "OFF", "value": 0},
+                      {"label": "ON", "value": 1},
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+client.tasks.configure(task)
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

@@ -18,7 +18,7 @@ import {
   newZ,
   type Policy,
   policyZ,
-} from "@/access/policy/payload";
+} from "@/access/policy/types.gen";
 import { ontology } from "@/ontology";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";

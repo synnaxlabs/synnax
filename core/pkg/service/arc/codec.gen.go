@@ -12,51 +12,31 @@
 package arc
 
 import (
-	"context"
-	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
-	"github.com/synnaxlabs/arc/text"
-	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/status"
-	"io"
-	"sync"
 )
 
-func EncodeStatusDetails(w *orc.Writer, s *StatusDetails) error {
-	w.Bool(s.Running)
-	return nil
-}
-
-func DecodeStatusDetails(r *orc.Reader, s *StatusDetails) error {
-	var err error
-	if s.Running, err = r.Bool(); err != nil {
+func (a Arc) EncodeOrc(w *orc.Writer) error {
+	w.Write(a.Key[:])
+	w.String(a.Name)
+	w.String(string(a.Mode))
+	if err := a.Graph.EncodeOrc(w); err != nil {
 		return err
 	}
-	return nil
-}
-
-func EncodeArc(w *orc.Writer, s *Arc) error {
-	w.Write(s.Key[:])
-	w.String(s.Name)
-	w.String(string(s.Mode))
-	if err := graph.EncodeGraph(w, &s.Graph); err != nil {
+	if err := a.Text.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := text.EncodeText(w, &s.Text); err != nil {
-		return err
-	}
-	if s.Program != nil {
+	if a.Program != nil {
 		w.Bool(true)
-		if err := program.EncodeProgram(w, &(*s.Program)); err != nil {
+		if err := (*a.Program).EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
 		w.Bool(false)
 	}
-	if s.Status != nil {
+	if a.Status != nil {
 		w.Bool(true)
-		if err := status.EncodeStatus[StatusDetails](w, &(*s.Status), EncodeStatusDetails); err != nil {
+		if err := (*a.Status).EncodeOrc(w); err != nil {
 			return err
 		}
 	} else {
@@ -65,12 +45,12 @@ func EncodeArc(w *orc.Writer, s *Arc) error {
 	return nil
 }
 
-func DecodeArc(r *orc.Reader, s *Arc) error {
+func (a *Arc) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err = r.Read(s.Key[:]); err != nil {
+	if _, err := r.Read(a.Key[:]); err != nil {
 		return err
 	}
-	if s.Name, err = r.String(); err != nil {
+	if a.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -78,12 +58,12 @@ func DecodeArc(r *orc.Reader, s *Arc) error {
 		if err != nil {
 			return err
 		}
-		s.Mode = Mode(v)
+		a.Mode = Mode(v)
 	}
-	if err = graph.DecodeGraph(r, &s.Graph); err != nil {
+	if err = a.Graph.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = text.DecodeText(r, &s.Text); err != nil {
+	if err = a.Text.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -93,10 +73,10 @@ func DecodeArc(r *orc.Reader, s *Arc) error {
 		}
 		if present {
 			var v program.Program
-			if err = program.DecodeProgram(r, &v); err != nil {
+			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Program = &v
+			a.Program = &v
 		}
 	}
 	{
@@ -106,54 +86,24 @@ func DecodeArc(r *orc.Reader, s *Arc) error {
 		}
 		if present {
 			var v Status
-			if err = status.DecodeStatus[StatusDetails](r, &v, DecodeStatusDetails); err != nil {
+			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Status = &v
+			a.Status = &v
 		}
 	}
 	return nil
 }
 
-var writerPool = sync.Pool{New: func() any { return orc.NewWriter(0) }}
-var readerPool = sync.Pool{New: func() any { return orc.NewReader(nil) }}
-
-type arcCodec struct{}
-
-var ArcCodec xencoding.Codec = arcCodec{}
-
-func (arcCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	s := value.(Arc)
-	w := writerPool.Get().(*orc.Writer)
-	defer writerPool.Put(w)
-	w.Reset()
-	if err := EncodeArc(w, &s); err != nil {
-		return nil, err
-	}
-	return w.Copy(), nil
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Bool(sd.Running)
+	return nil
 }
 
-func (c arcCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sd.Running, err = r.Bool(); err != nil {
 		return err
 	}
-	_, err = w.Write(b)
-	return err
-}
-
-func (arcCodec) Decode(ctx context.Context, data []byte, value any) error {
-	s := value.(*Arc)
-	r := readerPool.Get().(*orc.Reader)
-	defer readerPool.Put(r)
-	r.ResetBytes(data)
-	return DecodeArc(r, s)
-}
-
-func (c arcCodec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
-	data, err := io.ReadAll(rd)
-	if err != nil {
-		return err
-	}
-	return c.Decode(ctx, data, value)
+	return nil
 }
