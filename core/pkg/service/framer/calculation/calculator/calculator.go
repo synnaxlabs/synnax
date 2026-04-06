@@ -34,7 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -56,7 +56,7 @@ type Calculator struct {
 	cfg       Config
 	stateCfg  arcruntime.ExtendedStateConfig
 	start     telem.TimeStamp
-	closer    xio.MultiCloser
+	closer    io.MultiCloser
 }
 
 type Config struct {
@@ -114,7 +114,7 @@ func Open(
 		&stat.Module{},
 	}
 
-	var closers xio.MultiCloser
+	var closers io.MultiCloser
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, closers.Close())
@@ -126,7 +126,7 @@ func Open(
 		var stringsMod *stlstrings.Module
 		var errorsMod *stlerrors.Module
 		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-		closers = append(closers, xio.CloserFunc(func() error {
+		closers = append(closers, io.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
 		if statefulMod, err = stateful.NewModule(ctx, cs.series, cs.strings, wasmRT); err != nil {
@@ -152,7 +152,7 @@ func Open(
 		stringsMod.SetMemory(guest.Memory())
 		errorsMod.SetMemory(guest.Memory())
 		closers = append(closers,
-			xio.CloserFunc(func() error { return guest.Close(ctx) }),
+			io.CloserFunc(func() error { return guest.Close(ctx) }),
 		)
 		f = append(f, &wasm.Module{
 			Module:        guest,

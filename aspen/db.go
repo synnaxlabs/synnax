@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
@@ -82,7 +82,7 @@ var ErrNodeNotFound = cluster.ErrNodeNotFound
 type DB struct {
 	Cluster *cluster.Cluster
 	xkv.DB
-	closer xio.MultiCloser
+	closer io.MultiCloser
 }
 
 // Close implements xkv.DB, shutting down the key-value store, cluster and transport.
