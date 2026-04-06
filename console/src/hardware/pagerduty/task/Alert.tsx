@@ -290,11 +290,17 @@ const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
         </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider direction="y" />
-      {selected.length > 0 ? (
-        <AlertDetails itemKey={selected[0]} />
-      ) : (
-        <EmptyAction message="No alert selected." grow />
-      )}
+      <Flex.Box y grow empty>
+        <Common.Task.Layouts.DetailsHeader
+          path={selected.length > 0 ? `config.alerts.${selected[0]}` : ""}
+          disabled={selected.length === 0}
+        />
+        {selected.length > 0 ? (
+          <AlertDetails itemKey={selected[0]} />
+        ) : (
+          <EmptyAction message="No alert selected." grow />
+        )}
+      </Flex.Box>
     </Flex.Box>
   );
 };
