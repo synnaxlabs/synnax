@@ -24,7 +24,7 @@ CHANNEL_PREFIX = "mig_modbus_reg"
 NUM_CHANNELS = 2
 
 
-class TaskModbusMigration(ReadTaskMigration, ModbusReadTaskCase):
+class ModbusReadMigration(ReadTaskMigration, ModbusReadTaskCase):
     """Modbus read task migration base."""
 
     task_name = TASK_NAME
@@ -47,11 +47,11 @@ class TaskModbusMigration(ReadTaskMigration, ModbusReadTaskCase):
         ]
 
 
-class TaskModbusSetup(ReadTaskMigrationSetup, TaskModbusMigration):
+class ModbusReadSetup(ReadTaskMigrationSetup, ModbusReadMigration):
     """Create a Modbus read task, run it, and verify sample collection."""
 
 
-class TaskModbusVerify(ReadTaskMigrationVerify, TaskModbusMigration):
+class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadMigration):
     """Verify Modbus task data survived, settings intact, and task still runs."""
 
     task_type = "modbus_read"
@@ -61,7 +61,7 @@ class TaskModbusVerify(ReadTaskMigrationVerify, TaskModbusMigration):
     pre_start_sleep = 2
 
 
-class TaskModbusConsoleVerify(ReadTaskConsoleVerify):
+class ModbusReadConsoleVerify(ReadTaskConsoleVerify):
     """Verify the Modbus read task configuration renders correctly in the console UI."""
 
     task_name = TASK_NAME

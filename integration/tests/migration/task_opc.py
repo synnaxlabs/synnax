@@ -24,7 +24,7 @@ CHANNEL_PREFIX = "mig_opc_float"
 NUM_CHANNELS = 2
 
 
-class TaskOPCUAMigration(ReadTaskMigration, OPCUAReadTaskCase):
+class OPCUAReadMigration(ReadTaskMigration, OPCUAReadTaskCase):
     """OPC UA read task migration base."""
 
     task_name = TASK_NAME
@@ -47,11 +47,11 @@ class TaskOPCUAMigration(ReadTaskMigration, OPCUAReadTaskCase):
         ]
 
 
-class TasksOPCUASetup(ReadTaskMigrationSetup, TaskOPCUAMigration):
+class OPCUAReadSetup(ReadTaskMigrationSetup, OPCUAReadMigration):
     """Create an OPC UA read task, run it, and verify sample collection."""
 
 
-class TaskOPCUAVerify(ReadTaskMigrationVerify, TaskOPCUAMigration):
+class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadMigration):
     """Verify OPC UA task data survived, settings intact, and task still runs."""
 
     task_type = "opc_read"
@@ -61,7 +61,7 @@ class TaskOPCUAVerify(ReadTaskMigrationVerify, TaskOPCUAMigration):
     pre_start_sleep = 5
 
 
-class TaskOPCUAConsoleVerify(ReadTaskConsoleVerify):
+class OPCUAReadConsoleVerify(ReadTaskConsoleVerify):
     """Verify the OPC UA read task configuration renders correctly in the console UI."""
 
     task_name = TASK_NAME
