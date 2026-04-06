@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -126,12 +127,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
+	v0Mig := v0.Migration(v0.MigrationConfig{
+		HostProvider: cfg.HostProvider,
+		Status:       cfg.Status,
+	})
 	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
 		DB: cfg.DB,
-		Migrations: append(RackMigrations(), v0.Migration(v0.MigrationConfig{
-			HostProvider: cfg.HostProvider,
-			Status:       cfg.Status,
-		})),
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[Key, Rack]("msgpack_to_orc", v0Mig.Key()),
+		},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
