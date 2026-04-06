@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Callable
 from typing import Literal
 
-from synnax.telem import Rate, TimeSpan, TimeStamp
+from synnax.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 
@@ -156,3 +157,25 @@ class Loop:
         """
         self.__next__()
         return True
+
+
+def poll(
+    func: Callable[[], bool],
+    timeout: CrudeTimeSpan,
+    interval: CrudeTimeSpan = TimeSpan.SECOND,
+) -> bool:
+    """Repeatedly calls func until it returns True or the timeout expires.
+
+    :param func: A callable that returns a boolean. Polling stops when it returns True.
+    :param timeout: Maximum time to poll for.
+    :param interval: Time to sleep between calls to func.
+    :returns: True if func returned True before the timeout, False otherwise.
+    """
+    timeout = TimeSpan(timeout)
+    interval = TimeSpan(interval)
+    timer = Timer()
+    while timer.elapsed() < timeout:
+        if func():
+            return True
+        sleep(interval)
+    return False

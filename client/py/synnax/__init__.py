@@ -84,7 +84,7 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
-from synnax.timing import Loop, Timer, sleep
+from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.util.deprecation import deprecated_getattr
 from synnax.view import View
@@ -139,6 +139,7 @@ __all__ = [
     "MultipleFoundError",
     "NotFoundError",
     "Options",
+    "poll",
     "Policy",
     "Position",
     "QueryError",

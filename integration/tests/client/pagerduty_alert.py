@@ -131,23 +131,26 @@ class PagerDutyAlert(TestCase):
 
         # 6. Poll PagerDuty for the incident (up to 10s, checking every 2s)
         self.log("Polling PagerDuty for triggered incident...")
-        matching = []
-        timer = sy.Timer()
-        while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
+        matching: list[dict] = []
+
+        def find_triggered_incident() -> bool:
             incidents = self.rest.list_all(
                 "incidents", params={"statuses[]": "triggered"}
             )
-            matching = [
+            matching.clear()
+            matching.extend(
                 inc
                 for inc in incidents
                 if error_message in inc.get("title", "")
                 or self.status_key in (inc.get("incident_key") or "")
-            ]
-            if matching:
-                break
-            sy.sleep(2)
+            )
+            return len(matching) > 0
 
-        if not matching:
+        if not sy.poll(
+            find_triggered_incident,
+            timeout=10 * sy.TimeSpan.SECOND,
+            interval=2 * sy.TimeSpan.SECOND,
+        ):
             self.fail(
                 f"Expected to find a PagerDuty incident for '{self.status_key}', "
                 f"but none was found after 10s."
@@ -168,14 +171,13 @@ class PagerDutyAlert(TestCase):
 
         self.log("Polling PagerDuty for incident resolution...")
         incident_id = matching[0]["id"]
-        resolved = False
-        timer = sy.Timer()
-        while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
-            incident = self.rest.rget(f"/incidents/{incident_id}")
-            if incident.get("status") == "resolved":
-                resolved = True
-                break
-            sy.sleep(2)
+
+        resolved = sy.poll(
+            lambda: self.rest.rget(f"/incidents/{incident_id}").get("status")
+            == "resolved",
+            timeout=10 * sy.TimeSpan.SECOND,
+            interval=2 * sy.TimeSpan.SECOND,
+        )
 
         if not resolved:
             self.log("Warning: incident was not resolved in PagerDuty within 10s")
