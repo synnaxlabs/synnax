@@ -10,7 +10,7 @@
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, validator
+from pydantic import BaseModel, Field, field_validator
 
 from synnax import device, task
 from synnax.exceptions import ValidationError
@@ -2424,8 +2424,7 @@ class AnalogReadTaskConfig(task.BaseReadConfig):
                 key = (c.device, c.port)
                 if key in seen:
                     raise ValueError(
-                        f"Port {c.port} has already been used on device"
-                        f" '{c.device}'"
+                        f"Port {c.port} has already been used on device '{c.device}'"
                     )
                 seen.add(key)
         return v
@@ -2468,8 +2467,7 @@ class CounterReadConfig(task.BaseReadConfig):
                 key = (c.device, c.port)
                 if key in seen:
                     raise ValueError(
-                        f"Port {c.port} has already been used on device"
-                        f" '{c.device}'"
+                        f"Port {c.port} has already been used on device '{c.device}'"
                     )
                 seen.add(key)
         return v

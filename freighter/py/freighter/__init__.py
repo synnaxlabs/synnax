@@ -56,6 +56,7 @@ __all__ = [
     "async_instrumentation_middleware",
     "Codec",
     "Context",
+    "Role",
     "decode_exception",
     "encode_exception",
     "EOF",
@@ -76,6 +77,7 @@ __all__ = [
     "StreamClosed",
     "Transport",
     "UnaryClient",
+    "Unreachable",
     "URL",
     "WebsocketClient",
 ]

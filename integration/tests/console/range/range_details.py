@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import get_random_name
 
 NI_ANALOG_READ_CONFIG = {
     "autoStart": False,
@@ -132,9 +130,9 @@ class RangeDetails(ConsoleCase):
         new_name = f"RenamedChild1_{self.suffix}"
         self.console.ranges.rename_child_range(self.child_1_name, new_name)
 
-        assert self.console.ranges.child_range_exists(
-            new_name
-        ), f"Renamed child range '{new_name}' should exist"
+        assert self.console.ranges.child_range_exists(new_name), (
+            f"Renamed child range '{new_name}' should exist"
+        )
 
         rng = self.client.ranges.retrieve(name=new_name)
         assert rng.name == new_name, f"Server-side name should be '{new_name}'"
@@ -147,12 +145,12 @@ class RangeDetails(ConsoleCase):
             [self.child_1_name, self.child_2_name]
         )
 
-        assert self.console.ranges.exists_in_toolbar(
-            self.child_1_name
-        ), f"'{self.child_1_name}' should appear in toolbar after favoriting"
-        assert self.console.ranges.exists_in_toolbar(
-            self.child_2_name
-        ), f"'{self.child_2_name}' should appear in toolbar after favoriting"
+        assert self.console.ranges.exists_in_toolbar(self.child_1_name), (
+            f"'{self.child_1_name}' should appear in toolbar after favoriting"
+        )
+        assert self.console.ranges.exists_in_toolbar(self.child_2_name), (
+            f"'{self.child_2_name}' should appear in toolbar after favoriting"
+        )
 
     def test_unfavorite_multiple_child_ranges(self) -> None:
         """Test unfavoriting multiple child ranges via multi-select context menu."""
@@ -209,13 +207,13 @@ class RangeDetails(ConsoleCase):
         self._open_parent_overview()
         self.console.ranges.set_metadata("test_key", "test_value")
 
-        assert self.console.ranges.metadata_exists(
-            "test_key"
-        ), "Metadata 'test_key' should exist"
+        assert self.console.ranges.metadata_exists("test_key"), (
+            "Metadata 'test_key' should exist"
+        )
         value = self.console.ranges.get_metadata_value("test_key")
-        assert (
-            value == "test_value"
-        ), f"Metadata value should be 'test_value', got '{value}'"
+        assert value == "test_value", (
+            f"Metadata value should be 'test_value', got '{value}'"
+        )
 
     def test_update_metadata_value(self) -> None:
         """Test updating the value of existing metadata."""
@@ -223,9 +221,9 @@ class RangeDetails(ConsoleCase):
         self.console.ranges.update_metadata_value("test_key", "updated_value")
 
         value = self.console.ranges.get_metadata_value("test_key")
-        assert (
-            value == "updated_value"
-        ), f"Metadata value should be 'updated_value', got '{value}'"
+        assert value == "updated_value", (
+            f"Metadata value should be 'updated_value', got '{value}'"
+        )
 
     def test_copy_metadata_value(self) -> None:
         """Test copying a metadata value to the clipboard."""
@@ -233,9 +231,9 @@ class RangeDetails(ConsoleCase):
         self.console.ranges.copy_metadata_value("test_key")
 
         clipboard = self.console.layout.read_clipboard()
-        assert (
-            clipboard == "updated_value"
-        ), f"Clipboard should contain 'updated_value', got '{clipboard}'"
+        assert clipboard == "updated_value", (
+            f"Clipboard should contain 'updated_value', got '{clipboard}'"
+        )
 
     def test_open_metadata_link(self) -> None:
         """Test opening a URL metadata value in a new tab."""
@@ -247,9 +245,9 @@ class RangeDetails(ConsoleCase):
             self.console.ranges.open_metadata_link("test_key")
 
         popup = popup_info.value
-        assert (
-            "synnaxlabs.com" in popup.url
-        ), f"Popup URL should contain 'synnaxlabs.com', got '{popup.url}'"
+        assert "synnaxlabs.com" in popup.url, (
+            f"Popup URL should contain 'synnaxlabs.com', got '{popup.url}'"
+        )
         popup.close()
 
     def test_delete_metadata(self) -> None:

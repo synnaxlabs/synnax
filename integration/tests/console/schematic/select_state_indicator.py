@@ -8,10 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
 from console.schematic import Select, StateIndicator
+from x import get_random_name
 
 
 class SelectStateIndicator(ConsoleCase):
@@ -34,7 +33,7 @@ class SelectStateIndicator(ConsoleCase):
             is_index=True,
             retrieve_if_name_exists=True,
         )
-        state_ch = client.channels.create(
+        client.channels.create(
             name=CHANNEL_NAME,
             data_type=sy.DataType.FLOAT64,
             is_index=False,

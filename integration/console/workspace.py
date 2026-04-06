@@ -11,10 +11,10 @@ import json
 import random
 from typing import Any, Literal, TypeVar, overload
 
-import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.channels import ChannelClient
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient

@@ -9,11 +9,11 @@
 
 import uuid
 
-from alamos import NOOP, Instrumentation, trace
-from freighter import UnaryClient
 from pydantic import BaseModel
 from x.normalize import normalize
 
+from alamos import NOOP, Instrumentation, trace
+from freighter import UnaryClient
 from synnax.ranger.payload import Key, Payload
 
 

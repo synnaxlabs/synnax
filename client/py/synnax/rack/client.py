@@ -9,11 +9,11 @@
 
 from typing import overload
 
-from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 from x.normalize import check_for_none, override
 
+from alamos import NOOP, Instrumentation
+from freighter import Empty, UnaryClient, send_required
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Rack
 

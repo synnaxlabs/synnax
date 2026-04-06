@@ -11,11 +11,11 @@ from __future__ import annotations
 
 from enum import Enum
 
-from alamos import NOOP, Instrumentation
-from freighter import EOF, Stream, StreamClient
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
+from alamos import NOOP, Instrumentation
+from freighter import EOF, Stream, StreamClient
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload

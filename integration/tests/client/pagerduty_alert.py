@@ -11,10 +11,10 @@ import os
 from typing import Any
 
 import pagerduty
-import synnax as sy
-from x import get_random_name
 
+import synnax as sy
 from framework.test_case import TestCase
+from x import get_random_name
 
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
 API_KEY = os.environ.get("PAGERDUTY_API_KEY")

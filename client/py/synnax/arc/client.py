@@ -12,10 +12,10 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel, PrivateAttr
 from x.normalize import normalize
 
+from freighter import Empty, UnaryClient, send_required
 from synnax.arc.payload import (
     Graph,
     Key,

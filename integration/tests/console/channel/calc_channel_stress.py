@@ -11,10 +11,9 @@ import threading
 from typing import Any
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 from console.case import ConsoleCase
-from console.plot import Plot
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
 
@@ -191,7 +190,6 @@ class CalcChannelStress(ConsoleCase):
 
         self.log(f"Testing plot calculated channels at {self.rate} Hz")
 
-        client = self.client
         console = self.console
 
         self.log("Waiting for calculated channels to appear in console")

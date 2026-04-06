@@ -10,11 +10,11 @@
 from typing import overload
 from uuid import UUID
 
-from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 from x.normalize import normalize
 
+from alamos import NOOP, Instrumentation
+from freighter import Empty, UnaryClient, send_required
 from synnax.access.policy.payload import Policy
 from synnax.ontology.payload import ID
 

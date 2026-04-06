@@ -8,10 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import numpy as np
-import synnax as sy
-from x import get_random_name
 
+import synnax as sy
 from console.case import ConsoleCase
+from x import get_random_name
 
 
 class CalcTypeCascade(ConsoleCase):
@@ -168,18 +168,18 @@ class CalcTypeCascade(ConsoleCase):
                 break
             sy.sleep(0.25)
 
-        assert (
-            self._get_data_type("scaled") == sy.DataType.FLOAT64
-        ), f"scaled should be f64 after edit, got {self._get_data_type('scaled')}"
+        assert self._get_data_type("scaled") == sy.DataType.FLOAT64, (
+            f"scaled should be f64 after edit, got {self._get_data_type('scaled')}"
+        )
 
         self.log("Phase 2: Cascade triggered")
 
     def test_phase3_verify_compatible_cascade(self) -> None:
         self.log("Phase 3: Verifying compatible cascade (monitor)")
 
-        assert (
-            self._get_data_type("monitor") == sy.DataType.FLOAT64
-        ), f"monitor should be f64 after cascade, got {self._get_data_type('monitor')}"
+        assert self._get_data_type("monitor") == sy.DataType.FLOAT64, (
+            f"monitor should be f64 after cascade, got {self._get_data_type('monitor')}"
+        )
 
         monitor_ch = self.client.channels.retrieve(self.calcs["monitor"])
         with self.client.open_streamer(monitor_ch.key) as streamer:
@@ -191,9 +191,9 @@ class CalcTypeCascade(ConsoleCase):
                     if result is not None and len(result[monitor_ch.key]) > 0:
                         val = float(result[monitor_ch.key][0])
                         if val != 0.0:
-                            assert (
-                                abs(val - 3000.0) < 1.0
-                            ), f"monitor: expected 3000, got {val}"
+                            assert abs(val - 3000.0) < 1.0, (
+                                f"monitor: expected 3000, got {val}"
+                            )
                             break
                     sy.sleep(0.5)
 
@@ -235,13 +235,13 @@ class CalcTypeCascade(ConsoleCase):
             for n in notifs
             if n.get("type") == "error" and "Connected" not in n.get("message", "")
         ]
-        assert (
-            len(error_notifs) == 0
-        ), f"Expected no errors after fix, got: {error_notifs}"
+        assert len(error_notifs) == 0, (
+            f"Expected no errors after fix, got: {error_notifs}"
+        )
 
-        assert (
-            self._get_data_type("combined") == sy.DataType.FLOAT32
-        ), f"combined should be f32 after fix, got {self._get_data_type('combined')}"
+        assert self._get_data_type("combined") == sy.DataType.FLOAT32, (
+            f"combined should be f32 after fix, got {self._get_data_type('combined')}"
+        )
 
         self.log("Phase 5: Recovery verified")
 

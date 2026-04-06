@@ -23,11 +23,9 @@ from synnax.arc import (
     GraphNode,
     Handle,
     Position,
-)
-from synnax.arc import Task as _ArcTask
-from synnax.arc import (
     Text,
 )
+from synnax.arc import Task as _ArcTask  # noqa: F401
 from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
@@ -60,8 +58,8 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as _TaskStatus
-from synnax.task import StatusDetails as _TaskStatusDetails
+from synnax.task import Status as _TaskStatus  # noqa: F401
+from synnax.task import StatusDetails as _TaskStatusDetails  # noqa: F401
 from synnax.task import Task
 from synnax.telem import (
     Alignment,
@@ -170,6 +168,7 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "color",
     "ethercat",
     "http",
     "labjack",

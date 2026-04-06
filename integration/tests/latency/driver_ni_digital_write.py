@@ -14,10 +14,10 @@ from collections import deque
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import synnax as sy
-from x import get_cpu_cores, get_machine_info, get_memory_info, get_synnax_version
 
+import synnax as sy
 from tests.latency.latency import Latency
+from x import get_cpu_cores, get_machine_info, get_memory_info, get_synnax_version
 
 matplotlib.use("Agg")  # Use non-interactive backend
 
@@ -105,7 +105,6 @@ class DriverNIDigitalWrite(Latency):
                 write=[do_1_cmd.key],
                 write_authorities=sy.Authority.ABSOLUTE,
             ) as ctrl:
-
                 start_time = sy.TimeStamp.now()
                 cmd_state: bool = False
 
@@ -300,12 +299,12 @@ class DriverNIDigitalWrite(Latency):
         assert stats_driver["p99"] <= 15, "Driver p99 latency is greater than 15 ms"
         assert stats_loop["p99"] <= 15, "Loop p99 latency is greater than 15 ms"
 
-        assert (
-            stats_driver["trimmed_peak_to_peak"] < 10
-        ), "Driver trimmed peak-to-peak (P1-P99) latency is greater than 10 ms"
-        assert (
-            stats_loop["trimmed_peak_to_peak"] < 10
-        ), "Loop trimmed peak-to-peak (P1-P99) latency is greater than 10 ms"
+        assert stats_driver["trimmed_peak_to_peak"] < 10, (
+            "Driver trimmed peak-to-peak (P1-P99) latency is greater than 10 ms"
+        )
+        assert stats_loop["trimmed_peak_to_peak"] < 10, (
+            "Loop trimmed peak-to-peak (P1-P99) latency is greater than 10 ms"
+        )
 
         assert stats_driver["avg_jitter"] < 4, "Driver avg jitter is greater than 4 ms"
         assert stats_loop["avg_jitter"] < 4, "Loop avg jitter is greater than 4 ms"

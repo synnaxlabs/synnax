@@ -17,13 +17,13 @@ from typing import Any, cast, overload
 from uuid import UUID
 
 import numpy as np
-from freighter import UnaryClient
 from pydantic import PrivateAttr
 from x.interop import overload_comparison_operators
 from x.normalize import check_for_none, normalize
 from x.params import require_named_params
 
 import synnax.channel.payload as channel
+from freighter import UnaryClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError

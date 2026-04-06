@@ -9,11 +9,11 @@
 
 from dataclasses import dataclass, field
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
+from x import get_random_name
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -393,15 +393,15 @@ class EdgeCases(ArcConsoleCase):
         status = self.console.arc.wait_for_status(case.wait_substr)
 
         for name in case.expect:
-            assert (
-                name in status
-            ), f"[{case.label}] Expected '{name}' in error, got: {status}"
+            assert name in status, (
+                f"[{case.label}] Expected '{name}' in error, got: {status}"
+            )
 
         notifications = self.console.notifications.check(timeout=5)
         error_notifications = [n for n in notifications if n.get("type") == "error"]
-        assert (
-            len(error_notifications) > 0
-        ), f"[{case.label}] Expected error notification, got: {notifications}"
+        assert len(error_notifications) > 0, (
+            f"[{case.label}] Expected error notification, got: {notifications}"
+        )
         self.console.notifications.close_all()
 
     def _verify_circular_cases(self) -> None:

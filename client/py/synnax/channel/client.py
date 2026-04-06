@@ -23,7 +23,6 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
-    ONTOLOGY_TYPE,
     New,
     Operation,
     Payload,

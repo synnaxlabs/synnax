@@ -11,7 +11,6 @@ from abc import abstractmethod
 from typing import Any
 
 import synnax as sy
-
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
 
@@ -86,9 +85,9 @@ class TaskOPCUAVerify(TaskOPCUAMigration):
     def create(self, **kwargs: Any) -> sy.opcua.ReadTask:
         """Retrieve the existing task instead of creating a new one."""
         tasks = self.client.tasks.retrieve(names=[TASK_NAME])
-        assert (
-            len(tasks) == 1
-        ), f"Expected exactly 1 task named '{TASK_NAME}', got {len(tasks)}"
+        assert len(tasks) == 1, (
+            f"Expected exactly 1 task named '{TASK_NAME}', got {len(tasks)}"
+        )
         # Wrap the raw Task in a typed ReadTask so .run(), .config.sample_rate, etc. work.
         raw = tasks[0]
         typed = sy.opcua.ReadTask(**raw.config)
@@ -99,12 +98,12 @@ class TaskOPCUAVerify(TaskOPCUAMigration):
         self.log("Testing: Task config survived migration")
         self.test_task_exists()
         assert self.tsk is not None
-        assert (
-            self.tsk._internal.type == "opc_read"
-        ), f"Expected type 'opc_read', got '{self.tsk._internal.type}'"
+        assert self.tsk._internal.type == "opc_read", (
+            f"Expected type 'opc_read', got '{self.tsk._internal.type}'"
+        )
         assert self.tsk.config.data_saving is True, "data_saving should be True"
         assert len(self.tsk.config.channels) == NUM_CHANNELS, (
-            f"Expected {NUM_CHANNELS} channels, " f"got {len(self.tsk.config.channels)}"
+            f"Expected {NUM_CHANNELS} channels, got {len(self.tsk.config.channels)}"
         )
 
     def test_data(self) -> None:

@@ -16,7 +16,6 @@ the driver rejects it with a ConfigurationError.
 import platform
 
 import synnax as sy
-
 from framework.test_case import TestCase
 from tests.driver.task import create_channel, create_index
 
@@ -214,8 +213,7 @@ class NIInvalidConfig(TestCase):
         except Exception as e:
             _cleanup_task(self.client, task)
             self.fail(
-                f"Expected ConfigurationError for {label}, "
-                f"got {type(e).__name__}: {e}"
+                f"Expected ConfigurationError for {label}, got {type(e).__name__}: {e}"
             )
         _cleanup_task(self.client, task)
         self.fail(f"Driver did not reject {label} — configure succeeded unexpectedly")
@@ -260,9 +258,9 @@ class NIMissingLibraries(TestCase):
         except sy.ConfigurationError as e:
             self.log(f"  Correctly rejected: {e}")
             msg = str(e).lower()
-            assert (
-                "ni-daqmx" in msg and "libraries" in msg
-            ), f"Expected error about missing libraries, got: {e}"
+            assert "ni-daqmx" in msg and "libraries" in msg, (
+                f"Expected error about missing libraries, got: {e}"
+            )
             _cleanup_task(self.client, task)
             return
         _cleanup_task(self.client, task)

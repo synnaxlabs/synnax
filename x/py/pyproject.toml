@@ -13,20 +13,22 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [dependency-groups]
 dev = [
-    "black>=26.3.1,<27",
-    "isort>=8.0.1,<9",
     "mypy>=1.19.1,<2",
     "pandas-stubs>=3.0.0,<4",
     "python-dateutil>=2.9.0,<3",
     "pytest>=9.0.2,<10",
+    "ruff>=0.12.4,<1",
     "types-python-dateutil>=2.9.0,<3",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["x"]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["F", "I"]
 
 [tool.mypy]
 strict = true

@@ -7,16 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import expect
-from x.color import Color
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
 from framework.utils import get_results_path
+from x.color import Color
 
 
 class RangesClient:

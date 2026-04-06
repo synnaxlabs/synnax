@@ -8,11 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
 from console.schematic import Setpoint, Value
 from console.schematic.schematic import Schematic
+from x import get_random_name
 
 
 def assert_setpoint(
@@ -58,7 +57,7 @@ class SetOutput(ConsoleCase):
             is_index=True,
             retrieve_if_name_exists=True,
         )
-        cmd_ch = client.channels.create(
+        client.channels.create(
             name=CHANNEL_NAME,
             data_type=sy.DataType.FLOAT64,
             is_index=False,

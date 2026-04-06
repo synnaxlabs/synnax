@@ -13,10 +13,10 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Literal
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.context_menu import ContextMenu
 from console.notifications import NotificationsClient
 

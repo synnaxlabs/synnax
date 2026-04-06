@@ -9,9 +9,8 @@
 
 """Test user login and logout via Console UI."""
 
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import get_random_name
 
 
 class UserLoginLogout(ConsoleCase):

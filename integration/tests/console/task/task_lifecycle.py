@@ -7,18 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from dataclasses import dataclass
 
-import synnax as sy
 from examples.opcua import OPCUASim
-from x import get_random_name
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from framework.run_with_connection import run_scripts
 from framework.utils import assert_link_format
 from tests.driver.simulator_case import SimulatorCase
+from x import get_random_name
 
 RANGE_NAME = f"Task Lifecycle Range {get_random_name()}"
 
@@ -109,9 +108,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             if actual == expected:
                 return
             sy.sleep(0.5)
-        assert (
-            actual == expected
-        ), f"Task '{name}' data_saving should be {expected}, got {actual}"
+        assert actual == expected, (
+            f"Task '{name}' data_saving should be {expected}, got {actual}"
+        )
 
     def test_play_pause(self) -> None:
         """Stop and start each task (individually and in groups)."""
@@ -178,9 +177,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export_task(t.name)
         assert "type" in exported, "Exported JSON should contain a 'type' field"
-        assert (
-            exported["type"] == t.type
-        ), f"Exported type should be '{t.type}', got '{exported['type']}'"
+        assert exported["type"] == t.type, (
+            f"Exported type should be '{t.type}', got '{exported['type']}'"
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 
@@ -209,9 +208,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         name = TASKS[3].name
         self.log(f"Testing: Open task config via search palette for '{name}'")
         task_page = self.console.workspace.open_from_search(TaskPage, name)
-        assert (
-            task_page.page_name == name
-        ), f"Opened page name should be '{name}', got '{task_page.page_name}'"
+        assert task_page.page_name == name, (
+            f"Opened page name should be '{name}', got '{task_page.page_name}'"
+        )
         self.console.close_all_tabs()
 
     def test_snapshot_to_active_range(self) -> None:
@@ -240,9 +239,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log("Testing: Verify rename synchronization")
         self.console.layout.get_tab(new_name).wait_for(state="visible", timeout=5000)
         name_value = self.console.layout.get_input_field("Name")
-        assert (
-            name_value == new_name
-        ), f"Task config Name field should show '{new_name}', got '{name_value}'"
+        assert name_value == new_name, (
+            f"Task config Name field should show '{new_name}', got '{name_value}'"
+        )
         self.console.close_all_tabs()
 
     def test_delete_task(self) -> None:

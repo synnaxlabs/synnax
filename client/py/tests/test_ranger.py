@@ -260,11 +260,11 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
 
-            child1 = parent_rng.create_child_range(
+            parent_rng.create_child_range(
                 name="child1",
                 time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
             )
-            child2 = parent_rng.create_child_range(
+            parent_rng.create_child_range(
                 name="child2",
                 time_range=sy.TimeStamp.now().span_range(3 * sy.TimeSpan.SECOND),
             )
