@@ -17,7 +17,7 @@ import {
   type Flux,
   Icon,
   List,
-  Menu as PMenu,
+  Menu,
   Select,
   Status,
   stopPropagation,
@@ -26,11 +26,11 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { EmptyAction, Menu, Toolbar } from "@/components";
+import { ContextMenu as CMenu, EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Common } from "@/hardware/common";
@@ -47,11 +47,11 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
-  const canCreateTask = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing tasks."
-      action={canCreateTask ? "Create a task" : undefined}
+      action={hasCreatePermission ? "Create a task" : undefined}
       onClick={handleClick}
     />
   );
@@ -70,10 +70,10 @@ const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const canCreateTask = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -166,7 +166,7 @@ const Content = () => {
     },
     [selected, addStatus, placeLayout],
   );
-  const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
+  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
       <ContextMenu
         keys={keys}
@@ -192,11 +192,11 @@ const Content = () => {
     [handleCommand],
   );
   return (
-    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+    <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          {canCreateTask && (
+          {hasCreatePermission && (
             <Toolbar.Actions>
               <Toolbar.Action
                 tooltip="Create task"
@@ -234,7 +234,7 @@ const Content = () => {
           </List.Items>
         </Select.Frame>
       </Toolbar.Content>
-    </PMenu.ContextMenu>
+    </Menu.ContextMenu>
   );
 };
 
@@ -258,7 +258,7 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
-  const hasEditPermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
   const icon = getIcon(task_?.type ?? "");
@@ -282,7 +282,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               value={task_?.name ?? ""}
-              onChange={hasEditPermission ? onRename : undefined}
+              onChange={hasUpdatePermission ? onRename : undefined}
               allowDoubleClick={false}
               overflow="ellipsis"
               weight={500}
@@ -293,7 +293,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
-      {hasEditPermission && (
+      {hasUpdatePermission && (
         <Button.Button
           variant="outlined"
           status={isLoading ? "loading" : undefined}
@@ -332,8 +332,9 @@ const ContextMenu = ({
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -380,103 +381,92 @@ const ContextMenu = ({
     },
     [selectedTasks, addStatus, copyLinkToClipboard],
   );
-  const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
-    () => ({
-      start: () => onStart(keys),
-      stop: () => onStop(keys),
-      enableDataSaving: () => onEnableDataSaving(keys),
-      disableDataSaving: () => onDisableDataSaving(keys),
-      edit: () => onEdit(keys[0]),
-      rename: () => Text.edit(`text-${keys[0]}`),
-      link: () => handleLink(keys[0]),
-      export: () => handleExport(keys[0]),
-      delete: () => onDelete(keys),
-      rangeSnapshot: () =>
-        snapshotToActiveRange({
-          tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({ key, name })),
-        }),
-    }),
-    [
-      onStart,
-      onStop,
-      onEnableDataSaving,
-      onDisableDataSaving,
-      onEdit,
-      handleLink,
-      onDelete,
-      keys,
-      snapshotToActiveRange,
-      selectedTasks,
-    ],
-  );
   const showSnapshotToActiveRange =
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canEdit && (
+    <CMenu.Menu>
+      {hasUpdatePermission && (
         <>
           {canStart && (
-            <PMenu.Item itemKey="start">
+            <Menu.Item itemKey="start" onClick={() => onStart(keys)}>
               <Icon.Play />
               Start
-            </PMenu.Item>
+            </Menu.Item>
           )}
           {canStop && (
-            <PMenu.Item itemKey="stop">
+            <Menu.Item itemKey="stop" onClick={() => onStop(keys)}>
               <Icon.Pause />
               Stop
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          {(canStart || canStop) && <PMenu.Divider />}
+          {(canStart || canStop) && <Menu.Divider />}
           {canEnableDataSaving && (
-            <PMenu.Item itemKey="enableDataSaving">
+            <Menu.Item
+              itemKey="enableDataSaving"
+              onClick={() => onEnableDataSaving(keys)}
+            >
               <Icon.Save />
               Enable data saving
-            </PMenu.Item>
+            </Menu.Item>
           )}
           {canDisableDataSaving && (
-            <PMenu.Item itemKey="disableDataSaving">
+            <Menu.Item
+              itemKey="disableDataSaving"
+              onClick={() => onDisableDataSaving(keys)}
+            >
               <Icon.Disable />
               Disable data saving
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          {(canEnableDataSaving || canDisableDataSaving) && <PMenu.Divider />}
+          {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
           {isSingle && (
             <>
-              <PMenu.Item itemKey="edit">
-                <Icon.Edit />
-                Edit configuration
-              </PMenu.Item>
-              <PMenu.Divider />
-              <Menu.RenameItem />
-              <PMenu.Divider />
-            </>
-          )}
-          {showSnapshotToActiveRange && (
-            <>
-              <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
-              <PMenu.Divider />
+              <CMenu.RenameItem onClick={() => Text.edit(`text-${keys[0]}`)} />
+              <Menu.Divider />
             </>
           )}
         </>
       )}
       {isSingle && (
         <>
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <PMenu.Divider />
+          <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
+            <Icon.Edit />
+            Edit configuration
+          </Menu.Item>
+          <Menu.Divider />
         </>
       )}
-      {canDelete && someSelected && (
+      {hasCreatePermission && showSnapshotToActiveRange && (
         <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
+          <Range.SnapshotMenuItem
+            range={activeRange}
+            key="snapshot"
+            onClick={() =>
+              snapshotToActiveRange({
+                tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+                  key,
+                  name,
+                })),
+              })
+            }
+          />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      {isSingle && (
+        <>
+          <Export.ContextMenuItem onClick={() => handleExport(keys[0])} />
+          <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
+          <Menu.Divider />
+        </>
+      )}
+      {hasDeletePermission && someSelected && (
+        <>
+          <CMenu.DeleteItem onClick={() => onDelete(keys)} />
+          <Menu.Divider />
+        </>
+      )}
+      <CMenu.ReloadConsoleItem />
+    </CMenu.Menu>
   );
 };

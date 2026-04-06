@@ -19,12 +19,12 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
-  const canCreateUser = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
-        {canCreateUser && (
+        {hasCreatePermission && (
           <Toolbar.Actions>
             <Toolbar.Action
               onClick={() => placeLayout(REGISTER_LAYOUT)}
@@ -42,11 +42,11 @@ const Content = (): ReactElement => {
 
 const EmptyContent = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateUser = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No users."
-      action={canCreateUser ? "Create a user" : undefined}
+      action={hasCreatePermission ? "Create a user" : undefined}
       onClick={() => placeLayout(REGISTER_LAYOUT)}
     />
   );

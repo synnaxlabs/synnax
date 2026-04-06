@@ -32,6 +32,10 @@ build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
+# GoogleTest 1.17 headers trigger char8_t → char32_t conversion warning in gtest-printers.h
+# -Wno-unknown-warning-option prevents older Clang from erroring on unrecognized -W flags
+build:macos --copt=-Wno-unknown-warning-option
+build:macos --copt=-Wno-error=character-conversion
 
 # Linux
 build:linux --cxxopt=-std=c++23

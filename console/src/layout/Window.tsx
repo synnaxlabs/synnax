@@ -11,12 +11,12 @@ import "@/layout/Window.css";
 
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flex, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
+import { Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { Modals } from "@/layout/Modals";
@@ -24,9 +24,9 @@ import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
 
 export const DefaultContextMenu = (): ReactElement => (
-  <PMenu.Menu>
-    <Menu.ReloadConsoleItem />
-  </PMenu.Menu>
+  <Menu.Menu>
+    <ContextMenu.ReloadConsoleItem />
+  </Menu.Menu>
 );
 
 const WindowInternal = (): ReactElement | null => {
@@ -49,7 +49,7 @@ const WindowInternal = (): ReactElement | null => {
     );
   }, [os, layout?.key]);
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const ctx = Haul.useContext();
   const dragging = Haul.useDraggingRef();
 
@@ -71,12 +71,14 @@ const WindowInternal = (): ReactElement | null => {
       onContextMenu={menuProps.open}
     >
       <Modals />
-      <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+      <Menu.ContextMenu menu={menu} {...menuProps}>
         <Content layoutKey={layout.key} />
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
     </Flex.Box>
   );
 };
+
+const menu = () => <DefaultContextMenu />;
 
 export const Window = memo(WindowInternal);
 Window.displayName = "Window";

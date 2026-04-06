@@ -30,6 +30,21 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("StatusDetails", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original device.StatusDetails) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded device.StatusDetails
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}),
+			Entry("zero values", device.StatusDetails{Rack: rack.Key(0), Device: ""}),
+		)
+	})
 	Describe("Device", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original device.Device) {
@@ -84,22 +99,24 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("StatusDetails", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original device.StatusDetails) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded device.StatusDetails
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}),
-			Entry("zero values", device.StatusDetails{Rack: rack.Key(0), Device: ""}),
-		)
-	})
 })
+
+func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
+	sd := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sd.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded device.StatusDetails
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeDevice(b *testing.B) {
 	d := device.Device{
@@ -149,21 +166,47 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	sd := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := sd.EncodeOrc(w); err != nil {
-			b.Fatal(err)
+func FuzzDecodeStatusDetails(f *testing.F) {
+	{
+		seed := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
 		}
-		var decoded device.StatusDetails
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
+		f.Add(w.Bytes())
 	}
+	{
+		seed := device.StatusDetails{Rack: rack.Key(0), Device: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded device.StatusDetails
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded device.StatusDetails
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }
 
 func FuzzDecodeDevice(f *testing.F) {
@@ -234,49 +277,6 @@ func FuzzDecodeDevice(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded device.Device
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
-}
-
-func FuzzDecodeStatusDetails(f *testing.F) {
-	{
-		seed := device.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := device.StatusDetails{Rack: rack.Key(0), Device: ""}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded device.StatusDetails
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded device.StatusDetails
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

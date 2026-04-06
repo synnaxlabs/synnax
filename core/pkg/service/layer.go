@@ -42,7 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -63,6 +63,11 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// RootCredentials are the credentials for the root user. If provided, the root
+	// user will be provisioned during service layer initialization.
+	//
+	// [OPTIONAL]
+	RootCredentials auth.InsecureCredentials
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -83,6 +88,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -145,7 +151,7 @@ type Layer struct {
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// closer is for properly shutting down the service layer.
-	closer xio.MultiCloser
+	closer io.MultiCloser
 }
 
 // Close shuts down the service layer, returning any error encountered.
@@ -166,12 +172,23 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		err = cleanup(err)
 	}()
 
+	var authKV *auth.KV
+	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
+		Instrumentation: cfg.Child("auth"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, authKV) {
+		return nil, err
+	}
+	l.Auth = authKV
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-	}); !ok(err, nil) {
+		Instrumentation: cfg.Child("user"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Auth:            authKV,
+		RootCredentials: cfg.RootCredentials,
+	}); !ok(err, l.User) {
 		return nil, err
 	}
 	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
@@ -181,18 +198,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         cfg.Distribution.Signals,
 		Group:           cfg.Distribution.Group,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+		User:            l.User,
+	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
-
-	var authKV *auth.KV
-	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
-		Instrumentation: cfg.Child("auth"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, authKV) {
-		return nil, err
-	}
-	l.Auth = authKV
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
@@ -201,11 +210,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Search:   cfg.Distribution.Search,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
+		Instrumentation: cfg.Child("label"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -220,7 +230,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-
 	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
 		Instrumentation: cfg.Child("kv"),
 		DB:              cfg.Distribution.DB,
@@ -253,7 +262,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
@@ -261,7 +270,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Log) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
@@ -269,7 +278,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Table) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(
@@ -373,8 +382,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
-			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("framer"),
+			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Arc:             l.Arc,
@@ -386,8 +395,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.ServiceConfig{
-			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("metrics"),
+			DB:              cfg.Distribution.DB,
 			Framer:          l.Framer,
 			Channel:         l.Channel,
 			HostProvider:    cfg.Distribution.Cluster,

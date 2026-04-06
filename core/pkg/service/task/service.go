@@ -21,11 +21,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -94,12 +96,11 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg                           ServiceConfig
-	shutdownSignals               io.Closer
-	group                         group.Group
-	disconnectSuspectRackObserver observe.Disconnect
-	table                         *gorp.Table[Key, Task]
-	commandChannelKey             channel.Key
+	cfg               ServiceConfig
+	closer            xio.MultiCloser
+	group             group.Group
+	table             *gorp.Table[Key, Task]
+	commandChannelKey channel.Key
 }
 
 // Observe returns an observable that notifies callers of changes to task entries.
@@ -107,27 +108,26 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
 	return s.table.Observe()
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
 		DB: cfg.DB,
-		Migrations: append(
-			TaskMigrations(),
-			statusBackfillMigration(cfg),
-		),
+		Migrations: append(TaskMigrations(), v0.Migration(v0.MigrationConfig{
+			Status: cfg.Status,
+		})),
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
@@ -142,20 +142,22 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),
-		); err != nil {
+		); !ok(err, nil) {
 			return nil, err
 		}
 		s.commandChannelKey = cmdCh.Key()
 	}
-	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
+	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
+	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	if s.shutdownSignals, err = signals.PublishFromGorp(
+	var sig io.Closer
+	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signals.GorpPublisherConfigPureNumeric[Key, Task](s.table.Observe(), telem.Uint64T),
-	); err != nil {
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil
@@ -181,13 +183,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	}
 }
 
-func (s *Service) Close() error {
-	s.disconnectSuspectRackObserver()
-	if s.shutdownSignals != nil {
-		return errors.Combine(s.shutdownSignals.Close(), s.table.Close())
-	}
-	return s.table.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)

@@ -14,23 +14,19 @@ import {
   Form,
   Input,
   List,
-  Menu,
   Select,
   stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { ContextMenu } from "@/arc/list/ContextMenu";
-
 export interface ItemProps extends List.ItemProps<arc.Key> {
-  showStatus?: boolean;
+  onRename?: (name: string) => void;
+  textIdPrefix?: string;
 }
 
-export const Item = ({ showStatus: _, ...props }: ItemProps) => {
+export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
-  const { getItem } = List.useUtilContext<arc.Key, arc.Arc>();
-  if (getItem == null) throw new Error("getItem is null");
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const initialValues = useMemo(() => {
@@ -54,8 +50,6 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
   });
   const { name } = arc;
 
-  const menuProps = Menu.useContextMenu();
-
   return (
     <List.Item
       {...props}
@@ -63,23 +57,23 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
       selected={selected}
       rounded={!selected}
       onSelect={onSelect}
-      onContextMenu={menuProps.open}
       justify="between"
       align="center"
     >
       <Form.Form<typeof Arc.formSchema> {...form}>
-        <Menu.ContextMenu
-          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
-          onClick={stopPropagation}
-          {...menuProps}
-        />
         <Flex.Box x align="center">
           <Input.Checkbox
             value={selected}
             onChange={onSelect}
             onClick={stopPropagation}
           />
-          <Text.Text level="p">{name}</Text.Text>
+          <Text.MaybeEditable
+            id={`${textIdPrefix}-${itemKey}`}
+            level="p"
+            value={name}
+            onChange={onRename}
+            allowDoubleClick={false}
+          />
         </Flex.Box>
       </Form.Form>
     </List.Item>

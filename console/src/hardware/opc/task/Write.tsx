@@ -12,6 +12,7 @@ import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { ContextMenu } from "@/components";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
@@ -81,10 +82,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
+      <ContextMenu.RenameItem onClick={handleRename} />
       <Menu.Divider />
     </>
   );

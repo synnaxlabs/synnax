@@ -807,6 +807,30 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("ontology with @py omit", func() {
+			It("Should generate ontology_id even when the struct is omitted", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uuid
+
+					Policy struct {
+						key Key @key
+						name string
+						@py omit
+						@ontology type "policy"
+					}
+				`
+				resp := MustGenerate(ctx, source, "policy", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`ONTOLOGY_TYPE = ID(type="policy")`,
+						`def ontology_id(key: Key) -> ID:`,
+					).
+					ToNotContain(`class Policy`)
+			})
+		})
+
 		Context("type aliases", func() {
 			It("Should generate TypeAlias for simple type alias", func(ctx SpecContext) {
 				source := `
