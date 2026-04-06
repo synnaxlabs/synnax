@@ -77,21 +77,23 @@ class HoldingRegisterInputChan(BaseChan):
         ...     swap_words=False
         ... )
 
-    Example 4: Reading a string
-        >>> # ASCII string stored in registers
-        >>> device_name = HoldingRegisterInputChan(
+    Example 4: Reading a 64-bit float
+        >>> # High-precision measurement spanning 4 registers
+        >>> precision_value = HoldingRegisterInputChan(
         ...     address=40100,
         ...     channel=103,
-        ...     data_type="STRING",
-        ...     string_length=16      # 16 characters (8 registers)
+        ...     data_type="float64",  # Spans 4 registers
+        ...     swap_bytes=False,
+        ...     swap_words=False
         ... )
 
     :param address: Modbus register address (0-65535, commonly 40001-49999 in notation)
     :param channel: Synnax channel key to write data to
-    :param data_type: Data type interpretation (float32, int16, uint16, int32, uint32, STRING, etc.)
+    :param data_type: Data type interpretation. Supported values: float32, float64,
+        int8, int16, int32, int64, uint8, uint16, uint32, uint64.
     :param swap_bytes: Swap byte order within each 16-bit word (AB->BA)
     :param swap_words: Swap word order for multi-register values (ABCD->CDAB)
-    :param string_length: String length in characters (required for STRING data type)
+    :param string_length: String length in characters (reserved for future use)
     :param key: Unique identifier (auto-generated if not provided)
     :param enabled: Whether the channel is enabled for acquisition
     """
@@ -102,7 +104,7 @@ class HoldingRegisterInputChan(BaseChan):
     data_type: str = "float32"
     "The data type to interpret the register(s) as (e.g., 'float32', 'int16', 'uint32')."
     swap_bytes: bool = False
-    "Whether to swap the byte order for multi-register values."
+    "Whether to swap the byte order within each 16-bit word."
     swap_words: bool = False
     "Whether to swap the word order for multi-register values."
     string_length: int = Field(default=0, ge=0)
@@ -150,10 +152,11 @@ class InputRegisterChan(BaseChan):
 
     :param address: Modbus register address (0-65535, commonly 30001-39999 in notation)
     :param channel: Synnax channel key to write data to
-    :param data_type: Data type interpretation (float32, int16, uint16, int32, uint32, STRING, etc.)
+    :param data_type: Data type interpretation. Supported values: float32, float64,
+        int8, int16, int32, int64, uint8, uint16, uint32, uint64.
     :param swap_bytes: Swap byte order within each 16-bit word (AB->BA)
     :param swap_words: Swap word order for multi-register values (ABCD->CDAB)
-    :param string_length: String length in characters (required for STRING data type)
+    :param string_length: String length in characters (reserved for future use)
     :param key: Unique identifier (auto-generated if not provided)
     :param enabled: Whether the channel is enabled for acquisition
     """
@@ -164,7 +167,7 @@ class InputRegisterChan(BaseChan):
     data_type: str = "float32"
     "The data type to interpret the register(s) as (e.g., 'float32', 'int16', 'uint32')."
     swap_bytes: bool = False
-    "Whether to swap the byte order for multi-register values."
+    "Whether to swap the byte order within each 16-bit word."
     swap_words: bool = False
     "Whether to swap the word order for multi-register values."
     string_length: int = Field(default=0, ge=0)
@@ -359,7 +362,8 @@ class HoldingRegisterOutputChan(BaseChan):
 
     :param address: Modbus register address to write to (0-65535, commonly 40001-49999 in notation)
     :param channel: Synnax channel key to read command values from
-    :param data_type: Data type to write (float32, int16, uint16, int32, uint32, etc.)
+    :param data_type: Data type to write. Supported values: float32, float64,
+        int8, int16, int32, int64, uint8, uint16, uint32, uint64.
     :param swap_bytes: Swap byte order within each 16-bit word (AB->BA)
     :param swap_words: Swap word order for multi-register values (ABCD->CDAB)
     :param key: Unique identifier (auto-generated if not provided)
@@ -372,7 +376,7 @@ class HoldingRegisterOutputChan(BaseChan):
     data_type: str = "float32"
     "The data type to interpret the register(s) as (e.g., 'float32', 'int16', 'uint32')."
     swap_bytes: bool = False
-    "Whether to swap the byte order for multi-register values."
+    "Whether to swap the byte order within each 16-bit word."
     swap_words: bool = False
     "Whether to swap the word order for multi-register values."
 
