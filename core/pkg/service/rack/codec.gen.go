@@ -15,6 +15,22 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(sd.Rack))
+	return nil
+}
+
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		sd.Rack = Key(v)
+	}
+	return nil
+}
+
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rv.Key))
 	w.String(rv.Name)
@@ -88,22 +104,6 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	return nil
-}
-
-func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(sd.Rack))
-	return nil
-}
-
-func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		sd.Rack = Key(v)
 	}
 	return nil
 }

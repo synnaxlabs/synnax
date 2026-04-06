@@ -12,8 +12,10 @@ import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select as Base } from "@/select";
+import { Indicator } from "@/status/base/Indicator";
 import { type ListParams, useList } from "@/status/queries";
 import { Text } from "@/text";
 
@@ -49,6 +51,7 @@ export const Select = ({
       data={data}
       subscribe={subscribe}
       getItem={getItem}
+      icon={<Icon.Status />}
       onFetchMore={fetchMore}
       onSearch={search}
       status={status}
@@ -62,10 +65,13 @@ const ListItem = (props: List.ItemProps<status.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<status.Key, status.Status>(itemKey);
   if (item == null) return null;
-  const { name } = item;
+  const { name, variant } = item;
   return (
     <Base.ListItem {...props}>
-      <Text.Text level="p">{name}</Text.Text>
+      <Text.Text level="p">
+        <Indicator variant={variant} />
+        {name}
+      </Text.Text>
     </Base.ListItem>
   );
 };

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -79,7 +80,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{
 		DB:              cfg.DB,
-		Migrations:      LinePlotMigrations(),
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, LinePlot]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

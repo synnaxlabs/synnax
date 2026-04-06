@@ -99,3 +99,7 @@
 .pluto-icon--logo-http {
     transform: scale(1.5);
 }
+
+.pluto-icon--logo-pagerduty {
+    transform: scale(0.8);
+}

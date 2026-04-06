@@ -18,9 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -72,11 +74,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-		Migrations:      PolicyMigrations(),
-	}); !ok(err, s.table) {
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[uuid.UUID, Policy]("msgpack_to_orc", v0Mig.Key()),
+		},
+	}); err != nil {
 		return nil, err
 	}
 	if cfg.Signals != nil {

@@ -16,13 +16,25 @@ import (
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Magic is the 3-byte header written at the start of every ORC-encoded payload.
+// magic is the 3-byte header written at the start of every ORC-encoded payload.
 // It allows quick format detection without trial decoding. The bytes spell "ORC"
 // in ASCII and do not conflict with msgpack (0x80-0xdf, 0xc0-0xd3) or JSON
 // (0x22-0x7b) leading bytes.
-var Magic = [3]byte{0x4F, 0x52, 0x43}
+const magicLen = 3
+
+var magic = [magicLen]byte{0x4F, 0x52, 0x43}
+
+var ErrInvalidFormat = errors.Wrap(validate.ErrValidation, "data was not encoded using orc")
+
+func validateMagic(data []byte) error {
+	if len(data) < len(magic) || data[0] != magic[0] || data[1] != magic[1] || data[2] != magic[2] {
+		return ErrInvalidFormat
+	}
+	return nil
+}
 
 // SelfEncoder is implemented by types that can encode themselves to ORC binary format.
 type SelfEncoder interface {
@@ -73,12 +85,12 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 		var ok bool
 		m, ok = value.(SelfEncoder)
 		if !ok {
-			return nil, errors.New("orc: value does not implement SelfEncoder")
+			return nil, errors.Newf("orc: %T does not implement SelfEncoder", value)
 		}
 	}
 	w := writerPool.Get().(*Writer)
 	w.Reset()
-	w.Write(Magic[:])
+	w.Write(magic[:])
 	err := m.EncodeOrc(w)
 	out := w.Copy()
 	writerPool.Put(w)
@@ -98,7 +110,7 @@ func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 }
 
 func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
-	if len(data) < len(Magic) || data[0] != Magic[0] || data[1] != Magic[1] || data[2] != Magic[2] {
+	if err := validateMagic(data); err != nil {
 		if c.fallback != nil {
 			return c.fallback.Decode(ctx, data, value)
 		}
@@ -106,10 +118,10 @@ func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 	}
 	m, ok := value.(SelfDecoder)
 	if !ok {
-		return errors.New("orc: value does not implement SelfDecoder")
+		return errors.Newf("orc: %T does not implement SelfDecoder", value)
 	}
 	r := readerPool.Get().(*Reader)
-	r.ResetBytes(data[len(Magic):])
+	r.ResetBytes(data[len(magic):])
 	err := m.DecodeOrc(r)
 	readerPool.Put(r)
 	return err

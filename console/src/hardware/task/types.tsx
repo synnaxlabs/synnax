@@ -16,6 +16,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { PagerDuty } from "@/hardware/pagerduty";
 
 const PREFIXES = [
   EtherCAT.Task.PREFIX,
@@ -24,6 +25,7 @@ const PREFIXES = [
   Modbus.Task.PREFIX,
   NI.Task.PREFIX,
   OPC.Task.PREFIX,
+  PagerDuty.Task.PREFIX,
 ] as const;
 type Prefix = (typeof PREFIXES)[number];
 
@@ -34,6 +36,7 @@ const ICONS: Record<Prefix, Icon.ReactElement> = {
   [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPC.Task.PREFIX]: <Icon.Logo.OPC />,
+  [PagerDuty.Task.PREFIX]: <Icon.Logo.PagerDuty />,
 };
 
 export const getIcon = (type: string): Icon.ReactElement => {
@@ -48,6 +51,7 @@ const PREFIX_NAMES: Record<Prefix, string> = {
   [Modbus.Task.PREFIX]: "Modbus",
   [NI.Task.PREFIX]: "NI",
   [OPC.Task.PREFIX]: "OPC UA",
+  [PagerDuty.Task.PREFIX]: "PagerDuty",
 };
 
 export const parseType = (type: string): string => {

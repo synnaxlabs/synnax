@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -131,12 +132,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{ServiceConfig: cfg, keyMu: &sync.Mutex{}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration(v0.MigrationConfig{
+		HostProvider: cfg.HostProvider,
+		Status:       cfg.Status,
+	})
 	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
 		DB: cfg.DB,
-		Migrations: append(RackMigrations(), v0.Migration(v0.MigrationConfig{
-			HostProvider: cfg.HostProvider,
-			Status:       cfg.Status,
-		})),
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[Key, Rack]("msgpack_to_orc", v0Mig.Key()),
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
