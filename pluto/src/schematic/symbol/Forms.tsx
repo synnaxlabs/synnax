@@ -590,7 +590,7 @@ export const ValueForm = (): ReactElement => {
       case "telemetry":
         return (
           <FormWrapper y empty>
-            <Value.TelemForm path="" />;
+            <Value.TelemForm path="" />
           </FormWrapper>
         );
       case "redline":
