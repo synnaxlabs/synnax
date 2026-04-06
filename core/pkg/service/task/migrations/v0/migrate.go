@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package task
+package v0
 
 import (
 	"context"
@@ -24,9 +24,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func statusBackfillMigration(cfg ServiceConfig) migrate.Migration {
+type MigrationConfig struct {
+	Status *status.Service
+}
+
+func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"status_backfill",
+		"v0.status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			reader := gorp.WrapReader[Key, Task](tx)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})
@@ -36,7 +40,6 @@ func statusBackfillMigration(cfg ServiceConfig) migrate.Migration {
 			defer func() {
 				err = errors.Combine(err, iter.Close())
 			}()
-
 			var tasks []Task
 			for iter.First(); iter.Valid(); iter.Next() {
 				t := iter.Value(ctx)
