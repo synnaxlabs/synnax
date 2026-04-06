@@ -164,7 +164,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](s.table.Observe())); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			s.cfg.Signals,
+			signals.GorpPublisherConfigUUID[Arc](s.table.Observe()),
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}

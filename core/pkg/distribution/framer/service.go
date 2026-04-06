@@ -37,7 +37,7 @@ import (
 // To create a new service, call Open with a valid ServiceConfig. The framer service
 // must be closed after used.
 type Service struct {
-	Relay           *relay.Relay
+	relay           *relay.Relay
 	closer          io.MultiCloser
 	writer          *writer.Service
 	iterator        *iterator.Service
@@ -103,40 +103,40 @@ const freeWritePipelineBuffer = 4000
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func OpenService(cfgs ...ServiceConfig) (s *Service, err error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
-	cleanup, ok := service.NewOpener(context.Background(), &s.closer)
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
+		Instrumentation: cfg.Child("iterator"),
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
 		Channel:         cfg.Channel,
-		Instrumentation: cfg.Child("iterator"),
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
-	if s.Relay, err = relay.Open(relay.Config{
+	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
 		Channel:         cfg.Channel,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
 		FreeWrites:      freeWrites,
-	}); !ok(err, s.Relay) {
+	}); !ok(err, s.relay) {
 		return nil, err
 	}
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
+		Instrumentation: cfg.Child("writer"),
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		Channel:         cfg.Channel,
-		Instrumentation: cfg.Child("writer"),
 		FreeWrites:      freeWrites,
 	}); !ok(err, nil) {
 		return nil, err
