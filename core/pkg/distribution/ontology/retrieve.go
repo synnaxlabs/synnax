@@ -373,31 +373,15 @@ func (r Retrieve) traverseByPrefix(
 	ids []ID,
 ) ([]ID, error) {
 	nextIDs := make([]ID, 0, len(ids)*4)
-	if traverse.Traverse != nil {
-		rt := traverse.Traverse(ids)
-		for _, id := range ids {
-			q := r.relationshipTable.NewRetrieve().
-				WherePrefix(traverse.FilterPrefix(id)).
-				WhereRaw(func(data []byte) (bool, error) {
-					return false, rt(data, &nextIDs)
-				})
-			if err := q.Exec(ctx, tx); err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		relationships := make([]Relationship, 0, 16)
-		for _, id := range ids {
-			relationships = relationships[:0]
-			if err := r.relationshipTable.NewRetrieve().
-				WherePrefix(traverse.FilterPrefix(id)).
-				Entries(&relationships).
-				Exec(ctx, tx); err != nil {
-				return nil, err
-			}
-			for i := range relationships {
-				nextIDs = append(nextIDs, traverse.Direction.GetID(&relationships[i]))
-			}
+	rt := traverse.Traverse(ids)
+	for _, id := range ids {
+		q := r.relationshipTable.NewRetrieve().
+			WherePrefix(traverse.FilterPrefix(id)).
+			WhereRaw(func(data []byte) (bool, error) {
+				return false, rt(data, &nextIDs)
+			})
+		if err := q.Exec(ctx, tx); err != nil {
+			return nil, err
 		}
 	}
 	return nextIDs, nil

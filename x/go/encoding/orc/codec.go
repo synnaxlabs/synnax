@@ -12,12 +12,10 @@ package orc
 import (
 	"context"
 	"io"
-	"reflect"
 	"sync"
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -87,10 +85,7 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 		var ok bool
 		m, ok = value.(SelfEncoder)
 		if !ok {
-			return nil, errors.Newf(
-				"orc: %s does not implement SelfEncoder",
-				types.ValueName(reflect.ValueOf(value)),
-			)
+			return nil, errors.Newf("orc: %T does not implement SelfEncoder", value)
 		}
 	}
 	w := writerPool.Get().(*Writer)
@@ -123,10 +118,7 @@ func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 	}
 	m, ok := value.(SelfDecoder)
 	if !ok {
-		return errors.Newf(
-			"orc: %s does not implement SelfDecoder",
-			types.ValueName(reflect.ValueOf(value)),
-		)
+		return errors.Newf("orc: %T does not implement SelfDecoder", value)
 	}
 	r := readerPool.Get().(*Reader)
 	r.ResetBytes(data[len(magic):])
