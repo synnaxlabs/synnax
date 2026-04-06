@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package v0
 
 import (
 	"context"
@@ -25,7 +25,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func groupMigration(cfg ServiceConfig) migrate.Migration {
+type MigrationConfig struct {
+	Ontology *ontology.Ontology
+	Group    *group.Service
+	alamos.Instrumentation
+}
+
+func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
@@ -159,7 +165,7 @@ func groupMigration(cfg ServiceConfig) migrate.Migration {
 				}
 				if err = otgWriter.DefineFromOneToManyRelationships(
 					ctx,
-					newParentRange.OntologyID(),
+					OntologyID(newParentRange.Key),
 					ontology.RelationshipTypeParentOf,
 					lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
 						return r.ID

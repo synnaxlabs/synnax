@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -102,8 +103,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
-		DB:              cfg.DB,
-		Migrations:      append(RangeMigrations(), groupMigration(cfg)),
+		DB: cfg.DB,
+		Migrations: append(RangeMigrations(), v0.Migration(v0.MigrationConfig{
+			Ontology:        cfg.Ontology,
+			Group:           cfg.Group,
+			Instrumentation: cfg.Instrumentation,
+		})),
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
