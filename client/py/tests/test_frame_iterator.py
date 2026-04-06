@@ -11,9 +11,9 @@
 import numpy as np
 import pytest
 from x.strings import random_name
+from x.telem import seconds_linspace
 
 import synnax as sy
-from tests.telem import seconds_linspace
 
 
 @pytest.mark.framer

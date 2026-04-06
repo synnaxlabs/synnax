@@ -1272,3 +1272,8 @@ class Alignment(int):
 
 
 CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment
+
+
+def seconds_linspace(start: int, count: int) -> list[TimeSpan]:
+    """Generates a list of TimeSpan values from start to start + count."""
+    return [start * TimeSpan.SECOND + i * TimeSpan.SECOND for i in range(count)]

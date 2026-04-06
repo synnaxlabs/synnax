@@ -1717,6 +1717,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "urllib3" },
     { name = "websockets" },
+    { name = "x" },
 ]
 
 [package.dev-dependencies]
@@ -1736,6 +1737,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.5,<3" },
     { name = "urllib3", specifier = ">=2.6.3,<3" },
     { name = "websockets", specifier = ">=16.0,<17" },
+    { name = "x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]

@@ -70,11 +70,7 @@ class UnexpectedError(Exception):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
 
 
-from x.exceptions import ContiguityError as _ContiguityError
-
-
-class ContiguityError(_ContiguityError):
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "contiguity"
+from x.exceptions import ContiguityError
 
 
 class QueryError(Exception):

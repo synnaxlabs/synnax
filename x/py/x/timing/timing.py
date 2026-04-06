@@ -13,7 +13,7 @@ import math
 import time
 from typing import Literal
 
-from synnax.telem import Rate, TimeSpan, TimeStamp
+from x.telem import Rate, TimeSpan, TimeStamp
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 

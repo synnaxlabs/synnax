@@ -22,6 +22,7 @@ markers = [
     "control: mark test as a control test",
     "deprecation: mark test as a deprecation test",
     "telem: mark test as a telem test",
+    "timing: mark test as a timing test",
 ]
 
 [build-system]

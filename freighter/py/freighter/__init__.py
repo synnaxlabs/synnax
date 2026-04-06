@@ -9,20 +9,20 @@
 
 __version__ = "0.2.14"
 
+from x.exceptions import (
+    ExceptionPayload,
+    decode_exception,
+    encode_exception,
+    register_exception,
+)
+
 from freighter.alamos import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
 from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.context import Context, Role
-from freighter.exceptions import (
-    EOF,
-    ExceptionPayload,
-    StreamClosed,
-    decode_exception,
-    encode_exception,
-    register_exception,
-)
+from freighter.exceptions import EOF, StreamClosed, Unreachable
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.transport import (

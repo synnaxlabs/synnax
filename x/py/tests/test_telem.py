@@ -605,3 +605,21 @@ class TestAlignment:
         model2 = TestModel(alignment=packed_value)  # type: ignore[arg-type]
         assert model2.alignment.domain_index == 5
         assert model2.alignment.sample_index == 10
+
+
+@pytest.mark.telem
+class TestSecondsLinspace:
+    def test_basic(self) -> None:
+        result = sy.seconds_linspace(0, 3)
+        assert len(result) == 3
+        assert result[0] == 0
+        assert result[1] == sy.TimeSpan.SECOND
+        assert result[2] == 2 * sy.TimeSpan.SECOND
+
+    def test_with_offset(self) -> None:
+        result = sy.seconds_linspace(5, 2)
+        assert result[0] == 5 * sy.TimeSpan.SECOND
+        assert result[1] == 6 * sy.TimeSpan.SECOND
+
+    def test_empty(self) -> None:
+        assert sy.seconds_linspace(0, 0) == []

@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.timing.timing import Loop, Timer, sleep
+# Re-exports from x.timing. Canonical definitions live in x/py/x/timing/.
+from x.timing import Loop, Timer, sleep
 
 __all__ = [
     "Loop",

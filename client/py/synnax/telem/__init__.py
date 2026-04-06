@@ -36,6 +36,7 @@ from x.telem import (
     TypedCrudeSeries,
     convert_time_units,
     elapsed_seconds,
+    seconds_linspace,
 )
 
 __all__ = [
@@ -66,4 +67,5 @@ __all__ = [
     "TimeSpanUnits",
     "TimeStamp",
     "TypedCrudeSeries",
+    "seconds_linspace",
 ]

@@ -15,10 +15,11 @@ import urllib3
 from urllib3 import PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.response import BaseHTTPResponse
+from x.exceptions import ExceptionPayload, decode_exception
 
 from freighter.codec import Codec
 from freighter.context import Context, Role
-from freighter.exceptions import ExceptionPayload, Unreachable, decode_exception
+from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.unary import UnaryClient
 from freighter.url import URL

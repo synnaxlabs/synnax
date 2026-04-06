@@ -7,6 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from x.exceptions.exceptions import (
+    ContiguityError,
+    DecoderFunc,
+    EncoderFunc,
+    ExceptionPayload,
+    decode_exception,
+    encode_exception,
+    register_exception,
+)
 
-class ContiguityError(Exception):
-    """Raised when time-series data is not contiguous."""
+__all__ = [
+    "ContiguityError",
+    "DecoderFunc",
+    "EncoderFunc",
+    "ExceptionPayload",
+    "decode_exception",
+    "encode_exception",
+    "register_exception",
+]
