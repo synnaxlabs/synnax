@@ -447,6 +447,56 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("marshal flex on a distinct scalar type", func() {
+			It("Should generate DecodeMsgpack and UnmarshalJSON methods", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Key uint64 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						task Key
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
+					"xmsgpack.UnmarshalUint64",
+					"func (kv *Key) UnmarshalJSON(b []byte) error",
+					"xjson.UnmarshalStringUint64",
+				)
+			})
+
+			It("Should generate uint32 helpers for uint32 base types", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Key uint32 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						rack Key
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
+					"xmsgpack.UnmarshalUint32",
+					"func (kv *Key) UnmarshalJSON(b []byte) error",
+					"xjson.UnmarshalStringUint32",
+				)
+			})
+		})
+
 		Context("recursive struct (self-referencing optional fields)", func() {
 			It("Should handle recursive type via delegation", func() {
 				source := `
