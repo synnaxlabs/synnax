@@ -19,11 +19,7 @@ dependencies = [
 classifiers = ["Private :: Do Not Upload"]
 
 [dependency-groups]
-dev = [
-    "mypy>=1.19.1,<2",
-    "ruff>=0.12.4,<1",
-    "types-psutil>=7.2.2,<8",
-]
+dev = ["mypy>=1.19.1,<2", "ruff>=0.12.4,<1", "types-psutil>=7.2.2,<8"]
 
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
