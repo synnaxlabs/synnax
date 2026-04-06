@@ -97,7 +97,7 @@ func generateTestCodecFile(
 			}
 		}
 
-		recv := receiverName(e.GoName)
+		recv := ReceiverName(e.GoName)
 		// In test files the receiver is used as a local variable, so it must
 		// not shadow the package import alias.
 		if recv == packageName {
