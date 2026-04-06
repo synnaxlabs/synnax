@@ -22,7 +22,7 @@ TASK_NAME = "mig_ni_analog_read"
 IDX_NAME = "mig_ni_idx"
 CHANNEL_PREFIX = "mig_ni_voltage"
 NUM_CHANNELS = 2
-DEVICE_LOCATION = "E101Mod1"  # NI 9229
+DEVICE_LOCATION = "E101Mod4"  # NI 9205
 
 
 class TaskNIMigration(ReadTaskMigration, NIAnalogReadTaskCase):
