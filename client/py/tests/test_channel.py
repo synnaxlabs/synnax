@@ -24,6 +24,7 @@ def channel_name() -> str:
 class TestChannel:
     """Tests all things related to channel operations. Create, delete, retrieve, etc."""
 
+    @pytest.mark.focus
     def test_create_index(self, client: sy.Synnax):
         """Should create an index channel."""
         name = channel_name()
