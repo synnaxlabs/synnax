@@ -18,6 +18,9 @@ from framework.test_case import TestCase
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
 API_KEY = os.environ.get("PAGERDUTY_API_KEY")
 
+if ROUTING_KEY is None or API_KEY is None:
+    raise RuntimeError("PAGERDUTY_ROUTING_KEY and PAGERDUTY_API_KEY must be set")
+
 
 class PagerDutyAlert(TestCase):
     """Integration test that configures a PagerDuty alert task, triggers an incident
