@@ -26,7 +26,7 @@ import {
 import { id } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { EmptyAction, Menu } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
 import {
   ALERT_SCHEMAS,
@@ -182,7 +182,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const canDisable = alerts.some(({ enabled }) => enabled);
   const canEnable = alerts.some(({ enabled }) => !enabled);
   return (
-    <PMenu.Menu level="small" gap="small">
+    <ContextMenu.Menu>
       {canRemove && (
         <>
           <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
@@ -205,8 +205,8 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
         </PMenu.Item>
       )}
       {(canDisable || canEnable) && <PMenu.Divider />}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 
