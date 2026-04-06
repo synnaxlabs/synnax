@@ -22,7 +22,7 @@ import (
 // RawFilter is a predicate that operates on the raw encoded bytes of an entry
 // before it is decoded. Returning false skips the entry without allocating a
 // decoded value. Returning true allows normal decode + filter processing.
-type RawFilter func(data []byte) bool
+type RawFilter func(data []byte) (bool, error)
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
@@ -195,7 +195,11 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.rawFilters.exec(iter.Iterator.Value()) {
+		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
+		if err != nil {
+			return 0, err
+		}
+		if !rawMatched {
 			continue
 		}
 		v := iter.Value(ctx)
@@ -224,19 +228,23 @@ type rawFilter struct {
 
 type rawFilters []rawFilter
 
-func (rf rawFilters) exec(data []byte) bool {
+func (rf rawFilters) exec(data []byte) (bool, error) {
 	if len(rf) == 0 {
-		return true
+		return true, nil
 	}
 	match := false
 	for _, f := range rf {
-		if f.f(data) {
+		ok, err := f.f(data)
+		if err != nil {
+			return false, err
+		}
+		if ok {
 			match = true
 		} else if f.required {
-			return false
+			return false, nil
 		}
 	}
-	return match
+	return match, nil
 }
 
 type filter[K Key, E Entry[K]] struct {
@@ -320,7 +328,11 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.rawFilters.exec(iter.Iterator.Value()) {
+		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
+		if err != nil {
+			return err
+		}
+		if !rawMatched {
 			continue
 		}
 		v := iter.Value(ctx)

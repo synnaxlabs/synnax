@@ -378,9 +378,8 @@ func (r Retrieve) traverseByPrefix(
 		for _, id := range ids {
 			q := r.relationshipTable.NewRetrieve().
 				WherePrefix(traverse.FilterPrefix(id)).
-				WhereRaw(func(data []byte) bool {
-					rt(data, &nextIDs)
-					return false
+				WhereRaw(func(data []byte) (bool, error) {
+					return false, rt(data, &nextIDs)
 				})
 			if err := q.Exec(ctx, tx); err != nil {
 				return nil, err
@@ -410,13 +409,14 @@ func (r Retrieve) traverseByScan(
 	traverse Traverser,
 	ids []ID,
 ) ([]ID, error) {
-	nextIDs := make([]ID, 0, len(ids)*4)
-	rt := traverse.Traverse(ids)
-	q := r.relationshipTable.NewRetrieve().
-		WhereRaw(func(data []byte) bool {
-			rt(data, &nextIDs)
-			return false
-		})
+	var (
+		nextIDs = make([]ID, 0, len(ids)*4)
+		rt      = traverse.Traverse(ids)
+		q       = r.relationshipTable.NewRetrieve().
+			WhereRaw(func(data []byte) (bool, error) {
+				return false, rt(data, &nextIDs)
+			})
+	)
 	if err := q.Exec(ctx, tx); err != nil {
 		return nil, err
 	}
