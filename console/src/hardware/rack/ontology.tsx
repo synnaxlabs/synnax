@@ -8,21 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc, rack } from "@synnaxlabs/client";
-import {
-  Access,
-  Icon,
-  Menu as PMenu,
-  Rack,
-  Status,
-  Text,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Arc } from "@/arc";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
@@ -31,13 +22,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
 });
-
-const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const copy = useCopyToClipboard();
-  return ({ selection: { ids }, state: { getResource } }) => {
-    copy(ids[0].key, `key to ${getResource(ids[0]).name}`);
-  };
-};
 
 const useRename = createUseRename({
   query: Rack.useRename,
@@ -83,15 +67,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     () => ids.map((id) => rack.ontologyID(Number(id.key))),
     [ids],
   );
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
-  const canEditArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const rename = useRename(props);
   const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
-  const copyKeyToClipboard = useCopyKeyToClipboard();
   const createArcModal = Arc.Editor.useCreateModal();
   const createArc = () => {
     handleError(async () => {
@@ -100,39 +83,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
     }, "Failed to create Arc automation");
   };
-  const onSelect = {
-    group: () => group(props),
-    rename,
-    createArc,
-    copy: () => copyKeyToClipboard(props),
-    delete: handleDelete,
-  };
   const isSingle = ids.length === 1;
   return (
-    <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem ids={ids} rootID={rootID} shape={shape} showBottomDivider />
-      {canEdit && isSingle && (
+    <ContextMenu.Menu>
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          rootID={rootID}
+          shape={shape}
+          showBottomDivider
+          onClick={() => group(props)}
+        />
+      )}
+      {hasUpdatePermission && isSingle && (
         <>
-          <Menu.RenameItem />
-          {canEditArc && (
-            <PMenu.Item itemKey="createArc">
+          <ContextMenu.RenameItem onClick={rename} />
+          {hasArcCreatePermission && (
+            <Menu.Item itemKey="createArc" onClick={createArc}>
               <CreateArcIcon />
               Create Arc automation
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          <PMenu.Divider />
+          <Menu.Divider />
         </>
       )}
-      {canDelete && <Menu.DeleteItem />}
-      <PMenu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       {isSingle && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

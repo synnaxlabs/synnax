@@ -12,6 +12,7 @@ import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { ArcServices } from "@/arc/services";
 import { Auth } from "@/auth";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
@@ -35,6 +36,7 @@ import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
+  arc: ArcServices.handleLink,
   channel: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
   lineplot: LinePlotServices.handleLink,

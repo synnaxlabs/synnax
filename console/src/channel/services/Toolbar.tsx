@@ -19,8 +19,8 @@ import { Ontology } from "@/ontology";
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  if (!canCreate) return null;
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
       <Toolbar.Action
@@ -57,11 +57,11 @@ const Content = (): ReactElement => {
 
 const EmptyContent = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateChannel = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No channels."
-      action={canCreateChannel ? "Create a channel" : undefined}
+      action={hasCreatePermission ? "Create a channel" : undefined}
       onClick={() => placeLayout(CREATE_LAYOUT)}
     />
   );

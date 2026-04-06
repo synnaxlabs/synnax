@@ -16,7 +16,7 @@ import {
   Flex,
   Icon,
   List as BaseList,
-  Menu as PMenu,
+  Menu,
   Select,
   Status,
   Tag,
@@ -31,17 +31,17 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
-import { contextMenuRenderProp } from "@/status/list/ContextMenu";
+import { contextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
 import { removeFavorites } from "@/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No favorited statuses."
-      action={canViewStatuses ? "Open Status Explorer" : undefined}
+      action={hasRetrievePermission ? "Open Status Explorer" : undefined}
       onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
@@ -49,7 +49,7 @@ const NoStatuses = (): ReactElement => {
 
 const List = (): ReactElement => {
   const favorites = useSelectFavorites();
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const [selected, setSelected] = useState<status.Key[]>([]);
   return (
     <Select.Frame<status.Key, status.Status>
@@ -58,7 +58,7 @@ const List = (): ReactElement => {
       value={selected}
       onChange={setSelected}
     >
-      <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps} />
+      <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <BaseList.Items<status.Key>
         full="y"
         emptyContent={<NoStatuses />}
@@ -136,12 +136,12 @@ const Content = (): ReactElement => (
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreate = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
-  const canViewStatuses = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
-  if (!canCreate && !canViewStatuses) return null;
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {canCreate && (
+      {hasCreatePermission && (
         <Toolbar.Action
           tooltip="Create status"
           onClick={() => placeLayout(CREATE_LAYOUT)}
@@ -149,7 +149,7 @@ const Actions = (): ReactElement | null => {
           <Icon.Add />
         </Toolbar.Action>
       )}
-      {canViewStatuses && (
+      {hasRetrievePermission && (
         <Toolbar.Action
           tooltip="Open Status Explorer"
           onClick={() => placeLayout(EXPLORER_LAYOUT)}

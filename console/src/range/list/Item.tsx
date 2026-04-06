@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger, UnexpectedError } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
   Input,
   List,
-  Menu,
   Ranger,
   Select,
   stopPropagation,
@@ -26,7 +25,6 @@ import { memo, useMemo } from "react";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { FavoriteButton } from "@/range/FavoriteButton";
-import { ContextMenu } from "@/range/list/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
@@ -46,8 +44,6 @@ const Base = ({
   const { itemKey } = props;
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const placeLayout = Layout.usePlacer();
-  const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
-  if (getItem == null) throw new UnexpectedError("getItem is null");
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return undefined;
@@ -64,7 +60,6 @@ const Base = ({
     sync: true,
     autoSave: true,
   });
-  const menuProps = Menu.useContextMenu();
   if (initialValues == null || item == null) return null;
 
   const { name, parent, labels, timeRange } = item;
@@ -76,18 +71,12 @@ const Base = ({
       className={CSS(CSS.BE("range", "list-item"))}
       onSelect={handleSelect}
       justify="between"
-      onContextMenu={menuProps.open}
       selected={selected}
       rounded={!selected}
       {...selectProps}
       {...props}
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>
-        <Menu.ContextMenu
-          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
-          onClick={stopPropagation}
-          {...menuProps}
-        />
         <Flex.Box x empty>
           <Input.Checkbox
             value={selected}

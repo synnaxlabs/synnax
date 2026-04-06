@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #include "x/cpp/mem/indirect.h"
 
