@@ -9,7 +9,16 @@
 
 import "@/schematic/symbol/Symbols.css";
 
-import { type bounds, box, color, direction, location, scale, xy } from "@synnaxlabs/x";
+import {
+  type bounds,
+  box,
+  color,
+  direction,
+  location,
+  scale,
+  type TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type FC,
@@ -149,7 +158,15 @@ export const createToggle = <P extends object = object>(
     position: _,
     data,
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
-    const { control, source, sink, label, orientation = "left", onClickDelay, ...rest } = data;
+    const {
+      control,
+      source,
+      sink,
+      label,
+      orientation = "left",
+      onClickDelay,
+      ...rest
+    } = data;
     const { enabled, toggle } = Toggle.use({
       aetherKey: symbolKey,
       source,

@@ -26,7 +26,7 @@ import { box, location, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls } from "@/components";
+import { ContextMenu as CMenu, Controls } from "@/components";
 import { Layout } from "@/layout";
 import {
   useSelectControlStatus,
@@ -73,9 +73,9 @@ const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElemen
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <CContextMenu.Menu>
+  <CMenu.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </CContextMenu.Menu>
+  </CMenu.Menu>
 );
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {

@@ -46,11 +46,9 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const hasUpdatePermission = Access.useUpdateGranted(
-    schematic.ontologyID(layoutKey),
-  );
+  const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = Base.useSelectSnapshot({ key: layoutKey }) ?? false;
-  const isEditable = hasEditingPermissions && !isSnapshot;
+  const isEditable = hasUpdatePermission && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
     <EmptyAction

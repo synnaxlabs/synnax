@@ -6,9 +6,99 @@ settings:
 
 catalogs:
   default:
+    '@fontsource/geist-mono':
+      specifier: ^5.2.7
+      version: 5.2.7
+    '@fontsource/inter':
+      specifier: ^5.2.8
+      version: 5.2.8
+    '@reduxjs/toolkit':
+      specifier: ^2.11.2
+      version: 2.11.2
+    '@tauri-apps/api':
+      specifier: ^2.10.1
+      version: 2.10.1
+    '@testing-library/react':
+      specifier: ^16.3.2
+      version: 16.3.2
+    '@types/node':
+      specifier: ^25.5.0
+      version: 25.5.0
+    '@types/offscreencanvas':
+      specifier: ^2019.7.3
+      version: 2019.7.3
+    '@types/pluralize':
+      specifier: ^0.0.33
+      version: 0.0.33
+    '@types/react':
+      specifier: ^19.2.14
+      version: 19.2.14
+    '@types/react-dom':
+      specifier: ^19.2.3
+      version: 19.2.3
+    '@vitejs/plugin-react':
+      specifier: ^6.0.1
+      version: 6.0.1
+    '@vitest/coverage-v8':
+      specifier: ^4.1.2
+      version: 4.1.2
+    async-mutex:
+      specifier: ^0.5.0
+      version: 0.5.0
+    clsx:
+      specifier: ^2.1.1
+      version: 2.1.1
+    compromise:
+      specifier: ^14.15.0
+      version: 14.15.0
+    compromise-dates:
+      specifier: ^3.7.1
+      version: 3.7.1
+    eslint:
+      specifier: ^10.1.0
+      version: 10.1.0
+    immer:
+      specifier: ^10.1.1
+      version: 10.2.0
+    jsdom:
+      specifier: ^27.4.0
+      version: 27.4.0
+    madge:
+      specifier: ^8.0.0
+      version: 8.0.0
+    pluralize:
+      specifier: ^8.0.0
+      version: 8.0.0
+    react:
+      specifier: ^19.2.4
+      version: 19.2.4
+    react-dom:
+      specifier: ^19.2.4
+      version: 19.2.4
+    react-icons:
+      specifier: ^5.6.0
+      version: 5.6.0
+    react-redux:
+      specifier: ^9.2.0
+      version: 9.2.0
+    stylelint:
+      specifier: ^17.6.0
+      version: 17.6.0
     stylelint-config-standard:
       specifier: ^40.0.0
       version: 40.0.0
+    typescript:
+      specifier: ^6.0.2
+      version: 6.0.2
+    vite:
+      specifier: ^8.0.3
+      version: 8.0.3
+    vitest:
+      specifier: ^4.1.2
+      version: 4.1.2
+    zod:
+      specifier: ^4.3.6
+      version: 4.3.6
 
 importers:
 
@@ -105,6 +195,9 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      immer:
+        specifier: 'catalog:'
+        version: 10.2.0
       zod:
         specifier: 'catalog:'
         version: 4.3.6
@@ -4394,6 +4487,9 @@ packages:
   ignore@7.0.5:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
+
+  immer@10.2.0:
+    resolution: {integrity: sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw==}
 
   immer@11.1.4:
     resolution: {integrity: sha512-XREFCPo6ksxVzP4E0ekD5aMdf8WMwmdNaz6vuvxgI40UaEiu6q3p8X52aU6GdyvLY3XXX/8R7JOTXStz/nBbRw==}
@@ -10657,6 +10753,8 @@ snapshots:
   ignore@5.3.2: {}
 
   ignore@7.0.5: {}
+
+  immer@10.2.0: {}
 
   immer@11.1.4: {}
 
