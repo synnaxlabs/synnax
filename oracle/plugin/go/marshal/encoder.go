@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -75,8 +76,9 @@ func generateEncoderCodecFile(
 		ExtraImports: make(map[string]string),
 	}
 
-	// Generate flex methods for distinct scalar types.
+	// Generate flex methods for distinct scalar types in sorted order.
 	if len(flex) > 0 {
+		sort.Slice(flex, func(i, j int) bool { return flex[i].GoName < flex[j].GoName })
 		var flexBuf strings.Builder
 		for _, fc := range flex {
 			methods, err := generateFlexMethods(fc)
@@ -165,7 +167,8 @@ func generateEncoderCodecFile(
 		}
 	}
 	tmpl, err := template.New("encoder_codec").Funcs(template.FuncMap{
-		"tpNames": tpNames,
+		"tpNames":       tpNames,
+		"sortedImports": sortedImports,
 	}).Parse(encoderCodecTemplate)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse encoder template")
@@ -975,8 +978,8 @@ import (
 
 	"github.com/synnaxlabs/x/encoding/orc"
 {{- end}}
-{{- range $path, $alias := .ExtraImports}}
-	{{if $alias}}{{$alias}} {{end}}"{{$path}}"
+{{- range sortedImports .ExtraImports}}
+	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range .ConcreteCodecs}}
