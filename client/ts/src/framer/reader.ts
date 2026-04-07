@@ -18,7 +18,7 @@ import { Iterator, type IteratorConfig } from "@/framer/iterator";
 export interface ReadRequest {
   channels: channel.Params;
   timeRange: CrudeTimeRange;
-  channelNames?: Record<channel.KeyOrName, string>;
+  channelNames?: Record<channel.Key | channel.Name, string>;
   responseType: "csv";
   iteratorConfig?: IteratorConfig;
 }
@@ -70,7 +70,7 @@ export class Reader {
 interface CreateCSVExportStreamParams {
   iterator: Iterator;
   channelPayloads: channel.Payload[];
-  headers?: Record<channel.KeyOrName, string>;
+  headers?: Record<channel.Key | channel.Name, string>;
 }
 
 const createCSVReadableStream = ({
@@ -198,8 +198,8 @@ const createCSVReadableStream = ({
 
 const groupChannelsByIndex = (
   channels: channel.Payload[],
-): Map<channel.Key, channel.Keys> => {
-  const groupMap = new Map<channel.Key, channel.Keys>();
+): Map<channel.Key, channel.Key[]> => {
+  const groupMap = new Map<channel.Key, channel.Key[]>();
   for (const ch of channels) {
     if (ch.index === 0) continue;
     let group = groupMap.get(ch.index);
@@ -225,8 +225,8 @@ interface ColumnMetaResult {
 
 const buildColumnMeta = (
   channels: channel.Payload[],
-  groups: Map<channel.Key, channel.Keys>,
-  headers?: Record<channel.KeyOrName, string>,
+  groups: Map<channel.Key, channel.Key[]>,
+  headers?: Record<channel.Key | channel.Name, string>,
 ): ColumnMetaResult => {
   const channelMap = new Map(channels.map((ch) => [ch.key, ch]));
   const columns: ColumnMeta[] = [];

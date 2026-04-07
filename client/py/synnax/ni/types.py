@@ -131,7 +131,7 @@ class PolynomialScale(BaseModel):
     """Custom polynomial scale for analog input channels.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatepoly3scale.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatepolynomialscale.html>
     """
 
     type: Literal["polynomial"] = "polynomial"
@@ -668,7 +668,7 @@ class AIForceIEPEChan(BaseAIChan, MinMaxVal):
         ...     terminal_config="PseudoDiff",
         ...     units="Newtons",
         ...     sensitivity=10.0,  # 10 mV/N
-        ...     sensitivity_units="mVoltsPerVolt",
+        ...     sensitivity_units="mVoltsPerNewton",
         ...     current_excit_source="Internal",
         ...     current_excit_val=0.004,  # 4 mA
         ...     min_val=-5000.0,
@@ -678,7 +678,7 @@ class AIForceIEPEChan(BaseAIChan, MinMaxVal):
     :param terminal_config: Input terminal configuration
     :param units: Output force units (Newtons, Pounds, KilogramForce)
     :param sensitivity: Sensor sensitivity value
-    :param sensitivity_units: Sensitivity units (mVoltsPerVolt or VoltsPerVolt)
+    :param sensitivity_units: Sensitivity units (mVoltsPerNewton or mVoltsPerPound)
     :param current_excit_source: Excitation current source (Internal, External, or None)
     :param current_excit_val: Excitation current in amps (typically 2-4 mA)
     :param custom_scale: Optional custom scaling
@@ -690,7 +690,7 @@ class AIForceIEPEChan(BaseAIChan, MinMaxVal):
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
     sensitivity: float
-    sensitivity_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
+    sensitivity_units: Literal["mVoltsPerNewton", "mVoltsPerPound"]
     current_excit_source: ExcitationSource
     current_excit_val: float
     custom_scale: Scale = NoScale()
@@ -1021,7 +1021,7 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
         ...     gage_orientation=0.0,  # degrees
         ...     rosette_meas_types=["PrincipleStrain1", "PrincipleStrain2", "MaxShearStrain"],
         ...     strain_config="QuarterBridgeI",
-        ...     units="strain",
+        ...     units="Strain",
         ...     voltage_excit_source="Internal",
         ...     voltage_excit_val=2.5,
         ...     nominal_gage_resistance=350.0,
@@ -1073,7 +1073,7 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
         "QuarterBridgeI",
         "QuarterBridgeII",
     ]
-    units: Literal["strain"] = "strain"
+    units: Literal["Strain"] = "Strain"
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
     nominal_gage_resistance: float
@@ -1146,8 +1146,8 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
         ...     port=0,
         ...     channel=0,
         ...     terminal_config="Diff",
-        ...     units="strain",
-        ...     strain_config="quarter-bridge-I",
+        ...     units="Strain",
+        ...     strain_config="QuarterBridgeI",
         ...     voltage_excit_source="Internal",
         ...     voltage_excit_val=2.5,
         ...     gage_factor=2.1,  # Typical for foil gages
@@ -1176,15 +1176,15 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
 
     type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
     terminal_config: TerminalConfig = "Cfg_Default"
-    units: Literal["strain"] = "strain"
+    units: Literal["Strain"] = "Strain"
     strain_config: Literal[
-        "full-bridge-I",
-        "full-bridge-II",
-        "full-bridge-III",
-        "half-bridge-I",
-        "half-bridge-II",
-        "quarter-bridge-I",
-        "quarter-bridge-II",
+        "FullBridgeI",
+        "FullBridgeII",
+        "FullBridgeIII",
+        "HalfBridgeI",
+        "HalfBridgeII",
+        "QuarterBridgeI",
+        "QuarterBridgeII",
     ]
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
@@ -1638,13 +1638,13 @@ class AIVoltageRMSChan(BaseAIChan, MinMaxVal):
         ...     port=0,
         ...     channel=0,
         ...     terminal_config="Diff",
-        ...     units="V",
+        ...     units="Volts",
         ...     min_val=0.0,
         ...     max_val=250.0  # 0-250V RMS
         ... )
 
     :param terminal_config: Input terminal configuration
-    :param units: Output units (V or mV)
+    :param units: Output units (Volts)
     :param custom_scale: Optional custom scaling
     :param min_val: Minimum expected RMS voltage
     :param max_val: Maximum expected RMS voltage
@@ -1652,7 +1652,7 @@ class AIVoltageRMSChan(BaseAIChan, MinMaxVal):
 
     type: Literal["ai_voltage_rms"] = "ai_voltage_rms"
     terminal_config: TerminalConfig = "Cfg_Default"
-    units: Literal["V", "mV"]
+    units: Literal["Volts"] = "Volts"
     custom_scale: Scale = NoScale()
 
 
@@ -1673,8 +1673,8 @@ class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
         ...     port=0,
         ...     channel=0,
         ...     terminal_config="Diff",
-        ...     units="V",
-        ...     bridge_config="none",  # Not a bridge, just voltage output
+        ...     units="Volts",
+        ...     bridge_config="FullBridge",
         ...     voltage_excit_source="Internal",
         ...     voltage_excit_val=10.0,  # 10V excitation
         ...     use_excit_for_scaling=True,  # Ratiometric measurement
@@ -1683,8 +1683,8 @@ class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
         ... )
 
     :param terminal_config: Input terminal configuration
-    :param units: Output units (V or mV)
-    :param bridge_config: Bridge configuration (full, half, quarter, or none)
+    :param units: Output units (Volts)
+    :param bridge_config: Bridge configuration (FullBridge, HalfBridge, QuarterBridge)
     :param voltage_excit_source: Excitation voltage source (Internal, External, or None)
     :param voltage_excit_val: Excitation voltage in volts
     :param use_excit_for_scaling: Use excitation voltage for ratiometric scaling
@@ -1695,8 +1695,8 @@ class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
 
     type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
     terminal_config: TerminalConfig = "Cfg_Default"
-    units: Literal["V", "mV"]
-    bridge_config: Literal["full", "half", "quarter", "none"]
+    units: Literal["Volts"] = "Volts"
+    bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
     use_excit_for_scaling: bool
@@ -1704,24 +1704,37 @@ class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
 
 
 AIChan = (
-    AIVoltageChan
-    | AIThermocoupleChan
-    | AIRTDChan
-    | AIPressureBridgeTwoPointLinChan
-    | AIAccelChan
+    AIAccelChan
+    | AIAccel4WireDCVoltageChan
+    | AIAccelChargeChan
     | AIBridgeChan
+    | AIChargeChan
     | AICurrentChan
+    | AICurrentRMSChan
+    | AIForceBridgePolynomialChan
     | AIForceBridgeTableChan
     | AIForceBridgeTwoPointLinChan
     | AIForceIEPEChan
+    | AIFreqVoltageChan
     | AIMicrophoneChan
+    | AIPressureBridgePolynomialChan
     | AIPressureBridgeTableChan
+    | AIPressureBridgeTwoPointLinChan
     | AIResistanceChan
+    | AIRosetteStrainGageChan
+    | AIRTDChan
     | AIStrainGageChan
     | AITempBuiltInChan
+    | AIThermocoupleChan
+    | AIThermistorChanIex
+    | AIThermistorChanVex
+    | AITorqueBridgePolynomialChan
     | AITorqueBridgeTableChan
     | AITorqueBridgeTwoPointLinChan
     | AIVelocityIEPEChan
+    | AIVoltageChan
+    | AIVoltageChanWithExcit
+    | AIVoltageRMSChan
 )
 
 
@@ -2012,7 +2025,7 @@ class CIPulseWidthChan(BaseCIChan, MinMaxVal):
     low-time (Falling start).
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html>
 
     Example:
         >>> # Measure pulse width (high-time) of PWM signal
@@ -2083,8 +2096,7 @@ class CITwoEdgeSepChan(BaseCIChan, MinMaxVal):
     or any application requiring precise timing between two events.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe
-    dgeseparationchan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html>
 
     Example:
         >>> # Measure time between trigger and response signals
@@ -2127,8 +2139,7 @@ class CILinearVelocityChan(BaseCIChan, MinMaxVal):
     multiple decoding methods for different resolution requirements.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateci
-    linvelocitychan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html>
 
     Example:
         >>> # Linear encoder with 1mm resolution, X4 decoding
@@ -2171,8 +2182,7 @@ class CIAngularVelocityChan(BaseCIChan, MinMaxVal):
     velocity measurements.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
-    ngvelocitychan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html>
 
     Example:
         >>> # Motor encoder with 1024 PPR (pulses per revolution)
@@ -2215,8 +2225,7 @@ class CILinearPositionChan(BaseCIChan):
     linear stages, and precision positioning systems.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecil
-    inencoderchan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoderchan.html>
 
     Example:
         >>> # Linear stage with 10µm resolution and Z-index homing
@@ -2272,8 +2281,7 @@ class CIAngularPositionChan(BaseCIChan):
     Position can be tracked in degrees or radians.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
-    ngencoderchan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoderchan.html>
 
     Example:
         >>> # Rotary encoder with 2048 PPR and homing
@@ -2378,7 +2386,7 @@ class DOChan(BaseChan):
     line on a port.
 
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/documentation/en/ni-daqmx/latest/daqmxcfunc/daqmxcreatedochan.html>
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedochan.html>
 
     Example:
         >>> # Digital output for relay control
@@ -2520,16 +2528,17 @@ class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protoc
     configuring/operating a analog read task,
     see https://docs.synnaxlabs.com/reference/driver/ni/analog-read-task
 
-    :param device: The key of the Synnax OPC UA device to read from.
+    :param device: The key of the Synnax NI device to read from.
     :param name: A human-readable name for the task.
-    :param sample_rate: The rate at which to sample data from the OPC UA device.
+    :param sample_rate: The rate at which to sample data from the NI device.
     :param stream_rate: The rate at which acquired data will be streamed to the Synnax
         cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
         result in groups of 4 samples being streamed to the cluster every 40ms.
-    :param channels: A list of physical channel configurations to acquire data from.
-        These can be any channel subtype of AIChan
+    :param channels: A list of analog input channel configurations to acquire data
+        from. These can be any channel subtype of AIChan.
     :param data_saving: Whether to save data permanently within Synnax, or just stream
         it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
     """
 
     TYPE = "ni_analog_read"
@@ -2688,16 +2697,17 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     configuring/operating a digital read task,
     see https://docs.synnaxlabs.com/reference/driver/ni/digital-read-task
 
-    :param device: The key of the Synnax OPC UA device to read from.
+    :param device: The key of the Synnax NI device to read from.
     :param name: A human-readable name for the task.
-    :param sample_rate: The rate at which to sample data from the OPC UA device.
+    :param sample_rate: The rate at which to sample data from the NI device.
     :param stream_rate: The rate at which acquired data will be streamed to the Synnax
         cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
         result in groups of 4 samples being streamed to the cluster every 40ms.
-    :param channels: A list of physical channel configurations to acquire data from.
-        These can be any channel subtype of DIChan.
+    :param channels: A list of digital input channel configurations to acquire data
+        from.
     :param data_saving: Whether to save data permanently within Synnax, or just stream
         it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
     """
 
     TYPE = "ni_digital_read"
@@ -2732,19 +2742,20 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
 
 
 class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
-    """A task for reading digital data from NI devices and writing them to a Synnax
-    cluster. This task is a programmatic representation of the digital write task
-    configurable within the Synnax console. For detailed information on
-    configuring/operating a digital write task, see https://docs.synnaxlabs.com/reference/driver/ni/digital-write-task
+    """A task for writing digital output data to NI devices. This task is a
+    programmatic representation of the digital write task configurable within the
+    Synnax console. For detailed information on configuring/operating a digital
+    write task, see
+    https://docs.synnaxlabs.com/reference/driver/ni/digital-write-task
 
-    :param device: The key of the Synnax OPC UA device to read from.
+    :param device: The key of the Synnax NI device to write to.
     :param name: A human-readable name for the task.
     :param state_rate: The rate at which to write task channel states to the Synnax
         cluster.
-    :param channels: A list of physical channel configurations to acquire data from.
-        These can be any channel subtype of AIChan
+    :param channels: A list of digital output channel configurations (DOChan).
     :param data_saving: Whether to save data permanently within Synnax, or just stream
         it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
     """
 
     TYPE = "ni_digital_write"

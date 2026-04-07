@@ -170,7 +170,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const toFetch = lines.filter((line) => line.label == null);
       if (toFetch.length === 0) return;
       const fetched = await client.channels.retrieve(
-        unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+        unique.unique(toFetch.map((line) => line.channels.y)) as
+          | channel.Key[]
+          | channel.Name[],
       );
       if (signal.aborted) return;
       const update = toFetch.map((l) => ({
@@ -256,7 +258,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const rng = Range.useSelect();
 
   const handleChannelAxisDrop = useCallback(
-    (axis: string, channels: channel.Keys): void => {
+    (axis: string, channels: channel.Key[]): void => {
       if (X_AXIS_KEYS.includes(axis as XAxisKey))
         syncDispatch(
           setXChannel({
