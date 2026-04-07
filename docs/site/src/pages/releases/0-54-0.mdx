@@ -1,0 +1,114 @@
+---
+title: "Version 0.54 Release Notes"
+---
+
+import { Image } from "@/components/media/Media";
+import Release from "@/components/releases/Release.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Release
+    version="0.54.0"
+    date="Apr 6, 2026"
+    title="PagerDuty Integration"
+>
+
+<Image client:only="react" id="releases/0-54-0/pagerduty-alert-task" themed={false} />
+
+Synnax v0.54 introduces a PagerDuty integration for automated alerting, the ability to
+delete channel data directly from the Console, press-and-hold safety controls for
+schematic valves, and a number of stability and performance improvements across the
+platform.
+
+### PagerDuty Integration
+
+Synnax can now automatically send alerts to PagerDuty when system statuses change. The
+integration watches configured status keys and maps Synnax status variants to PagerDuty
+event severities: errors trigger critical or error-level incidents, warnings map to
+warning severity, and info statuses map to informational events. When a status returns
+to success, the corresponding PagerDuty incident is automatically resolved.
+
+Events are deduplicated by status key, so repeated status changes update existing
+incidents rather than creating duplicates. The integration uses the PagerDuty Events API
+v2 and can be configured from both the Console and the Python client.
+
+### Delete All Channel Data
+
+Users can now permanently delete time-series data from selected channels over a
+specified time range directly from the Console. A two-step flow guides the process:
+first, select channels and a time range, then confirm the irreversible deletion on a
+summary screen. Options are provided to delete from the beginning or to the end of time
+for convenience.
+
+### Press and Hold for Schematic Valves
+
+Valve toggle buttons in schematics now support a configurable press-and-hold delay. When
+enabled, users must hold the mouse button for a specified duration before the valve
+toggles, preventing accidental activation of critical hardware. Visual feedback
+indicates the hold progress.
+
+### Status Explorer Variant Filtering
+
+The Status Explorer now supports filtering by status variant — error, warning, info, and
+success. Filter chips display active selections and can be removed individually, making
+it easier to focus on specific status types across the system.
+
+### Device-Chassis Hierarchy
+
+NI CompactDAQ modules now appear nested under their parent chassis in the Console
+resource tree. The NI scanner automatically discovers chassis-module relationships using
+NISysCfg link properties, and the ontology maintains these parent-child connections
+across scan cycles. This reflects the physical hardware topology and makes it easier to
+navigate large NI installations.
+
+### Arc Improvements
+
+- The Arc C++ runtime now supports `Select`, `StableFor`, and `SetStatus` node types,
+  enabling conditional routing, timed output holds, and status reporting from within Arc
+  programs that are executed on a Synnax Driver.
+- A telemetry bypass mode allows high-priority control operations to execute without
+  telemetry collection overhead.
+- The "Open Arc" option is now available in the context menu for Arc programs, and the
+  Arc Explorer can be launched from the Arc toolbar.
+
+### Minor Improvements and Bug Fixes
+
+#### Core
+
+- Separated the search service from the ontology for improved modularity and
+  performance.
+- Fixed several race conditions across the Go codebase, including a data race in the
+  unary writer's alignment access and the channel observer.
+- Fixed resource leaks in service openers.
+- Fixed task and rack migration `float64` key decoding.
+
+#### Console
+
+- Added icons to the view create modal for easier identification.
+- Added empty state content to the login cluster list.
+- Fixed endpoint list and details item wrapping.
+
+#### Driver
+
+- Added an `integrations` property to racks, allowing specific hardware integrations to
+  be enabled or disabled per rack.
+- Fixed RT config being applied to the wrong thread on NI cRIO targets.
+- The Driver now preserves `config.yaml` when reinstalling the Windows service.
+
+#### Arc Editor
+
+- The calculated channel engine is now more resilient to compilation errors, preventing
+  cascading failures when an Arc program contains syntax issues.
+
+#### Infrastructure
+
+- Introduced Oracle, a code generation framework that produces high-performance binary
+  codecs (ORC encoding) for Go structs, with generated clients for Go, Python, and C++.
+- Added a new Gorp migration framework with typed table abstractions and pluggable
+  migration plugins.
+- Upgraded Fiber to v3, Bazel to 9, and updated dependencies across Go, Python,
+  TypeScript, and Rust.
+- Switched Python linting and formatting to Ruff.
+- Consolidated shared Python utilities from `client/py/x` into `x/py`.
+
+</Release>
