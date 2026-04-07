@@ -26,7 +26,7 @@ const clusterInfoZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
   nodeKey: z.number().optional(),
-  nodeTime: TimeStamp.z.default(0),
+  nodeTime: TimeStamp.z.default(new TimeStamp(0)),
 });
 
 const tokenResponseZ = z.object({

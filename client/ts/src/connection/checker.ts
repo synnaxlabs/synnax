@@ -28,7 +28,7 @@ export const stateZ = z.object({
   clientVersion: z.string(),
   clientServerCompatible: z.boolean(),
   nodeVersion: z.string().optional(),
-  clockSkew: TimeSpan.z.default(0),
+  clockSkew: TimeSpan.z.default(TimeSpan.ZERO),
   clockSkewExceeded: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -36,7 +36,7 @@ export interface State extends z.infer<typeof stateZ> {}
 const responseZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
-  nodeTime: TimeStamp.z.default(0),
+  nodeTime: TimeStamp.z.default(new TimeStamp(0)),
 });
 const requestZ = z.void();
 
