@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import Any, Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
 
