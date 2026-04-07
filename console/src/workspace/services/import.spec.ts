@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
@@ -16,9 +16,10 @@ import { Workspace } from "@/workspace";
 
 import { ingest } from "./import";
 
+let mockAccessGranted = true;
 vi.mock("@synnaxlabs/pluto", async () => {
   const original = await vi.importActual("@synnaxlabs/pluto");
-  return { ...original, Access: { updateGranted: () => true } };
+  return { ...original, Access: { updateGranted: () => mockAccessGranted } };
 });
 
 const makeSlice = (layouts: Record<string, Partial<State>>): SliceState => {
@@ -73,6 +74,20 @@ const stubContext = () => ({
 });
 
 describe("workspace ingest", () => {
+  beforeEach(() => {
+    mockAccessGranted = true;
+  });
+
+  it("should throw when user lacks permission to import workspaces", async () => {
+    mockAccessGranted = false;
+    const ctx = stubContext();
+    const slice = makeSlice({
+      "plot-1": { name: "My Plot", type: "lineplot" },
+    });
+    const files = makeFiles(slice, { "My Plot": { type: "lineplot", key: "plot-1" } });
+    await expect(ingest("Test Workspace", files, ctx)).rejects.toThrow("permission");
+  });
+
   it("should dispatch setActive and setWorkspace with remapped keys", async () => {
     const slice = makeSlice({
       "plot-1": { name: "My Plot", type: "lineplot" },

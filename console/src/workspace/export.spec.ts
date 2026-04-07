@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { type SliceState, type State, ZERO_SLICE_STATE } from "@/layout/types";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 
-import { removeDirectory } from "./export";
+import { deduplicateLayoutNames, removeDirectory } from "./export";
 
 describe("removeDirectory", () => {
   it("should replace forward slashes with underscores", () => {
@@ -41,6 +41,51 @@ const makeLayout = (overrides: Partial<State>): State =>
     windowKey: "main",
     ...overrides,
   }) as State;
+
+describe("deduplicateLayoutNames", () => {
+  it("should deduplicate layouts with the same name", () => {
+    const slice: SliceState = {
+      ...ZERO_SLICE_STATE,
+      layouts: {
+        main: ZERO_SLICE_STATE.layouts.main,
+        a: makeLayout({ key: "a", name: "Plot" }),
+        b: makeLayout({ key: "b", name: "Plot" }),
+      },
+    };
+    deduplicateLayoutNames(slice);
+    const names = Object.values(slice.layouts)
+      .filter((l) => l.key !== "main")
+      .map((l) => l.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toContain("Plot");
+  });
+
+  it("should sanitize slashes in layout names", () => {
+    const slice: SliceState = {
+      ...ZERO_SLICE_STATE,
+      layouts: {
+        main: ZERO_SLICE_STATE.layouts.main,
+        a: makeLayout({ key: "a", name: "path/to/plot" }),
+      },
+    };
+    deduplicateLayoutNames(slice);
+    expect(slice.layouts.a.name).toBe("path_to_plot");
+  });
+
+  it("should handle layouts with no duplicates", () => {
+    const slice: SliceState = {
+      ...ZERO_SLICE_STATE,
+      layouts: {
+        main: ZERO_SLICE_STATE.layouts.main,
+        a: makeLayout({ key: "a", name: "Plot A" }),
+        b: makeLayout({ key: "b", name: "Plot B" }),
+      },
+    };
+    deduplicateLayoutNames(slice);
+    expect(slice.layouts.a.name).toBe("Plot A");
+    expect(slice.layouts.b.name).toBe("Plot B");
+  });
+});
 
 describe("purgeExcludedLayouts", () => {
   it("should remove layouts with excludeFromWorkspace set to true", () => {

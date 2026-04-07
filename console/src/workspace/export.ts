@@ -80,12 +80,7 @@ export const export_ = (
       await mkdir(directory, { recursive: true });
     }
 
-    const namesSet = new Set<string>();
-    Object.values(toExport.layouts).forEach((layout) => {
-      const deduplicatedName = strings.deduplicateFileName(layout.name, namesSet);
-      layout.name = removeDirectory(deduplicatedName);
-      namesSet.add(layout.name);
-    });
+    deduplicateLayoutNames(toExport);
 
     const fileInfos: Export.File[] = [];
     await Promise.all(
@@ -125,6 +120,15 @@ export const export_ = (
       addStatus({ variant: "success", message: `Exported ${name}` });
     }
   }, `Failed to export ${name}`);
+};
+
+export const deduplicateLayoutNames = (slice: Layout.SliceState): void => {
+  const namesSet = new Set<string>();
+  Object.values(slice.layouts).forEach((layout) => {
+    const deduplicatedName = strings.deduplicateFileName(layout.name, namesSet);
+    layout.name = removeDirectory(deduplicatedName);
+    namesSet.add(layout.name);
+  });
 };
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
