@@ -2785,16 +2785,21 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text(
-        start_cmd_name + " => main\n"
+        start_cmd_name +
+        " => main\n"
         "sequence main {\n"
         "    stage on {\n"
-        "        " + input_name + " > 305 => set_status{\n"
+        "        " +
+        input_name +
+        " > 305 => set_status{\n"
         "            status_key = \"tstill_status\",\n"
         "            name = \"TStill Monitor\",\n"
         "            variant = \"error\",\n"
         "            message = \"TStill too warm\"\n"
         "        },\n"
-        "        " + input_name + " < 305 => set_status{\n"
+        "        " +
+        input_name +
+        " < 305 => set_status{\n"
         "            status_key = \"tstill_status\",\n"
         "            name = \"TStill Monitor\",\n"
         "            variant = \"success\",\n"
@@ -2880,7 +2885,9 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     };
     arc_prog.text = ::arc::text::Text(
         "func write_valve() {\n"
-        "    " + output_name + " = 1\n"
+        "    " +
+        output_name +
+        " = 1\n"
         "}\n"
         "interval{period=100ms} -> write_valve{}\n"
     );
