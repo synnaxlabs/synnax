@@ -10,7 +10,7 @@
 import json
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -38,7 +38,7 @@ class RangeDetails(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.parent_range_name = f"DetailsParent_{self.suffix}"
         self.child_1_name = f"Child1_{self.suffix}"
         self.child_2_name = f"Child2_{self.suffix}"

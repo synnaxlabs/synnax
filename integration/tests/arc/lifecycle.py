@@ -9,7 +9,7 @@
 
 import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
+from x import random_name
 
 from tests.arc.arc_case import ArcConsoleCase
 
@@ -140,7 +140,7 @@ class Lifecycle(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.new_name = f"ArcRenamed_{get_random_name()}"
+        self.new_name = f"ArcRenamed_{random_name()}"
         self.client.channels.create(
             name="arc_lifecycle_virt",
             data_type=sy.DataType.FLOAT32,

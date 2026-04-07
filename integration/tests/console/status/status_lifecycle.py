@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -27,7 +27,7 @@ class StatusLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.label_a_name = f"StatusLabelA_{self.suffix}"
         self.label_b_name = f"StatusLabelB_{self.suffix}"
         self.status_a_name = f"StatusA_{self.suffix}"

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -25,7 +25,7 @@ class ChannelOntology(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.group_a = f"Group A {self.suffix}"
         self.group_b = f"Group B {self.suffix}"
         self._cleanup_groups()

@@ -10,7 +10,7 @@
 from abc import abstractmethod
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from framework.models import STATUS
@@ -42,7 +42,7 @@ class ArcConsoleCase(SimDaqCase, ConsoleCase):
                 raise TypeError(
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
-        self.arc_name = f"{self.arc_name_prefix}_{get_random_name()}"
+        self.arc_name = f"{self.arc_name_prefix}_{random_name()}"
         self.rack = None
         self._arc_created = False
         self._arc_started = False

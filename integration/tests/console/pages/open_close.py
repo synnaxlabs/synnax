@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.workspace import PageType
@@ -30,7 +30,7 @@ class OpenClose(ConsoleCase):
         Test Opening and closing pages
         """
         console = self.console
-        suffix = get_random_name()
+        suffix = random_name()
 
         WORKSPACE_PAGES: list[tuple[PageType, str]] = [
             ("Schematic", f"Sch_{suffix}"),

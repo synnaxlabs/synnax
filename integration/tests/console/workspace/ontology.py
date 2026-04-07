@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path
@@ -27,7 +27,7 @@ class Ontology(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.group_a = f"Group A {self.suffix}"
         self.group_b = f"Group B {self.suffix}"
         self._pages_deleted = False

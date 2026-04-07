@@ -9,7 +9,7 @@
 
 """Test user registration via Console UI."""
 
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -18,7 +18,7 @@ class UserRegister(ConsoleCase):
     """Test registering a new user via Console UI."""
 
     def run(self) -> None:
-        username = f"testuser_{get_random_name()}"
+        username = f"testuser_{random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"

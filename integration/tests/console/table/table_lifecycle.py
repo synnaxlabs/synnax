@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.table import Table
@@ -27,7 +27,7 @@ class TableLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.main_table_name = None
         self.ctx_table_name = None
 
