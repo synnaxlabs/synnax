@@ -99,7 +99,7 @@ export const import_ = ({
       });
       if (path == null) return;
       name = path.split(sep()).at(-1);
-      if (name == null) throw new Error("Cannot read workspace");
+      if (!name) throw new Error("Cannot read workspace");
       const files = await readDir(path);
       fileData = await Promise.all(
         files.map(
