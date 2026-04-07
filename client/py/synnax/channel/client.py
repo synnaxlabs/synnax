@@ -12,8 +12,6 @@ from __future__ import annotations
 from typing import overload
 
 from pydantic import PrivateAttr
-from x import control
-from x.normalize import normalize
 
 from synnax import framer
 from synnax.channel.payload import (
@@ -23,7 +21,6 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
-    ONTOLOGY_TYPE,
     New,
     Operation,
     Payload,
@@ -41,6 +38,8 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
+from x import control
+from x.normalize import normalize
 
 
 class Channel(Payload):

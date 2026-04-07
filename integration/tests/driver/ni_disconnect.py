@@ -27,8 +27,8 @@ from dataclasses import dataclass, field
 
 import nidaqmx.system
 import nisyscfg
-import synnax as sy
 
+import synnax as sy
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import ReadTaskCase, WriteTaskCase, send_and_verify_commands
@@ -147,9 +147,7 @@ def _wait_for_device_status(
     lines = [f"  {s.variant}: {s.message}" for s in matched]
     detail = "\n".join(lines) if lines else "  (no matching statuses)"
     raise AssertionError(
-        f"Timed out waiting for '{message}' on {label}:\n"
-        f"{detail}\n"
-        f"  {diag.summary()}"
+        f"Timed out waiting for '{message}' on {label}:\n{detail}\n  {diag.summary()}"
     )
 
 

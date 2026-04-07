@@ -10,7 +10,6 @@
 from typing import Any, Literal
 
 import synnax as sy
-
 from console.schematic.symbol import Symbol
 
 ButtonMode = Literal["Fire", "Momentary", "Pulse"]

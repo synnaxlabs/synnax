@@ -19,9 +19,9 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-import synnax as sy
 from examples.simulators import ThermalSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """

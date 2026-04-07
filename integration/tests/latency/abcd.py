@@ -9,8 +9,8 @@
 
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 from tests.latency.latency import Latency
 
 

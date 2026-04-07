@@ -11,9 +11,9 @@ import time
 
 import numpy as np
 import pytest
-from x.strings import random_name
 
 import synnax as sy
+from x.strings import random_name
 
 
 @pytest.mark.framer
@@ -3065,14 +3065,12 @@ class TestCalcChannelStress:
         verify_read(res_a, expect_a(final_a, final_b), "phase5-final-A")
         for key in all_a_calc_keys:
             assert len(res_a[key]) == len(final_a), (
-                f"Expected {len(final_a)} samples for calc {key}, "
-                f"got {len(res_a[key])}"
+                f"Expected {len(final_a)} samples for calc {key}, got {len(res_a[key])}"
             )
 
         res_b = client.read(sy.TimeRange.MAX, all_b_calc_keys)
         verify_read(res_b, expect_b(final_g), "phase5-final-B")
         for key in all_b_calc_keys:
             assert len(res_b[key]) == len(final_g), (
-                f"Expected {len(final_g)} samples for calc {key}, "
-                f"got {len(res_b[key])}"
+                f"Expected {len(final_g)} samples for calc {key}, got {len(res_b[key])}"
             )

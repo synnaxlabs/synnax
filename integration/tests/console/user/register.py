@@ -9,9 +9,8 @@
 
 """Test user registration via Console UI."""
 
-from x import random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class UserRegister(ConsoleCase):
@@ -52,8 +51,8 @@ class UserRegister(ConsoleCase):
         # Verify user appears under the role
         users = self.console.access.list_users_under_role(role_name)
         self.log(f"Users found: {users}")
-        assert (
-            username in users
-        ), f"User {username} not found under {role_name}. Found: {users}"
+        assert username in users, (
+            f"User {username} not found under {role_name}. Found: {users}"
+        )
 
         self.log("User registration test passed")

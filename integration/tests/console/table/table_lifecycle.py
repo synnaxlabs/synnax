@@ -8,11 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from x import random_name
-
 from console.case import ConsoleCase
 from console.table import Table
 from framework.utils import assert_link_format, get_fixture_path
+from x import random_name
 
 
 class TableLifecycle(ConsoleCase):
@@ -101,14 +100,14 @@ class TableLifecycle(ConsoleCase):
         initial_cols = table.get_column_count()
 
         table.add_row()
-        assert (
-            table.get_row_count() == initial_rows + 1
-        ), f"Expected {initial_rows + 1} rows after add, got {table.get_row_count()}"
+        assert table.get_row_count() == initial_rows + 1, (
+            f"Expected {initial_rows + 1} rows after add, got {table.get_row_count()}"
+        )
 
         table.add_column()
-        assert (
-            table.get_column_count() == initial_cols + 1
-        ), f"Expected {initial_cols + 1} cols after add, got {table.get_column_count()}"
+        assert table.get_column_count() == initial_cols + 1, (
+            f"Expected {initial_cols + 1} cols after add, got {table.get_column_count()}"
+        )
 
     def test_delete_rows_and_columns(self, table: Table) -> None:
         """Test deleting rows and columns from a table."""
@@ -125,24 +124,24 @@ class TableLifecycle(ConsoleCase):
 
         # Delete the last row
         table.delete_row(table.get_row_count() - 1)
-        assert (
-            table.get_row_count() == rows_before
-        ), f"Expected {rows_before} rows after delete, got {table.get_row_count()}"
+        assert table.get_row_count() == rows_before, (
+            f"Expected {rows_before} rows after delete, got {table.get_row_count()}"
+        )
 
         # Delete the last column
         table.delete_column(table.get_column_count() - 1)
-        assert (
-            table.get_column_count() == cols_before
-        ), f"Expected {cols_before} cols after delete, got {table.get_column_count()}"
+        assert table.get_column_count() == cols_before, (
+            f"Expected {cols_before} cols after delete, got {table.get_column_count()}"
+        )
 
     def test_add_redlines(self, table: Table) -> None:
         """Test setting a channel on a value cell and adding redlines."""
         self.log("Testing add redlines to value cell")
 
         table.set_cell_channel(self.data_name, row=1, col=0)
-        assert table.has_channel(
-            self.data_name, row=1, col=0
-        ), f"Cell [1,0] should have channel '{self.data_name}'"
+        assert table.has_channel(self.data_name, row=1, col=0), (
+            f"Cell [1,0] should have channel '{self.data_name}'"
+        )
 
         table.set_redline(row=1, col=0, lower=10.0, upper=90.0)
         lower, upper = table.get_redline(row=1, col=0)
@@ -155,14 +154,14 @@ class TableLifecycle(ConsoleCase):
         self.log("Testing open table from resources toolbar")
 
         table = self.console.workspace.open_table(self.main_table_name)
-        assert (
-            table.is_pane_visible
-        ), f"Table '{self.main_table_name}' pane not visible after opening"
+        assert table.is_pane_visible, (
+            f"Table '{self.main_table_name}' pane not visible after opening"
+        )
 
         opened_link = table.copy_link()
-        assert (
-            opened_link == self.main_table_link
-        ), f"Link mismatch: expected {self.main_table_link}, got {opened_link}"
+        assert opened_link == self.main_table_link, (
+            f"Link mismatch: expected {self.main_table_link}, got {opened_link}"
+        )
         table.close()
 
     def test_drag_table_onto_mosaic(self) -> None:
@@ -171,14 +170,14 @@ class TableLifecycle(ConsoleCase):
         self.log("Testing drag table onto mosaic")
 
         table = self.console.workspace.drag_table_to_mosaic(self.main_table_name)
-        assert (
-            table.is_pane_visible
-        ), f"Table '{self.main_table_name}' pane not visible after drag"
+        assert table.is_pane_visible, (
+            f"Table '{self.main_table_name}' pane not visible after drag"
+        )
 
         opened_link = table.copy_link()
-        assert (
-            opened_link == self.main_table_link
-        ), f"Link mismatch: expected {self.main_table_link}, got {opened_link}"
+        assert opened_link == self.main_table_link, (
+            f"Link mismatch: expected {self.main_table_link}, got {opened_link}"
+        )
         table.close()
 
     def test_open_table_from_search(self) -> None:
@@ -187,14 +186,14 @@ class TableLifecycle(ConsoleCase):
         self.log("Testing open table from search palette")
 
         table = self.console.workspace.open_from_search(Table, self.main_table_name)
-        assert (
-            table.is_pane_visible
-        ), f"Table '{self.main_table_name}' pane not visible after search"
+        assert table.is_pane_visible, (
+            f"Table '{self.main_table_name}' pane not visible after search"
+        )
 
         opened_link = table.copy_link()
-        assert (
-            opened_link == self.main_table_link
-        ), f"Link mismatch: expected {self.main_table_link}, got {opened_link}"
+        assert opened_link == self.main_table_link, (
+            f"Link mismatch: expected {self.main_table_link}, got {opened_link}"
+        )
         table.close()
 
     def test_import_table_from_file(self) -> None:
@@ -204,17 +203,17 @@ class TableLifecycle(ConsoleCase):
         imported_name = f"Imported Table {self.suffix}"
         self.console.workspace.import_page(json_path, imported_name)
 
-        assert self.console.workspace.page_exists(
-            imported_name
-        ), f"Imported table '{imported_name}' should appear in workspace"
+        assert self.console.workspace.page_exists(imported_name), (
+            f"Imported table '{imported_name}' should appear in workspace"
+        )
 
         table = Table.from_open_page(self.console.layout, self.client, imported_name)
-        assert (
-            table.get_row_count() == 2
-        ), f"Expected 2 rows, got {table.get_row_count()}"
-        assert (
-            table.get_column_count() == 2
-        ), f"Expected 2 columns, got {table.get_column_count()}"
+        assert table.get_row_count() == 2, (
+            f"Expected 2 rows, got {table.get_row_count()}"
+        )
+        assert table.get_column_count() == 2, (
+            f"Expected 2 columns, got {table.get_column_count()}"
+        )
         table.close()
         self.console.workspace.delete_page(imported_name)
 

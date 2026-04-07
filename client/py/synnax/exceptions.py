@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import freighter
-from x.exceptions import ContiguityError
 
 _FREIGHTER_EXCEPTION_PREFIX = "sy."
 

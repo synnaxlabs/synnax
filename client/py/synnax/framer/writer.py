@@ -13,6 +13,9 @@ from enum import Enum
 from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
+from pydantic import BaseModel
+
+import synnax.channel.payload as channel
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -22,11 +25,6 @@ from freighter import (
 )
 from freighter.transport import P
 from freighter.websocket import Message
-from pydantic import BaseModel
-from x.control import Authority, CrudeAuthority, Subject
-from x.normalize import normalize
-
-import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
@@ -36,6 +34,8 @@ from synnax.framer.codec import (
 )
 from synnax.framer.frame import CrudeFrame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
+from x.control import Authority, CrudeAuthority, Subject
+from x.normalize import normalize
 
 
 class WriterCommand(int, Enum):

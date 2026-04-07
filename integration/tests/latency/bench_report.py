@@ -16,14 +16,13 @@ import matplotlib
 matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
-import synnax as sy
-from x import get_machine_info, get_memory_info, get_synnax_version
 
+import synnax as sy
 from tests.latency.latency import Latency
+from x import get_machine_info, get_memory_info, get_synnax_version
 
 
 class BenchReport(Latency):
-
     def setup(self) -> None:
         super().setup()
         self.set_manual_timeout(10)
@@ -54,7 +53,7 @@ class BenchReport(Latency):
                     while sy.TimeStamp.since(loop_start) < bench_time:
                         start = sy.TimeStamp.now()
                         writer.write(cmd_channel, True)
-                        value = stream.read()
+                        stream.read()
                         times.append(sy.TimeStamp.since(start))
                         cycles += 1
 

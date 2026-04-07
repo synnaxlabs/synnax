@@ -14,11 +14,11 @@ from __future__ import annotations
 from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
-from x import control, telem
 
 from synnax import cluster
 from synnax import status as status_
 from synnax.ontology.payload import ID
+from x import control, telem
 
 Key: TypeAlias = int
 

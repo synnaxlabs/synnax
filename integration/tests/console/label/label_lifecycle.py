@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x import random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class LabelLifecycle(ConsoleCase):
@@ -97,9 +96,9 @@ class LabelLifecycle(ConsoleCase):
         label_name = self.shared_label
         range_name = self.shared_range
 
-        assert self.console.ranges.label_exists_in_toolbar(
-            range_name, label_name
-        ), f"Label {label_name} should be visible in toolbar for range {range_name}"
+        assert self.console.ranges.label_exists_in_toolbar(range_name, label_name), (
+            f"Label {label_name} should be visible in toolbar for range {range_name}"
+        )
         self.log(f"Label {label_name} visible in toolbar for range {range_name}")
 
         self.console.labels.delete(label_name)
@@ -115,9 +114,9 @@ class LabelLifecycle(ConsoleCase):
         label_name = self.shared_label
         range_name = self.shared_range
 
-        assert self.console.ranges.label_exists_in_toolbar(
-            range_name, label_name
-        ), f"Label {label_name} should be visible in toolbar for range {range_name}"
+        assert self.console.ranges.label_exists_in_toolbar(range_name, label_name), (
+            f"Label {label_name} should be visible in toolbar for range {range_name}"
+        )
         self.log(f"Label {label_name} visible in toolbar for range {range_name}")
 
         new_color = "#00FF00"
@@ -127,7 +126,7 @@ class LabelLifecycle(ConsoleCase):
         updated_color = self.console.ranges.get_label_color_in_toolbar(
             range_name, label_name
         )
-        assert (
-            updated_color == new_color
-        ), f"Label {label_name} color in toolbar should be {new_color}"
+        assert updated_color == new_color, (
+            f"Label {label_name} color in toolbar should be {new_color}"
+        )
         self.log(f"Label {label_name} color updated to {new_color} in toolbar")

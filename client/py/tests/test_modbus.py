@@ -510,9 +510,6 @@ class TestModbusWriteTask:
             ],
         )
 
-        # Serialize to JSON
-        config_dict = original_task.config
-
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",

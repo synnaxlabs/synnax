@@ -10,9 +10,9 @@
 from uuid import uuid4
 
 import pytest
-from freighter.mock import MockUnaryClient
 
 import synnax as sy
+from freighter.mock import MockUnaryClient
 
 
 @pytest.mark.auth

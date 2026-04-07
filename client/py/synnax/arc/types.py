@@ -10,9 +10,9 @@
 from uuid import UUID
 
 from pydantic import BaseModel
-from x.deprecation import deprecated_getattr
 
 from synnax import task
+from x.deprecation import deprecated_getattr
 
 TASK_TYPE = "arc"
 

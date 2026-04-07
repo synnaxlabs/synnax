@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from console.schematic import Button, Symbol, Value
 from console.schematic.schematic import PropertyDict, Schematic
@@ -22,20 +21,20 @@ def assert_properties(
 ) -> None:
     """Assert the schematic properties match expected values."""
     props = schematic.get_properties()
-    assert (
-        props["control_authority"] == control_authority
-    ), f"Control Authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
-    assert (
-        props["show_control_legend"] == show_control_legend
-    ), f"Show Control Legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
+    assert props["control_authority"] == control_authority, (
+        f"Control Authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
+    )
+    assert props["show_control_legend"] == show_control_legend, (
+        f"Show Control Legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
+    )
 
 
 def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:
     """Assert the symbol properties match expected values."""
     actual_props = symbol.get_properties()
-    assert (
-        actual_props == expected_props
-    ), f"Props mismatch!\nActual: {actual_props}\nExpected: {expected_props}"
+    assert actual_props == expected_props, (
+        f"Props mismatch!\nActual: {actual_props}\nExpected: {expected_props}"
+    )
 
 
 class EditProps(ConsoleCase):
@@ -51,7 +50,7 @@ class EditProps(ConsoleCase):
             is_index=True,
             retrieve_if_name_exists=True,
         )
-        cmd_ch = client.channels.create(
+        client.channels.create(
             name=CHANNEL_NAME,
             data_type=sy.DataType.UINT8,
             is_index=False,
@@ -86,27 +85,27 @@ class EditProps(ConsoleCase):
             Button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
         schematic.acquire_control()
-        assert (
-            schematic.get_control_status() is True
-        ), "Control status mismatch! Expected: True"
-        assert (
-            schematic.control_legend_visible is True
-        ), "Control legend should be visible"
+        assert schematic.get_control_status() is True, (
+            "Control status mismatch! Expected: True"
+        )
+        assert schematic.control_legend_visible is True, (
+            "Control legend should be visible"
+        )
 
         self.log("0.3 Hide Legend")
         schematic.release_control()
-        assert (
-            schematic.get_control_status() is False
-        ), "Control status mismatch! Expected: False"
+        assert schematic.get_control_status() is False, (
+            "Control status mismatch! Expected: False"
+        )
         schematic.enable_edit()
-        assert (
-            schematic.get_edit_status() is True
-        ), "Edit status mismatch! Expected: True"
+        assert schematic.get_edit_status() is True, (
+            "Edit status mismatch! Expected: True"
+        )
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        assert (
-            schematic.control_legend_visible is False
-        ), "Control legend should not be visible"
+        assert schematic.control_legend_visible is False, (
+            "Control legend should not be visible"
+        )
 
         # Clean up schematic
         schematic.release_control()

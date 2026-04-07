@@ -10,8 +10,8 @@
 """NI read task integration tests."""
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 from tests.driver.ni_task import (
     NIAnalogReadTaskCase,
     NICounterReadTaskCase,

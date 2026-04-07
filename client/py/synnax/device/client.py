@@ -9,15 +9,15 @@
 
 from typing import Any, Literal, overload
 
-from alamos import NOOP, Instrumentation, trace
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
-from x.normalize import check_for_none, normalize, override
 
+from alamos import NOOP, Instrumentation
+from freighter import Empty, UnaryClient, send_required
 from synnax import rack as rack_
 from synnax.device.types_gen import Device
 from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
+from x.normalize import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):

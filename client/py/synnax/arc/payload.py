@@ -11,9 +11,9 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel
-from x.deprecation import deprecated_getattr
 
 from synnax import ontology
+from x.deprecation import deprecated_getattr
 
 ONTOLOGY_TYPE = ontology.ID(type="arc")
 """Ontology type identifier for Arc entities."""

@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from alamos import NOOP, Instrumentation, trace
-from freighter import UnaryClient, send_required
 from pydantic import BaseModel
 
+from alamos import NOOP, Instrumentation, trace
+from freighter import UnaryClient, send_required
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,

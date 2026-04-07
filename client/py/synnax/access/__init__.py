@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import UnaryClient
-
 from synnax.access import policy, role
 from synnax.access.action import Action
 

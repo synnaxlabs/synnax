@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import random_name
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
+from x import random_name
 
 ARC_LIFECYCLE_SOURCE = """
 

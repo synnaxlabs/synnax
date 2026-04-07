@@ -21,9 +21,9 @@ NOT implemented in Console UI (no helpers for these):
 - Create/edit/view policies (hidden from UI)
 """
 
-import synnax as sy
 from playwright.sync_api import Locator
 
+import synnax as sy
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
