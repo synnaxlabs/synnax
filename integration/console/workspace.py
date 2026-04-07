@@ -914,7 +914,7 @@ class WorkspaceClient:
         self.drag_page_to_mosaic(name)
         return Plot.from_open_page(self.layout, self.client, name)
 
-    def open_from_search(self, page_class: type[ConsolePage], name: str) -> ConsolePage:
+    def open_from_search(self, page_class: type[T], name: str) -> T:
         """Open an existing page by searching its name in the command palette.
 
         Args:
