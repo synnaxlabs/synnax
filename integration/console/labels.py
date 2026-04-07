@@ -92,7 +92,7 @@ class LabelClient:
         self._close_edit_modal()
         return found
 
-    def get_color(self, name: str) -> str:
+    def get_color(self, name: str) -> Color:
         """Get the color of a label by name."""
         self._open_edit_modal()
         label_item = self._wait_for_label_item(name)
@@ -107,9 +107,8 @@ class LabelClient:
         if match is None:
             raise ValueError(f"Label '{name}' does not have --pluto-swatch-color")
         rgba = match.group(1)
-        color = Color(rgba).hex()
         self._close_edit_modal()
-        return color
+        return Color(rgba)
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an existing label.

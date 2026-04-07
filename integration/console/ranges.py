@@ -1134,7 +1134,7 @@ class RangesClient:
 
     def get_label_color_in_toolbar(
         self, range_name: str, label_name: str
-    ) -> str | None:
+    ) -> Color | None:
         """Get the color of a label's icon in the range toolbar."""
         self.show_toolbar()
         label = self.get_label_in_toolbar(range_name, label_name)
@@ -1146,7 +1146,7 @@ class RangesClient:
         color = icon.get_attribute("color")
         if color is None:
             return None
-        return Color(color).hex()
+        return Color(color)
 
     def get_all_labels_in_toolbar(self, range_name: str) -> list[str]:
         """Get all labels currently visible for a range in the toolbar.
