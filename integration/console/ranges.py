@@ -28,8 +28,8 @@ class RangesClient:
 
     TOOLBAR_ITEM_SELECTOR = ".console-range-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-range__list-item"
-    FAVORITE_ACTION = "Add to favorites"
-    UNFAVORITE_ACTION = "Remove from favorites"
+    FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
+    UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Range Name"
 
@@ -43,6 +43,28 @@ class RangesClient:
         self.tree = Tree(layout.page)
 
     # ── Private Helpers ──────────────────────────────────────────────────
+
+    def _any_text_locator(self, parent: Locator, texts: tuple[str, ...]) -> Locator:
+        """Build a locator matching any of the given text options."""
+        loc = parent.get_by_text(texts[0], exact=True)
+        for text in texts[1:]:
+            loc = loc.or_(parent.get_by_text(text, exact=True))
+        return loc
+
+    def _click_visible_option(self, texts: tuple[str, ...]) -> None:
+        """Click whichever text variant is visible in the open context menu."""
+        menu = self.layout.page.locator(".pluto-menu-context")
+        for text in texts:
+            btn = menu.get_by_text(text, exact=True)
+            if btn.count() > 0 and btn.is_visible():
+                self.ctx_menu.click_option(text)
+                return
+        self.ctx_menu.click_option(texts[0])
+
+    def _ctx_action_any(self, element: Locator, texts: tuple[str, ...]) -> None:
+        """Right-click element and click the first visible text variant."""
+        self.ctx_menu.open_on(element)
+        self._click_visible_option(texts)
 
     def _toolbar_ctx_menu_action(self, name: str, action_text: str) -> None:
         """Show the toolbar, find an item by name, and perform a context menu action."""
@@ -289,17 +311,20 @@ class RangesClient:
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
         menu = self.layout.page.locator(".pluto-menu-context")
-        add_btn = menu.get_by_text(self.FAVORITE_ACTION, exact=True)
-        remove_btn = menu.get_by_text(self.UNFAVORITE_ACTION, exact=True)
+        add_btn = self._any_text_locator(menu, self.FAVORITE_ACTIONS)
+        remove_btn = self._any_text_locator(menu, self.UNFAVORITE_ACTIONS)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
             self.ctx_menu.close()
             return
-        self.ctx_menu.click_option(self.FAVORITE_ACTION)
+        self._click_visible_option(self.FAVORITE_ACTIONS)
 
     def unfavorite_from_toolbar(self, name: str) -> None:
         """Remove a range from favorites via context menu in the toolbar."""
-        self._toolbar_ctx_menu_action(name, self.UNFAVORITE_ACTION)
+        self.show_toolbar()
+        item = self.get_toolbar_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self._ctx_action_any(item, self.UNFAVORITE_ACTIONS)
         self.wait_for_removed_from_toolbar(name)
 
     def save_to_synnax_from_toolbar(self, name: str) -> None:
@@ -838,13 +863,14 @@ class RangesClient:
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
-        add_btn = self.layout.page.get_by_text(self.FAVORITE_ACTION, exact=True)
-        remove_btn = self.layout.page.get_by_text(self.UNFAVORITE_ACTION, exact=True)
+        menu = self.layout.page.locator(".pluto-menu-context")
+        add_btn = self._any_text_locator(menu, self.FAVORITE_ACTIONS)
+        remove_btn = self._any_text_locator(menu, self.UNFAVORITE_ACTIONS)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
-            self.ctx_menu.click_option(self.UNFAVORITE_ACTION)
+            self._click_visible_option(self.UNFAVORITE_ACTIONS)
             self.ctx_menu.open_on(item)
-        self.ctx_menu.click_option(self.FAVORITE_ACTION)
+        self._click_visible_option(self.FAVORITE_ACTIONS)
 
     def unfavorite_child_range(self, name: str) -> None:
         """Unfavorite a child range from the Child Ranges section via context menu.
@@ -854,7 +880,7 @@ class RangesClient:
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, self.UNFAVORITE_ACTION)
+        self._ctx_action_any(item, self.UNFAVORITE_ACTIONS)
         self.wait_for_removed_from_toolbar(name)
 
     def child_range_exists(self, name: str) -> bool:
@@ -920,7 +946,7 @@ class RangesClient:
             return
 
         last_item = self._select_child_ranges(names)
-        self.ctx_menu.action(last_item, self.FAVORITE_ACTION)
+        self._ctx_action_any(last_item, self.FAVORITE_ACTIONS)
         self._deselect_all_child_ranges()
 
     def unfavorite_child_ranges(self, names: list[str]) -> None:
@@ -933,7 +959,7 @@ class RangesClient:
             return
 
         last_item = self._select_child_ranges(names)
-        self.ctx_menu.action(last_item, self.UNFAVORITE_ACTION)
+        self._ctx_action_any(last_item, self.UNFAVORITE_ACTIONS)
         self._deselect_all_child_ranges()
 
         for name in names:
@@ -953,7 +979,7 @@ class RangesClient:
         """Remove a range from favorites via context menu in the explorer."""
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, self.UNFAVORITE_ACTION)
+        self._ctx_action_any(item, self.UNFAVORITE_ACTIONS)
         self.wait_for_removed_from_toolbar(name)
 
     def favorite_explorer_ranges(self, names: list[str]) -> None:
@@ -965,7 +991,7 @@ class RangesClient:
         if not names:
             return
         last_item = self._select_explorer_ranges(names)
-        self.ctx_menu.action(last_item, self.FAVORITE_ACTION)
+        self._ctx_action_any(last_item, self.FAVORITE_ACTIONS)
         self._deselect_all_explorer_ranges()
 
     def unfavorite_explorer_ranges(self, names: list[str]) -> None:
@@ -977,7 +1003,7 @@ class RangesClient:
         if not names:
             return
         last_item = self._select_explorer_ranges(names)
-        self.ctx_menu.action(last_item, self.UNFAVORITE_ACTION)
+        self._ctx_action_any(last_item, self.UNFAVORITE_ACTIONS)
         self._deselect_all_explorer_ranges()
         for name in names:
             self.wait_for_removed_from_toolbar(name)
