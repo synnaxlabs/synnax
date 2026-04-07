@@ -7,6 +7,7 @@ prevURL: "/reference/driver/pagerduty/get-started"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
@@ -50,17 +51,7 @@ enabled.
 <Client.Tabs client:load exclude={["cpp", "typescript"]}>
   <Fragment slot="console">
 
-Open the Search and Command Palette with `Ctrl+Shift+P` (Windows) or `Cmd+Shift+P`
-(macOS). In command mode (first character is `>`), type "PagerDuty" and select **Create
-PagerDuty Alert Task**.
-
-In the task configuration form:
-
-1. Enter your 32-character PagerDuty **routing key**
-2. Add one or more alerts by clicking the add button
-3. For each alert, select the **status** to watch
-4. Optionally configure **component**, **group**, and **class** metadata
-5. Click **Configure** to save, then press play to start the task
+<Video client:only="react" id="device-drivers/pagerduty/alert-task/create" />
 
   </Fragment>
   <Fragment slot="python">
