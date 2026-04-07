@@ -133,6 +133,32 @@ interval{period=100ms} -> test_chan_multi_param{}
 interval{period=100ms} -> test_chan_fwd_ref{}
 """
 
+# ── Read-only monitor (no write channels, only set_status) ──
+# Regression test: the C++ driver unconditionally created writer/streamer
+# pipelines even when write_channels was empty, causing the server to reject
+# the empty keys list.
+
+ARC_READ_ONLY_MONITOR = """
+start_read_only_monitor_cmd => main
+
+sequence main {
+    stage on {
+        press_pt > 30 => set_status{
+            status_key = "press_monitor_status",
+            name = "Press Monitor",
+            variant = "warning",
+            message = "Pressure high"
+        },
+        press_pt < 30 => set_status{
+            status_key = "press_monitor_status",
+            name = "Press Monitor",
+            variant = "success",
+            message = "Pressure nominal"
+        },
+    }
+}
+"""
+
 # ── Circular dependency sources (invalid, caught at configure time) ──
 # Comprehensive topology coverage is in the Go unit tests
 # (arc/go/analyzer/analyzer_test.go). These integration tests verify that
@@ -342,6 +368,20 @@ class EdgeCases(ArcConsoleCase):
                 virtual=True,
                 retrieve_if_name_exists=True,
             )
+        self.client.channels.create(
+            name="start_read_only_monitor_cmd",
+            data_type=sy.DataType.UINT8,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.statuses.set(
+            sy.Status(
+                key="press_monitor_status",
+                name="Press Monitor",
+                variant="disabled",
+                message="Initialized",
+            )
+        )
         super().setup()
 
     def _verify_channel_edge_cases(self) -> None:
@@ -425,10 +465,36 @@ class EdgeCases(ArcConsoleCase):
         for case in GUARDED_CASES:
             self._assert_guarded_configures(case)
 
+    def _verify_read_only_monitor(self) -> None:
+        self.log("=== Read-only monitor (no write channels) ===")
+        arc_name = f"ReadOnly_{random_name()}"
+        self.console.arc.create(arc_name, ARC_READ_ONLY_MONITOR, mode="Text")
+        self._extra_arcs.append(arc_name)
+        assert self.rack is not None
+        self.console.arc.select_rack(self.rack.name)
+        self.console.arc.configure()
+        self.console.arc.start()
+
+        with self.client.open_writer(
+            sy.TimeStamp.now(), "start_read_only_monitor_cmd"
+        ) as w:
+            w.write("start_read_only_monitor_cmd", 1)
+
+        self.log("Waiting for pressure status notification...")
+        assert self.console.notifications.wait_for("Press Monitor"), (
+            "No pressure status notification found"
+        )
+
+        assert self.console.arc.is_running(), "Read-only Arc stopped unexpectedly"
+        self.log("Read-only Arc with no write channels running successfully")
+        self.console.notifications.close_all()
+        self.console.arc.stop()
+
     def verify_sequence_execution(self) -> None:
         self._verify_channel_edge_cases()
         self._verify_circular_cases()
         self._verify_guarded_cases()
+        self._verify_read_only_monitor()
 
     def teardown(self) -> None:
         if self._extra_arcs:
