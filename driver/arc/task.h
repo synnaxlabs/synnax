@@ -186,6 +186,8 @@ public:
 
         task->runtime = std::move(rt);
 
+        auto source = std::make_unique<Source>(*task);
+        auto sink = std::make_unique<Sink>(*task);
         if (!writer_factory)
             writer_factory = bypass::pipeline::create_writer_factory(ctx);
         if (!streamer_factory)
@@ -193,44 +195,36 @@ public:
                 ctx,
                 {task_meta.name, task_meta.name}
             );
-        if (!task->runtime->write_channels.empty()) {
-            auto source = std::make_unique<Source>(*task);
-            auto initial_authorities = ::arc::runtime::build_authorities(
-                cfg.program.authorities,
-                task->runtime->write_channels
-            );
-            task->acquisition = std::make_unique<pipeline::Acquisition>(
-                writer_factory,
-                synnax::framer::WriterConfig{
-                    .channels = task->runtime->write_channels,
-                    .start = x::telem::TimeStamp::now(),
-                    .authorities = std::move(initial_authorities),
-                    .subject =
-                        x::control::Subject{
-                            .key = std::to_string(task_meta.key),
-                            .name = task_meta.name,
-                        },
-                    .mode = common::data_saving_writer_mode(cfg.data_saving),
-                },
-                std::move(source),
-                x::breaker::default_config("arc_acquisition"),
-                "arc_acquisition",
-                /* err_on_unauthorized */ false,
-                /* open_eagerly */ true
-            );
-        }
-        if (!task->runtime->read_channels.empty()) {
-            auto sink = std::make_unique<Sink>(*task);
-            task->control = std::make_unique<pipeline::Control>(
-                streamer_factory,
-                synnax::framer::StreamerConfig{
-                    .channels = task->runtime->read_channels,
-                },
-                std::move(sink),
-                x::breaker::default_config("arc_control"),
-                "arc_control"
-            );
-        }
+        auto initial_authorities = ::arc::runtime::build_authorities(
+            cfg.program.authorities,
+            task->runtime->write_channels
+        );
+        task->acquisition = std::make_unique<pipeline::Acquisition>(
+            writer_factory,
+            synnax::framer::WriterConfig{
+                .channels = task->runtime->write_channels,
+                .start = x::telem::TimeStamp::now(),
+                .authorities = std::move(initial_authorities),
+                .subject =
+                    x::control::Subject{
+                        .key = std::to_string(task_meta.key),
+                        .name = task_meta.name,
+                    },
+                .mode = common::data_saving_writer_mode(cfg.data_saving),
+            },
+            std::move(source),
+            x::breaker::default_config("arc_acquisition"),
+            "arc_acquisition",
+            /* err_on_unauthorized */ false,
+            /* open_eagerly */ true
+        );
+        task->control = std::make_unique<pipeline::Control>(
+            streamer_factory,
+            synnax::framer::StreamerConfig{.channels = task->runtime->read_channels},
+            std::move(sink),
+            x::breaker::default_config("arc_control"),
+            "arc_control"
+        );
 
         return {std::move(task), x::errors::NIL};
     }
@@ -238,20 +232,16 @@ public:
     bool start(const std::string &cmd_key) {
         const auto start = x::telem::TimeStamp::now();
         const auto runtime_started = this->runtime->start();
-        auto acq_started = true;
-        if (this->acquisition) acq_started = this->acquisition->start(start);
-        auto control_started = true;
-        if (this->control) control_started = this->control->start();
+        const auto acq_started = this->acquisition->start(start);
+        const auto control_started = this->control->start();
         this->state.send_start(cmd_key);
         return acq_started && control_started && runtime_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        auto control_stopped = true;
-        if (this->control) control_stopped = this->control->stop();
+        const auto control_stopped = this->control->stop();
         this->runtime->close_outputs();
-        auto acq_stopped = true;
-        if (this->acquisition) acq_stopped = this->acquisition->stop();
+        const auto acq_stopped = this->acquisition->stop();
         const auto runtime_stopped = this->runtime->stop();
         if (propagate_state) this->state.send_stop(cmd_key);
         return control_stopped && acq_stopped && runtime_stopped;
