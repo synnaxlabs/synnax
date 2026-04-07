@@ -26,9 +26,9 @@ var _ = Describe("Accuracy", func() {
 				fs      xfs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -44,7 +44,7 @@ var _ = Describe("Accuracy", func() {
 					firstTS  = []telem.TimeStamp{2, 4, 6, 8, 10, 12, 13, 17, 18, 20}
 					secondTS = []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
 				)
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Name: "Rufus", Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
@@ -56,7 +56,7 @@ var _ = Describe("Accuracy", func() {
 					Expect(db.WriteSeries(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 				})
 				DescribeTable("Accuracy",
-					func(
+					func(ctx SpecContext,
 						tr telem.TimeRange,
 						expected []int64,
 					) {
@@ -125,7 +125,7 @@ var _ = Describe("Accuracy", func() {
 						idxData1 = []telem.TimeStamp{1, 3, 5, 7, 9, 11, 18, 22, 31, 35}
 						idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}
 					)
-					BeforeAll(func() {
+					BeforeAll(func(ctx SpecContext) {
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{Name: "Albert", Key: idxKey1, DataType: telem.TimeStampT, IsIndex: true},
@@ -139,7 +139,7 @@ var _ = Describe("Accuracy", func() {
 						Expect(db.WriteSeries(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 					})
 					DescribeTable("Accuracy",
-						func(
+						func(ctx SpecContext,
 							tr telem.TimeRange,
 							expected1 []int64,
 							expected2 []int64,

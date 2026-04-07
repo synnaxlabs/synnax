@@ -13,14 +13,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/encoding/json"
 )
 
 var _ = Describe("Unary", Ordered, Serial, func() {
@@ -33,12 +33,12 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		addr = "localhost:8081"
-		app = fiber.New(fiber.Config{DisableStartupMessage: true})
+		app = fiber.New(fiber.Config{})
 		router := fhttp.NewRouter(fhttp.RouterConfig{})
 		factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: httputil.JSONCodec,
+			Codec: json.Codec,
 		})
-		app.Get("/health", func(c *fiber.Ctx) error {
+		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
 		server = fhttp.UnaryServer[test.Request, test.Response](router, "/")
@@ -46,11 +46,13 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		router.BindTo(app)
 		go func() {
 			defer GinkgoRecover()
-			Expect(app.Listen(addr.PortString())).To(Succeed())
+			Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
+				DisableStartupMessage: true,
+			})).To(Succeed())
 		}()
 		Eventually(func(g Gomega) {
 			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).To(Succeed())
 		}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	})
 

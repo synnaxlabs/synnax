@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-
 from console.case import ConsoleCase
 
 

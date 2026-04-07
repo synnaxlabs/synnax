@@ -141,7 +141,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             ctrl.sleep(2)
 
-            log(ctrl, f"Pressing SCUBA and L-Stand to 50 PSI")
+            log(ctrl, "Pressing SCUBA and L-Stand to 50 PSI")
 
             # Pressurize l-stand and scuba to 50 PSI
             # Open TPC Valve
@@ -168,7 +168,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             dual_press_end = sy.TimeStamp.now()
             parent_rng.create_child_range(
-                name=f"Setup",
+                name="Setup",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
                 color="#D81E5B",
             )
@@ -203,7 +203,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             press_tank_end = sy.TimeStamp.now()
             parent_rng.create_child_range(
-                name=f"Pressurization",
+                name="Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
                 color="#1E90FF",
             )
@@ -217,7 +217,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             log(ctrl, "Test complete. Safeing System")
 
             rng = parent_rng.create_child_range(
-                name=f"Test",
+                name="Test",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )

@@ -10,7 +10,6 @@
 package types_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -88,13 +87,11 @@ var _ = Describe("CppImportResolver", func() {
 
 var _ = Describe("C++ Types Plugin", func() {
 	var (
-		ctx       context.Context
 		loader    *MockFileLoader
 		cppPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		cppPlugin = types.New(types.DefaultOptions())
 	})
@@ -107,7 +104,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 	Describe("Namespace Derivation", func() {
 		DescribeTable("should derive correct namespace from output path",
-			func(outputPath, expectedNamespace string) {
+			func(ctx SpecContext, outputPath, expectedNamespace string) {
 				source := `
 					@cpp output "` + outputPath + `"
 
@@ -153,7 +150,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("basic struct generation", func() {
-			It("Should generate struct for simple types", func() {
+			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/user"
 
@@ -185,7 +182,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct C++ type",
-				func(oracleType, expectedFieldDecl string) {
+				func(ctx SpecContext, oracleType, expectedFieldDecl string) {
 					source := `
 						@cpp output "out"
 
@@ -208,12 +205,43 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("uint64", "uint64", "std::uint64_t field = 0;"),
 				Entry("float32", "float32", "float field = 0;"),
 				Entry("float64", "float64", "double field = 0;"),
-				Entry("json", "json", "x::json::json field;"),
+				Entry("record", "record", "x::json::json::object_t field;"),
 			)
-
 		})
 
-		It("Should treat soft optional as bare type", func() {
+		Context("nil primitive type", func() {
+			It("Should map nil to std::monostate", func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/status"
+
+					Status struct<Details?> {
+						key string
+						details Details?
+					}
+				`
+				loader.Add("schemas/status", source)
+
+				channelSource := `
+					import "schemas/status"
+
+					@cpp output "client/cpp/channel"
+
+					ChannelStatus = status.Status<nil>
+
+					Channel struct {
+						key uint32
+						status ChannelStatus??
+					}
+				`
+				resp := MustGenerate(ctx, channelSource, "channel", loader, cppPlugin)
+
+				content := MustContentOf(resp, "client/cpp/channel/types.gen.h")
+				Expect(content).To(ContainSubstring(`std::monostate`))
+				Expect(content).NotTo(ContainSubstring(`void`))
+			})
+		})
+
+		It("Should treat soft optional as bare type", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -241,7 +269,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`std::optional`))
 		})
 
-		It("Should use std::optional for hard optional types", func() {
+		It("Should use std::optional for hard optional types", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -266,7 +294,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> parent;`))
 		})
 
-		It("Should handle array types with std::vector", func() {
+		It("Should handle array types with std::vector", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -293,7 +321,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			// Note: vectors don't get = {} default since they have a proper default constructor
 		})
 
-		It("Should treat soft optional arrays as bare vector", func() {
+		It("Should treat soft optional arrays as bare vector", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -317,7 +345,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::vector<std::string> tags;`))
 		})
 
-		It("Should wrap hard optional arrays with std::optional", func() {
+		It("Should wrap hard optional arrays with std::optional", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -341,13 +369,13 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
-		It("Should handle json type", func() {
+		It("Should handle record type", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/task"
 
 				Task struct {
 					key uint64
-					config json
+					config record
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -362,10 +390,10 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include "x/cpp/json/json.h"`))
-			Expect(content).To(ContainSubstring(`x::json::json config;`))
+			Expect(content).To(ContainSubstring(`x::json::json::object_t config;`))
 		})
 
-		It("Should handle map types", func() {
+		It("Should handle map types", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/task"
 
@@ -389,7 +417,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::unordered_map<std::string, std::string> metadata;`))
 		})
 
-		It("Should handle struct extension with field flattening", func() {
+		It("Should handle struct extension with field flattening", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -423,7 +451,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(MatchRegexp(`struct New \{[^}]*task_counter`))
 		})
 
-		It("Should handle @cpp name override", func() {
+		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 				@cpp name "RackPayload"
@@ -448,7 +476,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`struct Rack {`))
 		})
 
-		It("Should handle @cpp name override for fields", func() {
+		It("Should handle @cpp name override for fields", func(ctx SpecContext) {
 			// This tests renaming a field, e.g., when the field name is a C++ reserved keyword
 			source := `
 				@cpp output "client/cpp/channel"
@@ -478,7 +506,31 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`bool virtual`))
 		})
 
-		It("Should handle @cpp omit", func() {
+		It("Should automatically escape C++ reserved keyword field names", func(ctx SpecContext) {
+			source := `
+				@cpp output "arc/cpp/ir"
+
+				Authorities struct {
+					default uint8 { @optional }
+					channels Map<uint32, uint8>
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`default_`))
+			Expect(content).NotTo(MatchRegexp(`\bstd::optional<std::uint8_t> default[^_]`))
+		})
+
+		It("Should handle @cpp omit", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -508,7 +560,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`struct Internal {`))
 		})
 
-		It("Should generate generic structs with templates", func() {
+		It("Should generate generic structs with templates", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -533,7 +585,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`D details;`))
 		})
 
-		It("Should generate generic struct with type parameter field", func() {
+		It("Should generate generic struct with type parameter field", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -559,7 +611,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should generate method declarations for generic struct", func() {
+		It("Should generate method declarations for generic struct", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -583,7 +635,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`[[nodiscard]] x::json::json to_json() const;`))
 		})
 
-		It("Should handle optional generic fields", func() {
+		It("Should handle optional generic fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -608,7 +660,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should include type_traits for generic structs", func() {
+		It("Should include type_traits for generic structs", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -631,7 +683,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should handle inherited generic fields", func() {
+		It("Should handle inherited generic fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "x/cpp/status"
 
@@ -676,7 +728,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should handle type aliases", func() {
+		It("Should handle type aliases", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -700,7 +752,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`using Status = StatusDetails;`))
 		})
 
-		It("Should handle bytes type", func() {
+		It("Should handle bytes type", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/module"
 
@@ -723,7 +775,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::vector<std::uint8_t> wasm;`))
 		})
 
-		It("Should handle array wrapper distinct types", func() {
+		It("Should handle array wrapper distinct types", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -750,7 +802,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`using Params = void;`))
 		})
 
-		It("Should handle array wrapper of structs used in other structs", func() {
+		It("Should handle array wrapper of structs used in other structs", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -783,7 +835,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Params outputs;`))
 		})
 
-		It("Should order array wrapper after its dependency struct", func() {
+		It("Should order array wrapper after its dependency struct", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -812,7 +864,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				"Param struct definition should be declared before Params wrapper")
 		})
 
-		It("Should generate forward declarations for structs before array wrappers", func() {
+		It("Should generate forward declarations for structs before array wrappers", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -842,7 +894,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				"Forward declaration should appear before array wrapper")
 		})
 
-		It("Should handle cyclic dependencies with forward declarations", func() {
+		It("Should handle cyclic dependencies with forward declarations", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -880,7 +932,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring("struct Params : private std::vector<Param>"))
 		})
 
-		It("Should handle int enums with uint8_t underlying type", func() {
+		It("Should handle int enums with uint8_t underlying type", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -911,7 +963,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Warning = 2,`))
 		})
 
-		It("Should use indirect for self-referential optional fields", func() {
+		It("Should use indirect for self-referential optional fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -940,7 +992,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`std::optional<Node>`))
 		})
 
-		It("Should use optional for non-self-referential optional fields", func() {
+		It("Should use optional for non-self-referential optional fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -970,7 +1022,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <optional>`))
 		})
 
-		It("Should handle cross-namespace references to handwritten types", func() {
+		It("Should handle cross-namespace references to handwritten types", func(ctx SpecContext) {
 			// First, set up the "status" namespace with an omitted type
 			statusSource := `
 				@cpp omit
@@ -1017,7 +1069,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<RackStatus> status;`))
 		})
 
-		It("Should not generate files for structs without @cpp output", func() {
+		It("Should not generate files for structs without @cpp output", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/user"
 
@@ -1039,7 +1091,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Context("declaration and field order", func() {
-			It("Should preserve struct declaration order", func() {
+			It("Should preserve struct declaration order", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/animals"
 
@@ -1073,7 +1125,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 			})
 
-			It("Should preserve field declaration order", func() {
+			It("Should preserve field declaration order", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/order"
 
@@ -1107,7 +1159,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Describe("Namespace-based enum collection", func() {
-			It("Should include standalone enums in the same namespace as structs", func() {
+			It("Should include standalone enums in the same namespace as structs", func(ctx SpecContext) {
 				// This tests the fix for enums that are not referenced by struct fields
 				// but are in the same namespace and should be generated in the same file.
 				source := `
@@ -1137,7 +1189,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					)
 			})
 
-			It("Should include enums inherited from file-level output directive", func() {
+			It("Should include enums inherited from file-level output directive", func(ctx SpecContext) {
 				source := `
 					@cpp output "x/cpp/status"
 
@@ -1161,7 +1213,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Describe("Cross-namespace enum references", func() {
-			It("Should use namespace-qualified name for cross-namespace int enums", func() {
+			It("Should use namespace-qualified name for cross-namespace int enums", func(ctx SpecContext) {
 				// First, set up the "control" namespace with the enum
 				controlSource := `
 					@cpp output "x/cpp/control"
@@ -1215,7 +1267,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(channelContent).To(ContainSubstring(`::x::control::Concurrency concurrency`))
 			})
 
-			It("Should not namespace-qualify enums in the same namespace", func() {
+			It("Should not namespace-qualify enums in the same namespace", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/channel"
 
@@ -1243,7 +1295,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Describe("Array Wrapper Generation", func() {
-			It("Should generate wrapper struct for array distinct types", func() {
+			It("Should generate wrapper struct for array distinct types", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -1264,7 +1316,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					)
 			})
 
-			It("Should generate wrapper struct for array of structs", func() {
+			It("Should generate wrapper struct for array of structs", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -1284,7 +1336,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					)
 			})
 
-			It("Should generate parse/to_json declarations for array wrappers", func() {
+			It("Should generate parse/to_json declarations for array wrappers", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -1303,7 +1355,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			// The types plugin generates declarations when HasProto is set, which
 			// requires explicit @pb annotations on the type (tested in pb plugin).
 
-			It("Should support @cpp methods for custom methods on array wrappers", func() {
+			It("Should support @cpp methods for custom methods on array wrappers", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 					@cpp methods "std::optional<Param> get(const std::string& name) const"
@@ -1322,7 +1374,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					)
 			})
 
-			It("Should generate initializer_list constructor for array wrappers", func() {
+			It("Should generate initializer_list constructor for array wrappers", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -1338,7 +1390,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate doxygen comments from doc domain", func() {
+			It("Should generate doxygen comments from doc domain", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/user"
 
@@ -1364,6 +1416,52 @@ var _ = Describe("C++ Types Plugin", func() {
 						"/// @brief key is the unique identifier for the user.",
 						"/// @brief name is the user's display name.",
 					)
+			})
+		})
+
+		Context("enum variant defaults", func() {
+			It("Should generate default for same-namespace enum variant", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+					@pb
+
+					Mode enum {
+						automatic = 0
+						manual    = 1
+					}
+
+					Config struct {
+						mode Mode @validate default ModeAutomatic
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(`Mode mode = Mode::Automatic`)
+			})
+
+			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
+				loader.Add("schemas/control", `
+					@cpp output "x/cpp/control"
+					@pb
+
+					Concurrency enum {
+						exclusive = 0
+						shared    = 1
+					}
+				`)
+				source := `
+					import "schemas/control"
+
+					@cpp output "client/cpp/channel"
+					@pb
+
+					Channel struct {
+						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(`::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive`)
 			})
 		})
 	})

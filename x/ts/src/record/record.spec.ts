@@ -74,15 +74,15 @@ describe("record", () => {
     });
     it("should reject symbol keys", () => {
       const symbolKey = Symbol("test");
-      expect(() => record.keyZ.parse(symbolKey)).toThrowError(z.ZodError);
+      expect(() => record.keyZ.parse(symbolKey)).toThrow(z.ZodError);
     });
     it("should reject undefined keys", () => {
       const undefinedKey = undefined;
-      expect(() => record.keyZ.parse(undefinedKey)).toThrowError(z.ZodError);
+      expect(() => record.keyZ.parse(undefinedKey)).toThrow(z.ZodError);
     });
     it("should reject null keys", () => {
       const nullKey = null;
-      expect(() => record.keyZ.parse(nullKey)).toThrowError(z.ZodError);
+      expect(() => record.keyZ.parse(nullKey)).toThrow(z.ZodError);
     });
   });
   describe("unknownZ", () => {
@@ -95,16 +95,16 @@ describe("record", () => {
         2: [1, 2, 3],
         function: () => {},
       };
-      expect(record.unknownZ.parse(validRecord)).toEqual(validRecord);
+      expect(record.unknownZ().parse(validRecord)).toEqual(validRecord);
     });
     it("should reject symbol keys", () => {
       const invalidRecord = { [Symbol("test")]: "value" };
-      expect(() => record.unknownZ.parse(invalidRecord)).toThrowError(z.ZodError);
+      expect(() => record.unknownZ().parse(invalidRecord)).toThrow(z.ZodError);
     });
 
     it("should accept empty objects", () => {
       const emptyRecord = {};
-      expect(record.unknownZ.parse(emptyRecord)).toEqual(emptyRecord);
+      expect(record.unknownZ().parse(emptyRecord)).toEqual(emptyRecord);
     });
 
     it("should accept null and undefined values", () => {
@@ -114,7 +114,7 @@ describe("record", () => {
         string: "value",
       };
 
-      expect(record.unknownZ.parse(recordWithNulls)).toEqual(recordWithNulls);
+      expect(record.unknownZ().parse(recordWithNulls)).toEqual(recordWithNulls);
     });
   });
 
@@ -328,6 +328,30 @@ describe("record", () => {
         items: [1, 2, 3],
         tags: null,
       });
+    });
+  });
+
+  describe("nullishToEmpty", () => {
+    it("should coerce null to empty object", () => {
+      expect(record.nullishToEmpty().parse(null)).toEqual({});
+    });
+
+    it("should coerce undefined to empty object", () => {
+      expect(record.nullishToEmpty().parse(undefined)).toEqual({});
+    });
+
+    it("should pass through empty object", () => {
+      expect(record.nullishToEmpty().parse({})).toEqual({});
+    });
+
+    it("should pass through object with data", () => {
+      const obj = { a: 1, b: "hello", c: true };
+      expect(record.nullishToEmpty().parse(obj)).toEqual(obj);
+    });
+
+    it("should pass through object with nested values", () => {
+      const obj = { nested: { key: "value" }, arr: [1, 2, 3] };
+      expect(record.nullishToEmpty().parse(obj)).toEqual(obj);
     });
   });
 

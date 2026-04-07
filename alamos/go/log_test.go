@@ -38,11 +38,9 @@ var _ = Describe("Log", func() {
 		)
 
 		BeforeEach(func() {
-			var err error
 			config := zap.NewDevelopmentConfig()
 			config.OutputPaths = []string{"stdout"}
-			logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapConfig: config})
-			Expect(err).ToNot(HaveOccurred())
+			logger = MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: config}))
 			buffer = &bytes.Buffer{}
 			zapLogger := logger.Zap().WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 				return zapcore.NewCore(
@@ -51,8 +49,7 @@ var _ = Describe("Log", func() {
 					zapcore.DebugLevel,
 				)
 			}))
-			logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger})
-			Expect(err).ToNot(HaveOccurred())
+			logger = MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}))
 		})
 
 		It("Should handle WithOptions", func() {
@@ -65,8 +62,7 @@ var _ = Describe("Log", func() {
 			newConfig := alamos.LoggerConfig{
 				ZapConfig: zap.NewDevelopmentConfig(),
 			}
-			newLogger, err := logger.WithConfig(newConfig)
-			Expect(err).ToNot(HaveOccurred())
+			newLogger := MustSucceed(logger.WithConfig(newConfig))
 			Expect(newLogger).ToNot(BeNil())
 			Expect(newLogger.Zap()).ToNot(Equal(logger.Zap()))
 		})
@@ -231,8 +227,7 @@ var _ = Describe("Log", func() {
 		It("Should log with custom core", func() {
 			custom := alamos.CustomZapCore(core)
 			zapLogger := zap.New(custom)
-			newLogger, err := alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger})
-			Expect(err).ToNot(HaveOccurred())
+			newLogger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}))
 			newLogger.Info("test message", zap.String("key", "value"))
 			Expect(buffer.String()).To(ContainSubstring("test message"))
 			Expect(buffer.String()).To(ContainSubstring("key"))

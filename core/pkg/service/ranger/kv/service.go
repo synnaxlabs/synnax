@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -50,45 +52,47 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing key-value pairs on ranges.
 type Service struct {
-	shutdownSignals io.Closer
-	cfg             ServiceConfig
+	closer xio.MultiCloser
+	cfg    ServiceConfig
+	table  *gorp.Table[string, Pair]
 }
 
 // OpenService opens a new kv.Service with the provided configuration.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
-	if cfg.Signals == nil {
-		return s, nil
-	}
-	signalsCfg := signals.GorpPublisherConfigString[Pair](cfg.DB)
-	signalsCfg.SetName = "sy_range_kv_set"
-	signalsCfg.DeleteName = "sy_range_kv_delete"
-	kvSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Pair]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.shutdownSignals = kvSignals
+	if cfg.Signals != nil {
+		signalsCfg := signals.GorpPublisherConfigString[Pair](s.table.Observe())
+		signalsCfg.SetName = "sy_range_kv_set"
+		signalsCfg.DeleteName = "sy_range_kv_delete"
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg); !ok(err, sig) {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
 // Close closes the service and releases any resources.
-func (s *Service) Close() error {
-	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
-	}
-	return nil
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewWriter opens a new Writer to create and delete key-value pairs.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
 }
 
 // NewReader opens a new Reader to retrieve key-value pairs.
 func (s *Service) NewReader(tx gorp.Tx) Reader {
-	return Reader{tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Reader{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
 }

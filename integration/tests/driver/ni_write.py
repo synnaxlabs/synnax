@@ -9,14 +9,13 @@
 
 """NI write task integration tests."""
 
-import synnax as sy
+from pydantic import ValidationError
 
+import synnax as sy
 from tests.driver.ni_task import NIAnalogWriteTaskCase, NIDigitalWriteTaskCase
 from tests.driver.task import (
-    _assert_no_task_errors,
     create_channel,
     create_index,
-    send_and_verify_commands,
 )
 
 
@@ -74,7 +73,6 @@ def _assert_driver_rejects_value(
 
     Opens the status streamer before writing to avoid missing events on slow runners.
     """
-    from synnax.task.payload import Status
 
     channels = client.channels.retrieve(cmd_keys)
     index_keys = list({ch.index for ch in channels if ch.index != 0})
@@ -104,7 +102,10 @@ def _assert_driver_rejects_value(
             if "sy_status_set" not in frame:
                 continue
             for raw in frame["sy_status_set"]:
-                status = Status.model_validate(raw)
+                try:
+                    status = sy.task.Status.model_validate(raw)
+                except ValidationError:
+                    continue
                 if status.details is None or status.details.task != task_key:
                     continue
                 if status.variant in ("warning", "error"):

@@ -12,6 +12,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -43,7 +44,7 @@ type node struct {
 type Graph struct {
 	alamos.Instrumentation
 	distribution *channel.Service
-	status       status.Writer[calculation.StatusDetails]
+	status       status.Writer[types.Nil]
 	disconnect   observe.Disconnect
 	mu           struct {
 		nodes            map[channel.Key]node
@@ -95,7 +96,7 @@ func Open(
 	s := &Graph{
 		Instrumentation: cfg.Instrumentation,
 		distribution:    cfg.Channel,
-		status:          status.NewWriter[calculation.StatusDetails](cfg.Status, nil),
+		status:          status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]map[channel.Key]struct{})
@@ -103,7 +104,7 @@ func Open(
 	if err = s.hydrate(ctx); err != nil {
 		return nil, err
 	}
-	s.disconnect = cfg.Channel.NewObservable().OnChange(s.handleChanges)
+	s.disconnect = cfg.Channel.Observe().OnChange(s.handleChanges)
 	return s, nil
 }
 

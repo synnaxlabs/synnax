@@ -11,16 +11,18 @@ package rack
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retrieve struct {
 	baseTX       gorp.Tx
-	otg          *ontology.Ontology
+	search       *search.Index
 	gorp         gorp.Retrieve[Key, Rack]
 	hostProvider cluster.HostProvider
 	searchTerm   string
@@ -99,6 +101,17 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
+// WhereIntegration filters for racks that support the provided integration.
+func (r Retrieve) WhereIntegration(
+	integration string,
+	opts ...gorp.FilterOption,
+) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, rack *Rack) (bool, error) {
+		return slices.Contains(rack.Integrations, integration), nil
+	}, opts...)
+	return r
+}
+
 // WhereNode filters for racks that are embedded within the provided node.
 func (r Retrieve) WhereNode(node cluster.NodeKey, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
@@ -111,8 +124,8 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if r.searchTerm == "" {
 		return r, nil
 	}
-	ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-		Type: OntologyType,
+	ids, err := r.search.Search(ctx, search.Request{
+		Type: ontology.ResourceTypeRack,
 		Term: r.searchTerm,
 	})
 	if err != nil {
@@ -124,6 +137,16 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	}
 	r = r.WhereKeys(keys...)
 	return r, err
+}
+
+// Count returns the number of entries matching the query.
+func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
+	var err error
+	r, err = r.execSearch(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Exec executes the query against the provided transaction.

@@ -22,6 +22,7 @@ const reqZ = z.object({
   keys: z.number().array(),
   downsampleFactor: z.int(),
   throttleRate: Rate.z.optional(),
+  excludeGroups: z.uint32().array().optional(),
 });
 
 /**
@@ -48,6 +49,9 @@ const intermediateStreamerConfigZ = z.object({
   /** useHighPerformanceCodec sets whether the writer will use the Synnax frame encoder
    as opposed to the standard JSON encoding mechanisms for frames. */
   useHighPerformanceCodec: z.boolean().default(true),
+  /** excludeGroups sets writer group IDs whose frames should be filtered out by the
+   Core. Used for telemetry bypass deduplication. */
+  excludeGroups: z.uint32().array().default([]),
 });
 
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
@@ -116,11 +120,13 @@ export const createStreamOpener =
       adapter,
       cfg.downsampleFactor,
       cfg.throttleRate,
+      cfg.excludeGroups,
     );
     stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
+      excludeGroups: cfg.excludeGroups,
     });
     const [, err] = await stream.receive();
     if (err != null) throw err;
@@ -145,17 +151,20 @@ class BaseStreamer implements Streamer {
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;
   private readonly throttleRate: Rate;
+  private readonly excludeGroups: number[];
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
     adapter: ReadAdapter,
     downsampleFactor: number = 1,
     throttleRate: Rate = new Rate(0),
+    excludeGroups: number[] = [],
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
     this.downsampleFactor = downsampleFactor;
     this.throttleRate = throttleRate;
+    this.excludeGroups = excludeGroups;
   }
 
   get keys(): channel.Key[] {
@@ -183,6 +192,7 @@ class BaseStreamer implements Streamer {
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
+      excludeGroups: this.excludeGroups,
     });
   }
 

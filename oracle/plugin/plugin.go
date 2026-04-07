@@ -28,8 +28,18 @@ type Plugin interface {
 type Request struct {
 	// Resolutions holds the resolved type table from Oracle schema files.
 	Resolutions *resolution.Table
+	// OldResolutions holds the type table from the previous schema snapshot, used
+	// by migration plugins to diff against the current schema. Nil when no previous
+	// snapshot exists.
+	OldResolutions *resolution.Table
+	// SnapshotVersion is the version number of the latest schema snapshot.
+	SnapshotVersion int
 	// RepoRoot is the absolute path to the repository root directory.
 	RepoRoot string
+	// LoadSnapshot loads and analyzes a previous schema snapshot by version number.
+	// Used by the migration plugin to access earlier snapshots when retargeting
+	// chained migrations. Returns nil if the snapshot does not exist.
+	LoadSnapshot func(version int) (*resolution.Table, error)
 }
 
 // ResolvePath resolves a repo-relative path to an absolute path.
@@ -51,6 +61,10 @@ func (r *Request) ValidateOutputPath(path string) error {
 type Response struct {
 	// Files holds the list of generated files.
 	Files []File
+	// Deletions holds repo-relative paths of files to remove. Used when the
+	// migrate plugin retargets a developer transform and moves it into a
+	// version sub-package.
+	Deletions []string
 }
 
 // PostWriter is an optional interface for post-processing.

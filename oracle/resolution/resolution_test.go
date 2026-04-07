@@ -45,7 +45,7 @@ var _ = Describe("Table", func() {
 			Entry("bool", "bool"),
 			Entry("string", "string"),
 			Entry("uuid", "uuid"),
-			Entry("json", "json"),
+			Entry("record", "record"),
 			Entry("bytes", "bytes"),
 			Entry("any", "any"),
 		)
@@ -644,10 +644,21 @@ var _ = Describe("Primitive Helpers", func() {
 		Entry("int32", "int32", true),
 		Entry("float64", "float64", true),
 		Entry("bool", "bool", true),
-		Entry("json", "json", true),
+		Entry("record", "record", true),
 		Entry("bytes", "bytes", true),
+		Entry("nil", "nil", true),
 		Entry("User", "User", false),
 		Entry("Array", "Array", false),
+	)
+
+	DescribeTable("IsConstraint",
+		func(name string, expected bool) {
+			Expect(resolution.IsConstraint(name)).To(Equal(expected))
+		},
+		Entry("comparable", "comparable", true),
+		Entry("string is not a constraint", "string", false),
+		Entry("unknown is not a constraint", "Unknown", false),
+		Entry("empty string", "", false),
 	)
 
 	DescribeTable("IsStringPrimitive",

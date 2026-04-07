@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	ctx    context.Context
 	dist   mock.Node
 	svc    *svcChannel.Service
 	arcSvc *arc.Service
@@ -37,15 +36,15 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "Service Channel Suite")
 }
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(labelSvc.Close()).To(Succeed())
@@ -56,6 +55,7 @@ var _ = BeforeSuite(func() {
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(statusSvc.Close()).To(Succeed())
@@ -66,6 +66,7 @@ var _ = BeforeSuite(func() {
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(rackSvc.Close()).To(Succeed())
@@ -76,6 +77,7 @@ var _ = BeforeSuite(func() {
 		Group:    dist.Group,
 		Rack:     rackSvc,
 		Status:   statusSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(taskSvc.Close()).To(Succeed())
@@ -86,6 +88,7 @@ var _ = BeforeSuite(func() {
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   dist.Search,
 	}))
 	DeferCleanup(func() {
 		Expect(arcSvc.Close()).To(Succeed())
@@ -101,6 +104,6 @@ var _ = BeforeSuite(func() {
 	})
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(dist.Close()).To(Succeed())
 })

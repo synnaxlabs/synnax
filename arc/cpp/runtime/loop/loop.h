@@ -187,7 +187,7 @@ struct Config {
         const bool needs_interval = cfg.mode == ExecutionMode::HIGH_RATE ||
                                     cfg.mode == ExecutionMode::RT_EVENT;
         if (cfg.interval.nanoseconds() == 0 && needs_interval) {
-            LOG(WARNING) << "[loop] " << cfg.mode
+            LOG(WARNING) << "[arc.loop] " << cfg.mode
                          << " mode requires an interval, defaulting to "
                          << timing::HIGH_RATE_POLL_INTERVAL;
             cfg.interval = timing::HIGH_RATE_POLL_INTERVAL;
@@ -291,6 +291,10 @@ struct Loop {
 /// @brief Creates a platform-specific loop implementation. The loop is not
 /// started; call start() from the thread that will run the event loop so
 /// that RT scheduling is applied to the correct thread.
-/// @param cfg Loop configuration (mode, timing, RT settings).
-std::unique_ptr<Loop> create(const Config &cfg);
+/// @param cfg Loop configuration.
+/// @param rt_handle Optional RT handle from the Manager. When provided, the
+/// loop calls handle->apply() instead of apply_config(config.rt()), and the
+/// handle's allocated core is used for CPU affinity.
+std::unique_ptr<Loop>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr);
 }

@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from synnax import channel as channel_
 from synnax import device, task
-from synnax.task.payload import Payload
 
 MAKE = "http"
 MODEL = "HTTP server"
@@ -55,8 +54,7 @@ class HealthCheck(BaseModel):
     :param headers: Optional headers to include.
     :param query_params: Optional query parameters.
     :param body: Optional request body (POST only).
-    :param validate_response: Whether to validate the response body.
-    :param response: Expected response config (required when validate_response is True).
+    :param response: Optional response validation config.
     """
 
     method: str = "GET"
@@ -64,7 +62,6 @@ class HealthCheck(BaseModel):
     headers: list[HeaderEntry] | None = None
     query_params: list[QueryParamEntry] | None = None
     body: str | None = None
-    validate_response: bool = False
     response: ExpectedResponse | None = None
 
 
@@ -255,7 +252,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             endpoints=endpoints if endpoints is not None else [],
         )
 
-    def to_payload(self) -> Payload:
+    def to_payload(self) -> task.Payload:
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(exclude_none=True)
         return pld
@@ -311,7 +308,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             endpoints=endpoints if endpoints is not None else [],
         )
 
-    def to_payload(self) -> Payload:
+    def to_payload(self) -> task.Payload:
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(exclude_none=True)
         return pld

@@ -30,6 +30,8 @@ type Writer struct {
 	// otg is the ontology writer that the writer will use to create relationships
 	// between users and a user group.
 	otg ontology.Writer
+	// table is the gorp table for user entries.
+	table *gorp.Table[uuid.UUID, User]
 }
 
 // Create makes a new user in the key-value store. If the username of u already exists,
@@ -45,7 +47,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 	if exists {
 		return auth.RepeatedUsername
 	}
-	if err := gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Entry(u).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := OntologyID(u.Key)
@@ -62,7 +64,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 	if usernameExists {
 		return auth.RepeatedUsername
 	}
-	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
+	return w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
 		u.Username = newUsername
 		return u
 	}).Exec(ctx, w.tx)
@@ -71,7 +73,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 // ChangeName updates the first and last name of the user with the given key. If either
 // first or last is an empty string, the corresponding field will not be updated.
 func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, last string) error {
-	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
+	return w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
 		if first != "" {
 			u.FirstName = first
 		}
@@ -87,7 +89,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	if err := gorp.NewDelete[uuid.UUID, User]().WhereKeys(keys...).Guard(func(_ gorp.Context, u User) error {
+	if err := w.table.NewDelete().WhereKeys(keys...).Guard(func(_ gorp.Context, u User) error {
 		if u.RootUser {
 			return errors.New("cannot delete root user")
 		}

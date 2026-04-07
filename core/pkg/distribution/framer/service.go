@@ -22,7 +22,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -34,7 +37,8 @@ import (
 // To create a new service, call Open with a valid ServiceConfig. The framer service
 // must be closed after used.
 type Service struct {
-	Relay           *relay.Relay
+	relay           *relay.Relay
+	closer          io.MultiCloser
 	writer          *writer.Service
 	iterator        *iterator.Service
 	deleter         *deleter.Service
@@ -44,31 +48,30 @@ type Service struct {
 
 // ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
-	// Transport is the network transport for moving telemetry across nodes.
+	// Transport is the network transport for moving telemetry across Cores.
+	//
 	// [REQUIRED]
 	Transport Transport
 	// HostResolved is used to resolve address information about hosts on the network.
+	//
 	// [REQUIRED]
 	HostResolver cluster.HostResolver
 	// Channel is used to retrieve channel information.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// TS is the underlying storage time-series database for reading and writing telemetry.
+	// TS is the underlying storage time-series database for reading and writing
+	// telemetry.
+	//
 	// [REQUIRED]
 	TS *ts.DB
 	// Instrumentation is used for logging, tracing, etc.
+	//
 	// [OPTIONAL]
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening the framer service.
-	// This configuration is not valid on its own and must be overridden by a
-	// user-provided configuration. See Config for more information.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -94,75 +97,81 @@ const freeWritePipelineBuffer = 4000
 
 // OpenService opens a new service using the provided configuration(s). Fields defined
 // in each subsequent configuration override those in previous configurations. See the
-// Config struct for information required fields.
+// ServiceConfig struct for information required fields.
 //
 // Returns the Service and a nil error if opened successfully, and a nil Service and
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func OpenService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
-	s.iterator, err = iterator.NewService(iterator.ServiceConfig{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
+		Instrumentation: cfg.Child("iterator"),
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
 		Channel:         cfg.Channel,
-		Instrumentation: cfg.Child("writer"),
-	})
-	if err != nil {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
-	s.Relay, err = relay.Open(relay.Config{
+	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
 		Channel:         cfg.Channel,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
 		FreeWrites:      freeWrites,
-	})
-	if err != nil {
+	}); !ok(err, s.relay) {
 		return nil, err
 	}
-	s.writer, err = writer.NewService(writer.ServiceConfig{
+	if s.writer, err = writer.NewService(writer.ServiceConfig{
+		Instrumentation: cfg.Child("writer"),
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		Channel:         cfg.Channel,
-		Instrumentation: cfg.Child("writer"),
 		FreeWrites:      freeWrites,
-	})
-	if err != nil {
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	s.deleter, err = deleter.NewService(deleter.ServiceConfig{
+	if s.deleter, err = deleter.NewService(deleter.ServiceConfig{
 		HostResolver: cfg.HostResolver,
-		Channel:      cfg.Channel,
 		TSChannel:    cfg.TS,
 		Transport:    cfg.Transport.Deleter(),
-	})
-	return s, err
+	}); !ok(err, nil) {
+		return nil, err
+	}
+	return s, nil
 }
 
 // OpenIterator opens a new iterator for reading historical data from a Synnax cluster.
-// If the returned error is nil, the iterator must be closed after use. For
-// information on configuration parameters, see the IteratorConfig struct.
+// If the returned error is nil, the iterator must be closed after use. For information
+// on configuration parameters, see the IteratorConfig struct.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStreamIterator.
-func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
+func (s *Service) OpenIterator(
+	ctx context.Context,
+	cfg IteratorConfig,
+) (*Iterator, error) {
 	return s.iterator.Open(ctx, cfg)
 }
 
-// NewStreamIterator returns an iterator for reading historical data from a Synnax cluster.
-// The returned StreamIterator is a confluence.Segment that uses a channel-based interface,
-// where requests are sent through an input stream, and responses are received through
-// an output stream.
-func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
+// NewStreamIterator returns an iterator for reading historical data from a Synnax
+// cluster. The returned StreamIterator is a confluence.Segment that uses a
+// channel-based interface, where requests are sent through an input stream, and
+// responses are received through an output stream.
+func (s *Service) NewStreamIterator(
+	ctx context.Context,
+	cfg IteratorConfig,
+) (StreamIterator, error) {
 	return s.iterator.NewStream(ctx, cfg)
 }
 
@@ -178,20 +187,34 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 
 // NewStreamWriter returns a writer for writing data to a Synnax cluster. The returned
 // writer is a confluence.Segment that uses a channel-based interface, where requests
-// are sent through an input stream, and responses are received through an output stream.
-func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+// are sent through an input stream, and responses are received through an output
+// stream.
+func (s *Service) NewStreamWriter(
+	ctx context.Context,
+	cfg WriterConfig,
+) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
 }
 
-// NewDeleter opens a new deleter for deleting data from a Synnax cluster.
-func (s *Service) NewDeleter() Deleter { return s.deleter.New() }
+// DeleteTimeRange deletes a time range in the specified channels.
+func (s *Service) DeleteTimeRange(
+	ctx context.Context,
+	keys channel.Keys,
+	tr telem.TimeRange,
+) error {
+	return s.deleter.DeleteTimeRange(ctx, keys, tr)
+}
 
 // ConfigureControlUpdateChannel sets the name and key of the channel used to propagate
 // control transfers between opened writers.
-func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key, name string) error {
+func (s *Service) ConfigureControlUpdateChannel(
+	ctx context.Context,
+	ch channel.Key,
+	name string,
+) error {
 	s.controlStateKey = ch
 	return s.cfg.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch), name)
 }
 
 // Close closes the Service.
-func (s *Service) Close() error { return s.Relay.Close() }
+func (s *Service) Close() error { return s.closer.Close() }

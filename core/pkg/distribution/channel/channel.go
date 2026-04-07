@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -18,27 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Key represents a unique identifier for a Channel. This value is guaranteed to be
-// unique across the entire cluster. It is composed of a uint32 Key representing the
-// node holding the lease on the channel, and a uint16 key representing a unique
-// node-local identifier.
-type Key uint32
-
-// LocalKey represents a unique identifier for a Channel with relation to its leaseholder.
-// It has a maximum addressable space of 2^20 (1,048,576) unique keys. This is the limiting
-// factor of the number of channels that can be created per node in Synnax.
-type LocalKey types.Uint20
-
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
+func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) Key {
 	// Node key is the first 12 bits,
 	k1 := uint32(nodeKey) << 20
 	// Local key is the last 20 bits
@@ -50,13 +39,15 @@ func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
 func ParseKey(s string) (Key, error) {
 	k, err := strconv.Atoi(s)
 	if err != nil {
-		return Key(0), errors.Wrapf(validate.ErrValidation, "%s is not a valid channel key", s)
+		return Key(0), errors.Wrapf(
+			validate.ErrValidation, "%s is not a valid channel key", s,
+		)
 	}
 	return Key(k), nil
 }
 
-// Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
-// node for the Channel.
+// Leaseholder returns the id of the node embedded in the key. This node is the
+// leaseholder node for the Channel.
 func (c Key) Leaseholder() cluster.NodeKey { return cluster.NodeKey(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
@@ -80,8 +71,8 @@ func (c Key) String() string { return strconv.Itoa(int(c)) }
 type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
-func KeysFromChannels(channels []Channel) (keys Keys) {
-	return lo.Map(channels, func(channel Channel, _ int) Key { return channel.Key() })
+func KeysFromChannels(channels []Channel) Keys {
+	return lo.Map(channels, func(ch Channel, _ int) Key { return ch.Key() })
 }
 
 // Names returns the names of the channels.
@@ -89,25 +80,27 @@ func Names(channels []Channel) []string {
 	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })
 }
 
-// KeysFromUint32 returns a slice of Keys from a slice of uint32. NOTE: This does
-// not copy the slice, it just reinterprets the memory.
-func KeysFromUint32(keys []uint32) Keys { return unsafe.ReinterpretSlice[uint32, Key](keys) }
+// KeysFromUint32 returns a slice of Keys from a slice of uint32. NOTE: This does not
+// copy the slice, it just reinterprets the memory.
+func KeysFromUint32(keys []uint32) Keys {
+	return unsafe.ReinterpretSlice[uint32, Key](keys)
+}
 
-// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.ID(s). This
-// function will skip any ontology.ID(s) that are not of the correct type.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
-	keys = make(Keys, 0, len(ids))
-	var key Key
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs. This
+// function will skip any ontology.IDs that are not of the correct type.
+func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
+	keys := make(Keys, 0, len(ids))
 	for _, id := range ids {
-		if id.Type == OntologyType {
-			key, err = ParseKey(id.Key)
-			if err != nil {
-				return
-			}
-			keys = append(keys, key)
+		if id.Type != ontology.ResourceTypeChannel {
+			continue
 		}
+		key, err := ParseKey(id.Key)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
 	}
-	return
+	return keys, nil
 }
 
 // Storage returns the storage layer representation of the channel keys.
@@ -117,97 +110,24 @@ func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
 
 // UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
-func (k Keys) UniqueLeaseholders() (keys []cluster.NodeKey) {
-	for _, key := range k {
-		keys = append(keys, key.Leaseholder())
-	}
-	return lo.Uniq(keys)
-}
-
-func (k Keys) Local() []LocalKey {
-	return lo.Map(k, func(k Key, _ int) LocalKey { return k.LocalKey() })
-}
-
-// Strings returns the keys as a slice of strings.
-func (k Keys) Strings() []string {
-	return lo.Map(k, func(key Key, _ int) string { return key.String() })
+func (k Keys) UniqueLeaseholders() []cluster.NodeKey {
+	return lo.UniqMap(k, func(key Key, _ int) cluster.NodeKey {
+		return key.Leaseholder()
+	})
 }
 
 // Contains returns true if the slice contains the given key, false otherwise.
-func (k Keys) Contains(key Key) bool {
-	return slices.Contains(k, key)
-}
+func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
 
 // Unique removes duplicate keys from the slice and returns the result.
 func (k Keys) Unique() Keys { return lo.Uniq(k) }
 
-// Difference compares two sets of keys and returns the keys that are absent in other
-// followed by the keys that are absent in k.
-func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
+// IsCalculated returns true if the channel is a calculated channel, false otherwise.
+func (c Channel) IsCalculated() bool { return c.Expression != "" }
 
-type Operation struct {
-	Type         string         `json:"type"`
-	ResetChannel Key            `json:"reset_channel"`
-	Duration     telem.TimeSpan `json:"duration"`
-}
-
-// Channel is a collection is a container representing a collection of samples across
-// a time range. The data within a channel typically arrives from a single source. This
-// can be a physical sensor, software sensor, metric, event, or any other entity that
-// emits regular, consistent, and time-ordered values.
-//
-// This Channel type (for the distribution layer) extends a cesium.DB's channel via
-// composition to add fields necessary for cluster wide distribution.
-//
-// Key Channel "belongs to" a specific Node. Because delta is oriented towards data collection
-// close to the hardware, it's natural to assume a sensor writes to one and only device.
-// For example, we may have a temperature sensor for a carbon fiber oven connected to a
-// Linux box. The temperature sensor is a Channel that writes to Node residing on the
-// Linux box.
-//
-// Series for a channel can only be written through the leaseholder. This helps solve a lot
-// of consistency and atomicity issues.
-type Channel struct {
-	// Name is a human-readable name for the channel. This name does not have to be
-	// unique.
-	Name string `json:"name" msgpack:"name"`
-	// DataType is the data type for the channel.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// Expression is only used for calculated channels, and specifies the Arc expression
-	// to evaluate the calculated value.
-	Expression string      `json:"expression" msgpack:"expression"`
-	Operations []Operation `json:"operations" msgpack:"operations"`
-	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
-	// When creating a channel, a unique key will be generated.
-	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
-	// used to associate a value with a timestamp. If zero, the channel's data will be
-	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	// Leaseholder is the leaseholder node for the channel.
-	Leaseholder cluster.NodeKey `json:"node_id" msgpack:"node_id"`
-	// Concurrency sets the policy for concurrent writes to the same region of the
-	// channel's data. Only virtual channels can have a policy of control.Shared.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
-	// be int64 values written in ascending order. LocalIndex channels are most commonly
-	// unix nanosecond timestamps.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// Virtual is set to true if the channel is a virtual channel. The data from virtual
-	// channels is not persisted into the DB.
-	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Internal determines if a channel is a channel created by Synnax or
-	// created by the user.
-	Internal bool `json:"internal" msgpack:"internal"`
-}
-
-func (c Channel) IsCalculated() bool {
-	return c.Expression != ""
-}
-
-// Equals returns true if the two channels are meaningfully equal to each other.
-// If the exclude parameter is provided, the function will ignore the fields specified
-// in the exclude parameter.
+// Equals returns true if the two channels are meaningfully equal to each other. If the
+// exclude parameter is provided, the function will ignore the fields specified in the
+// exclude parameter.
 func (c Channel) Equals(other Channel, exclude ...string) bool {
 	comparisons := []struct {
 		field string
@@ -226,12 +146,12 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 	}
 
 	for _, comp := range comparisons {
-		if !comp.equal && !lo.Contains(exclude, comp.field) {
+		if !comp.equal && !slices.Contains(exclude, comp.field) {
 			return false
 		}
 	}
 
-	if !lo.Contains(exclude, "Operations") {
+	if !slices.Contains(exclude, "Operations") {
 		if !slices.Equal(c.Operations, other.Operations) {
 			return false
 		}
@@ -263,9 +183,8 @@ func (c Channel) Index() Key {
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
 
-// SetOptions implements the gorp.Entry interface. Returns a set of options that
-// tell an aspen.DB to properly lease the Channel to the node it will be recording data
-// from.
+// SetOptions implements the gorp.Entry interface. Returns a set of options that tell an
+// aspen.DB to properly lease the Channel to the node it will be recording data from.
 func (c Channel) SetOptions() []any {
 	if c.Free() {
 		return []any{cluster.NodeKeyBootstrapper}
@@ -276,12 +195,12 @@ func (c Channel) SetOptions() []any {
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() cluster.NodeKey { return c.Leaseholder }
 
-// Free returns true if the channel is leased to a particular node i.e. it is not
-// a non-leased virtual channel.
+// Free returns true if the channel is leased to a particular node i.e. it is not a
+// non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == cluster.NodeKeyFree }
 
-// Storage returns the storage layer representation of the channel for creation
-// in the storage ts.DB.
+// Storage returns the storage layer representation of the channel for creation in the
+// storage ts.DB.
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),
@@ -297,4 +216,74 @@ func (c Channel) Storage() ts.Channel {
 // toStorage converts a slice of channels to their storage layer equivalent.
 func toStorage(channels []Channel) []ts.Channel {
 	return lo.Map(channels, func(c Channel, _ int) ts.Channel { return c.Storage() })
+}
+
+// UnmarshalJSON implements json.Unmarshaler, supporting both legacy "node_id" and new
+// "leaseholder" field names for backward compatibility.
+func (c *Channel) UnmarshalJSON(data []byte) error {
+	type alias Channel
+	if err := json.Unmarshal(data, (*alias)(c)); err != nil {
+		return err
+	}
+	if c.Leaseholder == 0 {
+		var legacy struct {
+			NodeID cluster.NodeKey `json:"node_id"`
+		}
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return err
+		}
+		c.Leaseholder = legacy.NodeID
+	}
+	return nil
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
+// field names (e.g. "Type", "ResetChannel", "Duration") and new lowercase msgpack tag
+// names for backward compatibility.
+func (o *Operation) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Operation
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(o)); err != nil {
+		return err
+	}
+	if len(o.Type) == 0 {
+		var legacy struct {
+			Type         OperationType
+			ResetChannel Key
+			Duration     telem.TimeSpan
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		o.Type = legacy.Type
+		o.ResetChannel = legacy.ResetChannel
+		o.Duration = legacy.Duration
+	}
+	return nil
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy "node_id" and
+// new "leaseholder" field names for backward compatibility.
+func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Channel
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(c)); err != nil {
+		return err
+	}
+	if c.Leaseholder == 0 {
+		var legacy struct {
+			NodeID cluster.NodeKey `msgpack:"node_id"`
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		c.Leaseholder = legacy.NodeID
+	}
+	return nil
 }

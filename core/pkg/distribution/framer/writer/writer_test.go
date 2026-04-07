@@ -10,6 +10,7 @@
 package writer_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -32,7 +34,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
-		scenarios := []func() scenario{
+		scenarios := []func(context.Context) scenario{
 			gatewayOnlyScenario,
 			peerOnlyScenario,
 			mixedScenario,
@@ -41,9 +43,9 @@ var _ = Describe("Writer", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			BeforeAll(func() { s = _sF() })
+			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
 			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
-			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
+			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
@@ -74,9 +76,9 @@ var _ = Describe("Writer", func() {
 
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func() { s = gatewayOnlyScenario() })
+		BeforeAll(func(ctx SpecContext) { s = gatewayOnlyScenario(ctx) })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
-		It("Should return an error if no keys are provided", func() {
+		It("Should return an error if no keys are provided", func(ctx SpecContext) {
 			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
@@ -84,7 +86,7 @@ var _ = Describe("Writer", func() {
 			})
 			Expect(err).To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
-		It("Should return an error if the channel can't be found", func() {
+		It("Should return an error if the channel can't be found", func(ctx SpecContext) {
 			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys: []channel.Key{
 					channel.NewKey(0, 22),
@@ -102,9 +104,9 @@ var _ = Describe("Writer", func() {
 
 	Describe("Frame Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func() { s = peerOnlyScenario() })
+		BeforeAll(func(ctx SpecContext) { s = peerOnlyScenario(ctx) })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
-		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
+		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func(ctx SpecContext) {
 			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
@@ -124,10 +126,125 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Free Write Group Propagation", func() {
+		It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
+			s := freeWriterScenario(ctx)
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           s.keys,
+				Start:          10 * telem.SecondTS,
+				Sync:           new(true),
+				ControlSubject: control.Subject{Group: 42},
+			}))
+			Expect(w.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(42)))
+			Expect(w.Close()).To(Succeed())
+		})
+		It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
+			s := freeWriterScenario(ctx)
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(0)))
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Free Write Group Isolation", func() {
+		It("Should propagate distinct groups from different writers", func(ctx SpecContext) {
+			s := freeWriterScenario(ctx)
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w1 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           s.keys,
+				Start:          10 * telem.SecondTS,
+				Sync:           new(true),
+				ControlSubject: control.Subject{Group: 10},
+			}))
+			w2 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           s.keys,
+				Start:          10 * telem.SecondTS,
+				Sync:           new(true),
+				ControlSubject: control.Subject{Group: 20},
+			}))
+			Expect(w1.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(10)))
+			Expect(w2.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](8, 9, 10),
+					telem.NewSeriesV[int64](11, 12, 13),
+					telem.NewSeriesV[int64](14, 15, 16),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(20)))
+			Expect(w1.Close()).To(Succeed())
+			Expect(w2.Close()).To(Succeed())
+		})
+	})
+
 	Describe("Free Write Alignment", Ordered, func() {
-		It("Should correctly set alignments on indexed free channels", func() {
+		It("Should correctly set alignments on indexed free channels", func(ctx SpecContext) {
 			var (
-				s     = gatewayOnlyScenario()
+				s     = gatewayOnlyScenario(ctx)
 				idxCh = channel.Channel{
 					Name:        "free_time",
 					IsIndex:     true,
@@ -226,7 +343,7 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario() scenario {
+func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
@@ -235,7 +352,7 @@ func gatewayOnlyScenario() scenario {
 	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder}
 }
 
-func peerOnlyScenario() scenario {
+func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
@@ -254,7 +371,7 @@ func peerOnlyScenario() scenario {
 	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: builder}
 }
 
-func mixedScenario() scenario {
+func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 3)
 	svc := builder.Nodes[1]
@@ -273,7 +390,7 @@ func mixedScenario() scenario {
 	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: svc, closer: builder}
 }
 
-func freeWriterScenario() scenario {
+func freeWriterScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 3)
 	svc := builder.Nodes[1]

@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos import Instrumentation, trace
-from freighter import UnaryClient, send_required
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
+from alamos import Instrumentation, trace
+from freighter import UnaryClient, send_required
 from synnax.telem import TimeRange
 
 

@@ -230,9 +230,7 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
         key: id.create(),
         variant: "error",
         message: "Task failed",
@@ -325,9 +323,7 @@ describe("queries", () => {
         config: {},
       });
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
         key: task.statusKey(testTask.key),
         variant: "success",
         message: "Task running",
@@ -400,9 +396,8 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const newStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
+      const newStatus = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task failed",
@@ -740,7 +735,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ setting: z.string() }),
-          statusData: z.any().or(z.null()),
+          statusData: z.any().nullish(),
         },
         initialValues: {
           key: "0",
@@ -975,7 +970,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusData.or(z.null()),
+          statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -991,9 +986,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const _errorStatusDetailsZ = task.statusDetailsZ(
+        z.object({ errorCode: z.number() }),
+      );
+      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error",
@@ -1013,7 +1009,7 @@ describe("queries", () => {
           result.current.form.get<task.Status<typeof statusData>>("status").value;
         expect(status?.variant).toEqual("error");
         expect(status?.message).toEqual("Task error");
-        expect(status?.details.data.errorCode).toEqual(500);
+        expect(status?.details.data?.errorCode).toEqual(500);
       });
     });
 
@@ -1109,7 +1105,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusData.or(z.null()),
+          statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -1125,10 +1121,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.get("name").touched).toBe(false);
-
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const _errorStatusDetailsZ = task.statusDetailsZ(
+        z.object({ errorCode: z.number() }),
+      );
+      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error from server",
@@ -1435,6 +1431,7 @@ describe("queries", () => {
         async () => {
           const updatedTask = await client.tasks.retrieve<typeof schemas>({
             key: testTask.key,
+            schemas,
           });
           expect(updatedTask.config.connection.port).toEqual(9090);
         },

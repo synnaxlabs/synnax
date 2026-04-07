@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Counter", Ordered, func() {
@@ -27,36 +28,30 @@ var _ = Describe("Counter", Ordered, func() {
 	Describe("AtomicInt64Counter", func() {
 		Context("Name Counter", Ordered, func() {
 			var c *kv.AtomicInt64Counter
-			BeforeAll(func() {
-				var err error
-				c, err = kv.OpenCounter(ctx, db, []byte("test"))
-				Expect(err).NotTo(HaveOccurred())
+			BeforeAll(func(ctx SpecContext) {
+				c = MustSucceed(kv.OpenCounter(ctx, db, []byte("test")))
 			})
 			It("Should create a counter with a starting value of 0", func() {
 				Expect(c.Value()).To(Equal(int64(0)))
 			})
-			It("Should increment the counter correctly", func() {
-				Expect(c.Add(1)).To(Equal(int64(1)))
+			It("Should increment the counter correctly", func(ctx SpecContext) {
+				Expect(c.Add(ctx, 1)).To(Equal(int64(1)))
 			})
-			It("Should increment the number by a set value", func() {
-				Expect(c.Add(10)).To(Equal(int64(11)))
+			It("Should increment the number by a set value", func(ctx SpecContext) {
+				Expect(c.Add(ctx, 10)).To(Equal(int64(11)))
 			})
-			It("Should set the counter value directly", func() {
-				Expect(c.Set(421)).To(Succeed())
+			It("Should set the counter value directly", func(ctx SpecContext) {
+				Expect(c.Set(ctx, 421)).To(Succeed())
 				Expect(c.Value()).To(Equal(int64(421)))
 			})
 		})
 		Context("Existing Counter", func() {
-			It("Should load the value of the existing counter", func() {
-				c, err := kv.OpenCounter(ctx, db, []byte("test-two"))
-				Expect(err).NotTo(HaveOccurred())
+			It("Should load the value of the existing counter", func(ctx SpecContext) {
+				c := MustSucceed(kv.OpenCounter(ctx, db, []byte("test-two")))
 				Expect(c.Value()).To(Equal(int64(0)))
-				_, err = c.Add(10)
-				Expect(err).NotTo(HaveOccurred())
-				_, err = c.Add(10)
-				Expect(err).NotTo(HaveOccurred())
-				cTwo, err := kv.OpenCounter(ctx, db, []byte("test-two"))
-				Expect(err).NotTo(HaveOccurred())
+				MustSucceed(c.Add(ctx, 10))
+				MustSucceed(c.Add(ctx, 10))
+				cTwo := MustSucceed(kv.OpenCounter(ctx, db, []byte("test-two")))
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})
 		})

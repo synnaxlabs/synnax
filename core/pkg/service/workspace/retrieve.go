@@ -14,12 +14,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retrieve struct {
 	baseTX     gorp.Tx
-	otg        *ontology.Ontology
+	search     *search.Index
 	gorp       gorp.Retrieve[uuid.UUID, Workspace]
 	searchTerm string
 }
@@ -63,8 +64,8 @@ func (r Retrieve) Offset(offset int) Retrieve {
 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: OntologyType,
+		ids, err := r.search.Search(ctx, search.Request{
+			Type: ontology.ResourceTypeWorkspace,
 			Term: r.searchTerm,
 		})
 		if err != nil {

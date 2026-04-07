@@ -10,7 +10,6 @@
 from typing import Any
 
 import synnax as sy
-
 from console.schematic.symbol import Symbol
 
 

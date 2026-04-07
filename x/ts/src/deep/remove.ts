@@ -21,7 +21,7 @@ export const remove = <V>(obj: V, path: string): void => {
       const lastPart = parts[i];
 
       if (Array.isArray(result)) {
-        const index = parseInt(lastPart);
+        const index = parseInt(lastPart, 10);
         if (!isNaN(index) && index < result.length) {
           result.splice(index, 1);
           return;

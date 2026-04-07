@@ -60,29 +60,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 )
-
-// Program represents a fully compiled Arc program combining intermediate representation
-// with executable WebAssembly bytecode.
-//
-// A Program embeds both the IR (containing the dataflow graph, function definitions,
-// and symbol table) and the compiler Output (containing WASM bytecode and memory
-// layout information). This makes a Program self-contained and ready for execution
-// by a WebAssembly runtime.
-//
-// The embedded compiler.Output provides:
-//   - WASM: Compiled WebAssembly bytecode ready for execution
-//   - OutputMemoryBases: Memory addresses for multi-output functions
-//
-// Programs can be serialized to disk for caching or distributed execution, though
-// the Symbols and TypeMap fields are not serialized (they are only needed during
-// compilation and tooling).
-type Program struct {
-	ir.IR
-	compiler.Output
-}
 
 // IsZero reports whether the Program is empty (uninitialized or contains no content).
 //

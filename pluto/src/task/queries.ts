@@ -88,7 +88,7 @@ export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
   if ("key" in query && query.key != null) {
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) {
-      const tsk = cached as task.Task<S>;
+      const tsk = cached as unknown as task.Task<S>;
       const detailsSchema = task.statusDetailsZ(schemas?.statusData ?? z.unknown());
       tsk.status = await Status.retrieveSingle({
         store,
@@ -100,7 +100,7 @@ export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
     }
   }
   const tsk = await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas });
-  store.tasks.set(tsk.key.toString(), tsk);
+  store.tasks.set(tsk.key.toString(), tsk as unknown as task.Task);
   if (tsk.status != null) store.statuses.set(tsk.status);
   return tsk;
 };
@@ -114,7 +114,7 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
       return [
         store.tasks.onSet((task) => {
           if ("key" in query && query.key != null && task.key === query.key)
-            onChange(task as task.Task<S>);
+            onChange(task as unknown as task.Task<S>);
         }, query.key.toString()),
         store.statuses.onSet(
           (status) => {
@@ -145,7 +145,7 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
     return tasks.map((t) => {
       const status = store.statuses.get(task.statusKey(t.key.toString()));
       const tsk: task.Task = t;
-      tsk.status = status as task.Status;
+      tsk.status = status as task.Status<z.ZodUnknown>;
       return tsk;
     });
   },
@@ -273,7 +273,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
         },
         schemas,
       );
-      store.tasks.set(task);
+      store.tasks.set(task as unknown as Omit<task.Task, "status">);
       resetFormValues(form.set, task.payload);
       form.setCurrentStateAsInitialValues();
     },
@@ -372,7 +372,7 @@ export type CommandParams = task.NewCommand | task.NewCommand[];
 
 const START_STOP_COMMANDS = new Set(["stop", "start"]);
 
-export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodType>(
+export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
   status: task.Status<StatusData>,
   command: string,
 ): boolean => {

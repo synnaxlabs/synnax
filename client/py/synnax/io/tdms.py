@@ -120,8 +120,9 @@ class TDMSReader(TDMSMatcher):  # type: ignore
                 for channel in group.channels():
                     if channel.name in _keys:
                         data[channel.name] = channel[
-                            self._current_chunk
-                            * self.chunk_size : (self._current_chunk + 1)
+                            self._current_chunk * self.chunk_size : (
+                                self._current_chunk + 1
+                            )
                             * self.chunk_size
                         ]
             self._current_chunk += 1

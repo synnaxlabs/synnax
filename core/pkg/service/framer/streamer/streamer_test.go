@@ -11,7 +11,6 @@ package streamer_test
 
 import (
 	"fmt"
-	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -40,13 +40,15 @@ var _ = Describe("Streamer", Ordered, func() {
 		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Search:   searchIdx,
 		}))
 		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
@@ -54,6 +56,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
@@ -61,6 +64,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(rackService.Close()).To(Succeed())
@@ -71,6 +75,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
@@ -81,6 +86,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:       dist.DB,
 			Signals:  dist.Signals,
 			Task:     taskSvc,
+			Search:   searchIdx,
 		}))
 
 		channelSvc := svcchannel.Wrap(dist.Channel)
@@ -89,7 +95,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Arc:               arcSvc,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
-			ChannelObservable: dist.Channel.NewObservable(),
+			ChannelObservable: dist.Channel.Observe(),
 			Status:            statusSvc,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
@@ -99,12 +105,12 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(builder.Close()).To(Succeed())
 	})
 
 	Describe("Happy Path", func() {
-		It("Should stream data", func() {
+		It("Should stream data", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "test",
 				DataType: telem.Float32T,
@@ -140,7 +146,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			dataCh1 *channel.Channel
 			dataCh2 *channel.Channel
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			indexCh = &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -162,7 +168,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		})
 
-		It("Should receive calculated values", func() {
+		It("Should receive calculated values", func(ctx SpecContext) {
 			calculation := &channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
@@ -201,7 +207,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
-		It("Should allow the user to dynamically update the channels being calculated", func() {
+		It("Should allow the user to dynamically update the channels being calculated", func(ctx SpecContext) {
 			calculation := &channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
@@ -224,8 +230,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			inlet.Inlet() <- streamer.Request{Keys: channel.Keys{calculation.Key()}}
-			time.Sleep(100 * time.Millisecond)
-			runtime.Gosched()
+			time.Sleep(500 * time.Millisecond)
 			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
@@ -243,7 +248,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
-		It("Should compute when inputs with different indexes arrive in separate frames", func() {
+		It("Should compute when inputs with different indexes arrive in separate frames", func(ctx SpecContext) {
 			idxA := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -329,7 +334,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Downsampling", func() {
-		It("Should correctly downsample a factor of 2", func() {
+		It("Should correctly downsample a factor of 2", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -361,7 +366,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should handle invalid downsampling factors", func() {
+		It("Should handle invalid downsampling factors", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -378,7 +383,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(err).To(MatchError(ContainSubstring("downsample_factor: must be greater than or equal to 0")))
 		})
 
-		It("Should correctly combine downsampling with calculations", func() {
+		It("Should correctly combine downsampling with calculations", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
@@ -447,7 +452,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		})
 	})
 	Describe("Throttling", func() {
-		It("Should accumulate and throttle frames", func() {
+		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -487,7 +492,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should not throttle when rate is 0", func() {
+		It("Should not throttle when rate is 0", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -525,7 +530,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should combine throttling and downsampling", func() {
+		It("Should combine throttling and downsampling", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -566,7 +571,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Throttling", func() {
-		It("Should accumulate and throttle frames", func() {
+		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -606,7 +611,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should not throttle when rate is 0", func() {
+		It("Should not throttle when rate is 0", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
@@ -644,7 +649,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 
-		It("Should combine throttling and downsampling", func() {
+		It("Should combine throttling and downsampling", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,

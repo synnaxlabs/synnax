@@ -55,6 +55,37 @@ describe("Codec", () => {
       const decoded = binary.JSON_CODEC.decodeString(encoded, sampleSchema);
       expect(decoded.channelKey).toEqual("test");
     });
+
+    it("should validate with schema when encoding", () => {
+      const schema = z.object({
+        name: z.string(),
+        count: z.number(),
+      });
+      const sample = { name: "test", count: 42 };
+      const encoded = binary.JSON_CODEC.encodeString(sample, schema);
+      const parsed = JSON.parse(encoded);
+      expect(parsed.name).toEqual("test");
+      expect(parsed.count).toEqual(42);
+    });
+
+    it("should throw on invalid data when schema is provided to encode", () => {
+      const schema = z.object({
+        name: z.string(),
+        count: z.number(),
+      });
+      const sample = { name: "test", count: "not a number" };
+      expect(() => binary.JSON_CODEC.encodeString(sample, schema)).toThrow();
+    });
+
+    it("should apply transforms when encoding with schema", () => {
+      const schema = z.object({
+        value: z.coerce.number(),
+      });
+      const sample = { value: "42" };
+      const encoded = binary.JSON_CODEC.encodeString(sample, schema);
+      const parsed = JSON.parse(encoded);
+      expect(parsed.value).toEqual(42);
+    });
   });
 
   describe("CSV", () => {

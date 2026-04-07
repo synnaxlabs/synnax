@@ -50,7 +50,7 @@ export interface AxisProps extends Omit<Base.AxisProps, "axisKey"> {
 export interface BaseLineProps {
   key: string;
   axes: { x: string; y: string };
-  channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
+  channels: { y: channel.Key | channel.Name; x?: channel.Key | channel.Name };
   color: color.Crude;
   strokeWidth?: number;
   label?: string;

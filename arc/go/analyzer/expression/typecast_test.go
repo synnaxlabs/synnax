@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("Type Casts", func() {
 	DescribeTable("Integer to Float Casts",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("i32 to f32", `
 			func testFunc() {
 				x i32 := 10
@@ -36,7 +36,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Float to Integer Casts",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("f32 to i32", `
 			func testFunc() {
 				x f32 := 3.14
@@ -57,7 +57,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Integer Width Conversions",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("i32 to i64 (widening)", `
 			func testFunc() {
 				x i32 := 10
@@ -85,7 +85,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Signed/Unsigned Conversions",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("i32 to u32", `
 			func testFunc() {
 				x i32 := 10
@@ -101,7 +101,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Float Width Conversions",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("f32 to f64 (widening)", `
 			func testFunc() {
 				x f32 := 3.14
@@ -117,7 +117,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Type Casts in Expressions",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("cast in arithmetic expression", `
 			func testFunc() {
 				x i32 := 10
@@ -141,7 +141,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Boolean and Edge Cases",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("u8 in boolean context", `
 			func testFunc() {
 				x u8 := 1
@@ -167,7 +167,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Boolean/Numeric Conversions",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("u8 (bool) to i32", `
 			func testFunc() {
 				x u8 := 1
@@ -195,7 +195,7 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	DescribeTable("Same Type Casts",
-		func(code string) { expectSuccess(code, nil) },
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 		Entry("i32 to i32", `
 			func testFunc() {
 				x i32 := 42
@@ -232,8 +232,8 @@ var _ = Describe("Type Casts", func() {
 	)
 
 	Describe("Type Cast Failures", func() {
-		It("Should reject casting string to numeric type", func() {
-			expectFailure(`
+		It("Should reject casting string to numeric type", func(ctx SpecContext) {
+			expectFailure(ctx, `
 				func testFunc() {
 					x str := "hello"
 					y := i32(x)
@@ -241,8 +241,8 @@ var _ = Describe("Type Casts", func() {
 			`, nil, "cannot cast")
 		})
 
-		It("Should reject casting numeric to string", func() {
-			expectFailure(`
+		It("Should reject casting numeric to string", func(ctx SpecContext) {
+			expectFailure(ctx, `
 				func testFunc() {
 					x i32 := 42
 					y := str(x)
@@ -250,8 +250,8 @@ var _ = Describe("Type Casts", func() {
 			`, nil, "cannot cast")
 		})
 
-		It("Should reject unknown type in cast", func() {
-			expectFailure(`
+		It("Should reject unknown type in cast", func(ctx SpecContext) {
+			expectFailure(ctx, `
 				func testFunc() {
 					x i32 := 42
 					y := unknownType(x)

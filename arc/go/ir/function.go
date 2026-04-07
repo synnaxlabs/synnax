@@ -12,38 +12,9 @@ package ir
 import (
 	"strings"
 
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
-
-// Body represents the source code and AST of a function or stage implementation.
-// It contains both the original textual representation and the parsed abstract
-// syntax tree for code generation and analysis.
-type Body struct {
-	// AST is the parsed abstract syntax tree from the parser.
-	AST antlr.ParserRuleContext `json:"-" msgpack:"-"`
-	// Raw is the original source code as written by the user.
-	Raw string `json:"raw" msgpack:"raw"`
-}
-
-// Function represents a function or stage definition in the IR. Functions are
-// templates that can be instantiated as nodes in the dataflow graph.
-type Function struct {
-	// Body contains the source code and AST of the function implementation.
-	Body Body `json:"body"`
-	// Channels contains references to external channels used by this function.
-	Channels symbol.Channels `json:"channels"`
-	// Key is the unique identifier for this function.
-	Key string `json:"key"`
-	// Config contains the type definitions of configuration parameters.
-	Config types.Params `json:"config"`
-	// Inputs contains the type definitions of input parameters.
-	Inputs types.Params `json:"inputs"`
-	// Outputs contains the type definitions of output parameters.
-	Outputs types.Params `json:"outputs"`
-}
 
 // Type returns the type signature of f.
 func (f Function) Type() types.Type {
@@ -53,9 +24,6 @@ func (f Function) Type() types.Type {
 		Outputs: f.Outputs,
 	})
 }
-
-// Functions is a collection of function definitions.
-type Functions []Function
 
 // Get returns the function with the given key. Panics if not found.
 func (f Functions) Get(key string) Function {

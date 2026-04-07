@@ -117,11 +117,11 @@ protected:
 
         synnax::device::Device dev{
             .key = "opc_read_task_test_server_key",
-            .name = "OPC UA Read Task Test Server",
             .rack = rack.key,
             .location = "opc.tcp://localhost:4840",
             .make = "opc",
             .model = "OPC UA Server",
+            .name = "OPC UA Read Task Test Server",
             .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
         };
         ASSERT_NIL(client->devices.create(dev));
@@ -269,7 +269,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -278,7 +278,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
@@ -853,11 +853,11 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 
     synnax::device::Device invalid_dev{
         .key = "opc_invalid_test_server",
-        .name = "OPC UA Invalid Data Test Server",
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4841",
         .make = "opc",
         .model = "OPC UA Server",
+        .name = "OPC UA Invalid Data Test Server",
         .properties = x::json::json::object(
             {{"connection", invalid_conn_cfg.to_json()}}
         ),
@@ -935,11 +935,11 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
 
     synnax::device::Device invalid_dev{
         .key = "opc_invalid_float_server",
-        .name = "OPC UA Invalid Float Server",
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4842",
         .make = "opc",
         .model = "OPC UA Server",
+        .name = "OPC UA Invalid Float Server",
         .properties = x::json::json::object(
             {{"connection", invalid_conn_cfg.to_json()}}
         ),
@@ -1016,11 +1016,11 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
 
     synnax::device::Device invalid_dev{
         .key = "opc_invalid_double_server",
-        .name = "OPC UA Invalid Double Server",
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4843",
         .make = "opc",
         .model = "OPC UA Server",
+        .name = "OPC UA Invalid Double Server",
         .properties = x::json::json::object(
             {{"connection", invalid_conn_cfg.to_json()}}
         ),
@@ -1093,11 +1093,11 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
 
     synnax::device::Device dev{
         .key = "opc_test_device_key",
-        .name = "OPC UA Test Device",
         .rack = rack.key,
         .location = "opc.tcp://localhost:4840",
         .make = "opc",
         .model = "OPC UA Server",
+        .name = "OPC UA Test Device",
         .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
     };
     ASSERT_NIL(client->devices.create(dev));

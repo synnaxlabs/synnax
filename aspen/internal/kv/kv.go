@@ -121,19 +121,24 @@ const (
 	observableRelayBuffer = 500
 )
 
-func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	db := &DB{
+	db = &DB{
 		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
 		shutdown:   signal.NewHardShutdown(sCtx, cancel),
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, db.shutdown.Close())
+		}
+	}()
 
 	va, err := newVersionAssigner(ctx, cfg)
 	if err != nil {
@@ -152,7 +157,8 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		leaseProxyAddr,
 		newLeaseProxy(cfg, versionAssignerAddr, leaseSenderAddr),
 	)
-	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, newOperationServer(cfg, st))
+	opServer := newOperationServer(cfg, st)
+	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, opServer)
 	plumber.SetSegment[TxRequest](
 		pipe,
 		versionFilterAddr,
@@ -169,7 +175,8 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		newOperationClient(cfg),
 	)
 	plumber.SetSink[TxRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
-	plumber.SetSource[TxRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
+	fbReceiver := newFeedbackReceiver(cfg)
+	plumber.SetSource[TxRequest](pipe, feedbackReceiverAddr, fbReceiver)
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		recoveryTransformAddr,
@@ -265,6 +272,10 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 	newRecoveryServer(cfg)
+	// Bind RPC handlers after routing so outlets are wired before any incoming gossip
+	// message can invoke the handler.
+	cfg.BatchTransportServer.BindHandler(opServer.handle)
+	cfg.FeedbackTransportServer.BindHandler(fbReceiver.handle)
 	pipe.Flow(
 		sCtx,
 		confluence.RecoverWithoutErrOnPanic(),

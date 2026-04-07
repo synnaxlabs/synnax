@@ -8,10 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from xpy import get_random_name
 
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path
+from x import random_name
 
 
 class Ontology(ConsoleCase):
@@ -27,7 +27,7 @@ class Ontology(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.group_a = f"Group A {self.suffix}"
         self.group_b = f"Group B {self.suffix}"
         self._pages_deleted = False
@@ -70,9 +70,9 @@ class Ontology(ConsoleCase):
             names=[self.page_a, self.page_b],
             group_name=self.group_a,
         )
-        assert self.console.workspace.page_exists(
-            self.group_a
-        ), f"Group '{self.group_a}' should exist after creation"
+        assert self.console.workspace.page_exists(self.group_a), (
+            f"Group '{self.group_a}' should exist after creation"
+        )
 
     def test_move_page_to_group(self) -> None:
         """Test moving a page into a group via drag-and-drop."""
@@ -85,9 +85,9 @@ class Ontology(ConsoleCase):
             self.console.workspace.tree.expand(group_item)
 
         page_item = self.console.workspace.get_page(self.page_c)
-        assert (
-            page_item.is_visible()
-        ), f"Page '{self.page_c}' should be visible inside '{self.group_a}'"
+        assert page_item.is_visible(), (
+            f"Page '{self.page_c}' should be visible inside '{self.group_a}'"
+        )
         self.console.layout.close_left_toolbar()
 
     def test_rename_group(self) -> None:
@@ -97,9 +97,9 @@ class Ontology(ConsoleCase):
         self.console.workspace.rename_group(self.group_a, new_name)
         self.group_a = new_name
 
-        assert self.console.workspace.page_exists(
-            self.group_a
-        ), f"Renamed group '{self.group_a}' should exist"
+        assert self.console.workspace.page_exists(self.group_a), (
+            f"Renamed group '{self.group_a}' should exist"
+        )
 
     def test_create_nested_group(self) -> None:
         """Test creating a nested group inside an existing group."""
@@ -122,9 +122,9 @@ class Ontology(ConsoleCase):
             self.console.workspace.tree.expand(group_item)
 
         nested = self.console.workspace.get_page(self.group_b)
-        assert (
-            nested.is_visible()
-        ), f"Nested group '{self.group_b}' should be visible inside '{self.group_a}'"
+        assert nested.is_visible(), (
+            f"Nested group '{self.group_b}' should be visible inside '{self.group_a}'"
+        )
         self.console.layout.close_left_toolbar()
 
     def test_delete_groups(self) -> None:

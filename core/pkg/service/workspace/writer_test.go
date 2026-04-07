@@ -14,48 +14,47 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a workspace", func() {
+		It("Should create a workspace", func(ctx SpecContext) {
 			ws := workspace.Workspace{
 				Name:   "test",
 				Author: author.Key,
-				Layout: "data",
+				Layout: map[string]any{"key": "data"},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(ws.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a workspace", func() {
+		It("Should rename a workspace", func(ctx SpecContext) {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, ws.Key, "test2")).To(Succeed())
 			var res workspace.Workspace
-			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetLayout", func() {
-		It("Should set the layout of a workspace", func() {
+		It("Should set the layout of a workspace", func(ctx SpecContext) {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, "data")).To(Succeed())
+			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, map[string]any{"key": "data"})).To(Succeed())
 			var res workspace.Workspace
-			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Layout).To(Equal("data"))
+			Expect(svc.NewRetrieve().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
 	Describe("DeleteChannel", func() {
-		It("Should delete a workspace", func() {
+		It("Should delete a workspace", func(ctx SpecContext) {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
 			var res workspace.Workspace
-			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })

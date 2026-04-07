@@ -9,14 +9,17 @@
 
 /// <reference types="vitest/config" />
 
+import react from "@vitejs/plugin-react";
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, esmExternalRequirePlugin } from "vite";
 import { copyFileSync, mkdirSync } from "fs";
 
 export default defineConfig({
   base: "/pluto/",
   plugins: [
+    esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
+    react(),
     lib({ name: "pluto" }),
     {
       name: "copy-theme-css",
@@ -55,16 +58,15 @@ export default defineConfig({
         color: path.resolve(".", "src/color/index.ts"),
       },
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
-        "react",
-        "react-dom",
         "react-hook-form",
         "zod",
         "@synnaxlabs/x",
         "@synnaxlabs/client",
         "@synnaxlabs/alamos",
         "@synnaxlabs/freighter",
+        "@synnaxlabs/media",
       ],
       output: {
         globals: {
@@ -79,5 +81,10 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["src/mock/setuptests.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    coverage: {
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+    },
   },
 });

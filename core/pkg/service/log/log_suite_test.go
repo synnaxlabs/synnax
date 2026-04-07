@@ -10,13 +10,13 @@
 package log_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -31,7 +31,6 @@ func TestLog(t *testing.T) {
 }
 
 var (
-	ctx     = context.Background()
 	db      *gorp.DB
 	otg     *ontology.Ontology
 	ws      workspace.Workspace
@@ -40,44 +39,47 @@ var (
 	tx      gorp.Tx
 )
 
-var _ = BeforeSuite(func() {
-	var err error
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
-	Expect(err).ToNot(HaveOccurred())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		EnableSearch: new(false),
-		DB:           db,
-	}))
+	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustSucceed(search.Open())
+	DeferCleanup(func() {
+		Expect(searchIdx.Close()).To(Succeed())
+	})
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
 	var author user.User
 	author.Username = "test"
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(log.NewService(log.ServiceConfig{
+	svc = MustSucceed(log.OpenService(ctx, log.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 })
 
 var (
-	_ = AfterSuite(func() {
+	_ = AfterSuite(func(ctx SpecContext) {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 )

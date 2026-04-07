@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/synnaxlabs/x/pluralize"
 )
 
 // CustomTypeName is an interface that allows types to provide their own custom type
@@ -37,31 +39,9 @@ func Name[T any]() string {
 	return typ.String()
 }
 
-// PluralName returns the plural form of the type name for T. It handles common English
-// pluralization rules:
-//   - Words ending in 'y' change to 'ies'
-//   - Words ending in 's', 'x', 'z', 'ch', or 'sh' add 'es'
-//   - All other words add 's'
+// PluralName returns the plural form of the type name for T.
 func PluralName[T any]() string {
-	name := Name[T]()
-	// Handle special cases and irregular plurals
-	switch {
-	case len(name) == 0:
-		return name
-	case name[len(name)-1] == 'y':
-		// Words ending in 'y' typically change to 'ies'
-		return name[:len(name)-1] + "ies"
-	case name[len(name)-1] == 's' ||
-		name[len(name)-1] == 'x' ||
-		name[len(name)-1] == 'z' ||
-		strings.HasSuffix(name, "ch") ||
-		strings.HasSuffix(name, "sh"):
-		// Words ending in s, x, z, ch, sh add 'es'
-		return name + "es"
-	default:
-		// Default case: just add 's'
-		return name + "s"
-	}
+	return pluralize.String(Name[T]())
 }
 
 // PackageName extracts the package name from a reflect.Type. It returns the last

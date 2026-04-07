@@ -297,4 +297,5 @@ var _ = Describe("Unsafe", func() {
 			Expect(out[3]).To(Equal(myVal(100)))
 		})
 	})
+
 })

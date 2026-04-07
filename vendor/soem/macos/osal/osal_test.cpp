@@ -11,7 +11,7 @@ extern "C" {
 #include <thread>
 #include <vector>
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 #include <pthread.h>
 
 /// @brief Test fixture for OSAL time and timer tests.

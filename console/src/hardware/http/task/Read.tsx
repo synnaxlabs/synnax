@@ -20,7 +20,7 @@ import {
   Icon,
   Input,
   List,
-  Menu as PMenu,
+  Menu,
   Select,
   Telem,
   Text,
@@ -499,9 +499,9 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
     [ctx, push],
   );
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
-    (p: PMenu.ContextMenuMenuProps) => (
+    (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu
         keys={p.keys}
         onDelete={handleDeleteEndpoints}
@@ -532,7 +532,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
             </Header.Actions>
           )}
         </Header.Header>
-        <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
+        <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
           <Select.Frame<string, ReadEndpoint>
             multiple
             data={data}
@@ -557,7 +557,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
               {readEndpointListItem}
             </List.Items>
           </Select.Frame>
-        </PMenu.ContextMenu>
+        </Menu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>

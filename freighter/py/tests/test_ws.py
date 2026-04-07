@@ -22,11 +22,9 @@ from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
     ConnectionClosedError,
-)
-from freighter.websocket import Message as WebsocketMessage
-from freighter.websocket import (
     WebsocketClient,
 )
+from freighter.websocket import Message as WebsocketMessage
 
 from .interface import Error, Message
 

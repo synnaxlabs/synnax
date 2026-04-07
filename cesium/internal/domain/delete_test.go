@@ -61,12 +61,12 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Context("Single Pointer", func() {
-				JustBeforeEach(func() {
+				JustBeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 				})
 
 				DescribeTable("Delete Entire Pointer",
-					func(startOffset, endOffset int, timeRange telem.TimeRange) {
+					func(ctx SpecContext, startOffset, endOffset int, timeRange telem.TimeRange) {
 						Expect(db.Delete(
 							ctx,
 							timeRange,
@@ -82,7 +82,7 @@ var _ = Describe("Delete", Ordered, func() {
 				)
 
 				DescribeTable("Should not delete anything under various offset conditions",
-					func(startOffset, endOffset int, timeRange telem.TimeRange) {
+					func(ctx SpecContext, startOffset, endOffset int, timeRange telem.TimeRange) {
 						Expect(db.Delete(
 							ctx,
 							timeRange,
@@ -104,7 +104,7 @@ var _ = Describe("Delete", Ordered, func() {
 						100, 100, (10*telem.SecondTS).Range(12*telem.SecondTS)),
 				)
 
-				It("Should correctly modify the time range of a domain when a new start is provided", func() {
+				It("Should correctly modify the time range of a domain when a new start is provided", func(ctx SpecContext) {
 					Expect(db.Delete(
 						ctx,
 						(10 * telem.SecondTS).Range(12*telem.SecondTS),
@@ -121,7 +121,7 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Context("Multiple Pointers", func() {
-				JustBeforeEach(func() {
+				JustBeforeEach(func(ctx SpecContext) {
 					Expect(domain.Write(
 						ctx,
 						db,
@@ -150,7 +150,7 @@ var _ = Describe("Delete", Ordered, func() {
 					StartOffset     int64
 					EndOffset       int64
 				}
-				DescribeTable("Basic, continuous deletion of time range", func(
+				DescribeTable("Basic, continuous deletion of time range", func(ctx SpecContext,
 					cfg MultiPointerSpec,
 				) {
 					Expect(db.Delete(
@@ -164,16 +164,14 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal(cfg.FirstTimeRange))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, len(cfg.FirstData))
-					_, err := r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:len(cfg.FirstData)]).To(Equal(cfg.FirstData))
 					Expect(r.Close()).To(Succeed())
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(cfg.SecondTimeRange))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, len(cfg.SecondData))
-					_, err = r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:len(cfg.SecondData)]).To(Equal(cfg.SecondData))
 					Expect(iter.Close()).To(Succeed())
 					Expect(r.Close()).To(Succeed())
@@ -243,7 +241,7 @@ var _ = Describe("Delete", Ordered, func() {
 					),
 				)
 
-				It("Should delete with the end being end of db", func() {
+				It("Should delete with the end being end of db", func(ctx SpecContext) {
 					Expect(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(40*telem.SecondTS),
@@ -255,8 +253,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12 * telem.SecondTS)))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 2)
-					_, err := r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:2]).To(Equal([]byte{10, 11}))
 					Expect(r.Close()).To(Succeed())
 
@@ -264,7 +261,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should delete nothing", func() {
+				It("Should delete nothing", func(ctx SpecContext) {
 					Expect(db.Delete(
 						ctx,
 						(24 * telem.SecondTS).Range(24*telem.SecondTS),
@@ -276,21 +273,19 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(20 * telem.SecondTS)))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 10)
-					_, err := r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:10]).To(Equal([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					r = MustSucceed(iter.OpenReader(ctx))
-					_, err = r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
 					Expect(iter.Close()).To(Succeed())
 					Expect(r.Close()).To(Succeed())
 				})
 
-				It("Should delete the entire db", func() {
+				It("Should delete the entire db", func(ctx SpecContext) {
 					Expect(db.Delete(
 						ctx,
 						(10 * telem.SecondTS).Range(40*telem.SecondTS),
@@ -302,7 +297,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should delete multiple pointers", func() {
+				It("Should delete multiple pointers", func(ctx SpecContext) {
 					Expect(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(13*telem.SecondTS),
@@ -329,8 +324,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 1)
-					_, err := r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:1]).To(Equal([]byte{10}))
 					Expect(r.Close()).To(Succeed())
 
@@ -338,8 +332,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((15 * telem.SecondTS).Range(17 * telem.SecondTS)))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 2)
-					_, err = r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:2]).To(Equal([]byte{15, 16}))
 					Expect(r.Close()).To(Succeed())
 
@@ -347,8 +340,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((19 * telem.SecondTS).Range(20 * telem.SecondTS)))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 1)
-					_, err = r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:1]).To(Equal([]byte{19}))
 					Expect(r.Close()).To(Succeed())
 
@@ -356,15 +348,14 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((22 * telem.SecondTS).Range(30 * telem.SecondTS)))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 10)
-					_, err = r.ReadAt(p, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(p, 0))
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should delete multiple pointers that add up to the whole db", func() {
+				It("Should delete multiple pointers that add up to the whole db", func(ctx SpecContext) {
 					Expect(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(23*telem.SecondTS),
@@ -416,23 +407,22 @@ var _ = Describe("Delete", Ordered, func() {
 
 			Context("Edge cases", func() {
 				Context("With Data", func() {
-					JustBeforeEach(func() {
+					JustBeforeEach(func(ctx SpecContext) {
 						Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 						Expect(domain.Write(ctx, db, (22 * telem.SecondTS).SpanRange(8*telem.Second), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29})).To(Succeed())
 						Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39})).To(Succeed())
 					})
 
-					It("Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively", func() {
-						err := db.Delete(
+					It("Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively", func(ctx SpecContext) {
+						Expect(db.Delete(
 							ctx,
 							telem.TimeRange{Start: 40 * telem.SecondTS, End: 39 * telem.SecondTS},
 							fixedOffset(0),
 							fixedOffset(10),
-						)
-						Expect(err).ToNot(HaveOccurred())
+						)).To(Succeed())
 					})
 
-					It("Should return errors when the startOffset is after the endOffset for same pointer deletion", func() {
+					It("Should return errors when the startOffset is after the endOffset for same pointer deletion", func(ctx SpecContext) {
 						err := db.Delete(
 							ctx,
 							telem.TimeRange{Start: 26 * telem.SecondTS, End: 25 * telem.SecondTS},
@@ -442,7 +432,7 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(err).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
 					})
 
-					It("Should return an error when the db is closed", func() {
+					It("Should return an error when the db is closed", func(ctx SpecContext) {
 						db2 := MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 						Expect(db2.Close()).To(Succeed())
 						Expect(db2.Delete(
@@ -455,7 +445,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				Context("Without Data", func() {
-					It("Should not delete anything", func() {
+					It("Should not delete anything", func(ctx SpecContext) {
 						Expect(db.Delete(
 							ctx,
 							telem.TimeRangeMax,

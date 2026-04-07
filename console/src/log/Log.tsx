@@ -112,12 +112,12 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
 };
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -129,7 +129,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 

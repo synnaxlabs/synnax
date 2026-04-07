@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
@@ -23,19 +23,14 @@ func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the transaction (Tx) interface. Using a DB as a Tx will execute the query
-// directly against the underlying key-value store, outside of the isolated context of
+// directly against the underlying key-value store, outside the isolated context of
 // a transaction.
 type DB struct {
 	kv.DB
 	options
 }
 
-var (
-	_ Tx             = (*DB)(nil)
-	_ BaseReader     = (*DB)(nil)
-	_ BaseWriter     = (*DB)(nil)
-	_ BaseObservable = (*DB)(nil)
-)
+var _ Tx = (*DB)(nil)
 
 // OpenTx begins a new Tx against the DB.
 func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
@@ -82,7 +77,7 @@ func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, overr
 // if they desire to do so, or simply use the DB directly otherwise.
 type Tx interface {
 	kv.Tx
-	Tools
+	encoding.Codec
 }
 
 // Context is an extension of the built-in context.Context type that adds additional
@@ -102,35 +97,4 @@ func checkForNilTx(method string, tx Tx) {
 	if tx == nil {
 		panic("[gorp] - nil transaction - please provide transaction to " + method)
 	}
-}
-
-var _ Tx = (*tx)(nil)
-
-// Tools provides the tools that gorp needs to translate key-value operations
-// to strongly-typed requests. It doesn't provide any functionality itself,
-// and is instead designed to be passed to the various other types that gorp uses.
-type Tools interface{ binary.Codec }
-
-// BaseReader is a simple extension of the kv.Reader interface that adds
-// gorp-required tooling. For semantic purposes, it can be considered as
-// equivalent to a kv.Reader.
-type BaseReader interface {
-	kv.Reader
-	Tools
-}
-
-// BaseWriter is a simple extension of the kv.Writer interface that
-// adds gorp-required tooling. For semantic purposes, it can be considered
-// as equivalent to a kv.Writer.
-type BaseWriter interface {
-	kv.Writer
-	Tools
-}
-
-// BaseObservable is a simple extension of the kv.Writer interface that
-// adds gorp-required tooling. For semantic purposes, it can be considered
-// as equivalent to a kv.Observable.
-type BaseObservable interface {
-	kv.Observable
-	Tools
 }

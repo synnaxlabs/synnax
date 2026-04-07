@@ -31,16 +31,18 @@ type Writer struct {
 	// group is the base group that racks will be created under.
 	group group.Group
 	// newKey returns a new key for a rack.
-	newKey func() (Key, error)
+	newKey func(context.Context) (Key, error)
 	// newTaskKey returns a new key for a task within the rack.
 	newTaskKey func(context.Context, Key) (uint32, error)
 	// status is used to write status updates.
 	status status.Writer[StatusDetails]
+	// table is the gorp table for rack entries.
+	table *gorp.Table[Key, Rack]
 }
 
-func resolveStatus(r *Rack) *Status {
+func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 	if r.Status == nil {
-		return &Status{
+		return &status.Status[StatusDetails]{
 			Key:     OntologyID(r.Key).String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
@@ -49,10 +51,11 @@ func resolveStatus(r *Rack) *Status {
 			Details: StatusDetails{Rack: r.Key},
 		}
 	}
-	r.Status.Key = OntologyID(r.Key).String()
-	r.Status.Details.Rack = r.Key
-	r.Status.Name = r.Name
-	return r.Status
+	stat := status.Status[StatusDetails](*r.Status)
+	stat.Key = OntologyID(r.Key).String()
+	stat.Details.Rack = r.Key
+	stat.Name = r.Name
+	return &stat
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
@@ -60,7 +63,7 @@ func resolveStatus(r *Rack) *Status {
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if r.Key.IsZero() {
-		r.Key, err = w.newKey()
+		r.Key, err = w.newKey(ctx)
 		if err != nil {
 			return
 		}
@@ -68,7 +71,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = r.Validate(); err != nil {
 		return err
 	}
-	if err = gorp.NewCreate[Key, Rack]().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	otgID := OntologyID(r.Key)
@@ -91,7 +94,7 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 // DeleteGuard deletes the rack with the given key and its associated status if the
 // provided guard function returns nil.
 func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[Key, Rack]) error {
-	if err := gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(guard).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().WhereKeys(key).Guard(guard).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())

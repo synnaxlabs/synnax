@@ -18,7 +18,6 @@ import time
 
 from flask import Flask, Response, jsonify, request
 
-import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import http
 
@@ -458,56 +457,37 @@ def run_server(
         "     - Detailed health + metrics"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/health/degraded"
-        "     - Degraded status (200)"
+        f"  GET  {scheme}://{host}:{port}/health/degraded     - Degraded status (200)"
     )
-    print(
-        f"  GET  {scheme}://{host}:{port}/health/failing" "      - Failing status (503)"
-    )
-    print(
-        f"  GET  {scheme}://{host}:{port}/health/flapping" "     - Alternates every 10s"
-    )
-    print(
-        f"  GET  {scheme}://{host}:{port}/api/v1/status" "       - Alternative status"
-    )
+    print(f"  GET  {scheme}://{host}:{port}/health/failing      - Failing status (503)")
+    print(f"  GET  {scheme}://{host}:{port}/health/flapping     - Alternates every 10s")
+    print(f"  GET  {scheme}://{host}:{port}/api/v1/status       - Alternative status")
     print(f"  GET  {scheme}://{host}:{port}/api/v1/ping         - Ping/pong")
     print(f"  POST {scheme}://{host}:{port}/api/v1/ping         - Ping/pong (POST)")
     print(f"  GET  {scheme}://{host}:{port}/api/v1/metrics      - Sensor metrics")
-    print(f"  POST {scheme}://{host}:{port}/api/v1/echo" "         - Echo request body")
+    print(f"  POST {scheme}://{host}:{port}/api/v1/echo         - Echo request body")
     print(f"  GET  {scheme}://{host}:{port}/api/v1/data         - Mixed data types")
     print(
-        f"  GET  {scheme}://{host}:{port}/api/v1/device"
-        "       - Device with enum values"
+        f"  GET  {scheme}://{host}:{port}/api/v1/device       - Device with enum values"
+    )
+    print(f"  GET  {scheme}://{host}:{port}/api/v1/headers      - Echo request headers")
+    print(
+        f"  GET  {scheme}://{host}:{port}/api/v1/query        - Echo query parameters"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/api/v1/headers" "      - Echo request headers"
+        f"  POST {scheme}://{host}:{port}/api/v1/control     - Accept control commands"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/api/v1/query"
-        "        - Echo query parameters"
+        f"  PUT  {scheme}://{host}:{port}/api/v1/setpoint    - Accept setpoint values"
     )
     print(
-        f"  POST {scheme}://{host}:{port}/api/v1/control"
-        "     - Accept control commands"
+        f"  PATCH {scheme}://{host}:{port}/api/v1/config     - Partial config updates"
     )
+    print(f"  GET  {scheme}://{host}:{port}/auth/bearer         - Bearer auth required")
     print(
-        f"  PUT  {scheme}://{host}:{port}/api/v1/setpoint"
-        "    - Accept setpoint values"
+        f"  GET  {scheme}://{host}:{port}/auth/api-key        - API key auth required"
     )
-    print(
-        f"  PATCH {scheme}://{host}:{port}/api/v1/config"
-        "     - Partial config updates"
-    )
-    print(
-        f"  GET  {scheme}://{host}:{port}/auth/bearer" "         - Bearer auth required"
-    )
-    print(
-        f"  GET  {scheme}://{host}:{port}/auth/api-key"
-        "        - API key auth required"
-    )
-    print(
-        f"  GET  {scheme}://{host}:{port}/auth/basic" "          - Basic auth required"
-    )
+    print(f"  GET  {scheme}://{host}:{port}/auth/basic          - Basic auth required")
     print()
 
     ssl_context = None

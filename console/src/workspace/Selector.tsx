@@ -73,9 +73,9 @@ export const Selector = (): ReactElement | null => {
     },
     [dispatch, getItem],
   );
-  const allowCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
-  const allowViewWorkspace = Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
-  if (!allowViewWorkspace) return null;
+  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
+  if (!hasRetrievePermission) return null;
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
@@ -131,7 +131,7 @@ export const Selector = (): ReactElement | null => {
               <Icon.Close />
               Clear
             </Button.Button>
-            {allowCreateWorkspace && (
+            {hasCreatePermission && (
               <Button.Button
                 size="large"
                 variant="outlined"

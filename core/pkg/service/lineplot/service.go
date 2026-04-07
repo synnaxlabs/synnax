@@ -10,16 +10,23 @@
 package lineplot
 
 import (
+	"context"
+
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for opening a line plot service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the line plot service will store line plots in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -27,6 +34,9 @@ type ServiceConfig struct {
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Search is the search index for fuzzy searching line plots.
+	// [REQUIRED]
+	Search *search.Index
 }
 
 var (
@@ -38,8 +48,10 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -48,23 +60,41 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("lineplot")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying line plots from Synnax.
-type Service struct{ ServiceConfig }
+type Service struct {
+	ServiceConfig
+	table *gorp.Table[uuid.UUID, LinePlot]
+}
 
-// NewService instantiates a new line plot service using the provided configurations.
+// OpenService instantiates a new line plot service using the provided configurations.
 // Each configuration will be used as an override for the previous configuration in the
 // list. See the Config struct for information on which fields should be set.
-func NewService(cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, LinePlot]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	return s, nil
+}
+
+// Close closes the line plot service and releases any resources.
+func (s *Service) Close() error {
+	return s.table.Close()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If
@@ -73,15 +103,16 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:  tx,
-		otg: s.Ontology.NewWriter(tx),
+		tx:    tx,
+		otg:   s.Ontology.NewWriter(tx),
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new query builder for retrieving line plots from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, LinePlot](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 	}
 }

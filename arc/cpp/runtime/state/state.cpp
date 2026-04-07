@@ -53,10 +53,7 @@ Series parse_default_value(
             return x::mem::make_local_shared<x::telem::Series>(0.0f);
         case types::Kind::F64:
             return x::mem::make_local_shared<x::telem::Series>(0.0);
-        case types::Kind::Invalid:
-        case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
+        default:
             return x::mem::make_local_shared<x::telem::Series>(data_type, 0);
     }
     return x::mem::make_local_shared<x::telem::Series>(data_type, 0);
@@ -142,7 +139,10 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             ir::Handle synthetic_handle("__default_" + key + "_" + param.name, "out");
             inputs[i] = ir::Edge(synthetic_handle, target_handle);
 
-            auto data_series = parse_default_value(param.value, param.type);
+            auto data_series = parse_default_value(
+                types::to_sample_value(param.value, param.type),
+                param.type
+            );
             auto time_series = x::mem::make_local_shared<x::telem::Series>(
                 x::telem::TimeStamp(0)
             );
@@ -195,11 +195,10 @@ void State::ingest(const x::telem::Frame &frame) {
     this->channel->ingest(frame);
 }
 
-std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
-    auto result = this->channel->flush();
+void State::flush_into(x::telem::Frame &out) {
+    this->channel->flush_into(out);
     this->series->clear();
     this->strings->clear();
-    return result;
 }
 
 void State::reset() {

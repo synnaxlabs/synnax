@@ -53,11 +53,11 @@ class API {
     };
 
     /// @brief Shared library handle.
-    std::unique_ptr<x::lib::SharedLib> lib;
+    std::unique_ptr<x::lib::Shared> lib;
     FunctionPointers func_ptrs;
 
 public:
-    explicit API(std::unique_ptr<x::lib::SharedLib> lib_): lib(std::move(lib_)) {
+    explicit API(std::unique_ptr<x::lib::Shared> lib_): lib(std::move(lib_)) {
         memset(&func_ptrs, 0, sizeof(func_ptrs));
         func_ptrs.eStreamRead = reinterpret_cast<decltype(&LJM_eStreamRead)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamRead"))
@@ -117,7 +117,7 @@ public:
     }
 
     static std::pair<std::shared_ptr<API>, x::errors::Error> load() {
-        auto lib = std::make_unique<x::lib::SharedLib>(LJM_LIBRARY_NAME);
+        auto lib = std::make_unique<x::lib::Shared>(LJM_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         return {std::make_shared<API>(std::move(lib)), x::errors::NIL};
     }

@@ -15,11 +15,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/migrate"
-	xversion "github.com/synnaxlabs/x/version"
 )
 
-// DBState is meta-data about a single-channel database that can be migrated. This data
+// DBState is metadata about a single-channel database that can be migrated. This data
 // structure is passed into migration functions on bootup.
 type DBState struct {
 	// FS is the file-system for that channel in the DB. This is not the
@@ -32,42 +30,35 @@ type DBState struct {
 	ShouldIgnoreChannel bool
 }
 
-// GetVersion implements migrate.Migratable.
-func (d DBState) GetVersion() xversion.Counter {
-	return xversion.Counter(d.Channel.Version)
+type migration func(state DBState) DBState
+
+var migrations = []migration{
+	migrateV0toV1,
+	migrateV1toV2,
 }
 
-var _ migrate.Migratable = DBState{}
-
-var (
-	migrateV0toV1 = migrate.CreateMigration(migrate.MigrationConfig[DBState, DBState]{
-		Name: "cesium.migrate",
-		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
-			state.Channel.Version = version.Version1
-			if state.Channel.Name == "" {
-				state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
-			}
-			return state, nil
-		},
-	})
-	migrateV1toV2 = migrate.CreateMigration(migrate.MigrationConfig[DBState, DBState]{
-		Name: "cesium.migrate",
-		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
-			state.Channel.Version = version.Version2
-			if state.Channel.Virtual || state.Channel.IsIndex {
-				return state, nil
-			}
-			// Any persisted channel with an index of 0 is rate based, so it should
-			// be removed.
-			state.ShouldIgnoreChannel = state.Channel.Index == 0
-			return state, nil
-		},
-	})
-	migrations = migrate.Migrations{
-		0: migrateV0toV1,
-		1: migrateV1toV2,
+func migrateV0toV1(state DBState) DBState {
+	state.Channel.Version = version.Version1
+	if state.Channel.Name == "" {
+		state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
 	}
-	Migrate = migrate.NewMigrator(migrate.MigratorConfig[DBState, DBState]{
-		Migrations: migrations,
-	})
-)
+	return state
+}
+
+func migrateV1toV2(state DBState) DBState {
+	state.Channel.Version = version.Version2
+	if state.Channel.Virtual || state.Channel.IsIndex {
+		return state
+	}
+	state.ShouldIgnoreChannel = state.Channel.Index == 0
+	return state
+}
+
+// Migrate runs all pending version migrations on the given DBState, starting from the
+// channel's current version up to the latest.
+func Migrate(state DBState) DBState {
+	for i := int(state.Channel.Version); i < len(migrations); i++ {
+		state = migrations[i](state)
+	}
+	return state
+}

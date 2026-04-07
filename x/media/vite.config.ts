@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { lib } from "@synnaxlabs/vite-plugin";
-import { defineConfig } from "vite";
+import { defineConfig, esmExternalRequirePlugin } from "vite";
 
 export default defineConfig({
-  plugins: [lib({ name: "media" })],
+  plugins: [
+    esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
+    lib({ name: "media" }),
+  ],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       external: ["react", "react-dom"],
       output: { globals: { react: "React", "react-dom": "ReactDOM" } },
     },

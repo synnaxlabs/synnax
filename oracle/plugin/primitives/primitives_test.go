@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/primitives"
+	"github.com/synnaxlabs/x/set"
 )
 
 func TestPrimitives(t *testing.T) {
@@ -89,9 +90,9 @@ var _ = Describe("Primitives", func() {
 			all := primitives.All()
 			Expect(len(all)).To(BeNumerically(">=", 15))
 
-			names := make(map[string]bool)
+			names := make(set.Set[string])
 			for _, p := range all {
-				names[p.Name] = true
+				names.Add(p.Name)
 			}
 
 			Expect(names).To(HaveKey("string"))

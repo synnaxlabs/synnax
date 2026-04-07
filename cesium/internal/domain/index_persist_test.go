@@ -41,7 +41,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 			})
 
 			Describe("Happy path", func() {
-				It("Should persist the index", func() {
+				It("Should persist the index", func(ctx SpecContext) {
 					By("Writing some data")
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(15*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15})).To(Succeed())
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
@@ -77,50 +77,43 @@ var _ = Describe("Index Persist", Ordered, func() {
 					r := MustSucceed(i.OpenReader(ctx))
 					var buf = make([]byte, 2)
 
-					_, err := r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{10, 11}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
-					_, err = r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{15}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 4)
-					_, err = r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{20, 21, 22, 23}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
-					_, err = r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{26}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
-					_, err = r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{30}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 3)
-					_, err = r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
-					_, err = r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.ReadAt(buf, 0))
+					MustSucceed(r.ReadAt(buf, 0))
 					Expect(buf).To(Equal([]byte{40, 41, 42}))
 					Expect(r.Close()).To(Succeed())
 
@@ -128,7 +121,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should persist an empty index", func() {
+				It("Should persist an empty index", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,

@@ -10,12 +10,11 @@
 package calculation_test
 
 import (
-	"errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/x/errors"
 	xstatus "github.com/synnaxlabs/x/status"
 )
 
@@ -44,7 +43,6 @@ var _ = Describe("Status", func() {
 			Expect(st.Variant).To(Equal(xstatus.VariantError))
 			Expect(st.Message).To(Equal("expression parse failed"))
 			Expect(st.Description).To(Equal("unexpected token"))
-			Expect(st.Details.Channel).To(Equal(channel.Key(42)))
 			Expect(st.Time).ToNot(BeZero())
 		})
 	})

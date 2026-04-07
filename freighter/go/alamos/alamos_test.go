@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Falamos", func() {
 	Describe("Name", func() {
-		It("Should correctly attach tracing metadata", func() {
+		It("Should correctly attach tracing metadata", func(ctx SpecContext) {
 			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
 			clientMw := MustSucceed(alamos.Middleware(alamos.Config{
 				Instrumentation: clientIns,

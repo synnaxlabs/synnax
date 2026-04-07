@@ -39,23 +39,23 @@ TEST(StateTest, CreateStateAndGetNode) {
 
 /// @brief Test basic input alignment with two connected nodes
 TEST(StateTest, RefreshInputs_BasicAlignment) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -100,23 +100,23 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
 /// @brief Test that refresh_inputs returns false when upstream output is empty
 TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -141,23 +141,23 @@ TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
 
 /// @brief Test that watermark tracking prevents reprocessing the same data
 TEST(StateTest, RefreshInputs_WatermarkTracking) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -205,37 +205,37 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
 /// @brief Test node with multiple inputs only triggers when all have data
 TEST(StateTest, RefreshInputs_MultipleInputs) {
-    arc::ir::Param output1_param;
+    arc::types::Param output1_param;
     output1_param.name = "output";
-    output1_param.type = arc::types::Type(arc::types::Kind::F32);
+    output1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param output2_param;
+    arc::types::Param output2_param;
     output2_param.name = "output";
-    output2_param.type = arc::types::Type(arc::types::Kind::F32);
+    output2_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input1_param;
+    arc::types::Param input1_param;
     input1_param.name = "input1";
-    input1_param.type = arc::types::Type(arc::types::Kind::F32);
+    input1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input2_param;
+    arc::types::Param input2_param;
     input2_param.name = "input2";
-    input2_param.type = arc::types::Type(arc::types::Kind::F32);
+    input2_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer1;
     producer1.key = "producer1";
     producer1.type = "producer1";
-    producer1.outputs.params.push_back(output1_param);
+    producer1.outputs.push_back(output1_param);
 
     arc::ir::Node producer2;
     producer2.key = "producer2";
     producer2.type = "producer2";
-    producer2.outputs.params.push_back(output2_param);
+    producer2.outputs.push_back(output2_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input1_param);
-    consumer.inputs.params.push_back(input2_param);
+    consumer.inputs.push_back(input1_param);
+    consumer.inputs.push_back(input2_param);
 
     arc::ir::Edge edge1(
         arc::ir::Handle("producer1", "output"),
@@ -296,15 +296,15 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
 /// @brief Test that unconnected optional input uses default value
 TEST(StateTest, OptionalInput_UseDefault) {
-    arc::ir::Param input1_param;
+    arc::types::Param input1_param;
     input1_param.name = "input1";
-    input1_param.type = arc::types::Type(arc::types::Kind::F32);
+    input1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
     input1_param.value = 42.0f;
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input1_param);
+    consumer.inputs.push_back(input1_param);
 
     arc::ir::Function fn;
     fn.key = "test";
@@ -329,24 +329,24 @@ TEST(StateTest, OptionalInput_UseDefault) {
 
 /// @brief Test that connected input overrides default value
 TEST(StateTest, OptionalInput_OverrideDefault) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
     input_param.value = 42.0f;
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -420,7 +420,8 @@ TEST(ChannelStateTest, FlushPreservesLatestSeries) {
     ASSERT_TRUE(ok_before);
     ASSERT_EQ(data_before.series.size(), 2);
 
-    s.flush();
+    x::telem::Frame out;
+    s.flush_into(out);
 
     auto [data_after, ok_after] = s.read_value(10);
     ASSERT_TRUE(ok_after);
@@ -444,7 +445,8 @@ TEST(ChannelStateTest, FlushPreservesMultipleChannels) {
     series2.write(30.0);
     s.ingest(x::telem::Frame(20, std::move(series2)));
 
-    s.flush();
+    x::telem::Frame out;
+    s.flush_into(out);
 
     auto [data10, ok10] = s.read_value(10);
     ASSERT_TRUE(ok10);
@@ -464,7 +466,8 @@ TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
     series1.write(1.0f);
     series1.write(2.0f);
     s.ingest(x::telem::Frame(10, std::move(series1)));
-    s.flush();
+    x::telem::Frame out1;
+    s.flush_into(out1);
 
     auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(3.0f);
@@ -479,7 +482,8 @@ TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
     ASSERT_TRUE(ok20);
     EXPECT_EQ(data20.series[0].at<float>(-1), 4.0f);
 
-    s.flush();
+    x::telem::Frame out2;
+    s.flush_into(out2);
 
     auto [data10_2, ok10_2] = s.read_value(10);
     ASSERT_TRUE(ok10_2);
@@ -496,7 +500,8 @@ TEST(ChannelStateTest, NewDataOverwritesPreserved) {
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(100.0f);
     s.ingest(x::telem::Frame(10, std::move(series1)));
-    s.flush();
+    x::telem::Frame out1;
+    s.flush_into(out1);
 
     auto [data1, ok1] = s.read_value(10);
     ASSERT_TRUE(ok1);
@@ -505,7 +510,8 @@ TEST(ChannelStateTest, NewDataOverwritesPreserved) {
     auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(200.0f);
     s.ingest(x::telem::Frame(10, std::move(series2)));
-    s.flush();
+    x::telem::Frame out2;
+    s.flush_into(out2);
 
     auto [data2, ok2] = s.read_value(10);
     ASSERT_TRUE(ok2);
@@ -522,7 +528,8 @@ TEST(ChannelStateTest, SingleSeriesNoOp) {
     series.write(3);
     s.ingest(x::telem::Frame(10, std::move(series)));
 
-    s.flush();
+    x::telem::Frame out;
+    s.flush_into(out);
 
     auto [data, ok] = s.read_value(10);
     ASSERT_TRUE(ok);
@@ -536,7 +543,8 @@ TEST(ChannelStateTest, SingleSeriesNoOp) {
 TEST(ChannelStateTest, EmptyState) {
     stl::channel::State s;
 
-    s.flush();
+    x::telem::Frame out;
+    s.flush_into(out);
 
     auto [data, ok] = s.read_value(10);
     ASSERT_FALSE(ok);
@@ -576,23 +584,23 @@ TEST(ChannelStateTest, ResetClearsReadsAndWrites) {
 
 /// @brief Test that Node::reset clears watermark tracking
 TEST(StateTest, NodeReset_ClearsWatermarks) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),

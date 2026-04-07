@@ -17,10 +17,11 @@ import {
   keyZ,
   type New,
   newZ,
+  ontologyID,
   type Payload,
-  rackZ,
+  payloadZ,
   type Status,
-} from "@/rack/payload";
+} from "@/rack/types.gen";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -30,6 +31,7 @@ export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
+  integration: z.string().optional(),
   searchTerm: z.string().optional(),
   embedded: z.boolean().optional(),
   hostIsNode: z.boolean().optional(),
@@ -37,7 +39,8 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ racks: array.nullableZ(rackZ) });
+const retrieveResZ = z.object({ racks: array.nullishToEmpty(payloadZ) });
+export const rackZ = payloadZ;
 
 const singleRetrieveArgsZ = z.union([
   z
@@ -64,7 +67,7 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const createReqZ = z.object({ racks: newZ.array() });
-const createResZ = z.object({ racks: rackZ.array() });
+const createResZ = z.object({ racks: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -125,7 +128,10 @@ export class Client {
     const isSingle = !Array.isArray(payloads);
     const sugared = array
       .toArray(payloads)
-      .map(({ key, name, status }) => new Rack(key, name, this.tasks, status));
+      .map(
+        ({ key, name, status, integrations }) =>
+          new Rack(key, name, this.tasks, status, integrations),
+      );
     return isSingle ? sugared[0] : sugared;
   }
 }
@@ -134,13 +140,21 @@ export class Rack {
   key: Key;
   name: string;
   status?: Status;
+  integrations?: string[];
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client, status?: Status) {
+  constructor(
+    key: Key,
+    name: string,
+    taskClient: task.Client,
+    status?: Status,
+    integrations?: string[],
+  ) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;
     this.status = status;
+    this.integrations = integrations;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -169,11 +183,13 @@ export class Rack {
   }
 
   get payload(): Payload {
-    return { key: this.key, name: this.name, status: this.status };
+    return {
+      key: this.key,
+      name: this.name,
+      status: this.status,
+      integrations: this.integrations,
+    };
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("rack");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
