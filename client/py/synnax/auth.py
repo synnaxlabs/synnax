@@ -90,8 +90,8 @@ class Client:
         if self._skew_calc.exceeds(self._clock_skew_threshold):
             direction = "ahead of" if int(self._skew_calc.skew) > 0 else "behind"
             warnings.warn(
-                f"Measured excessive clock skew between this host and the "
-                f"Synnax cluster. This host is {direction} the cluster "
+                f"Measured excessive clock skew between this host and "
+                f"Synnax Core. This host is {direction} Synnax Core "
                 f"by approximately {abs(self._skew_calc.skew)}.",
                 UserWarning,
                 stacklevel=2,

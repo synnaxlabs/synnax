@@ -137,7 +137,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           variant: "warning",
           message: "Clock skew detected",
           description:
-            `This machine's clock is ${direction} the Synnax cluster ` +
+            `This machine's clock is ${direction} Synnax Core ` +
             `by approximately ${skew.abs().toString()}. This may cause ` +
             `issues with time-series data. Synchronize your system clock.`,
           details: {
@@ -213,7 +213,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           variant: "warning",
           message: "Clock skew detected",
           description:
-            `This machine's clock is ${direction} the Synnax cluster ` +
+            `This machine's clock is ${direction} Synnax Core ` +
             `by approximately ${skew.abs().toString()}. This may cause ` +
             `issues with time-series data. Synchronize your system clock.`,
           details: {

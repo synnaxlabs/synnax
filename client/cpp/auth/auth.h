@@ -41,7 +41,7 @@ const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
 const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
 const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
 
-/// @brief diagnostic information about the Synnax cluster.
+/// @brief diagnostic information about the Synnax Core.
 struct ClusterInfo {
     /// @brief a unique UUID key for the cluster.
     x::uuid::UUID cluster_key;
@@ -117,14 +117,14 @@ public:
             auto [host, _] = x::os::get_hostname();
             auto direction = "ahead";
             if (skew_calc.skew() > x::telem::TimeSpan::ZERO()) direction = "behind";
-            LOG(WARNING) << "measured excessive clock skew between this host and the "
-                            "Synnax cluster.";
+            LOG(WARNING) << "measured excessive clock skew between this host and "
+                            "Synnax Core.";
             LOG(WARNING) << "this host (" << host << ") is " << direction
                          << "by approximately " << skew_calc.skew().abs();
             LOG(
                 WARNING
             ) << "this may cause problems with time-series data consistency. We highly "
-                 "recommend synchronizing your clock with the Synnax cluster.";
+                 "recommend synchronizing your clock with the Synnax Core.";
         }
 
         this->authenticated = true;
@@ -132,7 +132,7 @@ public:
     }
 
     /// @brief implements freighter::Middleware, ensuring that all requests to the
-    /// Synnax cluster are appropriately authenticated.
+    /// Synnax Core are appropriately authenticated.
     std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {
         if (!this->authenticated)

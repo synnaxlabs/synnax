@@ -135,8 +135,8 @@ export class Client {
                   const direction =
                     this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
                   console.warn(
-                    `Measured excessive clock skew between this host and the ` +
-                      `Synnax cluster. This host is ${direction} the cluster ` +
+                    `Measured excessive clock skew between this host and ` +
+                      `Synnax Core. This host is ${direction} Synnax Core ` +
                       `by approximately ${this.skewCalc.skew.abs().toString()}.`,
                   );
                 }
