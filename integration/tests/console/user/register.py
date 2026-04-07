@@ -37,17 +37,17 @@ class UserRegister(ConsoleCase):
         roles = self.console.access.list_visible_roles()
         self.log(f"Visible roles: {roles}")
         for role in BUILTIN_ROLES:
-            assert (
-                role in roles
-            ), f"Built-in role '{role}' not visible in toolbar. Found: {roles}"
+            assert role in roles, (
+                f"Built-in role '{role}' not visible in toolbar. Found: {roles}"
+            )
 
     def test_builtin_roles_not_deletable(self) -> None:
         """Verify built-in roles cannot be renamed or deleted."""
         self.log("Testing: Built-in roles are not modifiable")
         for role in BUILTIN_ROLES:
-            assert not self.console.access.is_role_modifiable(
-                role
-            ), f"Built-in role '{role}' should not be modifiable"
+            assert not self.console.access.is_role_modifiable(role), (
+                f"Built-in role '{role}' should not be modifiable"
+            )
 
     def test_register_user(self) -> None:
         """Register a new user and verify it appears under the assigned role."""
@@ -70,9 +70,9 @@ class UserRegister(ConsoleCase):
 
         users = self.console.access.list_users_under_role(role_name)
         self.log(f"Users found: {users}")
-        assert (
-            self.username in users
-        ), f"User {self.username} not found under {role_name}. Found: {users}"
+        assert self.username in users, (
+            f"User {self.username} not found under {role_name}. Found: {users}"
+        )
 
     def test_change_role(self) -> None:
         """Change a user's role and verify they move between roles."""
@@ -85,9 +85,9 @@ class UserRegister(ConsoleCase):
 
         self.console.access.expand_role("Engineer")
         engineer_users = self.console.access.list_users_under_role("Engineer")
-        assert (
-            self.username in engineer_users
-        ), f"User {self.username} not found under Engineer. Found: {engineer_users}"
+        assert self.username in engineer_users, (
+            f"User {self.username} not found under Engineer. Found: {engineer_users}"
+        )
 
     def test_role_change_affects_permissions(self) -> None:
         """Log in as the user (now Engineer) and verify they gained Engineer permissions."""

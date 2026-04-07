@@ -256,9 +256,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             sy.sleep(0.5)
 
         self.log("Testing: Verify original channel names in channels toolbar")
-        assert self.console.channels.wait_for_channels(
-            original_names
-        ), "Original channel names not found in channels toolbar after rename from task config"
+        assert self.console.channels.wait_for_channels(original_names), (
+            "Original channel names not found in channels toolbar after rename from task config"
+        )
 
         self.console.close_all_tabs()
 

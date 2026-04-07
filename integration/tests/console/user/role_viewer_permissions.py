@@ -10,12 +10,10 @@
 """Test that Viewer role has read-only permissions and cannot actuate controls."""
 
 import synnax as sy
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from x import random_name
-
 from console.case import ConsoleCase
 from console.schematic import Setpoint, Valve
 from console.schematic.schematic import Schematic
+from x import random_name
 
 F64_CHANNEL = f"viewer_perm_f64_{random_name()}"
 F64_INDEX = f"viewer_perm_f64_idx_{random_name()}"
