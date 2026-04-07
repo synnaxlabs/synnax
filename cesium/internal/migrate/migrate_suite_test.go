@@ -10,7 +10,6 @@
 package migrate_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,10 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/testutil"
 )
 
-var (
-	ctx         = context.Background()
-	fileSystems = testutil.FileSystems
-)
+var fileSystems = testutil.FileSystems
 
 func TestMigrate(t *testing.T) {
 	RegisterFailHandler(Fail)

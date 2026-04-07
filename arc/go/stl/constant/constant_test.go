@@ -10,8 +10,6 @@
 package constant_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -24,11 +22,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Constant", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func() {
+		It("Should create module", func(ctx SpecContext) {
 			factory := constant.NewModule()
 			Expect(factory).ToNot(BeNil())
 		})
@@ -39,7 +35,7 @@ var _ = Describe("Constant", func() {
 			factory node.Factory
 			s       *node.ProgramState
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
@@ -54,21 +50,21 @@ var _ = Describe("Constant", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create constant for constant type", func() {
+		It("Should create constant for constant type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func() {
+		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("const"),
 			}
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
-		It("Should handle float64 value", func() {
+		It("Should handle float64 value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -82,7 +78,7 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should handle int value", func() {
+		It("Should handle int value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -95,7 +91,7 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should handle uint8 value", func() {
+		It("Should handle uint8 value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -116,7 +112,7 @@ var _ = Describe("Constant", func() {
 			factory node.Factory
 			outputs []string
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
@@ -133,7 +129,7 @@ var _ = Describe("Constant", func() {
 			outputs = []string{}
 		})
 
-		It("Should emit output on Next with int value", func() {
+		It("Should emit output on Next with int value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
@@ -146,7 +142,7 @@ var _ = Describe("Constant", func() {
 			Expect(outputs[0]).To(Equal(ir.DefaultOutputParam))
 		})
 
-		It("Should set output data on Next", func() {
+		It("Should set output data on Next", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(100)}}},
 				State: s.Node("const"),
@@ -157,7 +153,7 @@ var _ = Describe("Constant", func() {
 			Expect(out.Len()).To(Equal(int64(1)))
 		})
 
-		It("Should set output time on Next", func() {
+		It("Should set output time on Next", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "constant",
@@ -173,7 +169,7 @@ var _ = Describe("Constant", func() {
 			Expect(times[0]).To(BeNumerically(">", int64(0)))
 		})
 
-		It("Should handle float64 constant", func() {
+		It("Should handle float64 constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.F64(), Value: 2.718}}},
 				State: s.Node("const"),
@@ -187,7 +183,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(2.718))
 		})
 
-		It("Should handle int32 constant", func() {
+		It("Should handle int32 constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I32(), Value: int32(42)}}},
 				State: s.Node("const"),
@@ -201,7 +197,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int32(42)))
 		})
 
-		It("Should handle uint8 constant", func() {
+		It("Should handle uint8 constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.U8(), Value: uint8(255)}}},
 				State: s.Node("const"),
@@ -215,7 +211,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(uint8(255)))
 		})
 
-		It("Should allow downstream nodes to read constant", func() {
+		It("Should allow downstream nodes to read constant", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "const", Type: "constant"},
@@ -261,7 +257,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int64(999)))
 		})
 
-		It("Should handle zero value constant", func() {
+		It("Should handle zero value constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 0}}},
 				State: s.Node("const"),
@@ -275,7 +271,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int64(0)))
 		})
 
-		It("Should handle negative value constant", func() {
+		It("Should handle negative value constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: -42}}},
 				State: s.Node("const"),
@@ -289,7 +285,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int64(-42)))
 		})
 
-		It("Should only emit once across multiple Next calls", func() {
+		It("Should only emit once across multiple Next calls", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -307,7 +303,7 @@ var _ = Describe("Constant", func() {
 			Expect(outputs).To(HaveLen(1))
 		})
 
-		It("Should emit again after Reset is called", func() {
+		It("Should emit again after Reset is called", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -328,7 +324,7 @@ var _ = Describe("Constant", func() {
 	})
 
 	Describe("SymbolResolver", func() {
-		It("Should resolve constant symbol", func() {
+		It("Should resolve constant symbol", func(ctx SpecContext) {
 			sym, ok := constant.SymbolResolver["constant"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("constant"))

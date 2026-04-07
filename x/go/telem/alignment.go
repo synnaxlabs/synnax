@@ -14,24 +14,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/synnaxlabs/x/binary"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 )
-
-// Alignment is two array index values that can be used to represent
-// the location of a sample within an array of arrays. For example, if you have two arrays
-// that have 50 elements each, and you want the 15th element of the second array, you would
-// use NewAlignment(1, 15). The first index is called the 'domain index' and the second
-// index is called the 'sample index'. The domain index is the index of the array, and the
-// sample index is the index of the sample within that array.
-//
-// You may think a better design is to just use a single number that overflows the arrays
-// before it, i.e., the value of our previous example would be 50 + 14 = 64. However, this
-// requires us to know the size of all arrays, which is not always possible.
-//
-// While not as meaningful as a single number, Alignment is a uint64 that guarantees
-// that a larger value is, in fact, 'positionally' after a smaller value. This is useful
-// for ordering samples correctly.
-type Alignment uint64
 
 var (
 	_ json.Unmarshaler = (*Alignment)(nil)
@@ -63,7 +47,7 @@ func (a Alignment) String() string {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (a *Alignment) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringUint64(b)
+	n, err := xjson.UnmarshalStringUint64(b)
 	if err != nil {
 		return err
 	}
@@ -73,7 +57,7 @@ func (a *Alignment) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON implements json.Marshaler.
 func (a Alignment) MarshalJSON() ([]byte, error) {
-	return binary.MarshalStringUint64(uint64(a))
+	return xjson.MarshalStringUint64(uint64(a))
 }
 
 // AddSamples increments the sample index of the alignment.

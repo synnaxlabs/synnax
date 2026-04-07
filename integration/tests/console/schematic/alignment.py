@@ -10,12 +10,11 @@
 import math
 from typing import Literal
 
-import synnax as sy
 from playwright.sync_api import FloatRect
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import (
-    Schematic,
     Setpoint,
     Symbol,
     Valve,
@@ -318,7 +317,6 @@ def _assert_group_rotation_transform(
     angular_tolerance = 17.0
 
     for i in range(len(symbols)):
-
         init_x = box_center_x(initial_positions[i]) - initial_center_x
         init_y = box_center_y(initial_positions[i]) - initial_center_y
 
@@ -364,7 +362,7 @@ class Alignment(ConsoleCase):
             is_index=True,
             retrieve_if_name_exists=True,
         )
-        cmd_ch = self.client.channels.create(
+        self.client.channels.create(
             name=CHANNEL_NAME,
             data_type=sy.DataType.FLOAT64,
             is_index=False,
@@ -374,7 +372,6 @@ class Alignment(ConsoleCase):
 
     def run(self) -> None:
         console = self.console
-        client = self.client
 
         schematic = console.workspace.create_schematic("set_output_schematic")
         self._cleanup_pages.append(schematic.page_name)

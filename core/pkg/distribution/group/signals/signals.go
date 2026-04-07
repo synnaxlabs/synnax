@@ -13,16 +13,22 @@ import (
 	"context"
 	"io"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 )
 
 // Publish publishes group changes to the signals provider.
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
-	db *gorp.DB,
+	obs observe.Observable[gorp.TxReader[uuid.UUID, group.Group]],
 ) (io.Closer, error) {
-	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigUUID[group.Group](db))
+	return signals.PublishFromGorp(
+		ctx,
+		prov,
+		signals.GorpPublisherConfigUUID[group.Group](obs),
+	)
 }

@@ -9,14 +9,14 @@
 
 import { type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
+import z from "zod";
 
 import * as v0 from "@/hardware/opc/device/types/v0";
 import * as v1 from "@/hardware/opc/device/types/v1";
 
 export const MAKE = v0.MAKE;
-export type Make = v0.Make;
 export const makeZ = v0.makeZ;
-export const propertiesZ = v1.propertiesZ;
+export type Make = v0.Make;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
 export const SIGN_SECURITY_MODE = v0.SIGN_SECURITY_MODE;
@@ -37,6 +37,7 @@ export const connectionConfigZ = v0.connectionConfigZ;
 export interface ConnectionConfig extends v0.ConnectionConfig {}
 export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
 
+export const propertiesZ = v1.propertiesZ;
 export interface Properties extends v1.Properties {}
 export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 
@@ -51,6 +52,7 @@ export type AnyProperties = v0.Properties | v1.Properties;
 export const SCHEMAS = {
   properties: propertiesZ,
   make: makeZ,
+  model: z.string(),
 } as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;
 
 export const migrateProperties = migrate.migrator<AnyProperties, v1.Properties>({

@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation
-
 from freighter.context import Context
 from freighter.transport import AsyncMiddleware, AsyncNext, Middleware, Next
 

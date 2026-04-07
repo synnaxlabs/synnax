@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/parser"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/x/set"
 )
 
 const (
@@ -42,14 +43,14 @@ var semanticTokenTypes = []string{
 	"function",
 }
 
-var primitiveTypes = map[string]bool{
-	"uuid": true, "string": true, "bool": true,
-	"int8": true, "int16": true, "int32": true, "int64": true,
-	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
-	"float32": true, "float64": true,
-	"timestamp": true, "timespan": true, "time_range": true,
-	"json": true, "bytes": true,
-}
+var primitiveTypes = set.New(
+	"uuid", "string", "bool",
+	"int8", "int16", "int32", "int64",
+	"uint8", "uint16", "uint32", "uint64",
+	"float32", "float64",
+	"timestamp", "timespan", "time_range",
+	"record", "bytes",
+)
 
 func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
@@ -107,7 +108,7 @@ func mapTokenType(antlrType int, text string, prevWasAt bool) *uint32 {
 	case parser.OracleLexerIDENT:
 		if prevWasAt {
 			tokenType = SemanticTokenTypeFunction
-		} else if primitiveTypes[text] {
+		} else if primitiveTypes.Contains(text) {
 			tokenType = SemanticTokenTypeType
 		} else {
 			tokenType = SemanticTokenTypeProperty

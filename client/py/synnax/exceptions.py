@@ -70,12 +70,6 @@ class UnexpectedError(Exception):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
 
 
-class ContiguityError(Exception):
-    """Raised when time-series data is not contiguous."""
-
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "contiguity"
-
-
 class QueryError(Exception):
     """Raised when a query error occurs, such as an item not found."""
 

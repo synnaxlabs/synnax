@@ -10,11 +10,11 @@
 import uuid
 from typing import Any, overload
 
-from freighter import UnaryClient, send_required
 from pydantic import BaseModel
 
+from freighter import UnaryClient, send_required
 from synnax.ranger.kv.payload import Pair
-from synnax.util.normalize import normalize
+from x.normalize import normalize
 
 
 class _GetRequest(BaseModel):

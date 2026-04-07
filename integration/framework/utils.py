@@ -11,7 +11,7 @@
 
 Only integration-specific helpers belong here (fixture paths, results paths,
 assertion helpers, etc.). General-purpose utilities (OS info, string helpers,
-WebSocket handling, color conversion, etc.) belong in the ``xpy`` package
+WebSocket handling, color conversion, etc.) belong in the ``x`` package
 located at ``x/py/``.
 """
 
@@ -72,14 +72,14 @@ def assert_link_format(
     except ValueError:
         raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
 
-    assert (
-        actual_type == resource_type
-    ), f"Resource type should be '{resource_type}', got: {actual_type}"
+    assert actual_type == resource_type, (
+        f"Resource type should be '{resource_type}', got: {actual_type}"
+    )
 
     if resource_id is not None:
-        assert (
-            actual_id == resource_id
-        ), f"Resource ID should be '{resource_id}', got: {actual_id}"
+        assert actual_id == resource_id, (
+            f"Resource ID should be '{resource_id}', got: {actual_id}"
+        )
     else:
         try:
             uuid.UUID(actual_id)

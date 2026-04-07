@@ -28,7 +28,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
-  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
   const handleChannelChange = (v: channel.Key) =>
     dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();
@@ -51,7 +51,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             value={state.channels[0]}
             onChange={handleChannelChange}
             initialQuery={{ internal: IS_DEV ? undefined : false }}
-            disabled={!hasEditPermission}
+            disabled={!hasUpdatePermission}
           />
         </Input.Item>
       </Flex.Box>

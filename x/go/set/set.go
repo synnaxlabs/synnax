@@ -17,14 +17,13 @@ import (
 	"github.com/samber/lo"
 )
 
-// Mapped is a generic map-based collection that associates keys of type T with values
-// of type V. It serves as the foundation for the Set type.
-type Mapped[T comparable, V any] map[T]V
-
 // Set is a generic collection of unique elements of type T. It is implemented as a map
 // where the keys are the set elements and the values are empty structs to minimize
 // memory usage.
-type Set[T comparable] = Mapped[T, struct{}]
+type Set[T comparable] map[T]struct{}
+
+// New creates a new Set containing the provided entries.
+func New[T comparable](entries ...T) Set[T] { return FromSlice(entries) }
 
 // FromSlice creates a new Set containing all elements from the provided slice.
 // Duplicate elements in the input slice will only appear once in the resulting set.
@@ -35,8 +34,8 @@ func FromSlice[T comparable](entries []T) Set[T] {
 }
 
 // Difference returns a new set containing elements that are in a but not in b (a - b).
-func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
-	s := make(Mapped[T, V], len(a))
+func Difference[T comparable](a, b Set[T]) Set[T] {
+	s := make(Set[T], len(a))
 	for k, v := range a {
 		if !b.Contains(k) {
 			s[k] = v
@@ -48,12 +47,12 @@ func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
 // Copy creates and returns a shallow copy of the set. The returned set contains the
 // same key-value pairs as the original, but modifications to one set will not affect
 // the other.
-func (s Mapped[T, V]) Copy() Mapped[T, V] { return maps.Clone(s) }
+func (s Set[T]) Copy() Set[T] { return maps.Clone(s) }
 
 // Add inserts the provided values into the set. If a value already exists in the set,
 // it will not be duplicated.
-func (s Mapped[T, V]) Add(values ...T) Mapped[T, V] {
-	var v V
+func (s Set[T]) Add(values ...T) Set[T] {
+	var v struct{}
 	for _, k := range values {
 		s[k] = v
 	}
@@ -62,7 +61,7 @@ func (s Mapped[T, V]) Add(values ...T) Mapped[T, V] {
 
 // Remove deletes the specified keys from the set. If a key does not exist in the set,
 // the operation is a no-op for that key.
-func (s Mapped[T, V]) Remove(keys ...T) Mapped[T, V] {
+func (s Set[T]) Remove(keys ...T) Set[T] {
 	for _, v := range keys {
 		delete(s, v)
 	}
@@ -71,21 +70,17 @@ func (s Mapped[T, V]) Remove(keys ...T) Mapped[T, V] {
 
 // Contains checks if the specified value exists in the set. Returns true if the value
 // is present, false otherwise.
-func (s Mapped[T, V]) Contains(v T) bool {
-	_, ok := s[v]
+func (s Set[T]) Contains(val T) bool {
+	_, ok := s[val]
 	return ok
 }
 
-// Keys returns a slice containing all keys in the set. The order of the keys in the
+// ToSlice returns a slice containing all keys in the set. The order of the keys in the
 // returned slice is not guaranteed.
-func (s Mapped[T, V]) Keys() []T { return lo.Keys(s) }
-
-// Values returns a slice containing all values in the set. The order of the values in
-// the returned slice is not guaranteed.
-func (s Mapped[T, V]) Values() []V { return lo.Values(s) }
+func (s Set[T]) ToSlice() []T { return lo.Keys(s) }
 
 // Equals checks if two sets contain exactly the same elements.
-func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
+func (s Set[T]) Equals(other Set[T]) bool {
 	if len(s) != len(other) {
 		return false
 	}
@@ -98,7 +93,7 @@ func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
 }
 
 // IsSubsetOf checks if s is a subset of other (all elements of s are in other).
-func (s Mapped[T, V]) IsSubsetOf(other Mapped[T, V]) bool {
+func (s Set[T]) IsSubsetOf(other Set[T]) bool {
 	for k := range s {
 		if !other.Contains(k) {
 			return false

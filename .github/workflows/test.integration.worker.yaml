@@ -34,8 +34,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
@@ -100,6 +98,8 @@ jobs:
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
 
@@ -108,11 +108,14 @@ jobs:
         id: test-conductor-unix
         timeout-minutes: 30
         working-directory: integration
+        env:
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ inputs.os }}-${{ matrix.name }}
@@ -120,7 +123,7 @@ jobs:
           retention-days: 7
 
       - name: Upload Core Logs
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
           name:

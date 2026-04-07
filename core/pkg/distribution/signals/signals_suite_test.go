@@ -27,12 +27,11 @@ func TestSignals(t *testing.T) {
 var (
 	mockCluster *mock.Cluster
 	dist        mock.Node
-	ctx         = context.Background()
 )
 
 var _ = BeforeSuite(func() {
 	mockCluster = mock.NewCluster()
-	dist = mockCluster.Provision(ctx)
+	dist = mockCluster.Provision(context.Background())
 })
 
 var _ = AfterSuite(func() {

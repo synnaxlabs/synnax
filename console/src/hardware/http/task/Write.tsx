@@ -19,7 +19,7 @@ import {
   Header,
   Icon,
   List,
-  Menu as PMenu,
+  Menu,
   Select,
   Telem,
   Text,
@@ -372,9 +372,9 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     [epKey],
   );
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
-    (p: PMenu.ContextMenuMenuProps) => (
+    (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu keys={p.keys} onDelete={handleDelete} />
     ),
     [handleDelete],
@@ -409,7 +409,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           </Header.Actions>
         )}
       </Header.Header>
-      <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
+      <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Select.Frame<string, WriteField>
           multiple
           data={data}
@@ -427,7 +427,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
             {listItem}
           </List.Items>
         </Select.Frame>
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
     </Flex.Box>
   );
 };
@@ -526,9 +526,9 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
     [],
   );
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
-    (p: PMenu.ContextMenuMenuProps) => (
+    (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu
         keys={p.keys}
         onDelete={handleDeleteEndpoints}
@@ -560,7 +560,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
             </Header.Actions>
           )}
         </Header.Header>
-        <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
+        <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
           <Select.Frame<string, WriteEndpoint>
             multiple
             data={data}
@@ -585,7 +585,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
               {writeEndpointListItem}
             </List.Items>
           </Select.Frame>
-        </PMenu.ContextMenu>
+        </Menu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>

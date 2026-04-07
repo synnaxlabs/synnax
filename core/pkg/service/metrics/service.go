@@ -295,7 +295,7 @@ func (s *Service) maybeDefineGroupRelationship(
 		if err := s.cfg.Ontology.NewRetrieve().
 			WhereIDs(chID).
 			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(group.OntologyType).
+			WhereTypes(ontology.ResourceTypeGroup).
 			Entries(&parents).
 			Exec(ctx, tx); err != nil {
 			return err

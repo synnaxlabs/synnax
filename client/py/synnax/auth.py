@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+from pydantic import BaseModel
+
 from freighter import (
     AsyncMiddleware,
     AsyncNext,
@@ -16,11 +18,10 @@ from freighter import (
     Next,
     UnaryClient,
 )
-from pydantic import BaseModel
-
 from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
+from x.deprecation import deprecated_getattr
 
 
 class InsecureCredentials(BaseModel):
@@ -113,8 +114,6 @@ class Client:
         if refresh is not None:
             self.token = refresh
 
-
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "AuthenticationClient": "Client",

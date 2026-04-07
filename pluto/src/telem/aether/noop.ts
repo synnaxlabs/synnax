@@ -15,6 +15,7 @@ import {
   type status,
   TimeStamp,
 } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -129,7 +130,7 @@ export const noopStringSourceSpec: StringSourceSpec = {
 class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
-  value(): status.Status {
+  value(): status.Status<z.ZodNever> {
     return {
       key: "noop",
       name: "noop",

@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("OP", func() {
 	DescribeTable("Outputs", func(
-		t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
+		ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
 				{Key: "lhs", Type: "lhs"},
@@ -125,7 +125,7 @@ var _ = Describe("OP", func() {
 		Entry("Uint8 AND - second false", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
 	)
 	DescribeTable("Unary Outputs", func(
-		t string, input, inputTime, output, outputTime telem.Series) {
+		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
 				{Key: "input", Type: "input"},
@@ -176,7 +176,7 @@ var _ = Describe("OP", func() {
 		Entry("Int8 NEG - negative", "neg", telem.NewSeriesV[int8](-1, -2, -3), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[int8](1, 2, 3), telem.NewSeriesSecondsTSV(10, 20, 30)),
 	)
 	Describe("Edge Cases", func() {
-		It("Should handle mismatched series lengths by extending shorter series", func() {
+		It("Should handle mismatched series lengths by extending shorter series", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -227,7 +227,7 @@ var _ = Describe("OP", func() {
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
-		It("Should handle different time bases", func() {
+		It("Should handle different time bases", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -278,7 +278,7 @@ var _ = Describe("OP", func() {
 			resultTime := *s.Node("op").OutputTime(0)
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 200, 300)))
 		})
-		It("Should handle repeated calls to Next with no input changes", func() {
+		It("Should handle repeated calls to Next with no input changes", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -331,7 +331,7 @@ var _ = Describe("OP", func() {
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 		})
 
-		It("Should handle repeated calls to Next with input changes", func() {
+		It("Should handle repeated calls to Next with input changes", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -390,7 +390,7 @@ var _ = Describe("OP", func() {
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
 		})
 
-		It("Should handle single value series", func() {
+		It("Should handle single value series", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -440,7 +440,7 @@ var _ = Describe("OP", func() {
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
 		})
-		It("Should handle lhs longer than rhs", func() {
+		It("Should handle lhs longer than rhs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -491,7 +491,7 @@ var _ = Describe("OP", func() {
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(7)))
 		})
-		It("Should handle rhs longer than lhs", func() {
+		It("Should handle rhs longer than lhs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -543,7 +543,7 @@ var _ = Describe("OP", func() {
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 
-		It("Should handle logical OR with mismatched lengths", func() {
+		It("Should handle logical OR with mismatched lengths", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -595,7 +595,7 @@ var _ = Describe("OP", func() {
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 
-		It("Should handle logical AND with mismatched lengths", func() {
+		It("Should handle logical AND with mismatched lengths", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -647,7 +647,7 @@ var _ = Describe("OP", func() {
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 
-		It("Should handle logical OR with single values", func() {
+		It("Should handle logical OR with single values", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -698,7 +698,7 @@ var _ = Describe("OP", func() {
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 
-		It("Should handle logical AND with single values", func() {
+		It("Should handle logical AND with single values", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -750,7 +750,7 @@ var _ = Describe("OP", func() {
 		})
 	})
 	Describe("Alignment Propagation", func() {
-		It("Should sum alignments from both inputs for binary ops", func() {
+		It("Should sum alignments from both inputs for binary ops", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
@@ -818,7 +818,7 @@ var _ = Describe("OP", func() {
 			Expect(resultTime.TimeRange.Start).To(Equal(5 * telem.SecondTS))
 			Expect(resultTime.TimeRange.End).To(Equal(30 * telem.SecondTS))
 		})
-		It("Should copy alignment from input for unary ops", func() {
+		It("Should copy alignment from input for unary ops", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "input", Type: "input"},

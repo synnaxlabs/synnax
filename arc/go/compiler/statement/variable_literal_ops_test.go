@@ -18,8 +18,8 @@ import (
 
 var _ = Describe("Variable + Literal Operations", func() {
 	DescribeTable("should compile variable + literal with correct bytecode for all numeric types",
-		func(source string, instructions ...any) {
-			Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
+		func(bCtx SpecContext, source string, instructions ...any) {
+			Expect(compileBlock(bCtx, source)).To(MatchOpcodes(instructions...))
 		},
 
 		// u8 operations

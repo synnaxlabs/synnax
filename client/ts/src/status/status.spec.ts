@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -254,13 +254,15 @@ describe("Status", () => {
     it("should delete multiple statuses", async () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
-        keys.map((key) => ({
-          name: `Delete ${key}`,
-          key,
-          variant: "info" as status.Status["variant"],
-          message: "To be deleted",
-          time: TimeStamp.now(),
-        })),
+        keys.map((key) =>
+          xStatus.create({
+            name: `Delete ${key}`,
+            key,
+            variant: "info",
+            message: "To be deleted",
+            time: TimeStamp.now(),
+          }),
+        ),
       );
 
       await client.statuses.delete(keys);
@@ -296,11 +298,11 @@ describe("Status", () => {
     it("should correctly retrieve a status with labels attached", async () => {
       const label1 = await client.labels.create({
         name: "Label 1",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
       const label2 = await client.labels.create({
         name: "Label 2",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
       const stat = await client.statuses.set({
         name: "Idempotent",
@@ -322,9 +324,102 @@ describe("Status", () => {
     });
   });
 
+  describe("retrieve with variants filter", () => {
+    it("should filter statuses by a single variant", async () => {
+      const prefix = `variant-filter-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Success",
+          key: `${prefix}-success`,
+          variant: "success",
+          message: "ok",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Error",
+          key: `${prefix}-error`,
+          variant: "error",
+          message: "fail",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Warning",
+          key: `${prefix}-warning`,
+          variant: "warning",
+          message: "warn",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const results = await client.statuses.retrieve({
+        keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+        variants: ["error"],
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].variant).toBe("error");
+    });
+
+    it("should filter statuses by multiple variants", async () => {
+      const prefix = `variant-multi-${Date.now()}`;
+      await client.statuses.set([
+        {
+          name: "Info",
+          key: `${prefix}-info`,
+          variant: "info",
+          message: "info",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Error",
+          key: `${prefix}-error`,
+          variant: "error",
+          message: "error",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Success",
+          key: `${prefix}-success`,
+          variant: "success",
+          message: "success",
+          time: TimeStamp.now(),
+        },
+      ]);
+
+      const results = await client.statuses.retrieve({
+        keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
+        variants: ["info", "success"],
+      });
+
+      expect(results).toHaveLength(2);
+      const variants = results.map((s) => s.variant);
+      expect(variants).toContain("info");
+      expect(variants).toContain("success");
+      expect(variants).not.toContain("error");
+    });
+
+    it("should return empty when no statuses match variant", async () => {
+      const prefix = `variant-none-${Date.now()}`;
+      await client.statuses.set({
+        name: "Info Only",
+        key: `${prefix}-info`,
+        variant: "info",
+        message: "info",
+        time: TimeStamp.now(),
+      });
+
+      const results = await client.statuses.retrieve({
+        keys: [`${prefix}-info`],
+        variants: ["error"],
+      });
+
+      expect(results).toHaveLength(0);
+    });
+  });
+
   describe("status variants", () => {
     it("should support all status variants", async () => {
-      const variants: status.Status["variant"][] = [
+      const variants: xStatus.Variant[] = [
         "success",
         "info",
         "warning",

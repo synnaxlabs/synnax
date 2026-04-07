@@ -8,8 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-
-from framework.models import SynnaxConnection
 from framework.test_case import TestCase
 
 

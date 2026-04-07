@@ -202,7 +202,7 @@ class TestNITask:
                     "terminal_config": "Cfg_Default",
                     "units": "Newtons",
                     "sensitivity": 0,
-                    "sensitivity_units": "mVoltsPerVolt",
+                    "sensitivity_units": "mVoltsPerNewton",
                     "current_excit_source": "Internal",
                     "current_excit_val": 0,
                     "custom_scale": {"type": "none"},
@@ -272,8 +272,8 @@ class TestNITask:
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
-                    "units": "strain",
-                    "strain_config": "full-bridge-I",
+                    "units": "Strain",
+                    "strain_config": "FullBridgeI",
                     "voltage_excit_source": "Internal",
                     "voltage_excit_val": 0,
                     "gage_factor": 0,
@@ -898,7 +898,8 @@ class TestNIDeviceHelpers:
                 location="cDAQ1/dev_mod1",
                 rack=1,
             )
-            assert device.properties["identifier"] == identifier
+            props = device.properties
+            assert props["identifier"] == identifier
 
     def test_device_sets_make(self, client: sy.Synnax):
         """Test that Device class automatically sets make to 'NI'."""
@@ -1001,6 +1002,5 @@ class TestNIDeviceHelpers:
             location="cDAQ1/dev_mod1",
             rack=1,
         )
-
         assert isinstance(device.properties, dict)
         assert device.properties["identifier"] == "test_id"

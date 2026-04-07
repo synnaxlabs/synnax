@@ -10,7 +10,6 @@
 package pledge_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,10 +18,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	ctx context.Context
-	ins alamos.Instrumentation
-)
+var ins alamos.Instrumentation
 
 func TestMembership(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -31,5 +27,4 @@ func TestMembership(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	ins = Instrumentation("pledge", InstrumentationConfig{Log: new(false)})
-	ctx = context.Background()
 })

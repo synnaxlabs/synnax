@@ -12,8 +12,8 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax.util.random import random_name
-from tests.telem import seconds_linspace
+from x.strings import random_name
+from x.telem import seconds_linspace
 
 
 @pytest.mark.framer
@@ -59,24 +59,15 @@ class TestDeleter:
             sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
         )
 
-    def test_delete_channel_not_found_name(
-        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
-        idx_ch, _ = indexed_pair
-        client.write(0, idx_ch.key, seconds_linspace(1, 50))
-        with pytest.raises(sy.NotFoundError):
-            client.delete([idx_ch.name, "kaka"], sy.TimeRange.MAX)
-
-        data = idx_ch.read(sy.TimeRange.MAX)
-        assert data.size == 50 * 8
-
     def test_delete_channel_not_found_key(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
-        idx_ch, _ = indexed_pair
+        idx_ch, data_ch = indexed_pair
         client.write(0, idx_ch.key, seconds_linspace(1, 50))
+        # Delete the data channel first so we know the keys are not found
+        client.channels.delete([data_ch])
         with pytest.raises(sy.NotFoundError):
-            client.delete([idx_ch.key, 1234], sy.TimeRange.MAX)
+            client.delete([idx_ch.key, data_ch.key], sy.TimeRange.MAX)
 
         data = idx_ch.read(sy.TimeRange.MAX)
         assert data.size == 50 * 8

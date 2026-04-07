@@ -13,7 +13,11 @@
 
 namespace driver::ethercat::engine {
 
-Pool::Pool(std::unique_ptr<master::Manager> manager): manager(std::move(manager)) {}
+Pool::Pool(
+    std::unique_ptr<master::Manager> manager,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
+):
+    manager(std::move(manager)), rt_manager(std::move(rt_manager)) {}
 
 std::vector<master::Info> Pool::enumerate() const {
     if (this->manager == nullptr) return {};
@@ -35,7 +39,15 @@ Pool::acquire_unlocked(const std::string &key) {
         };
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
-    auto eng = std::make_shared<Engine>(std::move(m));
+    engine::Config cfg;
+    if (this->rt_manager != nullptr) {
+        x::thread::rt::Config base_rt;
+        base_rt.enabled = true;
+        cfg.rt_handle = std::make_shared<x::thread::rt::Handle>(
+            this->rt_manager->allocate(base_rt)
+        );
+    }
+    auto eng = std::make_shared<Engine>(std::move(m), cfg);
     this->engines[key] = eng;
     return {eng, x::errors::NIL};
 }

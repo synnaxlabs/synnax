@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Write", func() {
 	var db *virtual.DB
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		db = MustSucceed(virtual.Open(ctx, virtual.Config{
 			MetaCodec: codec,
 			Channel: channel.Channel{
@@ -41,7 +41,7 @@ var _ = Describe("Write", func() {
 	})
 	Describe("Control", func() {
 		Describe("ErrOnUnauthorizedOpen", func() {
-			It("Should return an error if the writer does not acquire control", func() {
+			It("Should return an error if the writer does not acquire control", func(ctx SpecContext) {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute,
@@ -65,7 +65,7 @@ var _ = Describe("Write", func() {
 		})
 
 		Describe("Write", func() {
-			It("Should return an unauthorized error when the write is not authorized", func() {
+			It("Should return an unauthorized error when the write is not authorized", func(ctx SpecContext) {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute,
@@ -88,7 +88,7 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 			})
 
-			It("Should return an error when writing a series with the wrong data type", func() {
+			It("Should return an error when writing a series with the wrong data type", func(ctx SpecContext) {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,
@@ -104,7 +104,7 @@ var _ = Describe("Write", func() {
 		})
 
 		Describe("Close", func() {
-			It("Should not return an error when the same writer is closed multiple times", func() {
+			It("Should not return an error when the same writer is closed multiple times", func(ctx SpecContext) {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,
@@ -117,7 +117,7 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeFalse())
 			})
 
-			It("Should return an error on Write when the DB is closed", func() {
+			It("Should return an error on Write when the DB is closed", func(ctx SpecContext) {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,
@@ -133,7 +133,7 @@ var _ = Describe("Write", func() {
 		})
 
 		Describe("SetAuthority", func() {
-			It("Should correctly set the authority of the writer", func() {
+			It("Should correctly set the authority of the writer", func(ctx SpecContext) {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute - 2,

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package migrate provides utilities for handling data migrations between different
-// versions of a schema or data structure.
 package migrate
 
 import (
@@ -16,138 +14,122 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/version"
+	"github.com/synnaxlabs/x/graph"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
-// Migratable represents a type that can be migrated between versions
-type Migratable interface {
-	GetVersion() version.Counter
+// Migration is a high level interface that represents an abstract data migration.
+// A migration only runs once. It is identified by its key, which must be unique
+// across all migrations that are run together.
+type Migration interface {
+	// Key returns a unique identifier for the migration.
+	Key() string
+	// Dependencies returns a list of migration keys that this migration depends on.
+	Dependencies() set.Set[string]
+	// Run executes the migration.
+	Run(ctx context.Context, ins alamos.Instrumentation) error
 }
 
-// Context is provided for use by each migration.
-type Context struct {
-	// Context is the underlying std. context.
-	context.Context
-	// Instrumentation can be used for logging, tracing, etc.
+// Config is the configuration for Migrate.
+type Config struct {
 	alamos.Instrumentation
+	// Migrations is the full list of migrations to consider.
+	Migrations []Migration
+	// Applied is the set of migration keys that have already been run. Migrate
+	// will skip these and only execute pending ones. A nil set is treated as empty.
+	Applied set.Set[string]
 }
 
-// Migration represents a function that can migrate data from one version to another
-type Migration[I, O Migratable] func(Context, I) (O, error)
-
-// MigrationConfig holds the configuration for creating a migration
-type MigrationConfig[I, O Migratable] struct {
-	// Migrate is the migration function.
-	Migrate Migration[I, O]
-	// Name is the name of the migration
-	Name string
-}
-
-// CreateMigration creates a new migration with logging
-func CreateMigration[I, O Migratable](cfg MigrationConfig[I, O]) Migration[Migratable, Migratable] {
-	return func(ctx Context, input Migratable) (Migratable, error) {
-		var zero O
-		out, err := cfg.Migrate(ctx, input.(I))
-		if err != nil {
-			ctx.L.Error("migration failed",
-				zap.String("module", cfg.Name),
-				zap.Int("input_version", int(input.GetVersion())),
-				zap.Int("output_version", int(out.GetVersion())), zap.Error(err))
-			return zero, errors.Wrapf(err, "migration %s failed for version %s to %s", cfg.Name, input.GetVersion(), out.GetVersion())
-		}
-		ctx.L.Info("migration completed",
-			zap.String("module", cfg.Name),
-			zap.Int("input_version", int(input.GetVersion())),
-			zap.Int("output_version", int(out.GetVersion())),
-		)
-		return out, nil
+// Migrate topologically sorts the provided migrations, skips any that are already
+// applied, and runs the remaining ones in dependency order. It returns the updated
+// applied set. All migration keys must be unique.
+func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
+	if cfg.Applied == nil {
+		cfg.Applied = make(set.Set[string])
 	}
-}
-
-// Migrations is a map of version strings to migration functions
-type Migrations map[version.Counter]Migration[Migratable, Migratable]
-
-// LatestVersion returns the most recent (highest) version in the migrations.
-func (m Migrations) LatestVersion() version.Counter {
-	var latestV version.Counter
-	for v := range m {
-		if v.NewerThan(latestV) {
-			latestV = v
+	byKey := make(map[string]Migration, len(cfg.Migrations))
+	adj := make(map[string][]string)
+	for _, m := range cfg.Migrations {
+		k := m.Key()
+		if _, dup := byKey[k]; dup {
+			return nil, errors.Newf("duplicate migration name %q", k)
 		}
-	}
-	return latestV
-}
-
-// MigratorConfig holds the configuration for creating a migrator
-type MigratorConfig[I, O Migratable] struct {
-	alamos.Instrumentation
-	Default    O
-	Migrations Migrations
-	Name       string
-}
-
-// NewMigrator creates a function that can migrate data from one version to another
-func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
-	if len(cfg.Migrations) == 0 {
-		return func(v I) O {
-			if v.GetVersion() != cfg.Default.GetVersion() {
-				cfg.L.Warn("no migrations available, using default",
-					zap.String("module", cfg.Name),
-					zap.Int("version", int(v.GetVersion())),
-					zap.Int("default_version", int(cfg.Default.GetVersion())),
-				)
+		byKey[k] = m
+		if cfg.Applied.Contains(k) {
+			continue
+		}
+		adj[k] = nil
+		for dep := range m.Dependencies() {
+			if !cfg.Applied.Contains(dep) {
+				adj[k] = append(adj[k], dep)
 			}
-			return cfg.Default
 		}
 	}
-
-	var (
-		applied bool
-		migrate func(Migratable) (O, error)
-		latestV = cfg.Migrations.LatestVersion()
+	if len(adj) == 0 {
+		cfg.L.Info("all migrations already applied", zap.Int("applied", len(cfg.Applied)))
+		return cfg.Applied, nil
+	}
+	order, err := graph.TopoSort(adj)
+	if err != nil {
+		return nil, err
+	}
+	cfg.L.Info(
+		"running migrations",
+		zap.Strings("already_applied", cfg.Applied.ToSlice()),
+		zap.Strings("pending", order),
 	)
-	migrate = func(old Migratable) (O, error) {
-		v := old.GetVersion()
-		if old.GetVersion().NewerThan(latestV) {
-			if applied {
-				cfg.L.Info("migration complete",
-					zap.String("module", cfg.Name),
-					zap.Int("version", int(v)),
-				)
-			} else {
-				cfg.L.Info("version up to date",
-					zap.String("module", cfg.Name),
-					zap.Int("version", int(v)),
-					zap.Int("target_version", int(cfg.Default.GetVersion())),
-				)
-			}
-			return old.(O), nil
+	for _, key := range order {
+		cfg.L.Info("running migration", zap.String("migration", key))
+		if err = byKey[key].Run(ctx, cfg.Instrumentation); err != nil {
+			cfg.L.Error("migration failed", zap.String("migration", key), zap.Error(err))
+			return nil, errors.Wrapf(err, "migration %s failed", key)
 		}
+		cfg.L.Info("migration completed", zap.String("migration", key))
+		cfg.Applied.Add(key)
+	}
+	return cfg.Applied, nil
+}
 
-		migration, ok := cfg.Migrations[v]
+type addedDeps struct {
+	addedDeps set.Set[string]
+	Migration
+}
+
+func (a *addedDeps) Dependencies() set.Set[string] {
+	deps := a.Migration.Dependencies().Copy()
+	deps.Add(a.addedDeps.ToSlice()...)
+	return deps
+}
+
+// Unwrap returns the innermost Migration if m wraps another (e.g. via
+// WithAddedDeps). If m does not wrap anything, it returns m unchanged.
+func Unwrap(m Migration) Migration {
+	type wrapper interface{ Unwrap() Migration }
+	for {
+		w, ok := m.(wrapper)
 		if !ok {
-			return cfg.Default, errors.Newf("no migration found for v %v", int(v))
+			return m
 		}
-
-		next, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)
-		if err != nil {
-			return cfg.Default, err
-		}
-
-		applied = true
-		return migrate(next)
+		m = w.Unwrap()
 	}
+}
 
-	return func(v I) O {
-		result, err := migrate(v)
-		if err != nil {
-			cfg.L.Error("migration failed",
-				zap.String("module", cfg.Name),
-				zap.Error(err),
-			)
-			return cfg.Default
-		}
-		return result
+// Unwrap implements wrapper.
+func (a *addedDeps) Unwrap() Migration { return a.Migration }
+
+// WithAddedDeps wraps a Migration to declare additional dependencies beyond what
+// it already declares. The original migration is not mutated.
+func WithAddedDeps(base Migration, deps ...string) Migration {
+	return &addedDeps{addedDeps: set.New(deps...), Migration: base}
+}
+
+// AllWithAddedDeps applies WithAddedDeps to every migration in the slice,
+// returning a new slice. The original migrations are not mutated.
+func AllWithAddedDeps(migrations []Migration, deps ...string) []Migration {
+	result := make([]Migration, len(migrations))
+	for i, m := range migrations {
+		result[i] = WithAddedDeps(m, deps...)
 	}
+	return result
 }

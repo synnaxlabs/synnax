@@ -1,0 +1,33 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/ranger"
+import "schemas/channel"
+
+@go output "core/pkg/service/ranger/alias"
+@ts output "client/ts/src/range/alias"
+@pb
+
+Alias struct {
+    range   ranger.Key  {
+        @doc value "is the unique identifier of the range containing this alias."
+    }
+    channel channel.Key {
+        @doc value "is the unique identifier of the channel being aliased."
+    }
+    alias   string      {
+        @doc value "is the human-readable name for the channel within this range context."
+    }
+
+    @doc value """
+        associates a human-readable string alias with a channel within the 
+        context of a specific range. Enables semantic naming of channels that varies by 
+        range context.
+    """
+}

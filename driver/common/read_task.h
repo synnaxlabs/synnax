@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
 #include "driver/common/status.h"
@@ -103,16 +104,16 @@ struct Source {
 };
 
 /// @brief a read task that can pull from both analog and digital channels.
-class ReadTask final : public task::Task {
+class ReadTask final : public driver::task::Task {
     /// @brief the task context used to communicate state changes back to Synnax.
     /// @brief tare middleware used for taring values.
-    transform::Tare tare;
+    driver::transform::Tare tare;
     /// @brief handles communicating the task state back to the cluster.
     StatusHandler state;
 
     /// @brief a wrapped source that gracefully handles shutdown when a hardware
     /// read fails or the pipeline fails to write to Synnax.
-    class InternalSource final : public pipeline::Source {
+    class InternalSource final : public driver::pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
 
@@ -158,6 +159,8 @@ class ReadTask final : public task::Task {
 
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
+            if (cfg.subject.key.empty())
+                cfg.subject.key = std::to_string(this->p.state.task.key);
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
         }
@@ -167,7 +170,7 @@ class ReadTask final : public task::Task {
 
     /// @brief the pipeline used to read data from the hardware and pipe it to
     /// Synnax.
-    pipeline::Acquisition pipe;
+    driver::pipeline::Acquisition pipe;
 
 public:
     /// @brief base constructor that takes in a pipeline writer factory to allow the
@@ -177,9 +180,9 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Source> source,
-        const std::shared_ptr<pipeline::WriterFactory> &factory
+        const std::shared_ptr<driver::pipeline::WriterFactory> &factory
     ):
-        tare(transform::Tare(source->channels())),
+        tare(driver::transform::Tare(source->channels())),
         state(ctx, task),
         source(std::make_shared<InternalSource>(*this, std::move(source))),
         pipe(
@@ -203,11 +206,11 @@ public:
             ctx,
             breaker_cfg,
             std::move(source),
-            std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client)
+            bypass::pipeline::create_writer_factory(ctx)
         ) {}
 
     /// @brief executes the given command on the task.
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")
@@ -242,7 +245,7 @@ public:
         return start_ok;
     }
 
-    /// @brief implements task::Task.
+    /// @brief implements driver::task::Task.
     std::string name() const override { return this->state.task.name; }
 };
 

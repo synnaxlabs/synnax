@@ -44,7 +44,7 @@ const encodeTestError = (err: errors.Typed): errors.Payload => {
 const decodeTestError = (encoded: errors.Payload): errors.Typed | null => {
   if (encoded.type !== "integration.error") return null;
   const [code, message] = encoded.data.split(",");
-  return new MyCustomError(message, parseInt(code));
+  return new MyCustomError(message, parseInt(code, 10));
 };
 
 errors.register({

@@ -24,11 +24,9 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "policy"
-
 // OntologyID constructs a unique ontology.ID for the Policy with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.ResourceTypePolicy, Key: k.String()}
 }
 
 // OntologyIDs constructs a slice of unique ontology.IDs for the Policys with the given
@@ -67,7 +65,7 @@ func newResource(p Policy) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Policy]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypePolicy }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -92,7 +90,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key),
+		Key:     OntologyID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -102,12 +100,12 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Policy]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Policy](s.cfg.DB).OnChange(handleChange)
+	return s.table.Observe().OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, Policy](s.cfg.DB).OpenNexter(ctx)
+	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

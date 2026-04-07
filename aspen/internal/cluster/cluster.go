@@ -56,7 +56,7 @@ func newNodeNotFoundError(key node.Key) error {
 // Cluster state from storage (see Config.Storage and Config.StorageKey).
 // If provisioning a new Cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
-func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
+func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 	cfg, err := newConfig(ctx, configs)
 	if err != nil {
 		return nil, err
@@ -64,15 +64,20 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 
 	sCtx, cancel := signal.WithCancel(cfg.T.Transfer(ctx, context.Background()))
 
-	c := &Cluster{
+	c = &Cluster{
 		Store:    cfg.Gossip.Store,
 		shutdown: signal.NewHardShutdown(sCtx, cancel),
 		Config:   cfg,
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, c.shutdown.Close())
+		}
+	}()
 
 	// Attempt to open the Cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return nil, err
 	}
 	c.SetState(ctx, state)
@@ -240,7 +245,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	}
 	encoded, closer, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
-		return state, lo.Ternary(errors.Is(err, kv.ErrNotFound), nil, err)
+		return state, lo.Ternary(errors.Is(err, query.ErrNotFound), nil, err)
 	}
 	err = cfg.Codec.Decode(ctx, encoded, &state)
 	err = errors.Combine(err, closer.Close())

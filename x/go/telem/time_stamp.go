@@ -13,8 +13,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/clamp"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 )
 
 const (
@@ -24,9 +24,6 @@ const (
 	TimeStampMax = TimeStamp(^uint64(0) >> 1)
 )
 
-// TimeStamp stores an epoch time in nanoseconds.
-type TimeStamp int64
-
 var (
 	_ json.Marshaler   = TimeStamp(0)
 	_ json.Unmarshaler = (*TimeStamp)(nil)
@@ -34,14 +31,14 @@ var (
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringInt64(b)
+	n, err := xjson.UnmarshalStringInt64(b)
 	*ts = TimeStamp(n)
 	return err
 }
 
 // MarshalJSON implements json.Marshaler.
 func (ts TimeStamp) MarshalJSON() ([]byte, error) {
-	return binary.MarshalStringInt64(int64(ts))
+	return xjson.MarshalStringInt64(int64(ts))
 }
 
 // Now returns the current time as a TimeStamp.

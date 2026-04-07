@@ -26,11 +26,14 @@ import (
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -39,7 +42,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the distribution layer.  See fields for
+// LayerConfig is the configuration for opening the distribution layer.  See fields for
 // details on defining the configuration.
 type LayerConfig struct {
 	// ChannelTransport is the network transport used for channel-related RPCs.
@@ -54,16 +57,12 @@ type LayerConfig struct {
 	// cluster meta-data DB (gorp).
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
-	GorpCodec binary.Codec
+	GorpCodec encoding.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
-	// EnableSearch sets whether search indexing is enabled for cluster resources.
-	//
-	// [OPTIONAL] - Defaults to true
-	EnableSearch *bool
 	// TestingIntOverflowCheck is used for overriding default verifier behavior
 	// for testing purposes only.
 	//
@@ -116,8 +115,7 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		EnableSearch:         new(true),
-		GorpCodec:            &binary.MsgPackCodec{},
+		GorpCodec:            orc.NewCodec(msgpack.Codec),
 		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
 	}
@@ -135,7 +133,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
 	c.Verifier = override.String(c.Verifier, other.Verifier)
 	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
-	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
 	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
@@ -151,7 +148,6 @@ func (c LayerConfig) Validate() error {
 	validate.NotNil(v, "channel_transport", c.ChannelTransport)
 	validate.NotNil(v, "frame_transport", c.FrameTransport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
-	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
 	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
 	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
@@ -179,6 +175,9 @@ type Layer struct {
 	// acyclic graph. It is the main method for defining relationships between resources
 	// in Synnax.
 	Ontology *ontology.Ontology
+	// Search is the full-text search index for ontology resources.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals are for propagating changes to data structures through channels in
 	// Synnax.
 	Signals *signals.Provider
@@ -229,11 +228,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	l.Cluster = aspenDB.Cluster
 	l.DB = gorp.Wrap(
 		aspenDB,
-		gorp.WithCodec(&binary.TracingCodec{
-			Level:           alamos.EnvironmentBench,
-			Instrumentation: cfg.Instrumentation,
-			Codec:           cfg.GorpCodec,
-		}),
+		gorp.WithCodec(cfg.GorpCodec),
 	)
 
 	if l.Ontology, err = ontology.Open(
@@ -246,11 +241,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
+	if l.Search, err = search.Open(search.Config{
+		Instrumentation: cfg.Child("search"),
+	}); err != nil {
+		return nil, err
+	}
+
 	if l.Group, err = group.OpenService(
 		ctx,
 		group.ServiceConfig{
-			DB:       l.DB,
-			Ontology: l.Ontology,
+			Instrumentation: cfg.Child("group"),
+			DB:              l.DB,
+			Ontology:        l.Ontology,
+			Search:          l.Search,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -263,6 +266,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	clusterOntologySvc := &cluster.OntologyService{Cluster: l.Cluster}
 	l.Ontology.RegisterService(clusterOntologySvc)
 	l.Ontology.RegisterService(nodeOntologySvc)
+	l.Search.RegisterService(clusterOntologySvc)
+	l.Search.RegisterService(nodeOntologySvc)
 
 	nodeOntologySvc.ListenForChanges(ctx)
 
@@ -274,13 +279,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
-		HostResolver: l.Cluster,
-		ClusterDB:    l.DB,
-		TSChannel:    cfg.Storage.TS,
-		Transport:    cfg.ChannelTransport,
-		Ontology:     l.Ontology,
-		Group:        l.Group,
+	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+		Instrumentation: cfg.Child("channel"),
+		HostResolver:    l.Cluster,
+		ClusterDB:       l.DB,
+		TSChannel:       cfg.Storage.TS,
+		Transport:       cfg.ChannelTransport,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Group:           l.Group,
 		IntOverflowCheck: lo.Ternary(
 			cfg.TestingIntOverflowCheck != nil,
 			cfg.TestingIntOverflowCheck,
@@ -291,7 +298,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Framer, err = framer.OpenService(framer.ServiceConfig{
+	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,
@@ -318,12 +325,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		if channelSignalsCloser, err = channelsignals.Publish(
 			ctx,
 			l.Signals,
-			l.DB,
+			l.Channel.Observe(),
 		); !ok(err, channelSignalsCloser) {
 			return nil, err
 		}
 		var groupSignalsCloser io.Closer
-		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.Group.Observe()); !ok(err, groupSignalsCloser) {
 			return nil, err
 		}
 	}

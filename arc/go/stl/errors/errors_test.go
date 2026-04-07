@@ -10,43 +10,38 @@
 package errors_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero/experimental/wazerotest"
 )
 
 var _ = Describe("errors", func() {
 	var (
-		ctx context.Context
 		rt  *testutil.Runtime
 		mod *errors.Module
 	)
 
-	BeforeEach(func() {
-		ctx = context.Background()
+	BeforeEach(func(ctx SpecContext) {
 		rt = testutil.NewRuntime(ctx)
-		var err error
-		mod, err = errors.NewModule(ctx, nil, rt.Underlying())
-		Expect(err).ToNot(HaveOccurred())
+		mod = MustSucceed(errors.NewModule(ctx, nil, rt.Underlying()))
 		rt.Passthrough(ctx, "error")
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		Expect(rt.Close(ctx)).To(Succeed())
 	})
 
 	Describe("panic", func() {
-		It("Should panic with 'memory not set' when memory is nil", func() {
+		It("Should panic with 'memory not set' when memory is nil", func(ctx SpecContext) {
 			Expect(func() {
 				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(5))
 			}).To(PanicWith(ContainSubstring("memory not set")))
 		})
 
-		It("Should panic with the message read from memory", func() {
+		It("Should panic with the message read from memory", func(ctx SpecContext) {
 			mem := wazerotest.NewMemory(1)
 			mem.Write(0, []byte("test error"))
 			mod.SetMemory(mem)
@@ -55,7 +50,7 @@ var _ = Describe("errors", func() {
 			}).To(PanicWith(ContainSubstring("arc panic: test error")))
 		})
 
-		It("Should panic with 'message unreadable' when memory read fails", func() {
+		It("Should panic with 'message unreadable' when memory read fails", func(ctx SpecContext) {
 			mem := wazerotest.NewMemory(1)
 			mod.SetMemory(mem)
 			Expect(func() {
@@ -63,7 +58,7 @@ var _ = Describe("errors", func() {
 			}).To(PanicWith(ContainSubstring("arc panic (message unreadable)")))
 		})
 
-		It("Should panic with empty message when length is zero", func() {
+		It("Should panic with empty message when length is zero", func(ctx SpecContext) {
 			mem := wazerotest.NewMemory(1)
 			mod.SetMemory(mem)
 			Expect(func() {

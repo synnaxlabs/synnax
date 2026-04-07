@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from xpy import get_random_name
-
+import synnax as sy
 from console.case import ConsoleCase
+from x import random_name
 
 
 class StatusLifecycle(ConsoleCase):
@@ -26,7 +26,7 @@ class StatusLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.label_a_name = f"StatusLabelA_{self.suffix}"
         self.label_b_name = f"StatusLabelB_{self.suffix}"
         self.status_a_name = f"StatusA_{self.suffix}"
@@ -72,6 +72,7 @@ class StatusLifecycle(ConsoleCase):
         self.test_status_exists_in_explorer()
         self.test_status_has_labels()
         self.test_filter_by_labels()
+        self.test_filter_by_variant()
         self.test_favorite_unfavorite_from_explorer()
         self.test_delete_single_status()
         self.test_delete_multiple_statuses()
@@ -87,19 +88,19 @@ class StatusLifecycle(ConsoleCase):
         notification_status_name = f"NotifyStatus_{self.suffix}"
         self.console.statuses.notifications.close_all()
         self.console.statuses.create(notification_status_name)
-        assert self.console.statuses.notifications.wait_for(
-            notification_status_name
-        ), f"Notification for '{notification_status_name}' should appear"
+        assert self.console.statuses.notifications.wait_for(notification_status_name), (
+            f"Notification for '{notification_status_name}' should appear"
+        )
 
     def test_status_exists_in_explorer(self) -> None:
         """Test that created statuses appear in the explorer."""
         self.log("Testing: Statuses exist in explorer")
-        assert self.console.statuses.exists_in_explorer(
-            self.status_a_name
-        ), f"Status '{self.status_a_name}' should exist in explorer"
-        assert self.console.statuses.exists_in_explorer(
-            self.status_b_name
-        ), f"Status '{self.status_b_name}' should exist in explorer"
+        assert self.console.statuses.exists_in_explorer(self.status_a_name), (
+            f"Status '{self.status_a_name}' should exist in explorer"
+        )
+        assert self.console.statuses.exists_in_explorer(self.status_b_name), (
+            f"Status '{self.status_b_name}' should exist in explorer"
+        )
 
     def test_status_has_labels(self) -> None:
         """Test that status_a displays both labels in the explorer."""
@@ -120,22 +121,53 @@ class StatusLifecycle(ConsoleCase):
         self.console.statuses.open_explorer()
         self.console.statuses.select_explorer_label_filter(self.label_a_name)
 
-        assert self.console.statuses.exists_in_explorer(
-            self.status_a_name
-        ), f"'{self.status_a_name}' should be visible when filtering by its label"
+        assert self.console.statuses.exists_in_explorer(self.status_a_name), (
+            f"'{self.status_a_name}' should be visible when filtering by its label"
+        )
 
         self.console.statuses.wait_for_removed_from_explorer(self.status_c_name)
 
         self.console.statuses.clear_explorer_label_filter(self.label_a_name)
+
+    def test_filter_by_variant(self) -> None:
+        """Test filtering statuses by variant in the explorer."""
+        self.log("Testing: Filter statuses by variant")
+        error_status_name = f"ErrorStatus_{self.suffix}"
+        self.client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_ERROR,
+                message="Error for filter test",
+                name=error_status_name,
+            )
+        )
+        self.console.statuses.open_explorer()
+
+        assert self.console.statuses.exists_in_explorer(error_status_name), (
+            f"'{error_status_name}' should be visible before filtering"
+        )
+
+        self.console.statuses.select_explorer_variant_filter("Error")
+
+        assert self.console.statuses.exists_in_explorer(error_status_name), (
+            f"'{error_status_name}' should remain when filtering by Error variant"
+        )
+
+        self.console.statuses.wait_for_removed_from_explorer(self.status_d_name)
+
+        self.console.statuses.clear_explorer_variant_filter("Error")
+
+        statuses = self.client.statuses.retrieve(search_term=error_status_name)
+        if len(statuses) > 0:
+            self.client.statuses.delete([s.key for s in statuses])
 
     def test_favorite_unfavorite_from_explorer(self) -> None:
         """Test favoriting then unfavoriting a status via the explorer context menu."""
         self.log("Testing: Favorite and unfavorite status from explorer")
         self.console.statuses.favorite_from_explorer(self.status_a_name)
 
-        assert self.console.statuses.exists_in_toolbar(
-            self.status_a_name
-        ), f"'{self.status_a_name}' should appear in toolbar after favoriting"
+        assert self.console.statuses.exists_in_toolbar(self.status_a_name), (
+            f"'{self.status_a_name}' should appear in toolbar after favoriting"
+        )
 
         self.console.statuses.unfavorite_from_explorer(self.status_a_name)
 
@@ -166,9 +198,9 @@ class StatusLifecycle(ConsoleCase):
         )
 
         self.console.statuses.open_explorer()
-        assert self.console.statuses.exists_in_explorer(
-            self.status_d_renamed
-        ), f"'{self.status_d_renamed}' should appear in explorer after rename"
+        assert self.console.statuses.exists_in_explorer(self.status_d_renamed), (
+            f"'{self.status_d_renamed}' should appear in explorer after rename"
+        )
 
     def test_unfavorite_from_toolbar(self) -> None:
         """Test unfavoriting a status from the toolbar."""

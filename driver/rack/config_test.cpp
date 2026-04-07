@@ -176,7 +176,7 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
     );
 
     const auto [cfg, err] = Config::load(args_with_config, brk);
-    ASSERT_OCCURRED_AS(err, synnax::auth::AUTH_ERROR);
+    ASSERT_OCCURRED_AS(err, synnax::auth::ERR);
     ASSERT_EQ(cfg.connection.host, "localhost");
     ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "arguser");
@@ -192,7 +192,7 @@ TEST_F(RackConfigTest, loadFromEnvironmentVariables) {
     x::env::set("SYNNAX_DRIVER_PASSWORD", "envpass");
 
     const auto [cfg, err] = Config::load(args, brk);
-    ASSERT_OCCURRED_AS(err, synnax::auth::AUTH_ERROR);
+    ASSERT_OCCURRED_AS(err, synnax::auth::ERR);
     ASSERT_EQ(cfg.connection.host, "localhost");
     ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "envuser");
@@ -247,7 +247,7 @@ TEST_F(RackConfigTest, configurationPrecedence) {
     );
 
     const auto [cfg, err] = Config::load(args_with_config, brk);
-    ASSERT_OCCURRED_AS(err, synnax::auth::AUTH_ERROR);
+    ASSERT_OCCURRED_AS(err, synnax::auth::ERR);
 
     // Command line args should take precedence
     ASSERT_EQ(cfg.connection.host, "localhost");

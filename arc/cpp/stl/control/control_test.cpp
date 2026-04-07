@@ -36,21 +36,21 @@ struct TestSetup {
 
 private:
     static ir::IR build_ir(const uint8_t auth_value, const uint32_t channel) {
-        ir::Param authority_param;
+        types::Param authority_param;
         authority_param.name = "value";
-        authority_param.type = types::Type(types::Kind::U8);
+        authority_param.type.kind = types::Kind::U8;
         authority_param.value = auth_value;
 
-        ir::Param channel_param;
+        types::Param channel_param;
         channel_param.name = "channel";
-        channel_param.type = types::Type(types::Kind::U32);
+        channel_param.type.kind = types::Kind::U32;
         channel_param.value = channel;
 
         ir::Node ir_node;
         ir_node.key = "set_auth";
         ir_node.type = "set_authority";
-        ir_node.config.params.push_back(authority_param);
-        ir_node.config.params.push_back(channel_param);
+        ir_node.config.push_back(authority_param);
+        ir_node.config.push_back(channel_param);
 
         ir::Function fn;
         fn.key = "test";
@@ -69,6 +69,19 @@ runtime::node::Context make_context() {
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
+}
+
+TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
+    TestSetup setup(100, 42);
+    auto ir_node = setup.ir.nodes[0];
+    for (auto &p: ir_node.config)
+        if (p.name == "value") p.value = nullptr;
+
+    authority::Module module(setup.state);
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
+        x::errors::VALIDATION
+    );
 }
 
 TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {

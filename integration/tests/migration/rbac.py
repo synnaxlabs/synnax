@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from framework.test_case import TestCase
 
@@ -131,8 +130,7 @@ class RBACSetup(RBACMigration):
 
             role_names = _get_user_role_names(self.client, spec.username)
             assert spec.role in role_names, (
-                f"User '{spec.username}': expected role '{spec.role}', "
-                f"got {role_names}"
+                f"User '{spec.username}': expected role '{spec.role}', got {role_names}"
             )
 
     def test_builtin_roles(self) -> None:
@@ -140,9 +138,9 @@ class RBACSetup(RBACMigration):
         internal = self.client.access.roles.retrieve(internal=True)
         names = {r.name for r in internal}
         for expected in BUILTIN_ROLES:
-            assert (
-                expected in names
-            ), f"Built-in role '{expected}' not found. Got: {names}"
+            assert expected in names, (
+                f"Built-in role '{expected}' not found. Got: {names}"
+            )
 
 
 class RBACVerify(ConsoleCase, RBACMigration):
@@ -161,13 +159,11 @@ class RBACVerify(ConsoleCase, RBACMigration):
         roles = self.client.access.roles.retrieve(internal=False)
         match = [r for r in roles if r.name == CUSTOM_ROLE_NAME]
         assert len(match) >= 1, (
-            f"Custom role '{CUSTOM_ROLE_NAME}' not found in "
-            f"{[r.name for r in roles]}"
+            f"Custom role '{CUSTOM_ROLE_NAME}' not found in {[r.name for r in roles]}"
         )
         role = match[0]
         assert role.description == CUSTOM_ROLE_DESCRIPTION, (
-            f"Description mismatch: '{role.description}' != "
-            f"'{CUSTOM_ROLE_DESCRIPTION}'"
+            f"Description mismatch: '{role.description}' != '{CUSTOM_ROLE_DESCRIPTION}'"
         )
         assert role.key is not None
         self.custom_role_key = role.key
@@ -190,8 +186,7 @@ class RBACVerify(ConsoleCase, RBACMigration):
         for spec in USERS:
             role_names = _get_user_role_names(self.client, spec.username)
             assert spec.role in role_names, (
-                f"User '{spec.username}': expected role '{spec.role}', "
-                f"got {role_names}"
+                f"User '{spec.username}': expected role '{spec.role}', got {role_names}"
             )
 
     def test_builtin_roles(self) -> None:
@@ -199,21 +194,21 @@ class RBACVerify(ConsoleCase, RBACMigration):
         internal = self.client.access.roles.retrieve(internal=True)
         names = {r.name for r in internal}
         for expected in BUILTIN_ROLES:
-            assert (
-                expected in names
-            ), f"Built-in role '{expected}' not found. Got: {names}"
+            assert expected in names, (
+                f"Built-in role '{expected}' not found. Got: {names}"
+            )
 
     def test_users_in_console(self) -> None:
         self.log("Testing: Users visible under correct roles in console")
         visible_roles = self.console.access.list_visible_roles()
-        assert (
-            CUSTOM_ROLE_NAME in visible_roles
-        ), f"Role '{CUSTOM_ROLE_NAME}' not in console: {visible_roles}"
+        assert CUSTOM_ROLE_NAME in visible_roles, (
+            f"Role '{CUSTOM_ROLE_NAME}' not in console: {visible_roles}"
+        )
         for spec in USERS:
             self.console.access.expand_role(spec.role)
             users = self.console.access.list_users_under_role(spec.role)
             assert spec.username in users, (
-                f"User '{spec.username}' not under role " f"'{spec.role}': {users}"
+                f"User '{spec.username}' not under role '{spec.role}': {users}"
             )
 
     def test_user_logins(self) -> None:

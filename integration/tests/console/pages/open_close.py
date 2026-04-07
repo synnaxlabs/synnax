@@ -7,10 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from xpy import get_random_name
-
 from console.case import ConsoleCase
 from console.workspace import PageType
+from x import random_name
 
 
 class OpenClose(ConsoleCase):
@@ -30,7 +29,7 @@ class OpenClose(ConsoleCase):
         Test Opening and closing pages
         """
         console = self.console
-        suffix = get_random_name()
+        suffix = random_name()
 
         WORKSPACE_PAGES: list[tuple[PageType, str]] = [
             ("Schematic", f"Sch_{suffix}"),
@@ -75,9 +74,9 @@ class OpenClose(ConsoleCase):
 
         # Should see "New Component" if all pages closed successfully
         pass_condition = self.page.get_by_text("New Component").count() > 0
-        assert (
-            pass_condition
-        ), "Some pages were not closed - 'New Component' screen not visible"
+        assert pass_condition, (
+            "Some pages were not closed - 'New Component' screen not visible"
+        )
 
         console.workspace.delete_pages(self._page_names)
         self._pages_deleted = True

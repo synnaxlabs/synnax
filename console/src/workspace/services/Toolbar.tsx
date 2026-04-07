@@ -16,17 +16,19 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/workspace/Create";
 
-const CreateButton = (): ReactElement | null => {
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
-  if (!canCreateWorkspace) return null;
+  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission) return null;
   return (
-    <Toolbar.Action
-      onClick={() => placeLayout(CREATE_LAYOUT)}
-      tooltip="Create workspace"
-    >
-      <Icon.Add />
-    </Toolbar.Action>
+    <Toolbar.Actions>
+      <Toolbar.Action
+        onClick={() => placeLayout(CREATE_LAYOUT)}
+        tooltip="Create workspace"
+      >
+        <Icon.Add />
+      </Toolbar.Action>
+    </Toolbar.Actions>
   );
 };
 
@@ -36,9 +38,7 @@ const Content = (): ReactElement => {
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
-        <Toolbar.Actions>
-          <CreateButton />
-        </Toolbar.Actions>
+        <Actions />
       </Toolbar.Header>
       <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
@@ -47,12 +47,12 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
       message="No workspaces found."
-      action={canCreateWorkspace ? "Create a workspace" : undefined}
+      action={hasCreatePermission ? "Create a workspace" : undefined}
       onClick={handleClick}
     />
   );

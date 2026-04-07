@@ -11,9 +11,9 @@ import json
 from typing import Protocol
 
 import msgpack
-from alamos import Instrumentation, trace
 from pydantic import BaseModel
 
+from alamos import Instrumentation, trace
 from freighter.transport import P
 
 

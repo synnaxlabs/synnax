@@ -10,6 +10,8 @@
 package status_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -26,39 +28,39 @@ import (
 
 var _ = Describe("SymbolResolver", func() {
 	Describe("Resolve", func() {
-		It("Should resolve set_status by name", func() {
+		It("Should resolve set_status by name", func(ctx SpecContext) {
 			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
 			Expect(sym.Name).To(Equal("set_status"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 
-		It("Should return an error for an unknown name", func() {
+		It("Should return an error for an unknown name", func(ctx SpecContext) {
 			Expect(arcstatus.SymbolResolver.Resolve(ctx, "unknown")).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Search", func() {
-		It("Should return set_status when searching with a matching term", func() {
+		It("Should return set_status when searching with a matching term", func(ctx SpecContext) {
 			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set_status"))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Name).To(Equal("set_status"))
 		})
 
-		It("Should return an empty slice for a non-matching term", func() {
+		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
 			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "nonexistent"))
 			Expect(results).To(BeEmpty())
 		})
 	})
 
 	Describe("Type Signature", func() {
-		It("Should have the correct function type", func() {
+		It("Should have the correct function type", func(ctx SpecContext) {
 			sym, ok := arcstatus.SymbolResolver["set_status"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Type.Kind).To(Equal(types.KindFunction))
 		})
 
-		It("Should have four config parameters", func() {
+		It("Should have four config parameters", func(ctx SpecContext) {
 			sym, ok := arcstatus.SymbolResolver["set_status"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Type.Config).To(HaveLen(4))
@@ -68,7 +70,7 @@ var _ = Describe("SymbolResolver", func() {
 			Expect(sym.Type.Config[3].Name).To(Equal("name"))
 		})
 
-		It("Should have a single u8 input parameter", func() {
+		It("Should have a single u8 input parameter", func(ctx SpecContext) {
 			sym, ok := arcstatus.SymbolResolver["set_status"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Type.Inputs).To(HaveLen(1))
@@ -81,43 +83,43 @@ var _ = Describe("SymbolResolver", func() {
 var _ = Describe("Module", func() {
 	var mod *arcstatus.Module
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		mod = arcstatus.NewModule(statSvc)
 	})
 
 	Describe("Resolve", func() {
-		It("Should resolve set_status", func() {
+		It("Should resolve set_status", func(ctx SpecContext) {
 			sym := MustSucceed(mod.Resolve(ctx, "set_status"))
 			Expect(sym.Name).To(Equal("set_status"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 
-		It("Should return an error for an unknown symbol", func() {
+		It("Should return an error for an unknown symbol", func(ctx SpecContext) {
 			Expect(mod.Resolve(ctx, "nonexistent")).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Search", func() {
-		It("Should return set_status for a matching term", func() {
+		It("Should return set_status for a matching term", func(ctx SpecContext) {
 			results := MustSucceed(mod.Search(ctx, "set_status"))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Name).To(Equal("set_status"))
 		})
 
-		It("Should return an empty slice for a non-matching term", func() {
+		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
 			results := MustSucceed(mod.Search(ctx, "nonexistent"))
 			Expect(results).To(BeEmpty())
 		})
 	})
 
 	Describe("Create", func() {
-		It("Should return not found for an unrecognized node type", func() {
+		It("Should return not found for an unrecognized node type", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
 			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should create a node with valid config", func() {
+		It("Should create a node with valid config", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_status",
@@ -132,7 +134,7 @@ var _ = Describe("Module", func() {
 			Expect(n).ToNot(BeNil())
 		})
 
-		It("Should return an error when status_key is missing from config", func() {
+		It("Should return an error when status_key is missing from config", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_status",
@@ -145,7 +147,7 @@ var _ = Describe("Module", func() {
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
 		})
 
-		It("Should return an error when variant is missing from config", func() {
+		It("Should return an error when variant is missing from config", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_status",
@@ -158,7 +160,7 @@ var _ = Describe("Module", func() {
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
 		})
 
-		It("Should return an error when message is missing from config", func() {
+		It("Should return an error when message is missing from config", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_status",
@@ -171,7 +173,7 @@ var _ = Describe("Module", func() {
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
 		})
 
-		It("Should populate the status from an existing entry in the service", func() {
+		It("Should populate the status from an existing entry in the service", func(ctx SpecContext) {
 			existing := status.Status[any]{
 				Key:     "pre_existing",
 				Variant: xstatus.VariantError,
@@ -197,7 +199,7 @@ var _ = Describe("Module", func() {
 	Describe("Node Behavior", func() {
 		var n node.Node
 
-		createNode := func(key, variant, message string) node.Node {
+		createNode := func(ctx context.Context, key, variant, message string) node.Node {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_status",
@@ -212,11 +214,11 @@ var _ = Describe("Module", func() {
 		}
 
 		Describe("IsOutputTruthy", func() {
-			BeforeEach(func() {
-				n = createNode("truthy_test", "info", "msg")
+			BeforeEach(func(ctx SpecContext) {
+				n = createNode(ctx, "truthy_test", "info", "msg")
 			})
 
-			It("Should return false for any output name", func() {
+			It("Should return false for any output name", func(ctx SpecContext) {
 				Expect(n.IsOutputTruthy("")).To(BeFalse())
 				Expect(n.IsOutputTruthy("output")).To(BeFalse())
 				Expect(n.IsOutputTruthy(ir.DefaultOutputParam)).To(BeFalse())
@@ -224,15 +226,15 @@ var _ = Describe("Module", func() {
 		})
 
 		Describe("Reset", func() {
-			It("Should not panic", func() {
-				n = createNode("reset_test", "info", "msg")
+			It("Should not panic", func(ctx SpecContext) {
+				n = createNode(ctx, "reset_test", "info", "msg")
 				Expect(func() { n.Reset() }).ToNot(Panic())
 			})
 		})
 
 		Describe("Next", func() {
-			It("Should set the status in the service", func() {
-				n = createNode("next_test", "success", "All good")
+			It("Should set the status in the service", func(ctx SpecContext) {
+				n = createNode(ctx, "next_test", "success", "All good")
 				nodeCtx := node.Context{Context: ctx}
 				n.Next(nodeCtx)
 				var retrieved status.Status[any]
@@ -246,8 +248,8 @@ var _ = Describe("Module", func() {
 				Expect(retrieved.Time).ToNot(BeZero())
 			})
 
-			It("Should update an existing status with a new timestamp", func() {
-				n = createNode("timestamp_test", "warning", "Check this")
+			It("Should update an existing status with a new timestamp", func(ctx SpecContext) {
+				n = createNode(ctx, "timestamp_test", "warning", "Check this")
 				nodeCtx := node.Context{Context: ctx}
 				n.Next(nodeCtx)
 				var first status.Status[any]
@@ -265,8 +267,8 @@ var _ = Describe("Module", func() {
 				Expect(second.Time).To(BeNumerically(">=", first.Time))
 			})
 
-			It("Should preserve the variant set at creation time", func() {
-				n = createNode("variant_test", "error", "Something broke")
+			It("Should preserve the variant set at creation time", func(ctx SpecContext) {
+				n = createNode(ctx, "variant_test", "error", "Something broke")
 				nodeCtx := node.Context{Context: ctx}
 				n.Next(nodeCtx)
 				var retrieved status.Status[any]

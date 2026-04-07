@@ -108,8 +108,7 @@ class DeviceSim(Simulator):
             except OSError:
                 sy.sleep(0.1)
         raise RuntimeError(
-            f"Server not ready on {self.host}:{self.port} "
-            f"after {self.startup_timeout}"
+            f"Server not ready on {self.host}:{self.port} after {self.startup_timeout}"
         )
 
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
