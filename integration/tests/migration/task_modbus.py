@@ -9,7 +9,7 @@
 
 import synnax as sy
 
-from tests.driver.opcua_task import OPCUAReadTaskCase
+from tests.driver.modbus_task import ModbusReadTaskCase
 from tests.driver.task import create_channel, create_index
 from tests.migration.task import (
     ReadTaskConsoleVerify,
@@ -18,55 +18,53 @@ from tests.migration.task import (
     ReadTaskMigrationVerify,
 )
 
-TASK_NAME = "mig_opc_read"
-IDX_NAME = "mig_opc_idx"
-CHANNEL_PREFIX = "mig_opc_float"
+TASK_NAME = "mig_modbus_read"
+IDX_NAME = "mig_modbus_idx"
+CHANNEL_PREFIX = "mig_modbus_reg"
 NUM_CHANNELS = 2
 
 
-class OPCUAReadMigration(ReadTaskMigration, OPCUAReadTaskCase):
-    """OPC UA read task migration base."""
+class ModbusReadMigration(ReadTaskMigration, ModbusReadTaskCase):
+    """Modbus read task migration base."""
 
     task_name = TASK_NAME
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
         idx = create_index(client, IDX_NAME)
         return [
-            sy.opcua.ReadChannel(
+            sy.modbus.HoldingRegisterInputChan(
                 channel=create_channel(
                     client,
                     name=f"{CHANNEL_PREFIX}_{i}",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                node_id=f"NS=2;I={8 + i}",
+                address=i,
                 data_type="float32",
             )
             for i in range(NUM_CHANNELS)
         ]
 
 
-class OPCUAReadSetup(ReadTaskMigrationSetup, OPCUAReadMigration):
-    """Create an OPC UA read task, run it, and verify sample collection."""
+class ModbusReadSetup(ReadTaskMigrationSetup, ModbusReadMigration):
+    """Create a Modbus read task, run it, and verify sample collection."""
 
 
-class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadMigration):
-    """Verify OPC UA task data survived, settings intact, and task still runs."""
+class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadMigration):
+    """Verify Modbus task data survived, settings intact, and task still runs."""
 
-    task_type = "opc_read"
-    task_class = sy.opcua.ReadTask
+    task_type = "modbus_read"
+    task_class = sy.modbus.ReadTask
     channel_prefix = CHANNEL_PREFIX
     num_channels = NUM_CHANNELS
-    pre_start_sleep = 5
+    pre_start_sleep = 2
 
 
-class OPCUAReadConsoleVerify(ReadTaskConsoleVerify):
-    """Verify the OPC UA read task configuration renders correctly in the console UI."""
+class ModbusReadConsoleVerify(ReadTaskConsoleVerify):
+    """Verify the Modbus read task configuration renders correctly in the console UI."""
 
     task_name = TASK_NAME
-    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)] + [
-        f"NS=2;I={8 + i}" for i in range(NUM_CHANNELS)
-    ]
+    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
     expected_sample_rate = "50"
     expected_stream_rate = "10"
