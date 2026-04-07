@@ -30,9 +30,8 @@ export class ClockSkewCalculator {
 
   end(remoteMidpointT: TimeStamp): void {
     const localEndT = this.now();
-    const thisMidpointT = this.localStartT.add(
-      localEndT.span(this.localStartT) / 2n,
-    );
+    const halfSpan = localEndT.span(this.localStartT).valueOf() / 2n;
+    const thisMidpointT = this.localStartT.add(halfSpan);
     const skew = thisMidpointT.valueOf() - remoteMidpointT.valueOf();
     this.accumulatedSkew += skew;
     this.n++;

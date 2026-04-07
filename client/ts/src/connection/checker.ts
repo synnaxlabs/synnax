@@ -124,12 +124,9 @@ export class Checker {
       if (!res.nodeTime.isZero) {
         this.skewCalc.end(res.nodeTime);
         this._state.clockSkew = this.skewCalc.skew;
-        this._state.clockSkewExceeded = this.skewCalc.exceeds(
-          this.clockSkewThreshold,
-        );
+        this._state.clockSkewExceeded = this.skewCalc.exceeds(this.clockSkewThreshold);
         if (this._state.clockSkewExceeded && !this.clockSkewWarned) {
-          const direction =
-            this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
+          const direction = this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
           console.warn(
             `Measured excessive clock skew between this host and the ` +
               `Synnax cluster. This host is ${direction} the cluster ` +
