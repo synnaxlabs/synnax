@@ -26,7 +26,7 @@ const clusterInfoZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
   nodeKey: z.number().optional(),
-  nodeTime: TimeStamp.z.default(new TimeStamp(0)),
+  nodeTime: TimeStamp.z,
 });
 
 const tokenResponseZ = z.object({
@@ -129,7 +129,7 @@ export class Client {
               if (err != null) return resolve(err);
               if (res == null) return resolve(new Error("No response from login"));
               const nodeTime = res.clusterInfo?.nodeTime;
-              if (nodeTime != null && !nodeTime.isZero) {
+              if (nodeTime != null) {
                 this.skewCalc.end(nodeTime);
                 if (this.skewCalc.exceeds(this.clockSkewThreshold)) {
                   const direction =

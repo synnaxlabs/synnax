@@ -36,7 +36,7 @@ export interface State extends z.infer<typeof stateZ> {}
 const responseZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
-  nodeTime: TimeStamp.z.default(new TimeStamp(0)),
+  nodeTime: TimeStamp.z,
 });
 const requestZ = z.void();
 
@@ -124,7 +124,7 @@ export class Checker {
         requestZ,
         responseZ,
       );
-      if (measureSkew && !res.nodeTime.isZero) {
+      if (measureSkew) {
         this.skewCalc.end(res.nodeTime);
         this._state.clockSkew = this.skewCalc.skew;
         this._state.clockSkewExceeded = this.skewCalc.exceeds(this.clockSkewThreshold);

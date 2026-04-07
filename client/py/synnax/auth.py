@@ -86,18 +86,16 @@ class Client:
             InsecureCredentials(username=self.username, password=self.password),
             TokenResponse,
         )
-        node_time = res.cluster_info.node_time
-        if int(node_time) != 0:
-            self._skew_calc.end(node_time)
-            if self._skew_calc.exceeds(self._clock_skew_threshold):
-                direction = "ahead of" if int(self._skew_calc.skew) > 0 else "behind"
-                warnings.warn(
-                    f"Measured excessive clock skew between this host and the "
-                    f"Synnax cluster. This host is {direction} the cluster "
-                    f"by approximately {abs(self._skew_calc.skew)}.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        self._skew_calc.end(res.cluster_info.node_time)
+        if self._skew_calc.exceeds(self._clock_skew_threshold):
+            direction = "ahead of" if int(self._skew_calc.skew) > 0 else "behind"
+            warnings.warn(
+                f"Measured excessive clock skew between this host and the "
+                f"Synnax cluster. This host is {direction} the cluster "
+                f"by approximately {abs(self._skew_calc.skew)}.",
+                UserWarning,
+                stacklevel=2,
+            )
         self.token = res.token
         self.user = res.user
         self.authenticated = True
