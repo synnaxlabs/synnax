@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import synnax as sy
+import x.telem as sy
+from x.exceptions import ContiguityError
 
 _now = sy.TimeStamp.now()
 
@@ -24,7 +25,7 @@ EST = dateutil.tz.gettz("EST")
 
 @pytest.mark.telem
 class TestTimeStamp:
-    def test_now(self):
+    def test_now(self) -> None:
         """Should return the current timestamp"""
         now = sy.TimeStamp.now() + sy.TimeSpan.SECOND
         assert now.datetime() > datetime.now().astimezone()
@@ -61,7 +62,9 @@ class TestTimeStamp:
             (np.int64(1000), sy.TimeStamp(1 * sy.TimeSpan.MICROSECOND)),
         ],
     )
-    def test_construction(self, crude: sy.CrudeTimeStamp, expected: sy.TimeStamp):
+    def test_construction(
+        self, crude: sy.CrudeTimeStamp, expected: sy.TimeStamp
+    ) -> None:
         """Should initialize a timestamp from a variety of types"""
         delta = sy.TimeSpan(sy.TimeStamp(crude) - sy.TimeStamp(expected))
         assert sy.TimeStamp(crude) == expected, f"""
@@ -70,81 +73,81 @@ class TestTimeStamp:
         Delta: {delta}
         """
 
-    def test_after_false(self):
+    def test_after_false(self) -> None:
         """Should return true if the timestamp is after the given timestamp"""
         ts = sy.TimeStamp(1000)
         assert not ts > sy.TimeSpan.MICROSECOND
 
-    def test_after_true(self):
+    def test_after_true(self) -> None:
         """Should return true if the timestamp is after the given timestamp"""
         ts = sy.TimeStamp(10000)
         assert ts > sy.TimeSpan.MICROSECOND
 
-    def test_after_eq_after(self):
+    def test_after_eq_after(self) -> None:
         """Should return true if the timestamp is after or equal to the given
         timestamp"""
         ts = sy.TimeStamp(1000)
         assert ts >= sy.TimeSpan.MICROSECOND
 
-    def test_after_eq_before(self):
+    def test_after_eq_before(self) -> None:
         """Should return true if the timestamp is after or equal to the given timestamp"""
         ts = sy.TimeStamp(100)
         assert not ts >= sy.TimeSpan.MICROSECOND
 
-    def test_before_false(self):
+    def test_before_false(self) -> None:
         """Should return true if the timestamp is before the given timestamp"""
         ts = sy.TimeStamp(1000)
         assert not ts < sy.TimeSpan.MICROSECOND
 
-    def test_before_true(self):
+    def test_before_true(self) -> None:
         """Should return true if the timestamp is before the given timestamp"""
         ts = sy.TimeStamp(100)
         assert ts < sy.TimeSpan.MICROSECOND
 
-    def test_before_eq_before(self):
+    def test_before_eq_before(self) -> None:
         """Should return true if the timestamp is before or equal to the given timestamp"""
         ts = sy.TimeStamp(100)
         assert ts <= sy.TimeSpan.MICROSECOND
 
-    def test_before_eq_after(self):
+    def test_before_eq_after(self) -> None:
         """Should return true if the timestamp is before or equal to the given timestamp"""
         ts = sy.TimeStamp(1000)
         assert ts <= sy.TimeSpan.MICROSECOND
 
-    def test_add(self):
+    def test_add(self) -> None:
         """Should add a timespan to a timestamp"""
         ts = sy.TimeStamp(1000)
         ts += sy.TimeSpan.MICROSECOND
         assert ts == sy.TimeStamp(2000)
 
-    def test_sub(self):
+    def test_sub(self) -> None:
         """Should subtract a timespan from a timestamp"""
         ts = sy.TimeStamp(2000)
         ts = ts - sy.TimeSpan.MICROSECOND
         assert ts == sy.TimeStamp(1000)
 
-    def test_span_range(self):
+    def test_span_range(self) -> None:
         """Should return a rng of timestamps between two timestamps"""
         ts1 = sy.TimeStamp(1000)
         ts2 = sy.TimeSpan(2000)
         rng = ts1.span_range(ts2)
         assert rng.span == 2 * sy.TimeSpan.MICROSECOND
 
-    def test_range(self):
+    def test_range(self) -> None:
         """Should return a rng of timestamps between two timestamps"""
         ts1 = sy.TimeStamp(1000)
         ts2 = sy.TimeStamp(2000)
         rng = ts1.range(ts2)
         assert rng.span == sy.TimeSpan.MICROSECOND
 
-    def test_datetime(self):
+    def test_datetime(self) -> None:
         """Should correctly convert the sy.TimeStamp to a datetime in local time."""
         ts1 = sy.TimeStamp(1645562510000000000)
         assert ts1.datetime(tz=timezone.utc) == datetime(
             2022, 2, 22, 20, 41, 50, tzinfo=timezone.utc
         )
 
-    def test_trunc(self):
+    def test_trunc(self) -> None:
         """Should correctly return the truncation of a standard sy.TimeSpan divisor"""
         ts1 = sy.TimeStamp(1 * sy.TimeSpan.DAY + 1 * sy.TimeSpan.HOUR)
         assert ts1.trunc(sy.TimeSpan.DAY) == (1 * sy.TimeSpan.DAY)
@@ -152,7 +155,7 @@ class TestTimeStamp:
 
 @pytest.mark.telem
 class TestTimeRange:
-    def test_construction_from_datetime(self):
+    def test_construction_from_datetime(self) -> None:
         """Should initialize a sy.TimeRange from a datetime"""
         dt = datetime(2020, 1, 1, 0, 0, 0).astimezone()
         dt2 = datetime(2021, 1, 1, 0, 0, 0).astimezone()
@@ -160,84 +163,84 @@ class TestTimeRange:
         assert tr.start.datetime() == dt
         assert tr.end.datetime() == dt2
 
-    def test_span(self):
+    def test_span(self) -> None:
         """Should return a valid sy.TimeSpan"""
         tr = sy.TimeRange(0, 1000)
         assert tr.span == sy.TimeSpan(1000)
 
-    def test_bound_by(self):
+    def test_bound_by(self) -> None:
         """Should return a bound version of the range"""
         tr = sy.TimeRange(0, 1000)
         bound = tr.clamp(sy.TimeRange(100, 500))
         assert bound.span == 400 * sy.TimeSpan.NANOSECOND
 
-    def test_contains_stamp(self):
+    def test_contains_stamp(self) -> None:
         """Should return true if the range contains a timestamp"""
         tr = sy.TimeRange(0, 1000)
         assert tr.contains(sy.TimeStamp(500))
 
-    def test_doesnt_contain_stamp(self):
+    def test_doesnt_contain_stamp(self) -> None:
         """Should return false if the range doesn't contain a timestamp"""
         tr = sy.TimeRange(0, 1000)
         assert not tr.contains(sy.TimeStamp(1500))
 
-    def test_stamp_contains_end_of_range(self):
+    def test_stamp_contains_end_of_range(self) -> None:
         """Should return false if the timestamp is the same as the end of the range"""
         tr = sy.TimeRange(0, 1000)
         assert not tr.contains(sy.TimeStamp(1000))
 
-    def test_stamp_contains_start_of_range(self):
+    def test_stamp_contains_start_of_range(self) -> None:
         """Should return true if the timestamp is the same as the start of the range"""
         tr = sy.TimeRange(0, 1000)
         assert tr.contains(sy.TimeStamp(0))
 
-    def test_range_not_contains_range(self):
+    def test_range_not_contains_range(self) -> None:
         """Should return true if the ranges overlap but a smaller range is not contained"""
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 1500)
         assert not tr.contains(tr2)
 
-    def test_range_contains_range(self):
+    def test_range_contains_range(self) -> None:
         """Should return true if the ranges overlap and the smaller range is contained"""
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 900)
         assert tr.contains(tr2)
 
-    def test_range_contains_equal(self):
+    def test_range_contains_equal(self) -> None:
         """Should return true if the ranges are equal"""
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(0, 1000)
         assert tr.contains(tr2)
 
-    def test_range_overlaps(self):
+    def test_range_overlaps(self) -> None:
         """Should return true if the ranges overlap"""
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 900)
         assert tr.overlaps_with(tr2)
 
-    def test_range_overlaps_equal(self):
+    def test_range_overlaps_equal(self) -> None:
         """Should return true if the ranges are equal"""
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(0, 1000)
         assert tr.overlaps_with(tr2)
 
-    def test_range_overlaps_false(self):
+    def test_range_overlaps_false(self) -> None:
         """Should return false if the ranges don't overlap"""
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(1500, 2000)
         assert not tr.overlaps_with(tr2)
 
-    def test_range_valid(self):
+    def test_range_valid(self) -> None:
         """Should return true if the range is valid"""
         tr = sy.TimeRange(0, 1000)
         assert tr.valid
 
-    def test_range_invalid(self):
+    def test_range_invalid(self) -> None:
         """Should return false if the range is invalid"""
         tr = sy.TimeRange(1000, 0)
         assert not tr.valid
 
-    def test_range_swap(self):
+    def test_range_swap(self) -> None:
         """Should swap the start and end times"""
         tr = sy.TimeRange(1000, 0)
         tr = tr.swap()
@@ -247,7 +250,7 @@ class TestTimeRange:
 
 @pytest.mark.telem
 class TestTimeSpan:
-    def test_since(self):
+    def test_since(self) -> None:
         """Should return the sy.TimeSpan since the given timestamp"""
         now = sy.TimeStamp.now()
         one_sec_ago = now - 1 * sy.TimeSpan.SECOND
@@ -266,34 +269,34 @@ class TestTimeSpan:
             (np.int64(1000), 1 * sy.TimeSpan.MICROSECOND),
         ],
     )
-    def test_construction(self, crude: sy.telem.CrudeTimeSpan, expected: sy.TimeSpan):
+    def test_construction(self, crude: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         assert sy.TimeSpan(crude) == expected
 
-    def test_seconds(self):
+    def test_seconds(self) -> None:
         """Should return the number of seconds in the timespan"""
         assert sy.TimeSpan.SECOND.seconds == 1
 
-    def test_timedelta(self):
+    def test_timedelta(self) -> None:
         """Should return a timedelta"""
         assert sy.TimeSpan.SECOND.timedelta == timedelta(seconds=1)
 
-    def test_add(self):
+    def test_add(self) -> None:
         """Should correctly add two time spans"""
         assert sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND == sy.TimeSpan(2000)
 
-    def test_sub(self):
+    def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
         assert sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND == sy.TimeSpan(0)
 
-    def test_gt(self):
+    def test_gt(self) -> None:
         """Should correctly compare two time spans"""
         assert sy.TimeSpan.MICROSECOND > sy.TimeSpan.NANOSECOND
 
-    def test_lt(self):
+    def test_lt(self) -> None:
         """Should correctly compare two time spans"""
         assert sy.TimeSpan.NANOSECOND < sy.TimeSpan.MICROSECOND
 
-    def test_le(self):
+    def test_le(self) -> None:
         """Should correctly compare two time spans"""
         assert sy.TimeSpan.NANOSECOND <= sy.TimeSpan.MICROSECOND
 
@@ -310,7 +313,7 @@ class TestTimeSpan:
             (sy.TimeSpan.ZERO, "0ns"),
         ],
     )
-    def test_str(self, span, expected):
+    def test_str(self, span: sy.TimeSpan, expected: str) -> None:
         """Should correctly display the sy.TimeSpan as a human-readable string"""
         assert str(span) == expected
 
@@ -331,7 +334,7 @@ class TestTimeSpan:
             ),
         ],
     )
-    def test_from_seconds(self, span, expected):
+    def test_from_seconds(self, span: object, expected: sy.TimeSpan) -> None:
         """It should evaluate pure floats or integers as seconds"""
         abc = sy.TimeSpan.from_seconds(1.0)
         assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
@@ -344,7 +347,7 @@ class TestTimeSpan:
             (1 * sy.TimeSpan.MILLISECOND, 0.001),
         ],
     )
-    def test_to_seconds(self, span, expected):
+    def test_to_seconds(self, span: sy.CrudeTimeSpan, expected: float) -> None:
         """It should evaluate pure floats or integers as seconds"""
         abc = sy.TimeSpan.to_seconds(span)
         assert abc == expected
@@ -359,32 +362,32 @@ class TestRate:
             (1000, sy.Rate(1000.0)),
         ],
     )
-    def test_construction(self, crude: sy.telem.CrudeRate, expected: sy.Rate):
+    def test_construction(self, crude: sy.CrudeRate, expected: sy.Rate) -> None:
         assert sy.Rate(crude) == expected
 
-    def test_invalid_init(self):
+    def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
             sy.Rate(timedelta(seconds=1))  # type: ignore
 
-    def test_sample_count(self):
+    def test_sample_count(self) -> None:
         """Should return the number of samples"""
         assert sy.Rate(1.0).sample_count(5 * sy.TimeSpan.SECOND) == 5
 
-    def test_byte_size(self):
+    def test_byte_size(self) -> None:
         """Should return the number of bytes in the given span"""
         assert sy.Rate(1.0).byte_size(5 * sy.TimeSpan.SECOND, sy.Density.BIT64) == 40
 
-    def test_byte_span(self):
+    def test_byte_span(self) -> None:
         """Should return the time span from a byte size"""
         assert (
             sy.Rate(1.0).size_span(sy.Size(40), sy.Density.BIT64)
             == 5 * sy.TimeSpan.SECOND
         )
 
-    def test_byte_span_invalid(self):
+    def test_byte_span_invalid(self) -> None:
         """Should raise a contiguity error if the size is not a multiple of the density"""
-        with pytest.raises(sy.ContiguityError):
+        with pytest.raises(ContiguityError):
             sy.Rate(1.0).size_span(sy.Size(41), sy.Density.BIT64)
 
 
@@ -403,10 +406,10 @@ class TestDataType:
             (uuid.uuid4(), sy.DataType.UUID),
         ],
     )
-    def test_construction(self, crude: sy.telem.CrudeDataType, expected: sy.DataType):
+    def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
         assert sy.DataType(crude) == expected
 
-    def test_string(self):
+    def test_string(self) -> None:
         """Should return the string representation of the data type"""
         assert str(sy.DataType.INT8) == "int8"
 
@@ -417,7 +420,7 @@ class TestDataType:
             (sy.DataType.FLOAT32, np.dtype(np.float32)),
         ],
     )
-    def test_np(self, value, expected):
+    def test_np(self, value: sy.DataType, expected: np.dtype[np.generic]) -> None:
         """Should return the correct numpy representation of the data type"""
         assert value.np == expected
 
@@ -428,14 +431,14 @@ class TestSize:
         "crude, expected",
         [(1, sy.Size.BYTE), (1.0, sy.Size.BYTE), (sy.Size.BYTE, sy.Size.BYTE)],
     )
-    def test_construction(self, crude, expected):
+    def test_construction(self, crude: sy.CrudeSize, expected: sy.Size) -> None:
         assert sy.Size(crude) == expected
 
     @pytest.mark.parametrize(
         "value, expected",
         [(sy.Size.GB + sy.Size.MB * 500, "1gb 500mb"), (sy.Size.GB * 0, "0b")],
     )
-    def test_str(self, value, expected):
+    def test_str(self, value: sy.Size, expected: str) -> None:
         assert str(value) == expected
 
 
@@ -453,30 +456,30 @@ def test_convert_time_units(
     from_: sy.TimeSpanUnits,
     to: sy.TimeSpanUnits,
     expected: int | float,
-):
+) -> None:
     assert sy.convert_time_units(data, from_, to)[0] == expected
 
 
 @pytest.mark.telem
 class TestAlignment:
-    def test_construction(self):
+    def test_construction(self) -> None:
         """Should construct the alignment from the given domain and sample indexes"""
         align = sy.Alignment(2, 1)
         assert align.sample_index == 1
         assert align.domain_index == 2
 
-    def test_construction_zero(self):
+    def test_construction_zero(self) -> None:
         """Should construct a zero alignment"""
         align = sy.Alignment(0, 0)
         assert int(align) == 0
 
-    def test_default_construction(self):
+    def test_default_construction(self) -> None:
         """Should construct a zero alignment by default"""
         align = sy.Alignment()
         assert align.domain_index == 0
         assert align.sample_index == 0
 
-    def test_construction_from_packed_int(self):
+    def test_construction_from_packed_int(self) -> None:
         """Should construct alignment from a packed integer value"""
         # Create an alignment and get its packed value
         align1 = sy.Alignment(5, 10)
@@ -486,13 +489,13 @@ class TestAlignment:
         assert align2.domain_index == 5
         assert align2.sample_index == 10
 
-    def test_construction_from_tuple(self):
+    def test_construction_from_tuple(self) -> None:
         """Should construct alignment from a tuple"""
         align = sy.Alignment((3, 7))
         assert align.domain_index == 3
         assert align.sample_index == 7
 
-    def test_construction_from_alignment(self):
+    def test_construction_from_alignment(self) -> None:
         """Should return the same alignment when constructing from Alignment"""
         align1 = sy.Alignment(4, 8)
         align2 = sy.Alignment(align1)
@@ -500,31 +503,31 @@ class TestAlignment:
         assert align2.domain_index == 4
         assert align2.sample_index == 8
 
-    def test_domain_index_extraction(self):
+    def test_domain_index_extraction(self) -> None:
         """Should correctly extract the domain index from the packed value"""
         align = sy.Alignment(5, 10)
         assert align.domain_index == 5
 
-    def test_sample_index_extraction(self):
+    def test_sample_index_extraction(self) -> None:
         """Should correctly extract the sample index from the packed value"""
         align = sy.Alignment(5, 10)
         assert align.sample_index == 10
 
-    def test_add_samples(self):
+    def test_add_samples(self) -> None:
         """Should add to the alignment sample index"""
         align = sy.Alignment(2, 1)
         align = align.add_samples(3)
         assert align.sample_index == 4
         assert align.domain_index == 2
 
-    def test_add_samples_overflow(self):
+    def test_add_samples_overflow(self) -> None:
         """Should handle sample index overflow correctly"""
         align = sy.Alignment(2, 0xFFFFFFFF - 1)
         align = align.add_samples(1)
         assert align.sample_index == 0xFFFFFFFF
         assert align.domain_index == 2
 
-    def test_add(self):
+    def test_add(self) -> None:
         """Should add both domain and sample indices"""
         align1 = sy.Alignment(2, 5)
         align2 = sy.Alignment(3, 10)
@@ -532,17 +535,17 @@ class TestAlignment:
         assert result.domain_index == 5
         assert result.sample_index == 15
 
-    def test_str(self):
+    def test_str(self) -> None:
         """Should return the string representation of the alignment"""
         align = sy.Alignment(5, 7)
         assert str(align) == "5-7"
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         """Should return the repr representation of the alignment"""
         align = sy.Alignment(5, 7)
         assert repr(align) == "Alignment(5, 7)"
 
-    def test_comparison(self):
+    def test_comparison(self) -> None:
         """Should correctly compare alignments"""
         align1 = sy.Alignment(2, 5)
         align2 = sy.Alignment(2, 10)
@@ -556,7 +559,7 @@ class TestAlignment:
         assert align2 < align3
         assert align3 > align2
 
-    def test_equality(self):
+    def test_equality(self) -> None:
         """Should correctly compare equality of alignments"""
         align1 = sy.Alignment(2, 5)
         align2 = sy.Alignment(2, 5)
@@ -565,20 +568,20 @@ class TestAlignment:
         assert align1 == align2
         assert align1 != align3
 
-    def test_max_values(self):
+    def test_max_values(self) -> None:
         """Should handle maximum values for domain and sample indices"""
         max_uint32 = 0xFFFFFFFF
         align = sy.Alignment(max_uint32, max_uint32)
         assert align.domain_index == max_uint32
         assert align.sample_index == max_uint32
 
-    def test_large_domain_index(self):
+    def test_large_domain_index(self) -> None:
         """Should correctly handle large domain indices"""
         align = sy.Alignment(1000000, 50)
         assert align.domain_index == 1000000
         assert align.sample_index == 50
 
-    def test_int_conversion(self):
+    def test_int_conversion(self) -> None:
         """Should correctly convert to int"""
         align = sy.Alignment(2, 1)
         int_value = int(align)
@@ -586,7 +589,7 @@ class TestAlignment:
         expected = (2 << 32) | 1
         assert int_value == expected
 
-    def test_pydantic_validation(self):
+    def test_pydantic_validation(self) -> None:
         """Should work with pydantic validation"""
         from pydantic import BaseModel
 
@@ -599,6 +602,24 @@ class TestAlignment:
 
         # Should also accept int
         packed_value = (5 << 32) | 10
-        model2 = TestModel(alignment=packed_value)
+        model2 = TestModel(alignment=packed_value)  # type: ignore[arg-type]
         assert model2.alignment.domain_index == 5
         assert model2.alignment.sample_index == 10
+
+
+@pytest.mark.telem
+class TestSecondsLinspace:
+    def test_basic(self) -> None:
+        result = sy.seconds_linspace(0, 3)
+        assert len(result) == 3
+        assert result[0] == 0
+        assert result[1] == sy.TimeSpan.SECOND
+        assert result[2] == 2 * sy.TimeSpan.SECOND
+
+    def test_with_offset(self) -> None:
+        result = sy.seconds_linspace(5, 2)
+        assert result[0] == 5 * sy.TimeSpan.SECOND
+        assert result[1] == 6 * sy.TimeSpan.SECOND
+
+    def test_empty(self) -> None:
+        assert sy.seconds_linspace(0, 0) == []

@@ -18,8 +18,7 @@ from synnax.channel.retrieve import retrieve_required as retrieve_required_chann
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
-from synnax.telem import DataType
-from synnax.telem.series import CrudeSeries, Series
+from synnax.telem import CrudeSeries, DataType, Series
 
 
 class ReadFrameAdapter:

@@ -9,7 +9,7 @@
 
 import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.log import Log
@@ -30,7 +30,7 @@ class LogLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self._shared_log_name = None
         self._cleanup_groups = []
         self.ctx_log_name = ""
@@ -307,7 +307,7 @@ class LogLifecycle(ConsoleCase):
         """Test deleting multiple logs via multi-select and context menu."""
         self.log("Testing delete multiple logs via context menu")
 
-        suffix = get_random_name()
+        suffix = random_name()
         log_names = []
 
         for i in range(3):
@@ -324,7 +324,7 @@ class LogLifecycle(ConsoleCase):
         """Test grouping multiple logs via multi-select and context menu."""
         self.log("Testing group logs via context menu")
 
-        suffix = get_random_name()
+        suffix = random_name()
         log_names = []
 
         for i in range(2):

@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, model_validator
 
 
@@ -33,6 +35,8 @@ class Color(BaseModel):
         if isinstance(v, Color):
             return v
         if isinstance(v, str):
+            if v.startswith("rgb"):
+                return _from_rgb(v)
             return _from_hex(v)
         if isinstance(v, (list, tuple)):
             if len(v) == 3:
@@ -88,6 +92,15 @@ def _from_hex(s: str) -> dict[str, int | float]:
             "a": int(s[6:8], 16) / 255.0,
         }
     raise ValueError(f"Invalid hex color: #{s}")
+
+
+def _from_rgb(s: str) -> dict[str, int | float]:
+    vals = re.findall(r"[\d.]+", s)
+    if len(vals) < 3:
+        raise ValueError(f"Invalid rgb color: {s}")
+    r, g, b = int(float(vals[0])), int(float(vals[1])), int(float(vals[2]))
+    a = float(vals[3]) if len(vals) >= 4 else 1.0
+    return {"r": r, "g": g, "b": b, "a": a}
 
 
 Crude = Color | str | list[int] | tuple[int, ...]

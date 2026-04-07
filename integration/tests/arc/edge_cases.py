@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
+from x import random_name
 
 from tests.arc.arc_case import ArcConsoleCase
 
@@ -381,7 +381,7 @@ class EdgeCases(ArcConsoleCase):
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
 
     def _assert_circular_error(self, case: CircularCase) -> None:
-        arc_name = f"Circ{case.label}_{get_random_name()}"
+        arc_name = f"Circ{case.label}_{random_name()}"
         self.log(f"[{case.label}] Testing {arc_name}")
 
         self.console.arc.create(arc_name, case.source, mode="Text")
@@ -410,7 +410,7 @@ class EdgeCases(ArcConsoleCase):
             self._assert_circular_error(case)
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
-        arc_name = f"Guard{case.label}_{get_random_name()}"
+        arc_name = f"Guard{case.label}_{random_name()}"
         self.log(f"[Guarded {case.label}] Testing {arc_name}")
 
         self.console.arc.create(arc_name, case.source, mode="Text")

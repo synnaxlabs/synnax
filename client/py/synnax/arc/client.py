@@ -14,6 +14,7 @@ from uuid import UUID
 
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel, PrivateAttr
+from x.normalize import normalize
 
 from synnax.arc.payload import (
     Graph,
@@ -25,7 +26,6 @@ from synnax.arc.payload import (
 )
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
-from synnax.util.normalize import normalize
 
 
 class _CreateRequest(BaseModel):

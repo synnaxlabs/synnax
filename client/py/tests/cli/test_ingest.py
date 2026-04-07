@@ -8,12 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from x.strings import random_name
 
 from synnax.cli.console import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ingest import pure_ingest
 from synnax.synnax import Synnax
-from synnax.util.random import random_name
 
 from .data import DATA_DIR
 

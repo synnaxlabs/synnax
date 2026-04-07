@@ -11,7 +11,7 @@ import uuid
 from typing import Any
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
@@ -60,7 +60,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.ctx_schematic_name = None
         self.ctx_schematic_copy_name = None
         self.shared_range_name = None

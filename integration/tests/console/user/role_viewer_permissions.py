@@ -10,7 +10,7 @@
 """Test that Viewer role has read-only permissions."""
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -20,7 +20,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Viewer role
-        username = f"viewer_{get_random_name()}"
+        username = f"viewer_{random_name()}"
         password = "testpassword123"
         first_name = "Viewer"
         last_name = "Test"

@@ -20,7 +20,7 @@ from numpy.typing import DTypeLike
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import core_schema
 
-from synnax.exceptions import ContiguityError
+from x.exceptions import ContiguityError
 
 
 class TimeStamp(int):
@@ -1272,3 +1272,8 @@ class Alignment(int):
 
 
 CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment
+
+
+def seconds_linspace(start: int, count: int) -> list[TimeSpan]:
+    """Generates a list of TimeSpan values from start to start + count."""
+    return [start * TimeSpan.SECOND + i * TimeSpan.SECOND for i in range(count)]

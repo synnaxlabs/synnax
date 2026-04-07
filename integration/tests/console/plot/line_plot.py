@@ -9,7 +9,7 @@
 
 import numpy as np
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.plot import Plot
@@ -26,7 +26,7 @@ class LinePlot(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self._shared_plot_name = None
         self.ctx_plot_name = None
 
@@ -47,7 +47,7 @@ class LinePlot(ConsoleCase):
     def run(self) -> None:
         """Run all line plot tests."""
 
-        suffix = get_random_name()
+        suffix = random_name()
         index_name, data_name = self._setup_channels(suffix)
 
         plot = self.console.workspace.create_plot(f"Line Plot Test {suffix}")
@@ -304,7 +304,7 @@ class LinePlot(ConsoleCase):
         """Test deleting multiple plots via multi-select and context menu."""
         self.log("Testing delete multiple plots via context menu")
 
-        suffix = get_random_name()
+        suffix = random_name()
         plot_names = []
 
         for i in range(3):

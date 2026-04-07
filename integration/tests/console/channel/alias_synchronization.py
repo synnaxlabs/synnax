@@ -19,7 +19,7 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.plot import Plot
@@ -38,7 +38,7 @@ class AliasSynchronization(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.range_name = f"alias_sync_range_{self.suffix}"
         self.index_name = f"alias_sync_idx_{self.suffix}"
         self.data_name = f"alias_sync_data_{self.suffix}"

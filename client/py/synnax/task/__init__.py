@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from x.deprecation import deprecated_getattr
+
 from synnax.task.client import (
     BaseConfig,
     BaseReadConfig,
@@ -25,7 +27,6 @@ from synnax.task.types_gen import (
     StatusDetails,
     ontology_id,
 )
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "TaskPayload": "Payload",

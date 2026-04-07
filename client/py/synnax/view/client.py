@@ -13,9 +13,9 @@ from uuid import UUID
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
+from x.normalize import normalize
 
 from synnax.exceptions import NotFoundError
-from synnax.util.normalize import normalize
 from synnax.view.types_gen import Key, View
 
 

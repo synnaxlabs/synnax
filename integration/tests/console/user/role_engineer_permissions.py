@@ -10,7 +10,7 @@
 """Test that Engineer role has full access except user management."""
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -20,7 +20,7 @@ class RoleEngineerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Engineer role
-        username = f"engineer_{get_random_name()}"
+        username = f"engineer_{random_name()}"
         password = "testpassword123"
         first_name = "Engineer"
         last_name = "Test"

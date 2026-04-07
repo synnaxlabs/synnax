@@ -9,7 +9,6 @@
 
 """Shared Python utilities for the Synnax monorepo."""
 
-from x.color import rgb_to_hex
 from x.env import is_ci
 from x.os import (
     Platform,
@@ -18,7 +17,7 @@ from x.os import (
     get_memory_info,
     get_platform,
 )
-from x.strings import get_random_name, validate_and_sanitize_name
+from x.strings import random_name, validate_and_sanitize_name
 from x.version import get_synnax_version
 from x.websocket import (
     WEBSOCKET_ERROR_PATTERNS,
@@ -36,12 +35,11 @@ __all__ = [
     "get_machine_info",
     "get_memory_info",
     "get_platform",
-    "get_random_name",
+    "random_name",
     "get_synnax_version",
     "ignore_websocket_errors",
     "is_ci",
     "is_websocket_error",
-    "rgb_to_hex",
     "suppress_websocket_errors",
     "validate_and_sanitize_name",
 ]

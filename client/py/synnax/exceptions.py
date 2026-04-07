@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import freighter
+from x.exceptions import ContiguityError
 
 _FREIGHTER_EXCEPTION_PREFIX = "sy."
 
@@ -68,12 +69,6 @@ class UnexpectedError(Exception):
     """Raised when an unexpected error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
-
-
-class ContiguityError(Exception):
-    """Raised when time-series data is not contiguous."""
-
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "contiguity"
 
 
 class QueryError(Exception):

@@ -14,9 +14,9 @@ import time
 from collections.abc import Callable
 from typing import Literal, TypeVar
 
-T = TypeVar("T")
+from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
-from synnax.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
+T = TypeVar("T")
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 

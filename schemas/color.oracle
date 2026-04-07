@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output  "x/ts/src/color"
-@py output  "client/py/synnax/color"
+@py output  "x/py/x/color"
 @go output  "x/go/color"
 @cpp output "x/cpp/color"
 @pb

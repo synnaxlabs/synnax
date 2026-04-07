@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from x.deprecation import deprecated_getattr
+
 from synnax.arc.client import Arc, Client
 from synnax.arc.payload import (
     Edge,
@@ -20,7 +22,6 @@ from synnax.arc.payload import (
     Text,
 )
 from synnax.arc.types import Task, TaskConfig
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ArcTask": "Task",

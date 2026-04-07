@@ -20,10 +20,11 @@ from websockets.exceptions import (
 )
 from websockets.sync.client import ClientConnection as SyncClientProtocol
 from websockets.sync.client import connect as sync_connect
+from x.exceptions import ExceptionPayload, decode_exception
 
 from freighter.codec import Codec
 from freighter.context import Context
-from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
+from freighter.exceptions import EOF, StreamClosed
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector, P
 from freighter.url import URL

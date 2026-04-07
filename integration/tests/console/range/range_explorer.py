@@ -10,7 +10,7 @@
 from uuid import UUID
 
 import synnax as sy
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 
@@ -30,7 +30,7 @@ class RangeExplorer(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.label_a_name = f"LabelA_{self.suffix}"
         self.label_b_name = f"LabelB_{self.suffix}"
         self.range_a_name = f"RangeA_{self.suffix}"

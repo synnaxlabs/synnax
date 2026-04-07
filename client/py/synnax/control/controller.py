@@ -15,14 +15,14 @@ from threading import Event, Lock
 from typing import Any, Protocol, cast, overload
 
 import numpy as np
+from x.control import CrudeAuthority
+from x.thread import AsyncThread
 
 from synnax import channel as channel_
 from synnax import framer
 from synnax.exceptions import ValidationError
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.timing import sleep
-from synnax.util.thread import AsyncThread
-from synnax.x.control import CrudeAuthority
 
 
 class Processor(Protocol):

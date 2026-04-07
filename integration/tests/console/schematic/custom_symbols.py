@@ -11,7 +11,7 @@
 
 import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from x import get_random_name
+from x import random_name
 
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
@@ -40,7 +40,7 @@ class CustomSymbols(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.test_group_name = f"Test Group {self.suffix}"
         self.test_symbol_name = f"Test Symbol {self.suffix}"
         self.schematic_name = f"Symbol Test Schematic {self.suffix}"

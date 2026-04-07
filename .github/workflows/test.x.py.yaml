@@ -49,5 +49,5 @@ jobs:
         with:
           directory: x/py
           format_check: ${{ matrix.format }}
-          type_check: false
-          test: false
+          type_check: true
+          test: true
