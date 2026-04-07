@@ -25,6 +25,7 @@ For task lifecycle management, see the
 
 | Parameter     | Type    | Required | Default       | Description                                                   |
 | ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `device`      | string  | Yes      | -             | Device key to read from                                       |
 | `name`        | string  | Yes      | -             | Human-readable task name                                      |
 | `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
 | `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
@@ -38,11 +39,11 @@ For task lifecycle management, see the
 
 [DI Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedichan.html)
 
-| Parameter | Type   | Required | Default | Description             |
-| --------- | ------ | -------- | ------- | ----------------------- |
-| `device`  | string | Yes      | -       | Device identifier       |
-| `port`    | number | Yes      | -       | Physical port           |
-| `line`    | number | Yes      | -       | Line number on the port |
+| Parameter | Type   | Required | Default | Description                               |
+| --------- | ------ | -------- | ------- | ----------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax channel key for digital input data |
+| `port`    | number | Yes      | -       | Physical port                             |
+| `line`    | number | Yes      | -       | Line number on the port                   |
 
 <Divider.Divider x />
 
@@ -111,25 +112,23 @@ di_1_0 = client.channels.create(
 # Create and configure task
 task = ni.DigitalReadTask(
     name="Digital Read Task",
+    device=digital_dev.key,
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
-        ni.DILineChan(
+        ni.DIChan(
             channel=di_0_0.key,
-            device=digital_dev.key,
             port=0,
             line=0,
         ),
-        ni.DILineChan(
+        ni.DIChan(
             channel=di_0_1.key,
-            device=digital_dev.key,
             port=0,
             line=1,
         ),
-        ni.DILineChan(
+        ni.DIChan(
             channel=di_1_0.key,
-            device=digital_dev.key,
             port=1,
             line=0,
         ),
@@ -227,28 +226,26 @@ const task = await client.tasks.create({
   name: "Digital Read Task",
   type: "ni_digital_read",
   config: JSON.stringify({
+    device: digitalDev.key,
     sample_rate: 100,
     stream_rate: 25,
     data_saving: true,
     channels: [
       {
-        type: "di_line",
+        type: "digital_input",
         channel: di00.key,
-        device: digitalDev.key,
         port: 0,
         line: 0,
       },
       {
-        type: "di_line",
+        type: "digital_input",
         channel: di01.key,
-        device: digitalDev.key,
         port: 0,
         line: 1,
       },
       {
-        type: "di_line",
+        type: "digital_input",
         channel: di10.key,
-        device: digitalDev.key,
         port: 1,
         line: 0,
       },
