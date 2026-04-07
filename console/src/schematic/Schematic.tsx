@@ -23,10 +23,10 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, location, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { ContextMenu as CMenu, Controls } from "@/components";
+import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
 import { Layout } from "@/layout";
 import {
   useSelectControlStatus,
@@ -71,6 +71,28 @@ const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElemen
     </Button.Toggle>
   );
 };
+
+interface ControlsProps {
+  hasUpdatePermission: boolean;
+  control: Control.Status;
+  snapshot: boolean;
+}
+
+const Controls = memo(
+  ({ hasUpdatePermission, control, snapshot }: ControlsProps): ReactElement => (
+    <BaseControls x>
+      <Diagram.Controls.SelectViewportMode />
+      <Diagram.Controls.FitView />
+      <Flex.Box x pack>
+        {hasUpdatePermission && (
+          <Diagram.Controls.ToggleEdit disabled={control === "acquired"} />
+        )}
+        {!snapshot && <ControlToggleButton control={control} />}
+      </Flex.Box>
+    </BaseControls>
+  ),
+);
+Controls.displayName = "Controls";
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <CMenu.Menu>
@@ -188,6 +210,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
+  const snapshot = doc?.snapshot ?? false;
+
   return (
     <div
       ref={ref}
@@ -217,16 +241,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           {...dropProps}
         >
           <Diagram.Background />
-          <Controls x>
-            <Diagram.Controls.SelectViewportMode />
-            <Diagram.Controls.FitView />
-            <Flex.Box x pack>
-              {hasUpdatePermission && (
-                <Diagram.Controls.ToggleEdit disabled={control === "acquired"} />
-              )}
-              {!(doc?.snapshot ?? false) && <ControlToggleButton control={control} />}
-            </Flex.Box>
-          </Controls>
+          <Controls
+            hasUpdatePermission={hasUpdatePermission}
+            control={control}
+            snapshot={snapshot}
+          />
         </Base.Schematic>
         {legend.visible && (
           <Control.Legend

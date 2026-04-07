@@ -44,9 +44,8 @@ export const Node = ({
   if (Spec == null) throw new NotFoundError(`Symbol ${variant} not found`);
   return (
     <Spec.Symbol
-      key={nodeKey}
       nodeKey={nodeKey}
-      position={position}
+      position={Spec.needsPosition ? position : undefined}
       selected={selected}
       draggable={draggable}
       onChange={handleChange}

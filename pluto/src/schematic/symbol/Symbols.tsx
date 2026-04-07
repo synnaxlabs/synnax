@@ -22,6 +22,7 @@ import {
 import {
   type CSSProperties,
   type FC,
+  memo,
   type ReactElement,
   useMemo,
   useState,
@@ -99,7 +100,7 @@ const labelGridItem = (
 
 export type SymbolProps<P extends object = object> = {
   nodeKey: string;
-  position: xy.XY;
+  position?: xy.XY;
   selected: boolean;
   draggable?: boolean;
   onChange: (value: Partial<P>) => void;
@@ -155,7 +156,6 @@ export const createToggle = <P extends object = object>(
     nodeKey: symbolKey,
     onChange,
     selected,
-    position: _,
     data,
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
     const {
@@ -211,8 +211,9 @@ export const createToggle = <P extends object = object>(
       </Grid>
     );
   };
-  C.displayName = BaseSymbol.displayName;
-  return C;
+  const M = memo(C);
+  M.displayName = BaseSymbol.displayName;
+  return M;
 };
 
 type LabeledProps<P extends object = object> = P & {
@@ -232,7 +233,6 @@ export const createLabeled = <P extends object = object>(
     nodeKey: symbolKey,
     onChange,
     selected,
-    position: _,
     data,
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
     const { label, orientation = "left", ...rest } = data;
@@ -263,8 +263,9 @@ export const createLabeled = <P extends object = object>(
       </Grid>
     );
   };
-  C.displayName = BaseSymbol.displayName;
-  return C;
+  const M = memo(C);
+  M.displayName = BaseSymbol.displayName;
+  return M;
 };
 
 type DummyToggleProps<P extends object = object> = LabeledProps<P> & {
@@ -277,7 +278,6 @@ export const createDummyToggle = <P extends object = object>(Primitive: FC<P>) =
     nodeKey: symbolKey,
     onChange,
     selected,
-    position: _,
     data,
   }: SymbolProps<DummyToggleProps<P>>): ReactElement => {
     const {
@@ -322,8 +322,9 @@ export const createDummyToggle = <P extends object = object>(Primitive: FC<P>) =
       </Grid>
     );
   };
-  DummyToggle.displayName = Primitive.displayName;
-  return DummyToggle;
+  const M = memo(DummyToggle);
+  M.displayName = Primitive.displayName;
+  return M;
 };
 
 // ||||||||| TOGGLE ||||||||
@@ -895,7 +896,7 @@ export const Value = ({
     aetherKey: symbolKey,
     color: textColor,
     level,
-    box: box.construct(xy.translateY({ ...position }, 1), {
+    box: box.construct(xy.translateY(position ?? xy.ZERO, 1), {
       height: valueBoxHeight,
       width: inlineSize,
     }),
