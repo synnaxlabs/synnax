@@ -42,7 +42,7 @@ client = sy.Synnax()
 # Open the controller
 with client.control.acquire(
     read=["temperature", "daq_do_1_state"],
-    write=["daq_do_1_cmd"]
+    write=["daq_do_1_cmd"],
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Your control sequence here
@@ -95,7 +95,7 @@ controller and assign a value to it.
 ```python
 with client.control.acquire(
     read=["pressure_1", "daq_do_1_state"],
-    write=["daq_do_1_cmd"]
+    write=["daq_do_1_cmd"],
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Set a 1 on the digital output channel
@@ -156,7 +156,7 @@ method:
 ```python
 with client.control.acquire(
     read=["pressure_1", "daq_do_1_state"],
-    write=["daq_do_1_cmd"]
+    write=["daq_do_1_cmd"],
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Wait until the pressure sensor value is above 25
@@ -193,7 +193,7 @@ point before continuing. Here's an example of how you can use the `wait_while` m
 ```python
 with client.control.acquire(
     read=["pressure_1", "daq_do_1_state"],
-    write=["daq_do_1_cmd"]
+    write=["daq_do_1_cmd"],
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Wait until the pressure sensor value is above 25
@@ -215,7 +215,7 @@ a certain range for a period of time. Here's an example of how you can use the
 ```python
 with client.control.acquire(
     read=["pressure_1", "daq_do_1_state"],
-    write=["daq_do_1_cmd"]
+    write=["daq_do_1_cmd"],
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Assert that the pressure sensor value remains above 25 for 10 seconds
@@ -240,7 +240,7 @@ least a certain percentage of the duration. Here's an example of how you can use
 ```python
 with client.control.acquire(
     read=["pressure_1", "daq_do_1_state"],
-    write=["daq_do_1_cmd"]
+    write=["daq_do_1_cmd"],
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Assert that the pressure sensor value remains above 25 for 10 seconds
