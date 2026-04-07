@@ -18,8 +18,8 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
-  if (!canCreateWorkspace) return null;
+  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
       <Toolbar.Action
@@ -47,12 +47,12 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
       message="No workspaces found."
-      action={canCreateWorkspace ? "Create a workspace" : undefined}
+      action={hasCreatePermission ? "Create a workspace" : undefined}
       onClick={handleClick}
     />
   );

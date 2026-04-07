@@ -10,6 +10,9 @@
 import multiprocessing
 import platform
 import subprocess
+from typing import Literal
+
+Platform = Literal["linux", "macos", "windows"]
 
 
 def get_machine_info() -> str:
@@ -90,14 +93,14 @@ def get_memory_info() -> str:
         )
         if result.returncode == 0:
             mem_bytes = int(result.stdout.strip())
-            return f"{mem_bytes // (1024 ** 3)}GB RAM"
+            return f"{mem_bytes // (1024**3)}GB RAM"
 
     elif system == "Linux":
         with open("/proc/meminfo", "r") as f:
             for line in f:
                 if line.startswith("MemTotal:"):
                     mem_kb = int(line.split()[1])
-                    return f"{mem_kb // (1024 ** 2)}GB RAM"
+                    return f"{mem_kb // (1024**2)}GB RAM"
 
     elif system == "Windows":
         result = subprocess.run(
@@ -112,7 +115,7 @@ def get_memory_info() -> str:
         )
         if result.returncode == 0:
             mem_bytes = int(result.stdout.strip())
-            return f"{mem_bytes // (1024 ** 3)}GB RAM"
+            return f"{mem_bytes // (1024**3)}GB RAM"
 
     raise RuntimeError(f"Unable to get memory information for {system}")
 
@@ -120,3 +123,15 @@ def get_memory_info() -> str:
 def get_cpu_cores() -> int:
     """Get the number of CPU cores."""
     return multiprocessing.cpu_count()
+
+
+def get_platform() -> Platform:
+    """Get the current platform as a lowercase string."""
+    system = platform.system()
+    if system == "Linux":
+        return "linux"
+    elif system == "Darwin":
+        return "macos"
+    elif system == "Windows":
+        return "windows"
+    raise RuntimeError(f"Unsupported platform: {system}")

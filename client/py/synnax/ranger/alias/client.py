@@ -10,11 +10,11 @@
 import uuid
 from typing import overload
 
-from freighter import UnaryClient
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
-from synnax.util.normalize import normalize
+from freighter import UnaryClient
+from x.normalize import normalize
 
 
 class _ResolveRequest(BaseModel):

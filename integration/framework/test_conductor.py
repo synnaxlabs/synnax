@@ -19,8 +19,6 @@ from enum import Enum, auto
 from typing import Any
 
 import synnax as sy
-from x import validate_and_sanitize_name
-
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
@@ -29,6 +27,7 @@ from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
 from framework.telemetry_client import TelemetryClient
 from framework.test_case import TestCase
+from x import validate_and_sanitize_name
 
 
 class STATE(Enum):
@@ -264,9 +263,16 @@ def main() -> None:
   uv run tc console/channel/calc    sequence matching "channel", cases matching "calc"
   uv run tc arc/simple/...          sequence matching "simple", all cases
 
--f flag — global case filter across all JSON files:
+-f flag — case filter (global or combined with a target):
   uv run tc -f modbus               all *_tests.json, cases matching "modbus"
   uv run tc -f channel              all *_tests.json, cases matching "channel"
+  uv run tc migration -f setup      migration_tests.json, cases matching "setup"
+  uv run tc driver -f modbus        driver_tests.json, cases matching "modbus"
+
+  -f matches against both the case path and the class name, so
+  you can filter into individual test classes within a file:
+  uv run tc driver/ni -f Scaled     only NIAnalogReadScaled from ni_read.py
+  uv run tc migration -f verify     only Verify classes across migration tests
 
 ... wildcard — means "no filter" at that position:
   uv run tc console/...             same as just "console"
@@ -291,7 +297,7 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--filter",
         "-f",
-        help="Filter tests by case path substring across all test files (auto-discovers all *_tests.json)",
+        help="Filter tests by case path substring. Without a target, searches all *_tests.json. With a target, narrows results within that target.",
     )
     parser.add_argument(
         "--headed",
@@ -328,13 +334,15 @@ All matching is case-insensitive substring.
     try:
         if args.target:
             target_filter = parse_target(args.target)
+            if args.filter:
+                target_filter.case_filter = args.filter
         elif args.filter:
             target_filter = TargetFilter(case_filter=args.filter)
         else:
             target_filter = TargetFilter()
 
         conductor.load(target_filter)
-        results = conductor.run_sequence()
+        conductor.run_sequence()
         conductor.wait_for_completion()
 
     except KeyboardInterrupt:
@@ -363,7 +371,7 @@ All matching is case-insensitive substring.
                     f"Warning: Failed to finalize conductor range: {e}"
                 )
 
-        conductor.log_message(f"Fin.")
+        conductor.log_message("Fin.")
         if hasattr(conductor, "tests") and conductor.tests:
             stats = conductor._get_test_statistics()
 

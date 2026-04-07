@@ -448,7 +448,11 @@ const ZERO_BOOLEAN_SINK_PROPS = {
   }),
 };
 
-const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_PROPS };
+const ZERO_TOGGLE_PROPS = {
+  ...ZERO_BOOLEAN_SOURCE_PROPS,
+  ...ZERO_BOOLEAN_SINK_PROPS,
+  onClickDelay: 0,
+};
 
 const ZERO_DUMMY_TOGGLE_PROPS = { ...ZERO_PROPS, enabled: false, clickable: false };
 

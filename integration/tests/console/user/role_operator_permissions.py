@@ -10,9 +10,8 @@
 """Test that Operator role has restricted permissions."""
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class RoleOperatorPermissions(ConsoleCase):
@@ -20,7 +19,7 @@ class RoleOperatorPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Operator role
-        username = f"operator_{get_random_name()}"
+        username = f"operator_{random_name()}"
         password = "testpassword123"
         first_name = "Operator"
         last_name = "Test"

@@ -17,10 +17,10 @@ from typing import Any, cast, overload
 from uuid import UUID
 
 import numpy as np
-from freighter import UnaryClient
 from pydantic import PrivateAttr
 
 import synnax.channel.payload as channel
+from freighter import UnaryClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
@@ -46,9 +46,9 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
-from synnax.util.interop import overload_comparison_operators
-from synnax.util.normalize import check_for_none, normalize
-from synnax.util.params import require_named_params
+from x.interop import overload_comparison_operators
+from x.normalize import check_for_none, normalize
+from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
 

@@ -11,13 +11,12 @@ import uuid
 from typing import Any
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.off_page_reference import OffPageReference
 from console.schematic.schematic import Schematic
 from framework.utils import assert_link_format
+from x import random_name
 
 
 def assert_exported_json(exported: dict[str, Any]) -> None:
@@ -62,7 +61,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.ctx_schematic_name = None
         self.ctx_schematic_copy_name = None
         self.shared_range_name = None
@@ -149,14 +148,14 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing view writers in control")
 
         schematic.acquire_control()
-        assert (
-            schematic.get_control_status() is True
-        ), "Control status mismatch! Expected: True"
+        assert schematic.get_control_status() is True, (
+            "Control status mismatch! Expected: True"
+        )
 
         schematic.set_properties(show_control_legend=True)
-        assert (
-            schematic.control_legend_visible is True
-        ), "Control legend should be visible"
+        assert schematic.control_legend_visible is True, (
+            "Control legend should be visible"
+        )
 
         entries = schematic.get_control_legend_entries()
         assert len(entries) > 0, "Control legend should have at least one entry"
@@ -166,9 +165,9 @@ class SchematicLifecycle(ConsoleCase):
         )
 
         schematic.release_control()
-        assert (
-            schematic.get_control_status() is False
-        ), "Control status mismatch! Expected: False"
+        assert schematic.get_control_status() is False, (
+            "Control status mismatch! Expected: False"
+        )
 
     def test_copy_link(self, schematic: Schematic) -> None:
         """Test copying a link to the schematic via toolbar button."""
@@ -192,15 +191,15 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic = self.console.workspace.open_schematic(self.main_schematic_name)
 
-        assert (
-            schematic.is_pane_visible
-        ), f"Schematic '{self.main_schematic_name}' pane not visible after opening from resources toolbar"
+        assert schematic.is_pane_visible, (
+            f"Schematic '{self.main_schematic_name}' pane not visible after opening from resources toolbar"
+        )
 
         # Assert the link we used to open is the same link we get.
         opened_link = schematic.copy_link()
-        assert (
-            opened_link == self.main_schematic_link
-        ), f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+        assert opened_link == self.main_schematic_link, (
+            f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+        )
 
         schematic.close()
 
@@ -213,14 +212,14 @@ class SchematicLifecycle(ConsoleCase):
             self.main_schematic_name
         )
 
-        assert (
-            schematic.is_pane_visible
-        ), f"Schematic '{self.main_schematic_name}' pane not visible after dragging to mosaic"
+        assert schematic.is_pane_visible, (
+            f"Schematic '{self.main_schematic_name}' pane not visible after dragging to mosaic"
+        )
 
         opened_link = schematic.copy_link()
-        assert (
-            opened_link == self.main_schematic_link
-        ), f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+        assert opened_link == self.main_schematic_link, (
+            f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+        )
 
         schematic.close()
 
@@ -233,14 +232,14 @@ class SchematicLifecycle(ConsoleCase):
             Schematic, self.main_schematic_name
         )
 
-        assert (
-            schematic.is_pane_visible
-        ), f"Schematic '{self.main_schematic_name}' pane not visible after opening from search"
+        assert schematic.is_pane_visible, (
+            f"Schematic '{self.main_schematic_name}' pane not visible after opening from search"
+        )
 
         opened_link = schematic.copy_link()
-        assert (
-            opened_link == self.main_schematic_link
-        ), f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+        assert opened_link == self.main_schematic_link, (
+            f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+        )
 
         schematic.close()
 
@@ -259,20 +258,20 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing rename schematic via context menu")
         new_name = f"Renamed Schematic {self.suffix}"
         self.console.workspace.rename_page(self.ctx_schematic_name, new_name)
-        assert self.console.workspace.page_exists(
-            new_name
-        ), f"Schematic '{new_name}' should exist after rename"
+        assert self.console.workspace.page_exists(new_name), (
+            f"Schematic '{new_name}' should exist after rename"
+        )
         self.ctx_schematic_name = new_name
 
         self.log("Testing copy schematic via context menu")
         copy_name = f"Copied Schematic {self.suffix}"
         self.console.workspace.copy_page(self.ctx_schematic_name, copy_name)
-        assert self.console.workspace.page_exists(
-            copy_name
-        ), f"Copied schematic '{copy_name}' should exist"
-        assert self.console.workspace.page_exists(
-            self.ctx_schematic_name
-        ), f"Original schematic '{self.ctx_schematic_name}' should still exist"
+        assert self.console.workspace.page_exists(copy_name), (
+            f"Copied schematic '{copy_name}' should exist"
+        )
+        assert self.console.workspace.page_exists(self.ctx_schematic_name), (
+            f"Original schematic '{self.ctx_schematic_name}' should still exist"
+        )
         self.ctx_schematic_copy_name = copy_name
 
     def test_multi_schematic_operations(self) -> None:
@@ -291,9 +290,9 @@ class SchematicLifecycle(ConsoleCase):
 
         copy_names = [f"{name} (copy)" for name in schematic_names]
         for copy_name in copy_names:
-            assert self.console.workspace.page_exists(
-                copy_name
-            ), f"Copied schematic '{copy_name}' should exist"
+            assert self.console.workspace.page_exists(copy_name), (
+                f"Copied schematic '{copy_name}' should exist"
+            )
 
         self.log("Testing delete multiple schematics via context menu")
         all_names = schematic_names + copy_names
@@ -345,9 +344,9 @@ class SchematicLifecycle(ConsoleCase):
 
         snapshot_names = self.console.ranges.get_snapshot_names_in_overview()
         self.log(f"Snapshots found in overview: {snapshot_names}")
-        assert self.console.ranges.snapshot_exists_in_overview(
-            snapshot_name
-        ), f"Snapshot '{snapshot_name}' should exist in Range Details Overview. Found: {snapshot_names}"
+        assert self.console.ranges.snapshot_exists_in_overview(snapshot_name), (
+            f"Snapshot '{snapshot_name}' should exist in Range Details Overview. Found: {snapshot_names}"
+        )
 
         self.console.ranges.open_snapshot_from_overview(snapshot_name)
         self.console.layout.wait_for_tab(snapshot_name)
@@ -360,16 +359,16 @@ class SchematicLifecycle(ConsoleCase):
 
         self.console.layout.show_visualization_toolbar()
         toolbar_title = self.console.layout.get_visualization_toolbar_title()
-        assert (
-            toolbar_title == new_name
-        ), f"Visualization Toolbar should show '{new_name}', got '{toolbar_title}'"
+        assert toolbar_title == new_name, (
+            f"Visualization Toolbar should show '{new_name}', got '{toolbar_title}'"
+        )
         self.console.layout.hide_visualization_toolbar()
 
         self.console.ranges.open_from_search(self.shared_range_name)
         self.console.ranges.wait_for_overview(self.shared_range_name)
-        assert self.console.ranges.snapshot_exists_in_overview(
-            new_name
-        ), f"Snapshot should be renamed to '{new_name}' in Range Details Overview"
+        assert self.console.ranges.snapshot_exists_in_overview(new_name), (
+            f"Snapshot should be renamed to '{new_name}' in Range Details Overview"
+        )
         self.console.workspace.close_page(new_name)
         self.console.workspace.delete_page(original_name)
 

@@ -19,13 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -42,6 +44,7 @@ type ServiceConfig struct {
 	DB              *gorp.DB
 	Ontology        *ontology.Ontology
 	Search          *search.Index
+	Channel         *channel.Service
 	Signals         *signals.Provider
 	ParentRetriever ParentRetriever
 	alamos.Instrumentation
@@ -58,6 +61,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "parent_retriever", c.ParentRetriever)
 	return v.Error()
 }
@@ -68,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ParentRetriever = override.Nil(c.ParentRetriever, other.ParentRetriever)
 	return c
@@ -75,46 +80,42 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing channel aliases on ranges.
 type Service struct {
-	shutdownSignals io.Closer
-	table           *gorp.Table[string, Alias]
-	cfg             ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[string, Alias]
+	cfg    ServiceConfig
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Alias]{DB: cfg.DB})
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Alias]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.Signals == nil {
-		return s, nil
+	if cfg.Signals != nil {
+		signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
+		signalsCfg.SetName = "sy_range_alias_set"
+		signalsCfg.DeleteName = "sy_range_alias_delete"
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg); !ok(err, sig) {
+			return nil, err
+		}
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Alias](s.table.Observe())
-	signalsCfg.SetName = "sy_range_alias_set"
-	signalsCfg.DeleteName = "sy_range_alias_delete"
-	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
-	if err != nil {
-		return nil, err
-	}
-	s.shutdownSignals = aliasSignals
 	return s, nil
 }
 
 // Close closes the service and releases any resources.
-func (s *Service) Close() error {
-	var err error
-	if s.shutdownSignals != nil {
-		err = s.shutdownSignals.Close()
-	}
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewWriter opens a new Writer to create and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
@@ -122,6 +123,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		channel:   s.cfg.Channel,
 		table:     s.table,
 	}
 }

@@ -138,7 +138,7 @@ with tsk.run():
             hold_reg_1_val = 255 - (i * 20) % 256
 
             print(
-                f"{i+1:<8} {coil_0_val:>10} {coil_1_val:>10} {hold_reg_0_val:>12} {hold_reg_1_val:>12}"
+                f"{i + 1:<8} {coil_0_val:>10} {coil_1_val:>10} {hold_reg_0_val:>12} {hold_reg_1_val:>12}"
             )
 
             # Write all commands with timestamp

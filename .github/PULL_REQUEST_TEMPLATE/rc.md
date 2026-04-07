@@ -74,8 +74,6 @@ I can successfully:
 
 - **Create Channel Modal**
 - [ ] Open a channel plot from a link.
-- [ ] Rename a channel and ensure the change synchronizes properly across:
-  - Task Configuration Dialog
 - [ ] Set an alias for a channel and ensure the change synchronizes properly across:
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
@@ -157,23 +155,6 @@ I can successfully:
   - [ ] Preserve log data from a virtual channel in the buffer.
 - [ ] Open a log from its link.
 
-### Permissions & Roles
-
-I can successfully:
-
-- **Role Management**
-  - [ ] View all available roles in the Resources Toolbar.
-  - [ ] Unassign a role from a user.
-  - [ ] Cannot delete built-in roles (Owner, Engineer, Operator, Viewer).
-
-- **As an Owner:**
-  - [ ] Can register new users and assign roles.
-  - [ ] Can create, edit, and delete all resource types.
-
-- **As a Viewer:**
-  - [ ] Can view schematics, line plots, tables, logs.
-  - [ ] Cannot actuate valves on a schematic.
-
 ### Ranges
 
 I can successfully:
@@ -222,19 +203,6 @@ I can successfully:
 - [ ] Start a task on server boot up when the "Auto start" option is enabled.
 - [ ] Import a task from a file via the import task commands
 - [ ] Import a task from a file via drag-and-drop
-
-### Users
-
-I can successfully:
-
-- **Resources Toolbar**
-  - [ ] Unassign a role from a user.
-  - [ ] Open the "Permissions" dialog.
-  - [ ] Rename a user.
-  - [ ] Delete a user.
-  - [ ] Delete multiple users.
-- [ ] Change a user's username and log in with the new username.
-- [ ] Change a user's role and verify their permissions change accordingly.
 
 ### Version
 
@@ -306,7 +274,6 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] View a chassis and it's child devices.
 - [ ] Shut down the driver without errors during embedded operation.
 - **Digital Read Task**
   - [ ] Plot live data.

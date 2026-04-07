@@ -14,14 +14,20 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,6 +48,14 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Auth is used to register credentials for the root user during provisioning.
+	// [OPTIONAL] - If nil, root user provisioning is skipped.
+	Auth auth.Authenticator
+	// RootCredentials are the credentials for the root user.
+	// [OPTIONAL] - Only used when Auth is provided.
+	RootCredentials auth.InsecureCredentials
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -51,11 +65,14 @@ var (
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -71,38 +88,66 @@ func (c ServiceConfig) Validate() error {
 
 // A Service is how users are managed in the Synnax cluster.
 type Service struct {
-	cfg             ServiceConfig
-	shutdownSignals io.Closer
-	table           *gorp.Table[uuid.UUID, User]
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[uuid.UUID, User]
 }
 
 // OpenService opens a new Service with the given context ctx and configurations configs.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(defaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[User]{DB: cfg.DB})
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, User]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-
 	if cfg.Signals != nil {
-		cdcS, err := signals.PublishFromGorp(
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[User](s.table.Observe()),
-		)
-		s.shutdownSignals = cdcS
-		if err != nil {
+		); !ok(err, sig) {
+			return nil, err
+		}
+	}
+	if cfg.Auth != nil {
+		if err = s.provisionRoot(ctx, cfg); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
+}
+
+func (s *Service) provisionRoot(ctx context.Context, cfg ServiceConfig) error {
+	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var rootUser User
+		if err := s.NewRetrieve().
+			WhereUsernames(cfg.RootCredentials.Username).
+			Entry(&rootUser).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if rootUser.Key != uuid.Nil {
+			return nil
+		}
+		rootUser.Username = cfg.RootCredentials.Username
+		rootUser.RootUser = true
+		if err := cfg.Auth.NewWriter(tx).Register(ctx, cfg.RootCredentials); err != nil {
+			return err
+		}
+		return s.NewWriter(tx).Create(ctx, &rootUser)
+	})
 }
 
 // NewWriter opens a new writer capable of creating, updating, and deleting Users. The
@@ -134,10 +179,4 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 }
 
 // Close closes the service and stops any signal publishing.
-func (s *Service) Close() error {
-	var err error
-	if s.shutdownSignals != nil {
-		err = s.shutdownSignals.Close()
-	}
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }

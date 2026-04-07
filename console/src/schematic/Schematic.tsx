@@ -18,7 +18,6 @@ import {
   Flex,
   Haul,
   Icon,
-  Menu as PMenu,
   Schematic as Base,
   Status,
   Synnax,
@@ -39,7 +38,7 @@ import {
 } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Controls } from "@/components";
+import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -233,9 +232,9 @@ const SymbolRenderer = ({
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" gap="small">
+  <CContextMenu.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
+  </CContextMenu.Menu>
 );
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
@@ -272,9 +271,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
-  const hasEditPermission =
+  const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
-  const canEdit = hasEditPermission && state.editable;
+  const canEdit = hasUpdatePermission && state.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -510,7 +509,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
-              {hasEditPermission && (
+              {hasUpdatePermission && (
                 <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
               )}
               {!state.snapshot && <ControlToggleButton control={state.control} />}
@@ -548,12 +547,12 @@ export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -565,7 +564,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 

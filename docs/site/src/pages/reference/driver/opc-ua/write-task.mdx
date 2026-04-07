@@ -56,11 +56,11 @@ state, configure a [read task](/reference/driver/opc-ua/read-task) for the same 
 Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration
 parameters, and single-value commands.
 
-| Parameter | Type    | Required | Default | Description                             |
-| --------- | ------- | -------- | ------- | --------------------------------------- |
-| `channel` | number  | Yes      | -       | Synnax command channel key              |
-| `node_id` | string  | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
-| `enabled` | boolean | No       | `true`  | Enable or disable writing to this node  |
+| Parameter     | Type    | Required | Default | Description                             |
+| ------------- | ------- | -------- | ------- | --------------------------------------- |
+| `cmd_channel` | number  | Yes      | -       | Synnax command channel key              |
+| `node_id`     | string  | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
+| `enabled`     | boolean | No       | `true`  | Enable or disable writing to this node  |
 
 **NodeId Format Examples:**
 
@@ -81,11 +81,11 @@ parameters, and single-value commands.
 Writes array data to an OPC UA node in bulk. Used for batch control commands or
 multi-value setpoints.
 
-| Parameter | Type    | Required | Default | Description                                 |
-| --------- | ------- | -------- | ------- | ------------------------------------------- |
-| `channel` | number  | Yes      | -       | Synnax command channel key                  |
-| `node_id` | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
-| `enabled` | boolean | No       | `true`  | Enable or disable writing to this node      |
+| Parameter     | Type    | Required | Default | Description                                 |
+| ------------- | ------- | -------- | ------- | ------------------------------------------- |
+| `cmd_channel` | number  | Yes      | -       | Synnax command channel key                  |
+| `node_id`     | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
+| `enabled`     | boolean | No       | `true`  | Enable or disable writing to this node      |
 
 **Note** -> The channel data type must match the array element type on the server.
 
@@ -266,11 +266,11 @@ const task = await client.tasks.create({
     device: dev.key,
     channels: [
       {
-        channel: setpointCmd.key,
+        cmd_channel: setpointCmd.key,
         node_id: "ns=2;s=TemperatureSetpoint",
       },
       {
-        channel: valveCmd.key,
+        cmd_channel: valveCmd.key,
         node_id: "ns=2;s=ValveControl",
       },
     ],

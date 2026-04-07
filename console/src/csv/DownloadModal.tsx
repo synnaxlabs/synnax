@@ -34,7 +34,7 @@ import { Triggers } from "@/triggers";
 export interface DownloadModalArgs extends Modals.BaseArgs<void> {
   channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
-  channels: channel.Keys;
+  channels: channel.Key[];
   name: string;
 }
 
@@ -97,7 +97,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
                 )}
               </Form.Field>
             </Flex.Box>
-            <Form.Field<channel.Keys> path="channels">
+            <Form.Field<channel.Key[]> path="channels">
               {({ value, onChange }) => (
                 <Channel.SelectMultiple
                   value={value}
@@ -137,7 +137,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
   const { get } = Form.useContext();
   const handleClick = () => {
     const timeRange = get<TimeRange>("timeRange").value;
-    const channels = get<channel.Keys>("channels").value;
+    const channels = get<channel.Key[]>("channels").value;
     const downsampleFactor = get<number>("downsampleFactor").value;
     const channelNames = get<Record<channel.Key, string>>("channelNames", {
       optional: true,
@@ -152,7 +152,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
       onDownloadStart: handleFinish,
     });
   };
-  const channelKeys = Form.useFieldValue<channel.Keys>("channels");
+  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const isDisabled = channelKeys.length === 0;
   return (
     <Button.Button

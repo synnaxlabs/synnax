@@ -14,8 +14,8 @@ import (
 	"maps"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/graph"
 )
 
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
@@ -28,9 +28,6 @@ type dagWriter struct {
 }
 
 var _ Writer = dagWriter{}
-
-// ErrCycle is returned when a cycle is created in the graph.
-var ErrCycle = errors.New("[ontology] - cyclic dependency")
 
 // DefineResource implements the Writer interface.
 func (d dagWriter) DefineResource(ctx context.Context, tk ID) error {
@@ -103,7 +100,7 @@ func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t Relationsh
 		return err
 	}
 	if _, exists := descendants[from]; exists {
-		return ErrCycle
+		return graph.ErrCyclicDependency
 	}
 	return d.relationshipTable.NewCreate().Entry(&rel).Exec(ctx, d.tx)
 }
@@ -123,7 +120,7 @@ func (d dagWriter) DefineFromOneToManyRelationships(ctx context.Context, from ID
 			return err
 		}
 		if _, exists := descendants[from]; exists {
-			return ErrCycle
+			return graph.ErrCyclicDependency
 		}
 	}
 	return d.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, d.tx)
@@ -231,7 +228,7 @@ func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship
 		return false, err
 	}
 	if reverseExists {
-		return true, ErrCycle
+		return true, graph.ErrCyclicDependency
 	}
 	return exists, nil
 }

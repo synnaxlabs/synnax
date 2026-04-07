@@ -15,26 +15,26 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func EncodeTimeRange(w *orc.Writer, s *TimeRange) error {
-	w.Int64(int64(s.Start))
-	w.Int64(int64(s.End))
+func (tr TimeRange) EncodeOrc(w *orc.Writer) error {
+	w.Int64(int64(tr.Start))
+	w.Int64(int64(tr.End))
 	return nil
 }
 
-func DecodeTimeRange(r *orc.Reader, s *TimeRange) error {
+func (tr *TimeRange) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		s.Start = TimeStamp(v)
+		tr.Start = TimeStamp(v)
 	}
 	{
 		v, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		s.End = TimeStamp(v)
+		tr.End = TimeStamp(v)
 	}
 	return nil
 }

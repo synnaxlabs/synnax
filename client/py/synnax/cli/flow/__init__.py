@@ -21,7 +21,7 @@ class Context:
         )
 
 
-class Flow[T]():
+class Flow[T]:
     steps: dict[str, Callable[[Context, T], str | None]]
     context: Context
 

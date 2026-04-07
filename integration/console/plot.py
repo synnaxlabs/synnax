@@ -9,9 +9,9 @@
 
 from typing import Any, Literal
 
-import synnax as sy
 from playwright.sync_api import Locator
 
+import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
 from console.page import ConsolePage

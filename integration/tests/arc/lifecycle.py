@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
+from x import random_name
 
 ARC_LIFECYCLE_SOURCE = """
 
@@ -140,7 +140,7 @@ class Lifecycle(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.new_name = f"ArcRenamed_{get_random_name()}"
+        self.new_name = f"ArcRenamed_{random_name()}"
         self.client.channels.create(
             name="arc_lifecycle_virt",
             data_type=sy.DataType.FLOAT32,

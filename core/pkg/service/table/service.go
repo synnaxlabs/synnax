@@ -13,16 +13,20 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for opening a table service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the table service will store tables in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -42,6 +46,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
@@ -71,7 +76,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Table]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Table](ctx, gorp.TableConfig[Table]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Table]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

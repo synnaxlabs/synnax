@@ -45,12 +45,12 @@
         }
     }
 
-    &:not(.pluto-symbol--custom) svg {
-        stroke-width: 2px;
-    }
-
     & svg {
         overflow: visible;
+    }
+
+    &:not(.pluto-symbol--custom) svg {
+        stroke-width: 2px;
     }
 
     &:not(.pluto-symbol-primitive-toggle) svg {
@@ -106,6 +106,28 @@
     &:not(.pluto--enabled) svg {
         fill: none;
     }
+
+    &.pluto-symbol-primitive-toggle--delayed {
+        position: relative;
+        backdrop-filter: brightness(1);
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            z-index: 1;
+            background: rgba(var(--pluto-symbol-color), 0.2);
+            pointer-events: none;
+        }
+
+        &:active::after {
+            animation: delay var(--pluto-toggle-delay) linear;
+            width: 100%;
+        }
+    }
 }
 
 .pluto-solenoid-valve.pluto--normally-open {
@@ -134,7 +156,7 @@
 .pluto-text-box {
     justify-content: center;
     padding: 2px;
-    width: "fit-content";
+    width: fit-content;
     white-space: nowrap;
     text-overflow: ellipsis;
     text-wrap: wrap;
@@ -321,7 +343,9 @@
                     calc(100% - 2rem) 100%,
                     0 100%
                 );
-                margin: 1px 0 1px 1px;
+                margin-top: 1px;
+                margin-bottom: 1px;
+                margin-left: 1px;
                 padding: 0.5rem 2.5rem 0.5rem 1rem;
                 background-color: var(--pluto-gray-l0);
                 width: calc(100% - 1px);

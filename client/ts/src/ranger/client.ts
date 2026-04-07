@@ -24,7 +24,7 @@ import { label } from "@/label";
 import { type ontology } from "@/ontology";
 import { type Client as AliasClient } from "@/ranger/alias/client";
 import { type Client as KVClient } from "@/ranger/kv/client";
-import { type Keys, type Name, type Names, type Params } from "@/ranger/payload";
+import { type Name, type Params } from "@/ranger/payload";
 import {
   type Key,
   keyZ,
@@ -239,12 +239,12 @@ export class Client {
     await this.writer.rename(key, name);
   }
 
-  async delete(key: Key | Keys): Promise<void> {
+  async delete(key: Key | Key[]): Promise<void> {
     await this.writer.delete(array.toArray(key));
   }
 
   async retrieve(params: Key | Name): Promise<Range>;
-  async retrieve(params: Keys | Names): Promise<Range[]>;
+  async retrieve(params: Key[] | Name[]): Promise<Range[]>;
   async retrieve(params: CrudeTimeRange): Promise<Range[]>;
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
   async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {

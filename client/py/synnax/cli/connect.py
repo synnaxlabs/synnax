@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from freighter.exceptions import Unreachable
-
 from synnax import Synnax
 from synnax.cli.flow import Context
 from synnax.config import load_options

@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from typing import cast, overload
 
+from pydantic import BaseModel
+
+import synnax.channel.payload as channel
 from freighter import (
     EOF,
     AsyncStream,
@@ -20,9 +23,6 @@ from freighter import (
 )
 from freighter.transport import P
 from freighter.websocket import Message
-from pydantic import BaseModel
-
-import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec

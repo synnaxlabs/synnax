@@ -32,9 +32,9 @@ Phase 2: ss_temp_a=400
 
 import threading
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 SHORT_CIRCUIT_SOURCE = """
@@ -247,9 +247,9 @@ class ShortCircuit(ArcConsoleCase):
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
-                assert (
-                    0.980 <= d <= 1.020
-                ), f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
+                assert 0.980 <= d <= 1.020, (
+                    f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
+                )
 
         expected: dict[str, list[int | float | str]] = {
             "ss_stage_str": ["on", "pause", "on", "pause", "on", "pause", "on", "off"],

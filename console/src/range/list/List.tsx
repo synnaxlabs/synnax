@@ -13,11 +13,13 @@ import { ranger } from "@synnaxlabs/client";
 import {
   Access,
   Button,
+  Component,
   Flex,
   type Flux,
   Icon,
   Input,
   List as PList,
+  Menu,
   Select,
   type state,
 } from "@synnaxlabs/pluto";
@@ -26,6 +28,7 @@ import { type ReactElement, type ReactNode, useCallback, useState } from "react"
 import { EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
@@ -45,11 +48,11 @@ export interface ListProps
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No ranges found."
-      action={canCreateRange ? "Create a range" : undefined}
+      action={hasCreatePermission ? "Create a range" : undefined}
       onClick={() => placeLayout(CREATE_LAYOUT)}
     />
   );
@@ -72,6 +75,7 @@ export const List = ({
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
+  const menuProps = Menu.useContextMenu();
   const handleRequestChange = useCallback(
     (setter: state.SetArg<ranger.RetrieveRequest>, opts?: Flux.AsyncListOptions) => {
       retrieve(setter, opts);
@@ -144,7 +148,12 @@ export const List = ({
             )}
           </Flex.Box>
         )}
-        <PList.Items<string> emptyContent={emptyContent} grow>
+        <Menu.ContextMenu menu={contextMenu} {...menuProps} />
+        <PList.Items<string>
+          emptyContent={emptyContent}
+          grow
+          onContextMenu={menuProps.open}
+        >
           {({ key, ...rest }) => (
             <Item
               key={key}
@@ -161,10 +170,14 @@ export const List = ({
   );
 };
 
+const contextMenu = Component.renderProp<Menu.ContextMenuMenuProps>((p) => (
+  <ContextMenu {...p} />
+));
+
 const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
-  if (!canCreateRange) return null;
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission) return null;
   return (
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
       <Icon.Add />

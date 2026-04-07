@@ -14,7 +14,6 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -23,7 +22,7 @@ import (
 // RawFilter is a predicate that operates on the raw encoded bytes of an entry
 // before it is decoded. Returning false skips the entry without allocating a
 // decoded value. Returning true allows normal decode + filter processing.
-type RawFilter func(data []byte) bool
+type RawFilter func(data []byte) (bool, error)
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
@@ -34,13 +33,11 @@ type Retrieve[K Key, E Entry[K]] struct {
 	prefix     []byte
 	filters    filters[K, E]
 	rawFilters rawFilters
-	codec      encoding.Codec
 }
 
-// NewRetrieve opens a new Retrieve query. If codec is non-nil, it overrides the
-// default DB codec for decoding entries.
-func NewRetrieve[K Key, E Entry[K]](codec encoding.Codec) Retrieve[K, E] {
-	return Retrieve[K, E]{entries: new(Entries[K, E]), codec: codec}
+// NewRetrieve opens a new Retrieve query.
+func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
+	return Retrieve[K, E]{entries: new(Entries[K, E])}
 }
 
 type filterOptions struct {
@@ -188,8 +185,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		return len(r.entries.All()), nil
 	}
 
-	codec := resolveCodec(r.codec, tx)
-	iter, err := wrapReader[K, E](tx, codec).OpenIterator(IterOptions{
+	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
 		prefix: r.prefix,
 	})
 	if err != nil {
@@ -199,7 +195,11 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.rawFilters.exec(iter.Iterator.Value()) {
+		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
+		if err != nil {
+			return 0, err
+		}
+		if !rawMatched {
 			continue
 		}
 		v := iter.Value(ctx)
@@ -228,19 +228,23 @@ type rawFilter struct {
 
 type rawFilters []rawFilter
 
-func (rf rawFilters) exec(data []byte) bool {
+func (rf rawFilters) exec(data []byte) (bool, error) {
 	if len(rf) == 0 {
-		return true
+		return true, nil
 	}
 	match := false
 	for _, f := range rf {
-		if f.f(data) {
+		ok, err := f.f(data)
+		if err != nil {
+			return false, err
+		}
+		if ok {
 			match = true
 		} else if f.required {
-			return false
+			return false, nil
 		}
 	}
-	return match
+	return match, nil
 }
 
 type filter[K Key, E Entry[K]] struct {
@@ -282,8 +286,7 @@ func newFilter[K Key, E Entry[K]](
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
-		codec              = resolveCodec(r.codec, tx)
-		reader             = wrapReader[K, E](tx, codec)
+		reader             = WrapReader[K, E](tx)
 		keysResult, getErr = reader.GetMany(ctx, *r.keys)
 		toReplace          = make([]E, 0, len(keysResult))
 		validCount         int
@@ -317,8 +320,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		validCount int
 		match      bool
 	)
-	codec := resolveCodec(r.codec, tx)
-	iter, err := wrapReader[K, E](tx, codec).OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
 	}
@@ -326,7 +328,11 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.rawFilters.exec(iter.Iterator.Value()) {
+		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
+		if err != nil {
+			return err
+		}
+		if !rawMatched {
 			continue
 		}
 		v := iter.Value(ctx)

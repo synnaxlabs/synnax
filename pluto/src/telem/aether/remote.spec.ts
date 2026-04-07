@@ -45,7 +45,7 @@ describe("remote", () => {
 
       // Stream
       streamHandler: client.StreamHandler | null = null;
-      streamKeys: channel.Keys = [];
+      streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
@@ -70,7 +70,7 @@ describe("remote", () => {
 
       async stream(
         handler: client.StreamHandler,
-        keys: channel.Keys,
+        keys: channel.Key[],
       ): Promise<destructor.Async> {
         this.streamHandler = handler;
         this.streamKeys = keys;
@@ -225,7 +225,7 @@ describe("remote", () => {
         [this.channel.index]: new MultiSeries([]),
       };
 
-      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
         this.retrieveChannelMock(key);
         if (key === this.channel.key) return this.channel;
         if (key === this.channel.index) return this.indexChannel;
@@ -339,7 +339,7 @@ describe("remote", () => {
 
       // Stream
       streamHandler: client.StreamHandler | null = null;
-      streamKeys: channel.Keys = [];
+      streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
@@ -363,7 +363,7 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
         if (key === this.channel.key) return this.channel;
         if (key === this.channel.index) return this.indexChannel;
         throw new Error(`Channel with key ${key} not found`);
@@ -376,7 +376,7 @@ describe("remote", () => {
 
       async stream(
         handler: client.StreamHandler,
-        keys: channel.Keys,
+        keys: channel.Key[],
       ): Promise<destructor.Async> {
         this.streamHandler = handler;
         this.streamKeys = keys;
