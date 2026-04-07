@@ -26,13 +26,11 @@ import { type kv, link } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface ValueInputProps extends Input.TextProps {}
 
 const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   const isLink = link.is(value);
-  const copyToClipboard = useCopyToClipboard();
   return (
     <Input.Text
       value={value}
@@ -48,9 +46,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
       propagateClick
       {...rest}
     >
-      <Button.Button onClick={() => copyToClipboard(value, "value")} variant="outlined">
-        <Icon.Copy />
-      </Button.Button>
+      <Button.Copy text={value} variant="outlined" successMessage="Copied value to clipboard" />
       {isLink && (
         <Button.Button
           href={value}

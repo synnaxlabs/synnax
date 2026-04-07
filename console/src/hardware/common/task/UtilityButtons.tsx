@@ -8,95 +8,106 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon } from "@synnaxlabs/pluto";
-import { binary } from "@synnaxlabs/x";
+import { Button, Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
+import { binary, primitive } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
 import { useKey } from "@/hardware/common/task/useKey";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-
-interface UtilityButtonProps {
-  children: Icon.FC;
-  disabled?: boolean;
-  onClick: () => void;
-  tooltip: string;
-}
-
-const UtilityButton = ({ children: Icon, ...rest }: UtilityButtonProps) => (
-  <Button.Button tooltipLocation="left" variant="text" {...rest}>
-    <Icon style={{ color: "var(--pluto-gray-l9)" }} />
-  </Button.Button>
-);
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
   const taskKey = useKey();
   const getName = () => ctx.get<string>("name").value;
-  const copy = useCopyToClipboard();
   const export_ = useExport();
   const handleExport = () => taskKey != null && export_(taskKey);
-  const handleCopyTypeScriptCode = () => {
-    const name = getName();
-    copy(
+  const getTypeScriptCode = useCallback(
+    () =>
       `
-      // Retrieve ${name}
+      // Retrieve ${getName()}
       const task = client.tasks.retrieve("${taskKey}")
       `,
-      `TypeScript code for retrieving ${name}`,
-    );
-  };
-  const handleCopyPythonCode = () => {
-    const name = getName();
-    copy(
+    [ctx, taskKey],
+  );
+  const getPythonCode = useCallback(
+    () =>
       `
-      # Retrieve ${name}
+      # Retrieve ${getName()}
       task = client.tasks.retrieve("${taskKey}")
       `,
-      `Python code for retrieving ${name}`,
-    );
-  };
-  const handleCopyJSONConfig = () => {
-    const name = getName();
+    [ctx, taskKey],
+  );
+  const getJSONConfig = useCallback(() => {
     const config = ctx.get("config").value;
-    copy(binary.JSON_CODEC.encodeString(config), `JSON configuration for ${name}`);
-  };
+    return binary.JSON_CODEC.encodeString(config);
+  }, [ctx]);
   const copyLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
-    const name = getName();
     if (taskKey == null) return;
-    copyLink({ name, ontologyID: task.ontologyID(taskKey) });
+    copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   };
-  const hasDisabledButtons = taskKey === "";
+  const hasKey = !primitive.isZero(taskKey);
   return (
-    <Flex.Box x empty>
-      <UtilityButton
-        disabled={hasDisabledButtons}
-        onClick={handleCopyTypeScriptCode}
-        tooltip="Copy TypeScript code"
+    <Flex.Box x gap="small">
+      {hasKey && (
+        <>
+          <Button.Copy
+            text={getTypeScriptCode}
+            tooltip="Copy TypeScript code"
+            tooltipLocation="left"
+            variant="text"
+            successMessage="Copied TypeScript code to clipboard"
+            textColor={9}
+          >
+            <Icon.TypeScript />
+          </Button.Copy>
+          <Button.Copy
+            text={getPythonCode}
+            tooltip="Copy Python code"
+            tooltipLocation="left"
+            variant="text"
+            successMessage="Copied Python code to clipboard"
+            textColor={9}
+          >
+            <Icon.Python />
+          </Button.Copy>
+          <Divider.Divider y />
+        </>
+      )}
+      <Button.Copy
+        text={getJSONConfig}
+        tooltip="Copy JSON configuration"
+        tooltipLocation="left"
+        variant="text"
+        successMessage="Copied JSON configuration to clipboard"
+        textColor={9}
       >
-        {Icon.TypeScript}
-      </UtilityButton>
-      <UtilityButton onClick={handleCopyPythonCode} tooltip="Copy Python code">
-        {Icon.Python}
-      </UtilityButton>
-      <UtilityButton onClick={handleCopyJSONConfig} tooltip="Copy JSON configuration">
-        {Icon.JSON}
-      </UtilityButton>
-      <UtilityButton
-        onClick={handleExport}
-        disabled={hasDisabledButtons}
-        tooltip="Export"
-      >
-        {Icon.Export}
-      </UtilityButton>
-      <UtilityButton
-        disabled={hasDisabledButtons}
-        onClick={handleCopyLink}
-        tooltip="Copy link"
-      >
-        {Icon.Link}
-      </UtilityButton>
+        <Icon.JSON />
+      </Button.Copy>
+      {hasKey && (
+        <>
+          <Divider.Divider y />
+          <Button.Button
+            onClick={handleCopyLink}
+            tooltip="Copy link"
+            tooltipLocation="left"
+            variant="text"
+            textColor={9}
+          >
+            <Icon.Link />
+          </Button.Button>
+          <Button.Button
+            onClick={handleExport}
+            tooltip="Export"
+            tooltipLocation="left"
+            variant="text"
+            textColor={9}
+          >
+            <Icon.Export />
+          </Button.Button>
+        </>
+      )}
     </Flex.Box>
   );
 };
