@@ -341,7 +341,10 @@ export const create = ({
           }
           mutations.push(translated);
         }
-        if (nextSelected !== undefined) onSelectionChange?.([...nextSelected]);
+        if (nextSelected !== undefined) {
+          selectedRef.current = nextSelected;
+          onSelectionChange?.([...nextSelected]);
+        }
         if (mutations.length > 0) onMutations(mutations);
       },
       [onSelectionChange],
