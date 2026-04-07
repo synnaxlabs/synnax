@@ -87,6 +87,7 @@ class Synnax(framer.Client):
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         cache_channels: bool = True,
+        clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -116,6 +117,7 @@ class Synnax(framer.Client):
             transport=self._transport.unary,
             username=opts.username,
             password=opts.password,
+            clock_skew_threshold=clock_skew_threshold,
         )
         self.auth.authenticate()
         self._transport.use(self.auth.middleware())

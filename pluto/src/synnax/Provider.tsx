@@ -59,12 +59,18 @@ export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant
 };
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
+export const CLOCK_SKEW_EXCEEDED = "clockSkewExceeded";
 
 export const statusDetailsSchema = z.object({
   type: z.string(),
   oldServer: z.boolean(),
   nodeVersion: z.string().optional(),
   clientVersion: z.string(),
+});
+
+export const clockSkewDetailsSchema = z.object({
+  type: z.string(),
+  clockSkew: z.number(),
 });
 
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
@@ -132,10 +138,9 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       setState({
         client,
         state: {
-          clusterKey: "",
+          ...Synnax.connectivity.DEFAULT,
           status: "connecting",
           message: "Connecting...",
-          clientServerCompatible: false,
           clientVersion: client.clientVersion,
         },
       });
@@ -169,6 +174,23 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
             oldServer,
             nodeVersion: connectivity.nodeVersion,
             clientVersion: connectivity.clientVersion,
+          },
+        });
+      }
+
+      if (connectivity.status === "connected" && connectivity.clockSkewExceeded) {
+        const skew = connectivity.clockSkew;
+        const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
+        addStatus<typeof clockSkewDetailsSchema>({
+          variant: "warning",
+          message: "Clock skew detected",
+          description:
+            `This machine's clock is ${direction} the Synnax cluster ` +
+            `by approximately ${skew.abs().toString()}. This may cause ` +
+            `issues with time-series data. Synchronize your system clock.`,
+          details: {
+            type: CLOCK_SKEW_EXCEEDED,
+            clockSkew: Number(skew.valueOf()),
           },
         });
       }

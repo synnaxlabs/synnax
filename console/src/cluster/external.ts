@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Connect, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
-import { versionOutdatedAdapter } from "@/cluster/notification";
+import { clockSkewAdapter, versionOutdatedAdapter } from "@/cluster/notification";
 import { type Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
@@ -28,4 +28,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
   versionOutdatedAdapter,
+  clockSkewAdapter,
 ];

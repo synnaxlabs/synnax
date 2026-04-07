@@ -1190,6 +1190,11 @@ export class TimeSpan
     return new TimeSpan(this.valueOf() - new TimeSpan(other).valueOf());
   }
 
+  abs(): TimeSpan {
+    const v = this.valueOf();
+    return new TimeSpan(v < 0n ? -v : v);
+  }
+
   /**
    * Creates a TimeSpan representing the given number of nanoseconds.
    *

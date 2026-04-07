@@ -1,0 +1,51 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
+
+/**
+ * Calculates and tracks clock skew between two systems using a midpoint
+ * synchronization algorithm. Useful for distributed systems where clock
+ * synchronization is critical.
+ */
+export class ClockSkewCalculator {
+  private readonly now: () => TimeStamp;
+  private localStartT: TimeStamp = new TimeStamp(0);
+  private accumulatedSkew: bigint = 0n;
+  private n: number = 0;
+
+  constructor(now: () => TimeStamp = () => TimeStamp.now()) {
+    this.now = now;
+  }
+
+  start(): void {
+    this.localStartT = this.now();
+  }
+
+  end(remoteMidpointT: TimeStamp): void {
+    const localEndT = this.now();
+    const thisMidpointT = this.localStartT.add(
+      localEndT.span(this.localStartT) / 2n,
+    );
+    const skew = thisMidpointT.valueOf() - remoteMidpointT.valueOf();
+    this.accumulatedSkew += skew;
+    this.n++;
+  }
+
+  get skew(): TimeSpan {
+    if (this.n === 0) return TimeSpan.ZERO;
+    return new TimeSpan(this.accumulatedSkew / BigInt(this.n));
+  }
+
+  exceeds(threshold: CrudeTimeSpan): boolean {
+    const skewVal = this.skew.valueOf();
+    const abs = skewVal < 0n ? -skewVal : skewVal;
+    return abs > new TimeSpan(threshold).valueOf();
+  }
+}

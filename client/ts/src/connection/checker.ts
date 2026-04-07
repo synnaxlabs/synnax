@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { migrate, TimeSpan } from "@synnaxlabs/x";
+import {
+  ClockSkewCalculator,
+  type CrudeTimeSpan,
+  migrate,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
@@ -22,12 +28,15 @@ export const stateZ = z.object({
   clientVersion: z.string(),
   clientServerCompatible: z.boolean(),
   nodeVersion: z.string().optional(),
+  clockSkew: TimeSpan.z.default(0),
+  clockSkewExceeded: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
 const responseZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
+  nodeTime: TimeStamp.z.default(0),
 });
 const requestZ = z.void();
 
@@ -38,6 +47,8 @@ const DEFAULT: State = {
   message: "Disconnected",
   clientServerCompatible: false,
   clientVersion: __VERSION__,
+  clockSkew: TimeSpan.ZERO,
+  clockSkewExceeded: false,
 };
 
 const createWarning = (
@@ -63,6 +74,9 @@ export class Checker {
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = stateZ;
   private versionWarned = false;
+  private clockSkewWarned = false;
+  private readonly skewCalc: ClockSkewCalculator;
+  private readonly clockSkewThreshold: TimeSpan;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -74,12 +88,15 @@ export class Checker {
     pollFreq: TimeSpan = TimeSpan.seconds(30),
     clientVersion: string,
     name?: string,
+    clockSkewThreshold: CrudeTimeSpan = TimeSpan.seconds(1),
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
     this.clientVersion = clientVersion;
     this.name = name;
+    this.skewCalc = new ClockSkewCalculator();
+    this.clockSkewThreshold = new TimeSpan(clockSkewThreshold);
     void this.check();
     this.start();
   }
@@ -96,6 +113,7 @@ export class Checker {
   async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
+      this.skewCalc.start();
       const res = await sendRequired(
         this.client,
         "/connectivity/check",
@@ -103,6 +121,23 @@ export class Checker {
         requestZ,
         responseZ,
       );
+      if (!res.nodeTime.isZero) {
+        this.skewCalc.end(res.nodeTime);
+        this._state.clockSkew = this.skewCalc.skew;
+        this._state.clockSkewExceeded = this.skewCalc.exceeds(
+          this.clockSkewThreshold,
+        );
+        if (this._state.clockSkewExceeded && !this.clockSkewWarned) {
+          const direction =
+            this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
+          console.warn(
+            `Measured excessive clock skew between this host and the ` +
+              `Synnax cluster. This host is ${direction} the cluster ` +
+              `by approximately ${this.skewCalc.skew.abs().toString()}.`,
+          );
+          this.clockSkewWarned = true;
+        }
+      }
       const nodeVersion = res.nodeVersion;
       const clientVersion = this.clientVersion;
       const warned = this.versionWarned;
