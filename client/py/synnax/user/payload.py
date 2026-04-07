@@ -10,9 +10,9 @@
 from uuid import UUID
 
 from pydantic import BaseModel
-from x.deprecation import deprecated_getattr
 
 from synnax import ontology
+from x.deprecation import deprecated_getattr
 
 
 class New(BaseModel):

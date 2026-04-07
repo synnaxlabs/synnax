@@ -11,7 +11,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from x import get_random_name
+from x import random_name
 
 
 class RoleViewerPermissions(ConsoleCase):
@@ -19,7 +19,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Viewer role
-        username = f"viewer_{get_random_name()}"
+        username = f"viewer_{random_name()}"
         password = "testpassword123"
         first_name = "Viewer"
         last_name = "Test"

@@ -10,7 +10,7 @@
 """Test changing a user's role via Console UI context menu."""
 
 from console.case import ConsoleCase
-from x import get_random_name
+from x import random_name
 
 
 class UserAssignRole(ConsoleCase):
@@ -18,7 +18,7 @@ class UserAssignRole(ConsoleCase):
 
     def run(self) -> None:
         # Create a user with initial role
-        username = f"testuser_{get_random_name()}"
+        username = f"testuser_{random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"

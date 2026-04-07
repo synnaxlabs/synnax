@@ -11,12 +11,12 @@ from typing import overload
 from uuid import UUID
 
 from pydantic import BaseModel
-from x.normalize import normalize
-from x.params import require_named_params
 
 from freighter import Empty, UnaryClient, send_required
 from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
+from x.normalize import normalize
+from x.params import require_named_params
 
 
 class _CreateRequest(BaseModel):

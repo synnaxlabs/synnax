@@ -118,7 +118,7 @@ class MockPrompt:
         response: R | None = (
             self.responses.pop(0) if len(self.responses) > 0 else default
         )
-        _e: Entry[Any] = Entry(
+        Entry(
             message=question,
             choices=choices,
             default=default,

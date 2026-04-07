@@ -11,7 +11,7 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
-from x import get_random_name
+from x import random_name
 
 
 class CalcTypeCascade(ConsoleCase):
@@ -40,7 +40,7 @@ class CalcTypeCascade(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.raw = {}
         self.calcs = {}
         self._create_channels()

@@ -9,7 +9,7 @@
 
 from console.case import ConsoleCase
 from console.workspace import PageType
-from x import get_random_name
+from x import random_name
 
 
 class OpenClose(ConsoleCase):
@@ -29,7 +29,7 @@ class OpenClose(ConsoleCase):
         Test Opening and closing pages
         """
         console = self.console
-        suffix = get_random_name()
+        suffix = random_name()
 
         WORKSPACE_PAGES: list[tuple[PageType, str]] = [
             ("Schematic", f"Sch_{suffix}"),

@@ -13,10 +13,10 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
-from x.params import RequiresNamedParams
-from x.strings import random_name
 
 import synnax as sy
+from x.params import RequiresNamedParams
+from x.strings import random_name
 
 
 @pytest.mark.ranger

@@ -15,6 +15,7 @@ from typing import TypeAlias
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
 from x import color as color_
 
 Key: TypeAlias = UUID

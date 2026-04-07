@@ -9,7 +9,7 @@
 
 from console.case import ConsoleCase
 from console.workspace import PageType
-from x import get_random_name
+from x import random_name
 
 
 class RenameSynchronization(ConsoleCase):
@@ -26,7 +26,7 @@ class RenameSynchronization(ConsoleCase):
         self.log(f"Testing {page_type} rename synchronization")
         console = self.console
 
-        suffix = get_random_name()
+        suffix = random_name()
         original_name = f"test_{page_type.lower().replace(' ', '_')}_{suffix}"
         new_name = f"{page_type}_renamed_{suffix}"
 

@@ -258,17 +258,15 @@ class NIAnalogReadForms(ConsoleCase):
             physical_units="Newtons",
             electrical_units="mV/V",
         )
-        (
-            ni_ai.add_channel(
-                name="ForceBridge_3",
-                chan_type=channel_type,
-                device=device_name,
-                force_units="Pounds",
-                bridge_configuration="Half Bridge",
-                excitation_source="External",
-                physical_units="Pounds",
-                electrical_units="V/V",
-            ),
+        ni_ai.add_channel(
+            name="ForceBridge_3",
+            chan_type=channel_type,
+            device=device_name,
+            force_units="Pounds",
+            bridge_configuration="Half Bridge",
+            excitation_source="External",
+            physical_units="Pounds",
+            electrical_units="V/V",
         )
         ni_ai.add_channel(
             name="ForceBridge_3",

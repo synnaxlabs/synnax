@@ -15,7 +15,7 @@ from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.schematic import Schematic
 from framework.utils import assert_link_format
-from x import get_random_name
+from x import random_name
 
 
 def assert_exported_json(exported: dict[str, Any]) -> None:
@@ -59,7 +59,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.ctx_schematic_name = None
         self.ctx_schematic_copy_name = None
         self.shared_range_name = None

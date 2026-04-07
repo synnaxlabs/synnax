@@ -11,12 +11,12 @@ from typing import Any, overload
 from uuid import UUID
 
 from pydantic import BaseModel
-from x.normalize import normalize
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
 from synnax.exceptions import NotFoundError
 from synnax.view.types_gen import Key, View
+from x.normalize import normalize
 
 
 class _CreateRequest(BaseModel):

@@ -11,7 +11,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from x import get_random_name
+from x import random_name
 
 
 class RoleEngineerPermissions(ConsoleCase):
@@ -19,7 +19,7 @@ class RoleEngineerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Engineer role
-        username = f"engineer_{get_random_name()}"
+        username = f"engineer_{random_name()}"
         password = "testpassword123"
         first_name = "Engineer"
         last_name = "Test"

@@ -14,7 +14,7 @@ import pagerduty
 
 import synnax as sy
 from framework.test_case import TestCase
-from x import get_random_name
+from x import random_name
 
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
 API_KEY = os.environ.get("PAGERDUTY_API_KEY")
@@ -29,7 +29,7 @@ class PagerDutyAlert(TestCase):
 
     def setup(self) -> None:
         self.set_manual_timeout(60)
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.status_key = f"test-pd-status-{self.suffix}"
         if ROUTING_KEY is None:
             raise RuntimeError("PAGERDUTY_ROUTING_KEY must be set")

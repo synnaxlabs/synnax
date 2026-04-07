@@ -17,9 +17,9 @@ from console.task_page import TaskPage
 from framework.run_with_connection import run_scripts
 from framework.utils import assert_link_format
 from tests.driver.simulator_case import SimulatorCase
-from x import get_random_name
+from x import random_name
 
-RANGE_NAME = f"Task Lifecycle Range {get_random_name()}"
+RANGE_NAME = f"Task Lifecycle Range {random_name()}"
 
 
 @dataclass

@@ -10,7 +10,6 @@
 from typing import cast, overload
 
 import pandas as pd
-from x.control import Authority, CrudeAuthority
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
@@ -31,6 +30,7 @@ from synnax.telem import (
     TimeRange,
     TimeSpan,
 )
+from x.control import Authority, CrudeAuthority
 
 ontology_type = ontology.ID(type="framer")
 

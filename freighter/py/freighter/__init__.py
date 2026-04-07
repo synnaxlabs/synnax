@@ -9,13 +9,6 @@
 
 __version__ = "0.2.14"
 
-from x.exceptions import (
-    ExceptionPayload,
-    decode_exception,
-    encode_exception,
-    register_exception,
-)
-
 from freighter.alamos import (
     async_instrumentation_middleware,
     instrumentation_middleware,
@@ -42,6 +35,12 @@ from freighter.websocket import (
     AsyncWebsocketClient,
     AsyncWebsocketStream,
     WebsocketClient,
+)
+from x.exceptions import (
+    ExceptionPayload,
+    decode_exception,
+    encode_exception,
+    register_exception,
 )
 
 __all__ = [

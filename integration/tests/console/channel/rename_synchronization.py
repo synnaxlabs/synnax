@@ -23,7 +23,7 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic.value import Value
-from x import get_random_name
+from x import random_name
 
 
 class RenameSynchronization(ConsoleCase):
@@ -36,7 +36,7 @@ class RenameSynchronization(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.index_name = f"sync_idx_{self.suffix}"
         self.data_name = f"sync_data_{self.suffix}"
         self.new_name = f"renamed_sync_{self.suffix}"

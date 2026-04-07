@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.deprecation import deprecated_getattr
-
 from synnax.status.client import (
     DELETE_CHANNEL,
     ONTOLOGY_TYPE,
@@ -26,6 +24,7 @@ from synnax.status.types_gen import (
     Status,
     Variant,
 )
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "SUCCESS_VARIANT": "VARIANT_SUCCESS",

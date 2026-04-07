@@ -13,7 +13,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
 from framework.utils import assert_link_format
-from x import get_random_name
+from x import random_name
 
 SRC_CH = "channel_lifecycle_uptime"
 
@@ -30,7 +30,7 @@ class ChannelLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self._create_shared_channels()
         self._create_shared_calc_channels()
 
@@ -119,7 +119,7 @@ class ChannelLifecycle(ConsoleCase):
         console = self.console
         client = self.client
 
-        suffix = get_random_name()
+        suffix = random_name()
 
         all_data_types = [
             sy.DataType.FLOAT64,
@@ -196,7 +196,7 @@ class ChannelLifecycle(ConsoleCase):
 
         console = self.console
 
-        suffix = get_random_name()
+        suffix = random_name()
         data_name = f"rename_data_{suffix}"
         new_name = f"renamed_data_{suffix}"
 
@@ -239,7 +239,7 @@ class ChannelLifecycle(ConsoleCase):
         console = self.console
         client = self.client
 
-        suffix = get_random_name()
+        suffix = random_name()
         range_name = f"alias_range_{suffix}"
         data_name = f"alias_data_{suffix}"
         alias_name = f"MyAlias_{suffix}"
@@ -295,7 +295,7 @@ class ChannelLifecycle(ConsoleCase):
 
         console = self.console
 
-        suffix = get_random_name()
+        suffix = random_name()
         index_name = f"delete_idx_{suffix}"
         data_name = f"delete_data_{suffix}"
 

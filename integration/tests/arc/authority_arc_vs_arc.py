@@ -11,7 +11,7 @@ from examples.simulators import PressSimDAQ
 
 import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
-from x import get_random_name
+from x import random_name
 
 ARC_LOW_PRIORITY_SOURCE = """
 authority 100
@@ -59,7 +59,7 @@ class AuthorityArcVsArc(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.arc_b_name = f"ArcHigh_{get_random_name()}"
+        self.arc_b_name = f"ArcHigh_{random_name()}"
         self._arc_b_created = False
         self._arc_b_started = False
         self.client.channels.create(

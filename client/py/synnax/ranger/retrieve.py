@@ -10,11 +10,11 @@
 import uuid
 
 from pydantic import BaseModel
-from x.normalize import normalize
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
 from synnax.ranger.payload import Key, Payload
+from x.normalize import normalize
 
 
 class _Request(BaseModel):

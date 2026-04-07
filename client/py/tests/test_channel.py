@@ -11,9 +11,9 @@ import random
 
 import numpy as np
 import pytest
-from x.telem import seconds_linspace
 
 import synnax as sy
+from x.telem import seconds_linspace
 
 
 def channel_name() -> str:

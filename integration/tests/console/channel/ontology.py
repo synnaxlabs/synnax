@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from x import get_random_name
+from x import random_name
 
 METRICS_GROUP = "Metrics"
 METRICS_PREFIX = "sy_node_1_metrics"
@@ -24,7 +24,7 @@ class ChannelOntology(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.group_a = f"Group A {self.suffix}"
         self.group_b = f"Group B {self.suffix}"
         self._cleanup_groups()

@@ -70,7 +70,7 @@ dev = [
     { name = "mypy", specifier = ">=1.19.1,<2" },
     { name = "pytest", specifier = ">=9.0.2,<10" },
     { name = "pytest-cov", specifier = ">=7.0.0,<8" },
-    { name = "ruff", specifier = ">=0.12.4,<1" },
+    { name = "ruff", specifier = ">=0.15.9,<1" },
 ]
 
 [[package]]
@@ -1722,7 +1722,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2,<10" },
     { name = "pytest-asyncio", specifier = ">=1.3.0,<2" },
     { name = "pytest-cov", specifier = ">=7.0.0,<8" },
-    { name = "ruff", specifier = ">=0.12.4,<1" },
+    { name = "ruff", specifier = ">=0.15.9,<1" },
     { name = "scipy", specifier = ">=1.17.1,<2" },
 ]
 
@@ -1764,7 +1764,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2,<10" },
     { name = "pytest-asyncio", specifier = ">=1.3.0,<2" },
     { name = "pytest-cov", specifier = ">=7.0.0,<8" },
-    { name = "ruff", specifier = ">=0.12.4,<1" },
+    { name = "ruff", specifier = ">=0.15.9,<1" },
 ]
 
 [[package]]
@@ -1812,7 +1812,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", specifier = ">=1.19.1,<2" },
-    { name = "ruff", specifier = ">=0.12.4,<1" },
+    { name = "ruff", specifier = ">=0.15.9,<1" },
     { name = "types-psutil", specifier = ">=7.2.2,<8" },
 ]
 
@@ -1864,7 +1864,7 @@ dev = [
     { name = "pandas-stubs", specifier = ">=3.0.0,<4" },
     { name = "pytest", specifier = ">=9.0.2,<10" },
     { name = "python-dateutil", specifier = ">=2.9.0,<3" },
-    { name = "ruff", specifier = ">=0.12.4,<1" },
+    { name = "ruff", specifier = ">=0.15.9,<1" },
     { name = "types-python-dateutil", specifier = ">=2.9.0,<3" },
 ]
 

@@ -16,7 +16,7 @@ from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from framework.utils import get_fixture_path
-from x import get_random_name
+from x import random_name
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 
@@ -40,7 +40,7 @@ class CustomSymbols(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.test_group_name = f"Test Group {self.suffix}"
         self.test_symbol_name = f"Test Symbol {self.suffix}"
         self.schematic_name = f"Symbol Test Schematic {self.suffix}"

@@ -10,11 +10,11 @@
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
-from x.color import Color
-from x.deprecation import deprecated_getattr
 
 from synnax import ontology
 from synnax.telem import TimeRange
+from x.color import Color
+from x.deprecation import deprecated_getattr
 
 ONTOLOGY_TYPE = ontology.ID(type="range")
 

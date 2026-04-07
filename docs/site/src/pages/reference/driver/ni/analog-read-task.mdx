@@ -278,24 +278,24 @@ For task lifecycle management, see the
 <ChannelType>
 <Text.Text slot="summary"><Icon.Units.Strain /> Strain Gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html))</Text.Text>
 
-| Parameter                 | Type   | Required | Default       | Description                                                                                                                      |
-| ------------------------- | ------ | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `channel`                 | number | Yes      | -             | Synnax channel key                                                                                                               |
-| `device`                  | string | Yes      | -             | Device identifier                                                                                                                |
-| `port`                    | number | Yes      | -             | Physical port                                                                                                                    |
-| `min_val`                 | number | No       | `0`           | Minimum strain                                                                                                                   |
-| `max_val`                 | number | No       | `1`           | Maximum strain                                                                                                                   |
-| `terminal_config`         | enum   | No       | `Cfg_Default` | Terminal configuration                                                                                                           |
-| `units`                   | enum   | No       | `strain`      | `strain`                                                                                                                         |
-| `strain_config`           | enum   | Yes      | -             | `full-bridge-I`, `full-bridge-II`, `full-bridge-III`, `half-bridge-I`, `half-bridge-II`, `quarter-bridge-I`, `quarter-bridge-II` |
-| `voltage_excit_source`    | enum   | Yes      | -             | `Internal`, `External`, `None`                                                                                                   |
-| `voltage_excit_val`       | number | Yes      | -             | Excitation voltage (Volts)                                                                                                       |
-| `gage_factor`             | number | Yes      | -             | Gage factor                                                                                                                      |
-| `initial_bridge_voltage`  | number | Yes      | -             | Initial bridge voltage                                                                                                           |
-| `nominal_gage_resistance` | number | Yes      | -             | Nominal gage resistance (Ohms)                                                                                                   |
-| `poisson_ratio`           | number | Yes      | -             | Poisson's ratio                                                                                                                  |
-| `lead_wire_resistance`    | number | Yes      | -             | Lead wire resistance (Ohms)                                                                                                      |
-| `custom_scale`            | object | No       | -             | Custom scaling                                                                                                                   |
+| Parameter                 | Type   | Required | Default       | Description                                                                                                        |
+| ------------------------- | ------ | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `channel`                 | number | Yes      | -             | Synnax channel key                                                                                                 |
+| `device`                  | string | Yes      | -             | Device identifier                                                                                                  |
+| `port`                    | number | Yes      | -             | Physical port                                                                                                      |
+| `min_val`                 | number | No       | `0`           | Minimum strain                                                                                                     |
+| `max_val`                 | number | No       | `1`           | Maximum strain                                                                                                     |
+| `terminal_config`         | enum   | No       | `Cfg_Default` | Terminal configuration                                                                                             |
+| `units`                   | enum   | No       | `Strain`      | `Strain`                                                                                                           |
+| `strain_config`           | enum   | Yes      | -             | `FullBridgeI`, `FullBridgeII`, `FullBridgeIII`, `HalfBridgeI`, `HalfBridgeII`, `QuarterBridgeI`, `QuarterBridgeII` |
+| `voltage_excit_source`    | enum   | Yes      | -             | `Internal`, `External`, `None`                                                                                     |
+| `voltage_excit_val`       | number | Yes      | -             | Excitation voltage (Volts)                                                                                         |
+| `gage_factor`             | number | Yes      | -             | Gage factor                                                                                                        |
+| `initial_bridge_voltage`  | number | Yes      | -             | Initial bridge voltage                                                                                             |
+| `nominal_gage_resistance` | number | Yes      | -             | Nominal gage resistance (Ohms)                                                                                     |
+| `poisson_ratio`           | number | Yes      | -             | Poisson's ratio                                                                                                    |
+| `lead_wire_resistance`    | number | Yes      | -             | Lead wire resistance (Ohms)                                                                                        |
+| `custom_scale`            | object | No       | -             | Custom scaling                                                                                                     |
 
 </ChannelType>
 

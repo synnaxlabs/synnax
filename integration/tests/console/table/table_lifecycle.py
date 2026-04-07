@@ -11,7 +11,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.table import Table
 from framework.utils import assert_link_format, get_fixture_path
-from x import get_random_name
+from x import random_name
 
 
 class TableLifecycle(ConsoleCase):
@@ -26,7 +26,7 @@ class TableLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.main_table_name = None
         self.ctx_table_name = None
 

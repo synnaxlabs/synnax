@@ -18,9 +18,6 @@ from uuid import UUID
 
 import numpy as np
 from pydantic import PrivateAttr
-from x.interop import overload_comparison_operators
-from x.normalize import check_for_none, normalize
-from x.params import require_named_params
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
@@ -49,6 +46,9 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from x.interop import overload_comparison_operators
+from x.normalize import check_for_none, normalize
+from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
 

@@ -14,8 +14,6 @@ from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
 from pydantic import BaseModel
-from x.control import Authority, CrudeAuthority, Subject
-from x.normalize import normalize
 
 import synnax.channel.payload as channel
 from freighter import (
@@ -36,6 +34,8 @@ from synnax.framer.codec import (
 )
 from synnax.framer.frame import CrudeFrame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
+from x.control import Authority, CrudeAuthority, Subject
+from x.normalize import normalize
 
 
 class WriterCommand(int, Enum):

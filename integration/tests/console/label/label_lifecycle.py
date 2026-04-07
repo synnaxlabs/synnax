@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from x import get_random_name
+from x import random_name
 
 
 class LabelLifecycle(ConsoleCase):
@@ -19,9 +19,9 @@ class LabelLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.shared_label = get_random_name()
+        self.shared_label = random_name()
         self.console.labels.create(self.shared_label, color="#F0FE00")
-        self.shared_range = get_random_name()
+        self.shared_range = random_name()
         self.console.ranges.create(
             self.shared_range, persisted=True, labels=[self.shared_label]
         )
@@ -46,7 +46,7 @@ class LabelLifecycle(ConsoleCase):
         self.log("Testing: Rename label")
 
         old_name = self.shared_label
-        new_name = get_random_name()
+        new_name = random_name()
         self.log(f"Renaming label {old_name}")
 
         self.console.labels.rename(old_name=old_name, new_name=new_name)
@@ -76,7 +76,7 @@ class LabelLifecycle(ConsoleCase):
         ), f"Label {old_label_name} should be visible in toolbar for range {range_name}"
         self.log(f"Label {old_label_name} visible in toolbar for range {range_name}")
 
-        new_label_name = get_random_name()
+        new_label_name = random_name()
         self.console.labels.rename(old_name=old_label_name, new_name=new_label_name)
         self.log(f"Label {old_label_name} renamed to {new_label_name}")
 
