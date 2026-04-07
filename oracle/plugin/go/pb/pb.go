@@ -65,7 +65,7 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
+	Commands:   [][]string{{"gofmt", "-s", "-w"}},
 }
 
 // PostWrite runs gofmt on all generated Go files.
