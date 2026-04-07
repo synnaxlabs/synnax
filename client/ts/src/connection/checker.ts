@@ -77,6 +77,7 @@ export class Checker {
   private clockSkewWarned = false;
   private readonly skewCalc: ClockSkewCalculator;
   private readonly clockSkewThreshold: TimeSpan;
+  private checking = false;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -112,8 +113,10 @@ export class Checker {
    */
   async check(): Promise<State> {
     const prevStatus = this._state.status;
+    const measureSkew = !this.checking;
+    this.checking = true;
     try {
-      this.skewCalc.start();
+      if (measureSkew) this.skewCalc.start();
       const res = await sendRequired(
         this.client,
         "/connectivity/check",
@@ -121,7 +124,7 @@ export class Checker {
         requestZ,
         responseZ,
       );
-      if (!res.nodeTime.isZero) {
+      if (measureSkew && !res.nodeTime.isZero) {
         this.skewCalc.end(res.nodeTime);
         this._state.clockSkew = this.skewCalc.skew;
         this._state.clockSkewExceeded = this.skewCalc.exceeds(this.clockSkewThreshold);
@@ -172,6 +175,8 @@ export class Checker {
       this._state.status = "failed";
       this._state.error = err as Error;
       this._state.message = this.state.error?.message;
+    } finally {
+      this.checking = false;
     }
     if (this.onChangeHandlers.length > 0 && prevStatus !== this._state.status)
       this.onChangeHandlers.forEach((handler) => handler(this.state));

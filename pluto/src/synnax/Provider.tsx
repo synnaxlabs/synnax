@@ -14,7 +14,13 @@ import {
   TimeSpan,
 } from "@synnaxlabs/client";
 import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
@@ -111,6 +117,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   });
 
   const addStatus = Status.useAdder();
+  const clockSkewWarned = useRef(false);
 
   const handleChange = useCallback(
     (state: connection.State) => {
@@ -119,6 +126,27 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
+      if (
+        state.status === "connected" &&
+        state.clockSkewExceeded &&
+        !clockSkewWarned.current
+      ) {
+        const skew = state.clockSkew;
+        const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
+        addStatus<typeof clockSkewDetailsSchema>({
+          variant: "warning",
+          message: "Clock skew detected",
+          description:
+            `This machine's clock is ${direction} the Synnax cluster ` +
+            `by approximately ${skew.abs().toString()}. This may cause ` +
+            `issues with time-series data. Synchronize your system clock.`,
+          details: {
+            type: CLOCK_SKEW_EXCEEDED,
+            clockSkew: Number(skew.valueOf()),
+          },
+        });
+        clockSkewWarned.current = true;
+      }
       setState((prev) => ({ ...prev, state }));
     },
     [addStatus],
@@ -193,6 +221,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
             clockSkew: Number(skew.valueOf()),
           },
         });
+        clockSkewWarned.current = true;
       }
 
       client.connectivity.onChange(handleChange);
