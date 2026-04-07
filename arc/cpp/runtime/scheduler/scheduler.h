@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -74,18 +75,21 @@ class Scheduler {
 
     /// @brief Context passed to nodes during execution.
     node::Context ctx;
-    /// @brief Set of node keys that need execution in the current stratum pass.
-    std::unordered_set<std::string> changed;
-    /// @brief Nodes that requested re-execution on the next cycle.
-    /// Unlike changed, self_changed persists across next() calls.
-    std::unordered_set<std::string> self_changed;
+    /// @brief Maps node keys to dense indices for flag arrays.
+    std::unordered_map<std::string, size_t> node_index;
+    /// @brief Flag array indicating which nodes need execution in the current stratum
+    /// pass.
+    std::vector<uint8_t> changed_flags;
+    /// @brief Flag array for nodes that requested re-execution on the next cycle.
+    std::vector<uint8_t> self_changed_flags;
     /// @brief Minimum deadline (absolute elapsed time) across all nodes in the
     /// current next() call. Reset to max at the start of each next() call.
     x::telem::TimeSpan next_deadline_ = x::telem::TimeSpan::max();
     /// @brief One-shot edges that have fired in global strata (never reset).
     std::unordered_set<ir::Edge> global_fired_one_shots;
-    /// @brief Key of the currently executing node.
-    std::string curr_node_key;
+    /// @brief Pointer to the key of the currently executing node (points into strata
+    /// string vectors which are immutable after construction).
+    const std::string *curr_node_ptr = nullptr;
     /// @brief Index of the currently executing sequence, or npos if global.
     size_t curr_seq_idx = NO_INDEX;
     /// @brief Index of the currently executing stage, or npos if none.
@@ -113,11 +117,16 @@ public:
         };
         this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
         this->ctx.activate_stage = std::bind_front(&Scheduler::transition_stage, this);
-        for (auto &[key, node]: node_impls)
+        size_t idx = 0;
+        for (auto &[key, node]: node_impls) {
+            this->node_index[key] = idx++;
             this->nodes[key] = Node{
                 .output_edges = prog.edges_from(key),
                 .node = std::move(node),
             };
+        }
+        this->changed_flags.resize(idx, 0);
+        this->self_changed_flags.resize(idx, 0);
         this->global_strata = prog.strata;
         this->sequences.resize(prog.sequences.size());
         for (size_t i = 0; i < prog.sequences.size(); i++) {
@@ -143,10 +152,10 @@ public:
 
     /// @brief Resets all execution state for runtime restart.
     void reset() {
-        this->changed.clear();
-        this->self_changed.clear();
+        std::fill(this->changed_flags.begin(), this->changed_flags.end(), 0);
+        std::fill(this->self_changed_flags.begin(), this->self_changed_flags.end(), 0);
         this->global_fired_one_shots.clear();
-        this->curr_node_key.clear();
+        this->curr_node_ptr = nullptr;
         this->curr_seq_idx = NO_INDEX;
         this->curr_stage_idx = NO_INDEX;
         this->transitioned = false;
@@ -183,7 +192,7 @@ public:
 
 private:
     /// @brief Returns the NodeState for the currently executing node.
-    Node &curr_node() { return this->nodes[this->curr_node_key]; }
+    Node &curr_node() { return this->nodes[*this->curr_node_ptr]; }
 
     /// @brief Returns the StageState for the currently executing stage.
     Stage &curr_stage() {
@@ -192,15 +201,17 @@ private:
 
     /// @brief Executes all strata, propagating changes between them.
     void execute_strata(const ir::Strata &strata) {
-        this->changed.clear();
+        std::fill(this->changed_flags.begin(), this->changed_flags.end(), 0);
         this->transitioned = false;
         const bool in_stage = this->curr_stage_idx != NO_INDEX;
         bool first_stratum = true;
         for (const auto &stratum: strata) {
             for (const auto &key: stratum) {
-                const bool was_self_changed = this->self_changed.erase(key) > 0;
-                if (first_stratum || this->changed.contains(key) || was_self_changed) {
-                    this->curr_node_key = key;
+                const auto idx = this->node_index[key];
+                const bool was_self_changed = this->self_changed_flags[idx] != 0;
+                if (was_self_changed) this->self_changed_flags[idx] = 0;
+                if (first_stratum || this->changed_flags[idx] || was_self_changed) {
+                    this->curr_node_ptr = &key;
                     this->curr_node().node->next(this->ctx);
                 }
                 if (in_stage && this->transitioned) return;
@@ -227,7 +238,7 @@ private:
 
     /// @brief Reports an error from a node to the error handler.
     void report_error(const x::errors::Error &e) {
-        LOG(ERROR) << "[arc] node encountered error: " << e;
+        LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
         this->error_handler(e);
     }
 
@@ -235,33 +246,34 @@ private:
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->curr_node().output_edges[param])
             if (edge.kind == ir::EdgeKind::Continuous)
-                this->changed.insert(edge.target.node);
+                this->changed_flags[this->node_index[edge.target.node]] = 1;
             else if (this->curr_node().node->is_output_truthy(param)) {
-                // One-shot edge: fire only once per stage (or once ever in global)
                 auto &fired_set = this->curr_stage_idx == NO_INDEX
                                     ? this->global_fired_one_shots
                                     : this->curr_stage().fired_one_shots;
                 if (fired_set.insert(edge).second)
-                    this->changed.insert(edge.target.node);
+                    this->changed_flags[this->node_index[edge.target.node]] = 1;
             }
     }
 
-    void mark_self_changed() { this->self_changed.insert(this->curr_node_key); }
+    void mark_self_changed() {
+        this->self_changed_flags[this->node_index[*this->curr_node_ptr]] = 1;
+    }
 
     /// @brief Resets all nodes in a strata to their initial state.
     void reset_strata(const ir::Strata &strata) {
         for (const auto &stratum: strata)
             for (const auto &key: stratum) {
-                this->self_changed.erase(key);
+                this->self_changed_flags[this->node_index[key]] = 0;
                 this->nodes[key].node->reset();
             }
     }
 
-    /// @brief Transitions to a new stage, deactivating the current one.
+    /// @brief Clears self_changed flags for all nodes in a strata.
     void clear_self_changed(const ir::Strata &strata) {
         for (const auto &stratum: strata)
             for (const auto &key: stratum)
-                this->self_changed.erase(key);
+                this->self_changed_flags[this->node_index[key]] = 0;
     }
 
     void transition_stage() {
@@ -272,7 +284,7 @@ private:
             this->sequences[this->curr_seq_idx].active_stage_idx = NO_INDEX;
         }
         const auto [target_seq_idx, target_stage_idx] = this->transitions
-                                                            [this->curr_node_key];
+                                                            [*this->curr_node_ptr];
         auto &target = this->sequences[target_seq_idx].stages[target_stage_idx];
         target.fired_one_shots.clear();
         this->reset_strata(target.strata);

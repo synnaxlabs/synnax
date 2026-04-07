@@ -31,19 +31,20 @@ runtime::node::Context make_context(bool *changed = nullptr) {
 }
 
 TEST(ChannelModuleTest, CreateSourceNode) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -60,19 +61,20 @@ TEST(ChannelModuleTest, CreateSourceNode) {
 }
 
 TEST(ChannelModuleTest, CreateSinkNode) {
-    ir::Param input_param;
+    types::Param input_param;
     input_param.name = ir::default_input_param;
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "sink";
     ir_node.type = "write";
-    ir_node.inputs.params.push_back(input_param);
+    ir_node.inputs.push_back(input_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -88,15 +90,41 @@ TEST(ChannelModuleTest, CreateSinkNode) {
     EXPECT_NE(node, nullptr);
 }
 
+TEST(ChannelModuleTest, ReturnsErrorForNullChannelParam) {
+    ir::Node ir_node;
+    ir_node.key = "source";
+    ir_node.type = "on";
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = nullptr;
+    ir_node.config.push_back(channel_config);
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+
+    runtime::state::Config cfg{.ir = ir, .channels = {}};
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channel::Module module(nullptr, nullptr);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node))),
+        x::errors::VALIDATION
+    );
+}
+
 TEST(ChannelModuleTest, UnknownNodeType) {
     ir::Node ir_node;
     ir_node.key = "unknown";
     ir_node.type = "unknown_type";
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -122,19 +150,20 @@ TEST(ChannelModuleTest, HandlesOnAndWrite) {
 }
 
 TEST(OnTest, NextReadsChannelData) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -175,19 +204,20 @@ TEST(OnTest, NextReadsChannelData) {
 }
 
 TEST(OnTest, NextHandlesChannelWithoutIndex) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::I32);
+    output_param.type.kind = types::Kind::I32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(20);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -223,19 +253,20 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
 }
 
 TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(999);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -257,19 +288,20 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
 }
 
 TEST(OnTest, NextHandlesMultipleSeries) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -321,19 +353,20 @@ TEST(OnTest, NextHandlesMultipleSeries) {
 }
 
 TEST(OnTest, NextSkipsOnIndexCountMismatch) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -372,19 +405,20 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
 }
 
 TEST(OnTest, NextSkipsOnAlignmentMismatch) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F64);
+    output_param.type.kind = types::Kind::F64;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(30);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -420,19 +454,20 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
 }
 
 TEST(OnTest, NextCallsMarkChanged) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -466,28 +501,29 @@ TEST(OnTest, NextCallsMarkChanged) {
 }
 
 TEST(WriteTest, NextWritesDataWhenInputAvailable) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -524,43 +560,38 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     auto ctx = make_context();
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush();
-    EXPECT_FALSE(writes.empty());
-    bool found = false;
-    for (const auto &[key, data]: writes) {
-        if (key == 100) {
-            found = true;
-            EXPECT_EQ(data->size(), 2);
-            EXPECT_FLOAT_EQ(data->at<float>(0), 7.7f);
-            EXPECT_FLOAT_EQ(data->at<float>(1), 8.8f);
-        }
-    }
-    EXPECT_TRUE(found);
+    x::telem::Frame out;
+    s.flush_into(out);
+    EXPECT_FALSE(out.empty());
+    ASSERT_TRUE(out.contains(100));
+    EXPECT_FLOAT_EQ(out.at<float>(100, 0), 7.7f);
+    EXPECT_FLOAT_EQ(out.at<float>(100, 1), 8.8f);
 }
 
 TEST(WriteTest, NextRespectsRefreshInputsGuard) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -586,33 +617,35 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     auto ctx = make_context();
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush();
-    EXPECT_TRUE(writes.empty());
+    x::telem::Frame out;
+    s.flush_into(out);
+    EXPECT_TRUE(out.empty());
 }
 
 TEST(WriteTest, NextSkipsEmptyInput) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -649,33 +682,35 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     auto ctx = make_context();
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush();
-    EXPECT_TRUE(writes.empty());
+    x::telem::Frame out;
+    s.flush_into(out);
+    EXPECT_TRUE(out.empty());
 }
 
 TEST(WriteTest, NextHandlesSequentialWrites) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -712,11 +747,11 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     EXPECT_TRUE(sink_checker1.refresh_inputs());
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes1 = s.flush();
-    EXPECT_FALSE(writes1.empty());
-    for (const auto &[key, data]: writes1) {
-        if (key == 100) { EXPECT_FLOAT_EQ(data->at<float>(0), 1.0f); }
-    }
+    x::telem::Frame out1;
+    s.flush_into(out1);
+    EXPECT_FALSE(out1.empty());
+    ASSERT_TRUE(out1.contains(100));
+    EXPECT_FLOAT_EQ(out1.at<float>(100, 0), 1.0f);
 
     auto upstream2 = ASSERT_NIL_P(s.node("upstream"));
     upstream2.output(0) = x::mem::make_local_shared<::x::telem::Series>(
@@ -730,41 +765,43 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     EXPECT_TRUE(sink_checker2.refresh_inputs());
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes2 = s.flush();
-    EXPECT_FALSE(writes2.empty());
-    for (const auto &[key, data]: writes2) {
-        if (key == 100) { EXPECT_FLOAT_EQ(data->at<float>(0), 2.0f); }
-    }
+    x::telem::Frame out2;
+    s.flush_into(out2);
+    EXPECT_FALSE(out2.empty());
+    ASSERT_TRUE(out2.contains(100));
+    EXPECT_FLOAT_EQ(out2.at<float>(100, 0), 2.0f);
 }
 
 TEST(IntegrationTest, SourceToSinkFlow) {
-    ir::Param read_output;
+    types::Param read_output;
     read_output.name = ir::default_output_param;
-    read_output.type = types::Type(types::Kind::I32);
+    read_output.type.kind = types::Kind::I32;
 
     ir::Node read_node;
     read_node.key = "read";
     read_node.type = "on";
-    read_node.outputs.params.push_back(read_output);
+    read_node.outputs.push_back(read_output);
 
-    ir::Param read_channel;
+    types::Param read_channel;
     read_channel.name = "channel";
+    read_channel.type.kind = types::Kind::U32;
     read_channel.value = static_cast<uint32_t>(1);
-    read_node.config.params.push_back(read_channel);
+    read_node.config.push_back(read_channel);
 
-    ir::Param write_input;
+    types::Param write_input;
     write_input.name = ir::default_input_param;
-    write_input.type = types::Type(types::Kind::I32);
+    write_input.type.kind = types::Kind::I32;
 
     ir::Node write_node;
     write_node.key = "write";
     write_node.type = "write";
-    write_node.inputs.params.push_back(write_input);
+    write_node.inputs.push_back(write_input);
 
-    ir::Param write_channel;
+    types::Param write_channel;
     write_channel.name = "channel";
+    write_channel.type.kind = types::Kind::U32;
     write_channel.value = static_cast<uint32_t>(3);
-    write_node.config.params.push_back(write_channel);
+    write_node.config.push_back(write_channel);
 
     ir::Edge edge;
     edge.source = ir::Handle("read", ir::default_output_param);
@@ -808,18 +845,12 @@ TEST(IntegrationTest, SourceToSinkFlow) {
 
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush();
-    EXPECT_FALSE(writes.empty());
-    bool found_data = false;
-    for (const auto &[key, series]: writes) {
-        if (key == 3) {
-            found_data = true;
-            EXPECT_EQ(series->size(), 2);
-            EXPECT_EQ(series->at<int32_t>(0), 42);
-            EXPECT_EQ(series->at<int32_t>(1), 99);
-        }
-    }
-    EXPECT_TRUE(found_data);
+    x::telem::Frame out;
+    s.flush_into(out);
+    EXPECT_FALSE(out.empty());
+    ASSERT_TRUE(out.contains(3));
+    EXPECT_EQ(out.at<int32_t>(3, 0), 42);
+    EXPECT_EQ(out.at<int32_t>(3, 1), 99);
 }
 
 TEST(ChannelStateTest, WriteValue_AccumulatesSameChannelIntoSingleSeries) {
@@ -839,23 +870,14 @@ TEST(ChannelStateTest, WriteValue_AccumulatesSameChannelIntoSingleSeries) {
     );
     channel_state.write_value(1, data2, time2);
 
-    auto out = channel_state.flush();
+    x::telem::Frame out;
+    channel_state.flush_into(out);
 
-    auto find = [&](const uint32_t key) -> ::x::mem::local_shared<::x::telem::Series> {
-        for (const auto &[k, v]: out)
-            if (k == key) return v;
-        return {};
-    };
+    ASSERT_TRUE(out.contains(1));
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
 
-    auto data = find(1);
-    ASSERT_NE(data, nullptr);
-    ASSERT_EQ(data->size(), 2);
-    EXPECT_EQ(data->at<float>(0), 1.0f);
-    EXPECT_EQ(data->at<float>(1), 2.0f);
-
-    auto time = find(2);
-    ASSERT_NE(time, nullptr);
-    ASSERT_EQ(time->size(), 2);
+    ASSERT_TRUE(out.contains(2));
 }
 
 TEST(ChannelStateTest, WriteChannelTyped_IndexedWritesTimestamp) {
@@ -866,24 +888,14 @@ TEST(ChannelStateTest, WriteChannelTyped_IndexedWritesTimestamp) {
     channel_state.write_channel_i32(5, 10);
     channel_state.write_channel_i32(5, 20);
 
-    auto out = channel_state.flush();
+    x::telem::Frame out;
+    channel_state.flush_into(out);
 
-    auto find = [&](const uint32_t key) -> ::x::mem::local_shared<::x::telem::Series> {
-        for (const auto &[k, v]: out)
-            if (k == key) return v;
-        return {};
-    };
+    ASSERT_TRUE(out.contains(5));
+    EXPECT_EQ(out.at<int32_t>(5, 0), 10);
+    EXPECT_EQ(out.at<int32_t>(5, 1), 20);
 
-    auto data = find(5);
-    ASSERT_NE(data, nullptr);
-    ASSERT_EQ(data->size(), 2);
-    EXPECT_EQ(data->at<int32_t>(0), 10);
-    EXPECT_EQ(data->at<int32_t>(1), 20);
-
-    auto time = find(6);
-    ASSERT_NE(time, nullptr);
-    EXPECT_EQ(time->data_type(), ::x::telem::TIMESTAMP_T);
-    ASSERT_EQ(time->size(), 2);
+    ASSERT_TRUE(out.contains(6));
 }
 
 TEST(ChannelStateTest, WriteChannelTyped_NoIndexWritesOnlyData) {
@@ -894,12 +906,12 @@ TEST(ChannelStateTest, WriteChannelTyped_NoIndexWritesOnlyData) {
     channel_state.write_channel_f64(7, 1.5);
     channel_state.write_channel_f64(7, 2.5);
 
-    auto out = channel_state.flush();
+    x::telem::Frame out;
+    channel_state.flush_into(out);
     ASSERT_EQ(out.size(), 1);
-    ASSERT_EQ(out[0].first, 7);
-    ASSERT_EQ(out[0].second->size(), 2);
-    EXPECT_DOUBLE_EQ(out[0].second->at<double>(0), 1.5);
-    EXPECT_DOUBLE_EQ(out[0].second->at<double>(1), 2.5);
+    ASSERT_TRUE(out.contains(7));
+    EXPECT_DOUBLE_EQ(out.at<double>(7, 0), 1.5);
+    EXPECT_DOUBLE_EQ(out.at<double>(7, 1), 2.5);
 }
 
 TEST(ChannelStateTest, WriteValue_MultipleWritesSameKeyPreservedInFlush) {
@@ -916,11 +928,91 @@ TEST(ChannelStateTest, WriteValue_MultipleWritesSameKeyPreservedInFlush) {
     channel_state.write_value(10, data1, time1);
     channel_state.write_value(10, data2, time2);
 
-    const auto result = channel_state.flush();
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].first, 10);
-    EXPECT_EQ(result[0].second->size(), 2);
-    EXPECT_EQ(result[0].second->at<float>(0), 1.0f);
-    EXPECT_EQ(result[0].second->at<float>(1), 2.0f);
+    x::telem::Frame out;
+    channel_state.flush_into(out);
+    ASSERT_EQ(out.size(), 1);
+    ASSERT_TRUE(out.contains(10));
+    EXPECT_EQ(out.at<float>(10, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(10, 1), 2.0f);
 }
+
+TEST(ChannelStateTest, ReadSeries_ReturnsDataAndTimeForIndexedChannel) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
+    );
+
+    auto data = ::x::telem::Series(std::vector<float>{1.0f, 2.0f});
+    auto time = ::x::telem::Series(std::vector<int64_t>{100, 200});
+    channel_state.ingest(::x::telem::Frame(1, std::move(data)));
+    channel_state.ingest(::x::telem::Frame(2, std::move(time)));
+
+    auto [result_data, result_time, ok] = channel_state.read_series(1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(result_data.series.size(), 1);
+    EXPECT_EQ(result_data.series[0].at<float>(0), 1.0f);
+    EXPECT_EQ(result_data.series[0].at<float>(1), 2.0f);
+    ASSERT_EQ(result_time.series.size(), 1);
+    EXPECT_EQ(result_time.series[0].at<int64_t>(0), 100);
+    EXPECT_EQ(result_time.series[0].at<int64_t>(1), 200);
+}
+
+TEST(ChannelStateTest, ReadSeries_ReturnsDataOnlyForNonIndexedChannel) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 0}}
+    );
+
+    auto data = ::x::telem::Series(std::vector<float>{3.0f, 4.0f});
+    channel_state.ingest(::x::telem::Frame(1, std::move(data)));
+
+    auto [result_data, result_time, ok] = channel_state.read_series(1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(result_data.series.size(), 1);
+    EXPECT_EQ(result_data.series[0].at<float>(0), 3.0f);
+    EXPECT_EQ(result_data.series[0].at<float>(1), 4.0f);
+    EXPECT_TRUE(result_time.series.empty());
+}
+
+TEST(ChannelStateTest, ReadSeries_ReturnsFalseForUnknownChannel) {
+    State channel_state;
+    auto [result_data, result_time, ok] = channel_state.read_series(99);
+    ASSERT_FALSE(ok);
+    EXPECT_TRUE(result_data.series.empty());
+    EXPECT_TRUE(result_time.series.empty());
+}
+
+TEST(ChannelStateTest, ReadSeries_ReturnsFalseWhenTimeMissing) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
+    );
+
+    auto data = ::x::telem::Series(std::vector<float>{1.0f});
+    channel_state.ingest(::x::telem::Frame(1, std::move(data)));
+
+    auto [result_data, result_time, ok] = channel_state.read_series(1);
+    ASSERT_FALSE(ok);
+}
+
+TEST(ChannelStateTest, WriteSeries_RoundTripsViaReadSeries) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
+    );
+
+    auto data = ::x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<float>{5.0f, 6.0f}
+    );
+    auto time = ::x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<int64_t>{300, 400}
+    );
+    channel_state.write_series(1, data, time);
+
+    x::telem::Frame out;
+    channel_state.flush_into(out);
+    ASSERT_TRUE(out.contains(1));
+    EXPECT_EQ(out.at<float>(1, 0), 5.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 6.0f);
+    ASSERT_TRUE(out.contains(2));
+    EXPECT_EQ(out.at<int64_t>(2, 0), 300);
+    EXPECT_EQ(out.at<int64_t>(2, 1), 400);
+}
+
 }

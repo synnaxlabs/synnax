@@ -27,18 +27,15 @@ import (
 var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Bootstrap Cluster", func() {
 
-		It("Should correctly bootstrap a cluster", func() {
-			db, err := aspen.Open(
+		It("Should correctly bootstrap a cluster", func(ctx SpecContext) {
+			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
 				"localhost:22546",
 				[]aspen.Address{},
 				aspen.Bootstrap(),
 				aspen.InMemory(),
-			)
-
-			By("Opening without error")
-			Expect(err).ToNot(HaveOccurred())
+			))
 
 			By("Assigning a valid Name of 1")
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
@@ -52,26 +49,23 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(db.Close()).To(Succeed())
 		})
 
-		It("Should correctly bootstrap a cluster with peers provided", func() {
+		It("Should correctly bootstrap a cluster with peers provided", func(ctx SpecContext) {
 			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
-			db, err := aspen.Open(
+			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
 				addr1,
 				[]aspen.Address{"localhost:22547"},
 				aspen.InMemory(),
 				aspen.Bootstrap(),
-			)
+			))
 			defer func() { Expect(db.Close()).To(Succeed()) }()
-
-			By("Opening without error")
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a valid Name of 1")
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 		})
 
-		It("Should correctly join a node that is already looking for peers", func() {
+		It("Should correctly join a node that is already looking for peers", func(ctx SpecContext) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
@@ -81,32 +75,26 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				defer wg.Done()
 				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
-				db, err := aspen.Open(
+				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
 					addr1,
 					[]aspen.Address{addr2},
 					aspen.InMemory(),
-				)
+				))
 				defer func() { Expect(db.Close()).To(Succeed()) }()
-
-				By("Joining the second node to the cluster without error")
-				Expect(err).ToNot(HaveOccurred())
 
 				By("Assigning a unique Name of 2")
 				Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 			}()
-			db, err := aspen.Open(
+			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
 				addr2,
 				[]aspen.Address{},
 				aspen.InMemory(),
 				aspen.Bootstrap(),
-			)
-
-			By("Joining the first node to the cluster without error")
-			Expect(err).ToNot(HaveOccurred())
+			))
 
 			By("Assigning a unique Name of 1")
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
@@ -120,7 +108,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 	Describe("Concurrent Pledges", func() {
 
-		It("Should correctly join many nodes to the cluster concurrently", func() {
+		It("Should correctly join many nodes to the cluster concurrently", func(ctx SpecContext) {
 			numNodes := 10
 			wg := sync.WaitGroup{}
 			wg.Add(numNodes)
@@ -137,17 +125,15 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					if i == 0 {
 						opts = append(opts, aspen.Bootstrap())
 					}
-					db, err := aspen.Open(
+					db := MustSucceed(aspen.Open(
 						ctx,
 						"",
 						addresses[i],
 						addresses,
 						opts...,
-					)
+					))
 					ids[i] = db.Cluster.HostKey()
 					dbs[i] = db
-					By("Joining the node to the cluster without error")
-					Expect(err).ToNot(HaveOccurred())
 				}(i)
 			}
 			wg.Wait()
@@ -166,7 +152,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Joining, Dying, and Rejoining", func() {
 		Context("Persisted storage", func() {
 			Context("Single node death", func() {
-				It("Should correctly handle a single node dying and rejoining", func() {
+				It("Should correctly handle a single node dying and rejoining", func(ctx SpecContext) {
 					propConfig := aspen.PropagationConfig{
 						PledgeRetryInterval:   10 * time.Millisecond,
 						PledgeRetryScale:      1,
@@ -186,8 +172,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 					By("Forking the databases")
 					for range 3 {
-						_, err := builder.New(ctx)
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(builder.New(ctx))
 					}
 
 					By("Assigning the correct generation")
@@ -198,14 +183,13 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(node.DB.Close()).To(Succeed())
 
 					By("Opening the database again")
-					db, err := aspen.Open(
+					db := MustSucceed(aspen.Open(
 						ctx,
 						node.Dir,
 						node.Addr,
 						[]aspen.Address{},
 						builder.DefaultOptions...,
-					)
-					Expect(err).ToNot(HaveOccurred())
+					))
 
 					By("Assigning the correct Name")
 					Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))

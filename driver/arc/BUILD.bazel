@@ -14,6 +14,8 @@ cc_library(
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
         "//client/cpp/arc",
+        "//driver/arc/status",
+        "//driver/bypass",
         "//driver/common",
         "//driver/pipeline",
         "//driver/task",

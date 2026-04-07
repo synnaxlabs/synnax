@@ -10,13 +10,13 @@
 from typing import Any, overload
 from uuid import UUID
 
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 
+from freighter import Empty, UnaryClient, send_required
 from synnax.ontology import ID
-from synnax.status.payload import Status
-from synnax.util.normalize import normalize
-from synnax.util.params import require_named_params
+from synnax.status.types_gen import Status, Variant
+from x.normalize import normalize
+from x.params import require_named_params
 
 
 class _SetRequest(BaseModel):
@@ -35,6 +35,7 @@ class _RetrieveRequest(BaseModel):
     limit: int | None = None
     include_labels: bool | None = None
     has_labels: list[UUID] | None = None
+    variants: list[Variant] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -48,6 +49,9 @@ class _DeleteRequest(BaseModel):
 _SET_ENDPOINT = "/status/set"
 _RETRIEVE_ENDPOINT = "/status/retrieve"
 _DELETE_ENDPOINT = "/status/delete"
+
+SET_CHANNEL = "sy_status_set"
+DELETE_CHANNEL = "sy_status_delete"
 
 
 class Client:
@@ -153,6 +157,7 @@ class Client:
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
+        variants: list[Variant] | None = None,
     ) -> list[Status[Any]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
@@ -166,6 +171,7 @@ class Client:
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
+        variants: list[Variant] | None = None,
     ) -> Status[Any] | list[Status[Any]]:
         """Retrieve statuses from the cluster.
 
@@ -177,6 +183,7 @@ class Client:
             limit: Pagination limit.
             include_labels: Whether to include labels in the response.
             has_labels: Filter statuses that have all of these labels.
+            variants: Filter statuses by variant (e.g. "success", "error").
 
         Returns:
             A single status, or a list of statuses.
@@ -218,6 +225,7 @@ class Client:
                 limit=limit,
                 include_labels=include_labels,
                 has_labels=has_labels,
+                variants=variants,
             ),
             _RetrieveResponse,
         ).statuses
@@ -255,3 +263,10 @@ class Client:
             _DeleteRequest(keys=normalize(keys)),
             Empty,
         )
+
+
+ONTOLOGY_TYPE = ID(type="status")
+
+
+def ontology_id(key: str) -> ID:
+    return ID(type="status", key=str(key))

@@ -13,8 +13,6 @@
 #include <cmath>
 #include <thread>
 
-#include "glog/logging.h"
-
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
 

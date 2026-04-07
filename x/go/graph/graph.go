@@ -13,6 +13,8 @@ import (
 	"cmp"
 	"slices"
 
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -82,4 +84,64 @@ func TarjanSCC[T cmp.Ordered](adj map[T][]T) [][]T {
 		slices.Sort(scc)
 	}
 	return sccs
+}
+
+// ErrCyclicDependency is returned by TopoSort when the graph contains a cycle.
+var ErrCyclicDependency = errors.New("cyclic dependency detected")
+
+// TopoSort returns a topological ordering of the directed acyclic graph
+// represented by the adjacency list adj (where adj[a] = [b, c] means a depends
+// on b and c, i.e. b and c must come before a). Returns ErrCyclicDependency if
+// the graph contains a cycle, or ErrMissingDependency if an edge references a
+// node not present as a key in adj. The output is deterministic: nodes within
+// the same parent's dependent list are sorted by their natural ordering.
+func TopoSort[T cmp.Ordered](adj map[T][]T) ([]T, error) {
+	for node, deps := range adj {
+		for _, dep := range deps {
+			if _, exists := adj[dep]; !exists {
+				return nil, errors.Wrapf(
+					query.ErrNotFound,
+					"%v depends on %v which does not exist",
+					node, dep,
+				)
+			}
+		}
+	}
+
+	inDegree := make(map[T]int, len(adj))
+	dependents := make(map[T][]T, len(adj))
+	for node := range adj {
+		for _, dep := range adj[node] {
+			inDegree[node]++
+			dependents[dep] = append(dependents[dep], node)
+		}
+	}
+
+	var queue []T
+	for node := range adj {
+		if inDegree[node] == 0 {
+			queue = append(queue, node)
+		}
+	}
+	slices.Sort(queue)
+
+	var sorted []T
+	for len(queue) > 0 {
+		node := queue[0]
+		queue = queue[1:]
+		sorted = append(sorted, node)
+		next := slices.Clone(dependents[node])
+		slices.Sort(next)
+		for _, dep := range next {
+			inDegree[dep]--
+			if inDegree[dep] == 0 {
+				queue = append(queue, dep)
+			}
+		}
+	}
+
+	if len(sorted) != len(adj) {
+		return nil, errors.Wrap(ErrCyclicDependency, "not all nodes could be ordered")
+	}
+	return sorted, nil
 }

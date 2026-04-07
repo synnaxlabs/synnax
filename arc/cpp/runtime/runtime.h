@@ -26,6 +26,8 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
+#include "arc/cpp/runtime/selector/selector.h"
+#include "arc/cpp/runtime/stable/stable.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -61,6 +63,13 @@ struct Config {
     size_t output_queue_capacity = 1024;
     /// @brief Loop configuration. Fields with default values are auto-selected.
     loop::Config loop;
+    /// @brief Additional node factories provided by the caller (e.g. set_status).
+    /// This allows external code to register custom node types without the
+    /// runtime needing a dedicated config field for each one.
+    std::vector<std::shared_ptr<node::Factory>> factories;
+    /// @brief Optional RT handle from the Manager. When set, the loop uses this
+    /// handle's allocated core instead of auto-selecting one.
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -137,16 +146,10 @@ public:
                         .count()
                 );
                 this->scheduler->next(elapsed, reason);
-                auto writes = this->state->flush();
-                auto changes = this->state->flush_authority_changes();
-                if (!writes.empty() || !changes.empty()) {
-                    Output out;
-                    out.authority_changes = std::move(changes);
-                    if (!writes.empty()) {
-                        out.frame = x::telem::Frame(writes.size());
-                        for (auto &[key, series]: writes)
-                            out.frame.emplace(key, series->deep_copy());
-                    }
+                Output out;
+                out.authority_changes = this->state->flush_authority_changes();
+                this->state->flush_into(out.frame);
+                if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
@@ -206,11 +209,10 @@ inline std::vector<x::control::Authority> build_authorities(
     const ir::Authorities &auth,
     const std::vector<types::ChannelKey> &write_keys
 ) {
-    if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
+    if (!auth.default_.has_value() && auth.channels.empty()) return {};
     std::vector<x::control::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
-        authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
-                                                            : DEFAULT_AUTHORITY;
+        authorities[i] = auth.default_.has_value() ? *auth.default_ : DEFAULT_AUTHORITY;
     for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
             if (write_keys[i] == key) {
@@ -290,6 +292,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     factories.push_back(std::make_shared<wasm::Factory>(mod));
     for (auto &m: stl_modules)
         factories.push_back(m);
+    factories.push_back(std::make_shared<stable::Factory>());
+    factories.push_back(std::make_shared<selector::Factory>());
+    for (const auto &f: cfg.factories)
+        factories.push_back(f);
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
@@ -312,7 +318,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         tolerance,
         error_handler
     );
-    auto loop = loop::create(loop_cfg);
+    auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {
         std::make_shared<Runtime>(
             cfg,

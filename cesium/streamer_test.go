@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +29,7 @@ import (
 
 func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpdate, error) {
 	var u cesium.ControlUpdate
-	if err := (&binary.JSONCodec{}).Decode(ctx, s.Data, &u); err != nil {
+	if err := json.Codec.Decode(ctx, s.Data, &u); err != nil {
 		return cesium.ControlUpdate{}, err
 	}
 	return u, nil
@@ -45,9 +45,9 @@ var _ = Describe("Streamer Behavior", func() {
 				cleanUp    func() error
 				controlKey cesium.ChannelKey = 5
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())
 			})
 			AfterAll(func() {
@@ -56,7 +56,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Happy Path", func() {
-				It("Should subscribe to written frames for the given channels", func() {
+				It("Should subscribe to written frames for the given channels", func(ctx SpecContext) {
 					var basic1 cesium.ChannelKey = 1
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -92,7 +92,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Writer is in PersistOnly mode", func() {
-				It("Should not receive any frames", func() {
+				It("Should not receive any frames", func(ctx SpecContext) {
 					var basic2 cesium.ChannelKey = 3
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -126,7 +126,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Virtual Channels", func() {
-				It("Should subscribe to written frames for virtual channels", func() {
+				It("Should subscribe to written frames for virtual channels", func(ctx SpecContext) {
 					var basic2 cesium.ChannelKey = 4
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -162,7 +162,7 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Control Updates", func() {
-				It("Should forward control updates to the streamer", func() {
+				It("Should forward control updates to the streamer", func(ctx SpecContext) {
 					var basic3 cesium.ChannelKey = 6
 					Expect(db.CreateChannel(
 						ctx,
@@ -191,8 +191,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))
-						u, err := decodeControlUpdate(ctx, r.Frame.SeriesAt(0))
-						g.Expect(err).ToNot(HaveOccurred())
+						u := MustSucceed(decodeControlUpdate(ctx, r.Frame.SeriesAt(0)))
 						g.Expect(u.Transfers).To(HaveLen(1))
 						first := u.Transfers[0]
 						g.Expect(first.Occurred()).To(BeTrue())
@@ -207,11 +206,75 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 
+			Describe("Group Propagation", func() {
+				It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
+					var groupCh cesium.ChannelKey = 7
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: groupCh, Name: "GroupTest", DataType: telem.Int64T, Virtual: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{groupCh},
+						Start:          10 * telem.SecondTS,
+						ControlSubject: control.Subject{Name: "GroupWriter", Group: 42},
+					}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{groupCh},
+					}))
+					i, o := confluence.Attach(r, 1)
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					Expect(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{groupCh},
+						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
+					))).To(BeTrue())
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Group).To(Equal(uint32(42)))
+					Expect(res.Frame.Count()).To(Equal(1))
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+				It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
+					var noGroupCh cesium.ChannelKey = 8
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: noGroupCh, Name: "NoGroupTest", DataType: telem.Int64T, Virtual: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{noGroupCh},
+						Start:          10 * telem.SecondTS,
+						ControlSubject: control.Subject{Name: "NoGroupWriter"},
+					}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{noGroupCh},
+					}))
+					i, o := confluence.Attach(r, 1)
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					Expect(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{noGroupCh},
+						[]telem.Series{telem.NewSeriesV[int64](4, 5, 6)},
+					))).To(BeTrue())
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Group).To(Equal(uint32(0)))
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Closed", func() {
-				It("Should not allow opening a streamer on a closed db", func() {
+				It("Should not allow opening a streamer on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Einstein",

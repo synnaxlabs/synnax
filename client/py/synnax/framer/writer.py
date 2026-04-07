@@ -13,6 +13,9 @@ from enum import Enum
 from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
+from pydantic import BaseModel
+
+import synnax.channel.payload as channel
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -22,9 +25,6 @@ from freighter import (
 )
 from freighter.transport import P
 from freighter.websocket import Message
-from pydantic import BaseModel
-
-import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
@@ -34,8 +34,8 @@ from synnax.framer.codec import (
 )
 from synnax.framer.frame import CrudeFrame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
-from synnax.telem.control import Authority, CrudeAuthority, Subject
-from synnax.util.normalize import normalize
+from x.control import Authority, CrudeAuthority, Subject
+from x.normalize import normalize
 
 
 class WriterCommand(int, Enum):
@@ -190,6 +190,7 @@ class Writer:
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         use_experimental_codec: bool = True,
+        group: int = 0,
     ) -> None:
         self.start = start
         self._adapter = adapter
@@ -197,7 +198,7 @@ class Writer:
             client = client.with_codec(WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
-            control_subject=Subject(name=name, key=str(uuid4())),
+            control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),

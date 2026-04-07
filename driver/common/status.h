@@ -25,7 +25,7 @@ const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks.
 struct StatusHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
-    const std::shared_ptr<task::Context> ctx;
+    const std::shared_ptr<driver::task::Context> ctx;
     /// @brief the raw synnax task.
     const synnax::task::Task task;
     /// @brief the accumulated error in the task state.
@@ -67,7 +67,7 @@ struct StatusHandler {
     /// method sends the error status to the task context right away.
     void send_error(const x::errors::Error &err) {
         if (!err) return;
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         this->status.variant = x::status::VARIANT_ERROR;
         this->status.details.running = false;
         this->status.message = err.data;
@@ -80,7 +80,7 @@ struct StatusHandler {
     /// @brief sends the provided warning string to the task. If the task is in
     /// error state, the error message will be communicated instead.
     void send_warning(const std::string &warning) {
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         // If there's already an error bound, communicate it instead.
         if (!this->accumulated_err) {
             this->status.variant = x::status::VARIANT_WARNING;
@@ -103,7 +103,7 @@ struct StatusHandler {
     /// be marked as running. Bypasses the rate limiter because the Console waits
     /// for command acknowledgments keyed by cmd.
     void send_start(const std::string &cmd_key) {
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         this->status.details.cmd = cmd_key;
         if (!this->accumulated_err) {
             this->status.details.running = true;
@@ -122,7 +122,7 @@ struct StatusHandler {
     /// will be marked as not running. Bypasses the rate limiter because the
     /// Console waits for command acknowledgments keyed by cmd.
     void send_stop(const std::string &cmd_key) {
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         this->status.details.cmd = cmd_key;
         this->status.details.running = false;
         if (this->accumulated_err) {
@@ -200,7 +200,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     std::pair<common::ConfigureResult, x::errors::Error> res
 ) {
     synnax::task::Status status;
-    status.key = task.status_key();
+    status.key = synnax::task::status_key(task);
     status.name = task.name;
     status.details.task = task.key;
     status.details.running = false;
@@ -212,7 +212,10 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         if (!res.first.auto_start) { status.message = "Task configured successfully"; }
     }
     if (res.first.auto_start) {
-        task::Command start_cmd(task.key, START_CMD_TYPE, {});
+        synnax::task::Command start_cmd{
+            .task = task.key,
+            .type = START_CMD_TYPE,
+        };
         res.first.task->exec(start_cmd);
     } else
         ctx->set_status(status);

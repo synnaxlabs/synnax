@@ -30,7 +30,7 @@ inputs:
     required: false
     default: "."
   format_check:
-    description: Whether to run formatting checks (isort, black)
+    description: Whether to run formatting and linting checks (ruff)
     required: false
     default: "true"
 
@@ -52,15 +52,15 @@ runs:
       with:
         python-version-file: ${{ inputs.directory }}/pyproject.toml
 
-    - name: Check import order
+    - name: Lint
       if: inputs.format_check == 'true'
-      run: uv run isort -c .
+      run: uv run ruff check .
       shell: bash
       working-directory: ${{ inputs.directory }}
 
     - name: Check formatting
       if: inputs.format_check == 'true'
-      run: uv run black --check --diff --color .
+      run: uv run ruff format --check --diff .
       shell: bash
       working-directory: ${{ inputs.directory }}
 

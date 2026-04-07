@@ -27,9 +27,8 @@ from dataclasses import dataclass, field
 
 import nidaqmx.system
 import nisyscfg
-import synnax as sy
-from synnax.task.payload import Status
 
+import synnax as sy
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import ReadTaskCase, WriteTaskCase, send_and_verify_commands
@@ -109,7 +108,7 @@ def _wait_for_device_status(
     *,
     device_key: str = "",
     device_name: str = "",
-) -> list[Status]:
+) -> list[sy.status.Status]:
     """Wait until a device emits a status with the given message.
 
     Filter by ``device_key`` (exact match on ``device:<key>``) or
@@ -119,7 +118,7 @@ def _wait_for_device_status(
     Returns all matching device statuses collected up to (and including)
     the first status with the expected ``message``.
     """
-    matched: list[Status] = []
+    matched: list[sy.status.Status] = []
     diag = _StatusWaitDiag()
     timer = sy.Timer()
 
@@ -132,7 +131,7 @@ def _wait_for_device_status(
             continue
         diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
-            s = Status.model_validate(raw)
+            s = sy.status.Status.model_validate(raw)
             diag.all_keys.append(s.key)
             if device_key and s.key != f"device:{device_key}":
                 continue
@@ -148,14 +147,12 @@ def _wait_for_device_status(
     lines = [f"  {s.variant}: {s.message}" for s in matched]
     detail = "\n".join(lines) if lines else "  (no matching statuses)"
     raise AssertionError(
-        f"Timed out waiting for '{message}' on {label}:\n"
-        f"{detail}\n"
-        f"  {diag.summary()}"
+        f"Timed out waiting for '{message}' on {label}:\n{detail}\n  {diag.summary()}"
     )
 
 
 def _log_statuses(
-    log: Callable[[str], None], statuses: list[Status], label: str
+    log: Callable[[str], None], statuses: list[sy.status.Status], label: str
 ) -> None:
     """Log final status with count of skipped intermediate ones."""
     final = statuses[-1]

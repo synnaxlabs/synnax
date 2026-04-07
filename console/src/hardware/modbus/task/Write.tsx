@@ -20,9 +20,10 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
@@ -149,10 +150,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
   return (
     <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
+      <ContextMenu.RenameItem onClick={handleRename} />
       <Menu.Divider />
     </>
   );
@@ -192,9 +190,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
-    const existing =
-      dev.properties.write.channels[key] ??
-      dev.properties.write.channels[caseconv.snakeToCamel(key)];
+    const existing = dev.properties.write.channels[key];
     if (existing == null) {
       commandsToCreate.push(channel);
       continue;
@@ -236,9 +232,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel:
-      dev.properties.write.channels[writeMapKey(c)] ??
-      dev.properties.write.channels[caseconv.snakeToCamel(writeMapKey(c))],
+    channel: dev.properties.write.channels[writeMapKey(c)],
   }));
 
   return [config, dev.rack];

@@ -23,546 +23,417 @@ var _ = Describe("Set", func() {
 		s = make(set.Set[int])
 	})
 
-	Describe("Add", func() {
-		It("should add elements to the set", func() {
-			s.Add(1, 2, 3)
-			Expect(len(s)).To(Equal(3))
+	Describe("New", func() {
+		It("Should create a set from multiple entries", func() {
+			s = set.New(1, 2, 3)
+			Expect(s).To(HaveLen(3))
 			Expect(s.Contains(1)).To(BeTrue())
 			Expect(s.Contains(2)).To(BeTrue())
 			Expect(s.Contains(3)).To(BeTrue())
 		})
 
-		It("should handle duplicate elements", func() {
-			s.Add(1, 2, 3)
-			s.Add(2, 3, 4)
-			Expect(len(s)).To(Equal(4))
+		It("Should create a set from a single entry", func() {
+			s = set.New(1)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeFalse())
+		})
+
+		It("Should deduplicate entries", func() {
+			s = set.New(1, 2, 3, 2, 1)
+			Expect(s).To(HaveLen(3))
 			Expect(s.Contains(1)).To(BeTrue())
 			Expect(s.Contains(2)).To(BeTrue())
 			Expect(s.Contains(3)).To(BeTrue())
-			Expect(s.Contains(4)).To(BeTrue())
-		})
-	})
-
-	Describe("Remove", func() {
-		It("should remove elements from the set", func() {
-			s.Add(1, 2, 3, 4, 5)
-			s.Remove(2, 4)
-			Expect(len(s)).To(Equal(3))
-			Expect(s.Contains(1)).To(BeTrue())
-			Expect(s.Contains(3)).To(BeTrue())
-			Expect(s.Contains(5)).To(BeTrue())
-			Expect(s.Contains(2)).To(BeFalse())
-			Expect(s.Contains(4)).To(BeFalse())
 		})
 
-		It("should handle removing non-existent elements", func() {
-			s.Add(1, 2, 3)
-			s.Remove(4, 5)
-			Expect(len(s)).To(Equal(3))
-		})
-	})
-
-	Describe("Contains", func() {
-		It("should correctly check if elements exist", func() {
-			s.Add(1, 3, 5)
-			Expect(s.Contains(1)).To(BeTrue())
-			Expect(s.Contains(3)).To(BeTrue())
-			Expect(s.Contains(5)).To(BeTrue())
-			Expect(s.Contains(2)).To(BeFalse())
-			Expect(s.Contains(4)).To(BeFalse())
-		})
-
-		It("should return false for empty sets", func() {
-			Expect(s.Contains(1)).To(BeFalse())
-		})
-	})
-
-	Describe("Keys", func() {
-		It("should return all keys in the set", func() {
-			s.Add(1, 2, 3)
-			keys := s.Keys()
-			Expect(len(keys)).To(Equal(3))
-			Expect(keys).To(ContainElements(1, 2, 3))
-		})
-
-		It("should return an empty slice for empty sets", func() {
-			keys := s.Keys()
-			Expect(len(keys)).To(Equal(0))
+		It("Should create an empty set with no arguments", func() {
+			s = set.New[int]()
+			Expect(s).To(HaveLen(0))
 		})
 	})
 
 	Describe("FromSlice", func() {
-		It("should create a set from a slice", func() {
-			slice := []int{1, 2, 3, 2, 1}
-			s = set.FromSlice(slice)
-			Expect(len(s)).To(Equal(3))
+		It("Should create a set from a slice", func() {
+			s = set.FromSlice([]int{1, 2, 3})
+			Expect(s).To(HaveLen(3))
 			Expect(s.Contains(1)).To(BeTrue())
 			Expect(s.Contains(2)).To(BeTrue())
 			Expect(s.Contains(3)).To(BeTrue())
 		})
+
+		It("Should deduplicate slice entries", func() {
+			s = set.FromSlice([]int{1, 2, 3, 2, 1})
+			Expect(s).To(HaveLen(3))
+		})
+
+		It("Should handle an empty slice", func() {
+			s = set.FromSlice([]int{})
+			Expect(s).To(HaveLen(0))
+		})
+
+		It("Should handle a single-element slice", func() {
+			s = set.FromSlice([]int{42})
+			Expect(s).To(HaveLen(1))
+			Expect(s.Contains(42)).To(BeTrue())
+		})
 	})
 
-	Describe("Values", func() {
-		It("should return all values in a mapped set", func() {
-			m := make(set.Mapped[string, int])
-			m["one"] = 1
-			m["two"] = 2
-			m["three"] = 3
+	Describe("Add", func() {
+		It("Should add multiple elements", func() {
+			s.Add(1, 2, 3)
+			Expect(s).To(HaveLen(3))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+		})
 
-			values := m.Values()
-			Expect(len(values)).To(Equal(3))
-			Expect(values).To(ContainElements(1, 2, 3))
+		It("Should handle duplicate elements across calls", func() {
+			s.Add(1, 2, 3)
+			s.Add(2, 3, 4)
+			Expect(s).To(HaveLen(4))
+			Expect(s.Contains(4)).To(BeTrue())
+		})
+
+		It("Should handle duplicate elements within a single call", func() {
+			s.Add(1, 1, 2, 2, 3)
+			Expect(s).To(HaveLen(3))
+		})
+
+		It("Should add a single element", func() {
+			s.Add(42)
+			Expect(s).To(HaveLen(1))
+			Expect(s.Contains(42)).To(BeTrue())
+		})
+
+		It("Should be a no-op with no arguments", func() {
+			s.Add(1)
+			s.Add()
+			Expect(s).To(HaveLen(1))
+		})
+
+		It("Should return the set for chaining", func() {
+			result := s.Add(1, 2).Add(3, 4)
+			Expect(result).To(HaveLen(4))
+			Expect(s).To(HaveLen(4))
+		})
+	})
+
+	Describe("Remove", func() {
+		It("Should remove specified elements", func() {
+			s.Add(1, 2, 3, 4, 5)
+			s.Remove(2, 4)
+			Expect(s).To(HaveLen(3))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+			Expect(s.Contains(5)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeFalse())
+			Expect(s.Contains(4)).To(BeFalse())
+		})
+
+		It("Should be a no-op for non-existent elements", func() {
+			s.Add(1, 2, 3)
+			s.Remove(4, 5)
+			Expect(s).To(HaveLen(3))
+		})
+
+		It("Should be a no-op on an empty set", func() {
+			s.Remove(1, 2, 3)
+			Expect(s).To(HaveLen(0))
+		})
+
+		It("Should be a no-op with no arguments", func() {
+			s.Add(1, 2)
+			s.Remove()
+			Expect(s).To(HaveLen(2))
+		})
+
+		It("Should remove all elements when all are specified", func() {
+			s.Add(1, 2, 3)
+			s.Remove(1, 2, 3)
+			Expect(s).To(HaveLen(0))
+		})
+
+		It("Should remove a single element", func() {
+			s.Add(1, 2, 3)
+			s.Remove(2)
+			Expect(s).To(HaveLen(2))
+			Expect(s.Contains(2)).To(BeFalse())
+		})
+
+		It("Should return the set for chaining", func() {
+			s.Add(1, 2, 3, 4)
+			result := s.Remove(1).Remove(2)
+			Expect(result).To(HaveLen(2))
+			Expect(s).To(HaveLen(2))
+		})
+	})
+
+	Describe("Contains", func() {
+		It("Should return true for existing elements", func() {
+			s.Add(1, 3, 5)
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+			Expect(s.Contains(5)).To(BeTrue())
+		})
+
+		It("Should return false for non-existing elements", func() {
+			s.Add(1, 3, 5)
+			Expect(s.Contains(2)).To(BeFalse())
+			Expect(s.Contains(4)).To(BeFalse())
+		})
+
+		It("Should return false on an empty set", func() {
+			Expect(s.Contains(1)).To(BeFalse())
+		})
+	})
+
+	Describe("ToSlice", func() {
+		It("Should return all elements", func() {
+			s.Add(1, 2, 3)
+			Expect(s.ToSlice()).To(ConsistOf(1, 2, 3))
+		})
+
+		It("Should return an empty slice for an empty set", func() {
+			Expect(s.ToSlice()).To(BeEmpty())
+		})
+
+		It("Should return a single-element slice", func() {
+			s.Add(42)
+			Expect(s.ToSlice()).To(ConsistOf(42))
 		})
 	})
 
 	Describe("Copy", func() {
-		It("should create an independent copy of the set", func() {
+		It("Should create an independent copy", func() {
 			s.Add(1, 2, 3)
 			copied := s.Copy()
-
-			Expect(len(copied)).To(Equal(3))
+			Expect(copied).To(HaveLen(3))
 			Expect(copied.Contains(1)).To(BeTrue())
 			Expect(copied.Contains(2)).To(BeTrue())
 			Expect(copied.Contains(3)).To(BeTrue())
 		})
 
-		It("should not affect the original when modifying the copy", func() {
+		It("Should not be affected by modifications to the copy", func() {
 			s.Add(1, 2, 3)
 			copied := s.Copy()
-
 			copied.Add(4, 5)
 			copied.Remove(1)
-
-			Expect(len(s)).To(Equal(3))
+			Expect(s).To(HaveLen(3))
 			Expect(s.Contains(1)).To(BeTrue())
 			Expect(s.Contains(4)).To(BeFalse())
-
-			Expect(len(copied)).To(Equal(4))
-			Expect(copied.Contains(1)).To(BeFalse())
-			Expect(copied.Contains(4)).To(BeTrue())
 		})
 
-		It("should not affect the copy when modifying the original", func() {
+		It("Should not affect the copy when modifying the original", func() {
 			s.Add(1, 2, 3)
 			copied := s.Copy()
-
 			s.Add(4, 5)
 			s.Remove(1)
-
-			Expect(len(s)).To(Equal(4))
-			Expect(s.Contains(1)).To(BeFalse())
-			Expect(s.Contains(4)).To(BeTrue())
-
-			Expect(len(copied)).To(Equal(3))
+			Expect(copied).To(HaveLen(3))
 			Expect(copied.Contains(1)).To(BeTrue())
 			Expect(copied.Contains(4)).To(BeFalse())
 		})
 
-		It("should handle copying empty sets", func() {
+		It("Should handle copying an empty set", func() {
 			copied := s.Copy()
-
-			Expect(len(copied)).To(Equal(0))
+			Expect(copied).To(HaveLen(0))
 			copied.Add(1, 2, 3)
-			Expect(len(s)).To(Equal(0))
-			Expect(len(copied)).To(Equal(3))
-		})
-
-		It("should work with Mapped types with non-empty values", func() {
-			m := make(set.Mapped[string, int])
-			m["one"] = 1
-			m["two"] = 2
-			m["three"] = 3
-
-			copied := m.Copy()
-
-			Expect(len(copied)).To(Equal(3))
-			Expect(copied["one"]).To(Equal(1))
-			Expect(copied["two"]).To(Equal(2))
-			Expect(copied["three"]).To(Equal(3))
-
-			// Modify copy
-			copied["four"] = 4
-			delete(copied, "one")
-
-			// Original should be unchanged
-			Expect(len(m)).To(Equal(3))
-			Expect(m["one"]).To(Equal(1))
-			_, ok := m["four"]
-			Expect(ok).To(BeFalse())
+			Expect(s).To(HaveLen(0))
 		})
 	})
 
 	Describe("Equals", func() {
-		It("should return true for identical sets", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-			b.Add(1, 2, 3)
-
-			Expect(a.Equals(b)).To(BeTrue())
-			Expect(b.Equals(a)).To(BeTrue())
-		})
-
-		It("should return true for empty sets", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
+		It("Should return true for identical sets", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 3)
 			Expect(a.Equals(b)).To(BeTrue())
 		})
 
-		It("should return false when sets have different lengths", func() {
+		It("Should return true for empty sets", func() {
 			a := make(set.Set[int])
 			b := make(set.Set[int])
+			Expect(a.Equals(b)).To(BeTrue())
+		})
 
-			a.Add(1, 2, 3)
-			b.Add(1, 2)
-
+		It("Should return false for different lengths", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2)
 			Expect(a.Equals(b)).To(BeFalse())
 		})
 
-		It("should return false when sets have same length but different elements", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-			b.Add(1, 2, 4)
-
+		It("Should return false for same length but different elements", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 4)
 			Expect(a.Equals(b)).To(BeFalse())
 		})
 
-		It("should return true regardless of insertion order", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(3, 1, 2)
-			b.Add(1, 2, 3)
-
+		It("Should be order-independent", func() {
+			a := set.New(3, 1, 2)
+			b := set.New(1, 2, 3)
 			Expect(a.Equals(b)).To(BeTrue())
 		})
 
-		It("should work with string sets", func() {
-			a := make(set.Set[string])
-			b := make(set.Set[string])
+		It("Should be symmetric", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(4, 5, 6)
+			Expect(a.Equals(b)).To(Equal(b.Equals(a)))
+		})
 
-			a.Add("apple", "banana", "cherry")
-			b.Add("cherry", "apple", "banana")
-
+		It("Should work with string sets", func() {
+			a := set.New("apple", "banana", "cherry")
+			b := set.New("cherry", "apple", "banana")
 			Expect(a.Equals(b)).To(BeTrue())
 		})
 
-		It("should return false when one set has extra elements", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-			b.Add(1, 2, 3, 4, 5)
-
+		It("Should return false when one set is a superset of the other", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 3, 4, 5)
 			Expect(a.Equals(b)).To(BeFalse())
-		})
-
-		It("should work with Mapped types", func() {
-			a := make(set.Mapped[string, int])
-			b := make(set.Mapped[string, int])
-
-			a["one"] = 1
-			a["two"] = 2
-			a["three"] = 3
-
-			b["one"] = 1
-			b["two"] = 2
-			b["three"] = 3
-
-			Expect(a.Equals(b)).To(BeTrue())
-		})
-
-		It("should compare keys only for Mapped types, not values", func() {
-			a := make(set.Mapped[string, int])
-			b := make(set.Mapped[string, int])
-
-			a["one"] = 1
-			a["two"] = 2
-
-			b["one"] = 100
-			b["two"] = 200
-
-			Expect(a.Equals(b)).To(BeTrue())
 		})
 	})
 
-	Describe("Subset", func() {
-		It("should return true when s is a subset of other", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1, 2, 3)
-			other.Add(1, 2, 3, 4, 5)
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+	Describe("IsSubsetOf", func() {
+		It("Should return true for a proper subset", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 3, 4, 5)
+			Expect(a.IsSubsetOf(b)).To(BeTrue())
 		})
 
-		It("should return true when sets are equal", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1, 2, 3)
-			other.Add(1, 2, 3)
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+		It("Should return true for equal sets", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 3)
+			Expect(a.IsSubsetOf(b)).To(BeTrue())
 		})
 
-		It("should return true when s is empty", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			other.Add(1, 2, 3)
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+		It("Should return true when the set is empty", func() {
+			a := make(set.Set[int])
+			b := set.New(1, 2, 3)
+			Expect(a.IsSubsetOf(b)).To(BeTrue())
 		})
 
-		It("should return true when both sets are empty", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+		It("Should return true when both sets are empty", func() {
+			a := make(set.Set[int])
+			b := make(set.Set[int])
+			Expect(a.IsSubsetOf(b)).To(BeTrue())
 		})
 
-		It("should return false when s has elements not in other", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1, 2, 3, 4)
-			other.Add(1, 2, 3)
-
-			Expect(s.IsSubsetOf(other)).To(BeFalse())
+		It("Should return false when the set has extra elements", func() {
+			a := set.New(1, 2, 3, 4)
+			b := set.New(1, 2, 3)
+			Expect(a.IsSubsetOf(b)).To(BeFalse())
 		})
 
-		It("should return false when sets have no overlap", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1, 2, 3)
-			other.Add(4, 5, 6)
-
-			Expect(s.IsSubsetOf(other)).To(BeFalse())
+		It("Should return false when sets have no overlap", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(4, 5, 6)
+			Expect(a.IsSubsetOf(b)).To(BeFalse())
 		})
 
-		It("should return false when s has some overlapping and some non-overlapping elements", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1, 2, 3, 4)
-			other.Add(2, 3, 5, 6)
-
-			Expect(s.IsSubsetOf(other)).To(BeFalse())
+		It("Should return false when sets have partial overlap", func() {
+			a := set.New(1, 2, 3, 4)
+			b := set.New(2, 3, 5, 6)
+			Expect(a.IsSubsetOf(b)).To(BeFalse())
 		})
 
-		It("should return false when other is empty but s is not", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1, 2, 3)
-
-			Expect(s.IsSubsetOf(other)).To(BeFalse())
+		It("Should return false when other is empty but set is not", func() {
+			a := set.New(1, 2, 3)
+			b := make(set.Set[int])
+			Expect(a.IsSubsetOf(b)).To(BeFalse())
 		})
 
-		It("should work with string sets", func() {
-			s := make(set.Set[string])
-			other := make(set.Set[string])
-
-			s.Add("apple", "banana")
-			other.Add("apple", "banana", "cherry", "date")
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+		It("Should work with string sets", func() {
+			a := set.New("apple", "banana")
+			b := set.New("apple", "banana", "cherry", "date")
+			Expect(a.IsSubsetOf(b)).To(BeTrue())
 		})
 
-		It("should work with single element sets", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(42)
-			other.Add(42, 43, 44)
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+		It("Should work with a single element subset", func() {
+			a := set.New(42)
+			b := set.New(42, 43, 44)
+			Expect(a.IsSubsetOf(b)).To(BeTrue())
 		})
 
-		It("should return false for single element not in other", func() {
-			s := make(set.Set[int])
-			other := make(set.Set[int])
-
-			s.Add(1)
-			other.Add(2, 3, 4)
-
-			Expect(s.IsSubsetOf(other)).To(BeFalse())
-		})
-
-		It("should work with Mapped types", func() {
-			s := make(set.Mapped[string, int])
-			other := make(set.Mapped[string, int])
-
-			s["one"] = 1
-			s["two"] = 2
-
-			other["one"] = 100
-			other["two"] = 200
-			other["three"] = 300
-
-			Expect(s.IsSubsetOf(other)).To(BeTrue())
+		It("Should return false for a single element not in other", func() {
+			a := set.New(1)
+			b := set.New(2, 3, 4)
+			Expect(a.IsSubsetOf(b)).To(BeFalse())
 		})
 	})
 
 	Describe("Difference", func() {
-		It("should return elements in a but not in b", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3, 4, 5)
-			b.Add(3, 4, 5, 6, 7)
-
+		It("Should return elements in a but not in b", func() {
+			a := set.New(1, 2, 3, 4, 5)
+			b := set.New(3, 4, 5, 6, 7)
 			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(2))
+			Expect(diff).To(HaveLen(2))
 			Expect(diff.Contains(1)).To(BeTrue())
 			Expect(diff.Contains(2)).To(BeTrue())
 			Expect(diff.Contains(3)).To(BeFalse())
-			Expect(diff.Contains(4)).To(BeFalse())
-			Expect(diff.Contains(5)).To(BeFalse())
 		})
 
-		It("should return empty set when a is a subset of b", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-			b.Add(1, 2, 3, 4, 5)
-
-			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(0))
+		It("Should return empty when a is a subset of b", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 3, 4, 5)
+			Expect(set.Difference(a, b)).To(HaveLen(0))
 		})
 
-		It("should return all elements of a when b is empty", func() {
-			a := make(set.Set[int])
+		It("Should return all of a when b is empty", func() {
+			a := set.New(1, 2, 3)
 			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-
 			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(3))
+			Expect(diff).To(HaveLen(3))
 			Expect(diff.Contains(1)).To(BeTrue())
 			Expect(diff.Contains(2)).To(BeTrue())
 			Expect(diff.Contains(3)).To(BeTrue())
 		})
 
-		It("should return empty set when a is empty", func() {
+		It("Should return empty when a is empty", func() {
 			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			b.Add(1, 2, 3)
-
-			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(0))
+			b := set.New(1, 2, 3)
+			Expect(set.Difference(a, b)).To(HaveLen(0))
 		})
 
-		It("should return empty set when both sets are empty", func() {
+		It("Should return empty when both are empty", func() {
 			a := make(set.Set[int])
 			b := make(set.Set[int])
-
-			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(0))
+			Expect(set.Difference(a, b)).To(HaveLen(0))
 		})
 
-		It("should return all elements when sets have no overlap", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-			b.Add(4, 5, 6)
-
+		It("Should return all of a when there is no overlap", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(4, 5, 6)
 			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(3))
+			Expect(diff).To(HaveLen(3))
 			Expect(diff.Contains(1)).To(BeTrue())
 			Expect(diff.Contains(2)).To(BeTrue())
 			Expect(diff.Contains(3)).To(BeTrue())
 		})
 
-		It("should return empty set when sets are identical", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3)
-			b.Add(1, 2, 3)
-
-			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(0))
+		It("Should return empty when sets are identical", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(1, 2, 3)
+			Expect(set.Difference(a, b)).To(HaveLen(0))
 		})
 
-		It("should work with Mapped types with actual values", func() {
-			a := make(set.Mapped[string, int])
-			b := make(set.Mapped[string, int])
-
-			a["one"] = 1
-			a["two"] = 2
-			a["three"] = 3
-			a["four"] = 4
-
-			b["two"] = 20
-			b["three"] = 30
-			b["five"] = 50
-
-			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(2))
-			Expect(diff["one"]).To(Equal(1))
-			Expect(diff["four"]).To(Equal(4))
-			_, hasTwoKey := diff["two"]
-			Expect(hasTwoKey).To(BeFalse())
-			_, hasThreeKey := diff["three"]
-			Expect(hasThreeKey).To(BeFalse())
-		})
-
-		It("should preserve values from set a in the result", func() {
-			a := make(set.Mapped[string, int])
-			b := make(set.Mapped[string, int])
-
-			a["apple"] = 10
-			a["banana"] = 20
-			a["cherry"] = 30
-
-			b["banana"] = 999 // Different value in b
-
-			diff := set.Difference(a, b)
-
-			Expect(len(diff)).To(Equal(2))
-			Expect(diff["apple"]).To(Equal(10))
-			Expect(diff["cherry"]).To(Equal(30))
-			_, hasBanana := diff["banana"]
-			Expect(hasBanana).To(BeFalse())
-		})
-
-		It("should not modify the original sets", func() {
-			a := make(set.Set[int])
-			b := make(set.Set[int])
-
-			a.Add(1, 2, 3, 4)
-			b.Add(3, 4, 5, 6)
-
-			originalALen := len(a)
-			originalBLen := len(b)
-
+		It("Should not modify the original sets", func() {
+			a := set.New(1, 2, 3, 4)
+			b := set.New(3, 4, 5, 6)
 			_ = set.Difference(a, b)
-
-			Expect(len(a)).To(Equal(originalALen))
-			Expect(len(b)).To(Equal(originalBLen))
-			Expect(a.Contains(1)).To(BeTrue())
+			Expect(a).To(HaveLen(4))
+			Expect(b).To(HaveLen(4))
 			Expect(a.Contains(3)).To(BeTrue())
-			Expect(b.Contains(3)).To(BeTrue())
 			Expect(b.Contains(5)).To(BeTrue())
+		})
+
+		It("Should be asymmetric", func() {
+			a := set.New(1, 2, 3)
+			b := set.New(2, 3, 4)
+			ab := set.Difference(a, b)
+			ba := set.Difference(b, a)
+			Expect(ab).To(HaveLen(1))
+			Expect(ab.Contains(1)).To(BeTrue())
+			Expect(ba).To(HaveLen(1))
+			Expect(ba.Contains(4)).To(BeTrue())
 		})
 	})
 })

@@ -9,8 +9,6 @@
 
 from typing import Any
 
-from playwright.sync_api import Page
-
 from console.task.channels.analog import Analog
 from console.task.channels.analog_output import Current, Voltage
 from console.task.ni import NIChannel, NITask

@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,13 +24,13 @@ import (
 
 var _ = Describe("Rename", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func() { mockCluster = mock.ProvisionCluster(ctx, 3) })
+	BeforeAll(func(ctx SpecContext) { mockCluster = mock.ProvisionCluster(context.Background(), 3) })
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel
-		JustBeforeEach(func() {
+		JustBeforeEach(func(ctx SpecContext) {
 			ch.Virtual = true
 			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.Float64T
@@ -37,7 +38,7 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
-			It("Should rename the channel without error", func() {
+			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
 				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
@@ -50,7 +51,7 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 		Context("Node is remote", func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
-			It("Should rename the channel without error", func() {
+			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
 				Expect(mockCluster.Nodes[2].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
@@ -62,12 +63,12 @@ var _ = Describe("Rename", Ordered, func() {
 			})
 		})
 		Context("new name is invalid", func() {
-			It("Should return an error", func() {
+			It("Should return an error", func(ctx SpecContext) {
 				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
 			})
 		})
 		Context("new name is a duplicate", func() {
-			It("Should return an error", func() {
+			It("Should return an error", func(ctx SpecContext) {
 				secondCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					Virtual:  true,
@@ -80,7 +81,7 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 	})
 	Context("Multiple channels", func() {
-		It("Should rename the channels without error", func() {
+		It("Should rename the channels without error", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
 					Name:     channel.NewRandomName(),
@@ -118,7 +119,7 @@ var _ = Describe("Rename", Ordered, func() {
 	})
 
 	Context("Map Rename", func() {
-		It("Should rename channels using a map of old names to new names", func() {
+		It("Should rename channels using a map of old names to new names", func(ctx SpecContext) {
 			id := channel.NewRandomName()
 			ch1 := channel.Channel{
 				Name:     fmt.Sprintf("young_fermat_%s", id),

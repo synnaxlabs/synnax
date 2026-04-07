@@ -10,19 +10,16 @@
 package calculation
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// StatusDetails is the payload attached to status entries for calculated channels.
-type StatusDetails struct {
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
-
 // Status is a calculated channel status entry.
-type Status = svcstatus.Status[StatusDetails]
+type Status = svcstatus.Status[types.Nil]
 
 // StatusKey returns the status key for the given channel key.
 func StatusKey(key channel.Key) string {
@@ -38,6 +35,5 @@ func StatusFromError(key channel.Key, name string, msg string, err error) *Statu
 		Message:     msg,
 		Description: err.Error(),
 		Time:        telem.Now(),
-		Details:     StatusDetails{Channel: key},
 	}
 }

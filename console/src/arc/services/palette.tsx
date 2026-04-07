@@ -14,7 +14,7 @@ import { useCallback } from "react";
 import { Arc } from "@/arc";
 import { Palette } from "@/palette";
 
-const useUpdateVisible = () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
 
 export const CreateCommand: Palette.Command = ({
@@ -44,7 +44,7 @@ export const CreateCommand: Palette.Command = ({
 };
 CreateCommand.key = "create_arc";
 CreateCommand.commandName = "Create an Arc automation";
-CreateCommand.useVisible = useUpdateVisible;
+CreateCommand.useVisible = useCreateVisible;
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_arc_explorer",

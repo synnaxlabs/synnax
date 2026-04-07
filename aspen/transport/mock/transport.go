@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
 )
 
 type Network struct {
@@ -47,23 +46,24 @@ func (n *Network) NewTransport() aspen.Transport { return &transport{net: n} }
 
 // transport is an in-memory, synchronous implementation of aspen.transport.
 type transport struct {
-	net            *Network
-	pledgeServer   *mock.UnaryServer[pledge.Request, pledge.Response]
-	pledgeClient   *mock.UnaryClient[pledge.Request, pledge.Response]
-	clusterServer  *mock.UnaryServer[gossip.Message, gossip.Message]
-	clusterClient  *mock.UnaryClient[gossip.Message, gossip.Message]
-	batchServer    *mock.UnaryServer[kv.TxRequest, kv.TxRequest]
-	batchClient    *mock.UnaryClient[kv.TxRequest, kv.TxRequest]
-	leaseServer    *mock.UnaryServer[kv.TxRequest, types.Nil]
-	leaseClient    *mock.UnaryClient[kv.TxRequest, types.Nil]
-	feedbackServer *mock.UnaryServer[kv.FeedbackMessage, types.Nil]
-	feedbackClient *mock.UnaryClient[kv.FeedbackMessage, types.Nil]
-	recoveryServer *mock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
-	recoveryClient *mock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
+	net               *Network
+	pledgeServer      *mock.UnaryServer[pledge.Request, pledge.Response]
+	pledgeClient      *mock.UnaryClient[pledge.Request, pledge.Response]
+	clusterServer     *mock.UnaryServer[gossip.Message, gossip.Message]
+	clusterClient     *mock.UnaryClient[gossip.Message, gossip.Message]
+	batchServer       *mock.UnaryServer[kv.TxRequest, kv.TxRequest]
+	batchClient       *mock.UnaryClient[kv.TxRequest, kv.TxRequest]
+	leaseServer       *mock.UnaryServer[kv.TxRequest, types.Nil]
+	leaseClient       *mock.UnaryClient[kv.TxRequest, types.Nil]
+	feedbackServer    *mock.UnaryServer[kv.FeedbackMessage, types.Nil]
+	feedbackClient    *mock.UnaryClient[kv.FeedbackMessage, types.Nil]
+	recoveryServer    *mock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
+	recoveryClient    *mock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
+	pendingMiddleware []freighter.Middleware
 }
 
 // Configure implements aspen.transport.
-func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
+func (t *transport) Configure(addr address.Address, _ alamos.Instrumentation, _ bool) error {
 	t.pledgeServer = t.net.pledge.UnaryServer(addr)
 	t.pledgeClient = t.net.pledge.UnaryClient()
 	t.clusterServer = t.net.cluster.UnaryServer(addr)
@@ -76,8 +76,16 @@ func (t *transport) Configure(ctx signal.Context, addr address.Address, external
 	t.feedbackClient = t.net.feedback.UnaryClient()
 	t.recoveryServer = t.net.recovery.StreamServer(addr)
 	t.recoveryClient = t.net.recovery.StreamClient()
+	if len(t.pendingMiddleware) > 0 {
+		t.applyMiddleware(t.pendingMiddleware...)
+		t.pendingMiddleware = nil
+	}
 	return nil
 }
+
+func (t *transport) Serve() error { return nil }
+
+func (t *transport) Close() error { return nil }
 
 func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 
@@ -104,6 +112,14 @@ func (t *transport) RecoveryClient() kv.RecoveryTransportClient { return t.recov
 func (t *transport) RecoveryServer() kv.RecoveryTransportServer { return t.recoveryServer }
 
 func (t *transport) Use(middleware ...freighter.Middleware) {
+	if t.pledgeClient == nil {
+		t.pendingMiddleware = append(t.pendingMiddleware, middleware...)
+		return
+	}
+	t.applyMiddleware(middleware...)
+}
+
+func (t *transport) applyMiddleware(middleware ...freighter.Middleware) {
 	t.pledgeClient.Use(middleware...)
 	t.pledgeServer.Use(middleware...)
 	t.clusterClient.Use(middleware...)

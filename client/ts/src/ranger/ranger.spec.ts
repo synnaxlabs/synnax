@@ -16,7 +16,7 @@ import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
-describe("Ranger", () => {
+describe("range", () => {
   describe("payload", () => {
     it("should validate the time range", () => {
       const payload = ranger.payloadZ.parse({
@@ -215,9 +215,7 @@ describe("Ranger", () => {
       const val = await rng.kv.get("foo");
       expect(val).toEqual("bar");
       await rng.kv.delete("foo");
-      await expect(async () => await rng.kv.get("foo")).rejects.toThrowError(
-        NotFoundError,
-      );
+      await expect(async () => await rng.kv.get("foo")).rejects.toThrow(NotFoundError);
     });
 
     it("should set and get multiple keys", async () => {

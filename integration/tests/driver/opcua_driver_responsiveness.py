@@ -22,10 +22,10 @@ import sys
 import threading
 
 import psutil
-import synnax as sy
 from examples.modbus import ModbusSim
-from synnax import modbus
 
+import synnax as sy
+from synnax import modbus
 from tests.driver.modbus_read import ModbusReadInputRegister
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index

@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -67,9 +66,9 @@ func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
 			ExcludeFieldData(true).
 			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(role.OntologyType).
+			WhereTypes(ontology.ResourceTypeRole).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(OntologyType).
+			WhereTypes(ontology.ResourceTypePolicy).
 			Entries(&policyResources).
 			Exec(ctx, tx); err != nil {
 			return err

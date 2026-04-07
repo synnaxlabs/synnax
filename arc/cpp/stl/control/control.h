@@ -17,6 +17,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::stl::authority {
 
@@ -64,8 +65,22 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto auth = cfg.node.config["value"].get<uint8_t>();
-        const auto channel = cfg.node.config["channel"].get<types::ChannelKey>();
+        const auto &auth_param = cfg.node.config["value"];
+        auto auth_sv = types::to_sample_value(auth_param.value, auth_param.type);
+        if (!auth_sv.has_value())
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "set_authority node missing required value parameter"
+                )
+            };
+        const auto auth = x::telem::cast<uint8_t>(*auth_sv);
+        const auto &ch_param = cfg.node.config["channel"];
+        auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
+        const types::ChannelKey channel = ch_sv.has_value()
+                                            ? x::telem::cast<types::ChannelKey>(*ch_sv)
+                                            : 0;
         std::optional<types::ChannelKey> channel_key;
         if (channel != 0) channel_key = channel;
         return {

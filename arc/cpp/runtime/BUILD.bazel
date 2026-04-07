@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "runtime",
     hdrs = ["runtime.h"],
@@ -7,6 +10,8 @@ cc_library(
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
+        "//arc/cpp/runtime/selector",
+        "//arc/cpp/runtime/stable",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/wasm",
         "//arc/cpp/stl/channel",
@@ -19,8 +24,8 @@ cc_library(
         "//arc/cpp/stl/stateful",
         "//arc/cpp/stl/str",
         "//arc/cpp/stl/time",
-        "//x/cpp/thread",
         "//x/cpp/control",
+        "//x/cpp/thread",
     ],
 )
 

@@ -10,8 +10,6 @@
 package analyzer_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -49,14 +47,14 @@ var _ = Describe("Polymorphic func Analysis", func() {
 	resolver := newMockPolymorphicResolver()
 
 	type polymorphicCase struct {
-		source       string
 		expectedType types.Type
+		source       string
 	}
 
 	DescribeTable("Simple Polymorphic Flow",
-		func(tc polymorphicCase) {
+		func(sCtx SpecContext, tc polymorphicCase) {
 			ast := MustSucceed(parser.Parse(tc.source))
-			ctx := acontext.CreateRoot(context.Background(), ast, resolver)
+			ctx := acontext.CreateRoot(sCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 

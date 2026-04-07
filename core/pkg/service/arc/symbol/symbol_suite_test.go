@@ -24,18 +24,14 @@ func TestSymbol(t *testing.T) {
 }
 
 var (
-	ctx  context.Context
 	dist mock.Node
 )
 
-var _ = BeforeEach(func() { ctx = context.Background() })
-
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
+var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(dist.Close()).To(Succeed())
 })

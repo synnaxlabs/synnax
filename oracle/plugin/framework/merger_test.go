@@ -10,7 +10,6 @@
 package framework_test
 
 import (
-	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func TestFramework(t *testing.T) {
@@ -268,11 +268,10 @@ var _ = Describe("Collector", func() {
 			}
 
 			var paths []string
-			err := c.ForEach(func(path string, types []resolution.Type) error {
+			Expect(c.ForEach(func(path string, types []resolution.Type) error {
 				paths = append(paths, path)
 				return nil
-			})
-			Expect(err).NotTo(HaveOccurred())
+			})).To(Succeed())
 			Expect(paths).To(Equal([]string{"path/first", "path/second"}))
 		})
 
@@ -305,11 +304,10 @@ var _ = Describe("Collector", func() {
 			c.Remove("path/first")
 
 			var paths []string
-			err := c.ForEach(func(path string, types []resolution.Type) error {
+			Expect(c.ForEach(func(path string, types []resolution.Type) error {
 				paths = append(paths, path)
 				return nil
-			})
-			Expect(err).NotTo(HaveOccurred())
+			})).To(Succeed())
 			Expect(paths).To(Equal([]string{"path/second"}))
 		})
 	})

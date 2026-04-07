@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -35,7 +36,6 @@ func TestArc(t *testing.T) {
 }
 
 var (
-	ctx      = context.Background()
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	svc      *arc.Service
@@ -49,31 +49,37 @@ var (
 	testRack *rack.Rack
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		EnableSearch: new(false),
-		DB:           db,
+		DB: db,
 	}))
+	searchIdx := MustSucceed(search.Open())
+	DeferCleanup(func() {
+		Expect(searchIdx.Close()).To(Succeed())
+	})
 
 	// Use mock distribution for simplified testing
 	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = distB.Provision(context.Background())
 
 	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	statSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
+		Search:   searchIdx,
 	}))
 	rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
@@ -82,6 +88,7 @@ var _ = BeforeSuite(func() {
 		HostProvider:        mock.StaticHostKeyProvider(1),
 		Status:              statSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
+		Search:              searchIdx,
 	}))
 	taskSvc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
@@ -89,6 +96,7 @@ var _ = BeforeSuite(func() {
 		Group:    groupSvc,
 		Rack:     rackSvc,
 		Status:   statSvc,
+		Search:   searchIdx,
 	}))
 	testRack = &rack.Rack{Name: "Test Rack"}
 	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -98,11 +106,12 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Channel:  dist.Channel,
 		Task:     taskSvc,
+		Search:   searchIdx,
 	}))
 })
 
 var (
-	_ = AfterSuite(func() {
+	_ = AfterSuite(func(ctx SpecContext) {
 		Expect(svc.Close()).To(Succeed())
 		Expect(taskSvc.Close()).To(Succeed())
 		Expect(rackSvc.Close()).To(Succeed())
@@ -113,6 +122,6 @@ var (
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 )

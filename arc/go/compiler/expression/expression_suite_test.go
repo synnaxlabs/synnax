@@ -29,19 +29,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var bCtx context.Context
-
-var _ = BeforeEach(func() {
-	bCtx = context.Background()
-})
-
-func expectExpression(expression string, expectedType types.Type, expectedOpcodes ...any) {
-	bytecode, exprType := compileExpression(expression)
+func expectExpression(bCtx SpecContext, expression string, expectedType types.Type, expectedOpcodes ...any) {
+	bytecode, exprType := compileExpression(bCtx, expression)
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(expectedType))
 }
 
-func compileExpression(source string) ([]byte, types.Type) {
+func compileExpression(bCtx context.Context, source string) ([]byte, types.Type) {
 	return compileWithCtx(NewContext(bCtx), source)
 }
 
@@ -64,7 +58,7 @@ func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source
 	return FinalizeContext(ctx), exprType
 }
 
-func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
+func compileWithAnalyzer(bCtx context.Context, exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
 	analyzerCtx := acontext.CreateRoot(bCtx, expr, resolver)
 	aexpression.Analyze(analyzerCtx)
@@ -82,12 +76,13 @@ func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, t
 
 // expectSeriesExpression is a test helper for series operations that require symbol resolution
 func expectSeriesExpression(
+	bCtx SpecContext,
 	expr string,
 	resolver symbol.MapResolver,
 	expectedType types.Type,
 	expectedOpcodes ...any,
 ) {
-	bytecode, exprType := compileWithAnalyzer(expr, resolver)
+	bytecode, exprType := compileWithAnalyzer(bCtx, expr, resolver)
 	Expect(exprType).To(Equal(expectedType))
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 }
@@ -112,6 +107,7 @@ func scalarSymbol(name string, t types.Type, id int) symbol.Symbol {
 }
 
 func expectSeriesWithFunctions(
+	bCtx SpecContext,
 	expr string,
 	funcIndices map[string]uint32,
 	funcSymbols []symbol.Symbol,
@@ -131,6 +127,7 @@ func expectSeriesWithFunctions(
 }
 
 func expectSeriesLiteralWithHint(
+	bCtx SpecContext,
 	expr string,
 	resolver symbol.Resolver,
 	hint types.Type,

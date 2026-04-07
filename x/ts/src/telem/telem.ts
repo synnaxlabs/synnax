@@ -143,10 +143,10 @@ export class TimeStamp
     let seconds = "00";
     let milliseconds: string | undefined = "00";
     if (mbeSeconds != null) [seconds, milliseconds] = mbeSeconds.split(".");
-    let base = TimeStamp.hours(parseInt(hours ?? "00"))
-      .add(TimeStamp.minutes(parseInt(minutes ?? "00")))
-      .add(TimeStamp.seconds(parseInt(seconds ?? "00")))
-      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00")));
+    let base = TimeStamp.hours(parseInt(hours ?? "00", 10))
+      .add(TimeStamp.minutes(parseInt(minutes ?? "00", 10)))
+      .add(TimeStamp.seconds(parseInt(seconds ?? "00", 10)))
+      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00", 10)));
     if (tzInfo === "local") base = base.add(TimeStamp.utcOffset);
     return base.valueOf();
   }
@@ -166,7 +166,7 @@ export class TimeStamp
         const parts = str.split(".");
         datePart = parts[0];
         const msPart = parts[1] || "0";
-        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3));
+        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3), 10);
       }
 
       const d =
@@ -1772,6 +1772,23 @@ export class TimeRange implements primitive.Stringer {
   ]);
 
   /**
+   * A zod schema that validates time ranges with bounds checking.
+   * Ensures the range is valid (start <= end) and within int64 bounds.
+   */
+  static readonly boundedZ = TimeRange.z
+    .refine(({ isValid }) => isValid, {
+      message: "Time range start time must be before or equal to time range end time",
+    })
+    .refine(({ end }) => end.valueOf() <= math.MAX_INT64, {
+      message:
+        "Time range end time must be less than or equal to the maximum value of an int64",
+    })
+    .refine(({ start }) => start.valueOf() >= math.MIN_INT64, {
+      message:
+        "Time range start time must be greater than or equal to the minimum value of an int64",
+    });
+
+  /**
    * Sorts two time ranges. The range with the earlier start time is considered less than
    * the range with the later start time. If the start times are equal, the range with the
    * earlier end time is considered less than the range with the later end time.
@@ -2401,3 +2418,11 @@ export const convertDataType = (
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
   return math.sub(value, offset);
 };
+
+export const timeRangeZ = TimeRange.z;
+export const timeStampZ = TimeStamp.z;
+export const timeSpanZ = TimeSpan.z;
+export const rateZ = Rate.z;
+export const sizeZ = Size.z;
+export const dataTypeZ = DataType.z;
+export const timeRangeBoundedZ = TimeRange.boundedZ;

@@ -12,7 +12,7 @@ extern "C" {
 #include <string>
 
 #include <arpa/inet.h>
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 /// @brief Test fixture for byte order conversion tests.
 class OshwByteOrderTest : public ::testing::Test {};

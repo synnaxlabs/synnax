@@ -28,9 +28,9 @@ def load_options() -> Options | None:
     return None if cluster is None else cluster.options
 
 
-NO_OPTIONS_MSG = """No options provided and no configuration file
-                    was found. Please provide options or login via
-                    the CLI  using the `synnax login` command."""
+NO_OPTIONS_MSG = """No options provided and no configuration file was found. Please
+                    provide options or login via the CLI  using the `sy login`
+                    command."""
 
 
 def try_load_options_if_none_provided(

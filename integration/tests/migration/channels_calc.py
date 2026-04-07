@@ -13,8 +13,8 @@ from abc import abstractmethod
 from typing import Any
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 from framework.test_case import TestCase
 
 NpArray = np.ndarray[Any, Any]
@@ -361,9 +361,9 @@ class CalcChannelsVerify(CalcChannelsMigration):
                 assert frame is not None, "No streamer frame received"
                 for name, exp_val in expected.items():
                     actual = float(frame[channels[name].key][0])
-                    assert (
-                        abs(actual - exp_val) < 0.01
-                    ), f"{name}: expected {exp_val}, got {actual}"
+                    assert abs(actual - exp_val) < 0.01, (
+                        f"{name}: expected {exp_val}, got {actual}"
+                    )
 
     def test_calc_operations(self) -> None:
         self.log("Testing: Calc channel operations metadata")
@@ -373,24 +373,24 @@ class CalcChannelsVerify(CalcChannelsMigration):
             assert ch.expression == PASSTHROUGH_EXPR, f"{name}: expression mismatch"
             assert ch.data_type == sy.DataType.FLOAT32, f"{name}: type mismatch"
             assert len(ch.operations) == 1, f"{name}: expected 1 operation"
-            assert (
-                ch.operations[0].type == expected_op
-            ), f"{name}: expected op {expected_op}, got {ch.operations[0].type}"
-            assert (
-                ch.operations[0].duration == expected_dur
-            ), f"{name}: duration mismatch: {ch.operations[0].duration}"
+            assert ch.operations[0].type == expected_op, (
+                f"{name}: expected op {expected_op}, got {ch.operations[0].type}"
+            )
+            assert ch.operations[0].duration == expected_dur, (
+                f"{name}: duration mismatch: {ch.operations[0].duration}"
+            )
             if uses_reset:
-                assert (
-                    ch.operations[0].reset_channel == reset.key
-                ), f"{name}: reset_channel mismatch"
+                assert ch.operations[0].reset_channel == reset.key, (
+                    f"{name}: reset_channel mismatch"
+                )
 
         for name, expected_op in CALC_EXPR_OP_CHANNELS:
             ch = self.client.channels.retrieve(name)
             assert ch.expression == CALC_EXPR, f"{name}: expression mismatch"
             assert len(ch.operations) == 1, f"{name}: expected 1 operation"
-            assert (
-                ch.operations[0].type == expected_op
-            ), f"{name}: expected op {expected_op}, got {ch.operations[0].type}"
+            assert ch.operations[0].type == expected_op, (
+                f"{name}: expected op {expected_op}, got {ch.operations[0].type}"
+            )
 
         self.log("Testing: Calc operations functional (write + stream)")
         self._stream_and_assert(
@@ -426,9 +426,9 @@ class CalcChannelsVerify(CalcChannelsMigration):
                 frame = streamer.read(timeout=5)
                 assert frame is not None
                 val = float(frame[calc_avg_rst.key][0])
-                assert (
-                    abs(val - 20.0) < 0.01
-                ), f"avg_rst batch1: expected 20.0, got {val}"
+                assert abs(val - 20.0) < 0.01, (
+                    f"avg_rst batch1: expected 20.0, got {val}"
+                )
 
                 writer.write(
                     {
@@ -440,20 +440,20 @@ class CalcChannelsVerify(CalcChannelsMigration):
                 frame = streamer.read(timeout=5)
                 assert frame is not None
                 val = float(frame[calc_avg_rst.key][0])
-                assert (
-                    abs(val - 45.0) < 0.01
-                ), f"avg_rst after reset: expected 45.0, got {val}"
+                assert abs(val - 45.0) < 0.01, (
+                    f"avg_rst after reset: expected 45.0, got {val}"
+                )
 
     def test_calc_type_handling(self) -> None:
         self.log("Testing: Calc type handling metadata")
         for name, expression, expected_type in CALC_TYPE_CHANNELS:
             ch = self.client.channels.retrieve(name)
-            assert (
-                ch.expression == expression
-            ), f"{name}: expression mismatch: {ch.expression!r}"
-            assert (
-                ch.data_type == expected_type
-            ), f"{name}: expected {expected_type}, got {ch.data_type}"
+            assert ch.expression == expression, (
+                f"{name}: expression mismatch: {ch.expression!r}"
+            )
+            assert ch.data_type == expected_type, (
+                f"{name}: expected {expected_type}, got {ch.data_type}"
+            )
 
         self.log("Testing: Calc type handling computed values")
         calc_channels = {
@@ -477,28 +477,28 @@ class CalcChannelsVerify(CalcChannelsMigration):
 
         for name, expected in expected_values.items():
             data = frame[calc_channels[name].key].to_numpy()
-            assert len(data) == len(
-                expected
-            ), f"{name}: expected {len(expected)} samples, got {len(data)}"
+            assert len(data) == len(expected), (
+                f"{name}: expected {len(expected)} samples, got {len(data)}"
+            )
             if expected.dtype in (np.float32, np.float64):
-                assert np.allclose(
-                    data, expected, rtol=1e-5
-                ), f"{name}: value mismatch: {data} vs {expected}"
+                assert np.allclose(data, expected, rtol=1e-5), (
+                    f"{name}: value mismatch: {data} vs {expected}"
+                )
             else:
-                assert np.array_equal(
-                    data, expected
-                ), f"{name}: value mismatch: {data} vs {expected}"
+                assert np.array_equal(data, expected), (
+                    f"{name}: value mismatch: {data} vs {expected}"
+                )
 
     def test_calc_nested(self) -> None:
         self.log("Testing: Nested calc chain metadata")
         for name, expression in CALC_NESTED_CHANNELS:
             ch = self.client.channels.retrieve(name)
-            assert (
-                ch.expression == expression
-            ), f"{name}: expression mismatch: {ch.expression!r}"
-            assert (
-                ch.data_type == sy.DataType.FLOAT32
-            ), f"{name}: expected FLOAT32, got {ch.data_type}"
+            assert ch.expression == expression, (
+                f"{name}: expression mismatch: {ch.expression!r}"
+            )
+            assert ch.data_type == sy.DataType.FLOAT32, (
+                f"{name}: expected FLOAT32, got {ch.data_type}"
+            )
 
         # source=[10,20,30] -> L1=*3=[30,60,90] -> L2=+100=[130,160,190] -> L3=/2=[65,80,95]
         l3 = self.client.channels.retrieve(CALC_NESTED_L3)
@@ -517,9 +517,9 @@ class CalcChannelsVerify(CalcChannelsMigration):
                 assert frame is not None, "No streamer frame for nested chain"
                 data = frame[l3.key].to_numpy()
                 expected = np.array([65.0, 80.0, 95.0], dtype=np.float32)
-                assert np.allclose(
-                    data, expected, rtol=1e-5
-                ), f"nested L3: expected {expected}, got {data}"
+                assert np.allclose(data, expected, rtol=1e-5), (
+                    f"nested L3: expected {expected}, got {data}"
+                )
 
     def test_calc_windowed(self) -> None:
         self.log("Testing: Windowed calc channels")

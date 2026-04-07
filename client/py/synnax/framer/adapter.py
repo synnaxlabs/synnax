@@ -18,8 +18,7 @@ from synnax.channel.retrieve import retrieve_required as retrieve_required_chann
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
-from synnax.telem import DataType
-from synnax.telem.series import CrudeSeries, Series
+from synnax.telem import CrudeSeries, DataType, Series
 
 
 class ReadFrameAdapter:
@@ -192,14 +191,14 @@ class WriteFrameAdapter:
         if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
             if series is None:
                 raise ValidationError(f"""
-                Received a single channel {'name' if isinstance(channels_or_data, str) else 'key'}
+                Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
                 but no data.
                 """)
             if isinstance(series, list) and len(series) > 1:
                 first = series[0]
                 if not isinstance(first, (float, int)):
                     raise ValidationError(f"""
-                    Received a single channel {'name' if isinstance(channels_or_data, str) else 'key'}
+                    Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
                     but multiple series.
                     """)
 

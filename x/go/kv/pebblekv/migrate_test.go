@@ -27,9 +27,7 @@ var _ = Describe("Migrate", func() {
 	var tempDir string
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "pebblekv-migrate-test-*")
-		Expect(err).NotTo(HaveOccurred())
+		tempDir = MustSucceed(os.MkdirTemp("", "pebblekv-migrate-test-*"))
 	})
 
 	AfterEach(func() {
@@ -39,12 +37,11 @@ var _ = Describe("Migrate", func() {
 	Context("RequiresMigration", func() {
 		It("should return false for a new database", func() {
 			dbPath := filepath.Join(tempDir, "new-db")
-			db, err := pebble.Open(dbPath, &pebble.Options{
+			db := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
 				Logger:             pebblekv.NewNoopLogger(),
-			})
-			Expect(err).NotTo(HaveOccurred())
+			}))
 			Expect(db.Close()).To(Succeed())
 
 			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
@@ -86,8 +83,7 @@ var _ = Describe("Migrate", func() {
 
 			Expect(oldDB.Close()).To(Succeed())
 
-			requiresMigration, err := pebblekv.RequiresMigration(dbPath, vfs.Default)
-			Expect(err).NotTo(HaveOccurred())
+			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
 			Expect(requiresMigration).To(BeTrue())
 
 			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
@@ -99,13 +95,11 @@ var _ = Describe("Migrate", func() {
 			}))
 
 			val, closer := MustSucceed2(newDB.Get([]byte("key")))
-			Expect(err).NotTo(HaveOccurred())
 			Expect(string(val)).To(Equal("value"))
 			Expect(closer.Close()).To(Succeed())
 			Expect(newDB.Close()).To(Succeed())
 
 			requiresMigration = MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
-			Expect(err).NotTo(HaveOccurred())
 			Expect(requiresMigration).To(BeFalse())
 
 		})

@@ -3,6 +3,11 @@
 # See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
 common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_ctx_resolve_tools  --define=protobuf_allow_msvc=true
 
+# Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH
+# to /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
+# (installed via Homebrew at /opt/homebrew/bin) are available in genrules.
+build --action_env=PATH
+
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
@@ -19,6 +24,7 @@ build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
+build:macos --copt=-Wreorder-init-list
 # Hide symbols to prevent collisions with libraries loaded dynamically at runtime
 # (LabJack bundles an incompatible legacy gRPC version).
 build:macos --copt=-fvisibility=hidden
@@ -26,6 +32,10 @@ build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
+# GoogleTest 1.17 headers trigger char8_t → char32_t conversion warning in gtest-printers.h
+# -Wno-unknown-warning-option prevents older Clang from erroring on unrecognized -W flags
+build:macos --copt=-Wno-unknown-warning-option
+build:macos --copt=-Wno-error=character-conversion
 
 # Linux
 build:linux --cxxopt=-std=c++23
@@ -38,6 +48,8 @@ build:linux --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
+# GoogleTest 1.17 headers trigger sign-compare in test compilation units
+build:linux --copt=-Wno-sign-compare
 
 # Allow sequence-point warnings without treating them as errors
 # (wasmtime headers use storage++ in pack expansion which triggers this)

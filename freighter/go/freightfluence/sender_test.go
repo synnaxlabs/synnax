@@ -32,12 +32,8 @@ func (e *errSenderCloser) Send(_ int) error { return e.sendErr }
 func (e *errSenderCloser) CloseSend() error { return nil }
 
 var _ = Describe("Sender", func() {
-	var (
-		ctx context.Context
-		net *mock.Network[int, int]
-	)
+	var net *mock.Network[int, int]
 	BeforeEach(func() {
-		ctx = context.Background()
 		net = mock.NewNetwork[int, int]()
 	})
 	Context("Single Stream", func() {
@@ -52,18 +48,19 @@ var _ = Describe("Sender", func() {
 			client = net.StreamClient()
 			receiverStream = confluence.NewStream[int](0)
 			senderStream = confluence.NewStream[int](0)
+			localReceiverStream := receiverStream
 			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				receiver := &freightfluence.Receiver[int]{}
 				receiver.Receiver = server
-				receiver.OutTo(receiverStream)
+				receiver.OutTo(localReceiverStream)
 				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				return sCtx.Wait()
 			})
 		})
 		Describe("Sender", func() {
-			It("Should operate correctly", func() {
+			It("Should operate correctly", func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 				sender := &freightfluence.Sender[int]{Sender: stream}
@@ -82,7 +79,7 @@ var _ = Describe("Sender", func() {
 			})
 		})
 		Describe("TransformSender", func() {
-			It("Should transform values before sending them", func() {
+			It("Should transform values before sending them", func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 				sender := &freightfluence.TransformSender[int, int]{}
@@ -100,7 +97,7 @@ var _ = Describe("Sender", func() {
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
-			It("Should exit when the transform returns an error", func() {
+			It("Should exit when the transform returns an error", func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
@@ -118,7 +115,7 @@ var _ = Describe("Sender", func() {
 	})
 	Context("Stream Closure", func() {
 		Describe("Sender", func() {
-			It("Should not treat ErrStreamClosed as a routine failure", func() {
+			It("Should not treat ErrStreamClosed as a routine failure", func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				mockSender := &errSenderCloser{sendErr: freighter.ErrStreamClosed}
@@ -131,7 +128,7 @@ var _ = Describe("Sender", func() {
 			})
 		})
 		Describe("TransformSender", func() {
-			It("Should not treat ErrStreamClosed as a routine failure", func() {
+			It("Should not treat ErrStreamClosed as a routine failure", func(ctx SpecContext) {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				mockSender := &errSenderCloser{sendErr: freighter.ErrStreamClosed}
@@ -157,7 +154,7 @@ var _ = Describe("Sender", func() {
 			clientSender    freightfluence.MapTargetedSender[int]
 		)
 		BeforeEach(func() {
-			sCtx, cancel = signal.WithCancel(ctx)
+			sCtx, cancel = signal.WithCancel(context.Background())
 			senderStream = confluence.NewStream[int](nStreams)
 			clientTransport := net.StreamClient(1)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)

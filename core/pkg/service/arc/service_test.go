@@ -27,7 +27,7 @@ import (
 )
 
 var _ = Describe("CompileProgram", func() {
-	It("Should retrieve and compile an Arc with a valid graph", func() {
+	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "test-arc",
 			Graph: graph.Graph{
@@ -54,13 +54,13 @@ var _ = Describe("CompileProgram", func() {
 		Expect(result.Program.IR).ToNot(BeNil())
 	})
 
-	It("Should return error when Arc does not exist", func() {
+	It("Should return error when Arc does not exist", func(ctx SpecContext) {
 		nonExistentKey := uuid.New()
 		Expect(svc.CompileProgram(ctx, nonExistentKey)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should return error when graph compilation fails", func() {
+	It("Should return error when graph compilation fails", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "invalid-arc",
 			Graph: graph.Graph{
@@ -92,18 +92,18 @@ var _ = Describe("CompileProgram", func() {
 })
 
 var _ = Describe("NewLSP", func() {
-	It("Should create an LSP server without error", func() {
+	It("Should create an LSP server without error", func(ctx SpecContext) {
 		server := MustSucceed(svc.NewLSP())
 		Expect(server).ToNot(BeNil())
 	})
 
-	It("Should create multiple independent LSP servers", func() {
+	It("Should create multiple independent LSP servers", func(ctx SpecContext) {
 		server1 := MustSucceed(svc.NewLSP())
 		server2 := MustSucceed(svc.NewLSP())
 		Expect(server1).ToNot(BeIdenticalTo(server2))
 	})
 
-	It("Should republish diagnostics when channels change", func() {
+	It("Should republish diagnostics when channels change", func(ctx SpecContext) {
 		server := MustSucceed(svc.NewLSP())
 		client := &MockClient{}
 		server.SetClient(client)

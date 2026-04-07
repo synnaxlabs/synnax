@@ -10,20 +10,12 @@
 package testutil_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var ctx context.Context
-
-var _ = BeforeEach(func() {
-	ctx = context.Background()
-})
 
 var _ = Describe("MockClient", func() {
 	Describe("Diagnostics", func() {
@@ -32,9 +24,8 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Diagnostics()).To(BeEmpty())
 		})
 
-		It("should capture diagnostics from PublishDiagnostics", func() {
+		It("should capture diagnostics from PublishDiagnostics", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
-			ctx := context.Background()
 			diags := []protocol.Diagnostic{
 				{Message: "undefined symbol: x", Severity: protocol.DiagnosticSeverityError},
 				{Message: "unused variable: y", Severity: protocol.DiagnosticSeverityWarning},
@@ -48,9 +39,8 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Diagnostics()[1].Message).To(Equal("unused variable: y"))
 		})
 
-		It("should replace diagnostics on subsequent PublishDiagnostics calls", func() {
+		It("should replace diagnostics on subsequent PublishDiagnostics calls", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
-			ctx := context.Background()
 			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 				URI: "file:///test.arc",
 				Diagnostics: []protocol.Diagnostic{
@@ -69,9 +59,8 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Diagnostics()[0].Message).To(Equal("second error"))
 		})
 
-		It("should clear diagnostics when publishing empty slice", func() {
+		It("should clear diagnostics when publishing empty slice", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
-			ctx := context.Background()
 			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 				URI:         "file:///test.arc",
 				Diagnostics: []protocol.Diagnostic{{Message: "error"}},
@@ -92,61 +81,63 @@ var _ = Describe("MockClient", func() {
 			client = &testutil.MockClient{}
 		})
 
-		It("should return nil from ShowMessage", func() {
+		It("should return nil from ShowMessage", func(ctx SpecContext) {
 			Expect(client.ShowMessage(ctx, &protocol.ShowMessageParams{
 				Type:    protocol.MessageTypeInfo,
 				Message: "test",
 			})).To(Succeed())
 		})
 
-		It("should return nil from ShowMessageRequest", func() {
-			Expect(MustSucceed(client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{}))).To(BeNil())
+		It("should return nil from ShowMessageRequest", func(ctx SpecContext) {
+			Expect(MustSucceed(
+				client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{})),
+			).To(BeNil())
 		})
 
-		It("should return nil from LogMessage", func() {
+		It("should return nil from LogMessage", func(ctx SpecContext) {
 			Expect(client.LogMessage(ctx, &protocol.LogMessageParams{
 				Type:    protocol.MessageTypeLog,
 				Message: "log entry",
 			})).To(Succeed())
 		})
 
-		It("should return nil from Telemetry", func() {
+		It("should return nil from Telemetry", func(ctx SpecContext) {
 			Expect(client.Telemetry(ctx, map[string]string{"key": "value"})).To(Succeed())
 		})
 
-		It("should return nil from RegisterCapability", func() {
+		It("should return nil from RegisterCapability", func(ctx SpecContext) {
 			Expect(client.RegisterCapability(ctx, &protocol.RegistrationParams{})).To(Succeed())
 		})
 
-		It("should return nil from UnregisterCapability", func() {
+		It("should return nil from UnregisterCapability", func(ctx SpecContext) {
 			Expect(client.UnregisterCapability(ctx, &protocol.UnregistrationParams{})).To(Succeed())
 		})
 
-		It("should return nil from WorkspaceFolders", func() {
+		It("should return nil from WorkspaceFolders", func(ctx SpecContext) {
 			Expect(MustSucceed(client.WorkspaceFolders(ctx))).To(BeNil())
 		})
 
-		It("should return nil from Configuration", func() {
+		It("should return nil from Configuration", func(ctx SpecContext) {
 			Expect(MustSucceed(client.Configuration(ctx, &protocol.ConfigurationParams{}))).To(BeNil())
 		})
 
-		It("should return false from ApplyEdit", func() {
+		It("should return false from ApplyEdit", func(ctx SpecContext) {
 			Expect(MustSucceed(client.ApplyEdit(ctx, &protocol.ApplyWorkspaceEditParams{}))).To(BeFalse())
 		})
 
-		It("should return nil from Progress", func() {
+		It("should return nil from Progress", func(ctx SpecContext) {
 			Expect(client.Progress(ctx, &protocol.ProgressParams{})).To(Succeed())
 		})
 
-		It("should return nil from WorkDoneProgressCreate", func() {
+		It("should return nil from WorkDoneProgressCreate", func(ctx SpecContext) {
 			Expect(client.WorkDoneProgressCreate(ctx, &protocol.WorkDoneProgressCreateParams{})).To(Succeed())
 		})
 
-		It("should return nil from ShowDocument", func() {
+		It("should return nil from ShowDocument", func(ctx SpecContext) {
 			Expect(MustSucceed(client.ShowDocument(ctx, &protocol.ShowDocumentParams{URI: "file:///test"}))).To(BeNil())
 		})
 
-		It("should return nil from Request", func() {
+		It("should return nil from Request", func(ctx SpecContext) {
 			Expect(MustSucceed(client.Request(ctx, "custom/method", nil))).To(BeNil())
 		})
 	})

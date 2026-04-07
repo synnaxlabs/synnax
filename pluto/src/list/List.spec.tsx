@@ -29,6 +29,14 @@ describe("List", () => {
   CONTEXTS.forEach((context) => {
     beforeAll(() => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+        configurable: true,
+        get: () => 100,
+      });
+      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+        configurable: true,
+        get: () => 100,
+      });
     });
     describe(context.name, () => {
       describe("basic item rendering", () => {
@@ -173,23 +181,28 @@ describe("List", () => {
 
   describe("scroll-based pagination (non-virtual)", () => {
     let mockObserverCallback: IntersectionObserverCallback;
-    let mockObserverInstance: {
-      observe: ReturnType<typeof vi.fn>;
-      disconnect: ReturnType<typeof vi.fn>;
-      unobserve: ReturnType<typeof vi.fn>;
-    };
-    const MockIntersectionObserver = vi.fn((callback: IntersectionObserverCallback) => {
-      mockObserverCallback = callback;
-      mockObserverInstance = {
-        observe: vi.fn(),
-        disconnect: vi.fn(),
-        unobserve: vi.fn(),
-      };
-      return mockObserverInstance;
-    });
+    const mockObserve = vi.fn();
+    const mockDisconnect = vi.fn();
+
+    class MockIntersectionObserver {
+      observe = mockObserve;
+      disconnect = mockDisconnect;
+
+      constructor(callback: IntersectionObserverCallback) {
+        mockObserverCallback = callback;
+      }
+    }
 
     beforeAll(() => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+        configurable: true,
+        get: () => 100,
+      });
+      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+        configurable: true,
+        get: () => 100,
+      });
     });
 
     beforeEach(() => {
@@ -208,8 +221,7 @@ describe("List", () => {
           <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
         </List.Frame>,
       );
-      expect(MockIntersectionObserver).toHaveBeenCalled();
-      expect(mockObserverInstance.observe).toHaveBeenCalled();
+      expect(mockObserve).toHaveBeenCalled();
     });
 
     it("should call onFetchMore when sentinel intersects", () => {
@@ -322,7 +334,7 @@ describe("List", () => {
       );
 
       unmount();
-      expect(mockObserverInstance.disconnect).toHaveBeenCalled();
+      expect(mockDisconnect).toHaveBeenCalled();
     });
   });
 });

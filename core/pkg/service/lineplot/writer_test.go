@@ -14,38 +14,37 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a LinePlot", func() {
+		It("Should create a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{
 				Name: "test",
-				Data: "data",
+				Data: map[string]any{"key": "data"},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a LinePlot", func() {
-			plot := lineplot.LinePlot{Name: "test", Data: "data"}
+		It("Should rename a LinePlot", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
 			var res lineplot.LinePlot
-			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a LinePlot", func() {
-			plot := lineplot.LinePlot{Name: "test", Data: "data"}
+		It("Should set the data of a LinePlot", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, "data2")).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res lineplot.LinePlot
-			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Data).To(Equal("data2"))
+			Expect(svc.NewRetrieve().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})
 })

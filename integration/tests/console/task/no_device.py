@@ -11,7 +11,6 @@ import platform
 import random
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
 
@@ -54,11 +53,10 @@ class NoDevice(ConsoleCase):
         rack = client.racks.create(name=rack_name)
         client.devices.create(
             [
-                sy.Device(
+                sy.ni.Device(
                     key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
                     rack=rack.key,
                     name=dev_name,
-                    make="NI",
                     model=dev_name,
                     location="dev3",
                     identifier="dev3",
@@ -75,12 +73,12 @@ class NoDevice(ConsoleCase):
         level_expected = "disabled"
         msg_expected = "Task has not been configured"
 
-        assert (
-            level_expected == level
-        ), f"Task status level <{level}> should be <{level_expected}>"
-        assert (
-            msg_expected == msg
-        ), f"Task status msg <{msg}> should be <{msg_expected}>"
+        assert level_expected == level, (
+            f"Task status level <{level}> should be <{level_expected}>"
+        )
+        assert msg_expected == msg, (
+            f"Task status msg <{msg}> should be <{msg_expected}>"
+        )
 
     def configure_without_channels(self, ni_ai: AnalogRead) -> None:
         """Configure without defining channels"""
@@ -90,9 +88,9 @@ class NoDevice(ConsoleCase):
         notifications = self.console.notifications.check(timeout=5)
         msg = notifications[0]["message"]
         msg_expected = "Failed to update Task"
-        assert (
-            msg_expected == msg
-        ), f"Notification msg is <{msg}>, should be <{msg_expected}>"
+        assert msg_expected == msg, (
+            f"Notification msg is <{msg}>, should be <{msg_expected}>"
+        )
 
         # Assert Task error status
         status = ni_ai.status()
@@ -100,12 +98,12 @@ class NoDevice(ConsoleCase):
         msg = status["msg"]
         level_expected = "error"
         msg_expected = "Failed to update Task"
-        assert (
-            level_expected == level
-        ), f"Task status level <{level}> should be <{level_expected}>"
-        assert (
-            msg_expected == msg
-        ), f"Task status msg <{msg}> should be <{msg_expected}>"
+        assert level_expected == level, (
+            f"Task status level <{level}> should be <{level_expected}>"
+        )
+        assert msg_expected == msg, (
+            f"Task status msg <{msg}> should be <{msg_expected}>"
+        )
 
     def nominal_configuration(
         self, ni_ai: AnalogRead, rack_name: str, dev_name: str

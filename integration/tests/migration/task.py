@@ -22,7 +22,6 @@ import platform
 from abc import abstractmethod
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from tests.driver.task import ReadTaskCase
@@ -94,9 +93,9 @@ class ReadTaskMigrationVerify(ReadTaskMigration):
     ) -> sy.Task:
         """Retrieve the existing task instead of creating a new one."""
         tasks = self.client.tasks.retrieve(names=[self.task_name])
-        assert (
-            len(tasks) == 1
-        ), f"Expected exactly 1 task named '{self.task_name}', got {len(tasks)}"
+        assert len(tasks) == 1, (
+            f"Expected exactly 1 task named '{self.task_name}', got {len(tasks)}"
+        )
         raw = tasks[0]
         typed = self.task_class(**raw.config)
         typed.set_internal(raw)
@@ -106,9 +105,9 @@ class ReadTaskMigrationVerify(ReadTaskMigration):
         self.log("Testing: Task config survived migration")
         self.test_task_exists()
         assert self.tsk is not None
-        assert (
-            self.tsk._internal.type == self.task_type
-        ), f"Expected type '{self.task_type}', got '{self.tsk._internal.type}'"
+        assert self.tsk._internal.type == self.task_type, (
+            f"Expected type '{self.task_type}', got '{self.tsk._internal.type}'"
+        )
         assert self.tsk.config.data_saving is True, "data_saving should be True"
         assert len(self.tsk.config.channels) == self.num_channels, (
             f"Expected {self.num_channels} channels, "
@@ -177,13 +176,13 @@ class ReadTaskConsoleVerify(ConsoleCase):
 
         if self.expected_sample_rate is not None:
             actual = layout.get_input_field("Sample Rate")
-            assert (
-                actual == self.expected_sample_rate
-            ), f"Sample rate: expected {self.expected_sample_rate}, got {actual}"
+            assert actual == self.expected_sample_rate, (
+                f"Sample rate: expected {self.expected_sample_rate}, got {actual}"
+            )
         if self.expected_stream_rate is not None:
             actual = layout.get_input_field("Stream Rate")
-            assert (
-                actual == self.expected_stream_rate
-            ), f"Stream rate: expected {self.expected_stream_rate}, got {actual}"
+            assert actual == self.expected_stream_rate, (
+                f"Stream rate: expected {self.expected_stream_rate}, got {actual}"
+            )
 
         task_page.verify_config(self.expected_channels)

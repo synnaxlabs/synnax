@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 

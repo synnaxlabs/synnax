@@ -12,19 +12,10 @@ import { array, DataType, debounce, zod } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
-import {
-  type Key,
-  type KeyOrName,
-  type Keys,
-  type KeysOrNames,
-  keyZ,
-  type Params,
-  type Payload,
-  payloadZ,
-  type PrimitiveParams,
-} from "@/channel/payload";
+import { type Params, type PrimitiveParams } from "@/channel/payload";
+import { type Key, keyZ, type Name, type Payload, payloadZ } from "@/channel/types.gen";
 import { QueryError } from "@/errors";
-import { keyZ as rangeKeyZ } from "@/ranger/payload";
+import { keyZ as rangeKeyZ } from "@/ranger/types.gen";
 import {
   analyzeParams as analyzeParameters,
   type ParamAnalysisResult,
@@ -53,11 +44,11 @@ export interface RetrieveOptions extends Omit<
 > {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
-const resZ = z.object({ channels: array.nullableZ(payloadZ) });
+const resZ = z.object({ channels: array.nullishToEmpty(payloadZ) });
 
 export const analyzeParams = (
   channels: Params,
-): ParamAnalysisResult<KeyOrName, { number: "keys"; string: "names" }> => {
+): ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {
   if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
     channels = (channels as Payload[]).map((c) => c.key);
   else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
@@ -125,7 +116,7 @@ export class CacheRetriever implements Retriever {
       return await this.wrapped.retrieve(channels);
     const { normalized } = analyzeParams(channels);
     const results: Payload[] = [];
-    const toFetch: KeysOrNames = [];
+    const toFetch: Key[] | Name[] = [];
     normalized.forEach((keyOrName) => {
       const c = this.get(keyOrName);
       if (c != null) results.push(...c);
@@ -183,7 +174,7 @@ export class CacheRetriever implements Retriever {
     });
   }
 
-  private get(channel: KeyOrName): Payload[] | undefined {
+  private get(channel: Key | Name): Payload[] | undefined {
     if (typeof channel === "number") {
       const ch = this.cache.get(channel);
       if (ch == null) return undefined;
@@ -209,7 +200,7 @@ export interface PromiseFns<T> {
 // no interval
 export class DebouncedBatchRetriever implements Retriever {
   private readonly mu = new Mutex();
-  private readonly requests = new Map<Keys, PromiseFns<Payload[]>>();
+  private readonly requests = new Map<Key[], PromiseFns<Payload[]>>();
   private readonly wrapped: Retriever;
   private readonly debouncedRun: () => void;
 
@@ -260,7 +251,7 @@ export const retrieveRequired = async (
 ): Promise<Payload[]> => {
   const { normalized } = analyzeParams(channels);
   const results = await r.retrieve(normalized);
-  const notFound: KeyOrName[] = [];
+  const notFound: (Key | Name)[] = [];
   normalized.forEach((v) => {
     if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
   });
