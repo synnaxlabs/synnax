@@ -13,6 +13,7 @@ package marshal
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -53,7 +54,7 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
+	Commands:   [][]string{{"gofmt", "-s", "-w"}},
 }
 
 func (p *Plugin) PostWrite(files []string) error {
@@ -135,8 +136,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		allPkgs[goPath] = true
 	}
 
-	// Generate one file per package.
+	// Generate one file per package in sorted order for deterministic output.
+	sortedPkgs := make([]string, 0, len(allPkgs))
 	for goPath := range allPkgs {
+		sortedPkgs = append(sortedPkgs, goPath)
+	}
+	sort.Strings(sortedPkgs)
+	for _, goPath := range sortedPkgs {
 		packageName := naming.DerivePackageName(goPath)
 		entries := buildCodecEntries(merged[goPath])
 		flex := flexByPkg[goPath]
@@ -156,7 +162,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	if p.Options.GenerateTests {
-		for goPath, typeMap := range merged {
+		sortedMergedPkgs := make([]string, 0, len(merged))
+		for goPath := range merged {
+			sortedMergedPkgs = append(sortedMergedPkgs, goPath)
+		}
+		sort.Strings(sortedMergedPkgs)
+		for _, goPath := range sortedMergedPkgs {
+			typeMap := merged[goPath]
 			packageName := naming.DerivePackageName(goPath)
 			entries := buildCodecEntries(typeMap)
 			testContent, testErr := generateTestCodecFile(
@@ -186,10 +198,34 @@ type CodecEntry struct {
 func buildCodecEntries(
 	typeMap map[string]resolution.Type,
 ) []CodecEntry {
-	var entries []CodecEntry
-	for _, t := range typeMap {
+	keys := make([]string, 0, len(typeMap))
+	for k := range typeMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	entries := make([]CodecEntry, 0, len(keys))
+	for _, k := range keys {
+		t := typeMap[k]
 		goName := naming.GetGoName(t)
 		entries = append(entries, CodecEntry{GoName: goName, Type: t})
+	}
+	return entries
+}
+
+type importEntry struct {
+	Path  string
+	Alias string
+}
+
+func sortedImports(m map[string]string) []importEntry {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	entries := make([]importEntry, 0, len(keys))
+	for _, k := range keys {
+		entries = append(entries, importEntry{Path: k, Alias: m[k]})
 	}
 	return entries
 }
