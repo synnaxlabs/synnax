@@ -43,7 +43,9 @@ describe("CopyItem", () => {
   it("should copy text to the clipboard when clicked", async () => {
     const c = render(
       <Menu.Menu>
-        <Menu.CopyItem itemKey="copy" text="copied content">Copy</Menu.CopyItem>
+        <Menu.CopyItem itemKey="copy" text="copied content">
+          Copy
+        </Menu.CopyItem>
       </Menu.Menu>,
     );
     await act(async () => {
@@ -56,7 +58,9 @@ describe("CopyItem", () => {
     const getText = vi.fn(() => "dynamic content");
     const c = render(
       <Menu.Menu>
-        <Menu.CopyItem itemKey="copy" text={getText}>Copy</Menu.CopyItem>
+        <Menu.CopyItem itemKey="copy" text={getText}>
+          Copy
+        </Menu.CopyItem>
       </Menu.Menu>,
     );
     await act(async () => {
@@ -70,7 +74,9 @@ describe("CopyItem", () => {
     const getText = vi.fn(async () => "async content");
     const c = render(
       <Menu.Menu>
-        <Menu.CopyItem itemKey="copy" text={getText}>Copy</Menu.CopyItem>
+        <Menu.CopyItem itemKey="copy" text={getText}>
+          Copy
+        </Menu.CopyItem>
       </Menu.Menu>,
     );
     await act(async () => {
@@ -98,7 +104,9 @@ describe("CopyItem", () => {
   it("should apply the menu-item class", () => {
     const c = render(
       <Menu.Menu>
-        <Menu.CopyItem itemKey="copy" text="hello">Copy</Menu.CopyItem>
+        <Menu.CopyItem itemKey="copy" text="hello">
+          Copy
+        </Menu.CopyItem>
       </Menu.Menu>,
     );
     expect(c.container.querySelector(".pluto-menu-item")).toBeTruthy();

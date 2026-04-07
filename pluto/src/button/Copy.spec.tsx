@@ -202,6 +202,24 @@ describe("Copy", () => {
       expect(lastCall[0].variant).toBe("success");
     });
 
+    it("should resolve successMessage from a function at click time", async () => {
+      const spy = vi.fn();
+      let name = "Task A";
+      const c = render(
+        <Status.Aggregator>
+          <StatusSpy onStatuses={spy} />
+          <Button.Copy text="hello" successMessage={() => `Copied ${name}`} />
+        </Status.Aggregator>,
+      );
+      name = "Task B";
+      await act(async () => {
+        fireEvent.click(c.getByLabelText("pluto-icon--copy"));
+      });
+      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      expect(lastCall).toHaveLength(1);
+      expect(lastCall[0].message).toBe("Copied Task B");
+    });
+
     it("should not show the check icon when successMessage is provided", async () => {
       const c = render(
         <Status.Aggregator>

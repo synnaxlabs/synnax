@@ -57,7 +57,9 @@ export const UtilityButtons = () => {
             tooltip="Copy TypeScript code"
             tooltipLocation="left"
             variant="text"
-            successMessage="Copied TypeScript code to clipboard"
+            successMessage={() =>
+              `Copied TypeScript code for ${getName()} to clipboard`
+            }
             textColor={9}
           >
             <Icon.TypeScript />
@@ -67,7 +69,7 @@ export const UtilityButtons = () => {
             tooltip="Copy Python code"
             tooltipLocation="left"
             variant="text"
-            successMessage="Copied Python code to clipboard"
+            successMessage={() => `Copied Python code for ${getName()} to clipboard`}
             textColor={9}
           >
             <Icon.Python />
@@ -80,7 +82,7 @@ export const UtilityButtons = () => {
         tooltip="Copy JSON configuration"
         tooltipLocation="left"
         variant="text"
-        successMessage="Copied JSON configuration to clipboard"
+        successMessage={() => `Copied JSON configuration for ${getName()} to clipboard`}
         textColor={9}
       >
         <Icon.JSON />

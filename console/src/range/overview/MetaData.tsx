@@ -46,7 +46,11 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
       propagateClick
       {...rest}
     >
-      <Button.Copy text={value} variant="outlined" successMessage="Copied value to clipboard" />
+      <Button.Copy
+        text={value}
+        variant="outlined"
+        successMessage="Copied value to clipboard"
+      />
       {isLink && (
         <Button.Button
           href={value}

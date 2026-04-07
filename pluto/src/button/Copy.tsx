@@ -29,8 +29,8 @@ export interface CopyProps extends ButtonProps {
   onCopy?: () => void;
   /** Duration in ms to show the checkmark after copying. Defaults to 2000. */
   copiedDuration?: CrudeTimeSpan;
-  /** Status notification message shown on successful copy. */
-  successMessage?: string;
+  /** Status notification message shown on successful copy. Can be a string or a function that returns one. */
+  successMessage?: string | (() => string);
 }
 
 /**
@@ -66,8 +66,11 @@ export const Copy = ({
       handleError(async () => {
         const resolvedText = await (typeof text === "function" ? text() : text);
         await navigator.clipboard.writeText(resolvedText);
-        if (successMessage != null)
-          return addStatus({ variant: "success", message: successMessage });
+        if (successMessage != null) {
+          const message =
+            typeof successMessage === "function" ? successMessage() : successMessage;
+          return addStatus({ variant: "success", message });
+        }
         setCopied(true);
         onCopy?.();
         setTimeout(
