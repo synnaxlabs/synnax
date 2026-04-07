@@ -23,7 +23,7 @@ func (g Group) EncodeOrc(w *orc.Writer) error {
 
 func (g *Group) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(g.Key[:]); err != nil {
+	if _, err = r.Read(g.Key[:]); err != nil {
 		return err
 	}
 	if g.Name, err = r.String(); err != nil {

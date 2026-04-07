@@ -32,7 +32,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 
 func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(lv.Key[:]); err != nil {
+	if _, err = r.Read(lv.Key[:]); err != nil {
 		return err
 	}
 	if lv.Name, err = r.String(); err != nil {

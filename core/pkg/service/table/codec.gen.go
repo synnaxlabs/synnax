@@ -32,7 +32,7 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 
 func (t *Table) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(t.Key[:]); err != nil {
+	if _, err = r.Read(t.Key[:]); err != nil {
 		return err
 	}
 	if t.Name, err = r.String(); err != nil {

@@ -24,12 +24,11 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -84,9 +83,9 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
 	ServiceConfig
-	Symbol *symbol.Service
-	closer io.MultiCloser
-	table  *gorp.Table[uuid.UUID, Schematic]
+	Symbol         *symbol.Service
+	closer         io.MultiCloser
+	table          *gorp.Table[uuid.UUID, Schematic]
 	actionObserver observe.Observer[ScopedAction]
 }
 

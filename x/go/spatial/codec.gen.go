@@ -15,6 +15,86 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (c Corner) EncodeOrc(w *orc.Writer) error {
+	w.String(c.X)
+	w.String(c.Y)
+	return nil
+}
+
+func (c *Corner) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if c.X, err = r.String(); err != nil {
+		return err
+	}
+	if c.Y, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d Dimensions) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(d.Width))
+	w.Float64(float64(d.Height))
+	return nil
+}
+
+func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if d.Width, err = r.Float64(); err != nil {
+		return err
+	}
+	if d.Height, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
+	w.String(su.X)
+	w.String(su.Y)
+	return nil
+}
+
+func (su *StickyUnits) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if su.X, err = r.String(); err != nil {
+		return err
+	}
+	if su.Y, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (sxy StickyXY) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(sxy.X))
+	w.Float64(float64(sxy.Y))
+	if err := sxy.Root.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := sxy.Units.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (sxy *StickyXY) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sxy.X, err = r.Float64(); err != nil {
+		return err
+	}
+	if sxy.Y, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = sxy.Root.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = sxy.Units.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (xy XY) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(xy.X))
 	w.Float64(float64(xy.Y))

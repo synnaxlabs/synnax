@@ -226,20 +226,20 @@ func tpNames(tps []typeParamData) string {
 // --- Encoder builder ---
 
 type encoderBuilder struct {
-	table         *resolution.Table
-	repoRoot      string
-	packageName   string
-	parentPath    string
-	imports       map[string]string
-	encodeLines   []string
-	decodeLines   []string
-	needsMath     bool
-	needsJSON     bool
-	usesErr       bool
-	depth         int
-	inBlock       int
-	skipNilCheck  bool
-	hasTypeParams bool
+	table               *resolution.Table
+	repoRoot            string
+	packageName         string
+	parentPath          string
+	imports             map[string]string
+	encodeLines         []string
+	decodeLines         []string
+	needsMath           bool
+	needsJSON           bool
+	usesErr             bool
+	depth               int
+	inBlock             int
+	skipNilCheck        bool
+	hasTypeParams       bool
 	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 

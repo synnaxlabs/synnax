@@ -42,7 +42,7 @@ func (p Policy) EncodeOrc(w *orc.Writer) error {
 
 func (p *Policy) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(p.Key[:]); err != nil {
+	if _, err = r.Read(p.Key[:]); err != nil {
 		return err
 	}
 	if p.Name, err = r.String(); err != nil {
