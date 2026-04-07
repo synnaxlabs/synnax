@@ -27,8 +27,8 @@ class RangesClient:
 
     TOOLBAR_ITEM_SELECTOR = ".console-range-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-range__list-item"
-    FAVORITE_ACTION = "Add to favorites"
-    UNFAVORITE_ACTION = "Remove from favorites"
+    FAVORITE_ACTION = "Favorite"
+    UNFAVORITE_ACTION = "Unfavorite"
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Range Name"
 
