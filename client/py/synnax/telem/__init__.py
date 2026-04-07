@@ -7,34 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.telem.control import Authority, CrudeAuthority, Subject
-from synnax.telem.series import (
-    CrudeSeries,
-    MultiSeries,
-    SampleValue,
-    Series,
-    TypedCrudeSeries,
-    elapsed_seconds,
-)
-from synnax.telem.telem import (
+# Re-exports from x.telem. Canonical definitions live in x/py/x/telem/.
+from x.telem import (
     Alignment,
+    Authority,
     Bounds,
     CrudeAlignment,
+    CrudeAuthority,
     CrudeDataType,
     CrudeDensity,
     CrudeRate,
+    CrudeSeries,
     CrudeSize,
     CrudeTimeSpan,
     CrudeTimeStamp,
     DataType,
     Density,
+    MultiSeries,
     Rate,
+    SampleValue,
+    Series,
     Size,
+    Subject,
     TimeRange,
     TimeSpan,
     TimeSpanUnits,
     TimeStamp,
+    TypedCrudeSeries,
     convert_time_units,
+    elapsed_seconds,
+    seconds_linspace,
 )
 
 __all__ = [
@@ -65,4 +67,5 @@ __all__ = [
     "TimeSpanUnits",
     "TimeStamp",
     "TypedCrudeSeries",
+    "seconds_linspace",
 ]

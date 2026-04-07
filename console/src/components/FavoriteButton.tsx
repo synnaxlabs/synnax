@@ -27,7 +27,7 @@ export const FavoriteButton = ({
   <Button.Button
     className={CSS(CSS.B("favorite-button"), isFavorite && CSS.M("favorite"))}
     onClick={onFavorite}
-    tooltip={`${isFavorite ? "Remove from" : "Add to"} favorites`}
+    tooltip={`${isFavorite ? "Unfavorite" : "Favorite"}`}
     variant="text"
     ghost={isFavorite ? false : ghost}
     {...rest}

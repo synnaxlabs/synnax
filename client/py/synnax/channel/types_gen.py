@@ -17,9 +17,8 @@ from pydantic import BaseModel, Field
 
 from synnax import cluster
 from synnax import status as status_
-from synnax import telem
 from synnax.ontology.payload import ID
-from synnax.x import control
+from x import control, telem
 
 Key: TypeAlias = int
 

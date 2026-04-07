@@ -234,7 +234,7 @@ class TestStreamer:
 
     def test_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
         with pytest.raises(sy.ValidationError):
-            with client.open_streamer(virtual_channel.key, -1) as s:
+            with client.open_streamer(virtual_channel.key, -1):
                 ...
 
     @pytest.mark.multi_node

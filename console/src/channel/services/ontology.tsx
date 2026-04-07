@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
   type Flux,
   type Haul,
   Icon,
-  Menu as PMenu,
+  Menu,
   type Schematic as PSchematic,
   Status,
   telem,
@@ -27,7 +27,7 @@ import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -208,79 +208,86 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
 
-  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  const canDelete = Access.useDeleteGranted(
+  const hasUpdatePermission = Access.useUpdateGranted(
     ids.map((id) => channel.ontologyID(Number(id.key))),
+  );
+  const hasDeletePermission = Access.useDeleteGranted(
+    ids.map((id) => channel.ontologyID(Number(id.key))),
+  );
+  const hasAliasCreatePermission = Access.useCreateGranted(
+    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
+  );
+  const hasAliasDeletePermission = Access.useDeleteGranted(
+    ids.map((id) => ranger.alias.ontologyID(activeRange?.key ?? "", Number(id.key))),
   );
   const handleRename = useRename(props);
 
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
-  const handleSelect = {
-    group: () => groupFromSelection(props),
-    delete: handleDelete,
-    deleteAlias: handleDeleteAlias,
-    alias: handleSetAlias,
-    rename: handleRename,
-    link: () => handleLink({ name: first.name, ontologyID: first.id }),
-    openCalculated: () => openCalculated(props),
-  };
   const singleResource = resources.length === 1;
 
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
 
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {singleResource && canCreate && <Menu.RenameItem />}
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {isCalc && canCreate && (
+    <ContextMenu.Menu>
+      {singleResource && hasUpdatePermission && (
+        <ContextMenu.RenameItem onClick={handleRename} />
+      )}
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => groupFromSelection(props)}
+        />
+      )}
+      {isCalc && hasUpdatePermission && (
         <>
-          <PMenu.Divider />
-          <PMenu.Item itemKey="openCalculated">
+          <Menu.Divider />
+          <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
             <Icon.Edit />
             Edit calculation
-          </PMenu.Item>
+          </Menu.Item>
         </>
       )}
       {activeRange != null &&
         activeRange.persisted &&
         (singleResource || showDeleteAlias) &&
-        canCreate && (
+        (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
-            <PMenu.Divider />
-            {singleResource && (
-              <PMenu.Item itemKey="alias">
+            <Menu.Divider />
+            {singleResource && hasAliasCreatePermission && (
+              <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}
-              </PMenu.Item>
+              </Menu.Item>
             )}
-            {showDeleteAlias && (
-              <PMenu.Item itemKey="deleteAlias">
+            {showDeleteAlias && hasAliasDeletePermission && (
+              <Menu.Item itemKey="deleteAlias" onClick={handleDeleteAlias}>
                 <Icon.Delete />
                 Remove alias under {activeRange.name}
-              </PMenu.Item>
+              </Menu.Item>
             )}
-            <PMenu.Divider />
+            <Menu.Divider />
           </>
         )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <Menu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+          />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
         </>
       )}
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

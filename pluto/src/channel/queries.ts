@@ -271,7 +271,7 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
   });
 
 export interface RetrieveMultipleQuery extends channel.RetrieveOptions {
-  keys: channel.Keys;
+  keys: channel.Key[];
 }
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
@@ -502,7 +502,7 @@ export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
   },
 });
 
-export type DeleteParams = channel.Key | channel.Keys;
+export type DeleteParams = channel.Key | channel.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,

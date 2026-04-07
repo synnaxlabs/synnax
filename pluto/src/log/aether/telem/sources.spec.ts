@@ -38,7 +38,7 @@ describe("StreamMultiChannelLog", () => {
     key: string = id.create();
 
     streamHandler: client.StreamHandler | null = null;
-    streamKeys: channel.Keys = [];
+    streamKeys: channel.Key[] = [];
     streamF = vi.fn();
     streamDestructorF = vi.fn();
 
@@ -56,7 +56,7 @@ describe("StreamMultiChannelLog", () => {
       isIndex: false,
     });
 
-    async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
+    async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
       if (key === this.channelA.key) return this.channelA;
       if (key === this.channelB.key) return this.channelB;
       throw new Error(`Channel ${key} not found`);
@@ -68,7 +68,7 @@ describe("StreamMultiChannelLog", () => {
 
     async stream(
       handler: client.StreamHandler,
-      keys: channel.Keys,
+      keys: channel.Key[],
     ): Promise<destructor.Async> {
       this.streamHandler = handler;
       this.streamKeys = keys;
@@ -470,7 +470,7 @@ describe("StreamMultiChannelLog", () => {
       // Add channel B — this restarts the stream. The mock's stream() will
       // call c.streamHandler again with a seed. Simulate the seed containing
       // the existing cache data for channel A.
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
         // Simulate the seed: channel A has cached data we already consumed.
         const seedA = new Series({ data: new Float32Array([1, 2, 3]) });
         handler(new Map([[c.channelA.key, new MultiSeries([seedA])]]));
@@ -498,7 +498,7 @@ describe("StreamMultiChannelLog", () => {
 
       // Add channel B. Simulate the seed delivering cached data for channel B
       // that was accumulated by another component — we should NOT dump it.
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
         const seedB = new Series({ data: new Float32Array([10, 20, 30]) });
         handler(new Map([[c.channelB.key, new MultiSeries([seedB])]]));
       });
@@ -523,7 +523,7 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
 
       // Restart with channel B added; seed is skipped
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
         const seedA = new Series({ data: new Float32Array([1]) });
         const seedB = new Series({ data: new Float32Array([10]) });
         handler(
@@ -556,7 +556,7 @@ describe("StreamMultiChannelLog", () => {
 
     it("should allow seed data on initial start (not a restart)", async () => {
       // Simulate a client that seeds data on the first stream() call
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
         const seed = new Series({ data: new Float32Array([10, 20]) });
         handler(new Map([[c.channelA.key, new MultiSeries([seed])]]));
       });

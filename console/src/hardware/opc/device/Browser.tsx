@@ -19,13 +19,14 @@ import {
   Header,
   Icon,
   List,
+  Select,
   Status,
   Text,
   TimeSpan,
   Tree,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
-import { type optional, type status } from "@synnaxlabs/x";
+import { array, type optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -55,6 +56,8 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
 
 const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, ScannedNode>(props.itemKey);
+  const { getState } = Select.useContext<string>();
+  const { getItem } = List.useUtilContext<string, ScannedNode>();
   const { startDrag } = Haul.useDrag({
     type: HAUL_TYPE,
     key: node?.nodeId,
@@ -62,8 +65,12 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   });
   const handleDragStart = useCallback(() => {
     if (node == null) return;
-    startDrag([{ key: node.nodeId, type: HAUL_TYPE, data: node }]);
-  }, [startDrag, node]);
+    const selected = array.toArray(getState().value);
+    if (getItem != null && selected.includes(props.itemKey)) {
+      const nodes = getItem(selected);
+      startDrag(nodes.map((n) => ({ key: n.nodeId, type: HAUL_TYPE, data: n })));
+    } else startDrag([{ key: node.nodeId, type: HAUL_TYPE, data: node }]);
+  }, [startDrag, node, getState, getItem, props.itemKey]);
   if (node == null) return null;
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,7 +41,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should create a tracked writer at the end of an empty file", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			Expect(tracked.Offset()).To(Equal(int64(0)))
 			Expect(tracked.Len()).To(Equal(int64(0)))
@@ -53,7 +53,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 			// Write some initial data
 			MustSucceed(file.Write([]byte("Initial content")))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			Expect(tracked.Offset()).To(Equal(int64(15))) // "Initial content" is 15 bytes
 			Expect(tracked.Len()).To(Equal(int64(0)))
@@ -64,7 +64,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should track bytes written", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			// First write
 			n := MustSucceed(tracked.Write([]byte("Hello")))
@@ -82,7 +82,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should handle multiple sequential writes", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			writes := []string{"First ", "Second ", "Third"}
 			totalLen := int64(0)
@@ -100,7 +100,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should handle empty writes", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			n := MustSucceed(tracked.Write([]byte{}))
 			Expect(n).To(Equal(0))
@@ -112,7 +112,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should reset the tracked length and update offset", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			// Write some data
 			MustSucceed(tracked.Write([]byte("First batch")))
@@ -133,7 +133,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should handle multiple resets", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			// First write and reset
 			MustSucceed(tracked.Write([]byte("AAA")))
@@ -156,7 +156,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should reset without any writes", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			// Reset without writing
 			tracked.Reset()
@@ -169,7 +169,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should close the underlying file", func() {
 			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			MustSucceed(tracked.Write([]byte("test")))
 
@@ -187,7 +187,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 			// Write initial content directly to file
 			MustSucceed(file.Write([]byte("PREFIX:")))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 			Expect(tracked.Offset()).To(Equal(int64(7)))
 
 			// First batch of writes
@@ -216,7 +216,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		It("should track binary data correctly", func() {
 			file = MustSucceed(fs.Open("binary.dat", os.O_CREATE|os.O_RDWR))
 
-			tracked := MustSucceed(xio.NewTrackedWriteCloser(file))
+			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			// Write binary data
 			binaryData := []byte{0x00, 0xFF, 0xAA, 0x55, 0x12, 0x34}

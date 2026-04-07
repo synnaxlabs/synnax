@@ -16,7 +16,6 @@ from abc import abstractmethod
 from collections.abc import Callable
 
 import synnax as sy
-
 from tests.driver.task import ReadTaskCase, TaskCase, WriteTaskCase
 
 _NI_MAX_CONFIG = pathlib.Path(__file__).parent.parent / "fixtures" / "ni_max_config.nce"

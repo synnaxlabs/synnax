@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -104,9 +105,8 @@ var _ = Describe("Writer", func() {
 					"Should return an error if a relationship is defined in two directions",
 					func(ctx SpecContext) {
 						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
-						err := w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idOne)
-						Expect(err).To(HaveOccurred())
-						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+						Expect(w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idOne)).
+							Error().To(MatchError(graph.ErrCyclicDependency))
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
@@ -115,9 +115,8 @@ var _ = Describe("Writer", func() {
 						idThree := ontology.ID{Key: "qux", Type: "quux"}
 						Expect(w.DefineResource(ctx, idThree)).To(Succeed())
 						Expect(w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idThree)).To(Succeed())
-						err := w.DefineRelationship(ctx, idThree, ontology.RelationshipTypeParentOf, idOne)
-						Expect(err).To(HaveOccurred())
-						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+						Expect(w.DefineRelationship(ctx, idThree, ontology.RelationshipTypeParentOf, idOne)).
+							Error().To(MatchError(graph.ErrCyclicDependency))
 					})
 			})
 		})
@@ -148,14 +147,12 @@ var _ = Describe("Writer", func() {
 			})
 			It("Should return an error if a cyclic relationship is created", func(ctx SpecContext) {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
-				err := w.DefineFromOneToManyRelationships(
+				Expect(w.DefineFromOneToManyRelationships(
 					ctx,
 					idTwo,
 					ontology.RelationshipTypeParentOf,
 					[]ontology.ID{idOne},
-				)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+				)).Error().To(MatchError(graph.ErrCyclicDependency))
 			})
 		})
 		Describe("Deleting a Relationship", func() {

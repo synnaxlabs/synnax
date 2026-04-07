@@ -11,9 +11,9 @@
 
 from abc import abstractmethod
 
-import synnax as sy
 from examples.http_sim import HTTPSim
 
+import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase, assert_sample_counts_in_range
 

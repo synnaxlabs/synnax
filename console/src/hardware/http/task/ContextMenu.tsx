@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Icon, Menu } from "@synnaxlabs/pluto";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { Common } from "@/hardware/common";
 
 export interface ContextMenuProps {
@@ -30,29 +30,21 @@ export const ContextMenu = ({
   const canDuplicate = onDuplicate != null;
   const canRename = onRename != null && keys.length === 1;
   return (
-    <PMenu.Menu level="small">
+    <CMenu.Menu>
       {!isSnapshot && canAct && (
         <>
-          {canRename && (
-            <PMenu.Item itemKey="rename" onClick={() => onRename(keys[0])}>
-              <Icon.Rename />
-              Rename
-            </PMenu.Item>
-          )}
+          {canRename && <CMenu.RenameItem onClick={() => onRename(keys[0])} />}
           {canDuplicate && (
-            <PMenu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
+            <Menu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
               <Icon.Copy />
               Duplicate
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          <PMenu.Item itemKey="delete" onClick={() => onDelete(keys)}>
-            <Icon.Close />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
+          <CMenu.DeleteItem onClick={() => onDelete(keys)} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <CMenu.ReloadConsoleItem />
+    </CMenu.Menu>
   );
 };

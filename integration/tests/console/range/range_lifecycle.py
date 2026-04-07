@@ -11,7 +11,6 @@ import random
 from datetime import timezone
 
 import synnax as sy
-
 from console.case import ConsoleCase
 
 
@@ -116,9 +115,9 @@ class RangeLifecycle(ConsoleCase):
         self.log("Testing: Create local range")
         local_range_name = f"LocalRange_{self.rand_suffix}"
         self.console.ranges.create(local_range_name, persisted=False)
-        assert self.console.ranges.exists_in_toolbar(
-            local_range_name
-        ), "Local range should appear in toolbar"
+        assert self.console.ranges.exists_in_toolbar(local_range_name), (
+            "Local range should appear in toolbar"
+        )
         self.local_range_name = local_range_name
 
     def test_create_persisted_range(self) -> None:
@@ -135,9 +134,9 @@ class RangeLifecycle(ConsoleCase):
             self.staged_range_name, persisted=True, stage="Completed"
         )
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(
-            self.staged_range_name
-        ), "Staged range should exist in explorer"
+        assert self.console.ranges.exists_in_explorer(self.staged_range_name), (
+            "Staged range should exist in explorer"
+        )
 
     def test_create_range_with_parent(self) -> None:
         """Test creating a range with a parent range."""
@@ -147,9 +146,9 @@ class RangeLifecycle(ConsoleCase):
             self.child_range_name, persisted=True, parent=self.staged_range_name
         )
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(
-            self.child_range_name
-        ), "Child range should exist in explorer"
+        assert self.console.ranges.exists_in_explorer(self.child_range_name), (
+            "Child range should exist in explorer"
+        )
 
     def test_navigate_to_parent(self) -> None:
         """Test navigating to parent range from child range overview."""
@@ -161,9 +160,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.child_range_name)
         self.console.ranges.navigate_to_parent(self.staged_range_name)
         self.console.ranges.wait_for_overview(self.staged_range_name)
-        assert self.console.ranges.is_overview_showing(
-            self.staged_range_name
-        ), "Should navigate to parent range overview"
+        assert self.console.ranges.is_overview_showing(self.staged_range_name), (
+            "Should navigate to parent range overview"
+        )
 
     def test_create_range_with_labels(self) -> None:
         """Test creating a range with labels attached."""
@@ -173,9 +172,9 @@ class RangeLifecycle(ConsoleCase):
             self.labeled_range_name, persisted=True, labels=[self.test_label_name]
         )
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(
-            self.labeled_range_name
-        ), "Labeled range should exist in explorer"
+        assert self.console.ranges.exists_in_explorer(self.labeled_range_name), (
+            "Labeled range should exist in explorer"
+        )
 
     def test_open_range_explorer(self) -> None:
         """Test opening the Range Explorer."""
@@ -188,9 +187,9 @@ class RangeLifecycle(ConsoleCase):
         """Test that created range exists in the explorer."""
         assert self.range_name is not None
         self.log("Testing: Range exists in explorer")
-        assert self.console.ranges.exists_in_explorer(
-            self.range_name
-        ), f"Range '{self.range_name}' should exist in explorer"
+        assert self.console.ranges.exists_in_explorer(self.range_name), (
+            f"Range '{self.range_name}' should exist in explorer"
+        )
 
     def test_unfavorite_favorite_range(self) -> None:
         """Test unfavoriting and favoriting a range from the explorer."""
@@ -200,9 +199,9 @@ class RangeLifecycle(ConsoleCase):
 
         self.log("Testing: Favorite range")
         self.console.ranges.favorite_from_explorer(self.range_name)
-        assert self.console.ranges.exists_in_toolbar(
-            self.range_name
-        ), f"Range '{self.range_name}' should appear in toolbar after favoriting"
+        assert self.console.ranges.exists_in_toolbar(self.range_name), (
+            f"Range '{self.range_name}' should appear in toolbar after favoriting"
+        )
 
     def test_set_active_range(self) -> None:
         """Test setting a range as active from the toolbar."""
@@ -252,9 +251,9 @@ class RangeLifecycle(ConsoleCase):
         self.log("Testing: Save local range to Synnax")
         self.console.ranges.save_to_synnax_from_toolbar(self.local_range_name)
         rng = self.client.ranges.retrieve(name=self.local_range_name)
-        assert (
-            rng.name == self.local_range_name
-        ), f"Range '{self.local_range_name}' should be persisted to Synnax"
+        assert rng.name == self.local_range_name, (
+            f"Range '{self.local_range_name}' should be persisted to Synnax"
+        )
 
     def test_change_times_in_overview(self) -> None:
         """Test changing start and end times in the range overview."""
@@ -276,12 +275,12 @@ class RangeLifecycle(ConsoleCase):
         end_ts = sy.TimeStamp(rng.time_range.end)
         start_utc = start_ts.datetime(timezone.utc)
         end_utc = end_ts.datetime(timezone.utc)
-        assert (
-            start_utc.year == 2024
-        ), f"Start year should be 2024, got {start_utc.year}"
-        assert (
-            start_utc.month == 1
-        ), f"Start month should be January, got {start_utc.month}"
+        assert start_utc.year == 2024, (
+            f"Start year should be 2024, got {start_utc.year}"
+        )
+        assert start_utc.month == 1, (
+            f"Start month should be January, got {start_utc.month}"
+        )
         assert start_utc.day == 1, f"Start day should be 1, got {start_utc.day}"
         assert end_utc.day == 2, f"End day should be 2, got {end_utc.day}"
 
@@ -290,18 +289,18 @@ class RangeLifecycle(ConsoleCase):
         toolbar_time = self.console.ranges.get_toolbar_item_time(
             self.labeled_range_name
         )
-        assert (
-            "Jan" in toolbar_time
-        ), f"Toolbar should show Jan time, got '{toolbar_time}'"
+        assert "Jan" in toolbar_time, (
+            f"Toolbar should show Jan time, got '{toolbar_time}'"
+        )
 
         self.log("Verifying time sync to Range Explorer")
         self.console.ranges.open_explorer()
         explorer_time = self.console.ranges.get_explorer_item_time(
             self.labeled_range_name
         )
-        assert (
-            "Jan" in explorer_time
-        ), f"Explorer should show Jan time, got '{explorer_time}'"
+        assert "Jan" in explorer_time, (
+            f"Explorer should show Jan time, got '{explorer_time}'"
+        )
 
         self.console.ranges.unfavorite_from_toolbar(self.labeled_range_name)
 
@@ -331,9 +330,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.add_label_in_overview(self.second_label_name)
 
         labels = self.console.ranges.get_labels_in_overview()
-        assert (
-            self.second_label_name in labels
-        ), f"Label '{self.second_label_name}' should be in overview"
+        assert self.second_label_name in labels, (
+            f"Label '{self.second_label_name}' should be in overview"
+        )
 
     def test_remove_label_in_overview(self) -> None:
         """Test removing a label from a range in the overview."""
@@ -346,9 +345,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.remove_label_in_overview(self.second_label_name)
 
         labels = self.console.ranges.get_labels_in_overview()
-        assert (
-            self.second_label_name not in labels
-        ), f"Label '{self.second_label_name}' should be removed from overview"
+        assert self.second_label_name not in labels, (
+            f"Label '{self.second_label_name}' should be removed from overview"
+        )
 
     def test_rename_range_from_tab(self) -> None:
         """Test renaming a range from the tab name."""
@@ -402,9 +401,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.copy_python_code_from_overview()
         notifications = self.console.notifications.check(timeout=10)
         messages = [n.get("message", "") for n in notifications]
-        assert any(
-            "Python code to retrieve" in msg for msg in messages
-        ), "Should show Python code copied notification"
+        assert any("Python code to retrieve" in msg for msg in messages), (
+            "Should show Python code copied notification"
+        )
         self.console.notifications.close_all()
 
     def test_copy_typescript_code(self) -> None:
@@ -418,9 +417,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.copy_typescript_code_from_overview()
         notifications = self.console.notifications.check(timeout=2)
         messages = [n.get("message", "") for n in notifications]
-        assert any(
-            "TypeScript code to retrieve" in msg for msg in messages
-        ), "Should show TypeScript code copied notification"
+        assert any("TypeScript code to retrieve" in msg for msg in messages), (
+            "Should show TypeScript code copied notification"
+        )
         self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
@@ -434,9 +433,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.copy_link_from_overview()
         notifications = self.console.notifications.check(timeout=2)
         messages = [n.get("message", "") for n in notifications]
-        assert any(
-            "link to" in msg.lower() for msg in messages
-        ), "Should show link copied notification"
+        assert any("link to" in msg.lower() for msg in messages), (
+            "Should show link copied notification"
+        )
         self.console.notifications.close_all()
 
     def test_download_csv(self) -> None:
@@ -462,9 +461,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.open_explorer()
         new_name = f"RenamedRange_{self.rand_suffix}"
         self.console.ranges.rename_from_explorer(self.range_name, new_name)
-        assert self.console.ranges.exists_in_explorer(
-            new_name
-        ), f"Range should exist with name {new_name}"
+        assert self.console.ranges.exists_in_explorer(new_name), (
+            f"Range should exist with name {new_name}"
+        )
         self.range_name = new_name
 
     def test_delete_range(self) -> None:
@@ -491,9 +490,9 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.click_child_range(self.child_range_name)
         self.console.ranges.wait_for_overview(self.child_range_name)
-        assert self.console.ranges.is_overview_showing(
-            self.child_range_name
-        ), "Should navigate to child range overview"
+        assert self.console.ranges.is_overview_showing(self.child_range_name), (
+            "Should navigate to child range overview"
+        )
 
     def test_create_child_range_from_overview(self) -> None:
         """Test creating a child range from the parent overview."""
@@ -514,9 +513,9 @@ class RangeLifecycle(ConsoleCase):
         modal.wait_for(state="hidden", timeout=5000)
 
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(
-            self.new_child_range_name
-        ), "New child range should appear in explorer"
+        assert self.console.ranges.exists_in_explorer(self.new_child_range_name), (
+            "New child range should appear in explorer"
+        )
 
     def test_change_child_range_stage(self) -> None:
         """Test changing the stage of a child range from the parent overview."""

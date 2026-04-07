@@ -166,7 +166,7 @@ export interface ChannelsProps {
 export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const state = useSelectOptional(layoutKey);
-  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
 
   const handleChannelChange = useCallback(
     (index: number, channelKey: channel.Key) =>
@@ -210,11 +210,11 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
             onChange={handleChannelChange}
             onConfigChange={handleConfigChange}
             onRemove={handleRemove}
-            disabled={!hasEditPermission}
+            disabled={!hasUpdatePermission}
           />
         ),
       )}
-      <AddChannelRow onAdd={handleAdd} disabled={!hasEditPermission} />
+      <AddChannelRow onAdd={handleAdd} disabled={!hasUpdatePermission} />
     </Flex.Box>
   );
 };

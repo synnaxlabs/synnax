@@ -40,8 +40,9 @@ channel, providing acknowledgment that the command was executed.
 
 | Parameter     | Type    | Required | Default | Description                                   |
 | ------------- | ------- | -------- | ------- | --------------------------------------------- |
+| `device`      | string  | Yes      | -       | Device key to write to                        |
 | `name`        | string  | Yes      | -       | Human-readable task name                      |
-| `state_rate`  | number  | No       | `20`    | Rate (Hz) at which state channels are updated |
+| `state_rate`  | number  | Yes      | -       | Rate (Hz) at which state channels are updated |
 | `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
 | `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
 | `channels`    | array   | Yes      | -       | List of analog output channel configurations  |
@@ -59,7 +60,6 @@ channel, providing acknowledgment that the command was executed.
 | --------------- | ------ | -------- | ------- | -------------------------- |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
 | `state_channel` | number | Yes      | -       | Synnax state channel key   |
-| `device`        | string | Yes      | -       | Device identifier          |
 | `port`          | number | Yes      | -       | Physical port              |
 | `min_val`       | number | No       | `-10.0` | Minimum voltage (Volts)    |
 | `max_val`       | number | No       | `10.0`  | Maximum voltage (Volts)    |
@@ -74,7 +74,6 @@ channel, providing acknowledgment that the command was executed.
 | --------------- | ------ | -------- | ------- | -------------------------- |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
 | `state_channel` | number | Yes      | -       | Synnax state channel key   |
-| `device`        | string | Yes      | -       | Device identifier          |
 | `port`          | number | Yes      | -       | Physical port              |
 | `min_val`       | number | No       | `0.004` | Minimum current (Amps)     |
 | `max_val`       | number | No       | `0.02`  | Maximum current (Amps)     |
@@ -150,13 +149,13 @@ current_state = client.channels.create(
 # Create and configure task
 task = ni.AnalogWriteTask(
     name="Analog Write Task",
+    device=c_dev.key,
     state_rate=sy.Rate.HZ * 20,
     data_saving=True,
     channels=[
         ni.AOCurrentChan(
             cmd_channel=current_cmd.key,
             state_channel=current_state.key,
-            device=c_dev.key,
             port=0,
             min_val=0.004,
             max_val=0.02,
@@ -255,6 +254,7 @@ const task = await client.tasks.create({
   name: "Analog Write Task",
   type: "ni_analog_write",
   config: JSON.stringify({
+    device: cDev.key,
     state_rate: 20,
     data_saving: true,
     channels: [
@@ -262,7 +262,6 @@ const task = await client.tasks.create({
         type: "ao_current",
         cmd_channel: currentCmd.key,
         state_channel: currentState.key,
-        device: cDev.key,
         port: 0,
         min_val: 0.004,
         max_val: 0.02,

@@ -16,10 +16,10 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func (s *Service) openManyPeers(
@@ -38,12 +38,12 @@ func (s *Service) openManyPeers(
 	for nodeKey, keys := range targets {
 		target, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
-			return sender, receivers, receiverAddresses, err
+			return sender, receivers, receiverAddresses, s.closePeerClients(senders, err)
 		}
 		addrMap[nodeKey] = target
 		client, err := s.openPeerClient(ctx, target, cfg.setKeyAuthorities(keys))
 		if err != nil {
-			return sender, receivers, receiverAddresses, err
+			return sender, receivers, receiverAddresses, s.closePeerClients(senders, err)
 		}
 		senders[target] = client
 		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
@@ -51,6 +51,16 @@ func (s *Service) openManyPeers(
 	}
 
 	return sender, receivers, receiverAddresses, nil
+}
+
+func (s *Service) closePeerClients(
+	senders map[address.Address]freighter.StreamSenderCloser[Request],
+	originalErr error,
+) error {
+	for _, sender := range senders {
+		originalErr = errors.Combine(originalErr, sender.CloseSend())
+	}
+	return originalErr
 }
 
 func (s *Service) openPeerClient(ctx context.Context,

@@ -38,11 +38,18 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 	return db.newStreamIterator(cfg)
 }
 
-func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
-	var (
-		err      error
-		internal = make([]*unary.Iterator, len(cfg.Channels))
-	)
+func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
+	internal := make([]*unary.Iterator, len(cfg.Channels))
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, iter := range internal {
+			if iter != nil {
+				err = errors.Combine(err, iter.Close())
+			}
+		}
+	}()
 	for i, key := range cfg.Channels {
 		uDB, ok := db.mu.unaryDBs[key]
 		if !ok {

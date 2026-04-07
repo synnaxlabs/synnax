@@ -20,7 +20,7 @@ import {
   Flex,
   Flux,
   Icon,
-  Menu as PMenu,
+  type Menu,
   Mosaic as Base,
   Nav as PNav,
   OS,
@@ -37,7 +37,7 @@ import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
 import { Layout } from "@/layout";
@@ -73,21 +73,21 @@ const EmptyContent = (): ReactElement => {
 };
 export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
-const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   if (keys.length === 0)
     return (
-      <PMenu.Menu level="small" gap="small">
-        <Menu.ReloadConsoleItem />
-      </PMenu.Menu>
+      <CMenu.Menu>
+        <CMenu.ReloadConsoleItem />
+      </CMenu.Menu>
     );
   const layoutKey = keys[0];
   const layout = Layout.useSelect(layoutKey);
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout.type);
   return C == null ? (
-    <PMenu.Menu level="small" gap="small">
+    <CMenu.Menu>
       <Layout.MenuItems layoutKey={layoutKey} />
-    </PMenu.Menu>
+    </CMenu.Menu>
   ) : (
     <C layoutKey={layoutKey} />
   );

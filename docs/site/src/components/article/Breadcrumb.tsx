@@ -25,6 +25,7 @@ const breadcrumbOverrides: Record<string, string> = {
   ni: "NI",
   opc: "OPC",
   ua: "UA",
+  http: "HTTP",
   and: "and",
   in: "in",
   sys: "System",

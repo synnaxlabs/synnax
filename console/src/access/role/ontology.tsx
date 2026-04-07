@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { access } from "@synnaxlabs/client";
-import { Access, Icon, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -34,35 +34,31 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
-  const handleSelect = {
-    rename: handleRename,
-    delete: handleDelete,
-  };
   const singleResource = ids.length === 1;
   const resources = state.getResource(ids);
   const hasInternal = resources.some((r) => r.data?.internal === true);
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
+    <ContextMenu.Menu>
       {singleResource && !hasInternal && (
         <>
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={handleRename} />
+          <Menu.Divider />
         </>
       )}
       {!hasInternal && (
         <>
-          <Menu.DeleteItem />
-          <PMenu.Divider />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <Menu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

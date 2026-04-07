@@ -15,9 +15,27 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Raw", func() {
+	Describe("NewRaw", func() {
+		It("Should return a validation error when the bytes do not have the magic header", func() {
+			Expect(orc.NewRaw([]byte{1, 2, 3})).Error().To(
+				SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data was not encoded using orc")),
+				))
+		})
+
+		It("Should strip the magic header when it matches", func() {
+			bytes := append(magic[:], 1, 2, 3)
+			d := MustSucceed(orc.NewRaw(bytes))
+			Expect(d).To(Equal(orc.Raw{1, 2, 3}))
+		})
+	})
+
 	Describe("Skip", func() {
 		It("Should skip fixed-size bytes", func() {
 			data := orc.Raw([]byte{1, 2, 3, 4, 5})

@@ -16,7 +16,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import label, telem
+from synnax import label
+from x import telem
 
 VARIANT_SUCCESS: Literal["success"] = "success"
 

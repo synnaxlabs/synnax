@@ -19,7 +19,7 @@ with client.open_streamer([FUEL_PT_1, DAQ_TIME]) as streamer:
             above_threshold = sy.TimeStamp(frame[DAQ_TIME][-1])
         elif frame[FUEL_PT_1] < 20 and above_threshold:
             client.ranges.create(
-                name=f"Fuel Above Threshold - " + str(above_threshold)[11:19],
+                name="Fuel Above Threshold - " + str(above_threshold)[11:19],
                 time_range=sy.TimeRange(start=above_threshold, end=frame[DAQ_TIME][-1]),
                 color="#BADA55",
             )
