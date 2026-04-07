@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Icon } from "@/icon";
 import { Select } from "@/select";
@@ -20,7 +20,7 @@ export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
 const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
 const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
 
-export const SelectViewportMode = (): ReactElement => {
+export const Base = (): ReactElement => {
   const { viewportMode, onViewportModeChange } = useContext();
   return (
     <Select.Buttons
@@ -47,3 +47,5 @@ export const SelectViewportMode = (): ReactElement => {
     </Select.Buttons>
   );
 };
+
+export const SelectViewportMode = memo(Base);

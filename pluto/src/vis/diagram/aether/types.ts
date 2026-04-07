@@ -49,6 +49,14 @@ export const FIT_VIEW_OPTIONS: FitViewOptions = {
   padding: 0.05,
 };
 
+const EMPTY_DATA = {};
+
+const MARKER_END = {
+  type: MarkerType.ArrowClosed,
+  strokeWidth: 2,
+  color: "var(--pluto-gray-l8)",
+};
+
 export const translateNodesForward = (
   nodes: Node[],
   selected: Set<string>,
@@ -58,10 +66,10 @@ export const translateNodesForward = (
     id: node.key,
     type: "custom",
     zIndex: node.zIndex,
-    measured: { ...node.measured },
-    position: { ...node.position },
+    measured: node.measured,
+    position: node.position,
     selected: selected.has(node.key),
-    data: {},
+    data: EMPTY_DATA,
     dragHandle: dragHandleSelector,
   }));
 
@@ -76,11 +84,7 @@ export const translateEdgesForward = (
     sourceHandle: edge.source.param,
     targetHandle: edge.target.param,
     selected: selected.has(edge.key),
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      strokeWidth: 2,
-      color: "var(--pluto-gray-l8)",
-    },
+    markerEnd: MARKER_END,
   }));
 
 export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>

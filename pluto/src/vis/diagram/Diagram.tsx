@@ -145,48 +145,54 @@ export const create = ({
   edge: edgeRenderer,
   connectionLine: connectionLineRenderer,
 }: RendererConfig): FC<DiagramProps> => {
-  const NodeWrapper = ({
-    id,
-    positionAbsoluteX: x,
-    positionAbsoluteY: y,
-    selected = false,
-    draggable = true,
-  }: RFNodeProps): ReactElement => {
-    const position = useMemo(() => ({ x, y }), [x, y]);
-    return nodeRenderer({ nodeKey: id, position, selected, draggable });
-  };
+  const NodeWrapper = memo(
+    ({
+      id,
+      positionAbsoluteX: x,
+      positionAbsoluteY: y,
+      selected = false,
+      draggable = true,
+    }: RFNodeProps): ReactElement => {
+      const position = useMemo(() => ({ x, y }), [x, y]);
+      return nodeRenderer({ nodeKey: id, position, selected, draggable });
+    },
+  );
+  NodeWrapper.displayName = "NodeWrapper";
 
   const nodeTypes = { custom: NodeWrapper };
 
-  const EdgeWrapper = ({
-    id,
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    source,
-    target,
-    selected = false,
-  }: RFEdgeProps): ReactElement => {
-    const s = useMemo(
-      () => diagram.createEndpoint(sourceX, sourceY, sourcePosition),
-      [sourceX, sourceY, sourcePosition],
-    );
-    const t = useMemo(
-      () => diagram.createEndpoint(targetX, targetY, targetPosition),
-      [targetX, targetY, targetPosition],
-    );
-    return edgeRenderer!({
-      edgeKey: id,
-      source: s,
-      target: t,
-      sourceNode: source,
-      targetNode: target,
-      selected,
-    });
-  };
+  const EdgeWrapper = memo(
+    ({
+      id,
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      source,
+      target,
+      selected = false,
+    }: RFEdgeProps): ReactElement => {
+      const s = useMemo(
+        () => diagram.createEndpoint(sourceX, sourceY, sourcePosition),
+        [sourceX, sourceY, sourcePosition],
+      );
+      const t = useMemo(
+        () => diagram.createEndpoint(targetX, targetY, targetPosition),
+        [targetX, targetY, targetPosition],
+      );
+      return edgeRenderer!({
+        edgeKey: id,
+        source: s,
+        target: t,
+        sourceNode: source,
+        targetNode: target,
+        selected,
+      });
+    },
+  );
+  EdgeWrapper.displayName = "EdgeWrapper";
 
   const edgeTypes = edgeRenderer != null ? { default: EdgeWrapper } : undefined;
 
@@ -302,11 +308,11 @@ export const create = ({
 
     const rfEdges = useMemo(
       () => translateEdgesForward(edges, selectedSet),
-      [edges, selected],
+      [edges, selectedSet],
     );
     const rfNodes = useMemo(
       () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
-      [nodes, selected, dragHandleSelector],
+      [nodes, selectedSet, dragHandleSelector],
     );
 
     const processChanges = useCallback(
@@ -374,16 +380,18 @@ export const create = ({
       ),
     });
 
-    const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
-    const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
-    const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
-    const triggerProps: Partial<ReactFlowProps> = {
-      selectionOnDrag: selectTriggers == null,
-      panOnDrag: panTriggers == null,
-      selectionKeyCode: selectTriggers,
-      panActivationKeyCode: panTriggers,
-      zoomActivationKeyCode: zoomTriggers,
-    };
+    const triggerProps = useMemo<Partial<ReactFlowProps>>(() => {
+      const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
+      const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
+      const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
+      return {
+        selectionOnDrag: selectTriggers == null,
+        panOnDrag: panTriggers == null,
+        selectionKeyCode: selectTriggers,
+        panActivationKeyCode: panTriggers,
+        zoomActivationKeyCode: zoomTriggers,
+      };
+    }, [triggers]);
 
     const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
 
@@ -416,6 +424,11 @@ export const create = ({
       ],
     );
 
+    const defautlViewport = useMemo(
+      () => translateViewportForward(viewport),
+      [viewport],
+    );
+
     return (
       <Context value={ctxValue}>
         <Aether.Composite path={path}>
@@ -438,7 +451,7 @@ export const create = ({
               onEdgesChange={handleEdgesChange}
               onConnect={handleConnect}
               connectionLineComponent={ConnectionLine}
-              defaultViewport={translateViewportForward(viewport)}
+              defaultViewport={defautlViewport}
               elevateEdgesOnSelect
               defaultEdgeOptions={defaultEdgeOptions}
               minZoom={fitViewOptions.minZoom}
