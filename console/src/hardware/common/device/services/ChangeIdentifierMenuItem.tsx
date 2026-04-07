@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device, Icon, Menu } from "@synnaxlabs/pluto";
+import { device } from "@synnaxlabs/client";
+import { Access, Device, Icon, Menu } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
 import { useChangeIdentifier } from "@/hardware/common/device/services/useChangeIdentifier";
@@ -30,11 +31,13 @@ export const ChangeIdentifierMenuItem = ({
   const rename = Modals.useRename();
   const { updateAsync } = useChangeIdentifier();
   const first = getResource(ids[0]);
-  const { data: device } = Device.useRetrieve({ key: first.id.key });
-  if (ids.length !== 1 || first.data?.configured !== true) return null;
+  const { data: deviceData } = Device.useRetrieve({ key: first.id.key });
+  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
+  if (ids.length !== 1 || first.data?.configured !== true || !hasUpdatePermission)
+    return null;
   const identifier =
-    typeof device?.properties?.identifier === "string"
-      ? device.properties.identifier
+    typeof deviceData?.properties?.identifier === "string"
+      ? deviceData.properties.identifier
       : "";
   const handleClick = () =>
     handleError(async () => {

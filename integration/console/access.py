@@ -21,9 +21,9 @@ NOT implemented in Console UI (no helpers for these):
 - Create/edit/view policies (hidden from UI)
 """
 
-import synnax as sy
 from playwright.sync_api import Locator
 
+import synnax as sy
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
@@ -228,6 +228,74 @@ class AccessClient:
         return True
 
     # -------------------------------------------------------------------------
+    # User Rename/Delete
+    # -------------------------------------------------------------------------
+
+    def rename_user(self, *, username: str, new_username: str) -> bool:
+        """Rename a user via the "Change username" context menu action.
+
+        :param username: The current username.
+        :param new_username: The new username.
+        :returns: True if successful.
+        """
+        user_item = self._find_user_item(username)
+        if user_item is None:
+            raise ValueError(f"User '{username}' not found in users panel")
+
+        self.ctx_menu.action(user_item, "Change username")
+
+        name_element = user_item.locator("p.pluto-text--editable")
+        name_element.click()
+        name_element.fill(new_username)
+        self.layout.press_enter()
+        sy.sleep(1)
+
+        return True
+
+    def delete_user(self, username: str) -> bool:
+        """Delete a user via context menu with confirmation.
+
+        :param username: The username to delete.
+        :returns: True if successful.
+        """
+        user_item = self._find_user_item(username)
+        if user_item is None:
+            raise ValueError(f"User '{username}' not found in users panel")
+
+        self.layout.delete_with_confirmation(user_item)
+        self.tree.wait_for_removal(self.USER_ITEM_PREFIX, username)
+        return True
+
+    def delete_users(self, usernames: list[str]) -> bool:
+        """Delete multiple users via multi-select and context menu.
+
+        :param usernames: List of usernames to delete.
+        :returns: True if successful.
+        """
+        self._show_users_panel()
+
+        first_item = self._find_user_item(usernames[0])
+        if first_item is None:
+            raise ValueError(f"User '{usernames[0]}' not found")
+        first_item.click()
+
+        last_item = first_item
+        for username in usernames[1:]:
+            item = self._find_user_item(username)
+            if item is None:
+                raise ValueError(f"User '{username}' not found")
+            item.click(modifiers=["ControlOrMeta"])
+            last_item = item
+
+        self.ctx_menu.action(last_item, "Delete")
+        self.layout.confirm_delete()
+
+        for username in usernames:
+            self.tree.wait_for_removal(self.USER_ITEM_PREFIX, username)
+
+        return True
+
+    # -------------------------------------------------------------------------
     # Role Rename/Delete (context menu)
     # -------------------------------------------------------------------------
 
@@ -311,12 +379,49 @@ class AccessClient:
         hide user items.
         """
         self._show_users_panel()
-        for _ in range(5):
+        for _ in range(10):
             item = self.tree.find_by_name(self.USER_ITEM_PREFIX, username)
             if item is not None:
                 return item
-            sy.sleep(0.1)
+            sy.sleep(0.2)
         return None
+
+    def ensure_user_visible(self, username: str, role_name: str) -> Locator:
+        """Find a user item, re-expanding its role if needed.
+
+        After tree refreshes (e.g. login/logout, deletions), a role node
+        may auto-collapse. This method tries ``_find_user_item`` first,
+        and if the user isn't visible, collapses and re-expands the role
+        before retrying.
+
+        :param username: The username to find.
+        :param role_name: The role the user belongs to.
+        :returns: The Locator for the user item.
+        :raises ValueError: If the user is not found after retry.
+        """
+        item = self._find_user_item(username)
+        if item is not None:
+            return item
+
+        self.layout.page.screenshot(path="/tmp/ensure_user_visible_retry.png")
+
+        role_item = self._find_role_item(role_name)
+        if role_item is not None:
+            self.tree.collapse(role_item)
+
+        role_item = self._find_role_item(role_name)
+        if role_item is not None:
+            role_item.click()
+            sy.sleep(1)
+
+        self.layout.page.screenshot(path="/tmp/ensure_user_visible_after.png")
+
+        item = self._find_user_item(username)
+        if item is None:
+            raise ValueError(
+                f"User '{username}' not found under '{role_name}' after re-expand"
+            )
+        return item
 
     def _find_role_item(self, role_name: str) -> Locator | None:
         """Find a role item in the ontology tree by name."""

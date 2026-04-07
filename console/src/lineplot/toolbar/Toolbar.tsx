@@ -50,7 +50,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const state = useSelectToolbar(layoutKey);
-  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
   const handleExport = useExport();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
@@ -108,7 +108,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={lineplot.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            {hasEditPermission && <Tabs.Selector style={{ borderBottom: "none" }} />}
+            {hasUpdatePermission && <Tabs.Selector style={{ borderBottom: "none" }} />}
           </Flex.Box>
         </Base.Header>
         <Tabs.Content />

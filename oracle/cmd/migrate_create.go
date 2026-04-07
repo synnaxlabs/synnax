@@ -48,14 +48,16 @@ var migrationScaffoldTmpl = template.Must(template.New("scaffold").Parse(
 import (
 	"context"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 // New{{.PascalName}}Migration creates a hand-written migration.
 // TODO: implement migration logic.
-func New{{.PascalName}}Migration() gorp.Migration {
-	return gorp.WithDependencies(
-		gorp.NewRawMigration("{{.Name}}", func(ctx context.Context, tx gorp.Tx) error {
+func New{{.PascalName}}Migration() migrate.Migration {
+	return migrate.WithAddedDeps(
+		gorp.NewMigration("{{.Name}}", func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			// TODO: implement
 			return nil
 		}),
@@ -115,7 +117,7 @@ func runMigrateCreate(name string) (err error) {
 		return errors.Wrapf(err, "failed to discover existing migrations for %s", servicePath)
 	}
 
-	dependsOn := "msgpack_to_binary"
+	dependsOn := "msgpack_to_orc"
 	effectiveVersion := version
 	if len(existingVersions) > 0 {
 		latest := existingVersions[len(existingVersions)-1]

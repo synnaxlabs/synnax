@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	xpb "github.com/synnaxlabs/x/pb"
+	xstatus "github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -118,6 +119,10 @@ func (t retrieveRequestTranslator) Forward(
 	for i, label := range msg.HasLabels {
 		hasLabels[i] = label.String()
 	}
+	variants := make([]string, len(msg.Variants))
+	for i, v := range msg.Variants {
+		variants[i] = string(v)
+	}
 	return &RetrieveRequest{
 		Keys:          msg.Keys,
 		SearchTerm:    msg.SearchTerm,
@@ -125,6 +130,7 @@ func (t retrieveRequestTranslator) Forward(
 		Limit:         int32(msg.Limit),
 		IncludeLabels: msg.IncludeLabels,
 		HasLabels:     hasLabels,
+		Variants:      variants,
 	}, nil
 }
 
@@ -142,12 +148,17 @@ func (t retrieveRequestTranslator) Backward(
 			return apistatus.RetrieveRequest{}, err
 		}
 	}
+	variants := make([]xstatus.Variant, len(msg.Variants))
+	for i, v := range msg.Variants {
+		variants[i] = xstatus.Variant(v)
+	}
 	return apistatus.RetrieveRequest{
 		Keys:          msg.Keys,
 		SearchTerm:    msg.SearchTerm,
 		Offset:        int(msg.Offset),
 		Limit:         int(msg.Limit),
 		HasLabels:     hasLabelKeys,
+		Variants:      variants,
 		IncludeLabels: msg.IncludeLabels,
 	}, nil
 }

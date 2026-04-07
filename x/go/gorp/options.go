@@ -12,6 +12,7 @@ package gorp
 import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/override"
 )
 
@@ -28,9 +29,7 @@ type options struct {
 	encoding.Codec
 }
 
-var _ Tools = options{}
-
-var defaultOptions = options{Codec: msgpack.Codec}
+var defaultOptions = options{Codec: orc.NewCodec(msgpack.Codec)}
 
 func newOptions(opts []Option) options {
 	o := defaultOptions

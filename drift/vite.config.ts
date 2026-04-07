@@ -11,11 +11,14 @@
 
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, esmExternalRequirePlugin } from "vite";
 
 export default defineConfig({
   base: "/drift/",
-  plugins: [lib({ name: "drift" })],
+  plugins: [
+    esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
+    lib({ name: "drift" }),
+  ],
   build: {
     lib: {
       entry: {

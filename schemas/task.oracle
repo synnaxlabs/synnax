@@ -22,6 +22,7 @@ Key uint64 {
     """
     @ts type      string
     @ts to_string
+    @go marshal   flex
 }
 
 StatusDetails struct<Data? = record> {
@@ -123,6 +124,8 @@ Task struct<
         coalesce_type_params
     }
     @ontology type "task"
+    @go marshal
+    @go migrate
     @py name       "Payload"
 }
 

@@ -26,5 +26,9 @@ func Publish(
 	prov *signals.Provider,
 	obs observe.Observable[gorp.TxReader[uuid.UUID, group.Group]],
 ) (io.Closer, error) {
-	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigUUID[group.Group](obs))
+	return signals.PublishFromGorp(
+		ctx,
+		prov,
+		signals.GorpPublisherConfigUUID[group.Group](obs),
+	)
 }

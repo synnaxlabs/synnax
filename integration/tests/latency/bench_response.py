@@ -8,12 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-
 from tests.latency.latency import Latency
 
 
 class BenchResponse(Latency):
-
     def setup(self) -> None:
         super().setup()
         self.set_manual_timeout(10)

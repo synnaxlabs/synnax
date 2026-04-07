@@ -47,7 +47,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		It("Should register the credentials", func(ctx SpecContext) {
 			var secCreds auth.SecureCredentials
 			tx := db.OpenTx()
-			Expect(gorp.NewRetrieve[string, auth.SecureCredentials](nil).
+			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
 				WhereKeys(creds.Username).
 				Entry(&secCreds).
 				Exec(ctx, tx)).To(Succeed())
@@ -182,6 +182,22 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Entry("ExpiredToken", auth.ExpiredToken),
 			Entry("Error", auth.Error),
 		)
+	})
 
+	Describe("InsecureCredentials", func() {
+		Describe("IsZero", func() {
+			It("Should return true for empty credentials", func() {
+				Expect(auth.InsecureCredentials{}.IsZero()).To(BeTrue())
+			})
+			It("Should return false when username is set", func() {
+				Expect(auth.InsecureCredentials{Username: "synnax"}.IsZero()).To(BeFalse())
+			})
+			It("Should return false when password is set", func() {
+				Expect(auth.InsecureCredentials{Password: "seldon"}.IsZero()).To(BeFalse())
+			})
+			It("Should return false when both are set", func() {
+				Expect(auth.InsecureCredentials{Username: "synnax", Password: "seldon"}.IsZero()).To(BeFalse())
+			})
+		})
 	})
 })

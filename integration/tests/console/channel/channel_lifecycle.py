@@ -10,11 +10,10 @@
 import random
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
 from console.plot import Plot
 from framework.utils import assert_link_format
+from x import random_name
 
 SRC_CH = "channel_lifecycle_uptime"
 
@@ -31,7 +30,7 @@ class ChannelLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self._create_shared_channels()
         self._create_shared_calc_channels()
 
@@ -120,7 +119,7 @@ class ChannelLifecycle(ConsoleCase):
         console = self.console
         client = self.client
 
-        suffix = get_random_name()
+        suffix = random_name()
 
         all_data_types = [
             sy.DataType.FLOAT64,
@@ -155,9 +154,9 @@ class ChannelLifecycle(ConsoleCase):
         created = console.channels.create_with_create_more(channels)
 
         expected_count = 1 + len(data_types)
-        assert (
-            len(created) == expected_count
-        ), f"Expected {expected_count} channels created, got {len(created)}"
+        assert len(created) == expected_count, (
+            f"Expected {expected_count} channels created, got {len(created)}"
+        )
         self.log(f"Created channels: {created}")
 
         for ch_config in channels:
@@ -166,14 +165,14 @@ class ChannelLifecycle(ConsoleCase):
 
             ch = client.channels.retrieve(ch_name)
             if ch_config.get("is_index"):
-                assert (
-                    ch.data_type == sy.DataType.TIMESTAMP
-                ), f"Index channel should be TIMESTAMP, got {ch.data_type}"
+                assert ch.data_type == sy.DataType.TIMESTAMP, (
+                    f"Index channel should be TIMESTAMP, got {ch.data_type}"
+                )
             else:
                 expected_type = ch_config["data_type"]
-                assert (
-                    ch.data_type == expected_type
-                ), f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
+                assert ch.data_type == expected_type, (
+                    f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
+                )
 
         channels_to_delete = [str(ch["name"]) for ch in reversed(channels)]
         console.channels.delete(channels_to_delete)
@@ -197,7 +196,7 @@ class ChannelLifecycle(ConsoleCase):
 
         console = self.console
 
-        suffix = get_random_name()
+        suffix = random_name()
         data_name = f"rename_data_{suffix}"
         new_name = f"renamed_data_{suffix}"
 
@@ -240,7 +239,7 @@ class ChannelLifecycle(ConsoleCase):
         console = self.console
         client = self.client
 
-        suffix = get_random_name()
+        suffix = random_name()
         range_name = f"alias_range_{suffix}"
         data_name = f"alias_data_{suffix}"
         alias_name = f"MyAlias_{suffix}"
@@ -266,17 +265,17 @@ class ChannelLifecycle(ConsoleCase):
         rng = client.ranges.retrieve(name=range_name)
         data_ch = client.channels.retrieve(data_name)
         scoped_ch = rng[alias_name]
-        assert (
-            scoped_ch.key == data_ch.key
-        ), f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
+        assert scoped_ch.key == data_ch.key, (
+            f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
+        )
 
         console.channels.clear_alias(alias_name)
 
         console.channels.show_channels()
         alias_still_visible = self.page.get_by_text(alias_name).count() > 0
-        assert (
-            not alias_still_visible
-        ), f"Alias '{alias_name}' should not be visible after clearing"
+        assert not alias_still_visible, (
+            f"Alias '{alias_name}' should not be visible after clearing"
+        )
         console.channels.hide_channels()
 
         rng = client.ranges.retrieve(name=range_name)
@@ -296,7 +295,7 @@ class ChannelLifecycle(ConsoleCase):
 
         console = self.console
 
-        suffix = get_random_name()
+        suffix = random_name()
         index_name = f"delete_idx_{suffix}"
         data_name = f"delete_data_{suffix}"
 
@@ -347,8 +346,6 @@ class ChannelLifecycle(ConsoleCase):
         """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
         self.log("Testing plot nested calculated channel")
 
-        client = self.client
-
         plot = self.console.workspace.create_plot(f"Nested Calc Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
@@ -371,12 +368,12 @@ class ChannelLifecycle(ConsoleCase):
 
             expected_x2 = src_val * 2
             expected_x6 = src_val * 2 * 3
-            assert (
-                calc_x2_val == expected_x2
-            ), f"calc_x2 mismatch: {src_val} * 2 = {expected_x2}, got {calc_x2_val}"
-            assert (
-                calc_x6_val == expected_x6
-            ), f"calc_x6 mismatch: {src_val} * 6 = {expected_x6}, got {calc_x6_val}"
+            assert calc_x2_val == expected_x2, (
+                f"calc_x2 mismatch: {src_val} * 2 = {expected_x2}, got {calc_x2_val}"
+            )
+            assert calc_x6_val == expected_x6, (
+                f"calc_x6 mismatch: {src_val} * 6 = {expected_x6}, got {calc_x6_val}"
+            )
 
         plot.close()
 
@@ -394,12 +391,12 @@ class ChannelLifecycle(ConsoleCase):
         )
 
         assert error is not None, "Expected error for nonexistent channel"
-        assert (
-            "Failed to update calculated channel" in error
-        ), f"Error should mention failure: {error}"
-        assert (
-            "undefined symbol" in error
-        ), f"Error should mention undefined symbol: {error}"
-        assert (
-            "nonexistent_channel_xyz" in error
-        ), f"Error should mention nonexistent channel: {error}"
+        assert "Failed to update calculated channel" in error, (
+            f"Error should mention failure: {error}"
+        )
+        assert "undefined symbol" in error, (
+            f"Error should mention undefined symbol: {error}"
+        )
+        assert "nonexistent_channel_xyz" in error, (
+            f"Error should mention nonexistent channel: {error}"
+        )

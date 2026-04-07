@@ -16,6 +16,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { PagerDuty } from "@/hardware/pagerduty";
 import { type Layout } from "@/layout";
 
 const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
@@ -25,6 +26,7 @@ const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   ...Modbus.Task.ZERO_LAYOUTS,
   ...NI.Task.ZERO_LAYOUTS,
   ...OPC.Task.ZERO_LAYOUTS,
+  ...PagerDuty.Task.ZERO_LAYOUTS,
 };
 
 export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState => {

@@ -10,7 +10,7 @@
 from synnax.ranger.client import Client, Range
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.writer import Writer
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "RangeRetriever": "Retriever",

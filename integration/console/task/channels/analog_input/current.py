@@ -34,7 +34,7 @@ class Current(Analog):
         layout: LayoutClient,
         name: str,
         device: str,
-        shunt_resistor: Literal["Default" "Internal" "External"] | None = None,
+        shunt_resistor: Literal["DefaultInternalExternal"] | None = None,
         resistance: float | None = None,
         **kwargs: Any,
     ) -> None:

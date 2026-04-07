@@ -13,6 +13,7 @@ package marshal
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -48,12 +49,12 @@ func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
 func (p *Plugin) Name() string                { return "go/marshal" }
 func (p *Plugin) Domains() []string           { return []string{"go"} }
-func (p *Plugin) Requires() []string          { return []string{"go/types", "go/pb"} }
+func (p *Plugin) Requires() []string          { return []string{"go/types"} }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
+	Commands:   [][]string{{"gofmt", "-s", "-w"}},
 }
 
 func (p *Plugin) PostWrite(files []string) error {
@@ -70,7 +71,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	var entryTypes []entryInfo
 	for _, entry := range req.Resolutions.StructTypes() {
-		if !domain.HasExprFromType(entry, "go", "marshal") || !output.HasPB(entry) {
+		if !domain.HasExprFromType(entry, "go", "marshal") {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")
@@ -85,11 +86,29 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		entryTypes = append(entryTypes, entryInfo{goName: naming.GetGoName(entry), goPath: goPath})
 	}
 
+	// Collect DistinctForm types with @go marshal flex.
+	flexByPkg := make(map[string][]FlexCodec)
+	for _, dt := range req.Resolutions.DistinctTypes() {
+		marshalVal := domain.GetStringFromType(dt, "go", "marshal")
+		if marshalVal != "flex" {
+			continue
+		}
+		goPath := output.GetPath(dt, "go")
+		if goPath == "" {
+			continue
+		}
+		form := dt.Form.(resolution.DistinctForm)
+		goName := naming.GetGoName(dt)
+		flexByPkg[goPath] = append(flexByPkg[goPath], FlexCodec{
+			GoName:   goName,
+			Receiver: ReceiverName(goName),
+			BaseType: form.Base.Name,
+		})
+	}
+
 	// Merge all entry types' dependency trees per package.
-	adapters := make(map[string]string)
 	merged := make(map[string]map[string]resolution.Type)
 	for _, ei := range entryTypes {
-		adapters[ei.goName] = ei.goPath
 		var entry resolution.Type
 		for _, t := range req.Resolutions.StructTypes() {
 			if naming.GetGoName(t) == ei.goName {
@@ -108,15 +127,30 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	// Generate one file per package.
-	for goPath, typeMap := range merged {
+	// Collect all packages that need a codec file (from structs or flex types).
+	allPkgs := make(map[string]bool)
+	for goPath := range merged {
+		allPkgs[goPath] = true
+	}
+	for goPath := range flexByPkg {
+		allPkgs[goPath] = true
+	}
+
+	// Generate one file per package in sorted order for deterministic output.
+	sortedPkgs := make([]string, 0, len(allPkgs))
+	for goPath := range allPkgs {
+		sortedPkgs = append(sortedPkgs, goPath)
+	}
+	sort.Strings(sortedPkgs)
+	for _, goPath := range sortedPkgs {
 		packageName := naming.DerivePackageName(goPath)
-		entries := buildCodecEntries(typeMap, adapters, goPath)
-		if len(entries) == 0 {
+		entries := buildCodecEntries(merged[goPath])
+		flex := flexByPkg[goPath]
+		if len(entries) == 0 && len(flex) == 0 {
 			continue
 		}
 		content, err := generateEncoderCodecFile(
-			packageName, goPath, entries, req.Resolutions, req.RepoRoot,
+			packageName, goPath, entries, flex, req.Resolutions, req.RepoRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate codec for %s", goPath)
@@ -128,9 +162,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	if p.Options.GenerateTests {
-		for goPath, typeMap := range merged {
+		sortedMergedPkgs := make([]string, 0, len(merged))
+		for goPath := range merged {
+			sortedMergedPkgs = append(sortedMergedPkgs, goPath)
+		}
+		sort.Strings(sortedMergedPkgs)
+		for _, goPath := range sortedMergedPkgs {
+			typeMap := merged[goPath]
 			packageName := naming.DerivePackageName(goPath)
-			entries := buildCodecEntries(typeMap, adapters, goPath)
+			entries := buildCodecEntries(typeMap)
 			testContent, testErr := generateTestCodecFile(
 				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
 			)
@@ -151,41 +191,58 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 // CodecEntry describes a type for which a codec should be generated.
 type CodecEntry struct {
-	GoName  string
-	Type    resolution.Type
-	Adapter bool
+	GoName string
+	Type   resolution.Type
 }
 
 func buildCodecEntries(
 	typeMap map[string]resolution.Type,
-	adapters map[string]string,
-	goPath string,
 ) []CodecEntry {
-	var entries []CodecEntry
-	for _, t := range typeMap {
+	keys := make([]string, 0, len(typeMap))
+	for k := range typeMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	entries := make([]CodecEntry, 0, len(keys))
+	for _, k := range keys {
+		t := typeMap[k]
 		goName := naming.GetGoName(t)
-		ce := CodecEntry{GoName: goName, Type: t}
-		if adapterPath, ok := adapters[goName]; ok && adapterPath == goPath {
-			ce.Adapter = true
-		}
-		entries = append(entries, ce)
+		entries = append(entries, CodecEntry{GoName: goName, Type: t})
+	}
+	return entries
+}
+
+type importEntry struct {
+	Path  string
+	Alias string
+}
+
+func sortedImports(m map[string]string) []importEntry {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	entries := make([]importEntry, 0, len(keys))
+	for _, k := range keys {
+		entries = append(entries, importEntry{Path: k, Alias: m[k]})
 	}
 	return entries
 }
 
 // GenerateCodecFile generates a complete codec file for the given entries using the
 // specified package name and output path context. This is used by the migrate plugin
-// to generate frozen codecs for old schema versions. Each entry gets exported
-// EncodeX/DecodeX functions. Entries with Adapter=true also get an xencoding.Codec
-// implementation with sync.Pool-based Writer/Reader reuse.
+// to generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
+// methods that implement the orc.SelfEncoder and orc.SelfDecoder interfaces.
 func GenerateCodecFile(
 	packageName string,
 	parentPath string,
 	entries []CodecEntry,
+	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	return generateEncoderCodecFile(packageName, parentPath, entries, table, repoRoot)
+	return generateEncoderCodecFile(packageName, parentPath, entries, flex, table, repoRoot)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {

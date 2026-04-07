@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu } from "@synnaxlabs/pluto";
+import { group, type ontology } from "@synnaxlabs/client";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { type TreeState } from "@/ontology/service";
 
@@ -25,15 +25,17 @@ export const DefaultContextMenu = ({
   state,
 }: DefaultContextMenuProps): ReactElement => {
   const createGroup = Group.useCreateEmpty({ parent: root, state, root });
-  const handleSelect = { newGroup: createGroup };
+  const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <PMenu.Item itemKey="newGroup">
-        <Icon.Group />
-        New group
-      </PMenu.Item>
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+    <ContextMenu.Menu>
+      {hasCreatePermission && (
+        <Menu.Item itemKey="newGroup" onClick={createGroup}>
+          <Icon.Group />
+          New group
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };

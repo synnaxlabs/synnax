@@ -19,6 +19,14 @@ import (
 // record. A nil Raw signals that previous navigation went out of bounds.
 type Raw []byte
 
+// NewRaw creates a Raw from orc-encoded data, stripping the magic header.
+func NewRaw(data []byte) (Raw, error) {
+	if err := validateMagic(data); err != nil {
+		return nil, err
+	}
+	return data[len(magic):], nil
+}
+
 // Skip advances past n bytes of fixed-size data. Returns nil if there isn't
 // enough data.
 func (r Raw) Skip(n int) Raw {

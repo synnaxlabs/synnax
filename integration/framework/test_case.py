@@ -21,6 +21,8 @@ from collections.abc import Callable
 from typing import Any, Literal, overload
 
 import synnax as sy
+from framework.log_client import LogClient, LogMode, SynnaxChannelSink
+from framework.models import STATUS, SYMBOLS, SynnaxConnection
 from synnax.telem import SampleValue
 from x import (
     WebSocketErrorFilter,
@@ -29,9 +31,6 @@ from x import (
     suppress_websocket_errors,
     validate_and_sanitize_name,
 )
-
-from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import STATUS, SYMBOLS, SynnaxConnection
 
 # Error filter
 sys.excepthook = ignore_websocket_errors
@@ -354,7 +353,7 @@ class TestCase(ABC):
         if not found:
             raise TimeoutError(f"Unable to retrieve channels: {channels}")
 
-        self.log(f"Channels retrieved")
+        self.log("Channels retrieved")
         if isinstance(channels, str):
             self.subscribed_channels.add(channels)
         elif isinstance(channels, list):
@@ -670,7 +669,6 @@ class TestCase(ABC):
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
-
             # Set STATUS at the top level as opposed to within
             # the override methods. Ensures that the status is set
             # Even if the child classes don't call super()

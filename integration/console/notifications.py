@@ -9,9 +9,10 @@
 
 from typing import Any
 
-import synnax as sy
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+import synnax as sy
 
 
 class NotificationsClient:

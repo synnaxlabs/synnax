@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
+
 import { Task } from "@/hardware/common/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -32,12 +35,14 @@ export const TaskContextMenuItems = ({
   taskContextMenuItemConfigs,
 }: TaskContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const firstID = ids[0];
   const first = getResource(firstID);
   const key = first.id.key;
   const maybeConfigure = () => {
     if (first.data?.configured !== true) placeLayout({ ...configureLayout, key });
   };
+  if (!hasCreatePermission) return null;
   return (
     <>
       {taskContextMenuItemConfigs.map(({ itemKey, label, layout }) => {

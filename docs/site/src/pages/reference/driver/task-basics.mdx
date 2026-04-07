@@ -21,10 +21,12 @@ Before creating any tasks, you'll need to have connected and configured a hardwa
 device:
 
 - [EtherCAT](/reference/driver/ethercat/configure-device)
+- [HTTP](/reference/driver/http/connect-server)
 - [LabJack](/reference/driver/labjack/configure-device)
+- [Modbus](/reference/driver/modbus/connect-server)
 - [National Instruments](/reference/driver/ni/configure-device)
 - [OPC UA](/reference/driver/opc-ua/connect-server)
-- [Modbus TCP](/reference/driver/modbus/connect-server)
+- [PagerDuty](/reference/driver/pagerduty/get-started)
 
 <Divider.Divider x />
 
@@ -182,6 +184,7 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 #   labjack_read, labjack_write,
 #   modbus_read, modbus_write,
 #   opc_read, opc_write,
+#   pagerduty_alert,
 
 ```
 
@@ -310,6 +313,7 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 //   labjack_read, labjack_write,
 //   modbus_read, modbus_write,
 //   opc_read, opc_write,
+//   pagerduty_alert,
 ```
 
 </Details>
@@ -383,10 +387,20 @@ a specific task type:
 - [Write Task](/reference/driver/ethercat/write-task) - Send commands to EtherCAT
   devices
 
+### HTTP
+
+- [Read Task](/reference/driver/http/read-task) - Acquire data from HTTP servers
+- [Write Task](/reference/driver/http/write-task) - Send commands to HTTP servers
+
 ### LabJack
 
 - [Read Task](/reference/driver/labjack/read-task) - Acquire data from LabJack devices
 - [Write Task](/reference/driver/labjack/write-task) - Send commands to LabJack devices
+
+### Modbus
+
+- [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus servers
+- [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus servers
 
 ### National Instruments
 
@@ -406,7 +420,7 @@ a specific task type:
 - [Read Task](/reference/driver/opc-ua/read-task) - Read data from OPC UA servers
 - [Write Task](/reference/driver/opc-ua/write-task) - Write data to OPC UA servers
 
-### Modbus
+### PagerDuty
 
-- [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus servers
-- [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus servers
+- [Alert Task](/reference/driver/pagerduty/alert-task) - Send PagerDuty alerts when
+  statuses change

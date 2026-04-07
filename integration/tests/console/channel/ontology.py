@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 METRICS_GROUP = "Metrics"
 METRICS_PREFIX = "sy_node_1_metrics"
@@ -25,7 +24,7 @@ class ChannelOntology(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.group_a = f"Group A {self.suffix}"
         self.group_b = f"Group B {self.suffix}"
         self._cleanup_groups()
@@ -38,9 +37,9 @@ class ChannelOntology(ConsoleCase):
         self.console.channels.hide_channels()
         self.channels = [n for n in names if n.startswith(METRICS_PREFIX)]
         self.log(f"Discovered {len(self.channels)} metrics channels: {self.channels}")
-        assert (
-            len(self.channels) >= 4
-        ), f"Expected at least 4 metrics channels, found {len(self.channels)}"
+        assert len(self.channels) >= 4, (
+            f"Expected at least 4 metrics channels, found {len(self.channels)}"
+        )
 
     def run(self) -> None:
         """Run all channel ontology tests."""
@@ -74,9 +73,9 @@ class ChannelOntology(ConsoleCase):
         if not self.console.channels.tree.is_expanded(group):
             self.console.channels.tree.expand(group)
         ch = self.console.channels.tree.find_by_name("channel:", self.channels[2])
-        assert (
-            ch is not None and ch.is_visible()
-        ), f"Channel '{self.channels[2]}' should be inside '{self.group_a}'"
+        assert ch is not None and ch.is_visible(), (
+            f"Channel '{self.channels[2]}' should be inside '{self.group_a}'"
+        )
         self.console.channels.hide_channels()
 
     def test_rename_group(self) -> None:
@@ -114,9 +113,9 @@ class ChannelOntology(ConsoleCase):
         if not self.console.channels.tree.is_expanded(group_item):
             self.console.channels.tree.expand(group_item)
         nested = self.console.channels.tree.get_group(self.group_b)
-        assert (
-            nested.is_visible()
-        ), f"Nested group '{self.group_b}' should be visible inside '{self.group_a}'"
+        assert nested.is_visible(), (
+            f"Nested group '{self.group_b}' should be visible inside '{self.group_a}'"
+        )
         self.console.channels.hide_channels()
 
     def test_delete_groups(self) -> None:

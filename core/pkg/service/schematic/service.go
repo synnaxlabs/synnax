@@ -13,20 +13,25 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for opening a schematic service.
 type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the schematic service will store schematics in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -53,6 +58,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -74,43 +80,46 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	ServiceConfig
 	Symbol *symbol.Service
+	closer io.MultiCloser
 	table  *gorp.Table[uuid.UUID, Schematic]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
 // Each configuration will be used as an override for the previous configuration in the
 // list. See the Config struct for information on which fields should be set.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Schematic]{DB: cfg.DB})
-	if err != nil {
+	s = &Service{ServiceConfig: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Schematic]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Group:    cfg.Group,
-		Signals:  cfg.Signals,
-		Search:   cfg.Search,
-	}); err != nil {
+		Instrumentation: cfg.Child("symbol"),
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Group:           cfg.Group,
+		Signals:         cfg.Signals,
+		Search:          cfg.Search,
+	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
-
 	return s, nil
 }
 
 // Close closes the schematic service and releases any resources that it may have
 // acquired.
-func (s *Service) Close() error {
-	return errors.Combine(s.Symbol.Close(), s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer

@@ -21,18 +21,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -112,7 +114,7 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	shutdownSignals io.Closer
+	closer          xio.MultiCloser
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
 	group           group.Group
@@ -122,48 +124,50 @@ type Service struct {
 	EmbeddedKey Key
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Rack]{DB: cfg.DB})
-	if err != nil {
+	s = &Service{ServiceConfig: cfg, keyMu: &sync.Mutex{}}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration(v0.MigrationConfig{
+		HostProvider: cfg.HostProvider,
+		Status:       cfg.Status,
+	})
+	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[Key, Rack]("msgpack_to_orc", v0Mig.Key()),
+		},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)
-	if err != nil {
+	if s.localKeyCounter, err = kv.OpenCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
 		return nil, err
 	}
-	s := &Service{
-		ServiceConfig:   cfg,
-		localKeyCounter: c,
-		group:           g,
-		keyMu:           &sync.Mutex{},
-		table:           table,
-	}
-	if err = s.loadEmbeddedRack(ctx); err != nil {
-		return nil, err
-	}
-	if err = s.migrateStatusesForExistingRacks(ctx); err != nil {
+	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if s.monitor, err = openMonitor(s.Child("monitor"), s); err != nil {
+	if s.monitor, err = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		if s.shutdownSignals, err = signals.PublishFromGorp(
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigNumeric[Key, Rack](s.table.Observe(), telem.Uint32T),
-		); err != nil {
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -175,91 +179,26 @@ func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) ob
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
-
-	// Check if a v1 rack exists.
 	var (
 		embeddedRack Rack
-		v1RackName   = fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
-		err          = s.NewRetrieve().WhereName(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
-		isNotFound   = errors.Is(err, query.ErrNotFound)
-		v2Name       = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
+		name         = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
 	)
-	if err != nil && !isNotFound {
+	err := s.NewRetrieve().
+		WhereName(name, gorp.Required()).
+		WhereEmbedded(true, gorp.Required()).
+		WhereNode(s.HostProvider.HostKey(), gorp.Required()).
+		Entry(&embeddedRack).Exec(ctx, s.DB)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-
-	// If a v1 rack does not exist, check if a v2 rack exists.
-	if isNotFound {
-		err = s.NewRetrieve().
-			WhereName(v2Name, gorp.Required()).
-			WhereEmbedded(true, gorp.Required()).
-			WhereNode(s.HostProvider.HostKey(), gorp.Required()).
-			Entry(&embeddedRack).Exec(ctx, s.DB)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-	}
-
-	// The key will get populated if a rack exists, in which case this will be an update.
-	embeddedRack.Name = v2Name
+	embeddedRack.Name = name
 	embeddedRack.Embedded = true
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
 	s.EmbeddedKey = embeddedRack.Key
 	return err
 }
 
-func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
-	var racks []Rack
-	if err := s.NewRetrieve().Entries(&racks).Exec(ctx, s.DB); err != nil {
-		return err
-	}
-	if len(racks) == 0 {
-		return nil
-	}
-	statusKeys := make([]string, len(racks))
-	for i, r := range racks {
-		statusKeys[i] = OntologyID(r.Key).String()
-	}
-	var existingStatuses []status.Status[StatusDetails]
-	if err := status.NewRetrieve[StatusDetails](s.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []status.Status[StatusDetails]
-	for _, r := range racks {
-		key := OntologyID(r.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
-				Key:     key,
-				Name:    r.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: "Status unknown",
-				Details: StatusDetails{Rack: r.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	s.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](s.Status, nil).SetMany(ctx, &missingStatuses)
-}
-
-func (s *Service) Close() error {
-	err := s.monitor.Close()
-	if s.shutdownSignals == nil {
-		return err
-	}
-	err = errors.Join(err, s.table.Close())
-	return errors.Join(err, s.shutdownSignals.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
 	var stat status.Status[StatusDetails]

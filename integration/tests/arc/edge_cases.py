@@ -9,11 +9,11 @@
 
 from dataclasses import dataclass, field
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
+from x import random_name
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -381,7 +381,7 @@ class EdgeCases(ArcConsoleCase):
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
 
     def _assert_circular_error(self, case: CircularCase) -> None:
-        arc_name = f"Circ{case.label}_{get_random_name()}"
+        arc_name = f"Circ{case.label}_{random_name()}"
         self.log(f"[{case.label}] Testing {arc_name}")
 
         self.console.arc.create(arc_name, case.source, mode="Text")
@@ -393,15 +393,15 @@ class EdgeCases(ArcConsoleCase):
         status = self.console.arc.wait_for_status(case.wait_substr)
 
         for name in case.expect:
-            assert (
-                name in status
-            ), f"[{case.label}] Expected '{name}' in error, got: {status}"
+            assert name in status, (
+                f"[{case.label}] Expected '{name}' in error, got: {status}"
+            )
 
         notifications = self.console.notifications.check(timeout=5)
         error_notifications = [n for n in notifications if n.get("type") == "error"]
-        assert (
-            len(error_notifications) > 0
-        ), f"[{case.label}] Expected error notification, got: {notifications}"
+        assert len(error_notifications) > 0, (
+            f"[{case.label}] Expected error notification, got: {notifications}"
+        )
         self.console.notifications.close_all()
 
     def _verify_circular_cases(self) -> None:
@@ -410,7 +410,7 @@ class EdgeCases(ArcConsoleCase):
             self._assert_circular_error(case)
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
-        arc_name = f"Guard{case.label}_{get_random_name()}"
+        arc_name = f"Guard{case.label}_{random_name()}"
         self.log(f"[Guarded {case.label}] Testing {arc_name}")
 
         self.console.arc.create(arc_name, case.source, mode="Text")

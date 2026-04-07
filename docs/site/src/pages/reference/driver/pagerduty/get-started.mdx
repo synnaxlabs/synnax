@@ -1,0 +1,79 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "PagerDuty | Get Started"
+heading: "PagerDuty Integration"
+description: "Learn how to send PagerDuty alerts from Synnax when statuses change."
+next: "Alert Task"
+nextURL: "/reference/driver/pagerduty/alert-task"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The PagerDuty integration allows Synnax to watch status keys and automatically trigger
+or resolve PagerDuty incidents when those statuses change. When a status transitions to
+an error, warning, or info state, a PagerDuty event is sent. When the status returns to
+success, the corresponding incident is automatically resolved.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+To use the PagerDuty integration, you'll need:
+
+1. A [PagerDuty](https://www.pagerduty.com/) account
+2. A PagerDuty service with an **Events API v2** integration
+3. The 32-character **Integration Key** (also called the routing key) from that
+   integration
+
+To create an Events API v2 integration in PagerDuty, navigate to **Services** →
+**Service Directory** → select your service → **Integrations** → **Add Integration** →
+**Events API v2**.
+
+<Divider.Divider x />
+
+## How It Works
+
+The PagerDuty integration uses Synnax's status system to determine when to send alerts.
+Each alert task watches one or more status keys and maps their variants to PagerDuty
+event severities.
+
+When a watched status changes:
+
+- **Error**, **Warning**, or **Info** variants trigger a PagerDuty event with the
+  corresponding severity
+- **Success** variant resolves any open PagerDuty incident for that status
+
+Events are deduplicated by status key, so repeated changes to the same status update the
+existing incident rather than creating duplicates.
+
+<Divider.Divider x />
+
+## Severity Mapping
+
+| Synnax Status Variant | PagerDuty Severity                                             |
+| --------------------- | -------------------------------------------------------------- |
+| Error                 | `error` or `critical` (depending on `treat_error_as_critical`) |
+| Warning               | `warning`                                                      |
+| Info                  | `info`                                                         |
+| Success               | Resolves incident                                              |
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+The PagerDuty integration runs directly on the Synnax Core, NOT on the Standalone or
+Embedded Driver.
+
+| Platform                      | Status      |
+| ----------------------------- | ----------- |
+| <Icon.Logo.Windows /> Windows | ✓ Supported |
+| <Icon.Logo.Linux /> Linux     | ✓ Supported |
+| <Icon.Logo.Apple /> macOS     | ✓ Supported |
+| <Icon.Logo.Docker /> Docker   | ✓ Supported |
+
+<Note.Note variant="info" className="compact">
+  The PagerDuty integration requires network access to the PagerDuty Events API. Ensure
+  your Synnax Core can reach `events.pagerduty.com` over HTTPS.
+</Note.Note>

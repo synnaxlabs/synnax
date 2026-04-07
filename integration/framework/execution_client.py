@@ -15,7 +15,6 @@ from collections.abc import Callable
 from concurrent.futures import Future
 
 import synnax as sy
-
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.models import STATUS, SynnaxConnection, Test
 from framework.test_case import TestCase

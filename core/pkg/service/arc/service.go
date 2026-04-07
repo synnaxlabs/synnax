@@ -25,8 +25,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -92,7 +95,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
 	table  *gorp.Table[uuid.UUID, Arc]
-	closer io.Closer
+	closer xio.MultiCloser
 	cfg    ServiceConfig
 }
 
@@ -116,12 +119,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 	})
 }
 
-func (s *Service) Close() error {
-	if s.closer != nil {
-		return s.closer.Close()
-	}
-	return nil
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // CompileProgram retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
@@ -148,21 +146,30 @@ func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Arc]{DB: cfg.DB})
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Arc]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](s.table.Observe()))
-		if err != nil {
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			s.cfg.Signals,
+			signals.GorpPublisherConfigUUID[Arc](s.table.Observe()),
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
