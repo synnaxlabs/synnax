@@ -98,6 +98,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.test_open_task_config()
         self.test_open_task_via_search()
         self.test_snapshot_to_active_range()
+        self.test_rename_channel_sync()
         self.test_rename_task()
         self.test_delete_task()
 
@@ -225,6 +226,42 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         self.log("Testing: Snapshot multiple tasks to active range")
         self.console.tasks.snapshot_tasks(TASK_NAMES[1:], RANGE_NAME)
+
+    def test_rename_channel_sync(self) -> None:
+        """Rename channels from toolbar, verify in task config; rename back from task config, verify in toolbar."""
+        t = TASKS[0]
+        original_names = ["my_float_0", "my_float_1"]
+        renamed_names = ["renamed_float_0", "renamed_float_1"]
+
+        self.log("Testing: Channel rename synchronization with task config")
+        self.console.tasks.open_task_config(t.name)
+        pane = self.console.page.locator(f".console-task-configure--{t.type}")
+        pane.wait_for(state="visible", timeout=10000)
+
+        self.log("Testing: Rename channels from channels toolbar")
+        self.console.channels.rename(names=original_names, new_names=renamed_names)
+
+        self.log("Testing: Verify renamed channels appear in task config")
+        for name in renamed_names:
+            pane.get_by_text(name).first.wait_for(state="visible", timeout=10000)
+
+        self.log("Testing: Rename channels back from task config form")
+        for old_name, new_name in zip(renamed_names, original_names):
+            channel_text = pane.get_by_text(old_name).first
+            channel_text.wait_for(state="visible", timeout=5000)
+            self.console.layout.ctx_menu.action(channel_text, "Rename")
+            editable = pane.locator("[contenteditable='true']").first
+            editable.wait_for(state="visible", timeout=3000)
+            self.console.layout.select_all_and_type(new_name)
+            self.console.layout.press_enter()
+            sy.sleep(0.5)
+
+        self.log("Testing: Verify original channel names in channels toolbar")
+        assert self.console.channels.wait_for_channels(
+            original_names
+        ), "Original channel names not found in channels toolbar after rename from task config"
+
+        self.console.close_all_tabs()
 
     def test_rename_task(self) -> None:
         """Rename a task and verify synchronization across UI elements."""
