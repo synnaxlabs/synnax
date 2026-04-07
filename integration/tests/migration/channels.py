@@ -13,8 +13,8 @@ from abc import abstractmethod
 from typing import Any
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 from framework.test_case import TestCase
 
 NpArray = np.ndarray[Any, Any]
@@ -355,19 +355,19 @@ class ChannelsVerify(ChannelsMigration):
     def test_channel_types(self) -> None:
         self.log("Testing: Channel types")
         idx = self.client.channels.retrieve(IDX_NAME)
-        assert (
-            idx.data_type == sy.DataType.TIMESTAMP
-        ), f"Expected TIMESTAMP, got {idx.data_type}"
+        assert idx.data_type == sy.DataType.TIMESTAMP, (
+            f"Expected TIMESTAMP, got {idx.data_type}"
+        )
         assert idx.is_index, "Expected index channel"
 
         for name, expected_type, _ in DATA_CHANNELS:
             ch = self.client.channels.retrieve(name)
-            assert (
-                ch.data_type == expected_type
-            ), f"{name}: expected {expected_type}, got {ch.data_type}"
-            assert (
-                ch.index == idx.key
-            ), f"{name}: expected index={idx.key}, got {ch.index}"
+            assert ch.data_type == expected_type, (
+                f"{name}: expected {expected_type}, got {ch.data_type}"
+            )
+            assert ch.index == idx.key, (
+                f"{name}: expected index={idx.key}, got {ch.index}"
+            )
 
     def test_data_integrity(self) -> None:
         self.log("Testing: Data integrity")

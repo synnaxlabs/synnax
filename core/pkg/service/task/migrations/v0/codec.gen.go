@@ -14,8 +14,29 @@ package v0
 import (
 	"encoding/json"
 
+	xjson "github.com/synnaxlabs/x/encoding/json"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := xmsgpack.UnmarshalUint64(dec)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
+	return nil
+}
+
+func (kv *Key) UnmarshalJSON(b []byte) error {
+	n, err := xjson.UnmarshalStringUint64(b)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
+	return nil
+}
 
 func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.Uint64(uint64(t.Key))

@@ -9,9 +9,8 @@
 
 """Test user login and logout via Console UI."""
 
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class UserLoginLogout(ConsoleCase):
@@ -19,7 +18,7 @@ class UserLoginLogout(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user (as admin)
-        username = f"testuser_{get_random_name()}"
+        username = f"testuser_{random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"

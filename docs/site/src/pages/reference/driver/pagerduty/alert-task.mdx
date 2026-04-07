@@ -1,0 +1,127 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "PagerDuty Alert Task"
+description: "Learn how to configure PagerDuty alert tasks in Synnax."
+prev: "Get Started"
+prevURL: "/reference/driver/pagerduty/get-started"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter     | Type    | Required | Default | Description                                                    |
+| ------------- | ------- | -------- | ------- | -------------------------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                                       |
+| `routing_key` | string  | Yes      | -       | 32-character PagerDuty Events API v2 Integration Key           |
+| `auto_start`  | boolean | No       | `false` | Automatically start the task after configuration               |
+| `alerts`      | array   | Yes      | -       | List of [alert configurations](#alert-configuration-reference) |
+
+<Divider.Divider x />
+
+## Alert Configuration Reference
+
+Each alert maps a Synnax status key to a PagerDuty event. At least one alert must be
+enabled.
+
+| Parameter                 | Type    | Required | Default | Description                                                           |
+| ------------------------- | ------- | -------- | ------- | --------------------------------------------------------------------- |
+| `status`                  | string  | Yes      | -       | The Synnax status key to watch                                        |
+| `enabled`                 | boolean | No       | `true`  | Whether this alert is active                                          |
+| `treat_error_as_critical` | boolean | No       | `false` | Map error variant to `critical` PagerDuty severity instead of `error` |
+| `component`               | string  | No       | `""`    | Component of the source machine (e.g., `"engine-1"`)                  |
+| `group`                   | string  | No       | `""`    | Logical grouping of components (e.g., `"engines"`)                    |
+| `class`                   | string  | No       | `""`    | Class/type of the event (e.g., `"engine-failure"`)                    |
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+
+<Video client:only="react" id="device-drivers/pagerduty/alert-task/create" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Create and run an alert task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Create a status to watch
+STATUS_KEY = "example-pagerduty-status"
+client.statuses.set(
+    sy.Status(
+        key=STATUS_KEY,
+        name="Engine 1",
+        variant="success",
+        message="Engine 1 is healthy",
+    )
+)
+
+# Create the PagerDuty alert task
+alert_task = sy.pagerduty.AlertTask(
+    name="Example PagerDuty Alert",
+    routing_key="<your-32-character-integration-key>",
+    auto_start=False,
+    alerts=[
+        sy.pagerduty.AlertConfig(
+            status=STATUS_KEY,
+            enabled=True,
+            treat_error_as_critical=True,
+            component="engine-1",
+            group="engines",
+        ),
+    ],
+)
+
+# Configure the task on the server
+client.tasks.configure(alert_task)
+
+# Start the task - it will watch for status changes
+with alert_task.run():
+    # Trigger a PagerDuty incident by setting status to error
+    client.statuses.set(
+        sy.Status(
+            key=STATUS_KEY,
+            name="Engine 1",
+            variant="error",
+            message="Engine 1 is down",
+            description="Connection to database lost",
+        )
+    )
+    sy.sleep(5)
+
+    # Resolve by setting status back to success
+    client.statuses.set(
+        sy.Status(
+            key=STATUS_KEY,
+            name="Engine 1",
+            variant="success",
+            message="Engine 1 recovered",
+        )
+    )
+    sy.sleep(3)
+# Task automatically stops when exiting the context manager
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

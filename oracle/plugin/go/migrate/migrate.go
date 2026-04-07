@@ -200,10 +200,12 @@ func (p *Plugin) generateForEntry(
 
 		// Generate frozen codec with EncodeOrc/DecodeOrc methods.
 		codecEntries := codecEntriesForTypes(types, codecReachable)
-		if len(codecEntries) > 0 {
+		flex := collectFlexTypes(types, rewrittenOldTable)
+		if len(codecEntries) > 0 || len(flex) > 0 {
 			codecContent, err := gomarshal.GenerateCodecFile(
 				versionDir, mirroredPath,
 				codecEntries,
+				flex,
 				rewrittenOldTable,
 				req.RepoRoot,
 			)
@@ -280,6 +282,27 @@ func codecEntriesForTypes(
 		entries = append(entries, gomarshal.CodecEntry{GoName: goName, Type: t})
 	}
 	return entries
+}
+
+func collectFlexTypes(types []resolution.Type, _ *resolution.Table) []gomarshal.FlexCodec {
+	var flex []gomarshal.FlexCodec
+	for _, t := range types {
+		form, ok := t.Form.(resolution.DistinctForm)
+		if !ok {
+			continue
+		}
+		marshalVal := domain.GetStringFromType(t, "go", "marshal")
+		if marshalVal != "flex" {
+			continue
+		}
+		goName := naming.GetGoName(t)
+		flex = append(flex, gomarshal.FlexCodec{
+			GoName:   goName,
+			Receiver: gomarshal.ReceiverName(goName),
+			BaseType: form.Base.Name,
+		})
+	}
+	return flex
 }
 
 func (p *Plugin) generateSubPackageMigration(

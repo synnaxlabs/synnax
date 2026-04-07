@@ -21,8 +21,8 @@ from synnax import framer
 from synnax.exceptions import ValidationError
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.timing import sleep
-from synnax.util.thread import AsyncThread
-from synnax.x.control import CrudeAuthority
+from x.control import CrudeAuthority
+from x.thread import AsyncThread
 
 
 class Processor(Protocol):

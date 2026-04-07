@@ -88,9 +88,9 @@ class Counter:
             else:
                 actual_value = self.layout.get_dropdown_value(key)
 
-            assert (
-                actual_value == expected_value
-            ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+            assert actual_value == expected_value, (
+                f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+            )
 
     def has_min_max(self) -> bool:
         """Check if this channel type has min/max value fields."""

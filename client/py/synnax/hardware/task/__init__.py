@@ -18,5 +18,5 @@ warnings.warn(
     stacklevel=2,
 )
 
-from synnax.task import *
-from synnax.task import __all__
+from synnax.task import *  # noqa: F403
+from synnax.task import __all__ as __all__  # noqa: F401

@@ -81,14 +81,18 @@ task = ni.AnalogReadTask(
             port=0,
             min_val=0.004,
             max_val=0.02,
+            shunt_resistor_loc="Internal",
+            ext_shunt_resistor_val=249.0,
         ),
-        ni.AIThermoChan(
+        ni.AIThermocoupleChan(
             channel=temp_chan.key,
             device=tc_dev.key,
             port=0,
             units="DegC",
             thermocouple_type="J",
             cjc_source="BuiltIn",
+            cjc_val=None,
+            cjc_port=None,
         ),
     ],
 )

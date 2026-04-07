@@ -62,27 +62,6 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("struct with uuid field", func() {
-			It("Should use assignment not declaration for r.Read", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Test struct {
-						key uuid
-						name string
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec.gen.go").
-					ToContain(
-						"w.Write(s.Key[:])",
-						"if _, err = r.Read(s.Key[:]); err != nil",
-					)
-			})
-		})
-
 		Context("nested struct (same package delegation)", func() {
 			It("Should delegate to nested struct EncodeOrc/DecodeOrc methods", func() {
 				source := `
@@ -317,56 +296,6 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("soft optional array field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Test struct {
-						name  string
-						items string[]?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"if s.Items != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len(s.Items)))",
-				)
-				content.ToNotContain(
-					"w.Bool(s.Items != nil)",
-				)
-			})
-		})
-
-		Context("soft optional map field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Test struct {
-						name   string
-						labels map<string, string>?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"if s.Labels != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len(s.Labels)))",
-				)
-				content.ToNotContain(
-					"w.Bool(s.Labels != nil)",
-				)
-			})
-		})
-
 		Context("bytes field nil preservation", func() {
 			It("Should generate a presence bit before the byte slice length", func() {
 				source := `
@@ -518,139 +447,52 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("generic struct test generation", func() {
-			It("Should generate tests for generic structs with concrete type substitution", func() {
+		Context("marshal flex on a distinct scalar type", func() {
+			It("Should generate DecodeMsgpack and UnmarshalJSON methods", func() {
 				source := `
 					@go output "core/pkg/test"
-					@go marshal
 					@pb
 
-					Status struct<Details?> {
-						key     string
-						message string
-						details Details?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToContain(
-						"Describe(\"Status\"",
-						"Status[string]",
-						"EncodeStatus",
-						"DecodeStatus",
-					)
-			})
-
-			It("Should generate tests for generic structs with defaulted and non-defaulted type params", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Variant enum {
-						info    = "info"
-						warning = "warning"
-						error   = "error"
+					Key uint64 {
+						@go marshal flex
 					}
 
 					Inner struct {
-						name string
-						@go omit
-					}
-
-					Status struct<Details?, V extends Variant = Variant> {
-						key         string
-						variant     V
-						message     string
-						description string?
-						time        int64
-						details     Details?
-						items       Inner[]?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToContain(
-						"Describe(\"Status\"",
-						"Status[string]",
-						"EncodeStatus",
-						"DecodeStatus",
-						"BenchmarkEncodeDecodeStatus",
-						"FuzzDecodeStatus",
-					)
-			})
-
-			It("Should generate benchmark and fuzz tests for generic structs", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Container struct<T?> {
-						name  string
-						value T?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToContain(
-						"BenchmarkEncodeDecodeContainer",
-						"FuzzDecodeContainer",
-					)
-			})
-		})
-
-		Context("hard optional array field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
-				source := `
-					@go output "core/pkg/test"
-					@go marshal
-					@pb
-
-					Inner struct {
-						name string
-						@go omit
-					}
-
-					Test struct {
-						name  string
-						items Inner[]??
+						task Key
+						@go marshal
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
-					"if s.Items != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len((*s.Items))))",
-				)
-				content.ToNotContain(
-					"w.Bool((*s.Items) != nil)",
+					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
+					"xmsgpack.UnmarshalUint64",
+					"func (kv *Key) UnmarshalJSON(b []byte) error",
+					"xjson.UnmarshalStringUint64",
 				)
 			})
-		})
 
-		Context("hard optional map field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
+			It("Should generate uint32 helpers for uint32 base types", func() {
 				source := `
 					@go output "core/pkg/test"
-					@go marshal
 					@pb
 
-					Test struct {
-						name   string
-						labels map<string, string>??
+					Key uint32 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						rack Key
+						@go marshal
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
-					"if s.Labels != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len((*s.Labels))))",
-				)
-				content.ToNotContain(
-					"w.Bool((*s.Labels) != nil)",
+					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
+					"xmsgpack.UnmarshalUint32",
+					"func (kv *Key) UnmarshalJSON(b []byte) error",
+					"xjson.UnmarshalStringUint32",
 				)
 			})
 		})

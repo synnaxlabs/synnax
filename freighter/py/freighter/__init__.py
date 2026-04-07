@@ -15,14 +15,7 @@ from freighter.alamos import (
 )
 from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.context import Context, Role
-from freighter.exceptions import (
-    EOF,
-    ExceptionPayload,
-    StreamClosed,
-    decode_exception,
-    encode_exception,
-    register_exception,
-)
+from freighter.exceptions import EOF, StreamClosed, Unreachable
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.transport import (
@@ -43,6 +36,12 @@ from freighter.websocket import (
     AsyncWebsocketStream,
     WebsocketClient,
 )
+from x.exceptions import (
+    ExceptionPayload,
+    decode_exception,
+    encode_exception,
+    register_exception,
+)
 
 __all__ = [
     "AsyncFinalizer",
@@ -56,6 +55,7 @@ __all__ = [
     "async_instrumentation_middleware",
     "Codec",
     "Context",
+    "Role",
     "decode_exception",
     "encode_exception",
     "EOF",
@@ -76,6 +76,7 @@ __all__ = [
     "StreamClosed",
     "Transport",
     "UnaryClient",
+    "Unreachable",
     "URL",
     "WebsocketClient",
 ]

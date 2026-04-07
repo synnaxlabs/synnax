@@ -11,7 +11,6 @@ import warnings
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
-
 from synnax import (
     access,
     arc,

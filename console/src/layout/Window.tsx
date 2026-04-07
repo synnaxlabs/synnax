@@ -24,9 +24,9 @@ import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
 
 export const DefaultContextMenu = (): ReactElement => (
-  <Menu.Menu>
+  <ContextMenu.Menu>
     <ContextMenu.ReloadConsoleItem />
-  </Menu.Menu>
+  </ContextMenu.Menu>
 );
 
 const WindowInternal = (): ReactElement | null => {

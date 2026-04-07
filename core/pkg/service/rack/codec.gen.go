@@ -12,24 +12,11 @@
 package rack
 
 import (
+	xjson "github.com/synnaxlabs/x/encoding/json"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	msgpack "github.com/vmihailenco/msgpack/v5"
 )
-
-func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(sd.Rack))
-	return nil
-}
-
-func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		sd.Rack = Key(v)
-	}
-	return nil
-}
 
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rv.Key))
@@ -105,5 +92,39 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(sd.Rack))
+	return nil
+}
+
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		sd.Rack = Key(v)
+	}
+	return nil
+}
+
+func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := xmsgpack.UnmarshalUint32(dec)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
+	return nil
+}
+
+func (kv *Key) UnmarshalJSON(b []byte) error {
+	n, err := xjson.UnmarshalStringUint32(b)
+	if err != nil {
+		return err
+	}
+	*kv = Key(n)
 	return nil
 }

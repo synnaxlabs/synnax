@@ -9,7 +9,7 @@
 
 @go output  "x/go/telem"
 @ts output  "x/ts/src/telem"
-@py output  "client/py/synnax/telem"
+@py output  "x/py/x/telem"
 @cpp output "x/cpp/telem"
 @pb
 

@@ -21,14 +21,9 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
-from console.log import Log
-from console.plot import Plot
-from console.schematic.schematic import Schematic
 from console.schematic.value import Value
-from console.table import Table
+from x import random_name
 
 
 class RenameSynchronization(ConsoleCase):
@@ -41,7 +36,7 @@ class RenameSynchronization(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.index_name = f"sync_idx_{self.suffix}"
         self.data_name = f"sync_data_{self.suffix}"
         self.new_name = f"renamed_sync_{self.suffix}"
@@ -53,7 +48,6 @@ class RenameSynchronization(ConsoleCase):
     def run(self) -> None:
         """Run channel rename synchronization tests."""
         console = self.console
-        client = self.client
 
         self.log("Creating test channels")
         console.channels.create(name=self.index_name, is_index=True)
@@ -92,29 +86,29 @@ class RenameSynchronization(ConsoleCase):
         self.log("Verifying sync in Resources Toolbar")
         console.channels.show_channels()
         new_item = console.channels._find_channel_item(self.new_name)
-        assert (
-            new_item is not None
-        ), f"Renamed channel {self.new_name} should appear in Resources Toolbar"
+        assert new_item is not None, (
+            f"Renamed channel {self.new_name} should appear in Resources Toolbar"
+        )
         old_item = console.channels._find_channel_item(self.data_name)
-        assert (
-            old_item is None
-        ), f"Old channel name {self.data_name} should not appear after rename"
+        assert old_item is None, (
+            f"Old channel name {self.data_name} should not appear after rename"
+        )
         console.channels.hide_channels()
 
         ch = self.client.channels.retrieve(self.new_name)
-        assert (
-            ch.name == self.new_name
-        ), f"Server should have channel with name {self.new_name}"
+        assert ch.name == self.new_name, (
+            f"Server should have channel with name {self.new_name}"
+        )
 
         self.log("Verifying sync in Line Plot Toolbar")
-        assert plot.has_channel(
-            "Y1", self.new_name
-        ), f"Renamed channel {self.new_name} should appear in Line Plot toolbar"
+        assert plot.has_channel("Y1", self.new_name), (
+            f"Renamed channel {self.new_name} should appear in Line Plot toolbar"
+        )
 
         self.log("Verifying sync in Log Toolbar")
-        assert log_page.has_channel(
-            self.new_name
-        ), f"Renamed channel {self.new_name} should appear in Log toolbar"
+        assert log_page.has_channel(self.new_name), (
+            f"Renamed channel {self.new_name} should appear in Log toolbar"
+        )
 
         self.log("Verifying sync in Schematic Toolbar")
         console.layout.get_tab(f"Sync Test Schematic {self.suffix}").click()
@@ -125,9 +119,9 @@ class RenameSynchronization(ConsoleCase):
         )
 
         self.log("Verifying sync in Table Toolbar")
-        assert table.has_channel(
-            self.new_name
-        ), f"Renamed channel {self.new_name} should appear in Table toolbar"
+        assert table.has_channel(self.new_name), (
+            f"Renamed channel {self.new_name} should appear in Table toolbar"
+        )
 
         plot.close()
         log_page.close()

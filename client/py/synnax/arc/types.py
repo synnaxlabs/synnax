@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from synnax import task
+from x.deprecation import deprecated_getattr
 
 TASK_TYPE = "arc"
 
@@ -56,8 +57,6 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = TaskConfig(arc_key=str(arc_key), auto_start=auto_start)
 
-
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ArcTask": "Task",

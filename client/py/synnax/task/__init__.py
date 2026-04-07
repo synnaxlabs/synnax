@@ -25,7 +25,7 @@ from synnax.task.types_gen import (
     StatusDetails,
     ontology_id,
 )
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "TaskPayload": "Payload",

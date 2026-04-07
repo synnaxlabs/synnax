@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type KeyOrName, type Params } from "@/channel/payload";
+import { type Params } from "@/channel/payload";
 import {
   analyzeParams,
   CacheRetriever,
@@ -33,6 +33,7 @@ import {
 import {
   type Key,
   keyZ,
+  type Name,
   type New,
   ontologyID,
   type Operation,
@@ -342,7 +343,7 @@ export class Client {
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(params: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
+  async retrieve(params: Key | Name, options?: RetrieveOptions): Promise<Channel>;
 
   /**
    * Retrieves multiple channels from the database using the provided keys or the

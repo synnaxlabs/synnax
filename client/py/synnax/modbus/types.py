@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
-from synnax.telem import CrudeDataType, CrudeRate
+from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
 MAKE = "Modbus"

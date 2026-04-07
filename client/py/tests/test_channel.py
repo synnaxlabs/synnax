@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
-from tests.telem import seconds_linspace
+from x.telem import seconds_linspace
 
 
 def channel_name() -> str:
@@ -159,7 +159,7 @@ class TestChannel:
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
-        base_v_channel = client.channels.create(
+        client.channels.create(
             name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
@@ -413,7 +413,7 @@ class TestChannel:
         for i in range(100):
             data.append(
                 sy.Channel(
-                    name=f"sensor_{i+1}_{channel_name()}",
+                    name=f"sensor_{i + 1}_{channel_name()}",
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                     internal=True,

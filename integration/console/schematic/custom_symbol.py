@@ -9,8 +9,6 @@
 
 """Custom symbol class for user-created symbols."""
 
-from typing import Any
-
 from console.schematic.symbol import Symbol
 
 

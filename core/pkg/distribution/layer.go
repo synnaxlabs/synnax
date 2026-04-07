@@ -298,7 +298,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Framer, err = framer.OpenService(framer.ServiceConfig{
+	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,

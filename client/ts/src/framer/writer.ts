@@ -135,9 +135,12 @@ const authorityArgsZ = z
         throw new Error(
           "authority is required when setting authority for a single channel",
         );
-      return { keys: [value] as channel.KeysOrNames, authorities: [authority] };
+      return {
+        keys: [value] as channel.Key[] | channel.Name[],
+        authorities: [authority],
+      };
     }
-    const oValue = value as Record<channel.KeyOrName, control.Authority>;
+    const oValue = value as Record<channel.Key | channel.Name, control.Authority>;
     return { keys: Object.keys(oValue), authorities: Object.values(oValue) };
   });
 
@@ -213,15 +216,18 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
-  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
+  async write(channel: channel.Key | channel.Name, data: CrudeSeries): Promise<void>;
   async write(
-    frame: CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+    channel: channel.Key[] | channel.Name[],
+    data: CrudeSeries[],
+  ): Promise<void>;
+  async write(
+    frame: CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void>;
   async write(
     channelsOrData:
       | channel.Params
-      | Record<channel.KeyOrName, CrudeSeries>
+      | Record<channel.Key | channel.Name, CrudeSeries>
       | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
@@ -243,7 +249,7 @@ export class Writer {
   async write(
     channelsOrData:
       | channel.Params
-      | Record<channel.KeyOrName, CrudeSeries>
+      | Record<channel.Key | channel.Name, CrudeSeries>
       | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {

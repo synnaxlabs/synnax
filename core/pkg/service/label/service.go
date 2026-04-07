@@ -19,10 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -82,47 +83,47 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg     ServiceConfig
-	signals io.Closer
-	table   *gorp.Table[Key, Label]
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[Key, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close in order
 // to prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Label]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Label]{
 		DB:              cfg.DB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Label]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](s.table.Observe()))
-		if err != nil {
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfigUUID[Label](s.table.Observe()),
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
-	return s, err
+	return s, nil
 }
 
 // Close closes the label service and releases any resources that it may have acquired.
 // Close must be called when the service is no longer needed to prevent resource leaks.
-func (s *Service) Close() error {
-	if s.signals != nil {
-		return errors.Combine(s.signals.Close(), s.table.Close())
-	}
-	return s.table.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {

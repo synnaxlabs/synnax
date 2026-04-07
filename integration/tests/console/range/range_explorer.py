@@ -10,9 +10,8 @@
 from uuid import UUID
 
 import synnax as sy
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class RangeExplorer(ConsoleCase):
@@ -30,7 +29,7 @@ class RangeExplorer(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self.label_a_name = f"LabelA_{self.suffix}"
         self.label_b_name = f"LabelB_{self.suffix}"
         self.range_a_name = f"RangeA_{self.suffix}"
@@ -100,9 +99,9 @@ class RangeExplorer(ConsoleCase):
         self.console.ranges.create_child_range_from_explorer(
             self.range_a_name, self.child_range_name
         )
-        assert self.console.ranges.exists_in_explorer(
-            self.child_range_name
-        ), f"Child range '{self.child_range_name}' should exist in explorer"
+        assert self.console.ranges.exists_in_explorer(self.child_range_name), (
+            f"Child range '{self.child_range_name}' should exist in explorer"
+        )
 
     def test_favorite_multiple_ranges(self) -> None:
         """Test favoriting multiple ranges via multi-select context menu."""
@@ -111,12 +110,12 @@ class RangeExplorer(ConsoleCase):
             [self.range_b_name, self.range_c_name]
         )
 
-        assert self.console.ranges.exists_in_toolbar(
-            self.range_b_name
-        ), f"'{self.range_b_name}' should appear in toolbar after favoriting"
-        assert self.console.ranges.exists_in_toolbar(
-            self.range_c_name
-        ), f"'{self.range_c_name}' should appear in toolbar after favoriting"
+        assert self.console.ranges.exists_in_toolbar(self.range_b_name), (
+            f"'{self.range_b_name}' should appear in toolbar after favoriting"
+        )
+        assert self.console.ranges.exists_in_toolbar(self.range_c_name), (
+            f"'{self.range_c_name}' should appear in toolbar after favoriting"
+        )
 
     def test_unfavorite_range(self) -> None:
         """Test unfavoriting a single range via explorer context menu."""
@@ -124,9 +123,9 @@ class RangeExplorer(ConsoleCase):
         self.console.ranges.open_explorer()
         self.console.ranges.unfavorite_from_explorer(self.range_b_name)
 
-        assert self.console.ranges.exists_in_toolbar(
-            self.range_c_name
-        ), f"'{self.range_c_name}' should still be in toolbar"
+        assert self.console.ranges.exists_in_toolbar(self.range_c_name), (
+            f"'{self.range_c_name}' should still be in toolbar"
+        )
 
     def test_unfavorite_multiple_ranges(self) -> None:
         """Test unfavoriting multiple ranges via multi-select context menu."""
@@ -169,14 +168,14 @@ class RangeExplorer(ConsoleCase):
 
         self.console.ranges.search_explorer(self.range_a_name)
 
-        assert self.console.ranges.exists_in_explorer(
-            self.range_a_name
-        ), f"'{self.range_a_name}' should be visible when searching for it"
+        assert self.console.ranges.exists_in_explorer(self.range_a_name), (
+            f"'{self.range_a_name}' should be visible when searching for it"
+        )
 
         self.console.ranges.clear_explorer_search()
-        assert self.console.ranges.exists_in_explorer(
-            self.range_b_name
-        ), f"'{self.range_b_name}' should be visible after clearing search"
+        assert self.console.ranges.exists_in_explorer(self.range_b_name), (
+            f"'{self.range_b_name}' should be visible after clearing search"
+        )
 
     def test_filter_by_labels(self) -> None:
         """Test filtering ranges by label in the explorer."""
@@ -184,8 +183,8 @@ class RangeExplorer(ConsoleCase):
         self.console.ranges.open_explorer()
         self.console.ranges.select_explorer_label_filter(self.label_a_name)
 
-        assert self.console.ranges.exists_in_explorer(
-            self.range_a_name
-        ), f"'{self.range_a_name}' should be visible when filtering by its label"
+        assert self.console.ranges.exists_in_explorer(self.range_a_name), (
+            f"'{self.range_a_name}' should be visible when filtering by its label"
+        )
 
         self.console.ranges.wait_for_removed_from_explorer(self.range_b_name)

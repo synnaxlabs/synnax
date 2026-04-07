@@ -36,18 +36,18 @@ following:
 
 ## Configuration Parameters Reference
 
-| Parameter            | Type   | Required | Default | Description                                                                                                         |
-| -------------------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `name`               | string | Yes      | -       | Human-readable server name for identification in Console                                                            |
-| `rack`               | string | Yes      | -       | Synnax Driver (rack) key that will connect to the OPC UA server                                                     |
-| `endpoint`           | string | Yes      | -       | Server endpoint URL (e.g., `opc.tcp://localhost:4840`)                                                              |
-| `username`           | string | No       | -       | Username for server authentication (optional)                                                                       |
-| `password`           | string | No       | -       | Password for server authentication (optional)                                                                       |
-| `security_mode`      | string | No       | `None`  | Security mode: `None`, `Sign`, or `SignAndEncrypt`                                                                  |
-| `security_policy`    | string | No       | `None`  | Security policy: `None`, `Basic128Rsa15`, `Basic256`, `Basic256Sha256`, `Aes128Sha256RsaOaep`, `Aes256Sha256RsaPss` |
-| `client_certificate` | string | No       | -       | Client certificate for signing/encrypting (required if security policy ≠ `None`)                                    |
-| `client_private_key` | string | No       | -       | Client private key for signing/encrypting (required if security policy ≠ `None`)                                    |
-| `server_certificate` | string | No       | -       | Trusted server certificate (required if security policy ≠ `None`)                                                   |
+| Parameter            | Type   | Required | Default | Description                                                                                                             |
+| -------------------- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `name`               | string | Yes      | -       | Human-readable server name for identification in Console                                                                |
+| `rack`               | string | Yes      | -       | Synnax Driver (rack) key that will connect to the OPC UA server                                                         |
+| `endpoint`           | string | Yes      | -       | Server endpoint URL (e.g., `opc.tcp://localhost:4840`)                                                                  |
+| `username`           | string | No       | -       | Username for server authentication (optional)                                                                           |
+| `password`           | string | No       | -       | Password for server authentication (optional)                                                                           |
+| `security_mode`      | string | No       | `None`  | Security mode: `None`, `Sign`, or `SignAndEncrypt`                                                                      |
+| `security_policy`    | string | No       | `None`  | Security policy: `None`, `Basic128Rsa15`, `Basic256`, `Basic256Sha256`, `Aes128_Sha256_RsaOaep`, `Aes256_Sha256_RsaPss` |
+| `client_cert`        | string | No       | -       | Client certificate for signing/encrypting (required if security policy ≠ `None`)                                        |
+| `client_private_key` | string | No       | -       | Client private key for signing/encrypting (required if security policy ≠ `None`)                                        |
+| `server_cert`        | string | No       | -       | Trusted server certificate (required if security policy ≠ `None`)                                                       |
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Security Mode & Policy Reference</Text.Text>
@@ -66,8 +66,8 @@ following:
 - **Basic128Rsa15** -> 128-bit encryption with RSA-15
 - **Basic256** -> 256-bit encryption
 - **Basic256Sha256** -> 256-bit encryption with SHA-256
-- **Aes128Sha256RsaOaep** -> 128-bit AES with SHA-256 and RSA OAEP
-- **Aes256Sha256RsaPss** -> 256-bit AES with SHA-256 and RSA PSS
+- **Aes128_Sha256_RsaOaep** -> 128-bit AES with SHA-256 and RSA OAEP
+- **Aes256_Sha256_RsaPss** -> 256-bit AES with SHA-256 and RSA PSS
 
 </Details>
 

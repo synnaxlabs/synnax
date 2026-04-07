@@ -25,7 +25,6 @@ Use --tls to target the TLS-encrypted server instead.
 """
 
 import argparse
-import time
 
 import synnax as sy
 
@@ -132,7 +131,7 @@ with tsk.run():
             val1 = float(i * 2)
             val2 = float(i * 3)
 
-            print(f"{i+1:<8} {val0:>12.1f} {val1:>12.1f} {val2:>12.1f}")
+            print(f"{i + 1:<8} {val0:>12.1f} {val1:>12.1f} {val2:>12.1f}")
 
             # Write timestamp to index channel along with command values
             writer.write(
