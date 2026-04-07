@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,6 +35,7 @@ type CheckResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ClusterKey    string                 `protobuf:"bytes,1,opt,name=cluster_key,json=clusterKey,proto3" json:"cluster_key,omitempty"`
 	NodeVersion   string                 `protobuf:"bytes,2,opt,name=node_version,json=nodeVersion,proto3" json:"node_version,omitempty"`
+	NodeTime      int64                  `protobuf:"varint,3,opt,name=node_time,json=nodeTime,proto3" json:"node_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,15 +84,23 @@ func (x *CheckResponse) GetNodeVersion() string {
 	return ""
 }
 
+func (x *CheckResponse) GetNodeTime() int64 {
+	if x != nil {
+		return x.NodeTime
+	}
+	return 0
+}
+
 var File_core_pkg_api_grpc_connectivity_connectivity_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_connectivity_connectivity_proto_rawDesc = "" +
 	"\n" +
-	"1core/pkg/api/grpc/connectivity/connectivity.proto\x12\x11grpc.connectivity\x1a\x1bgoogle/protobuf/empty.proto\"S\n" +
+	"1core/pkg/api/grpc/connectivity/connectivity.proto\x12\x11grpc.connectivity\x1a\x1bgoogle/protobuf/empty.proto\"p\n" +
 	"\rCheckResponse\x12\x1f\n" +
 	"\vcluster_key\x18\x01 \x01(\tR\n" +
 	"clusterKey\x12!\n" +
-	"\fnode_version\x18\x02 \x01(\tR\vnodeVersion2Y\n" +
+	"\fnode_version\x18\x02 \x01(\tR\vnodeVersion\x12\x1b\n" +
+	"\tnode_time\x18\x03 \x01(\x03R\bnodeTime2Y\n" +
 	"\x13ConnectivityService\x12B\n" +
 	"\x04Exec\x12\x16.google.protobuf.Empty\x1a .grpc.connectivity.CheckResponse\"\x00B\xc7\x01\n" +
 	"\x15com.grpc.connectivityB\x11ConnectivityProtoP\x01Z6github.com/synnaxlabs/synnax/pkg/api/grpc/connectivity\xa2\x02\x03GCX\xaa\x02\x11Grpc.Connectivity\xca\x02\x11Grpc\\Connectivity\xe2\x02\x1dGrpc\\Connectivity\\GPBMetadata\xea\x02\x12Grpc::Connectivityb\x06proto3"
