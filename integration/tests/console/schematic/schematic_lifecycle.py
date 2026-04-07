@@ -411,9 +411,9 @@ class SchematicLifecycle(ConsoleCase):
 
         # Arrive at crackle, assert navigation succeeded
         self.console.layout.wait_for_tab(names[1])
-        assert self.console.layout.get_tab(
-            names[1]
-        ).is_visible(), f"Expected to navigate to '{names[1]}'"
+        assert self.console.layout.get_tab(names[1]).is_visible(), (
+            f"Expected to navigate to '{names[1]}'"
+        )
         self.console.layout.get_tab(names[1]).click()
         schematic = Schematic.from_open_page(self.console.layout, self.client, names[1])
         ref2 = OffPageReference(label=f"Go to {names[2]}", page_name=names[2])
@@ -424,9 +424,9 @@ class SchematicLifecycle(ConsoleCase):
 
         # Arrive at pop, assert navigation succeeded
         self.console.layout.wait_for_tab(names[2])
-        assert self.console.layout.get_tab(
-            names[2]
-        ).is_visible(), f"Expected to navigate to '{names[2]}'"
+        assert self.console.layout.get_tab(names[2]).is_visible(), (
+            f"Expected to navigate to '{names[2]}'"
+        )
         self.console.layout.get_tab(names[2]).click()
         schematic = Schematic.from_open_page(self.console.layout, self.client, names[2])
         ref3 = OffPageReference(label=f"Go to {names[0]}", page_name=names[0])
@@ -437,9 +437,9 @@ class SchematicLifecycle(ConsoleCase):
 
         # Verify we navigated back to snap
         self.console.layout.wait_for_tab(names[0])
-        assert self.console.layout.get_tab(
-            names[0]
-        ).is_visible(), f"Expected to navigate back to '{names[0]}'"
+        assert self.console.layout.get_tab(names[0]).is_visible(), (
+            f"Expected to navigate back to '{names[0]}'"
+        )
         self.log("Off-page navigation cycle verified")
 
         # Cleanup

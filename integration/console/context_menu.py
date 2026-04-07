@@ -9,7 +9,6 @@
 
 """Context menu helper for Console UI automation."""
 
-from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
