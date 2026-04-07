@@ -33,9 +33,9 @@ export const CopyItem = ({
       background={background}
       tooltip={null}
       gap={gap}
-      onClick={handleClick}
       propagateClick
       {...rest}
+      onClick={handleClick}
     />
   );
 };

@@ -66,13 +66,13 @@ export const Copy = ({
       handleError(async () => {
         const resolvedText = await (typeof text === "function" ? text() : text);
         await navigator.clipboard.writeText(resolvedText);
+        onCopy?.();
         if (successMessage != null) {
           const message =
             typeof successMessage === "function" ? successMessage() : successMessage;
           return addStatus({ variant: "success", message });
         }
         setCopied(true);
-        onCopy?.();
         setTimeout(
           () => setCopied(false),
           TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
