@@ -10,11 +10,10 @@
 from abc import abstractmethod
 
 import synnax as sy
-from x import random_name
-
 from console.case import ConsoleCase
 from framework.models import STATUS
 from tests.driver.sim_daq_case import SimDaqCase
+from x import random_name
 
 
 class ArcConsoleCase(SimDaqCase, ConsoleCase):

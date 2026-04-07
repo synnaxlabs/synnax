@@ -147,7 +147,9 @@ try:
                 # Digital output - alternating ON/OFF
                 fio4_val = i % 2
 
-                print(f"{i+1:<8} {dac0_val:>12.2f} {'HIGH' if fio4_val else 'LOW':>12}")
+                print(
+                    f"{i + 1:<8} {dac0_val:>12.2f} {'HIGH' if fio4_val else 'LOW':>12}"
+                )
 
                 # Write all commands with timestamp
                 writer.write(

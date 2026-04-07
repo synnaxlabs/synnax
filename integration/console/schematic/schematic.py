@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
-import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 from console.schematic.symbol import (

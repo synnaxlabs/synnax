@@ -9,14 +9,14 @@
 
 """Test custom schematic symbol operations."""
 
-import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from x import random_name
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from framework.utils import get_fixture_path
+from x import random_name
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 
@@ -95,9 +95,9 @@ class CustomSymbols(ConsoleCase):
         """Test creating a new symbol group."""
         self.log("Testing create symbol group")
         toolbar.create_group(self.test_group_name)
-        assert toolbar.group_exists(
-            self.test_group_name
-        ), f"Group '{self.test_group_name}' should exist after creation"
+        assert toolbar.group_exists(self.test_group_name), (
+            f"Group '{self.test_group_name}' should exist after creation"
+        )
 
     def test_rename_symbol_group(self, toolbar: SymbolToolbar) -> None:
         """Test renaming a symbol group."""
@@ -106,9 +106,9 @@ class CustomSymbols(ConsoleCase):
         new_name = f"Renamed Group {self.suffix}"
         toolbar.rename_group(old_name, new_name)
         toolbar.wait_for_group_hidden(old_name)
-        assert toolbar.group_exists(
-            new_name
-        ), f"Group '{new_name}' should exist after rename"
+        assert toolbar.group_exists(new_name), (
+            f"Group '{new_name}' should exist after rename"
+        )
         self.test_group_name = new_name
 
     def test_create_symbol(self, schematic: Schematic, toolbar: SymbolToolbar) -> None:
@@ -138,13 +138,13 @@ class CustomSymbols(ConsoleCase):
         created_symbol = schematic.create_symbol(custom_symbol_config)
         assert isinstance(created_symbol, CustomSymbol)
         self.custom_symbol = created_symbol
-        assert (
-            self.custom_symbol.symbol_id is not None
-        ), "Custom symbol should have an ID"
+        assert self.custom_symbol.symbol_id is not None, (
+            "Custom symbol should have an ID"
+        )
         symbol_id = self.custom_symbol.symbol_id
-        assert symbol_id.startswith(
-            "rf__node-"
-        ), f"Symbol ID should start with 'rf__node-', got '{symbol_id}'"
+        assert symbol_id.startswith("rf__node-"), (
+            f"Symbol ID should start with 'rf__node-', got '{symbol_id}'"
+        )
 
     def test_rename_symbol(self, toolbar: SymbolToolbar) -> None:
         """Test renaming a symbol via context menu."""
@@ -154,9 +154,9 @@ class CustomSymbols(ConsoleCase):
         new_name = f"Renamed Symbol {self.suffix}"
         toolbar.rename_symbol(old_name, new_name)
         toolbar.wait_for_symbol_hidden(old_name)
-        assert toolbar.symbol_exists(
-            new_name
-        ), f"Symbol '{new_name}' should exist after rename"
+        assert toolbar.symbol_exists(new_name), (
+            f"Symbol '{new_name}' should exist after rename"
+        )
         self.test_symbol_name = new_name
 
     def test_rename_symbol_via_editor(self, toolbar: SymbolToolbar) -> None:
@@ -169,9 +169,9 @@ class CustomSymbols(ConsoleCase):
         editor.set_name(new_name)
         editor.save()
         toolbar.wait_for_symbol_hidden(old_name)
-        assert toolbar.symbol_exists(
-            new_name
-        ), f"Symbol '{new_name}' should exist after editor rename"
+        assert toolbar.symbol_exists(new_name), (
+            f"Symbol '{new_name}' should exist after editor rename"
+        )
         self.test_symbol_name = new_name
 
     def test_custom_symbol_as_actuator(self) -> None:
@@ -200,9 +200,9 @@ class CustomSymbols(ConsoleCase):
         assert "key" in exported, "Exported symbol should contain 'key'"
         assert "name" in exported, "Exported symbol should contain 'name'"
         assert "data" in exported, "Exported symbol should contain 'data'"
-        assert (
-            exported["name"] == self.test_symbol_name
-        ), f"Exported symbol name should be '{self.test_symbol_name}'"
+        assert exported["name"] == self.test_symbol_name, (
+            f"Exported symbol name should be '{self.test_symbol_name}'"
+        )
 
     def test_delete_symbol(self, toolbar: SymbolToolbar) -> None:
         """Test deleting a symbol via context menu."""

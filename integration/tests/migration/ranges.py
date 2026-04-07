@@ -13,8 +13,8 @@ from abc import abstractmethod
 from typing import Any
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 from console.case import ConsoleCase
 from framework.test_case import TestCase
 
@@ -112,9 +112,9 @@ class RangesSetup(RangesMigration):
         for name, color, tr in CHILDREN:
             self.parent.create_child_range(name=name, time_range=tr, color=color)
         children = self.parent.children
-        assert len(children) == len(
-            CHILDREN
-        ), f"Expected {len(CHILDREN)} children, got {len(children)}"
+        assert len(children) == len(CHILDREN), (
+            f"Expected {len(CHILDREN)} children, got {len(children)}"
+        )
 
     def test_data_access(self) -> None:
         self.log("Testing: Create channels, write data, and set alias")
@@ -144,9 +144,9 @@ class RangesSetup(RangesMigration):
 
         self.parent.set_alias(DATA_NAME, ALIAS_NAME)
         data = self.parent[ALIAS_NAME].to_numpy()
-        assert (
-            len(data) == SAMPLE_COUNT
-        ), f"Alias readback: expected {SAMPLE_COUNT} samples, got {len(data)}"
+        assert len(data) == SAMPLE_COUNT, (
+            f"Alias readback: expected {SAMPLE_COUNT} samples, got {len(data)}"
+        )
 
 
 class RangesVerify(ConsoleCase, RangesMigration):
@@ -166,15 +166,15 @@ class RangesVerify(ConsoleCase, RangesMigration):
         self.log("Testing: Range properties survived migration")
         self.parent = self.client.ranges.retrieve(name=PARENT_NAME)
         assert self.parent.name == PARENT_NAME
-        assert (
-            self.parent.time_range.start == PARENT_TR.start
-        ), f"Start mismatch: {self.parent.time_range.start} != {PARENT_TR.start}"
-        assert (
-            self.parent.time_range.end == PARENT_TR.end
-        ), f"End mismatch: {self.parent.time_range.end} != {PARENT_TR.end}"
-        assert (
-            self.parent.color == PARENT_COLOR
-        ), f"Color mismatch: {self.parent.color.hex()} != {PARENT_COLOR}"
+        assert self.parent.time_range.start == PARENT_TR.start, (
+            f"Start mismatch: {self.parent.time_range.start} != {PARENT_TR.start}"
+        )
+        assert self.parent.time_range.end == PARENT_TR.end, (
+            f"End mismatch: {self.parent.time_range.end} != {PARENT_TR.end}"
+        )
+        assert self.parent.color == PARENT_COLOR, (
+            f"Color mismatch: {self.parent.color.hex()} != {PARENT_COLOR}"
+        )
 
     def test_metadata(self) -> None:
         self.log("Testing: Metadata survived migration")
@@ -184,42 +184,42 @@ class RangesVerify(ConsoleCase, RangesMigration):
     def test_child_ranges(self) -> None:
         self.log("Testing: Child ranges survived migration")
         children = self.parent.children
-        assert len(children) == len(
-            CHILDREN
-        ), f"Expected {len(CHILDREN)} children, got {len(children)}"
+        assert len(children) == len(CHILDREN), (
+            f"Expected {len(CHILDREN)} children, got {len(children)}"
+        )
         by_name = {c.name: c for c in children}
         for name, color, tr in CHILDREN:
             child = by_name.get(name)
             assert child is not None, f"Child '{name}' not found"
             assert child.time_range.start == tr.start, f"{name} start mismatch"
             assert child.time_range.end == tr.end, f"{name} end mismatch"
-            assert (
-                child.color == color
-            ), f"{name} color mismatch: {child.color.hex()} != {color}"
+            assert child.color == color, (
+                f"{name} color mismatch: {child.color.hex()} != {color}"
+            )
 
     def test_data_access(self) -> None:
         self.log("Testing: Data accessible through range after migration")
         # Via alias
         alias_data = self.parent[ALIAS_NAME].to_numpy()
-        assert np.array_equal(
-            alias_data, DATA_VALUES
-        ), f"Alias data mismatch: {alias_data}"
+        assert np.array_equal(alias_data, DATA_VALUES), (
+            f"Alias data mismatch: {alias_data}"
+        )
         # Via channel name
         direct_data = self.parent[DATA_NAME].to_numpy()
-        assert np.array_equal(
-            direct_data, DATA_VALUES
-        ), f"Direct data mismatch: {direct_data}"
+        assert np.array_equal(direct_data, DATA_VALUES), (
+            f"Direct data mismatch: {direct_data}"
+        )
 
     def test_range_in_explorer(self) -> None:
         self.log("Testing: Ranges visible in console explorer")
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(
-            PARENT_NAME
-        ), f"Parent '{PARENT_NAME}' not found in explorer"
+        assert self.console.ranges.exists_in_explorer(PARENT_NAME), (
+            f"Parent '{PARENT_NAME}' not found in explorer"
+        )
         for name, _, _ in CHILDREN:
-            assert self.console.ranges.exists_in_explorer(
-                name
-            ), f"Child '{name}' not found in explorer"
+            assert self.console.ranges.exists_in_explorer(name), (
+                f"Child '{name}' not found in explorer"
+            )
 
     def test_range_overview(self) -> None:
         self.log("Testing: Range overview shows metadata and children")
@@ -230,15 +230,15 @@ class RangesVerify(ConsoleCase, RangesMigration):
         self.console.ranges.wait_for_overview(PARENT_NAME)
 
         for key, value in METADATA.items():
-            assert self.console.ranges.metadata_exists(
-                key
-            ), f"Metadata key '{key}' not visible in overview"
+            assert self.console.ranges.metadata_exists(key), (
+                f"Metadata key '{key}' not visible in overview"
+            )
             actual = self.console.ranges.get_metadata_value(key)
-            assert (
-                actual == value
-            ), f"Metadata '{key}': expected '{value}', got '{actual}'"
+            assert actual == value, (
+                f"Metadata '{key}': expected '{value}', got '{actual}'"
+            )
 
         for name, _, _ in CHILDREN:
-            assert self.console.ranges.child_range_exists(
-                name
-            ), f"Child '{name}' not visible in overview"
+            assert self.console.ranges.child_range_exists(name), (
+                f"Child '{name}' not visible in overview"
+            )

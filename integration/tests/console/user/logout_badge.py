@@ -9,9 +9,8 @@
 
 """Test logging out via user badge dropdown."""
 
-from x import random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class UserLogoutBadge(ConsoleCase):

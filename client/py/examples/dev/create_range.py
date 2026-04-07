@@ -23,7 +23,7 @@ start_time = sy.TimeStamp.now()
 # Create 100 ranges with random but relevant names
 for i in range(100):
     # Generate a random name by combining words from our lists
-    name = f"{random.choice(experiments)}_{random.choice(subjects)}_{random.choice(conditions)}_{random.choice(locations)}_{i+1}"
+    name = f"{random.choice(experiments)}_{random.choice(subjects)}_{random.choice(conditions)}_{random.choice(locations)}_{i + 1}"
 
     # Create a time range that's sequential (each range starts after the previous one)
     range_start = start_time + (i * 10 * sy.TimeSpan.SECOND)

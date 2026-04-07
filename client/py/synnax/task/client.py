@@ -12,16 +12,14 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Annotated, Any
+from typing import Annotated, Any, overload
 from typing import Protocol as BaseProtocol
-from typing import overload
 from uuid import uuid4
+
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
-from pydantic import BaseModel, Field, ValidationError, field_validator
-from x.normalize import check_for_none, normalize, override
-
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError
@@ -32,6 +30,7 @@ from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
 from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
+from x.normalize import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
@@ -445,8 +444,7 @@ class Client:
                 frame = streamer.read(timeout)
                 if frame is None:
                     raise TimeoutError(
-                        "task - timeout waiting for driver to "
-                        "acknowledge configuration"
+                        "task - timeout waiting for driver to acknowledge configuration"
                     )
                 elif (
                     _TASK_STATE_CHANNEL not in frame

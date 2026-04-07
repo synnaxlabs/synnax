@@ -7,11 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from console.task.analog_write import AnalogWrite
 
@@ -75,8 +73,6 @@ class NIAnalogWriteForms(ConsoleCase):
     def verify_voltage_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
         """Validate voltage inputs"""
         self.log("Configuring channels of type Voltage")
-        console = self.console
-
         ni_ao.add_channel(
             name="v0",
             chan_type="Voltage",
@@ -93,8 +89,6 @@ class NIAnalogWriteForms(ConsoleCase):
     def verify_current_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
         """Validate Bridge inputs"""
         self.log("Configuring channels of type Current")
-        console = self.console
-
         ni_ao.add_channel(
             name="Current_1",
             chan_type="Current",

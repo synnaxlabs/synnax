@@ -56,9 +56,9 @@ class WorkspacesSetup(WorkspaceMigration):
             self.log(f"Importing {name}")
             json_path = get_fixture_path(fixture)
             self.console.workspace.import_page(json_path, name)
-            assert self.console.workspace.page_exists(
-                name
-            ), f"Page '{name}' not found after import"
+            assert self.console.workspace.page_exists(name), (
+                f"Page '{name}' not found after import"
+            )
             self.console.layout.close_tab(name)
 
 
@@ -69,9 +69,9 @@ class WorkspacesVerify(WorkspaceMigration):
         self.log("Testing: Workspace exists with all pages")
         self.console.workspace.select(WORKSPACE_NAME)
         for name, _ in PAGES:
-            assert self.console.workspace.page_exists(
-                name
-            ), f"Page '{name}' not found after migration"
+            assert self.console.workspace.page_exists(name), (
+                f"Page '{name}' not found after migration"
+            )
 
     def test_page(self) -> None:
         self.log("Testing: All pages render after migration")

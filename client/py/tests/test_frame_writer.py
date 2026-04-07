@@ -12,10 +12,10 @@ import asyncio
 import numpy as np
 import pandas as pd
 import pytest
-from x.strings import random_name
-from x.telem import seconds_linspace
 
 import synnax as sy
+from x.strings import random_name
+from x.telem import seconds_linspace
 
 
 @pytest.mark.framer

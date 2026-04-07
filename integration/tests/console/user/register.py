@@ -9,9 +9,8 @@
 
 """Test user registration and management via Console UI."""
 
-from x import random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 BUILTIN_ROLES = ["Owner", "Engineer", "Operator", "Viewer"]
 PASSWORD = "testpassword123"

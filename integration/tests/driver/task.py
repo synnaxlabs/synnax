@@ -19,9 +19,9 @@ import os
 import sys
 from abc import abstractmethod
 
-import synnax as sy
 from pydantic import ValidationError
 
+import synnax as sy
 from framework.test_case import TestCase
 
 # ── Channel creation helpers ─────────────────────────────────────
@@ -187,8 +187,7 @@ def _assert_no_task_errors(
                     continue
                 if status.variant in ("warning", "error"):
                     raise AssertionError(
-                        f"{prefix}Driver reported {status.variant}: "
-                        f"{status.message}"
+                        f"{prefix}Driver reported {status.variant}: {status.message}"
                     )
 
 
@@ -208,8 +207,7 @@ def assert_streamed_values(
         if timer.elapsed() > timeout:
             missing = set(expected.keys()) - set(received.keys())
             raise AssertionError(
-                f"{prefix}Timeout waiting for command values. "
-                f"Missing keys: {missing}"
+                f"{prefix}Timeout waiting for command values. Missing keys: {missing}"
             )
         frame = streamer.read(timeout=timeout)
         if frame is None:
@@ -222,8 +220,7 @@ def assert_streamed_values(
         if received[key] != exp_val:
             ch = client.channels.retrieve(key)
             raise AssertionError(
-                f"{prefix}Channel '{ch.name}': "
-                f"expected {exp_val}, got {received[key]}"
+                f"{prefix}Channel '{ch.name}': expected {exp_val}, got {received[key]}"
             )
 
 

@@ -10,7 +10,6 @@
 from random import randint
 
 import pytest
-from pydantic import ValidationError
 
 import synnax as sy
 

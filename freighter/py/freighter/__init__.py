@@ -9,13 +9,6 @@
 
 __version__ = "0.2.14"
 
-from x.exceptions import (
-    ExceptionPayload,
-    decode_exception,
-    encode_exception,
-    register_exception,
-)
-
 from freighter.alamos import (
     async_instrumentation_middleware,
     instrumentation_middleware,
@@ -43,6 +36,12 @@ from freighter.websocket import (
     AsyncWebsocketStream,
     WebsocketClient,
 )
+from x.exceptions import (
+    ExceptionPayload,
+    decode_exception,
+    encode_exception,
+    register_exception,
+)
 
 __all__ = [
     "AsyncFinalizer",
@@ -56,6 +55,7 @@ __all__ = [
     "async_instrumentation_middleware",
     "Codec",
     "Context",
+    "Role",
     "decode_exception",
     "encode_exception",
     "EOF",
@@ -76,6 +76,7 @@ __all__ = [
     "StreamClosed",
     "Transport",
     "UnaryClient",
+    "Unreachable",
     "URL",
     "WebsocketClient",
 ]

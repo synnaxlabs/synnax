@@ -131,7 +131,6 @@ try:
                 if frame:
                     # Print the latest array values from each channel
                     if "my_array_0" in frame and len(frame["my_array_0"]) > 0:
-
                         elapsed = sy.TimeStamp.now().span(start_time).seconds
                         sample_count += 1
 

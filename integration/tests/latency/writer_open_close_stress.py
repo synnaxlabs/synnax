@@ -24,7 +24,6 @@ by attempting channels.create - the first operation to starve under the old bug.
 import threading
 
 import synnax as sy
-
 from framework.test_case import TestCase
 
 PROBE_TIMEOUT = 2 * sy.TimeSpan.SECOND
@@ -66,9 +65,7 @@ class WriterOpenCloseStress(TestCase):
             threads.append(t)
 
         rate = f"{OPS_PER_SEC} ops/s" if OPS_PER_SEC > 0 else "unlimited"
-        self.log(
-            f"{NUM_THREADS} writer threads active ({rate}), " f"probing at 5 Hz..."
-        )
+        self.log(f"{NUM_THREADS} writer threads active ({rate}), probing at 5 Hz...")
 
         timer = sy.Timer()
         while timer.elapsed() < TEST_DURATION:

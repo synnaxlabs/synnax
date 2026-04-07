@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-
 from tests.driver.modbus_task import ModbusReadTaskCase
 from tests.driver.task import create_channel, create_index
 from tests.migration.task import (

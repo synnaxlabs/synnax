@@ -9,8 +9,6 @@
 
 from typing import Any, Type
 
-from playwright.sync_api import Page
-
 from console.task.channels.counter import Counter
 from console.task.channels.counter_input import (
     AngularPosition,

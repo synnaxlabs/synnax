@@ -19,10 +19,8 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
 import synnax as sy
-from x import random_name
-
 from console.case import ConsoleCase
-from console.plot import Plot
+from x import random_name
 
 
 class AliasSynchronization(ConsoleCase):
@@ -80,22 +78,22 @@ class AliasSynchronization(ConsoleCase):
         self.log("Verifying sync in Resources Toolbar")
         console.channels.show_channels()
         alias_item = console.channels._find_channel_item(self.alias_name)
-        assert (
-            alias_item is not None
-        ), f"Alias {self.alias_name} should appear in Resources Toolbar"
+        assert alias_item is not None, (
+            f"Alias {self.alias_name} should appear in Resources Toolbar"
+        )
         console.channels.hide_channels()
 
         rng = client.ranges.retrieve(name=self.range_name)
         data_ch = client.channels.retrieve(self.data_name)
         scoped_ch = rng[self.alias_name]
-        assert (
-            scoped_ch.key == data_ch.key
-        ), f"Alias should resolve to channel key {data_ch.key}"
+        assert scoped_ch.key == data_ch.key, (
+            f"Alias should resolve to channel key {data_ch.key}"
+        )
 
         self.log("Verifying sync in Line Plot Toolbar")
-        assert plot.has_channel(
-            "Y1", self.alias_name
-        ), f"Alias {self.alias_name} should appear in Line Plot toolbar"
+        assert plot.has_channel("Y1", self.alias_name), (
+            f"Alias {self.alias_name} should appear in Line Plot toolbar"
+        )
 
         self.log("Removing alias for channel")
         console.channels.clear_alias(self.alias_name)
@@ -105,21 +103,21 @@ class AliasSynchronization(ConsoleCase):
         alias_item_after = console.channels._find_channel_item(
             self.alias_name, retry_with_refresh=False
         )
-        assert (
-            alias_item_after is None
-        ), f"Alias {self.alias_name} should no longer appear in Resources Toolbar"
+        assert alias_item_after is None, (
+            f"Alias {self.alias_name} should no longer appear in Resources Toolbar"
+        )
         original_item = console.channels._find_channel_item(self.data_name)
-        assert (
-            original_item is not None
-        ), f"Original channel {self.data_name} should appear in Resources Toolbar"
+        assert original_item is not None, (
+            f"Original channel {self.data_name} should appear in Resources Toolbar"
+        )
         console.channels.hide_channels()
 
         self.log("Verifying alias removal in Line Plot Toolbar")
-        assert not plot.has_channel(
-            "Y1", self.alias_name
-        ), f"Alias {self.alias_name} should no longer appear in Line Plot toolbar"
-        assert plot.has_channel(
-            "Y1", self.data_name
-        ), f"Original channel {self.data_name} should appear in Line Plot toolbar"
+        assert not plot.has_channel("Y1", self.alias_name), (
+            f"Alias {self.alias_name} should no longer appear in Line Plot toolbar"
+        )
+        assert plot.has_channel("Y1", self.data_name), (
+            f"Original channel {self.data_name} should appear in Line Plot toolbar"
+        )
 
         plot.close()

@@ -15,11 +15,11 @@ from typing import TypeAlias
 from uuid import UUID
 
 from pydantic import BaseModel, Field
-from x import color as color_
-from x import telem
 
 from synnax import label
 from synnax.ontology.payload import ID
+from x import color as color_
+from x import telem
 
 Key: TypeAlias = UUID
 

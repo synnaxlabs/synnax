@@ -30,10 +30,9 @@ Repository = "https://github.com/synnaxlabs/synnax"
 [dependency-groups]
 dev = [
     "asyncua>=1.1.8,<2; python_version < '3.14'",
-    "black>=26.3.1,<27",
     "flask>=3.1.3,<4",
-    "isort>=8.0.1,<9",
     "mypy>=1.19.1,<2",
+    "ruff>=0.15.9,<1",
     "pandas-stubs>=3.0.0.260204,<4",
     "pymodbus>=3.12.1,<4",
     "pytest>=9.0.2,<10",
@@ -45,8 +44,14 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["synnax", "examples"]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["synnax", "alamos", "freighter", "x"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]

@@ -58,9 +58,9 @@ class LabelsSetup(LabelsMigration):
             self.console.labels.create(name, color=color)
             assert self.console.labels.exists(name), f"Label '{name}' was not created"
             actual_color = self.console.labels.get_color(name)
-            assert (
-                actual_color == color
-            ), f"Label '{name}' color: '{actual_color}' != '{color}'"
+            assert actual_color == color, (
+                f"Label '{name}' color: '{actual_color}' != '{color}'"
+            )
 
     def test_labels_on_range(self) -> None:
         self.log("Testing: Create range with labels")
@@ -68,9 +68,9 @@ class LabelsSetup(LabelsMigration):
         self.console.ranges.create(RANGE_NAME, persisted=True, labels=label_names)
         self.console.ranges.open_explorer()
         for name, _ in LABELS:
-            assert self.console.ranges.label_exists_in_toolbar(
-                RANGE_NAME, name
-            ), f"Label '{name}' not on range '{RANGE_NAME}'"
+            assert self.console.ranges.label_exists_in_toolbar(RANGE_NAME, name), (
+                f"Label '{name}' not on range '{RANGE_NAME}'"
+            )
 
 
 class LabelsVerify(LabelsMigration):
@@ -79,19 +79,19 @@ class LabelsVerify(LabelsMigration):
     def test_labels(self) -> None:
         self.log("Testing: Labels survived migration")
         for name, color in LABELS:
-            assert self.console.labels.exists(
-                name
-            ), f"Label '{name}' not found after migration"
+            assert self.console.labels.exists(name), (
+                f"Label '{name}' not found after migration"
+            )
             actual_color = self.console.labels.get_color(name)
-            assert (
-                actual_color == color
-            ), f"Label '{name}' color: '{actual_color}' != '{color}'"
+            assert actual_color == color, (
+                f"Label '{name}' color: '{actual_color}' != '{color}'"
+            )
 
     def test_labels_on_range(self) -> None:
         self.log("Testing: Labels on range survived migration")
         self.console.ranges.open_explorer()
         self.console.ranges.favorite_from_explorer(RANGE_NAME)
         for name, _ in LABELS:
-            assert self.console.ranges.label_exists_in_toolbar(
-                RANGE_NAME, name
-            ), f"Label '{name}' not on range '{RANGE_NAME}' after migration"
+            assert self.console.ranges.label_exists_in_toolbar(RANGE_NAME, name), (
+                f"Label '{name}' not on range '{RANGE_NAME}' after migration"
+            )
