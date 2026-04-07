@@ -14,13 +14,13 @@ package schematic
 import (
 	"context"
 
-	v53 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v53"
-	"github.com/synnaxlabs/x/binary"
+	v54 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v54"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
-func MigrateSchematic(_ context.Context, old v53.Schematic) (Schematic, error) {
+func MigrateSchematic(_ context.Context, old v54.Schematic) (Schematic, error) {
 	data := old.Data
 	s := Schematic{
 		Key:      old.Key,
@@ -29,11 +29,6 @@ func MigrateSchematic(_ context.Context, old v53.Schematic) (Schematic, error) {
 		Legend:   extractLegend(data),
 		Nodes:    extractNodes(data),
 	}
-	props := mapRecord(data, "props")
-	if props == nil {
-		props = make(binary.MsgpackEncodedJSON)
-	}
-	s.Props = props
 	return s, nil
 }
 
@@ -133,10 +128,10 @@ func mapString(m map[string]any, key string, def string) string {
 	return v
 }
 
-func mapRecord(m map[string]any, key string) binary.MsgpackEncodedJSON {
+func mapRecord(m map[string]any, key string) msgpack.EncodedJSON {
 	v, ok := m[key].(map[string]any)
 	if !ok {
 		return nil
 	}
-	return binary.MsgpackEncodedJSON(v)
+	return msgpack.EncodedJSON(v)
 }

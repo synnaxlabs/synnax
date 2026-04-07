@@ -20,12 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/io"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -84,7 +86,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	ServiceConfig
 	Symbol         *symbol.Service
-	closer         io.MultiCloser
+	closer         xio.MultiCloser
 	table          *gorp.Table[uuid.UUID, Schematic]
 	actionObserver observe.Observer[ScopedAction]
 }
@@ -97,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]}
+	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{

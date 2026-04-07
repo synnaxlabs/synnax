@@ -906,6 +906,9 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 		if typemap.IsUUID(prim.Name) {
 			b.imports["github.com/google/uuid"] = "uuid"
 		}
+		if typemap.IsRecord(prim.Name) {
+			b.imports["github.com/synnaxlabs/x/encoding/msgpack"] = "msgpack"
+		}
 		return goType, nil
 	}
 	goName := naming.GetGoName(typ)

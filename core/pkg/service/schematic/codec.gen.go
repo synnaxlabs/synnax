@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/control"
+	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -249,10 +250,10 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.Props = make(map[string]interface{}, n)
+			s.Props = make(map[string]msgpack.EncodedJSON, n)
 			for range n {
 				var key string
-				var val interface{}
+				var val msgpack.EncodedJSON
 				if key, err = r.String(); err != nil {
 					return err
 				}

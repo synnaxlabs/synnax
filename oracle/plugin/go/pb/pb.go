@@ -392,6 +392,43 @@ func (p *Plugin) processFieldForTranslation(
 			fd.IsOptional = true
 			fd.ForwardExpr = ""
 			fd.BackwardExpr = ""
+		} else if resolution.IsPrimitive(valArg.Name) && primitiveNeedsComplexMapConversion(valArg.Name) {
+			// Primitives with complex conversions (e.g., record -> structpb.Struct)
+			// need element-wise conversion with proper type handling.
+			keyType := p.resolveMapKeyType(typeRef.TypeArgs[0], data)
+			fwd, bwd, hasFwdErr, hasBwdErr := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
+			goValType := p.primitiveToGoMapValType(valArg.Name, data)
+			pbValType := p.primitiveToPBMapValType(valArg.Name, data)
+			bwd = p.wrapPrimitiveMapBackward(valArg.Name, bwd, data)
+			fd.MapValueConversion = &mapValueConversionData{
+				GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+				PBMapType:         fmt.Sprintf("map[%s]%s", keyType, pbValType),
+				ForwardValueExpr:  fwd,
+				BackwardValueExpr: bwd,
+				HasForwardError:   hasFwdErr,
+				HasBackwardError:  hasBwdErr,
+			}
+			fd.IsOptional = true
+			fd.ForwardExpr = ""
+			fd.BackwardExpr = ""
+		} else if valResolved, ok := valArg.Resolve(data.table); ok && isStructOrStructAlias(valResolved, data.table) {
+			// Maps with struct value types (e.g., map[string]color.Color <-> map[string]*pb.Color)
+			// need element-wise translator calls.
+			keyType := p.resolveMapKeyType(typeRef.TypeArgs[0], data)
+			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(valResolved, data)
+			goValType := p.resolveGoQualifiedType(valResolved, data)
+			pbValType := translatorPrefix + translatorStructName
+			fd.MapValueConversion = &mapValueConversionData{
+				GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+				PBMapType:         fmt.Sprintf("map[%s]*%s", keyType, pbValType),
+				ForwardValueExpr:  fmt.Sprintf("%s%sToPB(v)", translatorPrefix, translatorStructName),
+				BackwardValueExpr: fmt.Sprintf("%s%sFromPB(v)", translatorPrefix, translatorStructName),
+				HasForwardError:   true,
+				HasBackwardError:  true,
+			}
+			fd.IsOptional = true
+			fd.ForwardExpr = ""
+			fd.BackwardExpr = ""
 		}
 	}
 
@@ -1460,8 +1497,89 @@ func primitiveNeedsConversion(primitive string) bool {
 	return primitiveToProtoType(primitive) != primitive
 }
 
+func primitiveNeedsComplexMapConversion(primitive string) bool {
+	switch primitive {
+	case "record":
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Plugin) primitiveToGoMapValType(primitive string, data *templateData) string {
+	switch primitive {
+	case "record":
+		data.imports.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
+		return "msgpack.EncodedJSON"
+	default:
+		return primitive
+	}
+}
+
+func (p *Plugin) primitiveToPBMapValType(primitive string, data *templateData) string {
+	switch primitive {
+	case "record":
+		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		return "*structpb.Struct"
+	default:
+		return primitive
+	}
+}
+
+func (p *Plugin) wrapPrimitiveMapBackward(primitive, bwd string, data *templateData) string {
+	switch primitive {
+	case "record":
+		data.imports.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
+		return fmt.Sprintf("msgpack.EncodedJSON(%s)", bwd)
+	default:
+		return bwd
+	}
+}
+
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
+}
+
+func isStructOrStructAlias(resolved resolution.Type, table *resolution.Table) bool {
+	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+		return true
+	}
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if target, ok := aliasForm.Target.Resolve(table); ok {
+			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
+				return true
+			}
+		}
+	}
+	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+		if baseResolved, ok := distinctForm.Base.Resolve(table); ok {
+			return isStructOrStructAlias(baseResolved, table)
+		}
+	}
+	return false
+}
+
+func (p *Plugin) resolveMapKeyType(keyArg resolution.TypeRef, data *templateData) string {
+	if resolution.IsPrimitive(keyArg.Name) {
+		return primitiveToProtoType(keyArg.Name)
+	}
+	return keyArg.Name
+}
+
+func (p *Plugin) resolveGoQualifiedType(resolved resolution.Type, data *templateData) string {
+	goName := naming.GetGoName(resolved)
+	goOutput := output.GetPath(resolved, "go")
+	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
+		if goOutput != "" {
+			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+			if err == nil {
+				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
+				data.imports.AddInternal(alias, importPath)
+				return alias + "." + goName
+			}
+		}
+	}
+	return data.parentAlias + "." + goName
 }
 
 func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
@@ -1553,6 +1671,10 @@ type mapValueConversionData struct {
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	BackwardValueExpr string // e.g., "uint8(v)"
+	// HasForwardError is true when the forward value conversion returns (result, error).
+	HasForwardError bool
+	// HasBackwardError is true when the backward value conversion returns (result, error).
+	HasBackwardError bool
 }
 
 // enumTranslatorData holds data for enum translator functions.

@@ -14,10 +14,13 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/color"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // LegendToPB converts Legend to Legend.
@@ -28,8 +31,17 @@ func LegendToPB(r schematic.Legend) (*Legend, error) {
 	}
 	pb := &Legend{
 		Visible:  r.Visible,
-		Colors:   r.Colors,
 		Position: positionVal,
+	}
+	if r.Colors != nil {
+		pb.Colors = make(map[string]*colorpb.Color, len(r.Colors))
+		for k, v := range r.Colors {
+			converted, err := colorpb.ColorToPB(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Colors[k] = converted
+		}
 	}
 	return pb, nil
 }
@@ -46,7 +58,16 @@ func LegendFromPB(pb *Legend) (schematic.Legend, error) {
 		return schematic.Legend{}, err
 	}
 	r.Visible = pb.Visible
-	r.Colors = pb.Colors
+	if pb.Colors != nil {
+		r.Colors = make(map[string]color.Color, len(pb.Colors))
+		for k, v := range pb.Colors {
+			converted, err := colorpb.ColorFromPB(v)
+			if err != nil {
+				return schematic.Legend{}, err
+			}
+			r.Colors[k] = converted
+		}
+	}
 	return r, nil
 }
 
@@ -390,11 +411,20 @@ func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
 		Name:      r.Name,
 		Snapshot:  r.Snapshot,
 		Authority: uint32(r.Authority),
-		Props:     r.Props,
 		Key:       r.Key.String(),
 		Legend:    legendVal,
 		Nodes:     nodesVal,
 		Edges:     edgesVal,
+	}
+	if r.Props != nil {
+		pb.Props = make(map[string]*structpb.Struct, len(r.Props))
+		for k, v := range r.Props {
+			converted, err := structpb.NewStruct(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Props[k] = converted
+		}
 	}
 	return pb, nil
 }
@@ -426,7 +456,12 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
 	r.Authority = control.Authority(pb.Authority)
-	r.Props = pb.Props
+	if pb.Props != nil {
+		r.Props = make(map[string]msgpack.EncodedJSON, len(pb.Props))
+		for k, v := range pb.Props {
+			r.Props[k] = msgpack.EncodedJSON(v.AsMap())
+		}
+	}
 	return r, nil
 }
 

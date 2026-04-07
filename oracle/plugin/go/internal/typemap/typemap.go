@@ -49,7 +49,9 @@ func PrimitiveGoType(primName string) (string, bool) {
 		return "uuid.UUID", true
 	case "bytes":
 		return "[]byte", true
-	case "record", "any":
+	case "record":
+		return "msgpack.EncodedJSON", true
+	case "any":
 		return "interface{}", true
 	default:
 		return "", false
@@ -58,6 +60,9 @@ func PrimitiveGoType(primName string) (string, bool) {
 
 // IsUUID returns true if the primitive name is "uuid".
 func IsUUID(primName string) bool { return primName == "uuid" }
+
+// IsRecord returns true if the primitive name is "record".
+func IsRecord(primName string) bool { return primName == "record" }
 
 // UnwrapType resolves through alias and distinct type wrappers to find the
 // underlying concrete type.

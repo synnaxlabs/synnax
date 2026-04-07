@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/control"
+	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -181,7 +182,7 @@ var _ = Describe("Codec", func() {
 						Target: schematic.Handle{Node: "test_35", Param: "test_36"},
 					},
 				},
-				Props: map[string]interface{}{"test_37": map[string]interface{}{"key_37": "value_37"}},
+				Props: map[string]msgpack.EncodedJSON{"test_37": map[string]interface{}{"key_37": "value_37"}},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:       uuid.Nil,
@@ -219,7 +220,7 @@ var _ = Describe("Codec", func() {
 				},
 				Nodes: []schematic.Node{},
 				Edges: []schematic.Edge{},
-				Props: map[string]interface{}{},
+				Props: map[string]msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -350,7 +351,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Target: schematic.Handle{Node: "test_35", Param: "test_36"},
 			},
 		},
-		Props: map[string]interface{}{"test_37": map[string]interface{}{"key_37": "value_37"}},
+		Props: map[string]msgpack.EncodedJSON{"test_37": map[string]interface{}{"key_37": "value_37"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -631,7 +632,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Target: schematic.Handle{Node: "test_35", Param: "test_36"},
 				},
 			},
-			Props: map[string]interface{}{"test_37": map[string]interface{}{"key_37": "value_37"}},
+			Props: map[string]msgpack.EncodedJSON{"test_37": map[string]interface{}{"key_37": "value_37"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -683,7 +684,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 			},
 			Nodes: []schematic.Node{},
 			Edges: []schematic.Edge{},
-			Props: map[string]interface{}{},
+			Props: map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

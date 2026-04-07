@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -24,7 +25,7 @@ var _ = Describe("Writer", func() {
 		It("Should create a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name:  "test",
-				Props: map[string]any{"key": "data"},
+				Props: map[string]msgpack.EncodedJSON{"key": map[string]any{"data": "data_two"}},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(s.Key).ToNot(Equal(uuid.Nil))
@@ -32,7 +33,9 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Update", func() {
 		It("Should rename a Schematic", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "test", Props: map[string]any{"key": "data"}}
+			s := schematic.Schematic{Name: "test", Props: map[string]msgpack.EncodedJSON{
+				"key": map[string]any{"data": "data_value"},
+			}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
 			var res schematic.Schematic
@@ -47,7 +50,7 @@ var _ = Describe("Writer", func() {
 				Nodes: []schematic.Node{
 					{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
 				},
-				Props: map[string]any{},
+				Props: map[string]msgpack.EncodedJSON{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "test-session", []schematic.Action{
@@ -64,7 +67,7 @@ var _ = Describe("Writer", func() {
 		It("Should apply multiple actions in sequence", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name:  "dispatch-multi",
-				Props: map[string]any{},
+				Props: map[string]msgpack.EncodedJSON{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "test-session", []schematic.Action{
@@ -85,17 +88,29 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{
 				Name: "dispatch-edges",
 				Edges: []schematic.Edge{
-					{Key: "e1", Source: "n1", Target: "n2"},
+					{
+						Key:    "e1",
+						Source: schematic.Handle{Node: "n1"},
+						Target: schematic.Handle{Node: "n2"},
+					},
 				},
-				Props: map[string]any{},
+				Props: map[string]msgpack.EncodedJSON{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "test-session", []schematic.Action{
 				schematic.NewSetEdgeAction(schematic.SetEdge{
-					Edge: schematic.Edge{Key: "e1", Source: "n1", Target: "n3"},
+					Edge: schematic.Edge{
+						Key:    "e1",
+						Source: schematic.Handle{Node: "n1"},
+						Target: schematic.Handle{Node: "n3"},
+					},
 				}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{
-					Edge: schematic.Edge{Key: "e2", Source: "n2", Target: "n3"},
+					Edge: schematic.Edge{
+						Key:    "e2",
+						Source: schematic.Handle{Node: "n2"},
+						Target: schematic.Handle{Node: "n3"},
+					},
 				}),
 				schematic.NewRemoveEdgeAction(schematic.RemoveEdge{Key: "e1"}),
 			})).To(Succeed())
@@ -113,7 +128,10 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Copy", func() {
 		It("Should copy a Schematic with a new name under the same workspace", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "test", Props: map[string]any{"key": "data"}}
+			s := schematic.Schematic{
+				Name:  "test",
+				Props: map[string]msgpack.EncodedJSON{"key": map[string]any{"data": "data_two"}},
+			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "test2", false, &cpy)).To(Succeed())

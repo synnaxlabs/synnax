@@ -11,7 +11,7 @@ package schematic
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // ScopedAction wraps an action payload with the schematic key and originating
@@ -37,7 +37,7 @@ func (a AddNode) Handle(state Schematic) (Schematic, error) {
 	state.Nodes = append(state.Nodes, a.Node)
 	if a.Props != nil {
 		if state.Props == nil {
-			state.Props = make(map[string]binary.MsgpackEncodedJSON)
+			state.Props = make(map[string]msgpack.EncodedJSON)
 		}
 		state.Props[a.Node.Key] = a.Props
 	}
@@ -88,7 +88,7 @@ func (s SetNodeDimensions) Handle(state Schematic) (Schematic, error) {
 
 func (s SetProps) Handle(state Schematic) (Schematic, error) {
 	if state.Props == nil {
-		state.Props = make(map[string]binary.MsgpackEncodedJSON)
+		state.Props = make(map[string]msgpack.EncodedJSON)
 	}
 	state.Props[s.Key] = s.Props
 	return state, nil

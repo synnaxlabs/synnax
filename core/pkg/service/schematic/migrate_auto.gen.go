@@ -13,10 +13,10 @@ package schematic
 
 import (
 	"context"
-	schematicv53 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v53"
+	schematicv54 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v54"
 )
 
-func AutoMigrateSchematic(_ context.Context, old schematicv53.Schematic) (Schematic, error) {
+func AutoMigrateSchematic(_ context.Context, old schematicv54.Schematic) (Schematic, error) {
 	return Schematic{
 		Key:      Key(old.Key),
 		Name:     old.Name,
