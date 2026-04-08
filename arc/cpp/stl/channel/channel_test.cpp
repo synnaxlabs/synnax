@@ -514,10 +514,15 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     sink_input.name = ir::default_input_param;
     sink_input.type.kind = types::Kind::F32;
 
+    types::Param sink_output;
+    sink_output.name = ir::default_output_param;
+    sink_output.type.kind = types::Kind::U8;
+
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
+    sink_node.outputs.push_back(sink_output);
 
     types::Param channel_config;
     channel_config.name = "channel";
@@ -547,9 +552,12 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     );
 
     auto upstream = ASSERT_NIL_P(s.node("upstream"));
-    upstream.output(0) = x::mem::make_local_shared<::x::telem::Series>(
+    auto input_data = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<float>{7.7f, 8.8f}
     );
+    input_data->alignment = ::x::telem::Alignment(42);
+    input_data->time_range = ::x::telem::TimeRange(500, 501);
+    upstream.output(0) = input_data;
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500, 501}
     );
@@ -557,8 +565,24 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     auto sink_checker = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker.refresh_inputs());
 
-    auto ctx = make_context();
+    bool changed = false;
+    runtime::node::Context ctx{.mark_changed = [&](const std::string &) {
+        changed = true;
+    }};
     ASSERT_NIL(sink->next(ctx));
+    EXPECT_TRUE(changed);
+
+    auto out_checker = ASSERT_NIL_P(s.node("sink"));
+    const auto &out_data = out_checker.output(0);
+    EXPECT_EQ(out_data->size(), 1);
+    EXPECT_EQ(out_data->at<uint8_t>(0), 1);
+    EXPECT_EQ(out_data->alignment, ::x::telem::Alignment(42));
+    EXPECT_EQ(out_data->time_range.start, 500);
+
+    const auto &out_time = out_checker.output_time(0);
+    EXPECT_EQ(out_time->size(), 1);
+    EXPECT_GT(out_time->at<int64_t>(0), 0);
+    EXPECT_EQ(out_time->alignment, ::x::telem::Alignment(42));
 
     x::telem::Frame out;
     s.flush_into(out);
@@ -582,10 +606,15 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     sink_input.name = ir::default_input_param;
     sink_input.type.kind = types::Kind::F32;
 
+    types::Param sink_output;
+    sink_output.name = ir::default_output_param;
+    sink_output.type.kind = types::Kind::U8;
+
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
+    sink_node.outputs.push_back(sink_output);
 
     types::Param channel_config;
     channel_config.name = "channel";
@@ -636,10 +665,15 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     sink_input.name = ir::default_input_param;
     sink_input.type.kind = types::Kind::F32;
 
+    types::Param sink_output;
+    sink_output.name = ir::default_output_param;
+    sink_output.type.kind = types::Kind::U8;
+
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
+    sink_node.outputs.push_back(sink_output);
 
     types::Param channel_config;
     channel_config.name = "channel";
@@ -701,10 +735,15 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     sink_input.name = ir::default_input_param;
     sink_input.type.kind = types::Kind::F32;
 
+    types::Param sink_output;
+    sink_output.name = ir::default_output_param;
+    sink_output.type.kind = types::Kind::U8;
+
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
+    sink_node.outputs.push_back(sink_output);
 
     types::Param channel_config;
     channel_config.name = "channel";
@@ -792,10 +831,15 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     write_input.name = ir::default_input_param;
     write_input.type.kind = types::Kind::I32;
 
+    types::Param write_output;
+    write_output.name = ir::default_output_param;
+    write_output.type.kind = types::Kind::U8;
+
     ir::Node write_node;
     write_node.key = "write";
     write_node.type = "write";
     write_node.inputs.push_back(write_input);
+    write_node.outputs.push_back(write_output);
 
     types::Param write_channel;
     write_channel.name = "channel";
