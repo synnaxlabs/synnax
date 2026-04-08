@@ -55,10 +55,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
     },
   });
   const [createMore, setCreateMore] = useState(false);
-  const operationType = Form.useFieldValue<channel.OperationType>(
-    "operations.0.type",
-    { optional: true },
-  );
+  const operationType = Form.useFieldValue<channel.OperationType>("operations.0.type", {
+    optional: true,
+  });
   const initialLoaded = useRef(false);
   if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
   return (
