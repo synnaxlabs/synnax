@@ -477,3 +477,207 @@ var _ = Describe("Stat", func() {
 		})
 	})
 })
+
+var _ = Describe("Derivative", func() {
+	makeDerivGraph := func(dt types.Type) graph.Graph {
+		return graph.Graph{
+			Nodes: []graph.Node{
+				{Key: "input", Type: "input"},
+				{Key: "deriv", Type: "derivative"},
+			},
+			Edges: []graph.Edge{
+				{
+					Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "deriv", Param: ir.DefaultInputParam},
+				},
+			},
+			Functions: []graph.Function{
+				{
+					Key: "input",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: dt},
+					},
+				},
+			},
+		}
+	}
+
+	It("Should compute pointwise derivative for float64 input", func(ctx SpecContext) {
+		g := makeDerivGraph(types.F64())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		*inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 40.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		Expect(result.Len()).To(Equal(int64(3)))
+		vals := telem.UnmarshalSeries[float64](result)
+		Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+		Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+		Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
+	})
+
+	It("Should maintain state across batches", func(ctx SpecContext) {
+		g := makeDerivGraph(types.F64())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		*inputNode.Output(0) = telem.NewSeriesV(0.0, 10.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+		*inputNode.Output(0) = telem.NewSeriesV(30.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		changed = make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		Expect(result.Len()).To(Equal(int64(1)))
+		vals := telem.UnmarshalSeries[float64](result)
+		Expect(vals[0]).To(BeNumerically("~", 10.0, 0.01))
+	})
+
+	It("Should output zero for the first sample", func(ctx SpecContext) {
+		g := makeDerivGraph(types.F64())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		*inputNode.Output(0) = telem.NewSeriesV(5.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		vals := telem.UnmarshalSeries[float64](result)
+		Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+	})
+
+	It("Should reset state and output zero after reset", func(ctx SpecContext) {
+		g := makeDerivGraph(types.F64())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		*inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+
+		n.Reset()
+
+		*inputNode.Output(0) = telem.NewSeriesV(100.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+		changed = make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		vals := telem.UnmarshalSeries[float64](result)
+		Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+	})
+
+	It("Should output zero when timestamps are identical", func(ctx SpecContext) {
+		g := makeDerivGraph(types.F64())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		*inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 1)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		vals := telem.UnmarshalSeries[float64](result)
+		Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+		Expect(vals[1]).To(BeNumerically("~", 0.0, 0.01))
+	})
+
+	It("Should work with int32 input type", func(ctx SpecContext) {
+		g := makeDerivGraph(types.I32())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		*inputNode.Output(0) = telem.NewSeriesV[int32](0, 100, 300)
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		Expect(result.Len()).To(Equal(int64(3)))
+		vals := telem.UnmarshalSeries[int32](result)
+		Expect(vals[0]).To(Equal(int32(0)))
+		Expect(vals[1]).To(Equal(int32(100)))
+		Expect(vals[2]).To(Equal(int32(100)))
+	})
+
+	It("Should propagate alignment from input to output", func(ctx SpecContext) {
+		g := makeDerivGraph(types.F64())
+		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := node.New(analyzed)
+		inputNode := s.Node("input")
+		m := &stat.Module{}
+		n := MustSucceed(m.Create(ctx, node.Config{
+			Node:  ir.Node{Type: "derivative"},
+			State: s.Node("deriv"),
+		}))
+		inputSeries := telem.NewSeriesV(10.0, 20.0)
+		inputSeries.Alignment = 250
+		inputSeries.TimeRange = telem.TimeRange{
+			Start: 100 * telem.SecondTS,
+			End:   200 * telem.SecondTS,
+		}
+		*inputNode.Output(0) = inputSeries
+		*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200)
+		changed := make(set.Set[string])
+		n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		result := *s.Node("deriv").Output(0)
+		Expect(result.Alignment).To(Equal(telem.Alignment(250)))
+		Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
+		Expect(result.TimeRange.End).To(Equal(200 * telem.SecondTS))
+		resultTime := *s.Node("deriv").OutputTime(0)
+		Expect(resultTime.Alignment).To(Equal(telem.Alignment(250)))
+		Expect(resultTime.TimeRange.Start).To(Equal(100 * telem.SecondTS))
+		Expect(resultTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
+	})
+})

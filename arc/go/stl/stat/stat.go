@@ -23,12 +23,13 @@ import (
 )
 
 const (
-	resetInputParam     = "reset"
-	durationConfigParam = "duration"
-	countConfigParam    = "count"
-	avgSymbolName       = "avg"
-	minSymbolName       = "min"
-	maxSymbolName       = "max"
+	resetInputParam      = "reset"
+	durationConfigParam  = "duration"
+	countConfigParam     = "count"
+	avgSymbolName        = "avg"
+	minSymbolName        = "min"
+	maxSymbolName        = "max"
+	derivativeSymbolName = "derivative"
 )
 
 func createBaseSymbol(name string) symbol.Symbol {
@@ -53,19 +54,38 @@ func createBaseSymbol(name string) symbol.Symbol {
 }
 
 var (
-	avgSymbol      = createBaseSymbol(avgSymbolName)
-	minSymbol      = createBaseSymbol(minSymbolName)
-	maxSymbol      = createBaseSymbol(maxSymbolName)
+	avgSymbol        = createBaseSymbol(avgSymbolName)
+	minSymbol        = createBaseSymbol(minSymbolName)
+	maxSymbol        = createBaseSymbol(maxSymbolName)
+	derivativeSymbol = func() symbol.Symbol {
+		constraint := types.NumericConstraint()
+		return symbol.Symbol{
+			Name: derivativeSymbolName,
+			Kind: symbol.KindFunction,
+			Type: types.Function(types.FunctionProperties{
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+				},
+			}),
+		}
+	}()
 	SymbolResolver = symbol.MapResolver{
-		avgSymbolName: avgSymbol,
-		minSymbolName: minSymbol,
-		maxSymbolName: maxSymbol,
+		avgSymbolName:        avgSymbol,
+		minSymbolName:        minSymbol,
+		maxSymbolName:        maxSymbol,
+		derivativeSymbolName: derivativeSymbol,
 	}
 )
 
 type Module struct{}
 
 func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+	if nodeCfg.Node.Type == derivativeSymbolName {
+		return m.createDerivative(nodeCfg)
+	}
 	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
 		return nil, query.ErrNotFound
@@ -237,4 +257,315 @@ var ops = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series)
 		telem.Uint16T:  op.MaxU16,
 		telem.Uint8T:   op.MaxU8,
 	},
+}
+
+func (m *Module) createDerivative(cfg node.Config) (node.Node, error) {
+	inputData := cfg.State.Input(0)
+	derivFn, ok := derivOps[inputData.DataType]
+	if !ok {
+		return nil, query.ErrNotFound
+	}
+	return &derivativeNode{State: cfg.State, derivFn: derivFn}, nil
+}
+
+type derivativeNode struct {
+	*node.State
+	derivFn       func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool) (telem.Series, telem.Series)
+	prevValue     float64
+	prevTimestamp telem.TimeStamp
+	hasPrev       bool
+}
+
+var _ node.Node = (*derivativeNode)(nil)
+
+func (d *derivativeNode) Reset() {
+	d.State.Reset()
+	d.prevValue = 0
+	d.prevTimestamp = 0
+	d.hasPrev = false
+}
+
+func (d *derivativeNode) Next(ctx node.Context) {
+	if !d.RefreshInputs() {
+		return
+	}
+	inputData := d.Input(0)
+	inputTime := d.InputTime(0)
+	if inputData.Len() == 0 {
+		return
+	}
+	outputData, outputTime := d.derivFn(
+		inputData, inputTime,
+		&d.prevValue, &d.prevTimestamp, &d.hasPrev,
+	)
+	outputData.Alignment = inputData.Alignment
+	outputData.TimeRange = inputData.TimeRange
+	outputTime.Alignment = inputData.Alignment
+	outputTime.TimeRange = inputData.TimeRange
+	*d.Output(0) = outputData
+	*d.OutputTime(0) = outputTime
+	ctx.MarkChanged(ir.DefaultOutputParam)
+}
+
+func derivF64(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]float64, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := telem.ValueAt[float64](input, int(i))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivF32(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]float32, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[float32](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = float32((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivI64(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]int64, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[int64](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = int64((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivI32(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]int32, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[int32](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = int32((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivI16(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]int16, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[int16](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = int16((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivI8(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]int8, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[int8](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = int8((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivU64(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]uint64, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[uint64](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = uint64((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivU32(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]uint32, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[uint32](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = uint32((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivU16(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]uint16, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[uint16](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = uint16((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+func derivU8(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+	n := input.Len()
+	out := make([]uint8, n)
+	outTime := make([]telem.TimeStamp, n)
+	for i := int64(0); i < n; i++ {
+		cur := float64(telem.ValueAt[uint8](input, int(i)))
+		ts := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+		outTime[i] = ts
+		if !*hasPrev {
+			out[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				out[i] = 0
+			} else {
+				out[i] = uint8((cur - *prevVal) / dtSeconds)
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
+}
+
+var derivOps = map[telem.DataType]func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool) (telem.Series, telem.Series){
+	telem.Float64T: derivF64,
+	telem.Float32T: derivF32,
+	telem.Int64T:   derivI64,
+	telem.Int32T:   derivI32,
+	telem.Int16T:   derivI16,
+	telem.Int8T:    derivI8,
+	telem.Uint64T:  derivU64,
+	telem.Uint32T:  derivU32,
+	telem.Uint16T:  derivU16,
+	telem.Uint8T:   derivU8,
 }
