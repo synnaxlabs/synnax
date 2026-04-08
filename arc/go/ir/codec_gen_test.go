@@ -515,12 +515,8 @@ var _ = Describe("Codec", func() {
 				Sequences: []ir.Sequence{
 					{
 						Key: "test_102",
-						Stages: []ir.Stage{
-							{
-								Key:    "test_104",
-								Nodes:  []string{"test_105"},
-								Strata: [][]string{{"test_106"}},
-							},
+						Steps: []ir.Step{
+							{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
 						},
 					},
 				},
@@ -822,16 +818,12 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", ir.Sequence{
 				Key: "test_1",
-				Stages: []ir.Stage{
-					{
-						Key:    "test_3",
-						Nodes:  []string{"test_4"},
-						Strata: [][]string{{"test_5"}},
-					},
+				Steps: []ir.Step{
+					{Key: "test_3", Stage: &ir.Stage{Key: "test_3", Nodes: []string{"test_4"}, Strata: [][]string{{"test_5"}}}},
 				},
 			}),
-			Entry("zero values", ir.Sequence{Key: "", Stages: nil}),
-			Entry("empty collections", ir.Sequence{Key: "test_1", Stages: []ir.Stage{}}),
+			Entry("zero values", ir.Sequence{Key: "", Steps: nil}),
+			Entry("empty collections", ir.Sequence{Key: "test_1", Steps: []ir.Step{}}),
 		)
 	})
 	Describe("Stage", func() {
@@ -845,21 +837,13 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", ir.Stage{
-				Key:    "test_1",
-				Nodes:  []string{"test_2"},
-				Strata: [][]string{{"test_3"}},
-			}),
+			Entry("fully populated", ir.Stage{Key: "test_1", Nodes: []string{"test_2"}, Strata: [][]string{{"test_3"}}}),
 			Entry("zero values", ir.Stage{
 				Key:    "",
 				Nodes:  nil,
 				Strata: nil,
 			}),
-			Entry("empty collections", ir.Stage{
-				Key:    "test_1",
-				Nodes:  []string{},
-				Strata: [][]string{},
-			}),
+			Entry("empty collections", ir.Stage{Key: "test_1", Nodes: []string{}, Strata: [][]string{}}),
 		)
 	})
 })
@@ -1332,12 +1316,8 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 		Sequences: []ir.Sequence{
 			{
 				Key: "test_102",
-				Stages: []ir.Stage{
-					{
-						Key:    "test_104",
-						Nodes:  []string{"test_105"},
-						Strata: [][]string{{"test_106"}},
-					},
+				Steps: []ir.Step{
+					{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
 				},
 			},
 		},
@@ -1610,12 +1590,8 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 func BenchmarkEncodeDecodeSequence(b *testing.B) {
 	s := ir.Sequence{
 		Key: "test_1",
-		Stages: []ir.Stage{
-			{
-				Key:    "test_3",
-				Nodes:  []string{"test_4"},
-				Strata: [][]string{{"test_5"}},
-			},
+		Steps: []ir.Step{
+			{Key: "test_3", Stage: &ir.Stage{Key: "test_3", Nodes: []string{"test_4"}, Strata: [][]string{{"test_5"}}}},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -1634,11 +1610,7 @@ func BenchmarkEncodeDecodeSequence(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStage(b *testing.B) {
-	s := ir.Stage{
-		Key:    "test_1",
-		Nodes:  []string{"test_2"},
-		Strata: [][]string{{"test_3"}},
-	}
+	s := ir.Stage{Key: "test_1", Nodes: []string{"test_2"}, Strata: [][]string{{"test_3"}}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -2290,12 +2262,8 @@ func FuzzDecodeIR(f *testing.F) {
 			Sequences: []ir.Sequence{
 				{
 					Key: "test_102",
-					Stages: []ir.Stage{
-						{
-							Key:    "test_104",
-							Nodes:  []string{"test_105"},
-							Strata: [][]string{{"test_106"}},
-						},
+					Steps: []ir.Step{
+						{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
 					},
 				},
 			},
@@ -2667,12 +2635,8 @@ func FuzzDecodeSequence(f *testing.F) {
 	{
 		seed := ir.Sequence{
 			Key: "test_1",
-			Stages: []ir.Stage{
-				{
-					Key:    "test_3",
-					Nodes:  []string{"test_4"},
-					Strata: [][]string{{"test_5"}},
-				},
+			Steps: []ir.Step{
+				{Key: "test_3", Stage: &ir.Stage{Key: "test_3", Nodes: []string{"test_4"}, Strata: [][]string{{"test_5"}}}},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -2682,7 +2646,7 @@ func FuzzDecodeSequence(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Sequence{Key: "", Stages: nil}
+		seed := ir.Sequence{Key: "", Steps: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2690,7 +2654,7 @@ func FuzzDecodeSequence(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Sequence{Key: "test_1", Stages: []ir.Stage{}}
+		seed := ir.Sequence{Key: "test_1", Steps: []ir.Step{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2725,11 +2689,7 @@ func FuzzDecodeSequence(f *testing.F) {
 
 func FuzzDecodeStage(f *testing.F) {
 	{
-		seed := ir.Stage{
-			Key:    "test_1",
-			Nodes:  []string{"test_2"},
-			Strata: [][]string{{"test_3"}},
-		}
+		seed := ir.Stage{Key: "test_1", Nodes: []string{"test_2"}, Strata: [][]string{{"test_3"}}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2749,11 +2709,7 @@ func FuzzDecodeStage(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Stage{
-			Key:    "test_1",
-			Nodes:  []string{},
-			Strata: [][]string{},
-		}
+		seed := ir.Stage{Key: "test_1", Nodes: []string{}, Strata: [][]string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

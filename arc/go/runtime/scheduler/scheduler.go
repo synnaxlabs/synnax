@@ -14,113 +14,88 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // node holds the runtime state for a single node in the scheduler.
 type node struct {
-	// node is the executable node instance.
 	rnode.Node
-	// outgoing contains edges where this node is the source, keyed by output param.
-	// Used for efficient change propagation to downstream nodes.
 	outgoing map[string][]ir.Edge
 	key      string
 }
 
-// stage holds the runtime state for a single stage within a sequence.
-type stage struct {
-	// firedOneShots tracks which one-shot edges have already fired in this stage
-	// activation. Cleared when the stage is entered.
-	firedOneShots set.Set[ir.Edge]
-	// strata defines the topological execution order for nodes in this stage.
-	strata ir.Strata
+// stepState holds runtime state for a single step in a sequence.
+type stepState struct {
+	ir      ir.Step
+	subSeqs []sequenceState // sub-sequences within a stage step
+	subSeq  *sequenceState  // nested sequence for a sequence step
 }
 
-// sequenceState holds the runtime state for a sequence.
+// sequenceState holds runtime state for a sequence.
 type sequenceState struct {
-	// stages contains the ordered list of stages in this sequence.
-	stages []stage
-	// activeStageIdx is the index of the currently active stage, or -1 if none.
-	activeStageIdx int
+	ir            ir.Sequence
+	steps         []stepState
+	activeStepIdx int
+	firedOneShots set.Set[ir.Edge]
+	// flowNodeOwner maps node keys to the step index that owns them.
+	// Only populated for sequences that contain flow steps.
+	flowNodeOwner map[string]int
+	// flowDataNodes is the subset of flowNodeOwner that are data nodes (not entry
+	// nodes). Data nodes execute unconditionally when their step is active.
+	// Entry nodes only execute when marked changed.
+	flowDataNodes set.Set[string]
 }
 
+// transitionTarget identifies the target of an entry node activation.
 type transitionTarget struct {
-	seqIdx, stageIdx int
+	seq     *sequenceState
+	stepIdx int
 }
 
 // Scheduler orchestrates the execution of nodes in topological order.
-// It maintains the execution graph, tracks changed nodes, and propagates changes
-// through the dependency graph. It supports stage-based filtering for sequences.
 type Scheduler struct {
-	// nodeCtx is a reusable context struct passed to nodes during execution.
-	nodeCtx rnode.Context
-	// errorHandler receives errors from node execution.
-	errorHandler ErrorHandler
-	// transitions maps entry node keys to their target (seqIdx, stageIdx).
-	transitions map[string]transitionTarget
-	// changed tracks which nodes need execution in the current strata pass.
-	changed set.Set[string]
-	// selfChanged tracks nodes that requested re-execution on the next cycle.
-	// Unlike changed, selfChanged persists across scheduler.Next() calls.
-	selfChanged set.Set[string]
-	// globalFiredOneShots tracks which one-shot edges in global strata have fired.
-	// Unlike per-stage one-shots, global one-shots fire once ever and never reset.
-	globalFiredOneShots set.Set[ir.Edge]
-	// nodes maps node keys to their runtime state.
-	nodes map[string]node
-	// Current execution context
-	// currNodeKey is the key of the currently executing node.
-	currNodeKey string
-	// globalStrata defines the topological execution order for global nodes.
-	globalStrata ir.Strata
-	// sequences holds the runtime state for each sequence.
-	sequences []sequenceState
-	// maxConvergenceIterations is the maximum iterations for stage convergence loop.
-	maxConvergenceIterations int
-	// currStageIdx is the index of the currently executing stage, or -1 if none.
-	currStageIdx int
-	// currSeqIdx is the index of the currently executing sequence, or -1 if global.
-	currSeqIdx int
-	// tolerance is the timing tolerance for interval/wait comparisons.
-	tolerance telem.TimeSpan
-	// nextDeadline is the minimum deadline (absolute elapsed time) reported by
-	// nodes during the current Next() call. Reset to max at the start of each call.
-	nextDeadline telem.TimeSpan
-	// transitioned is set to true when transitionStage fires during strata execution.
-	// Used to stop executing further nodes so the first transition wins.
-	transitioned bool
+	nodeCtx              rnode.Context
+	errorHandler         ErrorHandler
+	transitions          map[string]transitionTarget
+	boundaries           map[string]*sequenceState
+	changed              set.Set[string]
+	selfChanged          set.Set[string]
+	globalFiredOneShots  set.Set[ir.Edge]
+	nodes                map[string]node
+	currNodeKey          string
+	globalStrata         ir.Strata
+	sequences            []sequenceState
+	maxConvergenceIter   int
+	currSeq              *sequenceState
+	tolerance            telem.TimeSpan
+	nextDeadline         telem.TimeSpan
+	transitioned         bool
 }
 
 // ErrorHandler receives errors from node execution.
-// Implementations can log, aggregate, or handle errors in custom ways.
 type ErrorHandler interface {
-	// HandleError is called when a node reports an error during execution.
 	HandleError(ctx context.Context, nodeKey string, err error)
 }
 
 // ErrorHandlerFunc is an adapter to allow ordinary functions to be used as ErrorHandlers.
 type ErrorHandlerFunc func(ctx context.Context, nodeKey string, err error)
 
-// HandleError implements ErrorHandler by calling the function.
 func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err error) {
 	f(ctx, nodeKey, err)
 }
 
 // New creates a scheduler from an IR program and node instances.
-// The scheduler organizes nodes into strata for topological execution and
-// builds the change propagation graph from the IR edges.
 func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
 		nodes:               make(map[string]node, len(prog.Nodes)),
 		globalStrata:        prog.Strata,
-		sequences:           make([]sequenceState, len(prog.Sequences)),
 		transitions:         make(map[string]transitionTarget),
+		boundaries:          make(map[string]*sequenceState),
 		changed:             make(set.Set[string], len(prog.Nodes)),
 		selfChanged:         make(set.Set[string]),
 		globalFiredOneShots: make(set.Set[ir.Edge]),
-		currSeqIdx:          -1,
-		currStageIdx:        -1,
 		tolerance:           tolerance,
 	}
 
@@ -134,25 +109,12 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 		s.nodes[n.Key] = node{key: n.Key, outgoing: outgoing, Node: nodes[n.Key]}
 	}
 
-	for seqIdx, seq := range prog.Sequences {
-		seqState := sequenceState{
-			stages:         make([]stage, len(seq.Stages)),
-			activeStageIdx: -1,
-		}
-		s.maxConvergenceIterations += len(seq.Stages)
-
-		for stageIdx, irStage := range seq.Stages {
-			seqState.stages[stageIdx] = stage{
-				strata:        irStage.Strata,
-				firedOneShots: make(set.Set[ir.Edge]),
-			}
-			entryKey := "entry_" + seq.Key + "_" + irStage.Key
-			s.transitions[entryKey] = transitionTarget{
-				seqIdx:   seqIdx,
-				stageIdx: stageIdx,
-			}
-		}
-		s.sequences[seqIdx] = seqState
+	s.sequences = make([]sequenceState, len(prog.Sequences))
+	for i, seq := range prog.Sequences {
+		s.sequences[i] = buildSequenceState(seq)
+		s.registerTransitions(&s.sequences[i])
+		s.registerBoundaries(&s.sequences[i])
+		s.maxConvergenceIter += countSteps(seq)
 	}
 
 	s.nodeCtx = rnode.Context{
@@ -160,29 +122,116 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 		MarkSelfChanged: s.markSelfChanged,
 		SetDeadline:     s.setDeadline,
 		ReportError:     s.reportError,
-		ActivateStage:   s.transitionStage,
+		ActivateStage:   s.transitionStep,
 	}
 
 	return s
 }
 
+// buildSequenceState recursively builds runtime state from an IR sequence.
+func buildSequenceState(seq ir.Sequence) sequenceState {
+	state := sequenceState{
+		ir:            seq,
+		steps:         make([]stepState, len(seq.Steps)),
+		activeStepIdx: -1,
+		firedOneShots: make(set.Set[ir.Edge]),
+	}
+
+	hasFlowSteps := false
+	for i, step := range seq.Steps {
+		ss := stepState{ir: step}
+		if step.Stage != nil {
+			for _, subSeq := range step.Stage.Sequences {
+				ss.subSeqs = append(ss.subSeqs, buildSequenceState(subSeq))
+			}
+		}
+		if step.Sequence != nil {
+			nested := buildSequenceState(*step.Sequence)
+			ss.subSeq = &nested
+		}
+		if step.Flow != nil {
+			hasFlowSteps = true
+		}
+		state.steps[i] = ss
+	}
+
+	if hasFlowSteps {
+		state.flowNodeOwner = make(map[string]int)
+		state.flowDataNodes = make(set.Set[string])
+		for i, step := range seq.Steps {
+			if step.Flow != nil {
+				for _, nodeKey := range step.Flow.Nodes {
+					state.flowNodeOwner[nodeKey] = i
+					state.flowDataNodes.Add(nodeKey)
+				}
+			}
+		}
+	}
+
+	return state
+}
+
+// registerTransitions maps entry node keys to their transition targets.
+func (s *Scheduler) registerTransitions(seq *sequenceState) {
+	for i, step := range seq.steps {
+		ek := "entry_" + seq.ir.Key + "_" + step.ir.Key
+		s.transitions[ek] = transitionTarget{seq: seq, stepIdx: i}
+		if step.ir.Stage != nil {
+			for j := range step.subSeqs {
+				s.registerTransitions(&step.subSeqs[j])
+			}
+		}
+		if step.subSeq != nil {
+			s.registerTransitions(step.subSeq)
+		}
+	}
+}
+
+// registerBoundaries maps boundary keys to their child sequence states.
+func (s *Scheduler) registerBoundaries(seq *sequenceState) {
+	for i, step := range seq.steps {
+		if step.ir.Stage != nil {
+			for j := range step.subSeqs {
+				subBk := stratifier.BoundaryKey(step.subSeqs[j].ir.Key)
+				s.boundaries[subBk] = &seq.steps[i].subSeqs[j]
+				s.registerBoundaries(&step.subSeqs[j])
+			}
+		}
+		if step.ir.Sequence != nil {
+			bk := stratifier.BoundaryKey(step.ir.Key)
+			s.boundaries[bk] = step.subSeq
+			s.registerBoundaries(step.subSeq)
+		}
+	}
+}
+
+// countSteps returns the total number of steps across a sequence and its children.
+func countSteps(seq ir.Sequence) int {
+	count := len(seq.Steps)
+	for _, step := range seq.Steps {
+		if step.Stage != nil {
+			for _, subSeq := range step.Stage.Sequences {
+				count += countSteps(subSeq)
+			}
+		}
+		if step.Sequence != nil {
+			count += countSteps(*step.Sequence)
+		}
+	}
+	return count
+}
+
 // SetErrorHandler configures the handler for node execution errors.
-// If no handler is set, errors are silently ignored.
 func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 	s.errorHandler = handler
 }
 
-// MarkNodeChanged marks a node as changed, scheduling it for execution in the next cycle.
-// This is used externally to trigger execution based on external events or inputs.
+// MarkNodeChanged marks a node as changed, scheduling it for execution.
 func (s *Scheduler) MarkNodeChanged(nodeKey string) {
 	s.changed.Add(nodeKey)
 }
 
 // markChanged propagates changes from the current node's output to downstream nodes.
-// For continuous edges (and unspecified kind), always propagates.
-// For one-shot edges, propagates only if:
-// - The output is truthy, AND
-// - First time firing (global one-shots fire once ever, stage one-shots fire once per activation)
 func (s *Scheduler) markChanged(param string) {
 	n := s.nodes[s.currNodeKey]
 	for _, edge := range n.outgoing[param] {
@@ -190,18 +239,15 @@ func (s *Scheduler) markChanged(param string) {
 			if !n.IsOutputTruthy(param) {
 				continue
 			}
-			if s.currStageIdx == -1 {
-				// Global one-shot: fire once ever (tracked in globalFiredOneShots)
+			if s.currSeq == nil {
 				if _, fired := s.globalFiredOneShots[edge]; !fired {
 					s.globalFiredOneShots.Add(edge)
 					s.changed.Add(edge.Target.Node)
 				}
 				continue
 			}
-			// Stage one-shot: fire once per activation (tracked in stage's firedOneShots)
-			currStage := s.sequences[s.currSeqIdx].stages[s.currStageIdx]
-			if _, fired := currStage.firedOneShots[edge]; !fired {
-				currStage.firedOneShots.Add(edge)
+			if _, fired := s.currSeq.firedOneShots[edge]; !fired {
+				s.currSeq.firedOneShots.Add(edge)
 				s.changed.Add(edge.Target.Node)
 			}
 			continue
@@ -210,13 +256,10 @@ func (s *Scheduler) markChanged(param string) {
 	}
 }
 
-// markSelfChanged adds the currently executing node to the selfChanged set,
-// requesting re-execution on the next scheduler cycle.
 func (s *Scheduler) markSelfChanged() {
 	s.selfChanged.Add(s.currNodeKey)
 }
 
-// reportError reports an error from the currently executing node.
 func (s *Scheduler) reportError(err error) {
 	if s.errorHandler != nil {
 		s.errorHandler.HandleError(s.nodeCtx.Context, s.currNodeKey, err)
@@ -224,29 +267,19 @@ func (s *Scheduler) reportError(err error) {
 }
 
 // Next executes one cycle of the reactive computation.
-// Execution proceeds in two phases:
-//  1. Global strata: Execute nodes not in any stage
-//  2. Stage strata: Execute active stages until convergence
-//
-// The changed set is cleared at the start of each stage strata execution to ensure
-// independent change propagation between stages.
-// The reason parameter indicates what triggered this scheduler run (timer tick or
-// channel input). Time-based nodes use this to only fire on timer ticks.
 func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
 	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
 	s.nodeCtx.Tolerance = s.tolerance
 	s.nodeCtx.Reason = reason
-	s.currSeqIdx = -1
-	s.currStageIdx = -1
-	s.execStrata(s.globalStrata)
-	s.execStages()
+	s.currSeq = nil
+	s.execStrata(s.globalStrata, nil)
+	s.execSequences()
 	clear(s.changed)
 }
 
-// NextDeadline returns the minimum deadline (absolute elapsed time) reported by nodes
-// during the last Next() call. Returns telem.TimeSpanMax if no node reported a deadline.
+// NextDeadline returns the minimum deadline reported by nodes during the last Next() call.
 func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 
 func (s *Scheduler) setDeadline(d telem.TimeSpan) {
@@ -255,23 +288,42 @@ func (s *Scheduler) setDeadline(d telem.TimeSpan) {
 	}
 }
 
-// execStrata executes nodes in a stage strata, propagating changes between layers.
-// The changed set is cleared at the start to ensure independent propagation from
-// other stages.
-func (s *Scheduler) execStrata(strata ir.Strata) {
+// execStrata executes nodes in a strata, propagating changes between layers.
+// activeSeq is the sequence context for filtering flow nodes (nil for global/stage).
+func (s *Scheduler) execStrata(strata ir.Strata, activeSeq *sequenceState) {
 	clear(s.changed)
 	s.transitioned = false
-	inStage := s.currStageIdx != -1
+	inContext := s.currSeq != nil
 	for i, stratum := range strata {
 		for _, key := range stratum {
+			if subSeq, ok := s.boundaries[key]; ok {
+				if subSeq.activeStepIdx != -1 {
+					s.execSequenceStep(subSeq)
+				}
+				continue
+			}
+
+			if activeSeq != nil && activeSeq.flowDataNodes.Contains(key) {
+				if activeSeq.flowNodeOwner[key] != activeSeq.activeStepIdx {
+					continue
+				}
+			}
+
+			isActiveFlowNode := false
+			if activeSeq != nil && activeSeq.flowDataNodes.Contains(key) {
+				if activeSeq.flowNodeOwner[key] == activeSeq.activeStepIdx {
+					isActiveFlowNode = true
+				}
+			}
+
 			wasSelfChanged := s.selfChanged.Contains(key)
 			if wasSelfChanged {
 				delete(s.selfChanged, key)
 			}
-			if i == 0 || s.changed.Contains(key) || wasSelfChanged {
+			if i == 0 || s.changed.Contains(key) || wasSelfChanged || isActiveFlowNode {
 				s.currNodeKey = key
 				s.nodes[key].Next(s.nodeCtx)
-				if inStage && s.transitioned {
+				if inContext && s.transitioned {
 					return
 				}
 			}
@@ -279,19 +331,18 @@ func (s *Scheduler) execStrata(strata ir.Strata) {
 	}
 }
 
-// execStages executes active stages across all sequences until convergence.
-// A stage transition during execution triggers re-evaluation until stable.
-func (s *Scheduler) execStages() {
-	for iter := 0; iter < s.maxConvergenceIterations; iter++ {
+// execSequences runs the convergence loop across all sequences.
+func (s *Scheduler) execSequences() {
+	for iter := 0; iter < s.maxConvergenceIter; iter++ {
 		stable := true
-		for s.currSeqIdx = 0; s.currSeqIdx < len(s.sequences); s.currSeqIdx++ {
-			seq := &s.sequences[s.currSeqIdx]
-			if seq.activeStageIdx == -1 {
+		for i := range s.sequences {
+			seq := &s.sequences[i]
+			if seq.activeStepIdx == -1 {
 				continue
 			}
-			s.currStageIdx = seq.activeStageIdx
-			s.execStrata(seq.stages[s.currStageIdx].strata)
-			if seq.activeStageIdx != s.currStageIdx {
+			prevStepIdx := seq.activeStepIdx
+			s.execSequenceStep(seq)
+			if seq.activeStepIdx != prevStepIdx {
 				stable = false
 			}
 		}
@@ -301,27 +352,95 @@ func (s *Scheduler) execStages() {
 	}
 }
 
-// transitionStage transitions to the stage associated with the currently executing node.
-// This deactivates the current sequence's stage first, then activates the target stage.
-func (s *Scheduler) transitionStage() {
-	if s.currSeqIdx != -1 {
-		sourceStage := s.sequences[s.currSeqIdx].stages[s.currStageIdx]
-		s.clearSelfChanged(sourceStage.strata)
-		s.sequences[s.currSeqIdx].activeStageIdx = -1
+// execSequenceStep executes the active step of a sequence.
+func (s *Scheduler) execSequenceStep(seq *sequenceState) {
+	if seq.activeStepIdx < 0 || seq.activeStepIdx >= len(seq.steps) {
+		return
 	}
+	step := &seq.steps[seq.activeStepIdx]
+	prevSeq := s.currSeq
+	s.currSeq = seq
+
+	switch {
+	case step.ir.Stage != nil:
+		s.execStrata(step.ir.Stage.Strata, nil)
+	case step.ir.Flow != nil:
+		s.execStrata(seq.ir.Strata, seq)
+	case step.ir.Sequence != nil && step.subSeq != nil:
+		if step.subSeq.activeStepIdx != -1 {
+			s.execSequenceStep(step.subSeq)
+		}
+	}
+
+	s.currSeq = prevSeq
+}
+
+// transitionStep transitions to the step associated with the currently executing
+// entry node. This deactivates the source step and activates the target step.
+func (s *Scheduler) transitionStep() {
 	target, ok := s.transitions[s.currNodeKey]
 	if !ok {
 		return
 	}
-	targetStage := &s.sequences[target.seqIdx].stages[target.stageIdx]
-	clear(targetStage.firedOneShots)
-	s.resetStrata(targetStage.strata)
-	s.sequences[target.seqIdx].activeStageIdx = target.stageIdx
+
+	// Deactivate the current step in the target's sequence.
+	if target.seq.activeStepIdx != -1 {
+		s.deactivateStep(target.seq)
+	}
+
+	// Activate the target step.
+	s.activateStep(target.seq, target.stepIdx)
 	s.transitioned = true
 }
 
-// clearSelfChanged removes all nodes in a strata from the selfChanged set
-// without resetting the nodes themselves.
+// activateStep activates a step, resetting its nodes per RFC 7.6.
+func (s *Scheduler) activateStep(seq *sequenceState, stepIdx int) {
+	seq.activeStepIdx = stepIdx
+	clear(seq.firedOneShots)
+	step := &seq.steps[stepIdx]
+
+	switch {
+	case step.ir.Stage != nil:
+		s.resetStrata(step.ir.Stage.Strata)
+		for i := range step.subSeqs {
+			s.enterSequence(&step.subSeqs[i])
+		}
+	case step.ir.Flow != nil:
+		for _, nodeKey := range step.ir.Flow.Nodes {
+			delete(s.selfChanged, nodeKey)
+			if n, ok := s.nodes[nodeKey]; ok {
+				n.Reset()
+			}
+		}
+	case step.ir.Sequence != nil && step.subSeq != nil:
+		s.enterSequence(step.subSeq)
+	}
+}
+
+// deactivateStep clears self-changed state for the current step.
+func (s *Scheduler) deactivateStep(seq *sequenceState) {
+	step := &seq.steps[seq.activeStepIdx]
+	switch {
+	case step.ir.Stage != nil:
+		s.clearSelfChanged(step.ir.Stage.Strata)
+	case step.ir.Flow != nil:
+		for _, nodeKey := range step.ir.Flow.Nodes {
+			delete(s.selfChanged, nodeKey)
+		}
+	}
+	seq.activeStepIdx = -1
+}
+
+// enterSequence activates a sequence at step 0.
+func (s *Scheduler) enterSequence(seq *sequenceState) {
+	if len(seq.steps) == 0 {
+		return
+	}
+	clear(seq.firedOneShots)
+	s.activateStep(seq, 0)
+}
+
+// clearSelfChanged removes all nodes in a strata from the selfChanged set.
 func (s *Scheduler) clearSelfChanged(strata ir.Strata) {
 	for _, stratum := range strata {
 		for _, key := range stratum {
@@ -331,12 +450,13 @@ func (s *Scheduler) clearSelfChanged(strata ir.Strata) {
 }
 
 // resetStrata resets all nodes in a strata to their initial state.
-// Called when a stage is activated to reset timers and other stateful nodes.
 func (s *Scheduler) resetStrata(strata ir.Strata) {
 	for _, stratum := range strata {
 		for _, key := range stratum {
 			delete(s.selfChanged, key)
-			s.nodes[key].Reset()
+			if n, ok := s.nodes[key]; ok {
+				n.Reset()
+			}
 		}
 	}
 }

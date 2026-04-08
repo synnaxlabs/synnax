@@ -134,12 +134,61 @@ func EdgesFromPB(pbs []*Edge) ([]ir.Edge, error) {
 	return result, nil
 }
 
+// FlowToPB converts Flow to Flow.
+func FlowToPB(r ir.Flow) (*Flow, error) {
+	pb := &Flow{
+		Nodes: r.Nodes,
+	}
+	return pb, nil
+}
+
+// FlowFromPB converts Flow to Flow.
+func FlowFromPB(pb *Flow) (ir.Flow, error) {
+	var r ir.Flow
+	if pb == nil {
+		return r, nil
+	}
+	r.Nodes = pb.Nodes
+	return r, nil
+}
+
+// FlowsToPB converts a slice of Flow to Flow.
+func FlowsToPB(rs []ir.Flow) ([]*Flow, error) {
+	result := make([]*Flow, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = FlowToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// FlowsFromPB converts a slice of Flow to Flow.
+func FlowsFromPB(pbs []*Flow) ([]ir.Flow, error) {
+	result := make([]ir.Flow, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = FlowFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // StageToPB converts Stage to Stage.
 func StageToPB(r ir.Stage) (*Stage, error) {
+	sequencesVal, err := SequencesToPB(r.Sequences)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Stage{
-		Key:    r.Key,
-		Nodes:  r.Nodes,
-		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Key:       r.Key,
+		Nodes:     r.Nodes,
+		Strata:    lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Sequences: sequencesVal,
 	}
 	return pb, nil
 }
@@ -150,9 +199,14 @@ func StageFromPB(pb *Stage) (ir.Stage, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
 	r.Key = pb.Key
 	r.Nodes = pb.Nodes
 	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	r.Sequences, err = SequencesFromPB(pb.Sequences)
+	if err != nil {
+		return ir.Stage{}, err
+	}
 	return r, nil
 }
 
@@ -182,15 +236,102 @@ func StagesFromPB(pbs []*Stage) ([]ir.Stage, error) {
 	return result, nil
 }
 
+// StepToPB converts Step to Step.
+func StepToPB(r ir.Step) (*Step, error) {
+	pb := &Step{
+		Key: r.Key,
+	}
+	if r.Flow != nil {
+		flowVal, err := FlowToPB(*r.Flow)
+		if err != nil {
+			return nil, err
+		}
+		pb.Flow = flowVal
+	}
+	if r.Stage != nil {
+		stageVal, err := StageToPB(*r.Stage)
+		if err != nil {
+			return nil, err
+		}
+		pb.Stage = stageVal
+	}
+	if r.Sequence != nil {
+		seqVal, err := SequenceToPB(*r.Sequence)
+		if err != nil {
+			return nil, err
+		}
+		pb.Sequence = seqVal
+	}
+	return pb, nil
+}
+
+// StepFromPB converts Step to Step.
+func StepFromPB(pb *Step) (ir.Step, error) {
+	var r ir.Step
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = pb.Key
+	if pb.Flow != nil {
+		flowVal, err := FlowFromPB(pb.Flow)
+		if err != nil {
+			return ir.Step{}, err
+		}
+		r.Flow = &flowVal
+	}
+	if pb.Stage != nil {
+		stageVal, err := StageFromPB(pb.Stage)
+		if err != nil {
+			return ir.Step{}, err
+		}
+		r.Stage = &stageVal
+	}
+	if pb.Sequence != nil {
+		seqVal, err := SequenceFromPB(pb.Sequence)
+		if err != nil {
+			return ir.Step{}, err
+		}
+		r.Sequence = &seqVal
+	}
+	return r, nil
+}
+
+// StepsToPB converts a slice of Step to Step.
+func StepsToPB(rs []ir.Step) ([]*Step, error) {
+	result := make([]*Step, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StepToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StepsFromPB converts a slice of Step to Step.
+func StepsFromPB(pbs []*Step) ([]ir.Step, error) {
+	result := make([]ir.Step, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StepFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // SequenceToPB converts Sequence to Sequence.
 func SequenceToPB(r ir.Sequence) (*Sequence, error) {
-	stagesVal, err := StagesToPB(r.Stages)
+	stepsVal, err := StepsToPB(r.Steps)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Sequence{
 		Key:    r.Key,
-		Stages: stagesVal,
+		Steps:  stepsVal,
+		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 	}
 	return pb, nil
 }
@@ -202,11 +343,12 @@ func SequenceFromPB(pb *Sequence) (ir.Sequence, error) {
 		return r, nil
 	}
 	var err error
-	r.Stages, err = StagesFromPB(pb.Stages)
+	r.Steps, err = StepsFromPB(pb.Steps)
 	if err != nil {
 		return ir.Sequence{}, err
 	}
 	r.Key = pb.Key
+	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	return r, nil
 }
 

@@ -174,11 +174,9 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside sequence body")
 			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside sequence body")
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside sequence body")
-			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside sequence body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' inside sequence body (nested sequences)")
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type inside sequence body")
 			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type inside sequence body")
-			Expect(HasCompletion(completions.Items, "len")).To(BeFalse(), "Should not show 'len' inside sequence body")
-			Expect(HasCompletion(completions.Items, "now")).To(BeFalse(), "Should not show 'now' inside sequence body")
 		})
 
 		It("should show next keyword inside a stage body", func(ctx SpecContext) {
@@ -193,7 +191,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside stage body")
 			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside stage body")
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside stage body")
-			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside stage body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' inside stage body (inline sequences)")
 		})
 
 		It("should not show types at statement start", func(ctx SpecContext) {

@@ -72,17 +72,13 @@ var _ = Describe("DecodeMsgpack", func() {
 	})
 
 	Describe("Stage", func() {
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Key    string
-				Nodes  []string
-				Strata ir.Strata
-			}{
+		It("Should round-trip encode and decode", func() {
+			original := ir.Stage{
 				Key:    "stage1",
 				Nodes:  []string{"n1", "n2"},
 				Strata: ir.Strata{{"n1"}, {"n2"}},
 			}
-			data := MustSucceed(msgpack.Marshal(legacy))
+			data := MustSucceed(msgpack.Marshal(original))
 			var decoded ir.Stage
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("stage1"))
@@ -91,19 +87,19 @@ var _ = Describe("DecodeMsgpack", func() {
 	})
 
 	Describe("Sequence", func() {
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Key    string
-				Stages []ir.Stage
-			}{
-				Key:    "seq1",
-				Stages: []ir.Stage{{Key: "s1", Nodes: []string{"n1"}}},
+		It("Should decode new lowercase msgpack fields", func() {
+			original := ir.Sequence{
+				Key: "seq1",
+				Steps: []ir.Step{
+					{Key: "s1", Stage: &ir.Stage{Key: "s1", Nodes: []string{"n1"}}},
+				},
 			}
-			data := MustSucceed(msgpack.Marshal(legacy))
+			data := MustSucceed(msgpack.Marshal(original))
 			var decoded ir.Sequence
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("seq1"))
-			Expect(decoded.Stages).To(HaveLen(1))
+			Expect(decoded.Steps).To(HaveLen(1))
+			Expect(decoded.Steps[0].Key).To(Equal("s1"))
 		})
 	})
 

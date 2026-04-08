@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -57,6 +48,9 @@ type ArcParserListener interface {
 
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
+
+	// EnterSequenceItem is called when entering the sequenceItem production.
+	EnterSequenceItem(c *SequenceItemContext)
 
 	// EnterStageDeclaration is called when entering the stageDeclaration production.
 	EnterStageDeclaration(c *StageDeclarationContext)
@@ -264,6 +258,9 @@ type ArcParserListener interface {
 
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
+
+	// ExitSequenceItem is called when exiting the sequenceItem production.
+	ExitSequenceItem(c *SequenceItemContext)
 
 	// ExitStageDeclaration is called when exiting the stageDeclaration production.
 	ExitStageDeclaration(c *StageDeclarationContext)

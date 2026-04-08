@@ -127,11 +127,11 @@ var _ = Describe("Arc", func() {
 		Expect(mod.Sequences).To(HaveLen(1))
 		seq := MustBeOk(mod.Sequences.Find("seg"))
 		Expect(seq.Key).To(Equal("seg"))
-		Expect(seq.Stages).To(HaveLen(1))
+		Expect(seq.Steps).To(HaveLen(1))
 		Expect(seq.Entry().Key).To(Equal("init"))
 
-		initStage := MustBeOk(seq.FindStage("init"))
-		Expect(initStage.Nodes).To(HaveLen(2))
+		initStage := MustBeOk(seq.FindStep("init"))
+		Expect(initStage.Stage.Nodes).To(HaveLen(2))
 
 		Expect(mod.Nodes).To(HaveLen(3))
 		entryNode := findNodeByType(mod.Nodes, "stage_entry")
@@ -149,9 +149,9 @@ var _ = Describe("Arc", func() {
 		Expect(edge.Source.Node).To(Equal(constNode.Key))
 		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		Expect(initStage.Strata).To(HaveLen(2))
-		Expect(initStage.Strata[0]).To(ContainElement(constNode.Key))
-		Expect(initStage.Strata[1]).To(ContainElement(writeNode.Key))
+		Expect(initStage.Stage.Strata).To(HaveLen(2))
+		Expect(initStage.Stage.Strata[0]).To(ContainElement(constNode.Key))
+		Expect(initStage.Stage.Strata[1]).To(ContainElement(writeNode.Key))
 	})
 
 	It("Should compile a three stage sequence", func(ctx SpecContext) {
@@ -196,18 +196,18 @@ sequence main {
 
 		Expect(mod.Sequences).To(HaveLen(1))
 		seq := MustBeOk(mod.Sequences.Find("main"))
-		Expect(seq.Stages).To(HaveLen(2))
+		Expect(seq.Steps).To(HaveLen(2))
 
-		pressStage := MustBeOk(seq.FindStage("press"))
-		Expect(pressStage.Nodes).ToNot(BeEmpty())
+		pressStage := MustBeOk(seq.FindStep("press"))
+		Expect(pressStage.Stage.Nodes).ToNot(BeEmpty())
 
-		stopStage := MustBeOk(seq.FindStage("stop"))
-		Expect(stopStage.Nodes).ToNot(BeEmpty())
+		stopStage := MustBeOk(seq.FindStep("stop"))
+		Expect(stopStage.Stage.Nodes).ToNot(BeEmpty())
 
-		nextStage := MustBeOk(seq.NextStage("press"))
+		nextStage := MustBeOk(seq.NextStep("press"))
 		Expect(nextStage.Key).To(Equal("stop"))
 
-		_, ok := seq.NextStage("stop")
+		_, ok := seq.NextStep("stop")
 		Expect(ok).To(BeFalse())
 
 		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
@@ -274,18 +274,18 @@ sequence main {
 
 		Expect(mod.Sequences).To(HaveLen(1))
 		seq := MustBeOk(mod.Sequences.Find("main"))
-		Expect(seq.Stages).To(HaveLen(2))
+		Expect(seq.Steps).To(HaveLen(2))
 
-		pressStage := MustBeOk(seq.FindStage("press"))
-		Expect(pressStage.Strata).ToNot(BeEmpty())
+		pressStage := MustBeOk(seq.FindStep("press"))
+		Expect(pressStage.Stage.Strata).ToNot(BeEmpty())
 
-		ventStage := MustBeOk(seq.FindStage("vent"))
-		Expect(ventStage.Strata).ToNot(BeEmpty())
+		ventStage := MustBeOk(seq.FindStep("vent"))
+		Expect(ventStage.Stage.Strata).ToNot(BeEmpty())
 
-		nextFromPress := MustBeOk(seq.NextStage("press"))
+		nextFromPress := MustBeOk(seq.NextStep("press"))
 		Expect(nextFromPress.Key).To(Equal("vent"))
 
-		_, ok := seq.NextStage("vent")
+		_, ok := seq.NextStep("vent")
 		Expect(ok).To(BeFalse())
 
 		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)

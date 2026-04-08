@@ -184,12 +184,8 @@ var _ = Describe("Codec", func() {
 					Sequences: []ir.Sequence{
 						{
 							Key: "test_102",
-							Stages: []ir.Stage{
-								{
-									Key:    "test_104",
-									Nodes:  []string{"test_105"},
-									Strata: [][]string{{"test_106"}},
-								},
+							Steps: []ir.Step{
+								{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
 							},
 						},
 					},
@@ -380,12 +376,8 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 			Sequences: []ir.Sequence{
 				{
 					Key: "test_102",
-					Stages: []ir.Stage{
-						{
-							Key:    "test_104",
-							Nodes:  []string{"test_105"},
-							Strata: [][]string{{"test_106"}},
-						},
+					Steps: []ir.Step{
+						{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
 					},
 				},
 			},
@@ -563,12 +555,8 @@ func FuzzDecodeProgram(f *testing.F) {
 				Sequences: []ir.Sequence{
 					{
 						Key: "test_102",
-						Stages: []ir.Stage{
-							{
-								Key:    "test_104",
-								Nodes:  []string{"test_105"},
-								Strata: [][]string{{"test_106"}},
-							},
+						Steps: []ir.Step{
+							{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
 						},
 					},
 				},

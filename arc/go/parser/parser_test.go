@@ -1366,7 +1366,7 @@ sequence main {
 				Expect(seq).NotTo(BeNil())
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
 
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(2))
 
 				// First stage: precheck
@@ -1387,7 +1387,7 @@ sequence seq {
     }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(1))
 
 				stage := stages[0]
@@ -1403,7 +1403,7 @@ sequence seq {
     }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				stage := stages[0]
 				body := stage.StageBody()
 				items := body.AllStageItem()
@@ -1430,7 +1430,7 @@ sequence seq {
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq).NotTo(BeNil())
 
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(1))
 
 				stage := stages[0]
@@ -1458,7 +1458,7 @@ sequence main {
 				// Verify sequence
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(3))
 
 				// Verify stage names
@@ -1514,4 +1514,14 @@ func getEqualityExpression(expr parser.IExpressionContext) parser.IEqualityExpre
 
 func getLogicalAndExpression(expr parser.IExpressionContext) parser.ILogicalAndExpressionContext {
 	return expr.LogicalOrExpression().LogicalAndExpression(0)
+}
+
+func allStageDecls(seq parser.ISequenceDeclarationContext) []parser.IStageDeclarationContext {
+	var stages []parser.IStageDeclarationContext
+	for _, item := range seq.AllSequenceItem() {
+		if s := item.StageDeclaration(); s != nil {
+			stages = append(stages, s)
+		}
+	}
+	return stages
 }

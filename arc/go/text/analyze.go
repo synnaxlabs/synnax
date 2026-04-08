@@ -28,28 +28,46 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+type contextFrame struct {
+	seqName     string
+	stepKey     string
+	nextStepKey string
+}
+
 type keyGenerator struct {
-	occurrences   map[string]int
-	seqName       string
-	stageName     string
-	nextStageName string
+	occurrences map[string]int
+	stack       []contextFrame
 }
 
 func newKeyGenerator() *keyGenerator {
 	return &keyGenerator{occurrences: make(map[string]int)}
 }
 
-func (kg *keyGenerator) setStageContext(seqName, stageName, nextStageName string) {
-	kg.seqName = seqName
-	kg.stageName = stageName
-	kg.nextStageName = nextStageName
+func (kg *keyGenerator) push(seqName, stepKey, nextStepKey string) {
+	kg.stack = append(kg.stack, contextFrame{
+		seqName:     seqName,
+		stepKey:     stepKey,
+		nextStepKey: nextStepKey,
+	})
 }
 
-func (kg *keyGenerator) clearStageContext() {
-	kg.seqName = ""
-	kg.stageName = ""
-	kg.nextStageName = ""
+func (kg *keyGenerator) pop() {
+	if len(kg.stack) > 0 {
+		kg.stack = kg.stack[:len(kg.stack)-1]
+	}
 }
+
+func (kg *keyGenerator) top() contextFrame {
+	if len(kg.stack) == 0 {
+		return contextFrame{}
+	}
+	return kg.stack[len(kg.stack)-1]
+}
+
+func (kg *keyGenerator) seqName() string     { return kg.top().seqName }
+func (kg *keyGenerator) stepKey() string     { return kg.top().stepKey }
+func (kg *keyGenerator) nextStepKey() string { return kg.top().nextStepKey }
+func (kg *keyGenerator) inSequence() bool    { return len(kg.stack) > 0 }
 
 func (kg *keyGenerator) generate(role, name string) string {
 	base := role
@@ -61,8 +79,8 @@ func (kg *keyGenerator) generate(role, name string) string {
 	return fmt.Sprintf("%s_%d", base, count)
 }
 
-func (kg *keyGenerator) entry(seqName, stageName string) string {
-	return fmt.Sprintf("entry_%s_%s", seqName, stageName)
+func (kg *keyGenerator) entry(seqName, stepKey string) string {
+	return fmt.Sprintf("entry_%s_%s", seqName, stepKey)
 }
 
 type nodeResult struct {
@@ -218,19 +236,19 @@ func analyzeNextToken(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	if kg.seqName == "" {
+	if !kg.inSequence() {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"))
 		return nodeResult{}, false
 	}
-	if kg.nextStageName == "" {
+	if kg.nextStepKey() == "" {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"'next' in last stage '%s' has no next stage",
-			kg.stageName,
+			kg.stepKey(),
 		))
 		return nodeResult{}, false
 	}
-	entryKey := kg.entry(kg.seqName, kg.nextStageName)
+	entryKey := kg.entry(kg.seqName(), kg.nextStepKey())
 	return emptyNodeResult(ir.Handle{Node: entryKey, Param: "activate"}), true
 }
 
@@ -727,6 +745,12 @@ func analyzeOutputRoutingTable(
 	return nodes, edges, true
 }
 
+// stepInfo collects metadata about a step for computing next-step keys.
+type stepInfo struct {
+	key  string
+	item parser.ISequenceItemContext
+}
+
 func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
@@ -740,29 +764,148 @@ func analyzeSequence(
 		return ir.Sequence{}, nil, nil, false
 	}
 
+	// Pre-scan items to compute step keys and next-step keys.
+	items := ctx.AST.AllSequenceItem()
+	var steps []stepInfo
+	for i, item := range items {
+		key := fmt.Sprintf("step_%d", i)
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			if id := stageDecl.IDENTIFIER(); id != nil {
+				key = id.GetText()
+			}
+		}
+		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+			if id := nestedSeq.IDENTIFIER(); id != nil {
+				key = id.GetText()
+			}
+		}
+		steps = append(steps, stepInfo{key: key, item: item})
+	}
+
 	var allNodes []ir.Node
 	var allEdges []ir.Edge
 
-	stageDecls := ctx.AST.AllStageDeclaration()
-	for i, stageDecl := range stageDecls {
-		stageName := stageDecl.IDENTIFIER().GetText()
-		nextStageName := ""
-		if i+1 < len(stageDecls) {
-			nextStageName = stageDecls[i+1].IDENTIFIER().GetText()
+	for i, si := range steps {
+		nextStepKey := ""
+		if i+1 < len(steps) {
+			nextStepKey = steps[i+1].key
 		}
-		kg.setStageContext(seqName, stageName, nextStageName)
-		stage, nodes, edges, ok := analyzeStage(
-			acontext.Child(ctx, stageDecl).WithScope(seqScope),
-			seqName,
-			kg,
-		)
-		kg.clearStageContext()
-		if !ok {
-			return ir.Sequence{}, nil, nil, false
+
+		item := si.item
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			kg.push(seqName, si.key, nextStepKey)
+			stg, nodes, edges, ok := analyzeStage(
+				acontext.Child(ctx, stageDecl).WithScope(seqScope),
+				seqName,
+				kg,
+			)
+			kg.pop()
+			if !ok {
+				return ir.Sequence{}, nil, nil, false
+			}
+			seq.Steps = append(seq.Steps, ir.Step{Key: si.key, Stage: &stg})
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+			continue
 		}
-		seq.Stages = append(seq.Stages, stage)
-		allNodes = append(allNodes, nodes...)
-		allEdges = append(allEdges, edges...)
+
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			kg.push(seqName, si.key, nextStepKey)
+			nodes, edges, ok := analyzeFlow(
+				acontext.Child(ctx, flowStmt).WithScope(seqScope),
+				kg,
+			)
+			kg.pop()
+			if !ok {
+				return ir.Sequence{}, nil, nil, false
+			}
+			var nodeKeys []string
+			for _, n := range nodes {
+				nodeKeys = append(nodeKeys, n.Key)
+			}
+			// Create entry node for this flow step.
+			entryNode := ir.Node{
+				Key:      kg.entry(seqName, si.key),
+				Type:     stage.EntryNodeName,
+				Channels: types.NewChannels(),
+				Inputs:   stage.EntryNodeInputs,
+			}
+			allNodes = append(allNodes, entryNode)
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+
+			// Auto-wire: the last node's output fires the next step's entry node
+			// via a one-shot edge (if there is a next step).
+			if nextStepKey != "" && len(nodes) > 0 {
+				lastNode := nodes[len(nodes)-1]
+				if len(lastNode.Outputs) > 0 {
+					nextEntryKey := kg.entry(seqName, nextStepKey)
+					allEdges = append(allEdges, ir.Edge{
+						Source: ir.Handle{Node: lastNode.Key, Param: firstOutputParam(lastNode.Outputs)},
+						Target: ir.Handle{Node: nextEntryKey, Param: stage.EntryActivationParam},
+						Kind:   ir.EdgeKindOneShot,
+					})
+				}
+			}
+
+			seq.Steps = append(seq.Steps, ir.Step{
+				Key:  si.key,
+				Flow: &ir.Flow{Nodes: nodeKeys},
+			})
+			continue
+		}
+
+		if single := item.SingleInvocation(); single != nil {
+			kg.push(seqName, si.key, nextStepKey)
+			node, ok := analyzeSingleInvocation(
+				acontext.Child(ctx, single).WithScope(seqScope),
+				kg,
+			)
+			kg.pop()
+			if !ok {
+				return ir.Sequence{}, nil, nil, false
+			}
+			// Create entry node for this flow step.
+			entryNode := ir.Node{
+				Key:      kg.entry(seqName, si.key),
+				Type:     stage.EntryNodeName,
+				Channels: types.NewChannels(),
+				Inputs:   stage.EntryNodeInputs,
+			}
+			allNodes = append(allNodes, entryNode)
+			allNodes = append(allNodes, node)
+
+			// Auto-wire: the node's output fires the next step's entry node.
+			if nextStepKey != "" && len(node.Outputs) > 0 {
+				nextEntryKey := kg.entry(seqName, nextStepKey)
+				allEdges = append(allEdges, ir.Edge{
+					Source: ir.Handle{Node: node.Key, Param: firstOutputParam(node.Outputs)},
+					Target: ir.Handle{Node: nextEntryKey, Param: stage.EntryActivationParam},
+					Kind:   ir.EdgeKindOneShot,
+				})
+			}
+
+			seq.Steps = append(seq.Steps, ir.Step{
+				Key:  si.key,
+				Flow: &ir.Flow{Nodes: []string{node.Key}},
+			})
+			continue
+		}
+
+		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
+			kg.push(seqName, si.key, nextStepKey)
+			nestedSeq, nodes, edges, ok := analyzeSequence(
+				acontext.Child(ctx, nestedSeqDecl).WithScope(seqScope),
+				kg,
+			)
+			kg.pop()
+			if !ok {
+				return ir.Sequence{}, nil, nil, false
+			}
+			seq.Steps = append(seq.Steps, ir.Step{Key: si.key, Sequence: &nestedSeq})
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+		}
 	}
 
 	return seq, allNodes, allEdges, true
@@ -773,15 +916,18 @@ func analyzeStage(
 	seqName string,
 	kg *keyGenerator,
 ) (ir.Stage, []ir.Node, []ir.Edge, bool) {
+	stageName := ""
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		stageName = id.GetText()
+	}
 	var (
-		stageName = ctx.AST.IDENTIFIER().GetText()
-		stg       = ir.Stage{Key: stageName}
-		nodes     []ir.Node
-		edges     []ir.Edge
+		stg   = ir.Stage{Key: stageName}
+		nodes []ir.Node
+		edges []ir.Edge
 	)
 
 	entryNode := ir.Node{
-		Key:      kg.entry(seqName, stageName),
+		Key:      kg.entry(seqName, kg.stepKey()),
 		Type:     stage.EntryNodeName,
 		Channels: types.NewChannels(),
 		Inputs:   stage.EntryNodeInputs,

@@ -14,7 +14,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 )
 
-// StageSpec defines a stage for use with IRBuilder.Sequence.
+// StageSpec defines a stage step for use with IRBuilder.Sequence.
 type StageSpec struct {
 	Key    string
 	Strata ir.Strata
@@ -77,7 +77,7 @@ func (b *IRBuilder) Strata(s [][]string) *IRBuilder {
 	return b
 }
 
-// Sequence adds a sequence with stages.
+// Sequence adds a sequence with stage steps.
 //
 // Example:
 //
@@ -89,10 +89,13 @@ func (b *IRBuilder) Sequence(key string, stages []StageSpec) *IRBuilder {
 	seq := ir.Sequence{Key: key}
 	for _, spec := range stages {
 		nodes := collectNodes(spec.Strata)
-		seq.Stages = append(seq.Stages, ir.Stage{
-			Key:    spec.Key,
-			Nodes:  nodes,
-			Strata: spec.Strata,
+		seq.Steps = append(seq.Steps, ir.Step{
+			Key: spec.Key,
+			Stage: &ir.Stage{
+				Key:    spec.Key,
+				Nodes:  nodes,
+				Strata: spec.Strata,
+			},
 		})
 	}
 	b.prog.Sequences = append(b.prog.Sequences, seq)

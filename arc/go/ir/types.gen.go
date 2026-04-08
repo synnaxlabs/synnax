@@ -20,8 +20,8 @@ import (
 // Edges is a collection of dataflow edges in an Arc graph.
 type Edges []Edge
 
-// Stages is a collection of stages in an Arc sequence.
-type Stages []Stage
+// Steps is a collection of steps in an Arc sequence.
+type Steps []Step
 
 // Sequences is a collection of sequences in an Arc module.
 type Sequences []Sequence
@@ -70,24 +70,49 @@ type Edge struct {
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
 }
 
-// Stage is a stage in a sequence state machine, containing active nodes and their
-// execution stratification.
+// Flow is a leaf step in a sequence containing a single dataflow chain.
+// Flow steps do not own strata. Their nodes live in the parent Sequence.Strata.
+type Flow struct {
+	// Nodes contains node keys belonging to this flow step.
+	Nodes []string `json:"nodes" msgpack:"nodes"`
+}
+
+// Stage is a parallel execution context containing reactive flows that execute
+// concurrently. May also contain inline sub-sequences.
 type Stage struct {
-	// Key is the stage identifier.
+	// Key is the stage identifier (empty if anonymous).
 	Key string `json:"key" msgpack:"key"`
 	// Nodes contains node keys active in this stage.
 	Nodes []string `json:"nodes" msgpack:"nodes"`
 	// Strata contains execution stratification for nodes in this stage.
 	Strata Strata `json:"strata" msgpack:"strata"`
+	// Sequences contains inline sub-sequences within this stage.
+	Sequences []Sequence `json:"sequences,omitempty" msgpack:"sequences,omitempty"`
 }
 
-// Sequence is a state machine defining ordered stages of execution, where entry point
-// is always the first stage.
-type Sequence struct {
-	// Key is the sequence identifier.
+// Step is a tagged union representing a single child of a sequence.
+// Exactly one of Flow, Stage, or Sequence is non-nil.
+type Step struct {
+	// Key is the name for jump targets, empty for anonymous steps.
 	Key string `json:"key" msgpack:"key"`
-	// Stages contains ordered stages in this sequence.
-	Stages []Stage `json:"stages" msgpack:"stages"`
+	// Flow is non-nil when this step is a leaf (single dataflow chain).
+	Flow *Flow `json:"flow,omitempty" msgpack:"flow,omitempty"`
+	// Stage is non-nil when this step is a parallel execution context.
+	Stage *Stage `json:"stage,omitempty" msgpack:"stage,omitempty"`
+	// Sequence is non-nil when this step is a nested sequential context.
+	Sequence *Sequence `json:"sequence,omitempty" msgpack:"sequence,omitempty"`
+}
+
+// Sequence is a sequential execution context defining ordered steps.
+// Entry point is always the first step.
+type Sequence struct {
+	// Key is the sequence identifier (empty if anonymous).
+	Key string `json:"key" msgpack:"key"`
+	// Steps contains ordered steps in this sequence.
+	Steps []Step `json:"steps" msgpack:"steps"`
+	// Strata contains execution stratification for flow step nodes and
+	// execution context boundaries for stage/sequence steps.
+	Strata Strata `json:"strata,omitempty" msgpack:"strata,omitempty"`
 }
 
 // Body is raw function body source code with optional parsed AST.

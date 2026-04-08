@@ -105,11 +105,9 @@ var _ = Describe("IR", func() {
 				},
 			}
 
-			// Marshal to JSON
 			data := MustSucceed(json.Marshal(original))
 			Expect(data).ToNot(BeEmpty())
 
-			// Unmarshal from JSON
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
@@ -239,10 +237,10 @@ var _ = Describe("IR", func() {
 				Sequences: ir.Sequences{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "init", Nodes: []string{"timer_1", "ctrl_1"}},
-							{Key: "run", Nodes: []string{"ctrl_2"}},
-							{Key: "done", Nodes: nil},
+						Steps: []ir.Step{
+							stageStep("init", []string{"timer_1", "ctrl_1"}),
+							stageStep("run", []string{"ctrl_2"}),
+							stageStep("done", nil),
 						},
 					},
 				},
@@ -274,27 +272,22 @@ var _ = Describe("IR", func() {
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			// Verify sequences preserved
 			Expect(restored.Sequences).To(HaveLen(1))
 			Expect(restored.Sequences[0].Key).To(Equal("main"))
-			Expect(restored.Sequences[0].Stages).To(HaveLen(3))
+			Expect(restored.Sequences[0].Steps).To(HaveLen(3))
 
-			// Verify entry point works after deserialization
 			main := restored.Sequences.Get("main")
 			entry := main.Entry()
 			Expect(entry.Key).To(Equal("init"))
-			Expect(entry.Nodes).To(Equal([]string{"timer_1", "ctrl_1"}))
+			Expect(entry.StageNodes()).To(Equal([]string{"timer_1", "ctrl_1"}))
 
-			// Verify NextStage works
-			next, ok := main.NextStage("init")
+			next, ok := main.NextStep("init")
 			Expect(ok).To(BeTrue())
 			Expect(next.Key).To(Equal("run"))
 
-			// Verify edge kinds preserved
 			Expect(restored.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
 			Expect(restored.Edges[1].Kind).To(Equal(ir.EdgeKindOneShot))
 
-			// Verify GetByKind works
 			continuous := restored.Edges.GetByKind(ir.EdgeKindContinuous)
 			oneShot := restored.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(continuous).To(HaveLen(1))
@@ -321,21 +314,21 @@ var _ = Describe("IR", func() {
 				Sequences: ir.Sequences{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "run", Nodes: []string{"m_1"}},
+						Steps: []ir.Step{
+							stageStep("run", []string{"m_1"}),
 						},
 					},
 					{
 						Key: "abort",
-						Stages: []ir.Stage{
-							{Key: "safing", Nodes: []string{"a_1"}},
-							{Key: "safed", Nodes: nil},
+						Steps: []ir.Step{
+							stageStep("safing", []string{"a_1"}),
+							stageStep("safed", nil),
 						},
 					},
 					{
 						Key: "recovery",
-						Stages: []ir.Stage{
-							{Key: "assess", Nodes: []string{"r_1"}},
+						Steps: []ir.Step{
+							stageStep("assess", []string{"r_1"}),
 						},
 					},
 				},
@@ -355,16 +348,13 @@ var _ = Describe("IR", func() {
 
 			Expect(restored.Sequences).To(HaveLen(3))
 
-			// Test FindStage across sequences
-			stage, seq, ok := restored.Sequences.FindStage("safing")
+			step, seq, ok := restored.Sequences.FindStep("safing")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("safing"))
+			Expect(step.Key).To(Equal("safing"))
 			Expect(seq.Key).To(Equal("abort"))
 		})
 
 		It("Should support realistic sequence state machine", func() {
-			// A realistic hotfire sequence IR
-			// Note: Arc uses U8 for boolean types
 			program := &ir.IR{
 				Functions: ir.Functions{
 					{Key: "interval", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
@@ -374,12 +364,12 @@ var _ = Describe("IR", func() {
 				Sequences: ir.Sequences{
 					{
 						Key: "hotfire",
-						Stages: []ir.Stage{
-							{Key: "precheck", Nodes: []string{"timer_1", "pressure_check", "precheck_entry"}},
-							{Key: "pressurization", Nodes: []string{"valve_ctrl", "pressure_monitor", "pressurization_entry"}},
-							{Key: "ignition", Nodes: []string{"igniter", "ignition_entry"}},
-							{Key: "mainstage", Nodes: []string{"throttle_ctrl", "mainstage_entry"}},
-							{Key: "shutdown", Nodes: []string{"shutdown_seq", "shutdown_entry"}},
+						Steps: []ir.Step{
+							stageStep("precheck", []string{"timer_1", "pressure_check", "precheck_entry"}),
+							stageStep("pressurization", []string{"valve_ctrl", "pressure_monitor", "pressurization_entry"}),
+							stageStep("ignition", []string{"igniter", "ignition_entry"}),
+							stageStep("mainstage", []string{"throttle_ctrl", "mainstage_entry"}),
+							stageStep("shutdown", []string{"shutdown_seq", "shutdown_entry"}),
 						},
 					},
 				},
@@ -398,9 +388,7 @@ var _ = Describe("IR", func() {
 					{Key: "shutdown_entry", Type: "stage_entry"},
 				},
 				Edges: ir.Edges{
-					// Continuous dataflow
 					{Source: ir.Handle{Node: "timer_1", Param: "output"}, Target: ir.Handle{Node: "pressure_check", Param: ir.LHSInputParam}, Kind: ir.EdgeKindContinuous},
-					// Stage transitions (EdgeKindOneShot)
 					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
@@ -412,42 +400,35 @@ var _ = Describe("IR", func() {
 				},
 			}
 
-			// Verify sequence structure
 			hotfire := program.Sequences.Get("hotfire")
-			Expect(hotfire.Stages).To(HaveLen(5))
+			Expect(hotfire.Steps).To(HaveLen(5))
 
-			// Verify entry point
 			Expect(hotfire.Entry().Key).To(Equal("precheck"))
 
-			// Verify stage navigation
 			stages := []string{"precheck", "pressurization", "ignition", "mainstage", "shutdown"}
 			current := stages[0]
 			for i := 1; i < len(stages); i++ {
-				next, ok := hotfire.NextStage(current)
+				next, ok := hotfire.NextStep(current)
 				Expect(ok).To(BeTrue())
 				Expect(next.Key).To(Equal(stages[i]))
 				current = next.Key
 			}
 
-			// Verify last stage has no next
-			_, ok := hotfire.NextStage("shutdown")
+			_, ok := hotfire.NextStep("shutdown")
 			Expect(ok).To(BeFalse())
 
-			// Verify edge classification
 			continuous := program.Edges.GetByKind(ir.EdgeKindContinuous)
 			oneShot := program.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(continuous).To(HaveLen(1))
 			Expect(oneShot).To(HaveLen(4))
 
-			// All EdgeKindOneShot edges should target stage entries
 			for _, e := range oneShot {
 				Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			}
 
-			// Verify node ownership via stages
-			precheckStage, _, ok := program.Sequences.FindStage("precheck")
+			precheckStep, _, ok := program.Sequences.FindStep("precheck")
 			Expect(ok).To(BeTrue())
-			Expect(precheckStage.Nodes).To(ContainElements("timer_1", "pressure_check", "precheck_entry"))
+			Expect(precheckStep.StageNodes()).To(ContainElements("timer_1", "pressure_check", "precheck_entry"))
 		})
 	})
 })

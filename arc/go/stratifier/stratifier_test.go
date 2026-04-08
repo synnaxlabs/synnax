@@ -937,9 +937,9 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "first", Nodes: []string{"first_node"}},
-							{Key: "second", Nodes: []string{"second_node"}},
+						Steps: []ir.Step{
+							{Key: "first", Stage: &ir.Stage{Key: "first", Nodes: []string{"first_node"}}},
+							{Key: "second", Stage: &ir.Stage{Key: "second", Nodes: []string{"second_node"}}},
 						},
 					},
 				}
@@ -975,8 +975,8 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "first", Nodes: []string{"stage_source", "stage_process"}},
+						Steps: []ir.Step{
+							{Key: "first", Stage: &ir.Stage{Key: "first", Nodes: []string{"stage_source", "stage_process"}}},
 						},
 					},
 				}
@@ -988,8 +988,8 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("entry_main_first")).To(Equal(1))
 
 			// Per-stage strata should have stage_source at stratum 0
-			Expect(sequences[0].Stages[0].Strata.Get("stage_source")).To(Equal(0))
-			Expect(sequences[0].Stages[0].Strata.Get("stage_process")).To(Equal(1))
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("stage_source")).To(Equal(0))
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("stage_process")).To(Equal(1))
 		})
 
 		It("Should preserve statement order when stage entry and later writes share a stratum", func(ctx SpecContext) {
@@ -1027,9 +1027,9 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "on", Nodes: []string{"interval", "check", "noop", "write_cmd"}},
-							{Key: "off", Nodes: nil},
+						Steps: []ir.Step{
+							{Key: "on", Stage: &ir.Stage{Key: "on", Nodes: []string{"interval", "check", "noop", "write_cmd"}}},
+							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
 						},
 					},
 				}
@@ -1039,9 +1039,9 @@ var _ = Describe("Stratification", func() {
 
 			Expect(diag == nil || diag.Ok()).To(BeTrue())
 			Expect(strata.Get("entry_main_on")).To(Equal(-1))
-			Expect(sequences[0].Stages[0].Strata.Get("entry_main_off")).To(Equal(2))
-			Expect(sequences[0].Stages[0].Strata.Get("write_cmd")).To(Equal(2))
-			Expect(sequences[0].Stages[0].Strata[2]).To(Equal([]string{"entry_main_off", "write_cmd"}))
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("entry_main_off")).To(Equal(2))
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("write_cmd")).To(Equal(2))
+			Expect(sequences[0].Steps[0].Stage.Strata[2]).To(Equal([]string{"entry_main_off", "write_cmd"}))
 		})
 
 		It("Should preserve relative order across multiple transition targets and writes", func(ctx SpecContext) {
@@ -1102,16 +1102,16 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{
+						Steps: []ir.Step{
+							{Key: "on", Stage: &ir.Stage{
 								Key: "on",
 								Nodes: []string{
 									"interval", "check_off", "noop_a", "write_a",
 									"check_pause", "noop_b", "write_b",
 								},
-							},
-							{Key: "off", Nodes: nil},
-							{Key: "pause", Nodes: nil},
+							}},
+							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
+							{Key: "pause", Stage: &ir.Stage{Key: "pause", Nodes: nil}},
 						},
 					},
 				}
@@ -1122,7 +1122,7 @@ var _ = Describe("Stratification", func() {
 			Expect(diag == nil || diag.Ok()).To(BeTrue())
 			// Entry nodes are flattened to the end of their stratum so writes
 			// execute before the short-circuit fires.
-			Expect(sequences[0].Stages[0].Strata[2]).To(Equal(
+			Expect(sequences[0].Steps[0].Stage.Strata[2]).To(Equal(
 				[]string{"write_a", "write_b", "entry_main_off", "entry_main_pause"},
 			))
 		})
@@ -1155,10 +1155,10 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "on", Nodes: []string{"interval", "check"}},
-							{Key: "off", Nodes: nil},
-							{Key: "pause", Nodes: nil},
+						Steps: []ir.Step{
+							{Key: "on", Stage: &ir.Stage{Key: "on", Nodes: []string{"interval", "check"}}},
+							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
+							{Key: "pause", Stage: &ir.Stage{Key: "pause", Nodes: nil}},
 						},
 					},
 				}
@@ -1167,7 +1167,7 @@ var _ = Describe("Stratification", func() {
 
 			_, diag = stratifier.Stratify(ctx, nodes, edges, sequences, diag)
 			Expect(diag == nil || diag.Ok()).To(BeTrue())
-			Expect(sequences[0].Stages[0].Strata[2]).To(Equal(
+			Expect(sequences[0].Steps[0].Stage.Strata[2]).To(Equal(
 				[]string{"entry_main_off", "entry_main_pause"},
 			))
 		})
@@ -1214,13 +1214,13 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "main",
-						Stages: []ir.Stage{
-							{
+						Steps: []ir.Step{
+							{Key: "on", Stage: &ir.Stage{
 								Key:   "on",
 								Nodes: []string{"interval", "check_a", "check_b", "and_node"},
-							},
-							{Key: "off", Nodes: nil},
-							{Key: "pause", Nodes: nil},
+							}},
+							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
+							{Key: "pause", Stage: &ir.Stage{Key: "pause", Nodes: nil}},
 						},
 					},
 				}
@@ -1231,11 +1231,11 @@ var _ = Describe("Stratification", func() {
 			Expect(diag == nil || diag.Ok()).To(BeTrue())
 			// Both entry nodes should be at the same stratum (the max natural stratum
 			// among entry nodes), with source order preserved (off before pause).
-			Expect(sequences[0].Stages[0].Strata.Get("entry_main_off")).To(
-				Equal(sequences[0].Stages[0].Strata.Get("entry_main_pause")),
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("entry_main_off")).To(
+				Equal(sequences[0].Steps[0].Stage.Strata.Get("entry_main_pause")),
 			)
-			maxStratum := sequences[0].Stages[0].Strata.Get("entry_main_pause")
-			Expect(sequences[0].Stages[0].Strata[maxStratum]).To(Equal(
+			maxStratum := sequences[0].Steps[0].Stage.Strata.Get("entry_main_pause")
+			Expect(sequences[0].Steps[0].Stage.Strata[maxStratum]).To(Equal(
 				[]string{"entry_main_off", "entry_main_pause"},
 			))
 		})
@@ -1282,9 +1282,9 @@ var _ = Describe("Stratification", func() {
 				sequences = []ir.Sequence{
 					{
 						Key: "seq",
-						Stages: []ir.Stage{
-							{Key: "s1", Nodes: []string{"s1_const", "s1_proc"}},
-							{Key: "s2", Nodes: []string{"s2_const", "s2_proc1", "s2_proc2"}},
+						Steps: []ir.Step{
+							{Key: "s1", Stage: &ir.Stage{Key: "s1", Nodes: []string{"s1_const", "s1_proc"}}},
+							{Key: "s2", Stage: &ir.Stage{Key: "s2", Nodes: []string{"s2_const", "s2_proc1", "s2_proc2"}}},
 						},
 					},
 				}
@@ -1299,13 +1299,13 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("global_src")).To(Equal(0))
 			Expect(strata.Get("entry_seq_s1")).To(Equal(1))
 			// Stage s1: const at 0, proc at 1
-			Expect(sequences[0].Stages[0].Strata.Get("s1_const")).To(Equal(0))
-			Expect(sequences[0].Stages[0].Strata.Get("s1_proc")).To(Equal(1))
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("s1_const")).To(Equal(0))
+			Expect(sequences[0].Steps[0].Stage.Strata.Get("s1_proc")).To(Equal(1))
 
 			// Stage s2: const at 0, proc1 at 1, proc2 at 2
-			Expect(sequences[0].Stages[1].Strata.Get("s2_const")).To(Equal(0))
-			Expect(sequences[0].Stages[1].Strata.Get("s2_proc1")).To(Equal(1))
-			Expect(sequences[0].Stages[1].Strata.Get("s2_proc2")).To(Equal(2))
+			Expect(sequences[0].Steps[1].Stage.Strata.Get("s2_const")).To(Equal(0))
+			Expect(sequences[0].Steps[1].Stage.Strata.Get("s2_proc1")).To(Equal(1))
+			Expect(sequences[0].Steps[1].Stage.Strata.Get("s2_proc2")).To(Equal(2))
 		})
 	})
 

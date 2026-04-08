@@ -11,6 +11,7 @@ package stratifier
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -18,30 +19,28 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// stageEntryKey computes the entry node key for a stage using the established
-// naming convention. This must match the key generation in text.KeyGenerator.Entry.
-func stageEntryKey(seqName, stageName string) string {
-	return "entry_" + seqName + "_" + stageName
+// entryKey computes the entry node key for a step using the established naming
+// convention. This must match the key generation in text.KeyGenerator.Entry.
+func entryKey(seqName, stepKey string) string {
+	return "entry_" + seqName + "_" + stepKey
 }
 
-// Stratify computes execution strata for nodes in a dataflow graph using a two-tier
-// stratification model:
+// BoundaryKey computes the synthetic boundary key for an execution context
+// (stage or sequence step) within its parent's strata.
+func BoundaryKey(stepKey string) string {
+	return fmt.Sprintf("boundary_%s", stepKey)
+}
+
+// Stratify computes execution strata for nodes in a dataflow graph using a
+// multi-tier stratification model:
 //
-//  1. Global strata: Nodes outside any sequence stage (including entry nodes receiving
-//     initial activation signals)
-//  2. Per-stage strata: Each stage is stratified independently, with stage-local sources
-//     (constants, channel reads) at stratum 0
+//  1. Global strata: Nodes outside any sequence/stage
+//  2. Per-stage strata: Reactive flow nodes stratified by data dependencies
+//  3. Per-sequence strata: All flow step nodes stratified together, with
+//     execution context boundaries for stage/sequence steps
 //
-// This design eliminates implicit dependencies from entry nodes to stage-internal nodes,
-// allowing:
-//   - Stage-local source nodes to execute every cycle (stratum 0 within their stage)
-//   - Cyclic stage transitions (valid state machines) without false cycle detection
-//
-// The returned Strata contains global stratification. Per-stage strata are populated
-// directly into the sequences parameter (which is modified in place).
-//
-// Returns global strata and diagnostics. If a cycle is detected within any subgraph,
-// an error is added to diagnostics and empty strata is returned.
+// Returns global strata and diagnostics. Per-step strata are populated directly
+// into the sequences parameter (modified in place).
 func Stratify(
 	ctx context.Context,
 	nodes []ir.Node,
@@ -53,156 +52,279 @@ func Stratify(
 		return ir.Strata{}, nil
 	}
 
-	// Build lookup structures
 	nodeByKey := make(map[string]ir.Node)
 	for _, node := range nodes {
 		nodeByKey[node.Key] = node
 	}
 
-	// Build set of all staged node keys and entry node keys
-	stagedNodes := make(set.Set[string])
-	entryNodes := make(set.Set[string])
+	// Collect all nodes owned by any execution context (stages, flow steps).
+	// Also collect all entry node keys.
+	ownedNodes := make(set.Set[string])
+	allEntryNodes := make(set.Set[string])
 	for _, seq := range sequences {
-		for _, stage := range seq.Stages {
-			for _, nodeKey := range stage.Nodes {
-				stagedNodes.Add(nodeKey)
-			}
-			entryNodes.Add(stageEntryKey(seq.Key, stage.Key))
-		}
+		collectOwnedNodes(seq, &ownedNodes, &allEntryNodes)
 	}
 
-	// Step 1: Stratify global nodes (nodes not in any stage)
-	// Entry nodes are only included in global strata if they receive activation from
-	// global sources (e.g., start_cmd => main). Entry nodes with no global incoming
-	// edges are excluded to prevent them from being placed at stratum 0 and firing
-	// every cycle.
-
-	// First, collect all non-staged nodes
+	// Step 1: Stratify global nodes (not owned by any execution context).
+	entryNodesWithGlobalInput := make(set.Set[string])
 	var globalNodes []ir.Node
 	globalNodeSet := make(set.Set[string])
 	for _, node := range nodes {
-		if !stagedNodes.Contains(node.Key) {
+		if !ownedNodes.Contains(node.Key) {
 			globalNodes = append(globalNodes, node)
 			globalNodeSet.Add(node.Key)
 		}
 	}
-
-	// Build set of entry nodes that have incoming edges from global sources
-	entryNodesWithGlobalInput := make(set.Set[string])
 	for _, edge := range edges {
-		if globalNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
+		if globalNodeSet.Contains(edge.Source.Node) && allEntryNodes.Contains(edge.Target.Node) {
 			entryNodesWithGlobalInput.Add(edge.Target.Node)
 		}
 	}
-
-	// Filter global nodes: exclude entry nodes that don't have global incoming edges
 	var filteredGlobalNodes []ir.Node
 	filteredGlobalNodeSet := make(set.Set[string])
 	for _, node := range globalNodes {
-		if entryNodes.Contains(node.Key) && !entryNodesWithGlobalInput.Contains(node.Key) {
-			// Entry node with no global incoming edges - exclude from global strata
+		if allEntryNodes.Contains(node.Key) && !entryNodesWithGlobalInput.Contains(node.Key) {
 			continue
 		}
 		filteredGlobalNodes = append(filteredGlobalNodes, node)
 		filteredGlobalNodeSet.Add(node.Key)
 	}
-
-	// Filter edges for global subgraph: edges where source is a global node
-	// (target can be global node or entry node of a stage)
 	var globalEdges []ir.Edge
 	for _, edge := range edges {
 		if filteredGlobalNodeSet.Contains(edge.Source.Node) {
-			// Source is global - include this edge
-			// Target can be global or an entry node
 			globalEdges = append(globalEdges, edge)
 		}
 	}
-
 	globalStrata, cycleDiag := stratifySubgraph(filteredGlobalNodes, globalEdges, diag)
 	if cycleDiag != nil && !cycleDiag.Ok() {
 		return ir.Strata{}, cycleDiag
 	}
 
-	// Step 2: Stratify each stage independently
-	// Entry nodes that receive edges from a stage are included in that stage's
-	// stratification so they fire after their source nodes within the stage.
-	for i, seq := range sequences {
-		for j, stage := range seq.Stages {
-			stageNodeSet := make(set.Set[string])
-			for _, nodeKey := range stage.Nodes {
-				stageNodeSet.Add(nodeKey)
-			}
-
-			orderedStageKeys := append([]string(nil), stage.Nodes...)
-			orderedStageSet := make(set.Set[string])
-			for _, key := range orderedStageKeys {
-				orderedStageSet.Add(key)
-			}
-			entryInsertAnchor := make(map[string]string)
-
-			// Find entry nodes that receive edges from this stage
-			// These need to be included in the stage's strata so they can fire
-			// when their source nodes output truthy values
-			entryNodesForStage := make(set.Set[string])
-			for _, edge := range edges {
-				if stageNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
-					entryNodesForStage.Add(edge.Target.Node)
-					if !orderedStageSet.Contains(edge.Target.Node) {
-						anchor := edge.Source.Node
-						if last, ok := entryInsertAnchor[edge.Source.Node]; ok {
-							anchor = last
-						}
-						idx := slices.Index(orderedStageKeys, anchor)
-						if idx == -1 {
-							orderedStageKeys = append(orderedStageKeys, edge.Target.Node)
-						} else {
-							orderedStageKeys = slices.Insert(orderedStageKeys, idx+1, edge.Target.Node)
-						}
-						orderedStageSet.Add(edge.Target.Node)
-						entryInsertAnchor[edge.Source.Node] = edge.Target.Node
-					}
-				}
-			}
-
-			// Add entry nodes to stage node set for stratification
-			for entryKey := range entryNodesForStage {
-				stageNodeSet.Add(entryKey)
-			}
-
-			// Collect nodes for this stage (including entry nodes that receive edges)
-			var stageNodes []ir.Node
-			for _, nodeKey := range orderedStageKeys {
-				if node, ok := nodeByKey[nodeKey]; ok {
-					stageNodes = append(stageNodes, node)
-				}
-			}
-
-			// Filter edges for this stage:
-			// - Edges where source is in this stage (including edges to entry nodes)
-			// - Target can be in this stage OR an entry node of another stage
-			var stageEdges []ir.Edge
-			for _, edge := range edges {
-				if stageNodeSet.Contains(edge.Source.Node) {
-					stageEdges = append(stageEdges, edge)
-				}
-			}
-
-			stageStrata, cycleDiag := stratifySubgraph(stageNodes, stageEdges, diag)
-			if cycleDiag != nil && !cycleDiag.Ok() {
-				return ir.Strata{}, cycleDiag
-			}
-
-			stageStrata = flattenEntryNodes(stageStrata, entryNodesForStage, orderedStageKeys)
-
-			sequences[i].Stages[j].Strata = stageStrata
+	// Step 2: Stratify each sequence recursively.
+	for i := range sequences {
+		if err := stratifySequence(&sequences[i], nodeByKey, edges, allEntryNodes, diag); err != nil {
+			return ir.Strata{}, err
 		}
 	}
 
 	return globalStrata, nil
 }
 
+// collectOwnedNodes recursively marks all nodes owned by stages and flow steps,
+// and collects entry node keys.
+func collectOwnedNodes(seq ir.Sequence, owned *set.Set[string], entryNodes *set.Set[string]) {
+	for _, step := range seq.Steps {
+		entryNodes.Add(entryKey(seq.Key, step.Key))
+		switch {
+		case step.Stage != nil:
+			for _, nodeKey := range step.Stage.Nodes {
+				owned.Add(nodeKey)
+			}
+			for _, subSeq := range step.Stage.Sequences {
+				collectOwnedNodes(subSeq, owned, entryNodes)
+			}
+		case step.Flow != nil:
+			for _, nodeKey := range step.Flow.Nodes {
+				owned.Add(nodeKey)
+			}
+		case step.Sequence != nil:
+			collectOwnedNodes(*step.Sequence, owned, entryNodes)
+		}
+	}
+}
+
+// stratifySequence computes strata for a sequence and its children.
+func stratifySequence(
+	seq *ir.Sequence,
+	nodeByKey map[string]ir.Node,
+	edges []ir.Edge,
+	allEntryNodes set.Set[string],
+	diag *diagnostics.Diagnostics,
+) *diagnostics.Diagnostics {
+	hasFlowSteps := false
+	for _, step := range seq.Steps {
+		if step.Flow != nil {
+			hasFlowSteps = true
+			break
+		}
+	}
+
+	if hasFlowSteps {
+		if err := stratifySequenceWithFlowSteps(seq, nodeByKey, edges, allEntryNodes, diag); err != nil {
+			return err
+		}
+	}
+
+	// Recurse into stage and sequence steps.
+	for i, step := range seq.Steps {
+		if step.Stage != nil {
+			if err := stratifyStage(&seq.Steps[i], seq.Key, nodeByKey, edges, allEntryNodes, diag); err != nil {
+				return err
+			}
+		}
+		if step.Sequence != nil {
+			if err := stratifySequence(step.Sequence, nodeByKey, edges, allEntryNodes, diag); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// stratifySequenceWithFlowSteps computes the sequence-level strata for sequences
+// that contain flow steps. All flow step nodes are stratified together into
+// seq.Strata. Stage/sequence steps appear as synthetic boundary keys.
+func stratifySequenceWithFlowSteps(
+	seq *ir.Sequence,
+	nodeByKey map[string]ir.Node,
+	edges []ir.Edge,
+	allEntryNodes set.Set[string],
+	diag *diagnostics.Diagnostics,
+) *diagnostics.Diagnostics {
+	// Collect all flow step nodes + entry nodes for this sequence.
+	seqNodeSet := make(set.Set[string])
+	var seqNodes []ir.Node
+	for _, step := range seq.Steps {
+		// Add entry node for every step.
+		ek := entryKey(seq.Key, step.Key)
+		if node, ok := nodeByKey[ek]; ok {
+			seqNodes = append(seqNodes, node)
+			seqNodeSet.Add(ek)
+		}
+		if step.Flow != nil {
+			for _, nodeKey := range step.Flow.Nodes {
+				if node, ok := nodeByKey[nodeKey]; ok {
+					seqNodes = append(seqNodes, node)
+					seqNodeSet.Add(nodeKey)
+				}
+			}
+		}
+	}
+
+	// Filter edges for this sequence's subgraph.
+	var seqEdges []ir.Edge
+	for _, edge := range edges {
+		if seqNodeSet.Contains(edge.Source.Node) {
+			seqEdges = append(seqEdges, edge)
+		}
+	}
+
+	seqStrata, cycleDiag := stratifySubgraph(seqNodes, seqEdges, diag)
+	if cycleDiag != nil && !cycleDiag.Ok() {
+		return cycleDiag
+	}
+
+	// Insert boundary keys for non-flow steps at stratum 0 (definition order).
+	// Boundary keys don't participate in data dependency stratification. They
+	// are positioned at stratum 0 alongside other source nodes.
+	for _, step := range seq.Steps {
+		if step.Stage != nil || step.Sequence != nil {
+			bk := BoundaryKey(step.Key)
+			if len(seqStrata) == 0 {
+				seqStrata = ir.Strata{{bk}}
+			} else {
+				seqStrata[0] = append(seqStrata[0], bk)
+			}
+		}
+	}
+
+	seq.Strata = seqStrata
+	return nil
+}
+
+// stratifyStage computes per-stage strata for a stage step.
+func stratifyStage(
+	step *ir.Step,
+	seqName string,
+	nodeByKey map[string]ir.Node,
+	edges []ir.Edge,
+	allEntryNodes set.Set[string],
+	diag *diagnostics.Diagnostics,
+) *diagnostics.Diagnostics {
+	stage := step.Stage
+
+	stageNodeSet := make(set.Set[string])
+	for _, nodeKey := range stage.Nodes {
+		stageNodeSet.Add(nodeKey)
+	}
+
+	orderedStageKeys := append([]string(nil), stage.Nodes...)
+	orderedStageSet := make(set.Set[string])
+	for _, key := range orderedStageKeys {
+		orderedStageSet.Add(key)
+	}
+	entryInsertAnchor := make(map[string]string)
+
+	entryNodesForStage := make(set.Set[string])
+	for _, edge := range edges {
+		if stageNodeSet.Contains(edge.Source.Node) && allEntryNodes.Contains(edge.Target.Node) {
+			entryNodesForStage.Add(edge.Target.Node)
+			if !orderedStageSet.Contains(edge.Target.Node) {
+				anchor := edge.Source.Node
+				if last, ok := entryInsertAnchor[edge.Source.Node]; ok {
+					anchor = last
+				}
+				idx := slices.Index(orderedStageKeys, anchor)
+				if idx == -1 {
+					orderedStageKeys = append(orderedStageKeys, edge.Target.Node)
+				} else {
+					orderedStageKeys = slices.Insert(orderedStageKeys, idx+1, edge.Target.Node)
+				}
+				orderedStageSet.Add(edge.Target.Node)
+				entryInsertAnchor[edge.Source.Node] = edge.Target.Node
+			}
+		}
+	}
+
+	for ek := range entryNodesForStage {
+		stageNodeSet.Add(ek)
+	}
+
+	var stageNodes []ir.Node
+	for _, nodeKey := range orderedStageKeys {
+		if node, ok := nodeByKey[nodeKey]; ok {
+			stageNodes = append(stageNodes, node)
+		}
+	}
+
+	var stageEdges []ir.Edge
+	for _, edge := range edges {
+		if stageNodeSet.Contains(edge.Source.Node) {
+			stageEdges = append(stageEdges, edge)
+		}
+	}
+
+	stageStrata, cycleDiag := stratifySubgraph(stageNodes, stageEdges, diag)
+	if cycleDiag != nil && !cycleDiag.Ok() {
+		return cycleDiag
+	}
+
+	stageStrata = flattenEntryNodes(stageStrata, entryNodesForStage, orderedStageKeys)
+
+	// Insert boundary keys for inline sub-sequences at stratum 0.
+	for _, subSeq := range stage.Sequences {
+		bk := BoundaryKey(subSeq.Key)
+		if len(stageStrata) == 0 {
+			stageStrata = ir.Strata{{bk}}
+		} else {
+			stageStrata[0] = append(stageStrata[0], bk)
+		}
+	}
+
+	step.Stage.Strata = stageStrata
+
+	// Recurse into sub-sequences.
+	for i := range stage.Sequences {
+		if err := stratifySequence(&stage.Sequences[i], nodeByKey, edges, allEntryNodes, diag); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // stratifySubgraph computes strata for a subgraph of nodes.
-// This is the core stratification algorithm without any implicit dependencies.
 func stratifySubgraph(
 	nodes []ir.Node,
 	edges []ir.Edge,
@@ -215,38 +337,31 @@ func stratifySubgraph(
 	var (
 		nodeStrata    = make(map[string]int)
 		iterations    = 0
-		maxIterations = len(nodes) // Upper bound for DAG
+		maxIterations = len(nodes)
 		changed       = true
 		maxStratum    = 0
 	)
 
-	// Build set of nodes in this subgraph for filtering
 	nodeSet := make(set.Set[string])
 	for _, node := range nodes {
 		nodeSet.Add(node.Key)
 	}
 
-	// Step 1: Initialize ALL nodes to stratum 0
 	for _, node := range nodes {
 		nodeStrata[node.Key] = 0
 	}
 
-	// Step 2: Iterative deepening based on dependencies
-	// If a node depends on another (within this subgraph), it must be in a higher stratum
 	for changed {
 		changed = false
 		iterations++
 
 		if iterations > maxIterations {
-			// Cycle detected - find and report it
 			cycle := findCycle(nodes, edges)
 			diag.Add(diagnostics.Errorf(nil, "cycle detected in dataflow graph: %v", cycle))
 			return ir.Strata{}, diag
 		}
 
-		// Process explicit edge dependencies
 		for _, edge := range edges {
-			// Only consider edges where both source and target are in this subgraph
 			if !nodeSet.Contains(edge.Source.Node) || !nodeSet.Contains(edge.Target.Node) {
 				continue
 			}
@@ -264,7 +379,6 @@ func stratifySubgraph(
 		}
 	}
 
-	// Step 3: Convert map to [][]string structure
 	strata := make(ir.Strata, maxStratum+1)
 	for _, node := range nodes {
 		stratum := nodeStrata[node.Key]
@@ -274,7 +388,6 @@ func stratifySubgraph(
 	return strata, nil
 }
 
-// findCycle attempts to find a cycle in the graph for better error reporting
 func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 	var (
 		graph    = make(map[string][]string)
@@ -283,7 +396,6 @@ func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 		path     []string
 		dfs      func(node string) bool
 	)
-	// Build adjacency list
 	for _, edge := range edges {
 		graph[edge.Source.Node] = append(graph[edge.Source.Node], edge.Target.Node)
 	}
@@ -298,7 +410,6 @@ func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 					return true
 				}
 			} else if recStack[neighbor] {
-				// Found cycle - extract it from path
 				cycleStart := -1
 				for i, n := range path {
 					if n == neighbor {
@@ -329,11 +440,6 @@ func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 	return []string{"unknown cycle"}
 }
 
-// flattenEntryNodes moves all entry nodes within a stage's strata to the deepest
-// stratum occupied by any entry node. This ensures that competing transitions are
-// resolved by source order (position within the stratum) rather than by chain length
-// (which determines natural stratum depth). Entry nodes are inserted into the target
-// stratum in the order they appear in orderedKeys, preserving source order.
 func flattenEntryNodes(
 	strata ir.Strata,
 	entryNodes set.Set[string],
@@ -353,7 +459,6 @@ func flattenEntryNodes(
 	if maxStratum == -1 {
 		return strata
 	}
-	// Remove entry nodes from all strata
 	for i, stratum := range strata {
 		filtered := stratum[:0]
 		for _, key := range stratum {
@@ -363,13 +468,11 @@ func flattenEntryNodes(
 		}
 		strata[i] = filtered
 	}
-	// Insert entry nodes into the max stratum in source order
 	for _, key := range orderedKeys {
 		if entryNodes.Contains(key) {
 			strata[maxStratum] = append(strata[maxStratum], key)
 		}
 	}
-	// Remove empty strata
 	result := strata[:0]
 	for _, stratum := range strata {
 		if len(stratum) > 0 {

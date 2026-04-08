@@ -16,34 +16,34 @@ import (
 	"github.com/samber/lo"
 )
 
-// Entry returns the entry stage of the sequence (always Stages[0]).
-// Panics if the sequence has no stages.
-func (s Sequence) Entry() Stage {
-	if len(s.Stages) == 0 {
-		panic("sequence has no stages")
+// Entry returns the entry step of the sequence (always Steps[0]).
+// Panics if the sequence has no steps.
+func (s Sequence) Entry() Step {
+	if len(s.Steps) == 0 {
+		panic("sequence has no steps")
 	}
-	return s.Stages[0]
+	return s.Steps[0]
 }
 
-// NextStage returns the stage that follows the given stage in definition order.
-// Returns the stage and true if found, or zero value and false if the given
-// stage is the last stage or not found.
-func (s Sequence) NextStage(stageKey string) (Stage, bool) {
-	for i, stage := range s.Stages {
-		if stage.Key == stageKey {
-			if i+1 < len(s.Stages) {
-				return s.Stages[i+1], true
+// NextStep returns the step that follows the given step in definition order.
+// Returns the step and true if found, or zero value and false if the given
+// step is the last step or not found.
+func (s Sequence) NextStep(stepKey string) (Step, bool) {
+	for i, step := range s.Steps {
+		if step.Key == stepKey {
+			if i+1 < len(s.Steps) {
+				return s.Steps[i+1], true
 			}
-			return Stage{}, false
+			return Step{}, false
 		}
 	}
-	return Stage{}, false
+	return Step{}, false
 }
 
-// FindStage searches for a stage by key within this sequence.
-// Returns the stage and true if found, or zero value and false otherwise.
-func (s Sequence) FindStage(stageKey string) (Stage, bool) {
-	return lo.Find(s.Stages, func(stage Stage) bool { return stage.Key == stageKey })
+// FindStep searches for a step by key within this sequence.
+// Returns the step and true if found, or zero value and false otherwise.
+func (s Sequence) FindStep(stepKey string) (Step, bool) {
+	return lo.Find(s.Steps, func(step Step) bool { return step.Key == stepKey })
 }
 
 // Find searches for a sequence by key. Returns the sequence and true if found,
@@ -55,16 +55,73 @@ func (s Sequences) Find(key string) (Sequence, bool) {
 // Get returns the sequence with the given key. Panics if not found.
 func (s Sequences) Get(key string) Sequence { return lo.Must(s.Find(key)) }
 
-// FindStage searches for a stage across all sequences. Returns the stage,
+// FindStep searches for a step across all sequences. Returns the step,
 // its parent sequence, and true if found. Returns zero values and false otherwise.
-// If multiple sequences have stages with the same key, returns the first match.
-func (s Sequences) FindStage(stageKey string) (Stage, Sequence, bool) {
+// If multiple sequences have steps with the same key, returns the first match.
+func (s Sequences) FindStep(stepKey string) (Step, Sequence, bool) {
 	for _, seq := range s {
-		if stage, ok := seq.FindStage(stageKey); ok {
-			return stage, seq, true
+		if step, ok := seq.FindStep(stepKey); ok {
+			return step, seq, true
 		}
 	}
-	return Stage{}, Sequence{}, false
+	return Step{}, Sequence{}, false
+}
+
+// IsFlow returns true if this step is a flow (leaf) step.
+func (s Step) IsFlow() bool { return s.Flow != nil }
+
+// IsStage returns true if this step is a stage (parallel) step.
+func (s Step) IsStage() bool { return s.Stage != nil }
+
+// IsSequence returns true if this step is a sequence (sequential) step.
+func (s Step) IsSequence() bool { return s.Sequence != nil }
+
+// StageNodes returns the node keys for a stage step, or nil for other kinds.
+func (s Step) StageNodes() []string {
+	if s.Stage != nil {
+		return s.Stage.Nodes
+	}
+	return nil
+}
+
+// FlowNodes returns the node keys for a flow step, or nil for other kinds.
+func (s Step) FlowNodes() []string {
+	if s.Flow != nil {
+		return s.Flow.Nodes
+	}
+	return nil
+}
+
+// String returns the string representation of the step.
+func (s Step) String() string {
+	return s.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (s Step) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	switch {
+	case s.Flow != nil:
+		lo.Must(fmt.Fprintf(&b, "%s (flow): [%s]\n",
+			s.displayKey(), strings.Join(s.Flow.Nodes, ", ")))
+	case s.Stage != nil:
+		lo.Must(fmt.Fprintf(&b, "%s (stage): [%s]\n",
+			s.displayKey(), strings.Join(s.Stage.Nodes, ", ")))
+		if len(s.Stage.Strata) > 0 {
+			b.WriteString(s.Stage.Strata.stringWithPrefix(prefix))
+		}
+	case s.Sequence != nil:
+		lo.Must(fmt.Fprintf(&b, "%s (sequence)\n", s.displayKey()))
+		b.WriteString(s.Sequence.stringWithPrefix(prefix))
+	}
+	return b.String()
+}
+
+func (s Step) displayKey() string {
+	if s.Key != "" {
+		return s.Key
+	}
+	return "(anonymous)"
 }
 
 // String returns the string representation of the stage.
@@ -93,15 +150,12 @@ func (s Sequence) stringWithPrefix(prefix string) string {
 	var b strings.Builder
 	b.WriteString(s.Key)
 	b.WriteString("\n")
-	for i, stage := range s.Stages {
-		isLast := i == len(s.Stages)-1
+	for i, step := range s.Steps {
+		isLast := i == len(s.Steps)-1
 		b.WriteString(prefix)
 		b.WriteString(treePrefix(isLast))
-		stageChildPrefix := prefix + treeIndent(isLast)
-		b.WriteString(stage.stringWithPrefix(stageChildPrefix))
-		if len(stage.Strata) == 0 {
-			b.WriteString("\n")
-		}
+		stepChildPrefix := prefix + treeIndent(isLast)
+		b.WriteString(step.stringWithPrefix(stepChildPrefix))
 	}
 	return b.String()
 }

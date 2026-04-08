@@ -435,6 +435,10 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 				tokens[i+2].GetTokenType() == parser.ArcLexerLBRACE {
 				stack = append(stack, frame{kind: kind})
 				i += 2
+			} else if i+1 < len(tokens) &&
+				tokens[i+1].GetTokenType() == parser.ArcLexerLBRACE {
+				stack = append(stack, frame{kind: kind})
+				i++
 			}
 		case parser.ArcLexerLBRACE:
 			stack = append(stack, frame{kind: NestingFunction})

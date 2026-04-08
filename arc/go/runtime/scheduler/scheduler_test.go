@@ -1969,4 +1969,543 @@ var _ = Describe("Scheduler", func() {
 			Expect(s.NextDeadline()).To(Equal(2 * telem.Second))
 		})
 	})
+
+	Describe("Flow Steps", func() {
+		// flowSeqProg builds IR for a stageless sequence with flow steps.
+		// Each step has one node. One-shot edges auto-wire each node's output
+		// to the next step's entry node. Entry nodes for steps > 0 are placed
+		// in a stratum after the data nodes.
+		flowSeqProg := func(seqKey string, stepKeys []string) ir.IR {
+			var (
+				irNodes  ir.Nodes
+				irEdges  ir.Edges
+				steps    ir.Steps
+				stratum0 []string
+				stratum1 []string
+			)
+			for i, sk := range stepKeys {
+				nodeKey := "node_" + sk
+				entryKey := fmt.Sprintf("entry_%s_%s", seqKey, sk)
+				irNodes = append(irNodes, ir.Node{Key: nodeKey})
+				irNodes = append(irNodes, ir.Node{Key: entryKey})
+				steps = append(steps, ir.Step{
+					Key:  sk,
+					Flow: &ir.Flow{Nodes: []string{nodeKey}},
+				})
+				stratum0 = append(stratum0, nodeKey)
+				if i > 0 {
+					stratum1 = append(stratum1, entryKey)
+				}
+				if i+1 < len(stepKeys) {
+					nextEntry := fmt.Sprintf("entry_%s_%s", seqKey, stepKeys[i+1])
+					irEdges = append(irEdges, ir.Edge{
+						Source: ir.Handle{Node: nodeKey, Param: "output"},
+						Target: ir.Handle{Node: nextEntry, Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					})
+				}
+			}
+			// Trigger and first entry in global strata.
+			triggerKey := "trigger_" + seqKey
+			firstEntry := fmt.Sprintf("entry_%s_%s", seqKey, stepKeys[0])
+			irNodes = append(irNodes, ir.Node{Key: triggerKey})
+			irEdges = append(irEdges, ir.Edge{
+				Source: ir.Handle{Node: triggerKey, Param: "activate"},
+				Target: ir.Handle{Node: firstEntry, Param: "input"},
+				Kind:   ir.EdgeKindOneShot,
+			})
+
+			seqStrata := ir.Strata{stratum0}
+			if len(stratum1) > 0 {
+				seqStrata = append(seqStrata, stratum1)
+			}
+			return ir.IR{
+				Nodes:  irNodes,
+				Edges:  irEdges,
+				Strata: ir.Strata{{triggerKey}, {firstEntry}},
+				Sequences: ir.Sequences{{
+					Key:    seqKey,
+					Steps:  steps,
+					Strata: seqStrata,
+				}},
+			}
+		}
+
+		It("Should execute a single flow step", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0"})
+
+			trigger := mock("trigger_seq")
+			entry := mock("entry_seq_s0")
+			n := mock("node_s0")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(n.NextCalled).To(Equal(1))
+			Expect(n.ResetCalled).To(Equal(1))
+		})
+
+		It("Should cascade two consecutive truthy writes on the same tick", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0", "s1"})
+
+			trigger := mock("trigger_seq")
+			mock("entry_seq_s0")
+			mock("entry_seq_s1")
+			w0 := mock("node_s0")
+			w1 := mock("node_s1")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["entry_seq_s0"].ActivateOnNext()
+			w0.MarkOnNext("output")
+			w0.ParamTruthy["output"] = true
+			mocks["entry_seq_s1"].ActivateOnNext()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(w0.NextCalled).To(Equal(1))
+			Expect(w1.NextCalled).To(Equal(1))
+		})
+
+		It("Should cascade three consecutive truthy writes on the same tick", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0", "s1", "s2"})
+
+			trigger := mock("trigger_seq")
+			mock("entry_seq_s0")
+			mock("entry_seq_s1")
+			mock("entry_seq_s2")
+			w0 := mock("node_s0")
+			w1 := mock("node_s1")
+			w2 := mock("node_s2")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["entry_seq_s0"].ActivateOnNext()
+			w0.MarkOnNext("output")
+			w0.ParamTruthy["output"] = true
+			mocks["entry_seq_s1"].ActivateOnNext()
+			w1.MarkOnNext("output")
+			w1.ParamTruthy["output"] = true
+			mocks["entry_seq_s2"].ActivateOnNext()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(w0.NextCalled).To(Equal(1))
+			Expect(w1.NextCalled).To(Equal(1))
+			Expect(w2.NextCalled).To(Equal(1))
+		})
+
+		It("Should cascade five consecutive truthy writes on the same tick", func(ctx SpecContext) {
+			keys := []string{"s0", "s1", "s2", "s3", "s4"}
+			prog := flowSeqProg("seq", keys)
+
+			trigger := mock("trigger_seq")
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+
+			ws := make([]*MockNode, len(keys))
+			for i, k := range keys {
+				entryKey := fmt.Sprintf("entry_seq_%s", k)
+				mock(entryKey)
+				mocks[entryKey].ActivateOnNext()
+				ws[i] = mock("node_" + k)
+				ws[i].MarkOnNext("output")
+				ws[i].ParamTruthy["output"] = true
+			}
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			for i, w := range ws {
+				Expect(w.NextCalled).To(Equal(1), fmt.Sprintf("step %d should execute", i))
+			}
+		})
+
+		It("Should block at a falsy gate and advance when it becomes truthy", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0", "s1"})
+
+			trigger := mock("trigger_seq")
+			mock("entry_seq_s0")
+			mock("entry_seq_s1")
+			gate := mock("node_s0")
+			after := mock("node_s1")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["entry_seq_s0"].ActivateOnNext()
+			gate.MarkOnNext("output")
+			gate.ParamTruthy["output"] = false
+			mocks["entry_seq_s1"].ActivateOnNext()
+
+			s := build(prog)
+
+			// Tick 1: gate is falsy, after should not execute.
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(gate.NextCalled).To(Equal(1))
+			Expect(after.NextCalled).To(Equal(0))
+
+			// Tick 2: gate still falsy. selfChanged keeps it executing.
+			s.MarkNodeChanged("node_s0")
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(gate.NextCalled).To(Equal(2))
+			Expect(after.NextCalled).To(Equal(0))
+
+			// Tick 3: gate becomes truthy. Advances to s1.
+			gate.ParamTruthy["output"] = true
+			s.MarkNodeChanged("node_s0")
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			Expect(after.NextCalled).To(Equal(1))
+		})
+
+		It("Should not execute nodes from inactive flow steps", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0", "s1", "s2"})
+
+			trigger := mock("trigger_seq")
+			mock("entry_seq_s0")
+			mock("entry_seq_s1")
+			mock("entry_seq_s2")
+			w0 := mock("node_s0")
+			w1 := mock("node_s1")
+			w2 := mock("node_s2")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["entry_seq_s0"].ActivateOnNext()
+			// s0 is falsy (gate). s1 and s2 should never execute.
+			w0.MarkOnNext("output")
+			w0.ParamTruthy["output"] = false
+			mocks["entry_seq_s1"].ActivateOnNext()
+			mocks["entry_seq_s2"].ActivateOnNext()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(w0.NextCalled).To(Equal(1))
+			Expect(w1.NextCalled).To(Equal(0))
+			Expect(w2.NextCalled).To(Equal(0))
+		})
+
+		It("Should reset flow nodes when entering the step", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0"})
+
+			trigger := mock("trigger_seq")
+			mock("entry_seq_s0")
+			n := mock("node_s0")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["entry_seq_s0"].ActivateOnNext()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(n.ResetCalled).To(Equal(1))
+		})
+
+		It("Should advance from a stage step to a flow step via => next", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			entryStage := mock("entry_main_stage_a")
+			entryFlow := mock("entry_main_flow_b")
+			stageNode := mock("stage_node")
+			flowNode := mock("flow_node")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryStage.ActivateOnNext()
+			stageNode.MarkOnNext("output")
+			stageNode.ParamTruthy["output"] = true
+			entryFlow.ActivateOnNext()
+
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{Key: "trigger"}, {Key: "entry_main_stage_a"},
+					{Key: "entry_main_flow_b"}, {Key: "stage_node"}, {Key: "flow_node"},
+				},
+				Edges: ir.Edges{
+					{Source: ir.Handle{Node: "trigger", Param: "activate"},
+						Target: ir.Handle{Node: "entry_main_stage_a", Param: "input"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "stage_node", Param: "output"},
+						Target: ir.Handle{Node: "entry_main_flow_b", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+				},
+				Strata: ir.Strata{{"trigger"}, {"entry_main_stage_a"}},
+				Sequences: ir.Sequences{{
+					Key: "main",
+					Steps: ir.Steps{
+						{Key: "stage_a", Stage: &ir.Stage{
+							Key: "stage_a", Nodes: []string{"stage_node"},
+							Strata: ir.Strata{{"stage_node"}, {"entry_main_flow_b"}},
+						}},
+						{Key: "flow_b", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
+					},
+					Strata: ir.Strata{{"flow_node"}},
+				}},
+			}
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(stageNode.NextCalled).To(Equal(1))
+			Expect(flowNode.NextCalled).To(Equal(1))
+		})
+
+		It("Should advance from a flow step to a stage step", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			entryFlow := mock("entry_main_flow_a")
+			entryStage := mock("entry_main_stage_b")
+			flowNode := mock("flow_node")
+			stageNode := mock("stage_node")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryFlow.ActivateOnNext()
+			flowNode.MarkOnNext("output")
+			flowNode.ParamTruthy["output"] = true
+			entryStage.ActivateOnNext()
+
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{Key: "trigger"}, {Key: "entry_main_flow_a"},
+					{Key: "entry_main_stage_b"}, {Key: "flow_node"}, {Key: "stage_node"},
+				},
+				Edges: ir.Edges{
+					{Source: ir.Handle{Node: "trigger", Param: "activate"},
+						Target: ir.Handle{Node: "entry_main_flow_a", Param: "input"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "flow_node", Param: "output"},
+						Target: ir.Handle{Node: "entry_main_stage_b", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+				},
+				Strata: ir.Strata{{"trigger"}, {"entry_main_flow_a"}},
+				Sequences: ir.Sequences{{
+					Key: "main",
+					Steps: ir.Steps{
+						{Key: "flow_a", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
+						{Key: "stage_b", Stage: &ir.Stage{
+							Key: "stage_b", Nodes: []string{"stage_node"},
+							Strata: ir.Strata{{"stage_node"}},
+						}},
+					},
+					Strata: ir.Strata{{"flow_node"}, {"entry_main_stage_b"}},
+				}},
+			}
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(flowNode.NextCalled).To(Equal(1))
+			Expect(stageNode.NextCalled).To(Equal(1))
+		})
+
+		It("Should support stage => name jumping to a named sibling", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_a")
+			mock("entry_seq_b")
+			entryC := mock("entry_seq_c")
+			nodeA := mock("node_a")
+			nodeB := mock("node_b")
+			nodeC := mock("node_c")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			// Stage A: nodeA triggers entryC (skip B)
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+			entryC.ActivateOnNext()
+
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{Key: "trigger"}, {Key: "entry_seq_a"}, {Key: "entry_seq_b"},
+					{Key: "entry_seq_c"}, {Key: "node_a"}, {Key: "node_b"}, {Key: "node_c"},
+				},
+				Edges: ir.Edges{
+					{Source: ir.Handle{Node: "trigger", Param: "activate"},
+						Target: ir.Handle{Node: "entry_seq_a", Param: "input"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "node_a", Param: "output"},
+						Target: ir.Handle{Node: "entry_seq_c", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+				},
+				Strata: ir.Strata{{"trigger"}, {"entry_seq_a"}},
+				Sequences: ir.Sequences{{
+					Key: "seq",
+					Steps: ir.Steps{
+						{Key: "a", Stage: &ir.Stage{
+							Key: "a", Nodes: []string{"node_a"},
+							Strata: ir.Strata{{"node_a"}, {"entry_seq_c"}},
+						}},
+						{Key: "b", Stage: &ir.Stage{
+							Key: "b", Nodes: []string{"node_b"},
+							Strata: ir.Strata{{"node_b"}},
+						}},
+						{Key: "c", Stage: &ir.Stage{
+							Key: "c", Nodes: []string{"node_c"},
+							Strata: ir.Strata{{"node_c"}},
+						}},
+					},
+				}},
+			}
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(0))
+			Expect(nodeC.NextCalled).To(Equal(1))
+		})
+
+		It("Should reset nodes when re-entering a step via backward jump", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_a")
+			entryB := mock("entry_seq_b")
+			nodeA := mock("node_a")
+			nodeB := mock("node_b")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			// First tick: A transitions to B
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+			entryB.ActivateOnNext()
+
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{Key: "trigger"}, {Key: "entry_seq_a"}, {Key: "entry_seq_b"},
+					{Key: "node_a"}, {Key: "node_b"},
+				},
+				Edges: ir.Edges{
+					{Source: ir.Handle{Node: "trigger", Param: "activate"},
+						Target: ir.Handle{Node: "entry_seq_a", Param: "input"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "node_a", Param: "output"},
+						Target: ir.Handle{Node: "entry_seq_b", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "node_b", Param: "output"},
+						Target: ir.Handle{Node: "entry_seq_a", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+				},
+				Strata: ir.Strata{{"trigger"}, {"entry_seq_a"}},
+				Sequences: ir.Sequences{{
+					Key: "seq",
+					Steps: ir.Steps{
+						{Key: "a", Stage: &ir.Stage{
+							Key: "a", Nodes: []string{"node_a"},
+							Strata: ir.Strata{{"node_a"}, {"entry_seq_b"}},
+						}},
+						{Key: "b", Stage: &ir.Stage{
+							Key: "b", Nodes: []string{"node_b"},
+							Strata: ir.Strata{{"node_b"}, {"entry_seq_a"}},
+						}},
+					},
+				}},
+			}
+
+			s := build(prog)
+			// Tick 1: trigger -> A -> B
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.ResetCalled).To(Equal(1))
+			Expect(nodeB.ResetCalled).To(Equal(1))
+
+			// Now make B jump back to A
+			nodeB.MarkOnNext("output")
+			nodeB.ParamTruthy["output"] = true
+			s.MarkNodeChanged("node_b")
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+
+			// A should be reset again (re-entry)
+			Expect(nodeA.ResetCalled).To(Equal(2))
+		})
+
+		It("Should support mixed stage, flow, stage pattern", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			entryPress := mock("entry_main_press")
+			entryWrite := mock("entry_main_write")
+			entryVent := mock("entry_main_vent")
+			pressNode := mock("press_node")
+			writeNode := mock("write_node")
+			ventNode := mock("vent_node")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryPress.ActivateOnNext()
+			pressNode.MarkOnNext("output")
+			pressNode.ParamTruthy["output"] = true
+			entryWrite.ActivateOnNext()
+			writeNode.MarkOnNext("output")
+			writeNode.ParamTruthy["output"] = true
+			entryVent.ActivateOnNext()
+
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{Key: "trigger"}, {Key: "entry_main_press"},
+					{Key: "entry_main_write"}, {Key: "entry_main_vent"},
+					{Key: "press_node"}, {Key: "write_node"}, {Key: "vent_node"},
+				},
+				Edges: ir.Edges{
+					{Source: ir.Handle{Node: "trigger", Param: "activate"},
+						Target: ir.Handle{Node: "entry_main_press", Param: "input"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "press_node", Param: "output"},
+						Target: ir.Handle{Node: "entry_main_write", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "write_node", Param: "output"},
+						Target: ir.Handle{Node: "entry_main_vent", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot},
+				},
+				Strata: ir.Strata{{"trigger"}, {"entry_main_press"}},
+				Sequences: ir.Sequences{{
+					Key: "main",
+					Steps: ir.Steps{
+						{Key: "press", Stage: &ir.Stage{
+							Key: "press", Nodes: []string{"press_node"},
+							Strata: ir.Strata{{"press_node"}, {"entry_main_write"}},
+						}},
+						{Key: "write", Flow: &ir.Flow{Nodes: []string{"write_node"}}},
+						{Key: "vent", Stage: &ir.Stage{
+							Key: "vent", Nodes: []string{"vent_node"},
+							Strata: ir.Strata{{"vent_node"}},
+						}},
+					},
+					Strata: ir.Strata{{"write_node"}, {"entry_main_vent"}},
+				}},
+			}
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(pressNode.NextCalled).To(Equal(1))
+			Expect(writeNode.NextCalled).To(Equal(1))
+			Expect(ventNode.NextCalled).To(Equal(1))
+		})
+
+		It("Should report deadline from a wait node in a flow step", func(ctx SpecContext) {
+			prog := flowSeqProg("seq", []string{"s0"})
+
+			trigger := mock("trigger_seq")
+			mock("entry_seq_s0")
+			waitNode := mock("node_s0")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["entry_seq_s0"].ActivateOnNext()
+			waitNode.OnNext = func(ctx node.Context) {
+				ctx.SetDeadline(5 * telem.Second)
+				ctx.MarkSelfChanged()
+			}
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(s.NextDeadline()).To(Equal(5 * telem.Second))
+		})
+	})
 })

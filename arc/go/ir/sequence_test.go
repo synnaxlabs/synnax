@@ -73,7 +73,6 @@ var _ = Describe("Stage", func() {
 		It("Should marshal nodes as null when nil, not empty array", func() {
 			stage := ir.Stage{Key: "empty"}
 			data := MustSucceed(json.Marshal(stage))
-			// Should be {"key":"empty","nodes":null} not {"key":"empty","nodes":[]}
 			Expect(string(data)).To(ContainSubstring(`"nodes":null`))
 		})
 
@@ -94,17 +93,21 @@ var _ = Describe("Stage", func() {
 	})
 })
 
+func stageStep(key string, nodes []string) ir.Step {
+	return ir.Step{Key: key, Stage: &ir.Stage{Key: key, Nodes: nodes}}
+}
+
 var _ = Describe("Sequence", func() {
 	var seq ir.Sequence
 
 	BeforeEach(func() {
 		seq = ir.Sequence{
 			Key: "main",
-			Stages: []ir.Stage{
-				{Key: "precheck", Nodes: []string{"check_1", "check_2"}},
-				{Key: "pressurization", Nodes: []string{"timer_1", "ctrl_1"}},
-				{Key: "ignition", Nodes: []string{"igniter_1"}},
-				{Key: "complete", Nodes: nil},
+			Steps: []ir.Step{
+				stageStep("precheck", []string{"check_1", "check_2"}),
+				stageStep("pressurization", []string{"timer_1", "ctrl_1"}),
+				stageStep("ignition", []string{"igniter_1"}),
+				stageStep("complete", nil),
 			},
 		}
 	})
@@ -113,170 +116,170 @@ var _ = Describe("Sequence", func() {
 		It("Should format sequence with tree structure", func() {
 			str := seq.String()
 			Expect(str).To(HavePrefix("main\n"))
-			Expect(str).To(ContainSubstring("├── precheck:"))
-			Expect(str).To(ContainSubstring("├── pressurization:"))
-			Expect(str).To(ContainSubstring("├── ignition:"))
-			Expect(str).To(ContainSubstring("└── complete:"))
+			Expect(str).To(ContainSubstring("├── precheck"))
+			Expect(str).To(ContainSubstring("├── pressurization"))
+			Expect(str).To(ContainSubstring("├── ignition"))
+			Expect(str).To(ContainSubstring("└── complete"))
 		})
 
-		It("Should format single-stage sequence", func() {
+		It("Should format single-step sequence", func() {
 			single := ir.Sequence{
-				Key:    "single",
-				Stages: []ir.Stage{{Key: "only", Nodes: []string{"node_1"}}},
+				Key:   "single",
+				Steps: []ir.Step{stageStep("only", []string{"node_1"})},
 			}
 			str := single.String()
 			Expect(str).To(HavePrefix("single\n"))
-			Expect(str).To(ContainSubstring("└── only: [node_1]"))
+			Expect(str).To(ContainSubstring("└── only"))
 		})
 	})
 
 	Describe("Entry", func() {
-		It("Should return first stage as entry point", func() {
+		It("Should return first step as entry point", func() {
 			entry := seq.Entry()
 			Expect(entry.Key).To(Equal("precheck"))
-			Expect(entry.Nodes).To(Equal([]string{"check_1", "check_2"}))
+			Expect(entry.StageNodes()).To(Equal([]string{"check_1", "check_2"}))
 		})
 
 		It("Should panic on empty sequence", func() {
-			empty := ir.Sequence{Key: "empty", Stages: nil}
+			empty := ir.Sequence{Key: "empty", Steps: nil}
 			Expect(func() { empty.Entry() }).To(Panic())
 		})
 
-		It("Should panic on sequence with empty stages slice", func() {
-			empty := ir.Sequence{Key: "empty", Stages: []ir.Stage{}}
+		It("Should panic on sequence with empty steps slice", func() {
+			empty := ir.Sequence{Key: "empty", Steps: []ir.Step{}}
 			Expect(func() { empty.Entry() }).To(Panic())
 		})
 
-		It("Should work with single-stage sequence", func() {
+		It("Should work with single-step sequence", func() {
 			single := ir.Sequence{
-				Key:    "single",
-				Stages: []ir.Stage{{Key: "only", Nodes: []string{"node_1"}}},
+				Key:   "single",
+				Steps: []ir.Step{stageStep("only", []string{"node_1"})},
 			}
 			entry := single.Entry()
 			Expect(entry.Key).To(Equal("only"))
 		})
 	})
 
-	Describe("NextStage", func() {
-		It("Should return next stage in order", func() {
-			next, ok := seq.NextStage("precheck")
+	Describe("NextStep", func() {
+		It("Should return next step in order", func() {
+			next, ok := seq.NextStep("precheck")
 			Expect(ok).To(BeTrue())
 			Expect(next.Key).To(Equal("pressurization"))
 		})
 
-		It("Should return next for middle stage", func() {
-			next, ok := seq.NextStage("pressurization")
+		It("Should return next for middle step", func() {
+			next, ok := seq.NextStep("pressurization")
 			Expect(ok).To(BeTrue())
 			Expect(next.Key).To(Equal("ignition"))
 		})
 
-		It("Should chain through all stages", func() {
+		It("Should chain through all steps", func() {
 			current := "precheck"
 			expected := []string{"pressurization", "ignition", "complete"}
 			for i := range 3 {
-				next, ok := seq.NextStage(current)
+				next, ok := seq.NextStep(current)
 				Expect(ok).To(BeTrue())
 				Expect(next.Key).To(Equal(expected[i]))
 				current = next.Key
 			}
 		})
 
-		It("Should return false for last stage", func() {
-			_, ok := seq.NextStage("complete")
+		It("Should return false for last step", func() {
+			_, ok := seq.NextStep("complete")
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should return false for unknown stage", func() {
-			_, ok := seq.NextStage("nonexistent")
+		It("Should return false for unknown step", func() {
+			_, ok := seq.NextStep("nonexistent")
 			Expect(ok).To(BeFalse())
 		})
 
 		It("Should return false for empty string key", func() {
-			_, ok := seq.NextStage("")
+			_, ok := seq.NextStep("")
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should work correctly with single-stage sequence", func() {
+		It("Should work correctly with single-step sequence", func() {
 			single := ir.Sequence{
-				Key:    "single",
-				Stages: []ir.Stage{{Key: "only"}},
+				Key:   "single",
+				Steps: []ir.Step{stageStep("only", nil)},
 			}
-			_, ok := single.NextStage("only")
+			_, ok := single.NextStep("only")
 			Expect(ok).To(BeFalse())
 		})
 	})
 
-	Describe("FindStage", func() {
-		It("Should find existing stage", func() {
-			stage, ok := seq.FindStage("ignition")
+	Describe("FindStep", func() {
+		It("Should find existing step", func() {
+			step, ok := seq.FindStep("ignition")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("ignition"))
-			Expect(stage.Nodes).To(Equal([]string{"igniter_1"}))
+			Expect(step.Key).To(Equal("ignition"))
+			Expect(step.StageNodes()).To(Equal([]string{"igniter_1"}))
 		})
 
-		It("Should find first stage", func() {
-			stage, ok := seq.FindStage("precheck")
+		It("Should find first step", func() {
+			step, ok := seq.FindStep("precheck")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("precheck"))
+			Expect(step.Key).To(Equal("precheck"))
 		})
 
-		It("Should find last stage", func() {
-			stage, ok := seq.FindStage("complete")
+		It("Should find last step", func() {
+			step, ok := seq.FindStep("complete")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("complete"))
+			Expect(step.Key).To(Equal("complete"))
 		})
 
-		It("Should return false for nonexistent stage", func() {
-			_, ok := seq.FindStage("nonexistent")
+		It("Should return false for nonexistent step", func() {
+			_, ok := seq.FindStep("nonexistent")
 			Expect(ok).To(BeFalse())
 		})
 
 		It("Should return false for empty key", func() {
-			_, ok := seq.FindStage("")
+			_, ok := seq.FindStep("")
 			Expect(ok).To(BeFalse())
 		})
 
 		It("Should handle empty sequence", func() {
 			empty := ir.Sequence{Key: "empty"}
-			_, ok := empty.FindStage("any")
+			_, ok := empty.FindStep("any")
 			Expect(ok).To(BeFalse())
 		})
 	})
 
 	Describe("JSON Serialization", func() {
-		It("Should preserve stage ordering", func() {
+		It("Should preserve step ordering", func() {
 			data := MustSucceed(json.Marshal(seq))
 
 			var restored ir.Sequence
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			Expect(restored.Stages).To(HaveLen(4))
-			Expect(restored.Stages[0].Key).To(Equal("precheck"))
-			Expect(restored.Stages[1].Key).To(Equal("pressurization"))
-			Expect(restored.Stages[2].Key).To(Equal("ignition"))
-			Expect(restored.Stages[3].Key).To(Equal("complete"))
+			Expect(restored.Steps).To(HaveLen(4))
+			Expect(restored.Steps[0].Key).To(Equal("precheck"))
+			Expect(restored.Steps[1].Key).To(Equal("pressurization"))
+			Expect(restored.Steps[2].Key).To(Equal("ignition"))
+			Expect(restored.Steps[3].Key).To(Equal("complete"))
 		})
 
-		It("Should preserve nodes within stages", func() {
+		It("Should preserve nodes within stage steps", func() {
 			data := MustSucceed(json.Marshal(seq))
 
 			var restored ir.Sequence
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			Expect(restored.Stages[0].Nodes).To(Equal([]string{"check_1", "check_2"}))
-			Expect(restored.Stages[1].Nodes).To(Equal([]string{"timer_1", "ctrl_1"}))
-			Expect(restored.Stages[2].Nodes).To(Equal([]string{"igniter_1"}))
-			Expect(restored.Stages[3].Nodes).To(BeNil())
+			Expect(restored.Steps[0].StageNodes()).To(Equal([]string{"check_1", "check_2"}))
+			Expect(restored.Steps[1].StageNodes()).To(Equal([]string{"timer_1", "ctrl_1"}))
+			Expect(restored.Steps[2].StageNodes()).To(Equal([]string{"igniter_1"}))
+			Expect(restored.Steps[3].StageNodes()).To(BeNil())
 		})
 
-		It("Should handle empty stages slice", func() {
-			empty := ir.Sequence{Key: "empty", Stages: []ir.Stage{}}
+		It("Should handle empty steps slice", func() {
+			empty := ir.Sequence{Key: "empty", Steps: []ir.Step{}}
 			data := MustSucceed(json.Marshal(empty))
 
 			var restored ir.Sequence
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 			Expect(restored.Key).To(Equal("empty"))
-			Expect(restored.Stages).To(HaveLen(0))
+			Expect(restored.Steps).To(HaveLen(0))
 		})
 
 		It("Should round-trip Entry() result correctly", func() {
@@ -289,13 +292,13 @@ var _ = Describe("Sequence", func() {
 			Expect(entry.Key).To(Equal("precheck"))
 		})
 
-		It("Should round-trip NextStage() correctly", func() {
+		It("Should round-trip NextStep() correctly", func() {
 			data := MustSucceed(json.Marshal(seq))
 
 			var restored ir.Sequence
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			next, ok := restored.NextStage("precheck")
+			next, ok := restored.NextStep("precheck")
 			Expect(ok).To(BeTrue())
 			Expect(next.Key).To(Equal("pressurization"))
 		})
@@ -309,24 +312,24 @@ var _ = Describe("Sequences", func() {
 		sequences = ir.Sequences{
 			{
 				Key: "main",
-				Stages: []ir.Stage{
-					{Key: "start", Nodes: []string{"node_1"}},
-					{Key: "end", Nodes: []string{"node_2"}},
+				Steps: []ir.Step{
+					stageStep("start", []string{"node_1"}),
+					stageStep("end", []string{"node_2"}),
 				},
 			},
 			{
 				Key: "abort",
-				Stages: []ir.Stage{
-					{Key: "safing", Nodes: []string{"abort_1", "abort_2"}},
-					{Key: "safed", Nodes: nil},
+				Steps: []ir.Step{
+					stageStep("safing", []string{"abort_1", "abort_2"}),
+					stageStep("safed", nil),
 				},
 			},
 			{
 				Key: "recovery",
-				Stages: []ir.Stage{
-					{Key: "assess", Nodes: []string{"assess_1"}},
-					{Key: "restart", Nodes: []string{"restart_1"}},
-					{Key: "complete", Nodes: nil},
+				Steps: []ir.Step{
+					stageStep("assess", []string{"assess_1"}),
+					stageStep("restart", []string{"restart_1"}),
+					stageStep("complete", nil),
 				},
 			},
 		}
@@ -337,7 +340,7 @@ var _ = Describe("Sequences", func() {
 			seq, ok := sequences.Find("main")
 			Expect(ok).To(BeTrue())
 			Expect(seq.Key).To(Equal("main"))
-			Expect(seq.Stages).To(HaveLen(2))
+			Expect(seq.Steps).To(HaveLen(2))
 		})
 
 		It("Should find sequence by key", func() {
@@ -376,50 +379,49 @@ var _ = Describe("Sequences", func() {
 		})
 	})
 
-	Describe("FindStage", func() {
-		It("Should find stage and its parent sequence", func() {
-			stage, seq, ok := sequences.FindStage("safing")
+	Describe("FindStep", func() {
+		It("Should find step and its parent sequence", func() {
+			step, seq, ok := sequences.FindStep("safing")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("safing"))
-			Expect(stage.Nodes).To(Equal([]string{"abort_1", "abort_2"}))
+			Expect(step.Key).To(Equal("safing"))
+			Expect(step.StageNodes()).To(Equal([]string{"abort_1", "abort_2"}))
 			Expect(seq.Key).To(Equal("abort"))
 		})
 
-		It("Should find stage in first sequence", func() {
-			stage, seq, ok := sequences.FindStage("start")
+		It("Should find step in first sequence", func() {
+			step, seq, ok := sequences.FindStep("start")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("start"))
+			Expect(step.Key).To(Equal("start"))
 			Expect(seq.Key).To(Equal("main"))
 		})
 
-		It("Should find stage in last sequence", func() {
-			stage, seq, ok := sequences.FindStage("complete")
+		It("Should find step in last sequence", func() {
+			step, seq, ok := sequences.FindStep("complete")
 			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("complete"))
+			Expect(step.Key).To(Equal("complete"))
 			Expect(seq.Key).To(Equal("recovery"))
 		})
 
-		It("Should return false for missing stage", func() {
-			_, _, ok := sequences.FindStage("nonexistent")
+		It("Should return false for missing step", func() {
+			_, _, ok := sequences.FindStep("nonexistent")
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should return first match when stage names collide", func() {
-			// Stage names only need to be unique within sequence
+		It("Should return first match when step names collide", func() {
 			seqs := ir.Sequences{
-				{Key: "seq1", Stages: []ir.Stage{{Key: "init", Nodes: []string{"s1_init"}}}},
-				{Key: "seq2", Stages: []ir.Stage{{Key: "init", Nodes: []string{"s2_init"}}}},
+				{Key: "seq1", Steps: []ir.Step{stageStep("init", []string{"s1_init"})}},
+				{Key: "seq2", Steps: []ir.Step{stageStep("init", []string{"s2_init"})}},
 			}
-			stage, seq, ok := seqs.FindStage("init")
+			step, seq, ok := seqs.FindStep("init")
 			Expect(ok).To(BeTrue())
-			Expect(seq.Key).To(Equal("seq1")) // First match
-			Expect(stage.Key).To(Equal("init"))
-			Expect(stage.Nodes).To(Equal([]string{"s1_init"}))
+			Expect(seq.Key).To(Equal("seq1"))
+			Expect(step.Key).To(Equal("init"))
+			Expect(step.StageNodes()).To(Equal([]string{"s1_init"}))
 		})
 
 		It("Should handle empty collection", func() {
 			empty := ir.Sequences{}
-			_, _, ok := empty.FindStage("any")
+			_, _, ok := empty.FindStep("any")
 			Expect(ok).To(BeFalse())
 		})
 	})
@@ -437,28 +439,25 @@ var _ = Describe("Sequences", func() {
 			Expect(restored[2].Key).To(Equal("recovery"))
 		})
 
-		It("Should preserve nested stages", func() {
+		It("Should preserve nested steps", func() {
 			data := MustSucceed(json.Marshal(sequences))
 
 			var restored ir.Sequences
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			// Check main sequence
 			main, ok := restored.Find("main")
 			Expect(ok).To(BeTrue())
-			Expect(main.Stages).To(HaveLen(2))
+			Expect(main.Steps).To(HaveLen(2))
 			Expect(main.Entry().Key).To(Equal("start"))
 
-			// Check abort sequence
 			abort, ok := restored.Find("abort")
 			Expect(ok).To(BeTrue())
-			Expect(abort.Stages).To(HaveLen(2))
+			Expect(abort.Steps).To(HaveLen(2))
 			Expect(abort.Entry().Key).To(Equal("safing"))
 
-			// Check recovery sequence
 			recovery, ok := restored.Find("recovery")
 			Expect(ok).To(BeTrue())
-			Expect(recovery.Stages).To(HaveLen(3))
+			Expect(recovery.Steps).To(HaveLen(3))
 			Expect(recovery.Entry().Key).To(Equal("assess"))
 		})
 
@@ -483,22 +482,21 @@ var _ = Describe("Sequences", func() {
 			Expect(recovery.Entry().Key).To(Equal("assess"))
 		})
 
-		It("Should support independent NextStage() calls", func() {
+		It("Should support independent NextStep() calls", func() {
 			main := sequences.Get("main")
 			abort := sequences.Get("abort")
 
-			mainNext, _ := main.NextStage("start")
-			abortNext, _ := abort.NextStage("safing")
+			mainNext, _ := main.NextStep("start")
+			abortNext, _ := abort.NextStep("safing")
 
 			Expect(mainNext.Key).To(Equal("end"))
 			Expect(abortNext.Key).To(Equal("safed"))
 		})
 
-		It("Should support FindStage across all sequences", func() {
-			// Find stages from different sequences
-			stage1, seq1, ok1 := sequences.FindStage("start")
-			stage2, seq2, ok2 := sequences.FindStage("safing")
-			stage3, seq3, ok3 := sequences.FindStage("restart")
+		It("Should support FindStep across all sequences", func() {
+			step1, seq1, ok1 := sequences.FindStep("start")
+			step2, seq2, ok2 := sequences.FindStep("safing")
+			step3, seq3, ok3 := sequences.FindStep("restart")
 
 			Expect(ok1).To(BeTrue())
 			Expect(ok2).To(BeTrue())
@@ -508,47 +506,42 @@ var _ = Describe("Sequences", func() {
 			Expect(seq2.Key).To(Equal("abort"))
 			Expect(seq3.Key).To(Equal("recovery"))
 
-			Expect(stage1.Nodes).To(Equal([]string{"node_1"}))
-			Expect(stage2.Nodes).To(Equal([]string{"abort_1", "abort_2"}))
-			Expect(stage3.Nodes).To(Equal([]string{"restart_1"}))
+			Expect(step1.StageNodes()).To(Equal([]string{"node_1"}))
+			Expect(step2.StageNodes()).To(Equal([]string{"abort_1", "abort_2"}))
+			Expect(step3.StageNodes()).To(Equal([]string{"restart_1"}))
 		})
 	})
 })
 
 var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 	It("Should represent a complete sequence state machine with edges", func() {
-		// Build a realistic sequence with both Continuous and EdgeKindOneShot edges
 		sequences := ir.Sequences{
 			{
 				Key: "main",
-				Stages: []ir.Stage{
-					{Key: "precheck", Nodes: []string{"timer_1", "check_1", "precheck_entry"}},
-					{Key: "pressurize", Nodes: []string{"valve_ctrl", "pressure_monitor", "pressurize_entry"}},
-					{Key: "complete", Nodes: []string{"complete_entry"}},
+				Steps: []ir.Step{
+					stageStep("precheck", []string{"timer_1", "check_1", "precheck_entry"}),
+					stageStep("pressurize", []string{"valve_ctrl", "pressure_monitor", "pressurize_entry"}),
+					stageStep("complete", []string{"complete_entry"}),
 				},
 			},
 		}
 
 		edges := ir.Edges{
-			// Continuous dataflow within precheck stage
 			{
 				Source: ir.Handle{Node: "timer_1", Param: "output"},
 				Target: ir.Handle{Node: "check_1", Param: "input"},
 				Kind:   ir.EdgeKindContinuous,
 			},
-			// EdgeKindOneShot transition: precheck -> pressurize
 			{
 				Source: ir.Handle{Node: "check_1", Param: "output"},
 				Target: ir.Handle{Node: "pressurize_entry", Param: "activate"},
 				Kind:   ir.EdgeKindOneShot,
 			},
-			// Continuous dataflow within pressurize stage
 			{
 				Source: ir.Handle{Node: "valve_ctrl", Param: "output"},
 				Target: ir.Handle{Node: "pressure_monitor", Param: "input"},
 				Kind:   ir.EdgeKindContinuous,
 			},
-			// EdgeKindOneShot transition: pressurize -> complete
 			{
 				Source: ir.Handle{Node: "pressure_monitor", Param: "threshold_met"},
 				Target: ir.Handle{Node: "complete_entry", Param: "activate"},
@@ -556,28 +549,23 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 			},
 		}
 
-		// Verify structure
 		Expect(sequences).To(HaveLen(1))
 		main := sequences.Get("main")
-		Expect(main.Stages).To(HaveLen(3))
+		Expect(main.Steps).To(HaveLen(3))
 
-		// Verify entry point
 		entry := main.Entry()
 		Expect(entry.Key).To(Equal("precheck"))
 
-		// Verify stage navigation
-		next, ok := main.NextStage("precheck")
+		next, ok := main.NextStep("precheck")
 		Expect(ok).To(BeTrue())
 		Expect(next.Key).To(Equal("pressurize"))
 
-		// Verify edge kinds
 		continuous := edges.GetByKind(ir.EdgeKindContinuous)
 		oneShot := edges.GetByKind(ir.EdgeKindOneShot)
 
 		Expect(continuous).To(HaveLen(2))
 		Expect(oneShot).To(HaveLen(2))
 
-		// Verify EdgeKindOneShot edges target entry nodes
 		for _, e := range oneShot {
 			Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			Expect(e.Target.Param).To(Equal("activate"))
