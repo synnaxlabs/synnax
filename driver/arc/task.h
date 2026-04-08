@@ -166,7 +166,7 @@ public:
             .loop = cfg.loop,
             .factories =
                 {
-                    std::make_shared<::driver::arc::status::Factory>(ctx->client),
+                    std::make_shared<::driver::arc::status::Module>(ctx->client),
                 },
             .rt_handle = rt_handle,
         };
