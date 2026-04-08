@@ -52,7 +52,7 @@ class Module : public ::arc::stl::Module {
     std::shared_ptr<synnax::Synnax> client;
 
 public:
-    explicit Factory(std::shared_ptr<synnax::Synnax> client):
+    explicit Module(std::shared_ptr<synnax::Synnax> client):
         client(std::move(client)) {}
 
     bool handles(const std::string &node_type) const override {
