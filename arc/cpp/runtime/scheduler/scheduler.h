@@ -13,7 +13,6 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "glog/logging.h"
@@ -42,8 +41,6 @@ class Scheduler {
     struct Stage {
         /// @brief Stratified node keys defining execution order.
         ir::Strata strata;
-        /// @brief One-shot edges that have already fired in this stage activation.
-        std::unordered_set<ir::Edge> fired_one_shots;
     };
 
     /// @brief State for a sequence of stages.
@@ -85,8 +82,6 @@ class Scheduler {
     /// @brief Minimum deadline (absolute elapsed time) across all nodes in the
     /// current next() call. Reset to max at the start of each next() call.
     x::telem::TimeSpan next_deadline_ = x::telem::TimeSpan::max();
-    /// @brief One-shot edges that have fired in global strata (never reset).
-    std::unordered_set<ir::Edge> global_fired_one_shots;
     /// @brief Pointer to the key of the currently executing node (points into strata
     /// string vectors which are immutable after construction).
     const std::string *curr_node_ptr = nullptr;
@@ -154,16 +149,12 @@ public:
     void reset() {
         std::fill(this->changed_flags.begin(), this->changed_flags.end(), 0);
         std::fill(this->self_changed_flags.begin(), this->self_changed_flags.end(), 0);
-        this->global_fired_one_shots.clear();
         this->curr_node_ptr = nullptr;
         this->curr_seq_idx = NO_INDEX;
         this->curr_stage_idx = NO_INDEX;
         this->transitioned = false;
-        for (auto &seq: this->sequences) {
+        for (auto &seq: this->sequences)
             seq.active_stage_idx = NO_INDEX;
-            for (auto &stage: seq.stages)
-                stage.fired_one_shots.clear();
-        }
         for (auto &[key, node_state]: this->nodes)
             node_state.node->reset();
     }
@@ -243,17 +234,14 @@ private:
     }
 
     /// @brief Marks downstream nodes as changed based on edge propagation rules.
+    /// For continuous edges, always propagates. For conditional edges, only
+    /// propagates when the source output is truthy.
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->curr_node().output_edges[param])
             if (edge.kind == ir::EdgeKind::Continuous)
                 this->changed_flags[this->node_index[edge.target.node]] = 1;
-            else if (this->curr_node().node->is_output_truthy(param)) {
-                auto &fired_set = this->curr_stage_idx == NO_INDEX
-                                    ? this->global_fired_one_shots
-                                    : this->curr_stage().fired_one_shots;
-                if (fired_set.insert(edge).second)
-                    this->changed_flags[this->node_index[edge.target.node]] = 1;
-            }
+            else if (this->curr_node().node->is_output_truthy(param))
+                this->changed_flags[this->node_index[edge.target.node]] = 1;
     }
 
     void mark_self_changed() {
@@ -276,18 +264,25 @@ private:
                 this->self_changed_flags[this->node_index[key]] = 0;
     }
 
+    /// @brief Transitions to the stage associated with the currently executing node.
+    /// If entering from global strata and the sequence already has an active stage,
+    /// this is a no-op to prevent re-entering a sequence that has already been started.
+    /// Within-sequence transitions always proceed.
     void transition_stage() {
+        const auto [target_seq_idx, target_stage_idx] = this->transitions
+                                                            [*this->curr_node_ptr];
+        if (this->curr_seq_idx == NO_INDEX &&
+            this->sequences[target_seq_idx].active_stage_idx != NO_INDEX)
+            return;
         if (this->curr_seq_idx != NO_INDEX) {
             auto &source = this->sequences[this->curr_seq_idx]
                                .stages[this->curr_stage_idx];
             this->clear_self_changed(source.strata);
             this->sequences[this->curr_seq_idx].active_stage_idx = NO_INDEX;
         }
-        const auto [target_seq_idx, target_stage_idx] = this->transitions
-                                                            [*this->curr_node_ptr];
-        auto &target = this->sequences[target_seq_idx].stages[target_stage_idx];
-        target.fired_one_shots.clear();
-        this->reset_strata(target.strata);
+        this->reset_strata(
+            this->sequences[target_seq_idx].stages[target_stage_idx].strata
+        );
         this->sequences[target_seq_idx].active_stage_idx = target_stage_idx;
         this->transitioned = true;
     }

@@ -135,8 +135,8 @@ TEST_F(SchedulerTest, testBuildsTransitionTable) {
                   .node("entry_seq_stage_b")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger_a", "activate", "entry_seq_stage_a", "input")
-                  .oneshot("trigger_b", "activate", "entry_seq_stage_b", "input")
+                  .conditional("trigger_a", "activate", "entry_seq_stage_a", "input")
+                  .conditional("trigger_b", "activate", "entry_seq_stage_b", "input")
                   .strata(
                       {{"trigger_a", "trigger_b"},
                        {"entry_seq_stage_a", "entry_seq_stage_b"}}
@@ -478,8 +478,8 @@ TEST_F(SchedulerTest, testWideGraph) {
         ASSERT_EQ(mocks_["N" + std::to_string(i)]->next_called, 1);
 }
 
-/// @brief it should fire one-shot edges when the output is truthy
-TEST_F(SchedulerTest, testOneShotFiresWhenTruthy) {
+/// @brief it should fire conditional edges when the output is truthy
+TEST_F(SchedulerTest, testConditionalFiresWhenTruthy) {
     auto &nodeA = mock("A");
     const auto &nodeB = mock("B");
 
@@ -489,7 +489,7 @@ TEST_F(SchedulerTest, testOneShotFiresWhenTruthy) {
     auto ir = ir::testutil::Builder()
                   .node("A")
                   .node("B")
-                  .oneshot("A", "output", "B", "input")
+                  .conditional("A", "output", "B", "input")
                   .strata({{"A"}, {"B"}})
                   .build();
 
@@ -499,8 +499,8 @@ TEST_F(SchedulerTest, testOneShotFiresWhenTruthy) {
     ASSERT_EQ(nodeB.next_called, 1);
 }
 
-/// @brief it should not fire one-shot edges when the output is falsy
-TEST_F(SchedulerTest, testOneShotDoesNotFireWhenFalsy) {
+/// @brief it should not fire conditional edges when the output is falsy
+TEST_F(SchedulerTest, testConditionalDoesNotFireWhenFalsy) {
     auto &nodeA = mock("A");
     const auto &nodeB = mock("B");
 
@@ -510,7 +510,7 @@ TEST_F(SchedulerTest, testOneShotDoesNotFireWhenFalsy) {
     auto ir = ir::testutil::Builder()
                   .node("A")
                   .node("B")
-                  .oneshot("A", "output", "B", "input")
+                  .conditional("A", "output", "B", "input")
                   .strata({{"A"}, {"B"}})
                   .build();
 
@@ -520,8 +520,8 @@ TEST_F(SchedulerTest, testOneShotDoesNotFireWhenFalsy) {
     ASSERT_EQ(nodeB.next_called, 0);
 }
 
-/// @brief it should fire one-shot edges only once per stage activation
-TEST_F(SchedulerTest, testOneShotFiresOnlyOncePerStage) {
+/// @brief it should fire conditional edges every tick in a stage
+TEST_F(SchedulerTest, testConditionalFiresEveryTickInStage) {
     // Trigger at stratum 0, entry at stratum 1
     auto &trigger = mock("trigger");
     auto &entry = mock("entry_seq_stage");
@@ -539,35 +539,36 @@ TEST_F(SchedulerTest, testOneShotFiresOnlyOncePerStage) {
                   .node("entry_seq_stage")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
-                  .oneshot("A", "output", "B", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("A", "output", "B", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}, {"B"}}}})
                   .build();
 
     const auto scheduler = build(std::move(ir));
 
-    // First call: trigger→entry one-shot fires, stage activates, A→B one-shot fires
+    // First call: trigger→entry conditional fires, stage activates, A→B conditional fires
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     ASSERT_EQ(nodeB.next_called, 1);
 
+    // Second call: conditional fires again (no fire-once behavior)
     scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeB.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 2);
 }
 
-/// @brief it should fire one-shot edges only once in global strata
-TEST_F(SchedulerTest, testOneShotFiresOnceInGlobalStrata) {
+/// @brief it should fire conditional edges every tick in global strata
+TEST_F(SchedulerTest, testConditionalFiresEveryTickInGlobalStrata) {
     auto &nodeA = mock("A");
     const auto &nodeB = mock("B");
 
     nodeA.mark_on_next("output");
     nodeA.param_truthy["output"] = true;
 
-    // One-shot in global strata fires once ever (no reset mechanism)
+    // Conditional in global strata fires every tick (no fire-once behavior)
     auto ir = ir::testutil::Builder()
                   .node("A")
                   .node("B")
-                  .oneshot("A", "output", "B", "input")
+                  .conditional("A", "output", "B", "input")
                   .strata({{"A"}, {"B"}})
                   .build();
 
@@ -577,15 +578,15 @@ TEST_F(SchedulerTest, testOneShotFiresOnceInGlobalStrata) {
     ASSERT_EQ(nodeB.next_called, 1);
 
     scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeB.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 2);
 
     scheduler->next(x::telem::MILLISECOND * 3, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeB.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 3);
 }
 
-/// @brief it should reset one-shot edges when a stage is re-entered
-TEST_F(SchedulerTest, testOneShotResetsOnStageEntry) {
-    // Use continuous edge for re-triggering to verify one-shots reset on stage re-entry
+/// @brief it should not re-enter stage when triggered from global strata
+/// while sequence is active
+TEST_F(SchedulerTest, testNoReEntryFromGlobalStrataWhileSequenceActive) {
     auto &trigger = mock("trigger");
     auto &entry = mock("entry_seq_stage");
     auto &nodeA = mock("A");
@@ -604,8 +605,8 @@ TEST_F(SchedulerTest, testOneShotResetsOnStageEntry) {
                   .node("B")
                   // Global: continuous edge so it triggers every time
                   .edge("trigger", "activate", "entry_seq_stage", "input")
-                  // Stage: A→B one-shot
-                  .oneshot("A", "output", "B", "input")
+                  // Stage: A→B conditional
+                  .conditional("A", "output", "B", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}, {"B"}}}})
                   .build();
@@ -616,10 +617,41 @@ TEST_F(SchedulerTest, testOneShotResetsOnStageEntry) {
     ASSERT_EQ(nodeB.next_called, 1);
     ASSERT_EQ(nodeA.reset_called, 1);
 
-    // Stage re-activates via continuous edge, clearing fired_one_shots
+    // Trigger fires again but sequence is already active, so no re-entry
     scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
     ASSERT_EQ(nodeB.next_called, 2);
-    ASSERT_EQ(nodeA.reset_called, 2);
+    ASSERT_EQ(nodeA.reset_called, 1);
+}
+
+/// @brief it should not re-enter a stage that is already active
+TEST_F(SchedulerTest, testDoesNotReEnterAlreadyActiveStage) {
+    auto &trigger = mock("trigger");
+    auto &entry = mock("entry_seq_stage");
+    auto &a = mock("A");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry.activate_on_next();
+    a.mark_on_next("output");
+
+    auto prog = ir::testutil::Builder()
+                    .node("trigger")
+                    .node("entry_seq_stage")
+                    .node("A")
+                    .conditional("trigger", "activate", "entry_seq_stage", "input")
+                    .strata({{"trigger"}, {"entry_seq_stage"}})
+                    .sequence("seq", {{"stage", {{"A"}}}})
+                    .build();
+
+    const auto scheduler = build(std::move(prog));
+    scheduler->next(x::telem::TimeSpan(1), node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 1);
+    EXPECT_EQ(a.reset_called, 1);
+
+    // Trigger still truthy but stage already active - no re-entry
+    scheduler->next(x::telem::TimeSpan(2), node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 2);
+    EXPECT_EQ(a.reset_called, 1); // NOT reset again
 }
 
 /// @brief it should propagate continuous edges regardless of truthiness
@@ -676,7 +708,7 @@ TEST_F(SchedulerTest, testStagedNodesExecuteWhenActive) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -703,7 +735,7 @@ TEST_F(SchedulerTest, testGlobalStrataAlwaysExecutes) {
                   .node("entry_seq_stage")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata(
                       {{"trigger", "A"}, {"entry_seq_stage"}}
                   ) // A is global at stratum 0
@@ -731,7 +763,7 @@ TEST_F(SchedulerTest, testEntryNodeActivatesStage) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -763,8 +795,8 @@ TEST_F(SchedulerTest, testStageTransitionDeactivatesPrevious) {
                   .node("entry_seq_stage_b")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
-                  .oneshot("A", "to_b", "entry_seq_stage_b", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_a", "input")
+                  .conditional("A", "to_b", "entry_seq_stage_b", "input")
                   .strata({{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}})
                   .sequence(
                       "seq",
@@ -799,7 +831,7 @@ TEST_F(SchedulerTest, testStageTransitionResetsNodes) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -834,8 +866,8 @@ TEST_F(SchedulerTest, testCrossSequenceIndependence) {
                   .node("entry_seq2_stage")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger1", "activate", "entry_seq1_stage", "input")
-                  .oneshot("trigger2", "activate", "entry_seq2_stage", "input")
+                  .conditional("trigger1", "activate", "entry_seq1_stage", "input")
+                  .conditional("trigger2", "activate", "entry_seq2_stage", "input")
                   .strata(
                       {{"trigger1", "trigger2"},
                        {"entry_seq1_stage", "entry_seq2_stage"}}
@@ -881,9 +913,9 @@ TEST_F(SchedulerTest, testMultipleStagesInSequence) {
                   .node("A")
                   .node("B")
                   .node("C")
-                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
-                  .oneshot("A", "to_b", "entry_seq_stage_b", "input")
-                  .oneshot("B", "to_c", "entry_seq_stage_c", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_a", "input")
+                  .conditional("A", "to_b", "entry_seq_stage_b", "input")
+                  .conditional("B", "to_c", "entry_seq_stage_c", "input")
                   .strata(
                       {{"trigger"},
                        {"entry_seq_stage_a", "entry_seq_stage_b", "entry_seq_stage_c"}}
@@ -919,7 +951,7 @@ TEST_F(SchedulerTest, testSingleTransitionConverges) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -956,7 +988,7 @@ TEST_F(SchedulerTest, testCascadingTransitionsComplete) {
                   .node("A")
                   .node("B")
                   .node("C")
-                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_a", "input")
                   .edge("A", "output", "entry_seq_stage_b", "input")
                   .edge("B", "output", "entry_seq_stage_c", "input")
                   .strata({{"trigger"}, {"entry_seq_stage_a"}})
@@ -990,7 +1022,7 @@ TEST_F(SchedulerTest, testConvergenceStopsWhenStable) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -1019,9 +1051,9 @@ TEST_F(SchedulerTest, testMaxIterationsPreventInfiniteLoop) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   // A triggers entry inside the stage (would cause infinite re-entry)
-                  .oneshot("A", "reenter", "entry_seq_stage", "input")
+                  .conditional("A", "reenter", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}, {"entry_seq_stage"}}}})
                   .build();
@@ -1051,7 +1083,7 @@ TEST_F(SchedulerTest, testConvergenceDetectsTransition) {
                   .node("entry_seq_stage_b")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_a", "input")
                   .edge("A", "output", "entry_seq_stage_b", "input")
                   .strata({{"trigger"}, {"entry_seq_stage_a"}})
                   .sequence(
@@ -1146,8 +1178,8 @@ TEST_F(SchedulerTest, testDeepStrataChain) {
         ASSERT_EQ(mocks_["N" + std::to_string(i)]->next_called, 1);
 }
 
-/// @brief it should handle mixed continuous and one-shot edges correctly
-TEST_F(SchedulerTest, testMixedContinuousAndOneShot) {
+/// @brief it should handle mixed continuous and conditional edges correctly
+TEST_F(SchedulerTest, testMixedContinuousAndConditional) {
     auto &nodeA = mock("A");
     auto &nodeB = mock("B");
     const auto &nodeC = mock("C");
@@ -1156,13 +1188,13 @@ TEST_F(SchedulerTest, testMixedContinuousAndOneShot) {
     nodeB.mark_on_next("output");
     nodeB.param_truthy["output"] = true;
 
-    // A -> B (continuous), B => C (one-shot)
+    // A -> B (continuous), B => C (conditional)
     auto ir = ir::testutil::Builder()
                   .node("A")
                   .node("B")
                   .node("C")
                   .edge("A", "output", "B", "input")
-                  .oneshot("B", "output", "C", "input")
+                  .conditional("B", "output", "C", "input")
                   .strata({{"A"}, {"B"}, {"C"}})
                   .build();
 
@@ -1191,7 +1223,7 @@ TEST_F(SchedulerTest, testGlobalAndStagedMixed) {
                   .node("entry_seq_stage")
                   .node("G")
                   .node("S")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .edge("G", "output", "S", "input")
                   .strata({{"trigger", "G"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"S"}}}})
@@ -1230,8 +1262,8 @@ TEST_F(SchedulerTest, testMultiSequenceWithSharedGlobal) {
                   .node("G")
                   .node("S1")
                   .node("S2")
-                  .oneshot("trigger1", "activate", "entry_seq1_stage", "input")
-                  .oneshot("trigger2", "activate", "entry_seq2_stage", "input")
+                  .conditional("trigger1", "activate", "entry_seq1_stage", "input")
+                  .conditional("trigger2", "activate", "entry_seq2_stage", "input")
                   .edge("G", "output", "S1", "input")
                   .edge("G", "output", "S2", "input")
                   .strata(
@@ -1336,8 +1368,8 @@ TEST_F(SchedulerTest, testSelfChangedNodeKeepsExecuting) {
                   .node("comparison")
                   .node("wait")
                   .node("entry_seq_next")
-                  .oneshot("trigger", "activate", "entry_seq_first", "input")
-                  .oneshot("comparison", "output", "wait", "input")
+                  .conditional("trigger", "activate", "entry_seq_first", "input")
+                  .conditional("comparison", "output", "wait", "input")
                   .edge("wait", "output", "entry_seq_next", "input")
                   .strata({{"trigger"}, {"entry_seq_first"}})
                   .sequence(
@@ -1349,7 +1381,7 @@ TEST_F(SchedulerTest, testSelfChangedNodeKeepsExecuting) {
 
     const auto scheduler = build(std::move(ir));
 
-    // Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
+    // Tick 0: trigger fires, stage activates, comparison fires conditional to wait,
     // wait starts timing and calls mark_self_changed
     scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
     ASSERT_EQ(wait.next_called, 1);
@@ -1367,7 +1399,7 @@ TEST_F(SchedulerTest, testSelfChangedNodeKeepsExecuting) {
 }
 
 /// @brief it should not execute a self-changed node after it stops calling
-/// mark_self_changed. Node A is in stratum 1 (behind a one-shot) so it only executes
+/// mark_self_changed. Node A is in stratum 1 (behind a conditional) so it only executes
 /// when in changed or self_changed. Once it stops calling mark_self_changed, it should
 /// stop executing.
 TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
@@ -1386,17 +1418,17 @@ TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
     auto ir = ir::testutil::Builder()
                   .node("trigger")
                   .node("A")
-                  .oneshot("trigger", "output", "A", "input")
+                  .conditional("trigger", "output", "A", "input")
                   .strata({{"trigger"}, {"A"}})
                   .build();
 
     const auto scheduler = build(std::move(ir));
 
-    // Tick 0: trigger fires one-shot to A, A executes and self-changes
+    // Tick 0: trigger fires conditional to A, A executes and self-changes
     scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 1);
 
-    // Tick 1: A executes via self-changed (one-shot already fired)
+    // Tick 1: A executes via self-changed
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 2);
 
@@ -1404,10 +1436,10 @@ TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
     scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 3);
 
-    // Tick 3: A should NOT execute (stopped calling mark_self_changed, one-shot
-    // already fired, not in changed set)
+    // Tick 3: A executes via conditional edge (still truthy), even though
+    // it stopped calling mark_self_changed
     scheduler->next(x::telem::MILLISECOND * 3, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeA.next_called, 3);
+    ASSERT_EQ(nodeA.next_called, 4);
 }
 
 /// @brief it should clear self-changed when a node is reset via stage transition
@@ -1439,8 +1471,8 @@ TEST_F(SchedulerTest, testSelfChangedClearedOnStageTransition) {
                   .node("entry_seq_stage_b")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
-                  .oneshot("A", "to_b", "entry_seq_stage_b", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_a", "input")
+                  .conditional("A", "to_b", "entry_seq_stage_b", "input")
                   .strata({{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}})
                   .sequence(
                       "seq",
@@ -1477,7 +1509,7 @@ TEST_F(SchedulerTest, testResetClearsState) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -1501,41 +1533,48 @@ TEST_F(SchedulerTest, testResetClearsState) {
     ASSERT_EQ(nodeA.reset_called, 3);
 }
 
-/// @brief it should reset fired one-shots after reset
-TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
-    auto &nodeA = mock("A");
-    const auto &nodeB = mock("B");
+/// @brief it should allow stages to be re-entered after reset
+TEST_F(SchedulerTest, testResetAllowsStageReEntry) {
+    auto &trigger = mock("trigger");
+    auto &entry = mock("entry_seq_stage");
+    const auto &nodeA = mock("A");
 
-    nodeA.mark_on_next("output");
-    nodeA.param_truthy["output"] = true;
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry.activate_on_next();
 
     auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage")
                   .node("A")
-                  .node("B")
-                  .oneshot("A", "output", "B", "input")
-                  .strata({{"A"}, {"B"}})
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage"}})
+                  .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
 
     const auto scheduler = build(std::move(ir));
 
+    // Conditional edge fires, stage activates
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeB.next_called, 1);
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeA.reset_called, 1);
 
-    scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeB.next_called, 1);
-
+    // Reset clears active_stage_idx
     scheduler->reset();
+    ASSERT_EQ(nodeA.reset_called, 2);
 
+    // Conditional edge fires again, stage re-activates
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    ASSERT_EQ(nodeB.next_called, 2);
+    ASSERT_EQ(nodeA.next_called, 2);
+    ASSERT_EQ(nodeA.reset_called, 3);
 }
 
 /// @brief it should clear self-changed entries after reset. Node A is behind a
-/// one-shot edge and stays alive via mark_self_changed. After reset, A should not
-/// execute because its self-changed entry was cleared and the one-shot source
+/// conditional edge and stays alive via mark_self_changed. After reset, A should not
+/// execute because its self-changed entry was cleared and the conditional source
 /// (trigger) no longer fires the edge (trigger stops marking its output after the
 /// first tick).
-TEST_F(SchedulerTest, testResetClearsSelfChanged) {
+TEST_F(SchedulerTest, testResetClearsSelfChangedConditional) {
     auto &trigger = mock("trigger");
     auto &nodeA = mock("A");
 
@@ -1551,23 +1590,23 @@ TEST_F(SchedulerTest, testResetClearsSelfChanged) {
     auto ir = ir::testutil::Builder()
                   .node("trigger")
                   .node("A")
-                  .oneshot("trigger", "output", "A", "input")
+                  .conditional("trigger", "output", "A", "input")
                   .strata({{"trigger"}, {"A"}})
                   .build();
 
     const auto scheduler = build(std::move(ir));
 
-    // Tick 0: trigger fires one-shot to A, A executes and self-changes
+    // Tick 0: trigger fires conditional to A, A executes and self-changes
     scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 1);
 
-    // Tick 1: A executes via self-changed (one-shot already consumed)
+    // Tick 1: A executes via self-changed
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 2);
 
     scheduler->reset();
 
-    // After reset, the one-shot is available again but trigger no longer fires it
+    // After reset, trigger no longer marks its output changed
     // (trigger_call_count > 1), and A's self-changed entry was cleared.
     // A should NOT execute.
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -1616,8 +1655,8 @@ ir::IR merge_irs(const std::vector<ir::IR> &irs) {
     return merged;
 }
 
-/// @brief Test with real Interval node and one-shot edge
-TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
+/// @brief Test with real Interval node and conditional edge
+TEST(RealNodeSchedulerTest, IntervalConditionalEdgeFires) {
     // Build IR with interval node
     auto interval_ir = build_interval_ir("interval_0", x::telem::SECOND.nanoseconds());
 
@@ -1632,11 +1671,11 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     target_node.inputs.push_back(target_input);
     interval_ir.nodes.push_back(target_node);
 
-    // Add one-shot edge: interval => target
+    // Add conditional edge: interval => target
     interval_ir.edges.emplace_back(
         ir::Handle{"interval_0", "output"},
         ir::Handle{"target_0", "input"},
-        ir::EdgeKind::OneShot
+        ir::EdgeKind::Conditional
     );
 
     // Set strata
@@ -1678,14 +1717,14 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     // First tick at t=1s - Interval should fire (since it starts at -period)
     scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
 
-    // Target should have been called exactly once (one-shot fired)
+    // Target should have been called exactly once (conditional fired)
     EXPECT_EQ(target_ptr->next_called, 1);
 
-    // Second tick at t=2s - Interval fires again but one-shot already fired
+    // Second tick at t=2s - Interval fires again, conditional fires again
     scheduler->next(x::telem::SECOND * 2, node::RunReason::TimerTick);
 
-    // Target should still be 1 (one-shot only fires once)
-    EXPECT_EQ(target_ptr->next_called, 1);
+    // Target should be 2 (conditional fires every tick)
+    EXPECT_EQ(target_ptr->next_called, 2);
 }
 
 /// @brief Test that Interval is_output_truthy is used by scheduler
@@ -1704,11 +1743,11 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
     target_node.inputs.push_back(target_input);
     interval_ir.nodes.push_back(target_node);
 
-    // Add one-shot edge
+    // Add conditional edge
     interval_ir.edges.emplace_back(
         ir::Handle{"interval_0", "output"},
         ir::Handle{"target_0", "input"},
-        ir::EdgeKind::OneShot
+        ir::EdgeKind::Conditional
     );
 
     interval_ir.strata = ir::Strata({{"interval_0"}, {"target_0"}});
@@ -1747,9 +1786,9 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
     scheduler->next(x::telem::MILLISECOND * 500, node::RunReason::TimerTick);
     // Target should have been called once from t=0 fire
     EXPECT_EQ(target_ptr->next_called, 1);
-    // Tick at t=1s - Interval fires again but one-shot already fired
+    // Tick at t=1s - Interval fires again, conditional fires again
     scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
-    EXPECT_EQ(target_ptr->next_called, 1);
+    EXPECT_EQ(target_ptr->next_called, 2);
 }
 
 /// @brief Helper to create IR with wait node that has proper params
@@ -1778,9 +1817,9 @@ ir::IR build_wait_ir(const std::string &key, const int64_t duration_ns) {
     return ir;
 }
 
-/// @brief Test with real Wait node behind a one-shot edge. Verifies the Wait
+/// @brief Test with real Wait node behind a conditional edge. Verifies the Wait
 /// survives via mark_self_changed and eventually fires.
-TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
+TEST(RealNodeSchedulerTest, WaitConditionalEdgeFiresAfterDuration) {
     auto wait_ir = build_wait_ir("wait_0", x::telem::SECOND.nanoseconds());
 
     types::Param target_input;
@@ -1800,11 +1839,11 @@ TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
     target_node.inputs.push_back(target_input);
     wait_ir.nodes.push_back(target_node);
 
-    // Trigger => wait (one-shot), wait -> target (continuous)
+    // Trigger => wait (conditional), wait -> target (continuous)
     wait_ir.edges.emplace_back(
         ir::Handle{"trigger_0", "output"},
         ir::Handle{"wait_0", "input"},
-        ir::EdgeKind::OneShot
+        ir::EdgeKind::Conditional
     );
     wait_ir.edges.emplace_back(
         ir::Handle{"wait_0", "output"},
@@ -1844,7 +1883,7 @@ TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
         x::telem::TimeSpan(0)
     );
 
-    // Tick 0: trigger fires one-shot to wait, wait starts timing
+    // Tick 0: trigger fires conditional to wait, wait starts timing
     scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
     EXPECT_EQ(target_ptr->next_called, 0);
 
@@ -1928,7 +1967,7 @@ TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
                   .node("trigger")
                   .node("entry_seq_stage")
                   .node("A")
-                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage", "input")
                   .strata({{"trigger"}, {"entry_seq_stage"}})
                   .sequence("seq", {{"stage", {{"A"}}}})
                   .build();
@@ -1973,9 +2012,9 @@ TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
                   .node("entry_seq_stage_pause")
                   .node("Off")
                   .node("Pause")
-                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
-                  .oneshot("A", "check", "entry_seq_stage_off", "input")
-                  .oneshot("B", "check", "entry_seq_stage_pause", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_on", "input")
+                  .conditional("A", "check", "entry_seq_stage_off", "input")
+                  .conditional("B", "check", "entry_seq_stage_pause", "input")
                   .strata({{"trigger"}, {"entry_seq_stage_on"}})
                   .sequence(
                       "seq",
@@ -2019,8 +2058,8 @@ TEST_F(SchedulerTest, testTransitionSkipsLaterWriteStatementInSameStage) {
                   .node("write_ox_tpc_cmd")
                   .node("entry_seq_stage_abort")
                   .node("abort_node")
-                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
-                  .oneshot("to_abort", "check", "entry_seq_stage_abort", "input")
+                  .conditional("trigger", "activate", "entry_seq_stage_on", "input")
+                  .conditional("to_abort", "check", "entry_seq_stage_abort", "input")
                   .strata({{"trigger"}, {"entry_seq_stage_on"}})
                   .sequence(
                       "seq",
@@ -2070,9 +2109,9 @@ TEST_F(SchedulerTest, testSourceOrderPriorityWhenEntriesAtSameStratum) {
                   .node("entry_seq_stage_b")
                   .node("A")
                   .node("B")
-                  .oneshot("trigger", "activate", "entry_seq_active", "input")
-                  .oneshot("condA", "check", "entry_seq_stage_a", "input")
-                  .oneshot("condB", "check", "entry_seq_stage_b", "input")
+                  .conditional("trigger", "activate", "entry_seq_active", "input")
+                  .conditional("condA", "check", "entry_seq_stage_a", "input")
+                  .conditional("condB", "check", "entry_seq_stage_b", "input")
                   .strata({{"trigger"}, {"entry_seq_active"}})
                   .sequence(
                       "seq",

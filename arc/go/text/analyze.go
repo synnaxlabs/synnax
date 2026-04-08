@@ -409,7 +409,7 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 		return ir.EdgeKindContinuous
 	}
 	if opCtx, ok := children[p.lastOpIndex].(parser.IFlowOperatorContext); ok && opCtx.TRANSITION() != nil {
-		return ir.EdgeKindOneShot
+		return ir.EdgeKindConditional
 	}
 	return ir.EdgeKindContinuous
 }

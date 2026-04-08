@@ -30,9 +30,6 @@ type node struct {
 
 // stage holds the runtime state for a single stage within a sequence.
 type stage struct {
-	// firedOneShots tracks which one-shot edges have already fired in this stage
-	// activation. Cleared when the stage is entered.
-	firedOneShots set.Set[ir.Edge]
 	// strata defines the topological execution order for nodes in this stage.
 	strata ir.Strata
 }
@@ -64,9 +61,6 @@ type Scheduler struct {
 	// selfChanged tracks nodes that requested re-execution on the next cycle.
 	// Unlike changed, selfChanged persists across scheduler.Next() calls.
 	selfChanged set.Set[string]
-	// globalFiredOneShots tracks which one-shot edges in global strata have fired.
-	// Unlike per-stage one-shots, global one-shots fire once ever and never reset.
-	globalFiredOneShots set.Set[ir.Edge]
 	// nodes maps node keys to their runtime state.
 	nodes map[string]node
 	// Current execution context
@@ -118,8 +112,7 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 		transitions:         make(map[string]transitionTarget),
 		changed:             make(set.Set[string], len(prog.Nodes)),
 		selfChanged:         make(set.Set[string]),
-		globalFiredOneShots: make(set.Set[ir.Edge]),
-		currSeqIdx:          -1,
+		currSeqIdx: -1,
 		currStageIdx:        -1,
 		tolerance:           tolerance,
 	}
@@ -143,8 +136,7 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 
 		for stageIdx, irStage := range seq.Stages {
 			seqState.stages[stageIdx] = stage{
-				strata:        irStage.Strata,
-				firedOneShots: make(set.Set[ir.Edge]),
+				strata: irStage.Strata,
 			}
 			entryKey := "entry_" + seq.Key + "_" + irStage.Key
 			s.transitions[entryKey] = transitionTarget{
@@ -179,29 +171,13 @@ func (s *Scheduler) MarkNodeChanged(nodeKey string) {
 }
 
 // markChanged propagates changes from the current node's output to downstream nodes.
-// For continuous edges (and unspecified kind), always propagates.
-// For one-shot edges, propagates only if:
-// - The output is truthy, AND
-// - First time firing (global one-shots fire once ever, stage one-shots fire once per activation)
+// For continuous edges, always propagates. For conditional edges, only propagates
+// when the source output is truthy.
 func (s *Scheduler) markChanged(param string) {
 	n := s.nodes[s.currNodeKey]
 	for _, edge := range n.outgoing[param] {
-		if edge.Kind == ir.EdgeKindOneShot {
-			if !n.IsOutputTruthy(param) {
-				continue
-			}
-			if s.currStageIdx == -1 {
-				// Global one-shot: fire once ever (tracked in globalFiredOneShots)
-				if _, fired := s.globalFiredOneShots[edge]; !fired {
-					s.globalFiredOneShots.Add(edge)
-					s.changed.Add(edge.Target.Node)
-				}
-				continue
-			}
-			// Stage one-shot: fire once per activation (tracked in stage's firedOneShots)
-			currStage := s.sequences[s.currSeqIdx].stages[s.currStageIdx]
-			if _, fired := currStage.firedOneShots[edge]; !fired {
-				currStage.firedOneShots.Add(edge)
+		if edge.Kind == ir.EdgeKindConditional {
+			if n.IsOutputTruthy(param) {
 				s.changed.Add(edge.Target.Node)
 			}
 			continue
@@ -303,19 +279,23 @@ func (s *Scheduler) execStages() {
 
 // transitionStage transitions to the stage associated with the currently executing node.
 // This deactivates the current sequence's stage first, then activates the target stage.
+// If entering from global strata and the sequence already has an active stage, this is
+// a no-op to prevent re-entering a sequence that has already been started. Within-sequence
+// transitions always proceed.
 func (s *Scheduler) transitionStage() {
+	target, ok := s.transitions[s.currNodeKey]
+	if !ok {
+		return
+	}
+	if s.currSeqIdx == -1 && s.sequences[target.seqIdx].activeStageIdx != -1 {
+		return
+	}
 	if s.currSeqIdx != -1 {
 		sourceStage := s.sequences[s.currSeqIdx].stages[s.currStageIdx]
 		s.clearSelfChanged(sourceStage.strata)
 		s.sequences[s.currSeqIdx].activeStageIdx = -1
 	}
-	target, ok := s.transitions[s.currNodeKey]
-	if !ok {
-		return
-	}
-	targetStage := &s.sequences[target.seqIdx].stages[target.stageIdx]
-	clear(targetStage.firedOneShots)
-	s.resetStrata(targetStage.strata)
+	s.resetStrata(s.sequences[target.seqIdx].stages[target.stageIdx].strata)
 	s.sequences[target.seqIdx].activeStageIdx = target.stageIdx
 	s.transitioned = true
 }
