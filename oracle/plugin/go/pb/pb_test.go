@@ -10,7 +10,6 @@
 package pb_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,13 +25,11 @@ func TestGoPB(t *testing.T) {
 
 var _ = Describe("Go PB Plugin", func() {
 	var (
-		ctx      context.Context
 		loader   *MockFileLoader
 		pbPlugin *pb.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		pbPlugin = pb.New(pb.DefaultOptions())
 	})
@@ -53,7 +50,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("simple struct translation", func() {
-			It("Should generate ToPB and FromPB functions", func() {
+			It("Should generate ToPB and FromPB functions", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 					@pb
@@ -80,7 +77,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should generate slice translators", func() {
+			It("Should generate slice translators", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 					@pb
@@ -99,7 +96,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should use List suffix for already-plural type names", func() {
+			It("Should use List suffix for already-plural type names", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 					@pb
@@ -120,7 +117,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 		Context("primitive field conversions", func() {
 			DescribeTable("should convert primitive types correctly",
-				func(fieldDecl, expectedForward, expectedBackward string) {
+				func(ctx SpecContext, fieldDecl, expectedForward, expectedBackward string) {
 					source := `
 						@go output "core/test"
 						@pb
@@ -188,7 +185,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("array field conversions", func() {
-			It("Should handle uuid array to string array", func() {
+			It("Should handle uuid array to string array", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -204,7 +201,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("r.Keys, err = func() ([]uuid.UUID, error)")
 			})
 
-			It("Should handle string array passthrough", func() {
+			It("Should handle string array passthrough", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -222,7 +219,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("enum translation", func() {
-			It("Should generate enum ToPB and FromPB functions that return errors", func() {
+			It("Should generate enum ToPB and FromPB functions that return errors", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
 					@pb
@@ -252,7 +249,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should return an error for unrecognized enum values", func() {
+			It("Should return an error for unrecognized enum values", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
 					@pb
@@ -279,7 +276,7 @@ var _ = Describe("Go PB Plugin", func() {
 				Expect(content).ToNot(ContainSubstring("default:\n\t\treturn status.Status"))
 			})
 
-			It("Should propagate enum errors in struct ToPB fields", func() {
+			It("Should propagate enum errors in struct ToPB fields", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
 					@pb
@@ -302,7 +299,7 @@ var _ = Describe("Go PB Plugin", func() {
 				Expect(content).To(ContainSubstring("if err != nil"))
 			})
 
-			It("Should propagate enum errors in struct FromPB fields", func() {
+			It("Should propagate enum errors in struct FromPB fields", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
 					@pb
@@ -326,8 +323,48 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		It("Should preserve enum declaration order", func(ctx SpecContext) {
+			source := `
+					@go output "core/status"
+					@pb
+
+					Alpha enum {
+						unknown = 0
+						active = 1
+					}
+
+					Beta enum {
+						unknown = 0
+						active = 1
+					}
+
+					Charlie enum {
+						unknown = 0
+						active = 1
+					}
+
+					Task struct {
+						key uuid
+						alpha Alpha
+						beta Beta
+						charlie Charlie
+					}
+				`
+			resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+			ExpectContent(resp, "translator.gen.go").
+				ToPreserveOrder(
+					"func AlphaToPB",
+					"func AlphaFromPB",
+					"func BetaToPB",
+					"func BetaFromPB",
+					"func CharlieToPB",
+					"func CharlieFromPB",
+				)
+		})
+
 		Context("hard optional fields", func() {
-			It("Should handle hard optional primitive with nil check", func() {
+			It("Should handle hard optional primitive with nil check", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -346,7 +383,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("struct reference fields", func() {
-			It("Should call nested struct translators", func() {
+			It("Should call nested struct translators", func(ctx SpecContext) {
 				source := `
 					@go output "core/task"
 					@pb
@@ -368,7 +405,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("StatusFromPB(pb.Status)")
 			})
 
-			It("Should handle array of struct references", func() {
+			It("Should handle array of struct references", func(ctx SpecContext) {
 				source := `
 					@go output "core/task"
 					@pb
@@ -390,7 +427,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("ItemsFromPB(pb.Items)")
 			})
 
-			It("Should use List suffix for array of already-plural struct references", func() {
+			It("Should use List suffix for array of already-plural struct references", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 					@pb
@@ -413,7 +450,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("generic struct translation", func() {
-			It("Should generate generic translator functions", func() {
+			It("Should generate generic translator functions", func(ctx SpecContext) {
 				source := `
 					@go output "core/container"
 					@pb
@@ -432,7 +469,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should import anypb for generic types", func() {
+			It("Should import anypb for generic types", func(ctx SpecContext) {
 				source := `
 					@go output "core/container"
 					@pb
@@ -446,10 +483,56 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("google.golang.org/protobuf/types/known/anypb")
 			})
+
+			It("Should propagate comparable constraint to translator functions", func(ctx SpecContext) {
+				source := `
+					@go output "core/control"
+					@pb
+
+					State struct<R> {
+						resource R
+					}
+
+					Transfer struct<R extends comparable> {
+						from State<R>??
+						to   State<R>??
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("func TransferToPB[R comparable](").
+					ToContain("func TransferFromPB[R comparable](").
+					ToContain("func TransfersToPB[R comparable](").
+					ToContain("func TransfersFromPB[R comparable](").
+					ToContain("StateToPB[R]").
+					ToContain("StateFromPB[R]").
+					ToContain("translateR")
+			})
+
+			It("Should forward type param args for array fields of generic structs", func(ctx SpecContext) {
+				source := `
+					@go output "core/control"
+					@pb
+
+					Transfer struct<R extends comparable> {
+						key uuid
+					}
+
+					Update struct<R extends comparable> {
+						transfers Transfer<R>[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("TransfersToPB[R](r.Transfers, translateR)").
+					ToContain("TransfersFromPB[R](pb.Transfers, translateR)")
+			})
 		})
 
 		Context("naming conventions", func() {
-			It("Should convert snake_case to PascalCase", func() {
+			It("Should convert snake_case to PascalCase", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -469,7 +552,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("import management", func() {
-			It("Should not import context package", func() {
+			It("Should not import context package", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -484,7 +567,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToNotContain(`"context"`)
 			})
 
-			It("Should import uuid package when uuid fields present", func() {
+			It("Should import uuid package when uuid fields present", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -499,7 +582,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain(`"github.com/google/uuid"`)
 			})
 
-			It("Should import lo package when array conversions needed", func() {
+			It("Should import lo package when array conversions needed", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -516,7 +599,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("omit directive", func() {
-			It("Should skip structs with @pb omit", func() {
+			It("Should skip structs with @pb omit", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -540,7 +623,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("multiple structs", func() {
-			It("Should generate translators for all structs", func() {
+			It("Should generate translators for all structs", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -564,7 +647,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("func GroupFromPB")
 			})
 
-			It("Should preserve declaration order", func() {
+			It("Should preserve declaration order", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -585,7 +668,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("no pb directive", func() {
-			It("Should not generate file when @pb is absent", func() {
+			It("Should not generate file when @pb is absent", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 
@@ -600,7 +683,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("output path", func() {
-			It("Should generate file in pb subdirectory of go output", func() {
+			It("Should generate file in pb subdirectory of go output", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 					@pb
@@ -626,7 +709,7 @@ var _ = Describe("Go PB Plugin", func() {
 				`)
 			})
 
-			It("Should convert timestamp typedef via uint64", func() {
+			It("Should convert timestamp typedef via uint64", func(ctx SpecContext) {
 				source := `
 					import "schemas/telem"
 
@@ -644,7 +727,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("telem.timestamp(pb.CreatedAt)")
 			})
 
-			It("Should convert timespan typedef via int64", func() {
+			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
 				source := `
 					import "schemas/telem"
 
@@ -664,7 +747,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("typedef (distinct type) conversions", func() {
-			It("Should convert typedef with numeric base", func() {
+			It("Should convert typedef with numeric base", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -682,7 +765,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("test.Key(pb.Rack)")
 			})
 
-			It("Should convert typedef with uuid base", func() {
+			It("Should convert typedef with uuid base", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -703,7 +786,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("key domain with numeric types", func() {
-			It("Should convert key field with numeric key domain", func() {
+			It("Should convert key field with numeric key domain", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -725,7 +808,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("int8 conversion", func() {
-			It("Should widen int8 to int32", func() {
+			It("Should widen int8 to int32", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -743,7 +826,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("@go name and @pb name annotations", func() {
-			It("Should use custom Go name in translator", func() {
+			It("Should use custom Go name in translator", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@go name "CustomName"
@@ -759,7 +842,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("test.CustomName")
 			})
 
-			It("Should use custom PB name in translator function", func() {
+			It("Should use custom PB name in translator function", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb name "ProtoTest"
@@ -777,7 +860,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("@go omit enum handling", func() {
-			It("Should use hand-written enum value format when @go omit", func() {
+			It("Should use hand-written enum value format when @go omit", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
 					@go omit
@@ -802,7 +885,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("uint8 primitive conversion", func() {
-			It("Should dereference hard optional uint8 pointer for conversion", func() {
+			It("Should dereference hard optional uint8 pointer for conversion", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 					@pb
@@ -825,7 +908,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("record field conversion", func() {
-			It("Should handle record fields with structpb", func() {
+			It("Should handle record fields with structpb", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -843,7 +926,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("any field conversion", func() {
-			It("Should handle any fields with json.Marshal", func() {
+			It("Should handle any fields with json.Marshal", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -862,7 +945,7 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil (no-op)", func() {
+		It("Should return nil (no-op)", func(ctx SpecContext) {
 			req := MustGenerateRequest(ctx, `
 				@go output "core/test"
 				@pb
@@ -887,7 +970,7 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("primitive type conversions", func() {
-		It("Should widen uint8 to uint32", func() {
+		It("Should widen uint8 to uint32", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb
@@ -903,7 +986,7 @@ var _ = Describe("Go PB Plugin", func() {
 				ToContain("uint8(pb.Priority)")
 		})
 
-		It("Should convert uint12 with types import", func() {
+		It("Should convert uint12 with types import", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb
@@ -919,7 +1002,7 @@ var _ = Describe("Go PB Plugin", func() {
 				ToContain("types.Uint12(pb.Value)")
 		})
 
-		It("Should convert uint20 with types import", func() {
+		It("Should convert uint20 with types import", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb
@@ -935,7 +1018,7 @@ var _ = Describe("Go PB Plugin", func() {
 				ToContain("types.Uint20(pb.Value)")
 		})
 
-		It("Should convert record field with structpb import", func() {
+		It("Should convert record field with structpb import", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb
@@ -954,7 +1037,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 	Describe("typedef delegation", func() {
 		Context("typedef wrapping a struct", func() {
-			It("Should generate delegation translator for typedef that wraps struct", func() {
+			It("Should generate delegation translator for typedef that wraps struct", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -983,7 +1066,7 @@ var _ = Describe("Go PB Plugin", func() {
 				`)
 			})
 
-			It("Should convert cross-namespace typedef with correct prefix", func() {
+			It("Should convert cross-namespace typedef with correct prefix", func(ctx SpecContext) {
 				source := `
 					import "schemas/ids"
 
@@ -997,14 +1080,14 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "cluster", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("uint32(r.NodeId)").
+					ToContain("uint32(r.NodeID)").
 					ToContain("ids.NodeID(pb.NodeId)")
 			})
 		})
 	})
 
 	Describe("hard optional fields", func() {
-		It("Should handle hard optional struct reference with pointer", func() {
+		It("Should handle hard optional struct reference with pointer", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb
@@ -1028,7 +1111,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 	Describe("Generate edge cases", func() {
 		Context("type alias to struct", func() {
-			It("Should handle alias pointing to struct type", func() {
+			It("Should handle alias pointing to struct type", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1054,7 +1137,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("struct with extends", func() {
-			It("Should handle struct that extends another", func() {
+			It("Should handle struct that extends another", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1078,7 +1161,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("struct array references", func() {
-			It("Should use slice translator for struct array with error handling", func() {
+			It("Should use slice translator for struct array with error handling", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1101,7 +1184,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("generic struct with type args", func() {
-			It("Should generate generic translator with converter functions", func() {
+			It("Should generate generic translator with converter functions", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1126,7 +1209,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("soft optional fields", func() {
-			It("Should handle soft optional with question mark", func() {
+			It("Should handle soft optional with question mark", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1156,7 +1239,7 @@ var _ = Describe("Go PB Plugin", func() {
 				`)
 			})
 
-			It("Should import pb package for cross-namespace struct", func() {
+			It("Should import pb package for cross-namespace struct", func(ctx SpecContext) {
 				source := `
 					import "schemas/common"
 
@@ -1189,7 +1272,7 @@ var _ = Describe("Go PB Plugin", func() {
 				`)
 			})
 
-			It("Should import pb package for cross-namespace enum", func() {
+			It("Should import pb package for cross-namespace enum", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
 

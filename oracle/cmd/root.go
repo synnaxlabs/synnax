@@ -21,30 +21,44 @@ import (
 // BuildTime is injected at build time via -ldflags.
 var BuildTime = "dev"
 
-var rootCmd = &cobra.Command{
-	Use:   "oracle",
-	Short: "Schema-first code generation for Synnax",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
+// NewRootCmd creates a fresh command tree. This is the primary entry point for
+// both production use and testing. Each call returns an isolated tree with its
+// own flag state, so tests can run in parallel without interference.
+func NewRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "oracle",
+		Short: "Schema-first code generation for Synnax",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+	rootCmd.Version = BuildTime
+	configureRootFlags(rootCmd)
+	bindFlags(rootCmd)
+	cobra.OnInitialize(initConfig)
+
+	migrateCmd := newMigrateCmd()
+	migrateCmd.AddCommand(newMigrateCreateCmd())
+
+	rootCmd.AddCommand(
+		newCheckCmd(),
+		newFmtCmd(),
+		newLSPCmd(),
+		migrateCmd,
+		newSnapshotCmd(),
+		newSyncCmd(),
+	)
+	return rootCmd
 }
 
 // Execute runs the root command.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := NewRootCmd().Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func init() {
-	rootCmd.Version = BuildTime
-	configureRootFlags()
-	bindFlags(rootCmd)
-	cobra.OnInitialize(initConfig)
-}
-
 func initConfig() {
-	// Environment variable support with ORACLE_ prefix
 	viper.SetEnvPrefix("oracle")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))

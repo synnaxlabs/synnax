@@ -36,7 +36,7 @@ var _ = Describe("Statement", func() {
 	Describe("Variable Declaration", func() {
 		Context("local variables", func() {
 			DescribeTable("type inference and validation",
-				func(code string, expectOk bool, assertion func(context.Context[parser.IStatementContext])) {
+				func(bCtx SpecContext, code string, expectOk bool, assertion func(context.Context[parser.IStatementContext])) {
 					stmt := MustSucceed(parser.ParseStatement(code))
 					ctx := context.CreateRoot(bCtx, stmt, nil)
 					statement.Analyze(ctx)
@@ -58,7 +58,7 @@ var _ = Describe("Statement", func() {
 				}),
 			)
 
-			It("should detect type mismatch between declaration and initializer", func() {
+			It("should detect type mismatch between declaration and initializer", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`x i32 := "hello"`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				statement.Analyze(ctx)
@@ -67,7 +67,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to 'x' (type i32)"))
 			})
 
-			It("should detect duplicate variable declaration", func() {
+			It("should detect duplicate variable declaration", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseBlock(`{
 					x := 1
 					x := 1
@@ -79,7 +79,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
 			})
 
-			It("should detect undefined variable in initializer", func() {
+			It("should detect undefined variable in initializer", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`x := y + 1`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				statement.Analyze(ctx)
@@ -90,7 +90,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		Context("stateful variables", func() {
-			It("should analyze a stateful variable with inferred type", func() {
+			It("should analyze a stateful variable with inferred type", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				statement.Analyze(ctx)
@@ -103,7 +103,7 @@ var _ = Describe("Statement", func() {
 				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 			})
 
-			It("should analyze stateful variable with explicit type", func() {
+			It("should analyze stateful variable with explicit type", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`total f32 $= 0.0`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				statement.Analyze(ctx)
@@ -117,7 +117,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("Assignment", func() {
 		DescribeTable("assignment validation",
-			func(code string, expectOk bool, errorSubstring string) {
+			func(bCtx SpecContext, code string, expectOk bool, errorSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := context.CreateRoot(bCtx, block, nil)
 				setupFunctionContext(ctx)
@@ -147,7 +147,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("If Statement", func() {
 		DescribeTable("valid if statements",
-			func(code string) {
+			func(bCtx SpecContext, code string) {
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				statement.Analyze(ctx)
@@ -162,7 +162,7 @@ var _ = Describe("Statement", func() {
 			}`),
 		)
 
-		It("should detect undefined variable in condition", func() {
+		It("should detect undefined variable in condition", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement(`if x > 10 { y := 1 }`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			statement.Analyze(ctx)
@@ -174,7 +174,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("Block", func() {
 		DescribeTable("block analysis",
-			func(code string, expectOk bool, errorSubstring string) {
+			func(bCtx SpecContext, code string, expectOk bool, errorSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := context.CreateRoot(bCtx, block, nil)
 				statement.AnalyzeBlock(ctx)
@@ -203,7 +203,7 @@ var _ = Describe("Statement", func() {
 	})
 
 	Describe("Expression Statement", func() {
-		It("should analyze standalone expression with existing variable", func() {
+		It("should analyze standalone expression with existing variable", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
@@ -217,7 +217,7 @@ var _ = Describe("Statement", func() {
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("should detect errors in standalone expression", func() {
+		It("should detect errors in standalone expression", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement(`undefined_var + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			statement.Analyze(ctx)
@@ -267,7 +267,7 @@ var _ = Describe("Statement", func() {
 
 		Context("channel assignment in imperative context", func() {
 			DescribeTable("channel write validation",
-				func(code string, expectOk bool, errorSubstring string) {
+				func(bCtx SpecContext, code string, expectOk bool, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
 					setupChannelFunctionContext(ctx)
@@ -285,7 +285,7 @@ var _ = Describe("Statement", func() {
 				Entry("type mismatch", `{ output = "hello" }`, false, "type mismatch"),
 			)
 
-			It("should detect undefined channel in assignment", func() {
+			It("should detect undefined channel in assignment", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{ undefined_channel = 42.0 }`))
 				ctx := context.CreateRoot(bCtx, block, nil)
 				setupChannelFunctionContext(ctx)
@@ -297,7 +297,7 @@ var _ = Describe("Statement", func() {
 
 		Context("channel reads in imperative context", func() {
 			DescribeTable("channel read type inference",
-				func(chanName string, expectedType types.Type) {
+				func(bCtx SpecContext, chanName string, expectedType types.Type) {
 					code := "current := " + chanName
 					stmt := MustSucceed(parser.ParseStatement(code))
 					ctx := context.CreateRoot(bCtx, stmt, channelResolver)
@@ -315,7 +315,7 @@ var _ = Describe("Statement", func() {
 
 		Context("channel alias assignment to scalar variables", func() {
 			DescribeTable("should accept valid channel alias to scalar assignments",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
 					setupChannelFunctionContext(ctx)
@@ -366,7 +366,7 @@ var _ = Describe("Statement", func() {
 				}`),
 			)
 
-			It("should reject type mismatch after unwrapping channel alias", func() {
+			It("should reject type mismatch after unwrapping channel alias", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					local_ref := int_chan
 					value f64 := 0.0
@@ -382,7 +382,7 @@ var _ = Describe("Statement", func() {
 
 		Context("series literals with channel alias elements", func() {
 			DescribeTable("should accept valid series literals containing channel aliases",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
 					setupChannelFunctionContext(ctx)
@@ -437,7 +437,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("should reject invalid series literals containing channel aliases",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
 					setupChannelFunctionContext(ctx)
@@ -474,7 +474,7 @@ var _ = Describe("Statement", func() {
 	Describe("Compound Assignment", func() {
 		Context("valid compound assignments", func() {
 			DescribeTable("numeric types",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -512,7 +512,7 @@ var _ = Describe("Statement", func() {
 				}`),
 			)
 
-			It("should allow string concatenation with +=", func() {
+			It("should allow string concatenation with +=", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					s str := "hello"
 					s += " world"
@@ -537,7 +537,7 @@ var _ = Describe("Statement", func() {
 				}
 			})
 
-			It("should reject compound assignment on channels", func() {
+			It("should reject compound assignment on channels", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{ sensor += 1.0 }`))
 				ctx := context.CreateRoot(bCtx, block, channelResolver)
 				statement.AnalyzeBlock(ctx)
@@ -547,7 +547,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			DescribeTable("strings only support +=",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -573,7 +573,7 @@ var _ = Describe("Statement", func() {
 				}`),
 			)
 
-			It("should reject compound assignment with type mismatch", func() {
+			It("should reject compound assignment with type mismatch", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					x i32 := 10
 					x += "hello"
@@ -585,7 +585,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 			})
 
-			It("Should reject compound assignments of inferred literal float vs. integer", func() {
+			It("Should reject compound assignments of inferred literal float vs. integer", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					x := 10
 					y := x + 3.2
@@ -597,7 +597,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 			})
 
-			It("should reject compound assignment on undefined variable", func() {
+			It("should reject compound assignment on undefined variable", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{ undefined_var += 5 }`))
 				ctx := context.CreateRoot(bCtx, block, nil)
 				statement.AnalyzeBlock(ctx)
@@ -607,7 +607,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			DescribeTable("valid indexed compound assignments",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -650,7 +650,7 @@ var _ = Describe("Statement", func() {
 				}`),
 			)
 
-			It("should reject slice compound assignment", func() {
+			It("should reject slice compound assignment", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					arr series i32 := [1, 2, 3]
 					arr[0:2] += 5
@@ -662,7 +662,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("slice compound assignment not supported"))
 			})
 
-			It("should reject indexed compound assignment on non-series type", func() {
+			It("should reject indexed compound assignment on non-series type", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					x i32 := 5
 					x[0] += 1
@@ -676,7 +676,7 @@ var _ = Describe("Statement", func() {
 
 			// Whole-series compound assignment tests
 			DescribeTable("valid whole-series compound assignments",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -720,7 +720,7 @@ var _ = Describe("Statement", func() {
 				}`),
 			)
 
-			It("should reject series compound assignment with incompatible scalar type", func() {
+			It("should reject series compound assignment with incompatible scalar type", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					s series i32 := [1, 2, 3]
 					s += "hello"
@@ -732,7 +732,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 			})
 
-			It("should reject series compound assignment with mismatched series element types", func() {
+			It("should reject series compound assignment with mismatched series element types", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					a series i32 := [1, 2, 3]
 					b series f64 := [1.0, 2.0, 3.0]
@@ -748,7 +748,7 @@ var _ = Describe("Statement", func() {
 	})
 
 	Describe("Mixed Type Scenarios", func() {
-		It("should handle complex nested structures", func() {
+		It("should handle complex nested structures", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x := 10
 				y $= 20
@@ -764,7 +764,7 @@ var _ = Describe("Statement", func() {
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("should properly track types through assignments", func() {
+		It("should properly track types through assignments", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 10
 				y := x
@@ -776,7 +776,7 @@ var _ = Describe("Statement", func() {
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("should return an error when assigning incompatible types", func() {
+		It("should return an error when assigning incompatible types", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 10
 				y f32 := x
@@ -792,7 +792,7 @@ var _ = Describe("Statement", func() {
 	Describe("Series Literals", func() {
 		Context("valid series literals with literals only", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -811,7 +811,7 @@ var _ = Describe("Statement", func() {
 
 		Context("valid series literals with expressions", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -828,7 +828,7 @@ var _ = Describe("Statement", func() {
 
 		Context("valid series literals with variables", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -875,7 +875,7 @@ var _ = Describe("Statement", func() {
 
 		Context("valid series literals mixing variables and literals", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -972,7 +972,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			DescribeTable("valid function call combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -993,7 +993,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("valid function call with variable combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1038,7 +1038,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("invalid function call combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1063,7 +1063,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("invalid function call with variable combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1117,7 +1117,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - type mismatches with literals", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1136,7 +1136,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - type mismatches with variables", func() {
 			DescribeTable("should reject two mismatched variables",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1199,7 +1199,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - variable and literal mismatches", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1235,7 +1235,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - three or more elements with mismatch", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1277,7 +1277,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - expression mismatches", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1299,7 +1299,7 @@ var _ = Describe("Statement", func() {
 
 		Context("series assignment compatibility", func() {
 			DescribeTable("should reject structural mismatches",
-				func(code string, errorSubstring string) {
+				func(bCtx SpecContext, code string, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					setupFunctionContext(ctx)
@@ -1335,7 +1335,7 @@ var _ = Describe("Statement", func() {
 	Describe("Series Literals", func() {
 		Context("valid series literals with literals only", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1354,7 +1354,7 @@ var _ = Describe("Statement", func() {
 
 		Context("valid series literals with expressions", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1371,7 +1371,7 @@ var _ = Describe("Statement", func() {
 
 		Context("valid series literals with variables", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1418,7 +1418,7 @@ var _ = Describe("Statement", func() {
 
 		Context("valid series literals mixing variables and literals", func() {
 			DescribeTable("should accept",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1520,7 +1520,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			DescribeTable("valid function call combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1541,7 +1541,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("valid function call with variable combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1586,7 +1586,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("invalid function call combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1611,7 +1611,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("invalid function call with variable combinations",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, funcResolver)
 					statement.AnalyzeBlock(ctx)
@@ -1665,7 +1665,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - type mismatches with literals", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1684,7 +1684,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - type mismatches with variables", func() {
 			DescribeTable("should reject two mismatched variables",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1743,7 +1743,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - variable and literal mismatches", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1779,7 +1779,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - three or more elements with mismatch", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1821,7 +1821,7 @@ var _ = Describe("Statement", func() {
 
 		Context("invalid series literals - expression mismatches", func() {
 			DescribeTable("should reject",
-				func(code string) {
+				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					statement.AnalyzeBlock(ctx)
@@ -1843,7 +1843,7 @@ var _ = Describe("Statement", func() {
 
 		Context("series assignment compatibility", func() {
 			DescribeTable("should reject structural mismatches",
-				func(code string, errorSubstring string) {
+				func(bCtx SpecContext, code string, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, nil)
 					setupFunctionContext(ctx)
@@ -1877,7 +1877,7 @@ var _ = Describe("Statement", func() {
 	})
 
 	Describe("Indexed Assignment", func() {
-		It("should allow indexed assignment to series", func() {
+		It("should allow indexed assignment to series", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				data series i64 := [1, 2, 3]
 				data[0] = 10
@@ -1889,7 +1889,7 @@ var _ = Describe("Statement", func() {
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("should detect indexed assignment on non-series type", func() {
+		It("should detect indexed assignment on non-series type", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i64 := 42
 				x[0] = 10
@@ -1901,7 +1901,7 @@ var _ = Describe("Statement", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("indexed assignment only supported on series types"))
 		})
 
-		It("should detect slice assignment (not supported)", func() {
+		It("should detect slice assignment (not supported)", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				data series i64 := [1, 2, 3]
 				data[0:2] = 10
@@ -1913,7 +1913,7 @@ var _ = Describe("Statement", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("slice assignment not supported"))
 		})
 
-		It("should detect type mismatch in indexed assignment", func() {
+		It("should detect type mismatch in indexed assignment", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				data series i64 := [1, 2, 3]
 				data[0] = "hello"

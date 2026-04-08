@@ -10,6 +10,8 @@
 package task_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -17,11 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -41,20 +44,30 @@ var _ = Describe("Task", Ordered, func() {
 		testRack    *rack.Rack
 		stat        *status.Service
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		searchIdx := MustSucceed(search.Open())
+		DeferCleanup(func() {
+			Expect(searchIdx.Close()).To(Succeed())
+		})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
+			Search:   searchIdx,
 		}))
 		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -63,6 +76,7 @@ var _ = Describe("Task", Ordered, func() {
 			HostProvider:        mock.StaticHostKeyProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			Search:              searchIdx,
 		}))
 		svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
@@ -70,25 +84,26 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
+			Search:   searchIdx,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	})
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
 	})
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(svc.Close()).To(Succeed())
 		Expect(rackService.Close()).To(Succeed())
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Task", func() {
-		It("Should construct and deconstruct a key from its components", func() {
+		It("Should construct and deconstruct a key from its components", func(ctx SpecContext) {
 			rk := rack.NewKey(cluster.NodeKey(1), 1)
 			k := task.NewKey(rk, 2)
 			Expect(k.Rack()).To(Equal(rk))
@@ -96,14 +111,14 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 	Describe("CommandChannelKey", func() {
-		It("Should return zero when no channel service is configured", func() {
+		It("Should return zero when no channel service is configured", func(ctx SpecContext) {
 			Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = &binary.MsgPackCodec{}
+		var codec = msgpack.Codec
 		DescribeTable("Should decode task.Key from various types",
-			func(value any, expected task.Key) {
+			func(ctx SpecContext, value any, expected task.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))
 				var k task.Key
 				Expect(codec.Decode(ctx, data, &k)).To(Succeed())
@@ -117,7 +132,7 @@ var _ = Describe("Task", Ordered, func() {
 			Entry("float64", float64(123456), task.Key(123456)),
 			Entry("float32", float32(1234), task.Key(1234)),
 		)
-		It("Should decode StatusDetails with task key as string", func() {
+		It("Should decode StatusDetails with task key as string", func(ctx SpecContext) {
 			type statusDetailsWithString struct {
 				Data    map[string]any `msgpack:"data"`
 				Task    string         `msgpack:"task"`
@@ -134,7 +149,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(decoded.Task).To(Equal(task.Key(281543696187399)))
 			Expect(decoded.Running).To(BeTrue())
 		})
-		It("Should decode StatusDetails with task key as float64", func() {
+		It("Should decode StatusDetails with task key as float64", func(ctx SpecContext) {
 			type statusDetailsWithFloat struct {
 				Data    map[string]any `msgpack:"data"`
 				Task    float64        `msgpack:"task"`
@@ -154,7 +169,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Create", func() {
-		It("Should correctly create a task and assign it a unique key", func() {
+		It("Should correctly create a task and assign it a unique key", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
@@ -163,7 +178,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 1)))
 			Expect(m.Name).To(Equal("Test Task"))
 		})
-		It("Should correctly increment the task count", func() {
+		It("Should correctly increment the task count", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
@@ -183,7 +198,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Copy", func() {
 
-		It("Should copy a task", func() {
+		It("Should copy a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
@@ -195,7 +210,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 5)))
 		})
 
-		It("Should create a snapshot of an existing task", func() {
+		It("Should create a snapshot of an existing task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
@@ -211,7 +226,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
-		It("Should correctly retrieve a task", func() {
+		It("Should correctly retrieve a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
@@ -224,7 +239,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(*m))
 		})
 
-		It("Should filter tasks by snapshot status", func() {
+		It("Should filter tasks by snapshot status", func(ctx SpecContext) {
 			regular := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Regular Task",
@@ -249,7 +264,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 		})
 
-		It("Should combine WhereSnapshot with other filters", func() {
+		It("Should combine WhereSnapshot with other filters", func(ctx SpecContext) {
 			snapshot1 := &task.Task{
 				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Snapshot Task 1",
@@ -268,7 +283,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res.Snapshot).To(BeTrue())
 		})
 
-		It("Should filter tasks by internal status", func() {
+		It("Should filter tasks by internal status", func(ctx SpecContext) {
 			regular := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Regular Task 2",
@@ -293,7 +308,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 		})
 
-		It("Should combine WhereInternal with other filters", func() {
+		It("Should combine WhereInternal with other filters", func(ctx SpecContext) {
 			internal1 := &task.Task{
 				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Internal Task 1",
@@ -314,7 +329,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should correctly delete a task and its associated status", func() {
+		It("Should correctly delete a task and its associated status", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
@@ -331,7 +346,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Status", func() {
-		It("Should create an unknown status when creating a task", func() {
+		It("Should create an unknown status when creating a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Status Test Task",
@@ -348,7 +363,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
-		It("Should use the provided status when creating a task", func() {
+		It("Should use the provided status when creating a task", func(ctx SpecContext) {
 			providedStatus := &task.Status{
 				Variant:     xstatus.VariantSuccess,
 				Message:     "Custom task status",
@@ -383,7 +398,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(taskStatus.Details.Running).To(BeTrue())
 		})
 
-		It("Should return a validation error if provided status has empty variant", func() {
+		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
 			providedStatus := &task.Status{
 				Time:    telem.Now(),
 				Message: "Status with no variant",
@@ -395,7 +410,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).Error().To(MatchError(ContainSubstring("variant")))
 		})
-		It("Should create an unknown status when copying a task", func() {
+		It("Should create an unknown status when copying a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Original Task",
@@ -416,7 +431,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Suspect Rack", func() {
-		It("Should propagate rack warning status to tasks on that rack", func() {
+		It("Should propagate rack warning status to tasks on that rack", func(ctx SpecContext) {
 			r := rack.Rack{Name: "suspect rack"}
 			Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
@@ -441,7 +456,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Command", func() {
 		Describe("String", func() {
-			It("Should return a string representation of the command", func() {
+			It("Should return a string representation of the command", func(ctx SpecContext) {
 				c := &task.Command{
 					Key:  "cmd",
 					Task: task.Key(12345),
@@ -453,20 +468,27 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Migration", func() {
-		It("Should create unknown statuses for tasks missing them", func() {
+		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			searchIdx := MustSucceed(search.Open())
+			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
 			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
+				Search:   searchIdx,
 			}))
 			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
+				Search:   searchIdx,
 			}))
 			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -474,35 +496,29 @@ var _ = Describe("Task", Ordered, func() {
 				Group:        g,
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
+				Search:       searchIdx,
 			}))
+
+			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+
+			t := task.Task{
+				Key:  task.NewKey(testRack.Key, 99),
+				Name: "Migration Test Task",
+			}
+			Expect(gorp.NewCreate[task.Key, task.Task]().
+				Entry(&t).
+				Exec(ctx, db)).To(Succeed())
+
 			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
+				Search:   searchIdx,
 			}))
-			testRack := &rack.Rack{Name: "Migration Test Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Migration Test Task",
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-			Expect(status.NewWriter[task.StatusDetails](stat, nil).Delete(ctx, task.OntologyID(t.Key).String())).To(Succeed())
-			var deletedStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(t.Key).String()).
-				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-			}))
+
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(t.Key).String()).
@@ -511,13 +527,101 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
+
 			Expect(svc.Close()).To(Succeed())
 			Expect(rackSvc.Close()).To(Succeed())
 			Expect(stat.Close()).To(Succeed())
 			Expect(labelSvc.Close()).To(Succeed())
 			Expect(g.Close()).To(Succeed())
+			Expect(searchIdx.Close()).To(Succeed())
 			Expect(otg.Close()).To(Succeed())
 			Expect(db.Close()).To(Succeed())
+		})
+
+		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustSucceed(search.Open())
+			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    g,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        g,
+				HostProvider: mock.StaticHostKeyProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
+
+			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+
+			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+				Search:   searchIdx,
+			}))
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Task With Status",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+
+			var taskStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(t.Key).String()).
+				Entry(&taskStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Message).To(Equal("Task With Status status unknown"))
+
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(g.Close()).To(Succeed())
+			Expect(searchIdx.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Observe", func() {
+		It("Should notify when a task is created", func(ctx SpecContext) {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			w := svc.NewWriter(tx)
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 999),
+				Name: "observe-test",
+				Type: "test",
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			called := false
+			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
+				called = true
+			})
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(called).To(BeTrue())
 		})
 	})
 })

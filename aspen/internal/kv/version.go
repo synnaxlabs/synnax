@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/version"
 	"go.uber.org/zap"
 )
@@ -66,7 +67,7 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	if err != nil {
 		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
-			return errors.Is(err, xkv.ErrNotFound)
+			return errors.Is(err, query.ErrNotFound)
 		}
 	}
 	// If the versions of the operation are equal, we select a winning operation
@@ -107,9 +108,9 @@ func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	return v, err
 }
 
-func (va *versionAssigner) assign(_ context.Context, br TxRequest) (TxRequest, bool, error) {
+func (va *versionAssigner) assign(ctx context.Context, br TxRequest) (TxRequest, bool, error) {
 	latestVer := va.counter.Value()
-	if _, err := va.counter.Add(int64(br.size())); err != nil {
+	if _, err := va.counter.Add(ctx, int64(br.size())); err != nil {
 		va.L.Error("failed to assign version", zap.Error(err))
 		return TxRequest{}, false, nil
 	}

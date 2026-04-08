@@ -50,15 +50,16 @@ func (WriterRequestTranslator) Backward(
 	if err != nil {
 		return writer.Request{}, err
 	}
+	cs, err := controlpb.SubjectFromPB(req.Config.ControlSubject)
+	if err != nil {
+		return writer.Request{}, err
+	}
 	return writer.Request{
 		Command: writer.Command(req.Command),
 		Config: writer.Config{
-			ControlSubject: control.Subject{
-				Key:  req.Config.ControlSubject.Key,
-				Name: req.Config.ControlSubject.Name,
-			},
-			Keys:  channel.KeysFromUint32(req.Config.Keys),
-			Start: telem.TimeStamp(req.Config.Start),
+			ControlSubject: cs,
+			Keys:           channel.KeysFromUint32(req.Config.Keys),
+			Start:          telem.TimeStamp(req.Config.Start),
 			Authorities: lo.Map(req.Config.Authorities, func(auth uint32, _ int) control.Authority {
 				return control.Authority(auth)
 			}),
@@ -111,7 +112,7 @@ type WriterResponseTranslator struct{}
 
 // Backward implements the grpc.Translator interface.
 func (WriterResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	res *WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
@@ -125,7 +126,7 @@ func (WriterResponseTranslator) Backward(
 
 // Forward implements the grpc.Translator interface.
 func (WriterResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	res writer.Response,
 ) (*WriterResponse, error) {
 	return &WriterResponse{
@@ -240,14 +241,14 @@ func (w RelayRequestTranslator) Forward(
 type RelayResponseTranslator struct{}
 
 func (w RelayResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	res *RelayResponse,
 ) (relay.Response, error) {
 	fr, err := translateFrameForward(res.Frame)
 	if err != nil {
 		return relay.Response{}, err
 	}
-	return relay.Response{Frame: fr}, nil
+	return relay.Response{Frame: fr, Group: res.Group}, nil
 }
 
 func (w RelayResponseTranslator) Forward(
@@ -258,7 +259,7 @@ func (w RelayResponseTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
-	return &RelayResponse{Frame: fr}, nil
+	return &RelayResponse{Frame: fr, Group: res.Group}, nil
 }
 
 func translateFrameForward(fr *telempb.Frame) (framer.Frame, error) {
@@ -276,7 +277,7 @@ func translateFrameBackward(fr framer.Frame) (*telempb.Frame, error) {
 type DeleteRequestTranslator struct{}
 
 func (r DeleteRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg deleter.Request,
 ) (*DeleteRequest, error) {
 	bounds, err := telempb.TimeRangeToPB(msg.Bounds)
@@ -285,13 +286,12 @@ func (r DeleteRequestTranslator) Forward(
 	}
 	return &DeleteRequest{
 		Keys:   msg.Keys.Uint32(),
-		Names:  msg.Names,
 		Bounds: bounds,
 	}, nil
 }
 
 func (r DeleteRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *DeleteRequest,
 ) (deleter.Request, error) {
 	bounds, err := telempb.TimeRangeFromPB(msg.Bounds)
@@ -300,7 +300,6 @@ func (r DeleteRequestTranslator) Backward(
 	}
 	return deleter.Request{
 		Keys:   channel.KeysFromUint32(msg.Keys),
-		Names:  msg.Names,
 		Bounds: bounds,
 	}, nil
 }

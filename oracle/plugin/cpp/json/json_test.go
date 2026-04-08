@@ -10,7 +10,6 @@
 package json_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,13 +25,11 @@ func TestCppJson(t *testing.T) {
 
 var _ = Describe("C++ JSON Plugin", func() {
 	var (
-		ctx        context.Context
 		loader     *MockFileLoader
 		jsonPlugin *json.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		jsonPlugin = json.New(json.Options{
 			FileNamePattern:  "json.gen.h",
@@ -56,7 +53,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("array alias fields (e.g., Params -> Param[])", func() {
-			It("Should generate correct parsing for array alias fields", func() {
+			It("Should generate correct parsing for array alias fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -83,7 +80,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should generate correct to_json for array alias fields", func() {
+			It("Should generate correct to_json for array alias fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -109,7 +106,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should handle optional array alias fields", func() {
+			It("Should handle optional array alias fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -137,7 +134,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("self-referential types with indirect<T>", func() {
-			It("Should generate correct parsing for self-referential fields", func() {
+			It("Should generate correct parsing for self-referential fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -158,7 +155,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should generate correct to_json for self-referential fields", func() {
+			It("Should generate correct to_json for self-referential fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -178,7 +175,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should handle nested self-references via type arguments", func() {
+			It("Should handle nested self-references via type arguments", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -200,7 +197,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("hard optional struct fields (non-self-referential)", func() {
-			It("Should generate correct to_json for optional struct fields", func() {
+			It("Should generate correct to_json for optional struct fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -223,7 +220,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should generate correct parsing for optional struct fields", func() {
+			It("Should generate correct parsing for optional struct fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -248,7 +245,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("map type handling", func() {
-			It("Should use std::unordered_map for Map types in json serialization", func() {
+			It("Should use std::unordered_map for Map types in json serialization", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -267,7 +264,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("complex type structure from arc/types", func() {
-			It("Should handle the complete Type structure with FunctionProperties", func() {
+			It("Should handle the complete Type structure with FunctionProperties", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -308,7 +305,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("primitive array handling", func() {
-			It("Should generate simple assignment for primitive arrays", func() {
+			It("Should generate simple assignment for primitive arrays", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -331,7 +328,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("struct arrays without alias", func() {
-			It("Should use to_array helper for struct array elements", func() {
+			It("Should use to_array helper for struct array elements", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -355,7 +352,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("array wrapper distinct types", func() {
-			It("Should generate parse/to_json for array wrappers with primitive elements", func() {
+			It("Should generate parse/to_json for array wrappers with primitive elements", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -375,7 +372,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should generate parse/to_json for array wrappers with struct elements", func() {
+			It("Should generate parse/to_json for array wrappers with struct elements", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 
@@ -396,6 +393,54 @@ var _ = Describe("C++ JSON Plugin", func() {
 						"inline x::json::json Params::to_json() const {",
 						"j.push_back(item.to_json())",
 					)
+			})
+		})
+
+		Context("generic struct field type args", func() {
+			It("Should propagate type args to fields referencing generic structs", func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/control"
+
+					State struct<R> {
+						resource R
+					}
+
+					Transfer struct<R> {
+						from State<R>??
+						to   State<R>??
+					}
+
+					Update struct<R> {
+						transfers Transfer<R>[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`parser.field<std::optional<State<R>>>("from")`,
+						`parser.field<std::optional<State<R>>>("to")`,
+						`parser.field<std::vector<Transfer<R>>>("transfers")`,
+					)
+			})
+
+			It("Should skip defaulted type args for non-generic structs", func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/task"
+
+					Details struct<D? = record> {
+						data D
+					}
+
+					Task struct {
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Details>("details")`).
+					ToNotContain(`Details<`)
 			})
 		})
 	})

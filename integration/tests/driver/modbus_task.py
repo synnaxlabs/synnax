@@ -11,9 +11,9 @@
 
 from abc import abstractmethod
 
-import synnax as sy
 from examples.modbus import ModbusSim
 
+import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
 

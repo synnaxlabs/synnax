@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
@@ -102,18 +104,20 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		return address.Address(peer)
 	})
 	return CoreConfig{
-		Instrumentation:      ins,
-		insecure:             new(viper.GetBool(FlagInsecure)),
-		debug:                new(viper.GetBool(instrumentation.FlagDebug)),
-		autoCert:             new(viper.GetBool(FlagAutoCert)),
-		verifier:             viper.GetString(FlagDecoded),
-		memBacked:            new(viper.GetBool(FlagMem)),
-		listenAddress:        listenAddress,
-		peers:                peers,
-		dataPath:             viper.GetString(FlagData),
-		slowConsumerTimeout:  viper.GetDuration(FlagSlowConsumerTimeout),
-		rootUsername:         viper.GetString(FlagUsername),
-		rootPassword:         viper.GetString(FlagPassword),
+		Instrumentation:     ins,
+		insecure:            new(viper.GetBool(FlagInsecure)),
+		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
+		autoCert:            new(viper.GetBool(FlagAutoCert)),
+		verifier:            viper.GetString(FlagDecoded),
+		memBacked:           new(viper.GetBool(FlagMem)),
+		listenAddress:       listenAddress,
+		peers:               peers,
+		dataPath:            viper.GetString(FlagData),
+		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
+		rootCredentials: auth.InsecureCredentials{
+			Username: viper.GetString(FlagUsername),
+			Password: password.Raw(viper.GetString(FlagPassword)),
+		},
 		noDriver:             new(viper.GetBool(FlagNoDriver)),
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),

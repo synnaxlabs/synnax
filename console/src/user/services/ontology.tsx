@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Access, type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
@@ -66,54 +66,49 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
-  const canEdit = Access.useUpdateGranted(ids);
-  const canDelete = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
-  const handleSelect = {
-    rename,
-    delete: handleDelete,
-    assignRole: () => handleAssignRole(props),
-  };
   const singleResource = ids.length === 1;
   const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
   const isRootUser = getResource(ids[0]).data?.root_user === true;
 
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      {canEdit && singleResource && isNotCurrentUser && (
+    <ContextMenu.Menu>
+      {hasUpdatePermission && singleResource && isNotCurrentUser && (
         <>
-          <PMenu.Item itemKey="rename">
+          <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />
             Change username
-          </PMenu.Item>
-          <PMenu.Divider />
+          </Menu.Item>
+          <Menu.Divider />
         </>
       )}
-      {canEdit && singleResource && !isRootUser && isNotCurrentUser && (
+      {hasUpdatePermission && singleResource && !isRootUser && isNotCurrentUser && (
         <>
-          <PMenu.Item itemKey="assignRole">
+          <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
             <Icon.Role />
             Change role
-          </PMenu.Item>
-          <PMenu.Divider />
+          </Menu.Item>
+          <Menu.Divider />
         </>
       )}
-      {canDelete && (
+      {hasDeletePermission && (
         <>
-          <Menu.DeleteItem />
-          <PMenu.Divider />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <Menu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

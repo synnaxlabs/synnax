@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
-	It("Should retrieve a Table", func() {
+	It("Should retrieve a Table", func(ctx SpecContext) {
 		s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 		var res table.Table

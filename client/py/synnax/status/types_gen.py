@@ -16,7 +16,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import label, telem
+from synnax import label
+from x import telem
 
 VARIANT_SUCCESS: Literal["success"] = "success"
 
@@ -58,7 +59,11 @@ class Status(BaseModel, Generic[Details]):
     variant: Variant
     message: str
     description: str | None = None
-    time: telem.TimeStamp = Field(default_factory=telem.TimeStamp.now)
+    time: telem.TimeStamp = Field(
+        default_factory=telem.TimeStamp.now,
+        ge=-9223372036854775808,
+        le=9223372036854775807,
+    )
     details: Details | None = None
     labels: list[label.Label] | None = None
 

@@ -17,6 +17,7 @@ import { useCallback } from "react";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
 import { View } from "@/view";
 
@@ -32,9 +33,10 @@ export const EXPLORER_LAYOUT: Layout.State = {
 };
 
 const item = Component.renderProp(Item);
+const contextMenu = Component.renderProp(ContextMenu);
 
 export const Explorer: Layout.Renderer = () => (
-  <View.Frame resourceType="range">
+  <View.Frame resourceType="range" icon="Range">
     <Internal />
   </View.Frame>
 );
@@ -46,7 +48,7 @@ const Internal = () => {
   });
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
-  const canCreate = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>
       <View.Toolbar>
@@ -55,7 +57,7 @@ const Internal = () => {
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
-        {canCreate && (
+        {hasCreatePermission && (
           <Button.Button
             onClick={handleCreate}
             tooltipLocation={location.BOTTOM_LEFT}
@@ -65,7 +67,7 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items>{item}</View.Items>
+      <View.Items contextMenu={contextMenu}>{item}</View.Items>
     </View.Form>
   );
 };

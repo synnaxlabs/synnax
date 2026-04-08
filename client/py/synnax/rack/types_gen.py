@@ -28,7 +28,7 @@ class StatusDetails(BaseModel):
         rack: Is the key of the rack this status pertains to.
     """
 
-    rack: Key
+    rack: Key = Field(ge=0, le=4294967295)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -45,13 +45,16 @@ class Base(BaseModel):
         task_counter: Is an internal counter used for generating unique local task keys.
         embedded: Is true if this rack is embedded within the Synnax server process.
         status: Is the current operational status of the rack.
+        integrations: Is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+            "labjack"). An empty or nil list means the rack supports no integrations.
     """
 
-    key: Key
+    key: Key = Field(ge=0, le=4294967295)
     name: str
-    task_counter: int | None = None
+    task_counter: int | None = Field(default=None, ge=0, le=4294967295)
     embedded: bool | None = None
     status: Status | None = None
+    integrations: list[str] | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -64,7 +67,7 @@ class Rack(Base):
         key: Is an optional key for the rack. If 0, one will be automatically assigned.
     """
 
-    key: int = Field(default=0)
+    key: int = Field(default=0, ge=0, le=4294967295)
     task_counter: int | None = Field(default=None, exclude=True)
     embedded: bool | None = Field(default=None, exclude=True)
 

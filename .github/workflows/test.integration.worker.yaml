@@ -34,8 +34,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
@@ -73,14 +71,7 @@ jobs:
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Install Playwright (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Install Playwright (Unix)
-        if: runner.os == 'Linux'
+      - name: Install Playwright
         working-directory: integration
         run: uv run playwright install --with-deps
 
@@ -107,6 +98,8 @@ jobs:
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
 
@@ -115,6 +108,9 @@ jobs:
         id: test-conductor-unix
         timeout-minutes: 30
         working-directory: integration
+        env:
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
 

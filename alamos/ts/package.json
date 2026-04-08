@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.53.0",
+  "version": "0.54.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -25,7 +25,7 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api": "^1.9.1",
     "@synnaxlabs/x": "workspace:^"
   },
   "devDependencies": {
@@ -40,14 +40,14 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/index.js",
-  "module": "dist/index.js",
+  "main": "dist/alamos.cjs",
+  "module": "dist/alamos.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/alamos.js",
+      "require": "./dist/alamos.cjs"
     },
     "./dev": {
       "types": "./dist/src/dev/index.d.ts",

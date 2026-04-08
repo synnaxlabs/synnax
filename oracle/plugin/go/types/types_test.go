@@ -10,7 +10,6 @@
 package types_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -29,13 +28,11 @@ func TestGoTypes(t *testing.T) {
 
 var _ = Describe("Go Types Plugin", func() {
 	var (
-		ctx      context.Context
 		loader   *MockFileLoader
 		goPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		goPlugin = types.New(types.DefaultOptions())
 	})
@@ -56,7 +53,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("basic struct generation", func() {
-			It("Should generate struct for simple types", func() {
+			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -85,7 +82,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("array types", func() {
-			It("Should handle array types", func() {
+			It("Should handle array types", func(ctx SpecContext) {
 				source := `
 				@go output "core/ranger"
 
@@ -113,7 +110,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("naming conventions", func() {
-			It("Should convert snake_case to PascalCase for field names", func() {
+			It("Should convert snake_case to PascalCase for field names", func(ctx SpecContext) {
 				source := `
 				@go output "core/ranger"
 
@@ -139,7 +136,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`MyLongFieldName string`))
 			})
 
-			It("Should preserve screaming case (all-uppercase) field names but use snake_case for JSON tags", func() {
+			It("Should preserve screaming case (all-uppercase) field names but use snake_case for JSON tags", func(ctx SpecContext) {
 				source := `
 				@go output "core/compiler"
 
@@ -174,7 +171,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Go type",
-				func(oracleType, expectedGoType string) {
+				func(ctx SpecContext, oracleType, expectedGoType string) {
 					source := `
 						@go output "core/test"
 
@@ -198,11 +195,11 @@ var _ = Describe("Go Types Plugin", func() {
 				Entry("uint64", "uint64", "Field uint64"),
 				Entry("float32", "float32", "Field float32"),
 				Entry("float64", "float64", "Field float64"),
-				Entry("record", "record", "Field binary.MsgpackEncodedJSON"),
+				Entry("record", "record", "Field msgpack.EncodedJSON"),
 				Entry("bytes", "bytes", "Field []byte"),
 			)
 
-			It("Should import required packages for special types", func() {
+			It("Should import required packages for special types", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 
@@ -218,7 +215,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("skipping", func() {
-			It("Should skip structs without go domain", func() {
+			It("Should skip structs without go domain", func(ctx SpecContext) {
 				source := `
 				@ts output "client/ts/user"
 
@@ -239,7 +236,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(resp.Files).To(BeEmpty())
 			})
 
-			It("Should skip omitted structs", func() {
+			It("Should skip omitted structs", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
 
@@ -274,7 +271,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("output organization", func() {
-			It("Should derive package name from output path", func() {
+			It("Should derive package name from output path", func(ctx SpecContext) {
 				source := `
 				@go output "core/pkg/service/user"
 
@@ -298,7 +295,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`package user`))
 			})
 
-			It("Should group multiple structs by output path", func() {
+			It("Should group multiple structs by output path", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -328,7 +325,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`type Role struct {`))
 			})
 
-			It("Should generate empty struct", func() {
+			It("Should generate empty struct", func(ctx SpecContext) {
 				source := `
 				@go output "core/empty"
 
@@ -351,7 +348,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`}`))
 			})
 
-			It("Should not include import block when no imports needed", func() {
+			It("Should not include import block when no imports needed", func(ctx SpecContext) {
 				source := `
 				@go output "core/simple"
 
@@ -377,7 +374,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate doc comments from doc domain", func() {
+			It("Should generate doc comments from doc domain", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -417,7 +414,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("enums", func() {
-			It("Should generate string enum type and constants", func() {
+			It("Should generate string enum type and constants", func(ctx SpecContext) {
 				source := `
 				@go output "core/status"
 
@@ -450,7 +447,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Variant Variant`))
 			})
 
-			It("Should generate int enum type and iota constants", func() {
+			It("Should generate int enum type and iota constants", func(ctx SpecContext) {
 				source := `
 				@go output "core/priority"
 
@@ -483,7 +480,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`//go:generate stringer -type=Priority`))
 			})
 
-			It("Should generate doc comments on enums", func() {
+			It("Should generate doc comments on enums", func(ctx SpecContext) {
 				source := `
 				@go output "core/direction"
 
@@ -512,7 +509,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("map types", func() {
-			It("Should generate map types", func() {
+			It("Should generate map types", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
@@ -539,7 +536,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("generics", func() {
-			It("Should generate generic struct with type parameters", func() {
+			It("Should generate generic struct with type parameters", func(ctx SpecContext) {
 				source := `
 				@go output "core/container"
 
@@ -563,7 +560,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Value T`))
 			})
 
-			It("Should generate generic struct with constrained type parameter", func() {
+			It("Should generate generic struct with constrained type parameter", func(ctx SpecContext) {
 				source := `
 				@go output "core/container"
 
@@ -587,10 +584,34 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Data D`))
 			})
 
+			It("Should generate generic struct with comparable constraint", func(ctx SpecContext) {
+				source := `
+				@go output "core/container"
+
+				Container struct<K extends comparable> {
+					key K
+					name string
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Container[K comparable] struct {`))
+				Expect(content).To(ContainSubstring(`Key K`))
+			})
+
 		})
 
 		Context("type aliases", func() {
-			It("Should generate type alias", func() {
+			It("Should generate type alias", func(ctx SpecContext) {
 				source := `
 				@go output "core/alias"
 
@@ -616,7 +637,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`type Alias = Original`))
 			})
 
-			It("Should generate type alias for array types", func() {
+			It("Should generate type alias for array types", func(ctx SpecContext) {
 				source := `
 				@go output "core/ir"
 
@@ -638,7 +659,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`type Stratum = string`))
 			})
 
-			It("Should generate doc comments on distinct type defs", func() {
+			It("Should generate doc comments on distinct type defs", func(ctx SpecContext) {
 				source := `
 				@go output "core/control"
 
@@ -661,7 +682,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`type Authority uint8`))
 			})
 
-			It("Should generate doc comments on type aliases", func() {
+			It("Should generate doc comments on type aliases", func(ctx SpecContext) {
 				source := `
 				@go output "core/label"
 
@@ -687,7 +708,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("type references", func() {
-			It("Should resolve same-namespace struct references", func() {
+			It("Should resolve same-namespace struct references", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -718,7 +739,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Address Address`))
 			})
 
-			It("Should resolve cross-namespace struct references with imports", func() {
+			It("Should resolve cross-namespace struct references with imports", func(ctx SpecContext) {
 				loader.Add("schemas/status.oracle", `
 				@go output "core/status"
 
@@ -763,7 +784,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(taskContent).To(ContainSubstring(`Status status.Status`))
 			})
 
-			It("Should resolve cross-namespace enum references with imports", func() {
+			It("Should resolve cross-namespace enum references with imports", func(ctx SpecContext) {
 				loader.Add("schemas/status.oracle", `
 				@go output "core/status"
 
@@ -813,7 +834,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("struct embedding (extends)", func() {
-			It("Should generate struct embedding for basic extends", func() {
+			It("Should generate struct embedding for basic extends", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -848,7 +869,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Email string`))
 			})
 
-			It("Should flatten fields when extends has omitted fields", func() {
+			It("Should flatten fields when extends has omitted fields", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -884,7 +905,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Age`))
 			})
 
-			It("Should generate cross-namespace struct embedding with import", func() {
+			It("Should generate cross-namespace struct embedding with import", func(ctx SpecContext) {
 				loader.Add("schemas/parent.oracle", `
 				@go output "core/parent"
 
@@ -928,7 +949,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(childContent).To(ContainSubstring(`Email string`))
 			})
 
-			It("Should generate struct embedding for generic parent with type args", func() {
+			It("Should generate struct embedding for generic parent with type args", func(ctx SpecContext) {
 				source := `
 				@go output "core/status"
 
@@ -962,7 +983,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Timestamp int64`))
 			})
 
-			It("Should generate generic child extending generic parent with passed type param", func() {
+			It("Should generate generic child extending generic parent with passed type param", func(ctx SpecContext) {
 				source := `
 				@go output "core/status"
 
@@ -992,7 +1013,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Timestamp int64`))
 			})
 
-			It("Should generate multiple embedding for multiple extends without conflicts", func() {
+			It("Should generate multiple embedding for multiple extends without conflicts", func(ctx SpecContext) {
 				source := `
 				@go output "core/entities"
 
@@ -1026,7 +1047,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`C bool`))
 			})
 
-			It("Should flatten fields when multiple extends have field conflicts", func() {
+			It("Should flatten fields when multiple extends have field conflicts", func(ctx SpecContext) {
 				source := `
 				@go output "core/entities"
 
@@ -1065,7 +1086,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`C bool`))
 			})
 
-			It("Should flatten fields when multiple extends has omitted fields", func() {
+			It("Should flatten fields when multiple extends has omitted fields", func(ctx SpecContext) {
 				source := `
 				@go output "core/entities"
 
@@ -1108,7 +1129,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("declaration ordering", func() {
-			It("Should preserve struct declaration order", func() {
+			It("Should preserve struct declaration order", func(ctx SpecContext) {
 				source := `
 				@go output "core/animals"
 
@@ -1142,7 +1163,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 			})
 
-			It("Should preserve field declaration order", func() {
+			It("Should preserve field declaration order", func(ctx SpecContext) {
 				source := `
 				@go output "core/order"
 
@@ -1172,7 +1193,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("hard optional fields", func() {
-			It("Should generate pointer type with omitempty for hard optional fields", func() {
+			It("Should generate pointer type with omitempty for hard optional fields", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -1202,7 +1223,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
 			})
 
-			It("Should not use pointer for hard optional arrays", func() {
+			It("Should not use pointer for hard optional arrays", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
@@ -1227,7 +1248,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts,omitempty\" msgpack:\"counts,omitempty\"`"))
 			})
 
-			It("Should not use pointer for hard optional maps", func() {
+			It("Should not use pointer for hard optional maps", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
@@ -1253,7 +1274,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("regression tests", func() {
-			It("Should use snake_case for JSON struct tags regardless of field name casing", func() {
+			It("Should use snake_case for JSON struct tags regardless of field name casing", func(ctx SpecContext) {
 				// Regression test: JSON tags should always be snake_case, regardless of
 				// whether the field name is PascalCase, camelCase, or SCREAMING_CASE.
 				source := `
@@ -1286,7 +1307,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
 			})
 
-			It("Should use alias type name in struct fields instead of expanded target", func() {
+			It("Should use alias type name in struct fields instead of expanded target", func(ctx SpecContext) {
 				// Regression test: When a struct field references a type alias,
 				// the generated code should use the alias name, not expand to the target type.
 				source := `
@@ -1320,7 +1341,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).NotTo(MatchRegexp(`Details\s+StatusDetails`))
 			})
 
-			It("Should use distinct type name in struct fields", func() {
+			It("Should use distinct type name in struct fields", func(ctx SpecContext) {
 				// Regression test: When a struct field references a distinct type,
 				// the generated code should use the distinct type name, not the underlying primitive.
 				source := `
@@ -1349,7 +1370,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).NotTo(MatchRegexp(`Key\s+int`))
 			})
 
-			It("Should respect @go name directive for embedded parent types", func() {
+			It("Should respect @go name directive for embedded parent types", func(ctx SpecContext) {
 				// Regression test: When a struct extends a parent with @go name directive,
 				// the generated embedded field should use the Go-specific name, not the schema name.
 				loader.Add("schemas/compiler.oracle", `
@@ -1396,7 +1417,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(moduleContent).NotTo(ContainSubstring("compiler.CompilerOutput"))
 			})
 
-			It("Should respect @go name directive for same-namespace embedded types", func() {
+			It("Should respect @go name directive for same-namespace embedded types", func(ctx SpecContext) {
 				// Regression test: When a struct extends a parent with @go name in same namespace,
 				// the generated embedded field should use the Go-specific name.
 				source := `
@@ -1434,7 +1455,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("extra fields and imports", func() {
-			It("Should add extra fields from @go fields directive", func() {
+			It("Should add extra fields from @go fields directive", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 
@@ -1461,7 +1482,7 @@ var _ = Describe("Go Types Plugin", func() {
 					)
 			})
 
-			It("Should add multiple extra imports from @go imports directive", func() {
+			It("Should add multiple extra imports from @go imports directive", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 
@@ -1480,7 +1501,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`"github.com/custom/package"`))
 			})
 
-			It("Should not duplicate imports when package is in both @go imports and type references", func() {
+			It("Should not duplicate imports when package is in both @go imports and type references", func(ctx SpecContext) {
 				// Regression test: When a package is imported via @go imports AND
 				// also needed for resolving cross-namespace type references,
 				// the generated code should only include the import once.
@@ -1530,6 +1551,155 @@ var _ = Describe("Go Types Plugin", func() {
 				// The types import should only appear once
 				importCount := strings.Count(irContent, `"github.com/synnaxlabs/synnax/arc/go/types"`)
 				Expect(importCount).To(Equal(1), "Import should appear exactly once, got: %d", importCount)
+			})
+		})
+
+		Context("plugin interface methods", func() {
+			It("Should return nil from Check", func() {
+				Expect(goPlugin.Check(nil)).To(Succeed())
+			})
+		})
+
+		Context("enum starts-at-one optimization", func() {
+			It("Should use iota+1 for enums starting at 1 with sequential values", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Status enum {
+						pending = 1
+						active = 2
+						completed = 3
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("StatusPending Status = iota + 1").
+					ToNotContain("StatusPending Status = 1")
+			})
+
+			It("Should not use iota+1 for enums starting at 1 with non-sequential values", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Status enum {
+						pending = 1
+						active = 3
+						completed = 5
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("StatusPending Status = iota").
+					ToNotContain("iota + 1")
+			})
+		})
+
+		Context("generic distinct types", func() {
+			It("Should generate a generic distinct type with type parameters", func(ctx SpecContext) {
+				source := `
+					@go output "core/wrapper"
+
+					Base struct<T> {
+						value T
+					}
+
+					Wrapper<T> Base<T>
+				`
+				resp := MustGenerate(ctx, source, "wrapper", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type Wrapper[T any]")
+			})
+		})
+
+		Context("generic alias types", func() {
+			It("Should generate a generic alias type with type parameters", func(ctx SpecContext) {
+				source := `
+					@go output "core/container"
+
+					Base struct<T> {
+						value T
+					}
+
+					Container<T> = Base<T>
+				`
+				resp := MustGenerate(ctx, source, "container", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type Container[T any] =")
+			})
+		})
+
+		Context("alias to generic struct with defaulted type params", func() {
+			It("Should handle alias to a generic struct with a defaulted type parameter", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+
+					Config struct<D = record> {
+						data D
+						name string
+					}
+
+					TaskConfig = Config
+				`
+				resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type TaskConfig =")
+			})
+
+			It("Should handle generic struct where defaulted params are skipped in output", func(ctx SpecContext) {
+				source := `
+					@go output "core/container"
+
+					Container struct<T, D = record> {
+						value T
+						data D
+					}
+
+					StringContainer = Container<string>
+				`
+				resp := MustGenerate(ctx, source, "container", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("type StringContainer =")
+			})
+		})
+
+		Context("type constraint mappings", func() {
+			It("Should map string constraint to ~string", func(ctx SpecContext) {
+				source := `
+					@go output "core/labeled"
+
+					Labeled struct<S extends string> {
+						label S
+					}
+				`
+				resp := MustGenerate(ctx, source, "labeled", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("~string")
+			})
+
+			It("Should map int constraint to union type", func(ctx SpecContext) {
+				source := `
+					@go output "core/counted"
+
+					Counted struct<N extends int32> {
+						count N
+					}
+				`
+				resp := MustGenerate(ctx, source, "counted", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("~int | ~int8 | ~int16 | ~int32 | ~int64")
+			})
+
+			It("Should map uint constraint to union type", func(ctx SpecContext) {
+				source := `
+					@go output "core/indexed"
+
+					Indexed struct<N extends uint32> {
+						index N
+					}
+				`
+				resp := MustGenerate(ctx, source, "indexed", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64")
 			})
 		})
 	})

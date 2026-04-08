@@ -11,6 +11,7 @@ package relay
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -44,6 +45,11 @@ type StreamerConfig struct {
 	// as a request to the streamer.
 	// [OPTIONAL]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// ExcludeGroups is a list of writer group IDs whose frames should be filtered
+	// out before delivery. This is used by the telemetry bypass to prevent
+	// duplicate delivery of frames that were already routed via the local bus.
+	// [OPTIONAL]
+	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
 }
 
 var (
@@ -58,6 +64,7 @@ var (
 func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
+	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
 	return c
 }
 
@@ -136,8 +143,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return err
 				}
 			case r := <-responses.Outlet():
+				if r.Group != 0 && slices.Contains(s.cfg.ExcludeGroups, r.Group) {
+					continue
+				}
 				if filtered := r.Frame.KeepKeys(s.cfg.Keys); !filtered.Empty() {
-					res := Response{Frame: filtered}
+					res := Response{Frame: filtered, Group: r.Group}
 					if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
 						return err
 					}

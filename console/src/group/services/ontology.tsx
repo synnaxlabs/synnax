@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, Icon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components/menu";
-import { MenuItem } from "@/group/MenuItem";
+import { ContextMenu } from "@/components";
+import { ContextMenuItem } from "@/group/ContextMenuItem";
 import { useCreateEmpty } from "@/group/useCreateEmpty";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { Link } from "@/link";
@@ -31,6 +31,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state,
   } = props;
   const { getResource, nodes, shape } = state;
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty({ parent: ids[0], state, root: rootID });
   const createFromSelection = useCreateFromSelection();
@@ -42,53 +44,59 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isZeroDepth =
     Tree.getDepth(ontology.idToString(firstID), shape) === 0 &&
     ontology.idsEqual(rootID, ontology.ROOT_ID);
-  const onSelect = {
-    ungroup: () => ungroup.update(props),
-    rename,
-    newGroup: createEmptyGroup,
-    group: () => createFromSelection(props),
-    link: () => handleLink({ name: firstResource.name, ontologyID: firstID }),
-  };
   const isDelete = ids.every((id) => {
     const node = Tree.findNode({ tree: nodes, key: ontology.idToString(id) });
     return node?.children == null || node?.children.length === 0;
   });
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
   return (
-    <PMenu.Menu onChange={onSelect} level="small" gap="small">
+    <ContextMenu.Menu>
       {isSingle && (
         <>
-          {!isZeroDepth && (
+          {hasUpdatePermission && !isZeroDepth && (
             <>
-              <Menu.RenameItem />
-              <PMenu.Divider />
+              <ContextMenu.RenameItem onClick={rename} />
+              <Menu.Divider />
             </>
           )}
-          <PMenu.Item itemKey="newGroup">
-            <Icon.Group />
-            New group
-          </PMenu.Item>
+          {hasUpdatePermission && (
+            <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
+              <Icon.Group />
+              New group
+            </Menu.Item>
+          )}
         </>
       )}
-      <MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {!isZeroDepth && (
+      {hasUpdatePermission && (
+        <ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => createFromSelection(props)}
+        />
+      )}
+      {hasDeletePermission && !isZeroDepth && (
         <>
-          <PMenu.Item itemKey="ungroup">
+          <Menu.Item itemKey="ungroup" onClick={() => ungroup.update(props)}>
             {ungroupIcon}
             {isDelete ? "Delete" : "Ungroup"}
-          </PMenu.Item>
-          <PMenu.Divider />
+          </Menu.Item>
+          <Menu.Divider />
         </>
       )}
       {isSingle && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <Link.CopyMenuItem />
-          <PMenu.Divider />
+          <Ontology.CopyPropertiesContextMenuItem {...props} />
+          <Link.CopyContextMenuItem
+            onClick={() =>
+              handleLink({ name: firstResource.name, ontologyID: firstID })
+            }
+          />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

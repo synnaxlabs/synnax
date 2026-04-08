@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-
 from framework.test_case import TestCase
 
 
@@ -38,7 +37,7 @@ class SetpointPressAuto(TestCase):
         # Create Press Setpoint channel for console to write to:
         # -------------------
 
-        press_setpoint_cmd = client.channels.create(
+        client.channels.create(
             name="press_setpoint_cmd",
             data_type=sy.DataType.FLOAT32,
             retrieve_if_name_exists=True,

@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-__version__ = "0.3.0"
+from importlib.metadata import version as _version
 
-from synnax import color, ethercat, http, labjack, modbus, ni, opcua, status
+from synnax import ethercat, http, labjack, modbus, ni, opcua, pagerduty, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -19,19 +19,15 @@ from synnax.arc import (
     GraphNode,
     Handle,
     Position,
-)
-from synnax.arc import Task as _ArcTask
-from synnax.arc import (
     Text,
 )
+from synnax.arc import Task as ArcTask
 from synnax.channel import Channel
-from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
-    ContiguityError,
     ControlError,
     ExpiredToken,
     InvalidToken,
@@ -57,8 +53,8 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as _TaskStatus
-from synnax.task import StatusDetails as _TaskStatusDetails
+from synnax.task import Status as TaskStatus
+from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
     Alignment,
@@ -84,20 +80,29 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
-from synnax.timing import Loop, Timer, sleep
+from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
-from synnax.util.deprecation import deprecated_getattr
+from synnax.view import View
+from x import color
+from x.color import Color
+from x.deprecation import deprecated_getattr
+from x.exceptions import ContiguityError
+
+__version__ = _version("synnax")
 
 _DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "ArcTask": ("synnax.arc.Task", "_ArcTask"),
-    "TaskStatus": ("synnax.task.Status", "_TaskStatus"),
-    "TaskStatusDetails": ("synnax.task.StatusDetails", "_TaskStatusDetails"),
+    "ArcTask": ("synnax.arc.Task", "ArcTask"),
+    "TaskStatus": ("synnax.task.Status", "TaskStatus"),
+    "TaskStatusDetails": ("synnax.task.StatusDetails", "TaskStatusDetails"),
     "SynnaxOptions": "Options",
 }
 
 __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
+    "ArcTask",
+    "TaskStatus",
+    "TaskStatusDetails",
     "Alignment",
     "Arc",
     "AUTO_SPAN",
@@ -122,6 +127,7 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
+    "View",
     "elapsed_seconds",
     "ExpiredToken",
     "PathError",
@@ -135,6 +141,7 @@ __all__ = [
     "MultipleFoundError",
     "NotFoundError",
     "Options",
+    "poll",
     "Policy",
     "Position",
     "QueryError",
@@ -163,12 +170,14 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "color",
     "ethercat",
     "http",
     "labjack",
     "modbus",
     "ni",
     "opcua",
+    "pagerduty",
     "ontology",
     "status",
     "Status",

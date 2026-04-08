@@ -14,7 +14,6 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/pb",
         "//arc/cpp/graph",
         "//arc/cpp/program",
         "//arc/cpp/text",
@@ -23,6 +22,7 @@ cc_library(
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
+        "//x/cpp/pb",
         "//x/cpp/status",
         "@grpc//:grpc++",
     ],
@@ -32,10 +32,10 @@ cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
     deps = [
-        "//x/cpp/pb",
         ":arc",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//x/cpp/pb",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

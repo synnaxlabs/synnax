@@ -9,11 +9,11 @@
 
 from typing import overload
 
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel, Field
 
+from freighter import Empty, UnaryClient, send_required
 from synnax.ontology.payload import ID, CrudeID, Resource
-from synnax.util.normalize import normalize
+from x.normalize import normalize
 
 
 class RetrieveReq(BaseModel):
@@ -22,7 +22,7 @@ class RetrieveReq(BaseModel):
     parents: bool = False
     include_schema: bool = False
     exclude_field_data: bool = False
-    term: str | None = None
+    search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
     types: list[str] | None = None

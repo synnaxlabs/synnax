@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	Describe("By Author", func() {
-		It("Should retrieve workspaces by author", func() {
+		It("Should retrieve workspaces by author", func(ctx SpecContext) {
 			ws1 := workspace.Workspace{Name: "test", Author: author.Key}
 			ws2 := workspace.Workspace{Name: "test2", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws1)).To(Succeed())

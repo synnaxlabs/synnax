@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
@@ -20,14 +18,8 @@ import (
 )
 
 var _ = Describe("FoldingRange", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
 	Describe("Functions", func() {
-		It("Should return folding range for a simple function", func() {
+		It("Should return folding range for a simple function", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 1\n}")
 
@@ -43,7 +35,7 @@ var _ = Describe("FoldingRange", func() {
 			Expect(ranges[0].Kind).To(Equal(protocol.RegionFoldingRange))
 		})
 
-		It("Should return folding ranges for multiple functions", func() {
+		It("Should return folding ranges for multiple functions", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func foo() {\n\tx := 1\n}\n\nfunc bar() {\n\ty := 2\n}")
 
@@ -60,7 +52,7 @@ var _ = Describe("FoldingRange", func() {
 			Expect(ranges[1].EndLine).To(Equal(uint32(6)))
 		})
 
-		It("Should not return folding range for single-line function", func() {
+		It("Should not return folding range for single-line function", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() { x := 1 }")
 
@@ -75,7 +67,7 @@ var _ = Describe("FoldingRange", func() {
 	})
 
 	Describe("Sequences", func() {
-		It("Should return folding range for a sequence", func() {
+		It("Should return folding range for a sequence", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n}")
 
@@ -96,7 +88,7 @@ var _ = Describe("FoldingRange", func() {
 			Expect(hasSequenceRange).To(BeTrue())
 		})
 
-		It("Should return folding ranges for nested stages", func() {
+		It("Should return folding ranges for nested stages", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n\tstage second {\n\t}\n}")
 
@@ -151,7 +143,7 @@ var _ = Describe("FoldingRange", func() {
 	})
 
 	Describe("Edge Cases", func() {
-		It("Should return empty ranges for empty document", func() {
+		It("Should return empty ranges for empty document", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "")
 
@@ -164,7 +156,7 @@ var _ = Describe("FoldingRange", func() {
 			Expect(ranges).To(BeEmpty())
 		})
 
-		It("Should return empty ranges for unknown document", func() {
+		It("Should return empty ranges for unknown document", func(ctx SpecContext) {
 			server, _ := SetupTestServer()
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
@@ -176,7 +168,7 @@ var _ = Describe("FoldingRange", func() {
 			Expect(ranges).To(BeEmpty())
 		})
 
-		It("Should handle block URIs", func() {
+		It("Should handle block URIs", func(ctx SpecContext) {
 			server, _ := SetupTestServer()
 			blockURI := protocol.DocumentURI("arc://block/test")
 			OpenArcDocument(server, ctx, blockURI, "if x > 0 {\n\ty := 1\n}")

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -169,6 +170,8 @@ class WriteTask final : public driver::task::Task {
 
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
+            if (cfg.subject.key.empty())
+                cfg.subject.key = std::to_string(this->p.state.task.key);
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
         }
@@ -226,8 +229,8 @@ public:
             ctx,
             breaker_cfg,
             std::move(sink),
-            std::make_shared<driver::pipeline::SynnaxWriterFactory>(ctx->client),
-            std::make_shared<driver::pipeline::SynnaxStreamerFactory>(ctx->client)
+            bypass::pipeline::create_writer_factory(ctx),
+            bypass::pipeline::create_streamer_factory(ctx, {task.name, task.name})
         ) {}
 
     /// @brief implements driver::task::Task to execute the provided command on the

@@ -20,7 +20,7 @@ from synnax.arc.payload import (
     Text,
 )
 from synnax.arc.types import Task, TaskConfig
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ArcTask": "Task",

@@ -472,7 +472,7 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
     ASSERT_NIL(source.start());
 
-    this->mock_master->set_input<int16_t>(0, 0xABCD);
+    this->mock_master->set_input<int16_t>(0, static_cast<int16_t>(0xABCD));
     this->mock_master->set_input<int32_t>(2, 0x12345678);
 
     x::breaker::Breaker brk;

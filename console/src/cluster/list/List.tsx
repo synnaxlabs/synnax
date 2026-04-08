@@ -14,7 +14,7 @@ import {
   Header,
   Icon,
   type Input,
-  Menu as PMenu,
+  Menu,
   Select,
   Status,
   Text,
@@ -26,7 +26,7 @@ import { CONNECT_LAYOUT, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
 import { Item } from "@/cluster/list/Item";
 import { useSelectMany } from "@/cluster/selectors";
 import { changeKey, remove } from "@/cluster/slice";
-import { Menu } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -34,7 +34,7 @@ export interface ListProps
   extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}
 
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
@@ -106,48 +106,36 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   };
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement => {
+    ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement => {
       if (key == null) return <Layout.DefaultContextMenu />;
 
-      const handleSelect = (menuKey: string): void => {
-        switch (menuKey) {
-          case "remove":
-            return handleRemove(key);
-          case "link": {
-            const name = allClusters.find((c) => c.key === key)?.name;
-            if (name == null) return;
-            return handleLink({ clusterKey: key, name });
-          }
-          case "rename":
-            return handleRename(key);
-          case "retest":
-            return handleRetest(key);
-          case "edit":
-            return handleEdit(key);
-        }
-      };
-
       return (
-        <PMenu.Menu level="small" onChange={handleSelect}>
-          <Menu.RenameItem />
-          <PMenu.Item size="small" itemKey="edit">
+        <ContextMenu.Menu>
+          <ContextMenu.RenameItem onClick={() => handleRename(key)} />
+          <Menu.Item itemKey="edit" onClick={() => handleEdit(key)}>
             <Icon.Edit />
             Edit
-          </PMenu.Item>
-          <PMenu.Divider />
-          <PMenu.Item size="small" itemKey="retest">
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Item itemKey="retest" onClick={() => handleRetest(key)}>
             <Icon.Refresh />
             Refresh connection
-          </PMenu.Item>
-          <PMenu.Divider />
-          <PMenu.Item size="small" itemKey="remove">
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
             <Icon.Delete />
             Remove
-          </PMenu.Item>
-          <Link.CopyMenuItem />
-          <PMenu.Divider />
-          <Menu.ReloadConsoleItem />
-        </PMenu.Menu>
+          </Menu.Item>
+          <Link.CopyContextMenuItem
+            onClick={() => {
+              const name = allClusters.find((c) => c.key === key)?.name;
+              if (name == null) return;
+              handleLink({ clusterKey: key, name });
+            }}
+          />
+          <Menu.Divider />
+          <ContextMenu.ReloadConsoleItem />
+        </ContextMenu.Menu>
       );
     },
     [handleRemove, handleRetest, handleEdit],
@@ -156,7 +144,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   return (
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
       <Flex.Box y bordered grow empty {...rest}>
-        <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+        <Menu.ContextMenu menu={contextMenu} {...menuProps} />
         <Header.Header gap="small" x style={{ padding: "0.666rem" }}>
           <Header.Title level="h4" color={11}>
             <Icon.Cluster />
@@ -167,15 +155,23 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           </Button.Button>
         </Header.Header>
         <Flex.Box empty onContextMenu={menuProps.open} grow>
-          {keys.map((key, i) => (
-            <Item
-              key={key}
-              index={i}
-              itemKey={key}
-              validateName={validateName}
-              loading={testing === key}
+          {keys.length === 0 ? (
+            <EmptyAction
+              message="No Cores added."
+              action="Add a Core"
+              onClick={() => placeLayout(CONNECT_LAYOUT)}
             />
-          ))}
+          ) : (
+            keys.map((key, i) => (
+              <Item
+                key={key}
+                index={i}
+                itemKey={key}
+                validateName={validateName}
+                loading={testing === key}
+              />
+            ))
+          )}
         </Flex.Box>
       </Flex.Box>
     </Select.Frame>

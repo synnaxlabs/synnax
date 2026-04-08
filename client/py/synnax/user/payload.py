@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from synnax import ontology
+from x.deprecation import deprecated_getattr
 
 
 class New(BaseModel):
@@ -47,8 +48,6 @@ def ontology_id(key: UUID) -> ontology.ID:
     """
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
-
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "NewUser": "New",

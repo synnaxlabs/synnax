@@ -13,7 +13,7 @@ import {
   Access,
   type Flux,
   Icon,
-  Menu as PMenu,
+  Menu,
   Ranger,
   Status,
   Synnax,
@@ -24,7 +24,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
@@ -39,16 +39,18 @@ import { useAddToNewPlot } from "@/range/useAddToNewPlot";
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;
+  onClick?: () => void;
 }
 
 export const SnapshotMenuItem = ({
   range,
+  onClick,
 }: SnapshotMenuItemProps): ReactElement | null =>
   range?.persisted === true ? (
-    <PMenu.Item itemKey="rangeSnapshot">
+    <Menu.Item itemKey="rangeSnapshot" onClick={onClick}>
       <Icon.Snapshot />
       Snapshot to {range.name}
-    </PMenu.Item>
+    </Menu.Item>
   ) : null;
 
 export const fetchIfNotInState = async (
@@ -65,75 +67,19 @@ export const fetchIfNotInState = async (
   return existing;
 };
 
-export const deleteMenuItem = (
-  <PMenu.Item itemKey="delete">
-    <Icon.Delete />
-    Delete
-  </PMenu.Item>
-);
-
-export const setAsActiveMenuItem = (
-  <PMenu.Item itemKey="setAsActive" gap="small">
-    <Icon.Dynamic />
-    Set as active range
-  </PMenu.Item>
-);
-
-export const clearActiveMenuItem = (
-  <PMenu.Item itemKey="clearActive" gap="small">
-    <Icon.Dynamic />
-    Clear active range
-  </PMenu.Item>
-);
-
-export const viewDetailsMenuItem = (
-  <PMenu.Item itemKey="details">
-    <Icon.Details />
-    View details
-  </PMenu.Item>
-);
-
 const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Add,
 });
-
-export const AddToNewPlotMenuItem = () => {
-  const canAddToNewPlot = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  if (!canAddToNewPlot) return null;
-  return (
-    <PMenu.Item itemKey="addToNewPlot">
-      <AddToNewPlotIcon key="plot" />
-      Add to new plot
-    </PMenu.Item>
-  );
-};
 
 const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Range,
 });
 
-export const AddToActivePlotMenuItem = () => {
-  const canAddToActivePlot = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  if (!canAddToActivePlot) return null;
-  return (
-    <PMenu.Item itemKey="addToActivePlot">
-      <AddToActivePlotIcon key="plot" />
-      Add to active plot
-    </PMenu.Item>
-  );
-};
 export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
 
-export const createChildRangeMenuItem = (
-  <PMenu.Item itemKey="addChildRange">
-    <CreateChildRangeIcon key="plot" />
-    Create child range
-  </PMenu.Item>
-);
-
-export const useViewDetails = (): ((key: string) => void) => {
+const useViewDetails = (): ((key: string) => void) => {
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const { retrieve } = Ranger.useRetrieveObservable({
@@ -151,7 +97,7 @@ export const useViewDetails = (): ((key: string) => void) => {
   return useCallback((key: string) => retrieve({ key }), [retrieve]);
 };
 
-export const useDelete = () => {
+const useDelete = () => {
   const dispatch = useDispatch();
   const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
@@ -178,7 +124,7 @@ export const useDelete = () => {
   return update;
 };
 
-export const usePersist = () => {
+const usePersist = () => {
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const { update } = Ranger.useCreate();
@@ -193,16 +139,20 @@ export const usePersist = () => {
   );
 };
 
-export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
+export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
   const client = Synnax.use();
   const ranges = useSelectMultiple();
   const id = ranger.ontologyID(key ?? "");
-  const canEditAccess = Access.useUpdateGranted(id);
-  const canDeleteAccess = Access.useDeleteGranted(id);
-  const handleCreate = (key?: string): void => {
-    placeLayout(createCreateLayout({ key }));
-  };
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasUpdatePermission = Access.useUpdateGranted(id);
+  const hasDeletePermission = Access.useDeleteGranted(id);
+  const hasLinePlotUpdatePermission = Access.useUpdateGranted(
+    lineplot.TYPE_ONTOLOGY_ID,
+  );
+  const hasLinePlotCreatePermission = Access.useCreateGranted(
+    lineplot.TYPE_ONTOLOGY_ID,
+  );
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
@@ -230,71 +180,87 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const persist = usePersist();
   const handleLink = Cluster.useCopyLinkToClipboard();
 
-  const handleSelect: PMenu.MenuProps["onChange"] = {
-    rename: () => Text.edit(`text-${key}`),
-    create: () => handleCreate(),
-    remove: () => rangeExists && handleRemove([rng.key]),
-    delete: () => rangeExists && del(rng.key),
-    details: () => rangeExists && handleViewDetails(rng.key),
-    save: () => rangeExists && persist(rng.key),
-    link: () =>
-      rangeExists &&
-      handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),
-    addToActivePlot: () => addToActivePlot([key]),
-    addToNewPlot: () => addToNewPlot([key]),
-    addChildRange: handleAddChildRange,
-    setAsActive: handleSetActive,
-    clearActive: handleClearActive,
-  };
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      {canEditAccess && (
-        <PMenu.Item itemKey="create">
-          <Icon.Add />
-          Create new
-        </PMenu.Item>
-      )}
+    <CMenu.Menu>
       {rangeExists && (
         <>
-          {rng.key !== activeRange?.key ? setAsActiveMenuItem : clearActiveMenuItem}
-          {rng.persisted && viewDetailsMenuItem}
-          {canEditAccess && (
+          {rng.key !== activeRange?.key ? (
+            <Menu.Item itemKey="setAsActive" gap="small" onClick={handleSetActive}>
+              <Icon.Dynamic />
+              Set as active range
+            </Menu.Item>
+          ) : (
+            <Menu.Item itemKey="clearActive" gap="small" onClick={handleClearActive}>
+              <Icon.Dynamic />
+              Clear active range
+            </Menu.Item>
+          )}
+          {rng.persisted && (
+            <Menu.Item itemKey="details" onClick={() => handleViewDetails(rng.key)}>
+              <Icon.Details />
+              View details
+            </Menu.Item>
+          )}
+          {hasUpdatePermission && (
             <>
-              <PMenu.Divider />
-              <Menu.RenameItem />
-              {rng.persisted && createChildRangeMenuItem}
+              <Menu.Divider />
+              <CMenu.RenameItem onClick={() => Text.edit(`text-${key}`)} />
             </>
           )}
-          <PMenu.Divider />
-          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && <AddToActivePlotMenuItem />}
-          <AddToNewPlotMenuItem />
-          <PMenu.Divider />
-          <PMenu.Item itemKey="remove">
+          {hasCreatePermission && rng.persisted && (
+            <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
+              <CreateChildRangeIcon key="plot" />
+              Create child range
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE &&
+            hasLinePlotUpdatePermission && (
+              <Menu.Item
+                itemKey="addToActivePlot"
+                onClick={() => addToActivePlot([key])}
+              >
+                <AddToActivePlotIcon key="plot" />
+                Add to active plot
+              </Menu.Item>
+            )}
+          {hasLinePlotCreatePermission && (
+            <Menu.Item itemKey="addToNewPlot" onClick={() => addToNewPlot([key])}>
+              <AddToNewPlotIcon key="plot" />
+              Add to new plot
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          <Menu.Item itemKey="remove" onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
-            Remove from favorites
-          </PMenu.Item>
+            Unfavorite
+          </Menu.Item>
           {rng.persisted ? (
             <>
-              {canDeleteAccess && deleteMenuItem}
-              <PMenu.Divider />
-              <Link.CopyMenuItem />
+              {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(rng.key)} />}
+              <Menu.Divider />
+              <Link.CopyContextMenuItem
+                onClick={() =>
+                  handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
+                }
+              />
             </>
           ) : (
-            canEditAccess &&
+            hasCreatePermission &&
             client != null && (
               <>
-                <PMenu.Divider />
-                <PMenu.Item itemKey="save">
+                <Menu.Divider />
+                <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
                   <Icon.Save />
                   Save to Synnax
-                </PMenu.Item>
+                </Menu.Item>
               </>
             )
           )}
         </>
       )}
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <Menu.Divider />
+      <CMenu.ReloadConsoleItem />
+    </CMenu.Menu>
   );
 };

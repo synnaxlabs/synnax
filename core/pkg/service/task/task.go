@@ -14,9 +14,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 func NewKey(rack rack.Key, localKey uint32) Key {
@@ -30,21 +28,6 @@ func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
-
-func (k *Key) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringUint64(b)
-	*k = Key(n)
-	return err
-}
-
-func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := binary.UnmarshalMsgpackUint64(dec)
-	if err != nil {
-		return err
-	}
-	*k = Key(n)
-	return nil
-}
 
 var _ gorp.Entry[Key] = Task{}
 

@@ -22,24 +22,25 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	xbinary "github.com/synnaxlabs/x/binary"
+	xencoding "github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/http"
 )
 
 type Codec struct {
 	*codec.Codec
-	LowerPerfCodec xbinary.Codec
+	LowerPerfCodec xencoding.Codec
 }
 
-func NewWSFramerCodec(channelSvc *channel.Service) httputil.Codec {
+func NewWSFramerCodec(channelSvc *channel.Service) http.Codec {
 	return &Codec{
-		LowerPerfCodec: httputil.JSONCodec,
+		LowerPerfCodec: json.Codec,
 		Codec:          codec.NewDynamic(channelSvc),
 	}
 }
 
-var _ xbinary.Codec = (*Codec)(nil)
+var _ xencoding.Codec = (*Codec)(nil)
 
 func (c *Codec) Decode(
 	ctx context.Context,
@@ -242,11 +243,11 @@ func (c *Codec) ContentType() string {
 
 const framerContentType = "application/sy-framer"
 
-func NewCodecResolver(channelSvc *channel.Service) httputil.CodecResolver {
-	return func(ct string) (httputil.Codec, error) {
+func NewCodecResolver(channelSvc *channel.Service) http.CodecResolver {
+	return func(ct string) (http.Codec, error) {
 		if ct == framerContentType {
 			return NewWSFramerCodec(channelSvc), nil
 		}
-		return httputil.ResolveCodec(ct)
+		return http.ResolveCodec(ct)
 	}
 }

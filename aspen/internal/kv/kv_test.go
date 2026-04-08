@@ -27,6 +27,8 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,7 +54,7 @@ var _ = Describe("txn", func() {
 
 	Describe("StreamServer", func() {
 
-		It("Should open a new database without error", func() {
+		It("Should open a new database without error", func(ctx SpecContext) {
 			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv).ToNot(BeNil())
 		})
@@ -63,7 +65,7 @@ var _ = Describe("txn", func() {
 
 		Describe("Gateway Leaseholder", func() {
 
-			It("Should commit the operation to storage", func() {
+			It("Should commit the operation to storage", func(ctx SpecContext) {
 				kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(kv).ToNot(BeNil())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
@@ -73,7 +75,7 @@ var _ = Describe("txn", func() {
 			})
 
 			It("Should propagate the operation to other members of the cluster",
-				func() {
+				func(ctx SpecContext) {
 					kv1 := MustSucceed(builder.New(ctx, kv.Config{
 						Instrumentation: Instrumentation("kv1"),
 					}, cluster.Config{}))
@@ -86,7 +88,7 @@ var _ = Describe("txn", func() {
 						g.Expect(closer.Close()).To(Succeed())
 					}).Should(Succeed())
 				})
-			It("Should forward an update to the Leaseholder", func() {
+			It("Should forward an update to the Leaseholder", func(ctx SpecContext) {
 				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
@@ -106,7 +108,7 @@ var _ = Describe("txn", func() {
 			})
 
 			It("Should return an error when attempting to transfer the lease",
-				func() {
+				func(ctx SpecContext) {
 					kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
@@ -118,7 +120,7 @@ var _ = Describe("txn", func() {
 		})
 
 		Describe("Peers Leaseholder", func() {
-			It("Should commit the operation to storage", func() {
+			It("Should commit the operation to storage", func(ctx SpecContext) {
 				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				waitForClusterStateToConverge(builder)
@@ -131,7 +133,7 @@ var _ = Describe("txn", func() {
 				}).Should(Succeed())
 			})
 
-			It("Should return an error if the lease option is not a node Name", func() {
+			It("Should return an error if the lease option is not a node Name", func(ctx SpecContext) {
 				kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"), "2")).To(HaveOccurred())
 			})
@@ -140,7 +142,7 @@ var _ = Describe("txn", func() {
 	})
 
 	Describe("Tx", func() {
-		It("Should execute a set of operations", func() {
+		It("Should execute a set of operations", func(ctx SpecContext) {
 			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv).ToNot(BeNil())
 			txn := kv.OpenTx()
@@ -160,7 +162,7 @@ var _ = Describe("txn", func() {
 	Describe("delete", func() {
 
 		Describe("Gateway Leaseholder", func() {
-			It("Should apply the operation to storage", func() {
+			It("Should apply the operation to storage", func(ctx SpecContext) {
 				kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(kv).ToNot(BeNil())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
@@ -172,8 +174,23 @@ var _ = Describe("txn", func() {
 			})
 		})
 
+		It("Should delete a key written directly to the engine without a digest", func(ctx SpecContext) {
+			engine := memkv.New()
+			kv := MustSucceed(
+				builder.New(ctx, kv.Config{Engine: engine}, cluster.Config{}),
+			)
+			Expect(engine.Set(ctx, []byte("direct-key"), []byte("direct-value"))).
+				To(Succeed())
+			v, closer := MustSucceed2(kv.Get(ctx, []byte("direct-key")))
+			Expect(v).To(Equal([]byte("direct-value")))
+			Expect(closer.Close()).To(Succeed())
+			Expect(kv.Delete(ctx, []byte("direct-key"))).To(Succeed())
+			Expect(kv.Get(ctx, []byte("direct-key"))).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+
 		Describe("Peer Leaseholder", func() {
-			It("Should apply the operation to storage", func() {
+			It("Should apply the operation to storage", func(ctx SpecContext) {
 				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				waitForClusterStateToConverge(builder)
@@ -191,7 +208,7 @@ var _ = Describe("txn", func() {
 
 	Describe("Request Recovery", func() {
 		It("Should stop propagating an operation after a set threshold of"+
-			" redundant broadcasts", func() {
+			" redundant broadcasts", func(ctx SpecContext) {
 			kv1 := MustSucceed(builder.New(ctx, kv.Config{
 				GossipInterval:    20 * time.Millisecond,
 				RecoveryThreshold: 2,
@@ -211,7 +228,7 @@ var _ = Describe("txn", func() {
 	})
 
 	Describe("Observable", func() {
-		It("Should allow for a caller to listen to key-value changes", func() {
+		It("Should allow for a caller to listen to key-value changes", func(ctx SpecContext) {
 			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv).ToNot(BeNil())
 			var mu sync.Mutex
@@ -230,7 +247,7 @@ var _ = Describe("txn", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should not stall writes when an observer handler is slow", func() {
+		It("Should not stall writes when an observer handler is slow", func(ctx SpecContext) {
 			db := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 
 			gate := make(chan struct{})
@@ -266,7 +283,7 @@ var _ = Describe("txn", func() {
 	})
 
 	Describe("Recovery", func() {
-		It("Should recover the state of the key-value store", func() {
+		It("Should recover the state of the key-value store", func(ctx SpecContext) {
 			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Expect(kv1.Set(ctx, []byte("key2"), []byte("value2"))).To(Succeed())
@@ -288,7 +305,24 @@ var _ = Describe("txn", func() {
 			})
 		})
 
-		It("Should correctly recover delete operations", func() {
+		It("Should persist digests during recovery so recovered keys can be deleted", func(ctx SpecContext) {
+			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Eventually(func(g Gomega) {
+				v, closer, err := kv2.Get(ctx, []byte("key"))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(v).To(Equal([]byte("value")))
+				g.Expect(closer.Close()).To(Succeed())
+			}).Should(Succeed())
+			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
+					To(MatchError(query.ErrNotFound))
+			}).Should(Succeed())
+		})
+
+		It("Should correctly recover delete operations", func(ctx SpecContext) {
 			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())

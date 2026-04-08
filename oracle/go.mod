@@ -4,8 +4,6 @@ go 1.26.1
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
-	github.com/synnaxlabs/arc => ../arc/go
-	github.com/synnaxlabs/freighter => ../freighter/go
 	github.com/synnaxlabs/x => ../x/go
 )
 

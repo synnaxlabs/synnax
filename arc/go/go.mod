@@ -17,6 +17,7 @@ require (
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	github.com/tetratelabs/wazero v1.11.0
+	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.lsp.dev/jsonrpc2 v0.10.0
 	go.uber.org/zap v1.27.1
 	google.golang.org/protobuf v1.36.11
@@ -45,7 +46,6 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/uptrace/uptrace-go v1.41.0 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.lsp.dev/pkg v0.0.0-20210717090340-384b27a52fb2 // indirect
 	go.lsp.dev/uri v0.3.0 // indirect

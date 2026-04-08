@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "compiler",
     hdrs = [
@@ -8,9 +10,9 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/pb",
         "//arc/go/compiler:compiler_grpc",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/pb",
     ],
 )

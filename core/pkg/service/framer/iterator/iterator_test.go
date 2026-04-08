@@ -10,6 +10,7 @@
 package iterator_test
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -37,13 +39,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		iteratorSvc *iterator.Service
 		arcSvc      *arc.Service
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(ctx)
+		searchIdx := MustSucceed(search.Open())
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(labelSvc.Close()).To(Succeed())
@@ -54,6 +58,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(statusSvc.Close()).To(Succeed())
@@ -64,6 +69,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
+			Search:       searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(rackService.Close()).To(Succeed())
@@ -74,6 +80,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
+			Search:   searchIdx,
 		}))
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
@@ -83,6 +90,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			Task:     taskSvc,
+			Search:   searchIdx,
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
@@ -91,11 +99,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		}))
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(builder.Close()).To(Succeed())
 	})
 	Describe("Basic Iteration", func() {
-		It("Should read written frames correctly", func() {
+		It("Should read written frames correctly", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "Matt",
 				DataType: telem.TimeStampT,
@@ -129,6 +137,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				dataCh2 *channel.Channel
 			)
 			BeforeAll(func() {
+				ctx := context.Background()
 				indexCh = &channel.Channel{
 					Name:     "time",
 					DataType: telem.TimeStampT,
@@ -184,7 +193,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(w.Close()).To(Succeed())
 			})
 
-			It("Should correctly calculate output values", func() {
+			It("Should correctly calculate output values", func(ctx SpecContext) {
 				calculation := &channel.Channel{
 					Name:       "output",
 					DataType:   telem.Float32T,
@@ -214,7 +223,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 
 			Describe("Nested Calculations", func() {
-				It("Should correctly handle 2-level nesting (C → B → A)", func() {
+				It("Should correctly handle 2-level nesting (C → B → A)", func(ctx SpecContext) {
 					// Create B: calculated channel that depends on concrete channel A (sensor_1)
 					calcB := &channel.Channel{
 						Name:       "calc_b",
@@ -263,7 +272,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle 3-level nesting (D → C → B → A)", func() {
+				It("Should correctly handle 3-level nesting (D → C → B → A)", func(ctx SpecContext) {
 					// Create B: depends on sensor_1 (concrete)
 					calcB := &channel.Channel{
 						Name:       "calc_b_3level",
@@ -321,7 +330,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle multiple branches (diamond dependency)", func() {
+				It("Should correctly handle multiple branches (diamond dependency)", func(ctx SpecContext) {
 					// Create a diamond pattern:
 					// E depends on C and D
 					// C depends on sensor_1 (A)
@@ -387,7 +396,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should detect circular dependencies", func() {
+				It("Should detect circular dependencies", func(ctx SpecContext) {
 					// This test verifies that circular dependencies are caught by the topological sort
 					// Create a simple 2-node cycle: A → B → A
 
@@ -416,7 +425,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(err.Error()).To(ContainSubstring("circular dependency"))
 				})
 
-				It("Should handle mixed calculated and concrete channels", func() {
+				It("Should handle mixed calculated and concrete channels", func(ctx SpecContext) {
 					// This test verifies that requesting both calculated and concrete channels
 					// in the same iterator works correctly
 
@@ -484,6 +493,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					threeDomainIdxData telem.MultiSeries
 				)
 				BeforeAll(func() {
+					ctx := context.Background()
 					threeDomainIndexCh = &channel.Channel{
 						Name:     "three_domain_time",
 						DataType: telem.TimeStampT,
@@ -553,7 +563,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 				})
 
-				It("Should correctly calculate values across three domains with proper alignment", func() {
+				It("Should correctly calculate values across three domains with proper alignment", func(ctx SpecContext) {
 					calc := &channel.Channel{
 						Name:       "three_domain_calc",
 						DataType:   telem.Float32T,
@@ -596,7 +606,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle nested calculations across three domains", func() {
+				It("Should correctly handle nested calculations across three domains", func(ctx SpecContext) {
 					// B depends on three_domain_sensor (concrete)
 					calcB := &channel.Channel{
 						Name:       "three_domain_calc_b",
@@ -648,7 +658,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle diamond dependency across three domains", func() {
+				It("Should correctly handle diamond dependency across three domains", func(ctx SpecContext) {
 					// C depends on three_domain_sensor
 					calcC := &channel.Channel{
 						Name:       "three_domain_diamond_c",
@@ -703,7 +713,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle mixed calculated and concrete channels across three domains", func() {
+				It("Should correctly handle mixed calculated and concrete channels across three domains", func(ctx SpecContext) {
 					calcMixed := &channel.Channel{
 						Name:       "three_domain_mixed_calc",
 						DataType:   telem.Float32T,
@@ -748,7 +758,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle large gap between domains", func() {
+				It("Should correctly handle large gap between domains", func(ctx SpecContext) {
 					// Create channels specifically for this test with large time gap
 					gapIndexCh := &channel.Channel{
 						Name:     "gap_domain_time",
@@ -824,7 +834,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should correctly handle multiple calculations on same source across three domains", func() {
+				It("Should correctly handle multiple calculations on same source across three domains", func(ctx SpecContext) {
 					calcDouble := &channel.Channel{
 						Name:       "three_domain_double",
 						DataType:   telem.Float32T,
@@ -888,7 +898,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 			})
-			It("Should correctly handle interleaved channels with different indexes", func() {
+			It("Should correctly handle interleaved channels with different indexes", func(ctx SpecContext) {
 				// Two channels with different indexes, written by different writers.
 				// The distribution framer may return data and index for each channel
 				// in separate response frames. The calculation transform merges them
@@ -975,7 +985,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	})
 
 	Describe("Downsampling", func() {
-		It("Should correctly downsample with a factor of 2", func() {
+		It("Should correctly downsample with a factor of 2", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_time_2",
 				DataType: telem.TimeStampT,
@@ -1027,7 +1037,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should correctly downsample with a factor of 3", func() {
+		It("Should correctly downsample with a factor of 3", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_time_3",
 				DataType: telem.TimeStampT,
@@ -1078,7 +1088,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
-		DescribeTable("Should not downsample when factor is 0 or 1 or negative", func(factor int) {
+		DescribeTable("Should not downsample when factor is 0 or 1 or negative", func(ctx SpecContext, factor int) {
 			suffix := strconv.Itoa(factor)
 			if strings.HasPrefix(suffix, "-") {
 				suffix = "neg_" + suffix[1:]
@@ -1128,7 +1138,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Entry("factor is negative", -1),
 		)
 
-		It("Should correctly combine downsampling with calculations", func() {
+		It("Should correctly combine downsampling with calculations", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_calc_time",
 				DataType: telem.TimeStampT,
@@ -1190,7 +1200,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		It("Should correctly downsample across multiple domains", func() {
+		It("Should correctly downsample across multiple domains", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_multi_time",
 				DataType: telem.TimeStampT,

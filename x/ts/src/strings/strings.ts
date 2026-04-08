@@ -108,3 +108,19 @@ export const trimPrefix = (str: string, prefix: string): string => {
   if (str.startsWith(prefix)) return str.slice(prefix.length);
   return str;
 };
+
+/**
+ * Escapes HTML special characters in a string to prevent XSS and ensure
+ * correct rendering in HTML contexts.
+ *
+ * @param s - The string to escape.
+ * @returns The escaped string with &, <, >, ", and ' replaced by their
+ * HTML entity equivalents.
+ */
+export const escapeHTML = (s: string): string =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");

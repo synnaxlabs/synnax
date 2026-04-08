@@ -17,13 +17,18 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -46,6 +51,9 @@ type ServiceConfig struct {
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
+	// Search is the search index for fuzzy searching ranges.
+	// [REQUIRED]
+	Search *search.Index
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -64,6 +72,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
 	validate.NotNil(v, "force_migration", c.ForceMigration)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -75,6 +84,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
@@ -82,47 +92,57 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entrypoint for managing ranges within Synnax. It provides
 // mechanisms for creating, deleting, and listening to changes in ranges.
 type Service struct {
-	shutdownSignals io.Closer
-	cfg             ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[uuid.UUID, Range]
+	cfg    ServiceConfig
 }
 
 // OpenService opens a new ranger.Service with the provided configuration. If error is
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
-	cfg.Ontology.RegisterService(s)
-	if err := s.migrate(ctx); err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration(v0.MigrationConfig{
+		Ontology:        cfg.Ontology,
+		Group:           cfg.Group,
+		Instrumentation: cfg.Instrumentation,
+	})
+	if s.table, err = gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[uuid.UUID, Range]("msgpack_to_orc", v0Mig.Key()),
+		},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
+	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	rangeSignals, err := signals.PublishFromGorp(
+	var sig io.Closer
+	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Range](cfg.DB),
-	)
-	if err != nil {
+		signals.GorpPublisherConfigUUID[Range](s.table.Observe()),
+	); !ok(err, sig) {
 		return nil, err
 	}
-	s.shutdownSignals = rangeSignals
 	return s, nil
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).
-func (s *Service) Close() error {
-	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
-	}
-	return nil
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,
 // the writer will use it to execute all operations. If tx is nil, the writer will
@@ -132,15 +152,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new Retrieve query to fetch ranges from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Range](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		label:  s.cfg.Label,
 	}
 }
@@ -157,7 +178,7 @@ func (s *Service) RetrieveParentKey(
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.TypeRange).
+		WhereTypes(ontology.ResourceTypeRange).
 		ExcludeFieldData(true).
 		Entries(&resources).
 		Exec(ctx, tx); err != nil {

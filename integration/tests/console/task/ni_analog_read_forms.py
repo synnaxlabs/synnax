@@ -10,7 +10,6 @@
 import random
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
 
@@ -99,7 +98,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_voltage_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate voltage inputs"""
         self.log("Configuring channels of type Voltage")
-        console = self.console
         channel_type = "Voltage"
 
         ni_ai.add_channel(
@@ -140,7 +138,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_accel_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate accel inputs"""
         self.log("Configuring channels of type Accelerometer")
-        console = self.console
         channel_type = "Accelerometer"
 
         ni_ai.add_channel(
@@ -174,7 +171,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_bridge_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Bridge inputs"""
         self.log("Configuring channels of type Bridge")
-        console = self.console
         channel_type = "Bridge"
 
         ni_ai.add_channel(
@@ -211,7 +207,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_current_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Bridge inputs"""
         self.log("Configuring channels of type Current")
-        console = self.console
         channel_type = "Current"
 
         ni_ai.add_channel(
@@ -244,7 +239,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Force Bridge Table inputs"""
         self.log("Configuring channels of type Force Bridge Table")
-        console = self.console
         channel_type = "Force Bridge Table"
 
         ni_ai.add_channel(
@@ -273,7 +267,7 @@ class NIAnalogReadForms(ConsoleCase):
             excitation_source="External",
             physical_units="Pounds",
             electrical_units="V/V",
-        ),
+        )
         ni_ai.add_channel(
             name="ForceBridge_3",
             chan_type=channel_type,
@@ -287,7 +281,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Force Bridge Two Point Linear inputs"""
         self.log("Configuring channels of type Force Bridge Two-Point Linear")
-        console = self.console
         channel_type = "Force Bridge Two-Point Linear"
 
         ni_ai.add_channel(
@@ -334,7 +327,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_force_iepe_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Force IEPE inputs"""
         self.log("Configuring channels of type Force IEPE")
-        console = self.console
         channel_type = "Force IEPE"
 
         ni_ai.add_channel(
@@ -371,7 +363,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_microphone_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Microphone inputs"""
         self.log("Configuring channels of type Microphone")
-        console = self.console
         channel_type = "Microphone"
 
         ni_ai.add_channel(
@@ -407,7 +398,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Pressure Bridge Table inputs"""
         self.log("Configuring channels of type Pressure Bridge Table")
-        console = self.console
         channel_type = "Pressure Bridge Table"
 
         ni_ai.add_channel(
@@ -451,7 +441,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Pressure Bridge Two-Point Linear inputs"""
         self.log("Configuring channels of type Pressure Bridge Two-Point Linear")
-        console = self.console
         channel_type = "Pressure Bridge Two-Point Linear"
 
         ni_ai.add_channel(
@@ -496,7 +485,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_resistance_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Resistance inputs"""
         self.log("Configuring channels of type Resistance")
-        console = self.console
         channel_type = "Resistance"
 
         ni_ai.add_channel(
@@ -530,7 +518,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_rtd_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate RTD inputs"""
         self.log("Configuring channels of type RTD")
-        console = self.console
         channel_type = "RTD"
 
         ni_ai.add_channel(
@@ -571,7 +558,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_strain_gauge_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Strain Gauge inputs"""
         self.log("Configuring channels of type Strain Gauge")
-        console = self.console
         channel_type = "Strain Gauge"
 
         ni_ai.add_channel(
@@ -618,7 +604,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Temperature Built-In Sensor inputs"""
         self.log("Configuring channels of type Temperature Built-In Sensor")
-        console = self.console
         channel_type = "Temperature Built-In Sensor"
 
         ni_ai.add_channel(
@@ -654,7 +639,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_thermocouple_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Thermocouple inputs"""
         self.log("Configuring channels of type Thermocouple")
-        console = self.console
         channel_type = "Thermocouple"
 
         ni_ai.add_channel(
@@ -692,7 +676,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Torque Bridge Table inputs"""
         self.log("Configuring channels of type Torque Bridge Table")
-        console = self.console
         channel_type = "Torque Bridge Table"
 
         ni_ai.add_channel(
@@ -737,7 +720,6 @@ class NIAnalogReadForms(ConsoleCase):
     ) -> None:
         """Validate Torque Bridge Two-Point Linear inputs"""
         self.log("Configuring channels of type Torque Bridge Two-Point Linear")
-        console = self.console
         channel_type = "Torque Bridge Two-Point Linear"
 
         ni_ai.add_channel(
@@ -785,7 +767,6 @@ class NIAnalogReadForms(ConsoleCase):
     def verify_velocity_iepe_inputs(self, ni_ai: AnalogRead, device_name: str) -> None:
         """Validate Velocity IEPE inputs"""
         self.log("Configuring channels of type Velocity IEPE")
-        console = self.console
         channel_type = "Velocity IEPE"
 
         ni_ai.add_channel(

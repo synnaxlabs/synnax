@@ -29,14 +29,14 @@ var _ = Describe("Writer", func() {
 		tx gorp.Tx
 		w  policy.Writer
 	)
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx, false)
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
-		It("Should create a policy with auto-generated UUID", func() {
+		It("Should create a policy with auto-generated UUID", func(ctx SpecContext) {
 			p := &policy.Policy{
 				Name:    "test-policy",
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
@@ -46,7 +46,7 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create a policy with provided UUID", func() {
+		It("Should create a policy with provided UUID", func(ctx SpecContext) {
 			key := uuid.New()
 			p := &policy.Policy{
 				Key:     key,
@@ -58,7 +58,7 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).To(Equal(key))
 		})
 
-		It("Should create a policy with multiple objects", func() {
+		It("Should create a policy with multiple objects", func(ctx SpecContext) {
 			p := &policy.Policy{
 				Name: "multi-object-policy",
 				Objects: []ontology.ID{
@@ -72,7 +72,7 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create a policy with ActionAll wildcard", func() {
+		It("Should create a policy with ActionAll wildcard", func(ctx SpecContext) {
 			p := &policy.Policy{
 				Name:    "wildcard-policy",
 				Objects: []ontology.ID{{Type: "channel"}},
@@ -81,7 +81,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, p)).To(Succeed())
 		})
 
-		It("Should define policy in ontology", func() {
+		It("Should define policy in ontology", func(ctx SpecContext) {
 			p := &policy.Policy{
 				Name:    "ontology-test",
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
@@ -98,7 +98,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal(p.Name))
 		})
 
-		It("Should create an internal policy when allowInternal is true", func() {
+		It("Should create an internal policy when allowInternal is true", func(ctx SpecContext) {
 			internalWriter := svc.NewWriter(tx, true)
 			p := &policy.Policy{
 				Name:     "internal-policy",
@@ -110,7 +110,7 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should fail to create an internal policy when allowInternal is false", func() {
+		It("Should fail to create an internal policy when allowInternal is false", func(ctx SpecContext) {
 			p := &policy.Policy{
 				Name:     "internal-policy",
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
@@ -125,7 +125,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", func() {
 		var policies []policy.Policy
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			policies = []policy.Policy{
 				{
 					Name:    "policy-1",
@@ -143,7 +143,7 @@ var _ = Describe("Writer", func() {
 			}
 		})
 
-		It("Should delete a single policy", func() {
+		It("Should delete a single policy", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
@@ -151,7 +151,7 @@ var _ = Describe("Writer", func() {
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should delete multiple policies", func() {
+		It("Should delete multiple policies", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, policies[0].Key, policies[1].Key)).To(Succeed())
 
 			var ps []policy.Policy
@@ -168,7 +168,7 @@ var _ = Describe("Writer", func() {
 			r        *role.Role
 			policies []policy.Policy
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			rw := roleSvc.NewWriter(tx, true)
 			r = &role.Role{
 				Name:        "test-role",
@@ -193,7 +193,7 @@ var _ = Describe("Writer", func() {
 			}
 		})
 
-		It("Should set policies for a role", func() {
+		It("Should set policies for a role", func(ctx SpecContext) {
 			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
 			Expect(w.SetOnRole(ctx, r.Key, policyKeys...)).To(Succeed())
 
@@ -201,20 +201,20 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.TypePolicy).
+				WhereTypes(ontology.ResourceTypePolicy).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(children).To(HaveLen(2))
 		})
 
-		It("Should attach single policy to role", func() {
+		It("Should attach single policy to role", func(ctx SpecContext) {
 			Expect(w.SetOnRole(ctx, r.Key, policies[0].Key)).To(Succeed())
 
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.TypePolicy).
+				WhereTypes(ontology.ResourceTypePolicy).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(children).To(HaveLen(1))
@@ -229,7 +229,7 @@ var _ = Describe("Retriever", func() {
 		w        policy.Writer
 		policies []policy.Policy
 	)
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx, false)
 		policies = []policy.Policy{
@@ -253,10 +253,10 @@ var _ = Describe("Retriever", func() {
 			Expect(w.Create(ctx, &policies[i])).To(Succeed())
 		}
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
-		It("Should retrieve a single policy by key", func() {
+		It("Should retrieve a single policy by key", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereKeys(policies[0].Key).
@@ -266,7 +266,7 @@ var _ = Describe("Retriever", func() {
 			Expect(p.Name).To(Equal(policies[0].Name))
 		})
 
-		It("Should retrieve multiple policies by keys", func() {
+		It("Should retrieve multiple policies by keys", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereKeys(policies[0].Key, policies[1].Key).
@@ -275,7 +275,7 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(HaveLen(2))
 		})
 
-		It("Should return empty when key not found", func() {
+		It("Should return empty when key not found", func(ctx SpecContext) {
 			var p policy.Policy
 			err := svc.NewRetrieve().
 				WhereKeys(uuid.New()).
@@ -286,7 +286,7 @@ var _ = Describe("Retriever", func() {
 	})
 
 	Describe("WhereNames", func() {
-		It("Should retrieve a policy by name", func() {
+		It("Should retrieve a policy by name", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereNames("alpha-policy").
@@ -295,7 +295,7 @@ var _ = Describe("Retriever", func() {
 			Expect(p.Name).To(Equal("alpha-policy"))
 		})
 
-		It("Should retrieve multiple policies by names", func() {
+		It("Should retrieve multiple policies by names", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereNames("alpha-policy", "beta-policy").
@@ -311,7 +311,7 @@ var _ = Describe("Retriever", func() {
 			subject1 ontology.ID
 			subject2 ontology.ID
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			rw := roleSvc.NewWriter(tx, true)
 			r = &role.Role{
 				Name:        "test-role",
@@ -327,7 +327,7 @@ var _ = Describe("Retriever", func() {
 			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
 		})
 
-		It("Should retrieve policies for a subject via role", func() {
+		It("Should retrieve policies for a subject via role", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereSubjects(subject1).
@@ -338,7 +338,7 @@ var _ = Describe("Retriever", func() {
 			Expect(keys).To(ContainElements(policies[0].Key, policies[1].Key))
 		})
 
-		It("Should return empty when subject has no roles", func() {
+		It("Should return empty when subject has no roles", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereSubjects(subject2).
@@ -347,7 +347,7 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(BeEmpty())
 		})
 
-		It("Should retrieve policies for multiple subjects", func() {
+		It("Should retrieve policies for multiple subjects", func(ctx SpecContext) {
 			rw := roleSvc.NewWriter(tx, true)
 			r2 := &role.Role{
 				Name:        "test-role-2",
@@ -367,7 +367,7 @@ var _ = Describe("Retriever", func() {
 	})
 
 	Describe("Limit and Offset", func() {
-		It("Should limit results", func() {
+		It("Should limit results", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				Limit(2).
@@ -376,7 +376,7 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(HaveLen(2))
 		})
 
-		It("Should apply offset", func() {
+		It("Should apply offset", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				Offset(1).
@@ -386,7 +386,7 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(HaveLen(2))
 		})
 
-		It("Should handle offset beyond results", func() {
+		It("Should handle offset beyond results", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				Offset(10).
@@ -398,7 +398,7 @@ var _ = Describe("Retriever", func() {
 
 	Describe("WhereInternal", func() {
 		var internalPolicy, regularPolicy policy.Policy
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
 				Name:     "internal-policy",
@@ -416,7 +416,7 @@ var _ = Describe("Retriever", func() {
 			Expect(internalWriter.Create(ctx, &regularPolicy)).To(Succeed())
 		})
 
-		It("Should retrieve only internal policies", func() {
+		It("Should retrieve only internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereInternal(true).
@@ -428,7 +428,7 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(ContainElement(HaveField("Key", internalPolicy.Key)))
 		})
 
-		It("Should retrieve only non-internal policies", func() {
+		It("Should retrieve only non-internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
 				WhereInternal(false).
@@ -444,24 +444,24 @@ var _ = Describe("Retriever", func() {
 
 var _ = Describe("Ontology Integration", func() {
 	var tx gorp.Tx
-	BeforeEach(func() { tx = db.OpenTx() })
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
+	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Type", func() {
-		It("Should return correct ontology type", func() {
-			Expect(svc.Type()).To(Equal(ontology.TypePolicy))
+		It("Should return correct ontology type", func(ctx SpecContext) {
+			Expect(svc.Type()).To(Equal(ontology.ResourceTypePolicy))
 		})
 	})
 
 	Describe("Schema", func() {
-		It("Should return a valid schema", func() {
+		It("Should return a valid schema", func(ctx SpecContext) {
 			schema := svc.Schema()
 			Expect(schema).ToNot(BeNil())
 		})
 	})
 
 	Describe("RetrieveResource", func() {
-		It("Should retrieve a policy as an ontology resource", func() {
+		It("Should retrieve a policy as an ontology resource", func(ctx SpecContext) {
 			w := svc.NewWriter(tx, false)
 			p := &policy.Policy{
 				Name:    "resource-test",
@@ -475,19 +475,19 @@ var _ = Describe("Ontology Integration", func() {
 			Expect(res.Name).To(Equal(p.Name))
 		})
 
-		It("Should return error for invalid UUID", func() {
+		It("Should return error for invalid UUID", func(ctx SpecContext) {
 			_, err := svc.RetrieveResource(ctx, "invalid-uuid", tx)
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should return error for non-existent policy", func() {
+		It("Should return error for non-existent policy", func(ctx SpecContext) {
 			_, err := svc.RetrieveResource(ctx, uuid.New().String(), tx)
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Describe("OpenNexter", func() {
-		It("Should iterate over all policies", func() {
+		It("Should iterate over all policies", func(ctx SpecContext) {
 			w := svc.NewWriter(tx, false)
 			for range 3 {
 				p := &policy.Policy{

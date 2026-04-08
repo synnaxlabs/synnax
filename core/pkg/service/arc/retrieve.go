@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -24,7 +25,7 @@ import (
 type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Arc]
-	otg        *ontology.Ontology
+	search     *search.Index
 	searchTerm string
 }
 
@@ -83,9 +84,9 @@ func (r Retrieve) Entries(arcs *[]Arc) Retrieve {
 // Arc service.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
-	if r.searchTerm != "" && r.otg != nil {
-		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: ontology.TypeArc,
+	if r.searchTerm != "" {
+		ids, err := r.search.Search(ctx, search.Request{
+			Type: ontology.ResourceTypeArc,
 			Term: r.searchTerm,
 		})
 		if err != nil {

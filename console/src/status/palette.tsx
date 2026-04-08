@@ -14,23 +14,20 @@ import { Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
-const useUpdateVisible = () => Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
-const useViewVisible = () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
-
-export const CreateCommand = Palette.createSimpleCommand({
+const CreateCommand = Palette.createSimpleCommand({
   key: "create_status",
   name: "Create a status",
   icon: <Status.CreateIcon />,
   layout: CREATE_LAYOUT,
-  useVisible: useUpdateVisible,
+  useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
 });
 
-export const OpenExplorerCommand = Palette.createSimpleCommand({
+const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_status_explorer",
   name: "Open the Status Explorer",
   icon: <Icon.Explore />,
   layout: EXPLORER_LAYOUT,
-  useVisible: useViewVisible,
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [CreateCommand, OpenExplorerCommand];

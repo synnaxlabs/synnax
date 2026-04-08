@@ -10,7 +10,6 @@
 import random
 
 import synnax as sy
-
 from console.case import ConsoleCase
 
 
@@ -59,9 +58,9 @@ class RackLifecycle(ConsoleCase):
         self.log("Testing: Copy rack properties")
         props = self.console.devices.copy_rack_properties(self.rack_name)
         assert props, "Should have copied rack properties"
-        assert str(self.test_rack.key) in str(
-            props
-        ), f"Properties should contain rack key {self.test_rack.key}"
+        assert str(self.test_rack.key) in str(props), (
+            f"Properties should contain rack key {self.test_rack.key}"
+        )
 
     def test_delete_rack(self) -> None:
         """Test deleting a rack via context menu."""
@@ -69,7 +68,7 @@ class RackLifecycle(ConsoleCase):
         delete_name = f"RackToDelete_{self.rand_suffix}"
         self.client.racks.create(name=delete_name)
         self.console.devices.wait_for_rack(delete_name)
-        assert self.console.devices.rack_exists(
-            delete_name
-        ), f"Rack '{delete_name}' should exist before deletion"
+        assert self.console.devices.rack_exists(delete_name), (
+            f"Rack '{delete_name}' should exist before deletion"
+        )
         self.console.devices.delete_rack(delete_name)

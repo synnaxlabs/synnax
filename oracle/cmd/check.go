@@ -21,14 +21,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var checkCmd = &cobra.Command{
-	Use:   "check",
-	Short: "Validate schemas without generating code",
-	RunE:  runCheck,
-}
-
-func init() {
-	rootCmd.AddCommand(checkCmd)
+func newCheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "check",
+		Short: "Validate schemas without generating code",
+		RunE:  runCheck,
+	}
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {

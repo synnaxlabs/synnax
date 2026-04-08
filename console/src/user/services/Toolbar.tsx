@@ -11,7 +11,7 @@ import { user } from "@synnaxlabs/client";
 import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { REGISTER_LAYOUT } from "@/user/Register";
@@ -19,24 +19,36 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
-  const canCreateUser = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
-        <Toolbar.Actions>
-          {canCreateUser && (
+        {hasCreatePermission && (
+          <Toolbar.Actions>
             <Toolbar.Action
               onClick={() => placeLayout(REGISTER_LAYOUT)}
               tooltip="Create user"
             >
               <Icon.Add />
             </Toolbar.Action>
-          )}
-        </Toolbar.Actions>
+          </Toolbar.Actions>
+        )}
       </Toolbar.Header>
-      <Ontology.Tree root={groupID} />
+      <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
+  );
+};
+
+const EmptyContent = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  return (
+    <EmptyAction
+      message="No users."
+      action={hasCreatePermission ? "Create a user" : undefined}
+      onClick={() => placeLayout(REGISTER_LAYOUT)}
+    />
   );
 };
 

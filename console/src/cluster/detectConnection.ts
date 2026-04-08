@@ -29,7 +29,7 @@ export const detectConnection = (): ConnectionParams | null => {
   return {
     name: "Core",
     host: url.hostname,
-    port: url.port ? parseInt(url.port) : url.protocol === "https:" ? 443 : 80,
+    port: url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80,
     secure: url.protocol === "https:",
   };
 };

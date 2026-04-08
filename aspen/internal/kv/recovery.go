@@ -169,6 +169,9 @@ func runSingleNodeRecovery(
 				if err = op.apply(ctx, tx); err != nil {
 					return err
 				}
+				if err = op.Digest().apply(ctx, tx); err != nil {
+					return err
+				}
 			}
 		}
 		cfg.L.Info("successfully recovered lost key-value operations", zap.Stringer("node", node.Key), zap.Int("operations", count))

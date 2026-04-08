@@ -1,0 +1,11 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "profile",
+    hdrs = ["profile.h"],
+    visibility = ["//visibility:public"],
+    deps = ["@glog"] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@gperftools//:cpu_profiler"],
+    }),
+)

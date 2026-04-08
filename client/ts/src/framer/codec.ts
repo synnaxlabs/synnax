@@ -57,7 +57,7 @@ const SEQ_NUM_SIZE = 4;
 const FLAGS_SIZE = 1;
 
 interface CodecState {
-  keys: channel.Keys;
+  keys: channel.Key[];
   keyDataTypes: Map<channel.Key, DataType>;
   hasVariableDataTypes: boolean;
 }
@@ -68,11 +68,11 @@ export class Codec {
   private currState: CodecState | undefined;
   private seqNum: number = 0;
 
-  constructor(keys: channel.Keys = [], dataTypes: DataType[] = []) {
+  constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
   }
 
-  update(keys: channel.Keys, dataTypes: DataType[]): void {
+  update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     const state = {
       keys,
@@ -97,7 +97,7 @@ export class Codec {
       `);
   }
 
-  encode(payload: unknown, startOffset: number = 0): Uint8Array {
+  encode(payload: unknown, startOffset: number = 0): Uint8Array<ArrayBuffer> {
     this.throwIfNotUpdated("encode");
     let src = payload as Payload;
     if (payload != null && typeof payload === "object" && "toPayload" in payload)
@@ -187,8 +187,9 @@ export class Codec {
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
       view.setBigUint64(offset, startTime?.valueOf() ?? 0n, true);
+      offset += TIMESTAMP_SIZE;
       view.setBigUint64(offset, endTime?.valueOf() ?? 0n, true);
-      offset += TIMESTAMP_SIZE * 2;
+      offset += TIMESTAMP_SIZE;
     }
 
     if (equalAlignmentsFlag && !zeroAlignmentsFlag) {
@@ -211,8 +212,9 @@ export class Codec {
       offset += series.data.byteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         view.setBigUint64(offset, series.timeRange?.start.valueOf() ?? 0n, true);
+        offset += TIMESTAMP_SIZE;
         view.setBigUint64(offset, series.timeRange?.end.valueOf() ?? 0n, true);
-        offset += TIMESTAMP_SIZE * 2;
+        offset += TIMESTAMP_SIZE;
       }
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
         view.setBigUint64(offset, series.alignment ?? 0n, true);
@@ -339,7 +341,7 @@ export class WSWriterCodec implements binary.Codec {
     this.lowPerfCodec = binary.JSON_CODEC;
   }
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
     const pld = payload as WebsocketMessage<WriteRequest>;
     if (pld.type == "close" || pld.payload?.command != WriterCommand.Write) {
       const data = this.lowPerfCodec.encode(pld);
@@ -375,7 +377,7 @@ export class WSStreamerCodec implements binary.Codec {
     this.lowPerfCodec = binary.JSON_CODEC;
   }
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
     return this.lowPerfCodec.encode(payload);
   }
 

@@ -32,6 +32,7 @@ import (
 	kvgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/ranger/kv"
 	statusgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/status"
 	taskgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/task"
+	viewgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/view"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -41,7 +42,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
-	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/api/workspace"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
@@ -61,6 +61,7 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 		devicegrpc.New(&a),
 		statusgrpc.New(&a),
 		arcgrpc.New(&a),
+		viewgrpc.New(&a),
 	}
 
 	// AUTH
@@ -152,13 +153,8 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.AccessAssignRole = fnoop.UnaryServer[access.AssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[access.UnassignRoleRequest, types.Nil]{}
 
-	// ARC LSP (streaming, not implemented via gRPC yet)
+	// ARC LSP
 	a.ArcLSP = fnoop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
-
-	// VIEW
-	a.ViewCreate = fnoop.UnaryServer[view.CreateRequest, view.CreateResponse]{}
-	a.ViewRetrieve = fnoop.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]{}
-	a.ViewDelete = fnoop.UnaryServer[view.DeleteRequest, types.Nil]{}
 
 	return a, transports
 }

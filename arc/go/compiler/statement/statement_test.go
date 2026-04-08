@@ -26,7 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func compile(source string) []byte {
+func compile(bCtx SpecContext, source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	analyzer.AnalyzeStatement(aCtx)
@@ -36,7 +36,7 @@ func compile(source string) []byte {
 	return ctx.Writer.Bytes()
 }
 
-func compileBlock(source string) []byte {
+func compileBlock(bCtx SpecContext, source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
 	analyzer.AnalyzeBlock(aCtx)
@@ -52,8 +52,8 @@ var _ = Describe("Statement Compiler", func() {
 	// require a fully configured multi-output context (Outputs, OutputMemoryBase).
 	// Output assignment compilation is tested via integration tests in the main compiler suite.
 
-	DescribeTable("Single Statement Bytecode Values", func(source string, instructions ...any) {
-		Expect(compile(source)).To(MatchOpcodes(instructions...))
+	DescribeTable("Single Statement Bytecode Values", func(bCtx SpecContext, source string, instructions ...any) {
+		Expect(compile(bCtx, source)).To(MatchOpcodes(instructions...))
 	},
 		Entry(
 			"integer variable declaration with explicit type",
@@ -94,7 +94,7 @@ var _ = Describe("Statement Compiler", func() {
 	)
 
 	Describe("Stateful Variables", func() {
-		It("Should compile stateful variable declaration with explicit type", func() {
+		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(aCtx)
@@ -111,7 +111,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile stateful variable declaration with inferred type", func() {
+		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(aCtx)
@@ -128,7 +128,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile stateful variable assignment", func() {
+		It("Should compile stateful variable assignment", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				count i64 $= 0
 				count = 5
@@ -155,7 +155,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile stateful variable reference in expression", func() {
+		It("Should compile stateful variable reference in expression", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				count i64 $= 0
 				x i64 := count + 1
@@ -183,7 +183,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile multiple stateful variables", func() {
+		It("Should compile multiple stateful variables", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				a i64 $= 10
 				b i64 $= 20
@@ -219,7 +219,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile stateful variable with different types", func() {
+		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(aCtx)
@@ -236,7 +236,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile stateful variable compound assignment", func() {
+		It("Should compile stateful variable compound assignment", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				count i64 $= 10
 				count += 5
@@ -264,7 +264,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile stateful variable compound subtraction", func() {
+		It("Should compile stateful variable compound subtraction", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				value f64 $= 100.0
 				value -= 25.5
@@ -292,7 +292,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile multiple compound assignments to stateful variable", func() {
+		It("Should compile multiple compound assignments to stateful variable", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				n i32 $= 1
 				n *= 2
@@ -330,8 +330,8 @@ var _ = Describe("Statement Compiler", func() {
 		})
 	})
 
-	DescribeTable("Multi Statement Bytecode Values", func(source string, instructions ...any) {
-		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
+	DescribeTable("Multi Statement Bytecode Values", func(bCtx SpecContext, source string, instructions ...any) {
+		Expect(compileBlock(bCtx, source)).To(MatchOpcodes(instructions...))
 	},
 		Entry("Dual Variable Declaration",
 			`
@@ -598,8 +598,8 @@ var _ = Describe("Statement Compiler", func() {
 		),
 	)
 
-	DescribeTable("Compound assignment operators", func(source string, instructions ...any) {
-		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
+	DescribeTable("Compound assignment operators", func(bCtx SpecContext, source string, instructions ...any) {
+		Expect(compileBlock(bCtx, source)).To(MatchOpcodes(instructions...))
 	},
 		Entry("i64 plus equals",
 			`x i64 := 10
@@ -655,7 +655,7 @@ var _ = Describe("Statement Compiler", func() {
 
 	Describe("Compound string concatenation", func() {
 		var sLit, sConcat uint64
-		compileStr := func(source string) []byte {
+		compileStr := func(bCtx SpecContext, source string) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
@@ -668,8 +668,8 @@ var _ = Describe("Statement Compiler", func() {
 			return FinalizeContext(ctx)
 		}
 
-		It("Should compile string += with string literal", func() {
-			Expect(compileStr(`
+		It("Should compile string += with string literal", func(bCtx SpecContext) {
+			Expect(compileStr(bCtx, `
 				s str := "hello"
 				s += " world"
 			`)).To(MatchOpcodes(
@@ -687,8 +687,8 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile string += with string variable", func() {
-			Expect(compileStr(`
+		It("Should compile string += with string variable", func(bCtx SpecContext) {
+			Expect(compileStr(bCtx, `
 				s str := "hello"
 				suffix str := " world"
 				s += suffix
@@ -710,8 +710,8 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile multiple string += operations", func() {
-			Expect(compileStr(`
+		It("Should compile multiple string += operations", func(bCtx SpecContext) {
+			Expect(compileStr(bCtx, `
 				s str := "a"
 				s += "b"
 				s += "c"
@@ -738,8 +738,8 @@ var _ = Describe("Statement Compiler", func() {
 		})
 	})
 
-	DescribeTable("Variable casts", func(source string, instructions ...any) {
-		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
+	DescribeTable("Variable casts", func(bCtx SpecContext, source string, instructions ...any) {
+		Expect(compileBlock(bCtx, source)).To(MatchOpcodes(instructions...))
 	},
 		Entry("i32 variable to f32",
 			`x i32 := 42
@@ -817,7 +817,7 @@ var _ = Describe("Statement Compiler", func() {
 	)
 
 	Describe("Indexed Assignment", func() {
-		It("Should compile indexed assignment to series", func() {
+		It("Should compile indexed assignment to series", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				data series i64 := [1, 2, 3]
 				data[0] = 42
@@ -850,7 +850,7 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Series Literals with Inferred Variables and Literal Coercion", func() {
-		It("Should compile inferred int variable with exact-integer float literal", func() {
+		It("Should compile inferred int variable with exact-integer float literal", func(bCtx SpecContext) {
 			// a := 5 creates an i64 variable
 			// 12.0 is an exact integer float that should coerce to i64
 			// Result: series[i64] with elements [5, 12]
@@ -886,7 +886,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile inferred float variable with int literal", func() {
+		It("Should compile inferred float variable with int literal", func(bCtx SpecContext) {
 			// a := 12.0 creates an f64 variable
 			// 5 is an int literal that should coerce to f64
 			// Result: series[f64] with elements [12.0, 5.0]
@@ -922,7 +922,7 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile multiple inferred variables with mixed literals", func() {
+		It("Should compile multiple inferred variables with mixed literals", func(bCtx SpecContext) {
 			// a := 5, b := 10 creates i64 variables
 			// 15.0 is an exact integer float that should coerce to i64
 			// Result: series[i64] with elements [5, 10, 15]
@@ -968,7 +968,7 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		compileWithChannels := func(source string, resolver symbol.Resolver) []byte {
+		compileWithChannels := func(bCtx SpecContext, source string, resolver symbol.Resolver) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, resolver)
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -989,7 +989,7 @@ var _ = Describe("Statement Compiler", func() {
 
 		Describe("Channel Writes", func() {
 			DescribeTable("Should compile channel write for numeric types",
-				func(typeName string, arcType types.Type, valueCode string, expectedValueOps ...any) {
+				func(bCtx SpecContext, typeName string, arcType types.Type, valueCode string, expectedValueOps ...any) {
 					resolver := symbol.MapResolver{
 						"test_ch": {
 							Name: "test_ch",
@@ -999,7 +999,7 @@ var _ = Describe("Statement Compiler", func() {
 						},
 					}
 					source := "test_ch = " + valueCode
-					bytecode := compileWithChannels(source, resolver)
+					bytecode := compileWithChannels(bCtx, source, resolver)
 					expected := []any{OpI32Const, int32(100)}
 					expected = append(expected, expectedValueOps...)
 					expected = append(expected, OpCall, uint32(0))
@@ -1017,7 +1017,7 @@ var _ = Describe("Statement Compiler", func() {
 				Entry("f64", "f64", types.F64(), "3.14159", OpF64Const, float64(3.14159)),
 			)
 
-			It("Should compile f64 channel write with float literal", func() {
+			It("Should compile f64 channel write with float literal", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"f64_ch": {
 						Name: "f64_ch",
@@ -1026,7 +1026,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode := compileWithChannels("f64_ch = 3.14159", resolver)
+				bytecode := compileWithChannels(bCtx, "f64_ch = 3.14159", resolver)
 
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(200), // channel ID
@@ -1035,7 +1035,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile f32 channel write with float literal", func() {
+			It("Should compile f32 channel write with float literal", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"f32_ch": {
 						Name: "f32_ch",
@@ -1044,7 +1044,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   300,
 					},
 				}
-				bytecode := compileWithChannels("f32_ch = 2.718", resolver)
+				bytecode := compileWithChannels(bCtx, "f32_ch = 2.718", resolver)
 
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(300), // channel ID
@@ -1053,7 +1053,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel write with variable value", func() {
+			It("Should compile channel write with variable value", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output_ch": {
 						Name: "output_ch",
@@ -1062,7 +1062,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   400,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					x i32 := 42
 					output_ch = x
 				`, resolver)
@@ -1078,7 +1078,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel write with expression value", func() {
+			It("Should compile channel write with expression value", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"result_ch": {
 						Name: "result_ch",
@@ -1087,7 +1087,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   500,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					a i64 := 10
 					b i64 := 20
 					result_ch = a + b
@@ -1109,7 +1109,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile multiple channel writes", func() {
+			It("Should compile multiple channel writes", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"ch1": {
 						Name: "ch1",
@@ -1124,7 +1124,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   700,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					ch1 = 100
 					ch2 = 3.14
 				`, resolver)
@@ -1143,7 +1143,7 @@ var _ = Describe("Statement Compiler", func() {
 		})
 
 		Describe("Channel Reads", func() {
-			It("Should compile channel read in variable declaration", func() {
+			It("Should compile channel read in variable declaration", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {
 						Name: "sensor",
@@ -1152,7 +1152,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					x f64 := sensor
 				`, resolver)
 
@@ -1164,7 +1164,7 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			DescribeTable("Should compile channel read for numeric types",
-				func(typeName string, arcType types.Type) {
+				func(bCtx SpecContext, typeName string, arcType types.Type) {
 					resolver := symbol.MapResolver{
 						"test_ch": {
 							Name: "test_ch",
@@ -1174,7 +1174,7 @@ var _ = Describe("Statement Compiler", func() {
 						},
 					}
 					source := "x " + typeName + " := test_ch"
-					bytecode := compileWithChannels(source, resolver)
+					bytecode := compileWithChannels(bCtx, source, resolver)
 
 					Expect(bytecode).To(MatchOpcodes(
 						OpI32Const, int32(100), // channel ID
@@ -1194,7 +1194,7 @@ var _ = Describe("Statement Compiler", func() {
 				Entry("f64", "f64", types.F64()),
 			)
 
-			It("Should compile channel read in expression", func() {
+			It("Should compile channel read in expression", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"pressure": {
 						Name: "pressure",
@@ -1203,7 +1203,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					threshold f64 := 100.0
 					result f64 := pressure * 2.0
 				`, resolver)
@@ -1221,7 +1221,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel read in comparison", func() {
+			It("Should compile channel read in comparison", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"temp": {
 						Name: "temp",
@@ -1230,7 +1230,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   300,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					x i32 := 0
 					if temp > 100 {
 						x = 1
@@ -1254,7 +1254,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile multiple channel reads", func() {
+			It("Should compile multiple channel reads", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"ch1": {
 						Name: "ch1",
@@ -1269,7 +1269,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   500,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					sum i32 := ch1 + ch2
 				`, resolver)
 
@@ -1285,7 +1285,7 @@ var _ = Describe("Statement Compiler", func() {
 		})
 
 		Describe("Channel Alias Reads", func() {
-			It("Should compile channel alias read assigned to f64 scalar", func() {
+			It("Should compile channel alias read assigned to f64 scalar", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {
 						Name: "sensor",
@@ -1294,7 +1294,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					local_ref := sensor
 					value f64 := 0.0
 					value = local_ref
@@ -1314,7 +1314,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read assigned to stateful f64 scalar", func() {
+			It("Should compile channel alias read assigned to stateful f64 scalar", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {
 						Name: "sensor",
@@ -1323,7 +1323,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					local_ref := sensor
 					value f64 $= 0.0
 					value = local_ref
@@ -1348,7 +1348,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile i32 channel alias read assigned to i32 scalar", func() {
+			It("Should compile i32 channel alias read assigned to i32 scalar", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"int_ch": {
 						Name: "int_ch",
@@ -1357,7 +1357,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					ref := int_ch
 					result i32 := 0
 					result = ref
@@ -1377,7 +1377,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read written to another channel", func() {
+			It("Should compile channel alias read written to another channel", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {
 						Name: "sensor",
@@ -1392,7 +1392,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					sensor_ref := sensor
 					output_ch = sensor_ref
 				`, resolver)
@@ -1409,7 +1409,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile conditional channel alias read with scalar assignment", func() {
+			It("Should compile conditional channel alias read with scalar assignment", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {
 						Name: "sensor",
@@ -1418,7 +1418,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					ref := sensor
 					value f64 := 0.0
 					if ref > 100.0 { value = ref }
@@ -1447,7 +1447,7 @@ var _ = Describe("Statement Compiler", func() {
 		})
 
 		Describe("Channel Read and Write Combined", func() {
-			It("Should compile reading from one channel and writing to another", func() {
+			It("Should compile reading from one channel and writing to another", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"input_ch": {
 						Name: "input_ch",
@@ -1462,7 +1462,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					output_ch = input_ch * 2.0
 				`, resolver)
 
@@ -1480,7 +1480,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile conditional channel write based on channel read", func() {
+			It("Should compile conditional channel write based on channel read", func(bCtx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {
 						Name: "sensor",
@@ -1495,7 +1495,7 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode := compileWithChannels(`
+				bytecode := compileWithChannels(bCtx, `
 					if sensor > 50 {
 						alarm = 1
 					}
@@ -1519,7 +1519,7 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Chan-typed Input Parameter Operations", func() {
-		compileWithChanInput := func(source string, inputName string, inputType types.Type) []byte {
+		compileWithChanInput := func(bCtx SpecContext, source string, inputName string, inputType types.Type) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -1543,8 +1543,8 @@ var _ = Describe("Statement Compiler", func() {
 			return FinalizeContext(ctx)
 		}
 
-		It("Should compile f32 channel write through chan-typed input param", func() {
-			bytecode := compileWithChanInput(
+		It("Should compile f32 channel write through chan-typed input param", func(bCtx SpecContext) {
+			bytecode := compileWithChanInput(bCtx,
 				`ch = 77.0`,
 				"ch", types.Chan(types.F32()),
 			)
@@ -1555,8 +1555,8 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile f64 channel write through chan-typed input param", func() {
-			bytecode := compileWithChanInput(
+		It("Should compile f64 channel write through chan-typed input param", func(bCtx SpecContext) {
+			bytecode := compileWithChanInput(bCtx,
 				`ch = 3.14`,
 				"ch", types.Chan(types.F64()),
 			)
@@ -1567,8 +1567,8 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile i32 channel write through chan-typed input param", func() {
-			bytecode := compileWithChanInput(
+		It("Should compile i32 channel write through chan-typed input param", func(bCtx SpecContext) {
+			bytecode := compileWithChanInput(bCtx,
 				`ch = 42`,
 				"ch", types.Chan(types.I32()),
 			)
@@ -1579,8 +1579,8 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile channel read from chan-typed input param", func() {
-			bytecode := compileWithChanInput(
+		It("Should compile channel read from chan-typed input param", func(bCtx SpecContext) {
+			bytecode := compileWithChanInput(bCtx,
 				`x f32 := ch`,
 				"ch", types.Chan(types.F32()),
 			)
@@ -1591,8 +1591,8 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 
-		It("Should compile read and write through chan-typed input param", func() {
-			bytecode := compileWithChanInput(
+		It("Should compile read and write through chan-typed input param", func(bCtx SpecContext) {
+			bytecode := compileWithChanInput(bCtx,
 				`value f64 := ch
 				ch = value * 2.0`,
 				"ch", types.Chan(types.F64()),

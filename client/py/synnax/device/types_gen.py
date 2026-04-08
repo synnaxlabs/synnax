@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeAlias, TypeVar
+from typing import Any, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -31,7 +31,7 @@ class StatusDetails(BaseModel):
         device: Is the device identifier.
     """
 
-    rack: rack_.Key
+    rack: rack_.Key = Field(ge=0, le=4294967295)
     device: str
 
 
@@ -61,7 +61,7 @@ class Device(BaseModel):
     """
 
     key: Key
-    rack: rack_.Key
+    rack: rack_.Key = Field(ge=0, le=4294967295)
     location: str
     make: str
     model: str

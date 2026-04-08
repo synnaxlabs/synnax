@@ -10,6 +10,7 @@
 package runtime_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,17 +29,17 @@ import (
 var _ = Describe("StateConfig", Ordered, func() {
 	var dist mock.Node
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		dist = distB.Provision(context.Background())
 	})
 
-	AfterAll(func() {
+	AfterAll(func(ctx SpecContext) {
 		Expect(dist.Close()).To(Succeed())
 	})
 
 	Describe("NewStateConfig", func() {
-		It("Should build config with read node channels", func() {
+		It("Should build config with read node channels", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "sensor_1",
 				Virtual:  true,
@@ -54,7 +54,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(ch.Key()): "sensor_1"},
+								Read: map[uint32]string{uint32(ch.Key()): "sensor_1"},
 							},
 						},
 					},
@@ -69,7 +69,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
-		It("Should add channels from write nodes to writes set", func() {
+		It("Should add channels from write nodes to writes set", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "actuator_1",
 				Virtual:  true,
@@ -84,7 +84,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "actuator_1"},
+								Write: map[uint32]string{uint32(ch.Key()): "actuator_1"},
 							},
 						},
 					},
@@ -96,7 +96,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
 
-		It("Should add Channels.Write to writes set", func() {
+		It("Should add Channels.Write to writes set", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "output_1",
 				Virtual:  true,
@@ -111,7 +111,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "any_node",
 							Type: "constant",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "output_1"},
+								Write: map[uint32]string{uint32(ch.Key()): "output_1"},
 							},
 						},
 					},
@@ -123,7 +123,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
 
-		It("Should track index channels for reads", func() {
+		It("Should track index channels for reads", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "time_index",
 				DataType: telem.TimeStampT,
@@ -147,7 +147,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(dataCh.Key()): "data_with_index"},
+								Read: map[uint32]string{uint32(dataCh.Key()): "data_with_index"},
 							},
 						},
 					},
@@ -160,7 +160,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests).To(HaveLen(2))
 		})
 
-		It("Should track index channels for writes", func() {
+		It("Should track index channels for writes", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "write_time_index",
 				DataType: telem.TimeStampT,
@@ -184,7 +184,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{uint32(dataCh.Key()): "write_data_with_index"},
+								Write: map[uint32]string{uint32(dataCh.Key()): "write_data_with_index"},
 							},
 						},
 					},
@@ -196,7 +196,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
 
-		It("Should handle nodes with both read and write channels", func() {
+		It("Should handle nodes with both read and write channels", func(ctx SpecContext) {
 			readCh := &channel.Channel{
 				Name:     "input_sensor",
 				Virtual:  true,
@@ -218,8 +218,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "mixed_node",
 							Type: "transform",
 							Channels: types.Channels{
-								Read:  set.Mapped[uint32, string]{uint32(readCh.Key()): "input_sensor"},
-								Write: set.Mapped[uint32, string]{uint32(writeCh.Key()): "output_actuator"},
+								Read:  map[uint32]string{uint32(readCh.Key()): "input_sensor"},
+								Write: map[uint32]string{uint32(writeCh.Key()): "output_actuator"},
 							},
 						},
 					},
@@ -232,7 +232,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests).To(HaveLen(2))
 		})
 
-		It("Should handle multiple nodes with overlapping channels", func() {
+		It("Should handle multiple nodes with overlapping channels", func(ctx SpecContext) {
 			sharedCh := &channel.Channel{
 				Name:     "shared_channel",
 				Virtual:  true,
@@ -247,14 +247,14 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "node_1",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(sharedCh.Key()): "shared_channel"},
+								Read: map[uint32]string{uint32(sharedCh.Key()): "shared_channel"},
 							},
 						},
 						{
 							Key:  "node_2",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(sharedCh.Key()): "shared_channel"},
+								Read: map[uint32]string{uint32(sharedCh.Key()): "shared_channel"},
 							},
 						},
 					},
@@ -266,7 +266,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
 
-		It("Should handle empty module", func() {
+		It("Should handle empty module", func(ctx SpecContext) {
 			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{},
@@ -279,7 +279,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests).To(HaveLen(0))
 		})
 
-		It("Should handle module with nodes that have no channels", func() {
+		It("Should handle module with nodes that have no channels", func(ctx SpecContext) {
 			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
@@ -298,7 +298,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests).To(HaveLen(0))
 		})
 
-		It("Should return error when channel retrieval fails", func() {
+		It("Should return error when channel retrieval fails", func(ctx SpecContext) {
 			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
@@ -306,7 +306,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "invalid_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{999999: "nonexistent"},
+								Read: map[uint32]string{999999: "nonexistent"},
 							},
 						},
 					},
@@ -317,7 +317,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should not add index channel to sets when channel is virtual", func() {
+		It("Should not add index channel to sets when channel is virtual", func(ctx SpecContext) {
 			virtualCh := &channel.Channel{
 				Name:       "virtual_no_index",
 				Virtual:    true,
@@ -333,7 +333,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{uint32(virtualCh.Key()): "virtual_no_index"},
+								Read: map[uint32]string{uint32(virtualCh.Key()): "virtual_no_index"},
 							},
 						},
 					},
@@ -345,7 +345,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
 
-		It("Should handle interval-triggered function with stateful variable writing to channel", func() {
+		It("Should handle interval-triggered function with stateful variable writing to channel", func(ctx SpecContext) {
 			virtCh := &channel.Channel{
 				Name:     "virt_stateful_test",
 				Virtual:  true,
@@ -376,7 +376,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
-		It("Should add dynamic set_authority channel to writes even if never written to", func() {
+		It("Should add dynamic set_authority channel to writes even if never written to", func(ctx SpecContext) {
 			triggerCh := &channel.Channel{
 				Name:     "dyn_auth_trigger",
 				Virtual:  true,
@@ -410,7 +410,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				"channel referenced only in set_authority config should be in writes")
 		})
 
-		It("Should add authority-declared channels to writes even if not in any node", func() {
+		It("Should add authority-declared channels to writes even if not in any node", func(ctx SpecContext) {
 			authOnlyCh := &channel.Channel{
 				Name:     "authority_only_ch",
 				Virtual:  true,
@@ -435,7 +435,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
 		})
 
-		It("Should build complete config with complex module", func() {
+		It("Should build complete config with complex module", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "complex_index",
 				DataType: telem.TimeStampT,
@@ -474,7 +474,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: set.Mapped[uint32, string]{
+								Read: map[uint32]string{
 									uint32(readCh1.Key()): "complex_read_1",
 									uint32(readCh2.Key()): "complex_read_2",
 								},
@@ -484,7 +484,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: set.Mapped[uint32, string]{
+								Write: map[uint32]string{
 									uint32(readCh1.Key()): "complex_read_1",
 									uint32(writeCh.Key()): "complex_write",
 								},

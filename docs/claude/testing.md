@@ -120,24 +120,92 @@ Location: `/integration/` directory
 
 ### Overview
 
-- **Conductor**: Python-based test framework
+- **Test Conductor**: Custom Python-based test orchestration framework
+- **Playwright**: Console UI tests use Playwright for browser automation
 - **Cross-language**: Tests Go server + TS/Python/C++ clients
 - **Full stack**: Validates entire system from client → server → storage
 - **Performance**: Built-in benchmarking and stress testing
 
-### Running Integration Tests
+### Build & Run Sequence
+
+Integration tests require a running Synnax server with the embedded Console. The full
+build sequence is:
 
 ```bash
+# 1. Build Console web assets
+pnpm build:console-vite
+
+# 2. Copy assets into Core's embed directory
+cp -r console/dist/* core/pkg/console/dist/
+
+# 3. Build Go Core server with embedded Console
+cd core && go build -tags=console -ldflags="-w -s" -o synnax . && cd ..
+
+# 4. Start the server (in-memory mode for testing)
+mkdir -p ~/synnax-data && cd ~/synnax-data
+./path/to/synnax start -mi &
+
+# 5. Run tests via test conductor
 cd integration
-pytest
+uv run tc console           # all console tests
+uv run tc console/.../label # filter by case name
+uv run tc driver/modbus     # driver tests matching "modbus"
 ```
 
-### Configuration
+The `-tags=console` build tag activates `core/pkg/console/enabled.go`, which uses
+`//go:embed all:dist` to embed the Console assets into the binary.
 
-- Configurable parameters for stress testing
-- Performance measurement
-- Multi-node cluster testing
-- Custom pytest markers
+### Test Conductor CLI (`tc`)
+
+The test conductor (`uv run tc`) supports flexible target filtering:
+
+```bash
+# 1-part: run all tests in a file
+uv run tc console # all console_tests.json
+
+# 2-part: file + case substring filter
+uv run tc console/label # cases matching "label"
+
+# 3-part: file + sequence + case filter
+uv run tc console/channel/calc # sequence "channel", cases "calc"
+
+# Global filter across all test files
+uv run tc -f modbus # all files, cases matching "modbus"
+
+# Options
+uv run tc console --headed  # run Playwright in headed mode
+uv run tc driver -d my_rack # specify driver rack name
+```
+
+### Test Organization
+
+Tests are defined in JSON sequence files (`*_tests.json`) in `/integration/tests/`:
+
+- `console_tests.json` - Console UI tests (Playwright-based)
+- `driver_tests.json` - Hardware driver tests
+- `arc_tests.json` - Arc language tests
+- `client_tests.json` - Client library tests
+
+Each JSON file defines sequences of test cases that can run sequentially or
+asynchronously with configurable pool sizes.
+
+### Console Test Helpers
+
+Console integration tests use helper classes in `/integration/console/`:
+
+- `layout.py` - Page navigation, toolbar management, keyboard interactions
+- `context_menu.py` - Context menu opening and option selection
+- `ranges.py`, `tasks.py`, `statuses.py` - Resource-specific helpers
+- `case.py` - Base `ConsoleCase` class with Playwright setup
+
+### Environment Dependencies
+
+Some test suites require external services:
+
+- **Console tests**: Only require the Synnax server (most tests)
+- **Driver tests**: Require hardware simulators (OPC UA, Modbus, etc.)
+- **Task lifecycle tests**: Require OPC UA simulator (`OPCUASim`)
+- **NI form tests**: May fail with notification overlays if no driver is connected
 
 ## Test Organization
 

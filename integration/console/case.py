@@ -16,11 +16,9 @@ from playwright.sync_api import (
     BrowserContext,
     BrowserType,
     Page,
-)
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import (
     sync_playwright,
 )
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.console import Console
 from framework.test_case import TestCase

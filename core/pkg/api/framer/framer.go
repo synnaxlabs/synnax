@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -47,10 +46,9 @@ const (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
-	Channel  *channel.Service
-	Internal *framer.Service
+	channel  *channel.Service
+	internal *framer.Service
 	alamos.Instrumentation
 }
 
@@ -61,9 +59,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
-		Internal:        cfg.Service.Framer,
-		Channel:         cfg.Distribution.Channel,
-		db:              cfg.Distribution.DB,
+		internal:        cfg.Service.Framer,
+		channel:         cfg.Distribution.Channel,
 		access:          cfg.Service.RBAC,
 	}, nil
 }
@@ -78,22 +75,35 @@ func (s *Service) Delete(
 	ctx context.Context,
 	req DeleteRequest,
 ) (types.Nil, error) {
+	var (
+		resChannels []channel.Channel
+		q           = s.channel.NewRetrieve().Entries(&resChannels)
+		hasKeys     = len(req.Keys) > 0
+		hasNames    = len(req.Names) > 0
+	)
+	// Early return for safety if a caller passes nothing, that way there is no
+	// accidental deletion of all data.
+	if !hasKeys && !hasNames {
+		return types.Nil{}, nil
+	}
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
+	if err := q.Exec(ctx, nil); err != nil {
+		return types.Nil{}, err
+	}
+	keys := channel.KeysFromChannels(resChannels)
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: framer.OntologyIDs(req.Keys),
+		Objects: framer.OntologyIDs(keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.Internal.NewDeleter()
-		if len(req.Keys) > 0 {
-			return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
-		} else if len(req.Names) > 0 {
-			return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.Bounds)
-		}
-		return nil
-	})
+	return types.Nil{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
 type (
@@ -151,7 +161,7 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	}); err != nil {
 		return nil, err
 	}
-	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
+	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
 		Bounds:           req.Bounds,
 		Keys:             req.Keys,
 		ChunkSize:        req.ChunkSize,
@@ -215,7 +225,7 @@ func (s *Service) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, req)
+	reader, err := s.internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +397,7 @@ func (s *Service) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
+	w, err := s.internal.NewStreamWriter(ctx, writer.Config{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
@@ -402,7 +412,7 @@ func (s *Service) openWriter(
 	}
 
 	channels := make([]channel.Channel, 0, len(req.Config.Keys))
-	if err = s.Channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+	if err = s.channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
 		return w, err
 	}
 	// Let the client know the writer is ready to receive segments.

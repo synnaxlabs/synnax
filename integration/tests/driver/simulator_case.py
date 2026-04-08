@@ -25,9 +25,9 @@ Usage:
 import os
 from multiprocessing.process import BaseProcess
 
-import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 
+import synnax as sy
 from framework.test_case import TestCase
 
 

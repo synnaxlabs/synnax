@@ -13,6 +13,7 @@ package enum
 import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // CollectReferenced collects unique enums referenced by struct fields that belong
@@ -20,11 +21,11 @@ import (
 // excluded because they should be imported rather than generated locally.
 // Returns a deduplicated slice of enum types based on QualifiedName.
 func CollectReferenced(structs []resolution.Type, table *resolution.Table) []resolution.Type {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var enums []resolution.Type
-	namespaces := make(map[string]bool)
+	namespaces := make(set.Set[string])
 	for _, s := range structs {
-		namespaces[s.Namespace] = true
+		namespaces.Add(s.Namespace)
 	}
 	for _, s := range structs {
 		form, ok := s.Form.(resolution.StructForm)
@@ -40,7 +41,7 @@ func CollectReferenced(structs []resolution.Type, table *resolution.Table) []res
 
 // collectEnumsFromTypeRef recursively collects enums from a type reference,
 // filtering to only include enums whose namespace is in the allowed set.
-func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, seen map[string]bool, enums *[]resolution.Type, namespaces map[string]bool) {
+func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, seen set.Set[string], enums *[]resolution.Type, namespaces set.Set[string]) {
 	// Check type args first (for generic types like Array<EnumType>)
 	for _, arg := range ref.TypeArgs {
 		collectEnumsFromTypeRef(arg, table, seen, enums, namespaces)
@@ -59,8 +60,8 @@ func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, se
 		return
 	}
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		if !seen[resolved.QualifiedName] && namespaces[resolved.Namespace] {
-			seen[resolved.QualifiedName] = true
+		if !seen.Contains(resolved.QualifiedName) && namespaces.Contains(resolved.Namespace) {
+			seen.Add(resolved.QualifiedName)
 			*enums = append(*enums, resolved)
 		}
 	}
@@ -136,7 +137,7 @@ func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table
 		pathFunc = MakePathFunc(domainName)
 	}
 	var result []resolution.Type
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	for _, e := range table.EnumTypes() {
 		if e.Namespace != namespace {
 			continue
@@ -145,8 +146,8 @@ func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table
 			continue
 		}
 		if enumPath := pathFunc(e, table); enumPath == outputPath {
-			if !seen[e.QualifiedName] {
-				seen[e.QualifiedName] = true
+			if !seen.Contains(e.QualifiedName) {
+				seen.Add(e.QualifiedName)
 				result = append(result, e)
 			}
 		}

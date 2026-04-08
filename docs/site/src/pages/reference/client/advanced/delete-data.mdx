@@ -66,11 +66,6 @@ await client.delete(
   </Fragment>
 </Client.Tabs>
 
-<Note.Note variant="warning">
-  Using channel name(s) to delete data will delete data in **all** channels with the
-  given name(s). Using keys to delete is preferable to prevent accidental deletion.
-</Note.Note>
-
 ### Idempotency
 
 The `delete` method is idempotent, meaning consecutive calls to `delete` on overlapping

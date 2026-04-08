@@ -14,12 +14,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Log", func() {
+		It("Should create a Log", func(ctx SpecContext) {
 			l := log.Log{
 				Name: "test",
 				Data: map[string]any{"key": "data"},
@@ -29,22 +28,22 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Update", func() {
-		It("Should rename a Log", func() {
+		It("Should rename a Log", func(ctx SpecContext) {
 			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, l.Key, "test2")).To(Succeed())
 			var res log.Log
-			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetData", func() {
-		It("Should set the data of a Log", func() {
+		It("Should set the data of a Log", func(ctx SpecContext) {
 			l := log.Log{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res log.Log
-			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})

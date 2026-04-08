@@ -13,12 +13,17 @@ import (
 	"context"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,9 +41,14 @@ type ServiceConfig struct {
 	// Group is used to create and manage a root group for holding all labels.
 	// [REQUIRED]
 	Group *group.Service
+	// Search is the search index for fuzzy searching labels.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -55,14 +65,17 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -70,44 +83,54 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg     ServiceConfig
-	signals io.Closer
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[Key, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close in order
 // to prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Label]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Label]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
-		if err != nil {
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfigUUID[Label](s.table.Observe()),
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
-	return s, err
+	return s, nil
 }
 
 // Close closes the label service and releases any resources that it may have acquired.
 // Close must be called when the service is no longer needed to prevent resource leaks.
-func (s *Service) Close() error {
-	if s.signals != nil {
-		return s.signals.Close()
-	}
-	return nil
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[Key, Label](),
-		otg:    s.cfg.Ontology,
+		gorp:   s.table.NewRetrieve(),
+		search: s.cfg.Search,
 	}
 }
 
@@ -115,5 +138,5 @@ func (s *Service) NewRetrieve() Retrieve {
 // the writer will use it, otherwise it will execute operations directly against the
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
+	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }

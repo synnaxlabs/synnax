@@ -37,8 +37,9 @@ channel, providing acknowledgment that the command was executed.
 
 | Parameter     | Type    | Required | Default | Description                                   |
 | ------------- | ------- | -------- | ------- | --------------------------------------------- |
+| `device`      | string  | Yes      | -       | Device key to write to                        |
 | `name`        | string  | Yes      | -       | Human-readable task name                      |
-| `state_rate`  | number  | No       | `20`    | Rate (Hz) at which state channels are updated |
+| `state_rate`  | number  | Yes      | -       | Rate (Hz) at which state channels are updated |
 | `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
 | `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
 | `channels`    | array   | Yes      | -       | List of digital output channel configurations |
@@ -49,11 +50,12 @@ channel, providing acknowledgment that the command was executed.
 
 [DO Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedochan.html)
 
-| Parameter | Type   | Required | Default | Description             |
-| --------- | ------ | -------- | ------- | ----------------------- |
-| `device`  | string | Yes      | -       | Device identifier       |
-| `port`    | number | Yes      | -       | Physical port           |
-| `line`    | number | Yes      | -       | Line number on the port |
+| Parameter       | Type   | Required | Default | Description                           |
+| --------------- | ------ | -------- | ------- | ------------------------------------- |
+| `cmd_channel`   | number | Yes      | -       | Synnax channel key for command values |
+| `state_channel` | number | Yes      | -       | Synnax channel key for state feedback |
+| `port`          | number | Yes      | -       | Physical port                         |
+| `line`          | number | Yes      | -       | Line number on the port               |
 
 <Divider.Divider x />
 
@@ -149,27 +151,25 @@ do_1_0_state = client.channels.create(
 # Create and configure task
 task = ni.DigitalWriteTask(
     name="Digital Write Task",
+    device=digital_dev.key,
     state_rate=sy.Rate.HZ * 20,
     data_saving=True,
     channels=[
-        ni.DOLineChan(
+        ni.DOChan(
             cmd_channel=do_0_0_cmd.key,
             state_channel=do_0_0_state.key,
-            device=digital_dev.key,
             port=0,
             line=0,
         ),
-        ni.DOLineChan(
+        ni.DOChan(
             cmd_channel=do_0_1_cmd.key,
             state_channel=do_0_1_state.key,
-            device=digital_dev.key,
             port=0,
             line=1,
         ),
-        ni.DOLineChan(
+        ni.DOChan(
             cmd_channel=do_1_0_cmd.key,
             state_channel=do_1_0_state.key,
-            device=digital_dev.key,
             port=1,
             line=0,
         ),
@@ -310,30 +310,28 @@ const task = await client.tasks.create({
   name: "Digital Write Task",
   type: "ni_digital_write",
   config: JSON.stringify({
+    device: digitalDev.key,
     state_rate: 20,
     data_saving: true,
     channels: [
       {
-        type: "do_line",
+        type: "digital_output",
         cmd_channel: do00Cmd.key,
         state_channel: do00State.key,
-        device: digitalDev.key,
         port: 0,
         line: 0,
       },
       {
-        type: "do_line",
+        type: "digital_output",
         cmd_channel: do01Cmd.key,
         state_channel: do01State.key,
-        device: digitalDev.key,
         port: 0,
         line: 1,
       },
       {
-        type: "do_line",
+        type: "digital_output",
         cmd_channel: do10Cmd.key,
         state_channel: do10State.key,
-        device: digitalDev.key,
         port: 1,
         line: 0,
       },

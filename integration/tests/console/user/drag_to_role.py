@@ -9,9 +9,8 @@
 
 """Test changing a user's role via drag-drop in the ontology tree."""
 
-from x import get_random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class UserDragToRole(ConsoleCase):
@@ -19,7 +18,7 @@ class UserDragToRole(ConsoleCase):
 
     def run(self) -> None:
         # Create a user with initial role
-        username = f"testuser_{get_random_name()}"
+        username = f"testuser_{random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"
@@ -51,8 +50,8 @@ class UserDragToRole(ConsoleCase):
         self.console.access.expand_role(new_role)
         users_in_new_role = self.console.access.list_users_under_role(new_role)
         self.log(f"Users under {new_role}: {users_in_new_role}")
-        assert (
-            username in users_in_new_role
-        ), f"User {username} not found under {new_role}"
+        assert username in users_in_new_role, (
+            f"User {username} not found under {new_role}"
+        )
 
         self.log("User drag-to-role test passed")

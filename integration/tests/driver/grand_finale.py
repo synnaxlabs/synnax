@@ -21,11 +21,11 @@ Channel creation is delegated to the existing concrete test case classes
 import platform
 from contextlib import ExitStack
 
-import synnax as sy
 from examples.modbus import ModbusSim
 from examples.opcua import OPCUASim
-from synnax import modbus, opcua
 
+import synnax as sy
+from synnax import modbus, opcua
 from tests.driver.modbus_read import ModbusReadCoil, ModbusReadInputRegister
 from tests.driver.modbus_write import ModbusWriteCoil
 from tests.driver.ni_read import (

@@ -17,9 +17,8 @@ from pydantic import BaseModel, Field
 
 from synnax import cluster
 from synnax import status as status_
-from synnax import telem
 from synnax.ontology.payload import ID
-from synnax.x import control
+from x import control, telem
 
 Key: TypeAlias = int
 
@@ -52,8 +51,10 @@ class Operation(BaseModel):
     """
 
     type: OperationType
-    reset_channel: Key = Field(default=Key(0))
-    duration: telem.TimeSpan = Field(default=telem.TimeSpan(0))
+    reset_channel: Key = Field(default=Key(0), ge=0, le=4294967295)
+    duration: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class Payload(BaseModel):
@@ -88,12 +89,12 @@ class Payload(BaseModel):
         status: Is the current operational status of the channel.
     """
 
-    key: Key
+    key: Key = Field(ge=0, le=4294967295)
     name: Name
-    leaseholder: cluster.NodeKey
+    leaseholder: cluster.NodeKey = Field(ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool
-    index: Key
+    index: Key = Field(ge=0, le=4294967295)
     alias: str | None = None
     virtual: bool = Field(default=False)
     internal: bool = Field(default=False)
@@ -135,12 +136,12 @@ class New(BaseModel):
         status: Is the current operational status of the channel.
     """
 
-    key: Key | None = None
+    key: Key | None = Field(default=None, ge=0, le=4294967295)
     name: Name
-    leaseholder: int | None = None
+    leaseholder: int | None = Field(default=None, ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool | None = None
-    index: Key | None = None
+    index: Key | None = Field(default=None, ge=0, le=4294967295)
     alias: str | None = None
     virtual: bool | None = None
     internal: bool | None = None

@@ -98,7 +98,7 @@ class SimDAQ:
                 self._create_analog_inputs(channels, json_file.name)
 
         print(f"\n{'=' * 70}")
-        print(f"SETUP COMPLETE")
+        print("SETUP COMPLETE")
         print(f"  Indices:         {len(self.indices)}")
         print(f"  Sensors:         {len(self.sensor_channels)}")
         print(f"  Valve pairs:     {len(self.valve_pairs)}")
@@ -364,7 +364,7 @@ class SimDAQ:
         ]
         write_channels = ["daq_time"] + sensor_names + state_channels
 
-        print(f"\nConfiguration:")
+        print("\nConfiguration:")
         print(f"  Writing {len(write_channels)} channels at 100 Hz")
         print(f"  Listening to {len(cmd_channels)} command channels")
 
@@ -373,7 +373,7 @@ class SimDAQ:
         if cmd_channels:
             try:
                 streamer = self.client.open_streamer(cmd_channels)
-                print(f"  ✓ Command streamer opened")
+                print("  ✓ Command streamer opened")
             except Exception as e:
                 print(f"  ⚠ Warning: {e}")
 
@@ -384,7 +384,7 @@ class SimDAQ:
             name="CTS Sim DAQ",
             enable_auto_commit=True,
         )
-        print(f"  ✓ Data writer opened")
+        print("  ✓ Data writer opened")
 
         loop = sy.Loop(sy.Rate.HZ * 100)
         iteration = 0

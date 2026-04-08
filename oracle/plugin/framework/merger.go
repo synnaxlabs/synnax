@@ -10,21 +10,24 @@
 // Package framework provides shared utilities for Oracle code generation plugins.
 package framework
 
-import "github.com/synnaxlabs/oracle/resolution"
+import (
+	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
+)
 
 // MergeTypes combines two type slices, deduplicating by QualifiedName.
 // This is used to merge standalone enums with those referenced by structs,
 // or to merge typedefs that share the same output path.
 func MergeTypes(a, b []resolution.Type) []resolution.Type {
-	seen := make(map[string]bool, len(a))
+	seen := make(set.Set[string], len(a))
 	for _, t := range a {
-		seen[t.QualifiedName] = true
+		seen.Add(t.QualifiedName)
 	}
 	result := append([]resolution.Type{}, a...)
 	for _, t := range b {
-		if !seen[t.QualifiedName] {
+		if !seen.Contains(t.QualifiedName) {
 			result = append(result, t)
-			seen[t.QualifiedName] = true
+			seen.Add(t.QualifiedName)
 		}
 	}
 	return result
@@ -33,15 +36,15 @@ func MergeTypes(a, b []resolution.Type) []resolution.Type {
 // MergeTypesByName combines two type slices, deduplicating by Name.
 // Some contexts (like Python) use Name instead of QualifiedName for deduplication.
 func MergeTypesByName(a, b []resolution.Type) []resolution.Type {
-	seen := make(map[string]bool, len(a))
+	seen := make(set.Set[string], len(a))
 	for _, t := range a {
-		seen[t.Name] = true
+		seen.Add(t.Name)
 	}
 	result := append([]resolution.Type{}, a...)
 	for _, t := range b {
-		if !seen[t.Name] {
+		if !seen.Contains(t.Name) {
 			result = append(result, t)
-			seen[t.Name] = true
+			seen.Add(t.Name)
 		}
 	}
 	return result

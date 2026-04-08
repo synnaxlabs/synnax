@@ -10,6 +10,7 @@
 package node_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/synnaxlabs/arc/graph"
@@ -21,6 +22,7 @@ import (
 )
 
 func BenchmarkRefreshInputsSingleInput(b *testing.B) {
+	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{
 			{Key: "source", Type: "source"},
