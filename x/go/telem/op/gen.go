@@ -371,7 +371,7 @@ func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, 
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]{{$.Type.GoType}}, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -384,7 +384,7 @@ func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, 
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = {{$.Type.GoType}}((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur

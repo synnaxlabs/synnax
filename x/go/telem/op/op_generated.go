@@ -5476,7 +5476,7 @@ func DerivativeF64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = float64((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5490,7 +5490,7 @@ func DerivativeF32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]float32, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5503,7 +5503,7 @@ func DerivativeF32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = float32((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5517,7 +5517,7 @@ func DerivativeI64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]int64, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5530,7 +5530,7 @@ func DerivativeI64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = int64((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5544,7 +5544,7 @@ func DerivativeI32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]int32, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5557,7 +5557,7 @@ func DerivativeI32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = int32((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5571,7 +5571,7 @@ func DerivativeI16(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]int16, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5584,7 +5584,7 @@ func DerivativeI16(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = int16((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5598,7 +5598,7 @@ func DerivativeI8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]int8, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5611,7 +5611,7 @@ func DerivativeI8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = int8((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5625,7 +5625,7 @@ func DerivativeU64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]uint64, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5638,7 +5638,7 @@ func DerivativeU64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = uint64((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5652,7 +5652,7 @@ func DerivativeU32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]uint32, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5665,7 +5665,7 @@ func DerivativeU32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = uint32((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5679,7 +5679,7 @@ func DerivativeU16(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]uint16, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5692,7 +5692,7 @@ func DerivativeU16(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = uint16((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
@@ -5706,7 +5706,7 @@ func DerivativeU8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]uint8, n)
+	out := make([]float64, n)
 	outTime := make([]telem.TimeStamp, n)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
@@ -5719,7 +5719,7 @@ func DerivativeU8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 			if dtSeconds <= 0 {
 				out[i] = 0
 			} else {
-				out[i] = uint8((cur - *prevVal) / dtSeconds)
+				out[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur

@@ -625,7 +625,7 @@ var _ = Describe("Derivative", func() {
 		Expect(vals[1]).To(BeNumerically("~", 0.0, 0.01))
 	})
 
-	It("Should work with int32 input type", func(ctx SpecContext) {
+	It("Should output float64 for int32 input type", func(ctx SpecContext) {
 		g := makeDerivGraph(types.I32())
 		analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
@@ -643,10 +643,10 @@ var _ = Describe("Derivative", func() {
 		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 		result := *s.Node("deriv").Output(0)
 		Expect(result.Len()).To(Equal(int64(3)))
-		vals := telem.UnmarshalSeries[int32](result)
-		Expect(vals[0]).To(Equal(int32(0)))
-		Expect(vals[1]).To(Equal(int32(100)))
-		Expect(vals[2]).To(Equal(int32(100)))
+		vals := telem.UnmarshalSeries[float64](result)
+		Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+		Expect(vals[1]).To(BeNumerically("~", 100.0, 0.01))
+		Expect(vals[2]).To(BeNumerically("~", 100.0, 0.01))
 	})
 
 	It("Should propagate alignment from input to output", func(ctx SpecContext) {

@@ -956,7 +956,7 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(timeVals[2]).To(Equal(4 * telem.SecondTS))
 		})
 
-		It("should work with I32 type", func() {
+		It("should work with I32 type and output float64", func() {
 			input := telem.NewSeriesV[int32](0, 100, 300)
 			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
 			var prevVal float64
@@ -965,10 +965,10 @@ var _ = Describe("Vectorized Operations", func() {
 
 			outData, _ := op.DerivativeI32(input, inputTime, &prevVal, &prevTS, &hasPrev)
 
-			vals := telem.UnmarshalSeries[int32](outData)
-			Expect(vals[0]).To(Equal(int32(0)))
-			Expect(vals[1]).To(Equal(int32(100)))
-			Expect(vals[2]).To(Equal(int32(100)))
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 100.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", 100.0, 0.01))
 		})
 
 		It("should handle empty input", func() {
@@ -985,7 +985,7 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(hasPrev).To(BeFalse())
 		})
 
-		It("should work with U8 type", func() {
+		It("should work with U8 type and output float64", func() {
 			input := telem.NewSeriesV[uint8](0, 10, 30)
 			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
 			var prevVal float64
@@ -994,10 +994,10 @@ var _ = Describe("Vectorized Operations", func() {
 
 			outData, _ := op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev)
 
-			vals := telem.UnmarshalSeries[uint8](outData)
-			Expect(vals[0]).To(Equal(uint8(0)))
-			Expect(vals[1]).To(Equal(uint8(10)))
-			Expect(vals[2]).To(Equal(uint8(10)))
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
 		})
 	})
 

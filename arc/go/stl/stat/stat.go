@@ -67,7 +67,7 @@ var (
 					{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
 				},
 				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+					{Name: ir.DefaultOutputParam, Type: types.F64()},
 				},
 			}),
 		}

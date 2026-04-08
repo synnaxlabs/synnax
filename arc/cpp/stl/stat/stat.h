@@ -330,7 +330,7 @@ private:
         runtime::node::Context &ctx
     ) {
         const size_t n = input_data->size();
-        std::vector<T> results(n);
+        std::vector<double> results(n);
         std::vector<int64_t> out_timestamps(n);
         for (size_t i = 0; i < n; i++) {
             const auto current_val = static_cast<double>(
@@ -339,18 +339,16 @@ private:
             const auto current_ts = input_time->at<int64_t>(static_cast<int64_t>(i));
             out_timestamps[i] = current_ts;
             if (!this->has_prev) {
-                results[i] = static_cast<T>(0);
+                results[i] = 0.0;
             } else {
                 const double dt_seconds = static_cast<double>(
                                               current_ts - this->prev_timestamp_ns
                                           ) /
                                           1e9;
                 if (dt_seconds <= 0)
-                    results[i] = static_cast<T>(0);
+                    results[i] = 0.0;
                 else
-                    results[i] = static_cast<T>(
-                        (current_val - this->prev_value) / dt_seconds
-                    );
+                    results[i] = (current_val - this->prev_value) / dt_seconds;
             }
             this->prev_value = current_val;
             this->prev_timestamp_ns = current_ts;
