@@ -16,6 +16,7 @@ import {
   direction,
   type location,
   type optional,
+  primitive,
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
@@ -561,7 +562,10 @@ export const CustomActuator = ({
   stateOverrides,
   ...rest
 }: CustomActuatorProps): ReactElement | null => {
-  const spec = useRetrieve({ key: specKey });
+  const spec = useRetrieve(
+    { key: specKey },
+    { beforeRetrieve: ({ query }) => !primitive.isZero(query.key) },
+  );
   const svgContainerRef = useRef<HTMLButtonElement>(null);
   useCustom({
     container: svgContainerRef.current,
@@ -617,7 +621,10 @@ export const CustomStatic = ({
   stateOverrides,
   ...rest
 }: CustomStaticProps): ReactElement | null => {
-  const spec = useRetrieve({ key: specKey });
+  const spec = useRetrieve(
+    { key: specKey },
+    { beforeRetrieve: ({ query }) => !primitive.isZero(query.key) },
+  );
   const svgContainerRef = useRef<HTMLDivElement>(null);
   useCustom({
     container: svgContainerRef.current,
