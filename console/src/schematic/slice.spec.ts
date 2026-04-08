@@ -829,7 +829,7 @@ describe("Schematic Slice", () => {
       expect(client.schematics.retrieve).not.toHaveBeenCalled();
     });
 
-    it("should navigate when all conditions are met", () => {
+    it("should navigate when all conditions are met", async () => {
       store.dispatch(
         actions.addElement({
           key: schematicKey,
@@ -844,7 +844,9 @@ describe("Schematic Slice", () => {
       );
       const mockSchematic = { key: "target-page-key", data: {}, name: "Target" };
       const placeLayout = vi.fn();
-      const handleError = vi.fn();
+      // Invoke the callback so navigateToLinkedSchematic executes,
+      // covering the lambda passed to handleError in Schematic.tsx.
+      const handleError = vi.fn().mockImplementation((fn: () => Promise<void>) => fn());
       const client = {
         schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
       };
@@ -865,6 +867,12 @@ describe("Schematic Slice", () => {
         expect.any(Function),
         'Schematic "Go to Target" not found',
       );
+      await vi.waitFor(() => {
+        expect(client.schematics.retrieve).toHaveBeenCalledWith({
+          key: "target-page-key",
+        });
+        expect(placeLayout).toHaveBeenCalledTimes(1);
+      });
     });
 
     it("should navigate on single click when dblClickNav is false", () => {
