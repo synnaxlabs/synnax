@@ -25,7 +25,7 @@ func open_press() {
     }
 }
 
-interval{period=50ms} -> open_press{}
+interval{50ms} -> open_press{}
 """
 
 

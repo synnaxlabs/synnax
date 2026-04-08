@@ -21,7 +21,7 @@ start_seq_cmd => main
 sequence main {
     stage pressurize {
         1 -> press_vlv_cmd,
-        wait{duration=100ms} => pressurize
+        wait{100ms} => pressurize
     }
 }
 """

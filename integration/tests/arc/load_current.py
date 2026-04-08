@@ -18,7 +18,7 @@ start_load_current_cmd => main
 sequence main {
     stage first {
         1 -> flag,
-        load_current > 50 => wait{duration=2s} => next,
+        load_current > 50 => wait{2s} => next,
     }
     stage last {
         0 -> flag,

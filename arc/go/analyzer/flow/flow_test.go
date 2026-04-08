@@ -161,6 +161,95 @@ sensor_chan > 100 -> sim_daq
 		})
 	})
 
+	Describe("Anonymous Configuration Values", func() {
+		It("Should accept multiple anonymous config values", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+func transform{
+	scale f64,
+	offset f64
+} (x f64) f64 {
+	return x * scale + offset
+}
+
+func sink{} () {}
+
+sensor_chan -> transform{2.5, 0.1} -> sink{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept partial anonymous config when trailing params have defaults", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+func controller{
+	setpoint f64,
+	gain f64 = 1.0
+} () {}
+
+sensor_chan -> controller{100.0}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should detect type mismatch in anonymous config values", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+func filter{
+	threshold f64
+} (x f64) f64 {
+	return x
+}
+
+func sink{} () {}
+
+sensor_chan -> filter{"hello"} -> sink{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("threshold"))
+		})
+
+		It("Should reject too many anonymous config values", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+func filter{
+	threshold f64
+} (x f64) f64 {
+	return x
+}
+
+func sink{} () {}
+
+sensor_chan -> filter{5.0, 20, 30} -> sink{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("too many config values"))
+		})
+
+		It("Should reject partial anonymous config missing required params", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+func controller{
+	setpoint f64,
+	gain f64
+} () {}
+
+sensor_chan -> controller{100.0}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required config parameter 'gain' for func 'controller'"))
+		})
+	})
+
 	Describe("Channel to func Flows", func() {
 		Context("function to function connections", func() {
 			It("Should detect when func with no output connects to func expecting input", func(bCtx SpecContext) {
