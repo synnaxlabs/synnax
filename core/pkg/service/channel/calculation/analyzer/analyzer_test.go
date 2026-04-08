@@ -221,6 +221,40 @@ var _ = Describe("Analyze", func() {
 		})
 	})
 
+	Describe("Derivative Operation Type Override", func() {
+		It("Should infer float64 DataType when derivative is the last operation", func(ctx SpecContext) {
+			r := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
+			}
+			a := analyzer.New(r)
+			ch := channel.Channel{
+				Name:       "deriv_calc",
+				Expression: "return sensor",
+				Operations: []channel.Operation{
+					{Type: channel.OperationTypeDerivative},
+				},
+			}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Float64T))
+		})
+
+		It("Should not override DataType when avg is the last operation", func(ctx SpecContext) {
+			r := symbol.MapResolver{
+				"sensor2": {Name: "sensor2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
+			}
+			a := analyzer.New(r)
+			ch := channel.Channel{
+				Name:       "avg_calc",
+				Expression: "return sensor2",
+				Operations: []channel.Operation{
+					{Type: channel.OperationTypeAvg},
+				},
+			}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Int32T))
+		})
+	})
+
 	Describe("Resolver Fallback", func() {
 		It("Should fall back to the underlying resolver for symbols not in the temp cache", func(ctx SpecContext) {
 			r := symbol.MapResolver{

@@ -1319,6 +1319,7 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(40.0)
 
+    @pytest.mark.focus
     def test_derivative_computes_rate_of_change(self, client: sy.Synnax):
         """Should compute pointwise derivative in units per second."""
         idx = client.channels.create(

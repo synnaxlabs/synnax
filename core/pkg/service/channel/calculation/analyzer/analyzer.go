@@ -113,5 +113,10 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 			deps = append(deps, channel.Key(k))
 		}
 	}
-	return Result{DataType: types.ToTelem(dataType), Deps: deps}, nil
+	inferredDataType := types.ToTelem(dataType)
+	if len(ch.Operations) > 0 &&
+		ch.Operations[len(ch.Operations)-1].Type == channel.OperationTypeDerivative {
+		inferredDataType = telem.Float64T
+	}
+	return Result{DataType: inferredDataType, Deps: deps}, nil
 }
