@@ -32,8 +32,22 @@ const (
 	derivativeSymbolName = "derivative"
 )
 
+var constraint = types.NumericConstraint()
+
+type (
+	reductionFn  = func(telem.Series, int64, *telem.Series) int64
+	derivativeFn = func(
+		telem.Series,
+		telem.Series,
+		*float64,
+		*telem.TimeStamp,
+		*bool,
+		*telem.Series,
+		*telem.Series,
+	)
+)
+
 func createBaseSymbol(name string) symbol.Symbol {
-	constraint := types.NumericConstraint()
 	return symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
@@ -57,21 +71,18 @@ var (
 	avgSymbol        = createBaseSymbol(avgSymbolName)
 	minSymbol        = createBaseSymbol(minSymbolName)
 	maxSymbol        = createBaseSymbol(maxSymbolName)
-	derivativeSymbol = func() symbol.Symbol {
-		constraint := types.NumericConstraint()
-		return symbol.Symbol{
-			Name: derivativeSymbolName,
-			Kind: symbol.KindFunction,
-			Type: types.Function(types.FunctionProperties{
-				Inputs: types.Params{
-					{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
-				},
-				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.F64()},
-				},
-			}),
-		}
-	}()
+	derivativeSymbol = symbol.Symbol{
+		Name: derivativeSymbolName,
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.F64()},
+			},
+		}),
+	}
 	SymbolResolver = symbol.MapResolver{
 		avgSymbolName:        avgSymbol,
 		minSymbolName:        minSymbol,
@@ -113,7 +124,7 @@ func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, erro
 	return &statNode{
 		State:       nodeCfg.State,
 		resetIdx:    resetIdx,
-		reductionFn: reductionFn,
+		process:     reductionFn,
 		sampleCount: 0,
 		cfg:         cfg,
 	}, nil
@@ -131,7 +142,7 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 
 type statNode struct {
 	*node.State
-	reductionFn   func(telem.Series, int64, *telem.Series) int64
+	process       reductionFn
 	cfg           ConfigValues
 	resetIdx      int
 	sampleCount   int64
@@ -196,7 +207,7 @@ func (r *statNode) Next(ctx node.Context) {
 	if inputData.Len() == 0 {
 		return
 	}
-	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.Output(0))
+	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
 	if inputTime.Len() > 0 {
 		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
 		*r.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
@@ -220,44 +231,58 @@ func (r *statNode) Next(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-var ops = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series) int64{
-	avgSymbolName: {
-		telem.Float64T: op.AvgF64,
-		telem.Float32T: op.AvgF32,
-		telem.Int64T:   op.AvgI64,
-		telem.Int32T:   op.AvgI32,
-		telem.Int16T:   op.AvgI16,
-		telem.Int8T:    op.AvgI8,
-		telem.Uint64T:  op.AvgU64,
-		telem.Uint32T:  op.AvgU32,
-		telem.Uint16T:  op.AvgU16,
-		telem.Uint8T:   op.AvgU8,
-	},
-	minSymbolName: {
-		telem.Float64T: op.MinF64,
-		telem.Float32T: op.MinF32,
-		telem.Int64T:   op.MinI64,
-		telem.Int32T:   op.MinI32,
-		telem.Int16T:   op.MinI16,
-		telem.Int8T:    op.MinI8,
-		telem.Uint64T:  op.MinU64,
-		telem.Uint32T:  op.MinU32,
-		telem.Uint16T:  op.MinU16,
-		telem.Uint8T:   op.MinU8,
-	},
-	maxSymbolName: {
-		telem.Float64T: op.MaxF64,
-		telem.Float32T: op.MaxF32,
-		telem.Int64T:   op.MaxI64,
-		telem.Int32T:   op.MaxI32,
-		telem.Int16T:   op.MaxI16,
-		telem.Int8T:    op.MaxI8,
-		telem.Uint64T:  op.MaxU64,
-		telem.Uint32T:  op.MaxU32,
-		telem.Uint16T:  op.MaxU16,
-		telem.Uint8T:   op.MaxU8,
-	},
-}
+var (
+	ops = map[string]map[telem.DataType]reductionFn{
+		avgSymbolName: {
+			telem.Float64T: op.AvgF64,
+			telem.Float32T: op.AvgF32,
+			telem.Int64T:   op.AvgI64,
+			telem.Int32T:   op.AvgI32,
+			telem.Int16T:   op.AvgI16,
+			telem.Int8T:    op.AvgI8,
+			telem.Uint64T:  op.AvgU64,
+			telem.Uint32T:  op.AvgU32,
+			telem.Uint16T:  op.AvgU16,
+			telem.Uint8T:   op.AvgU8,
+		},
+		minSymbolName: {
+			telem.Float64T: op.MinF64,
+			telem.Float32T: op.MinF32,
+			telem.Int64T:   op.MinI64,
+			telem.Int32T:   op.MinI32,
+			telem.Int16T:   op.MinI16,
+			telem.Int8T:    op.MinI8,
+			telem.Uint64T:  op.MinU64,
+			telem.Uint32T:  op.MinU32,
+			telem.Uint16T:  op.MinU16,
+			telem.Uint8T:   op.MinU8,
+		},
+		maxSymbolName: {
+			telem.Float64T: op.MaxF64,
+			telem.Float32T: op.MaxF32,
+			telem.Int64T:   op.MaxI64,
+			telem.Int32T:   op.MaxI32,
+			telem.Int16T:   op.MaxI16,
+			telem.Int8T:    op.MaxI8,
+			telem.Uint64T:  op.MaxU64,
+			telem.Uint32T:  op.MaxU32,
+			telem.Uint16T:  op.MaxU16,
+			telem.Uint8T:   op.MaxU8,
+		},
+	}
+	derivOps = map[telem.DataType]derivativeFn{
+		telem.Float64T: op.DerivativeF64,
+		telem.Float32T: op.DerivativeF32,
+		telem.Int64T:   op.DerivativeI64,
+		telem.Int32T:   op.DerivativeI32,
+		telem.Int16T:   op.DerivativeI16,
+		telem.Int8T:    op.DerivativeI8,
+		telem.Uint64T:  op.DerivativeU64,
+		telem.Uint32T:  op.DerivativeU32,
+		telem.Uint16T:  op.DerivativeU16,
+		telem.Uint8T:   op.DerivativeU8,
+	}
+)
 
 func (m *Module) createDerivative(cfg node.Config) (node.Node, error) {
 	inputData := cfg.State.Input(0)
@@ -265,12 +290,12 @@ func (m *Module) createDerivative(cfg node.Config) (node.Node, error) {
 	if !ok {
 		return nil, query.ErrNotFound
 	}
-	return &derivativeNode{State: cfg.State, derivFn: derivFn}, nil
+	return &derivativeNode{State: cfg.State, process: derivFn}, nil
 }
 
 type derivativeNode struct {
 	*node.State
-	derivFn       func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool, *telem.Series, *telem.Series)
+	process       derivativeFn
 	prevValue     float64
 	prevTimestamp telem.TimeStamp
 	hasPrev       bool
@@ -294,7 +319,7 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	if inputData.Len() == 0 {
 		return
 	}
-	d.derivFn(
+	d.process(
 		inputData, inputTime,
 		&d.prevValue, &d.prevTimestamp, &d.hasPrev,
 		d.Output(0), d.OutputTime(0),
@@ -304,17 +329,4 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
-}
-
-var derivOps = map[telem.DataType]func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool, *telem.Series, *telem.Series){
-	telem.Float64T: op.DerivativeF64,
-	telem.Float32T: op.DerivativeF32,
-	telem.Int64T:   op.DerivativeI64,
-	telem.Int32T:   op.DerivativeI32,
-	telem.Int16T:   op.DerivativeI16,
-	telem.Int8T:    op.DerivativeI8,
-	telem.Uint64T:  op.DerivativeU64,
-	telem.Uint32T:  op.DerivativeU32,
-	telem.Uint16T:  op.DerivativeU16,
-	telem.Uint8T:   op.DerivativeU8,
 }

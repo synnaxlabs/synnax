@@ -69,13 +69,14 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	if err != nil {
 		return arc.Program{}, err
 	}
+	dt := result.ExpressionReturnType
+	if cfg.Channel.DataType != result.ChanDataType {
+		dt = types.FromTelem(cfg.Channel.DataType)
+	}
 	fn := ir.Function{
-		Key: calculationKey,
-		Outputs: types.Params{{
-			Name: ir.DefaultOutputParam,
-			Type: result.ExpressionReturnType,
-		}},
-		Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
+		Key:     calculationKey,
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
+		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
 	return arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))

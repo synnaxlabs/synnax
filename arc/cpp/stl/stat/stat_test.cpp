@@ -168,8 +168,6 @@ void write_reset(
 }
 }
 
-// ─── Module ──────────────────────────────────────────────────────────────────
-
 TEST(StatModuleTest, HandlesStatTypes) {
     Module module;
     EXPECT_TRUE(module.handles("avg"));
@@ -192,8 +190,6 @@ TEST(StatModuleTest, ReturnsNotFoundForWrongType) {
     );
 }
 
-// ─── Avg ─────────────────────────────────────────────────────────────────────
-
 TEST(StatAvgTest, ComputesRunningAverage) {
     TestSetup setup(types::Kind::F64, "avg");
     Module module;
@@ -213,6 +209,8 @@ TEST(StatAvgTest, ComputesRunningAverage) {
     auto checker = setup.make_target_node();
     EXPECT_EQ(checker.output(0)->size(), 1);
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 20.0);
+    EXPECT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
 }
 
 TEST(StatAvgTest, AccumulatesAcrossBatches) {
@@ -290,7 +288,62 @@ TEST(StatAvgTest, ResetsWithCountConfig) {
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 50.0);
 }
 
-// ─── Min ─────────────────────────────────────────────────────────────────────
+TEST(StatAvgTest, ResetsWithDurationConfig) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = 5 * x::telem::SECOND.nanoseconds();
+
+    TestSetup setup(types::Kind::F64, "avg", {duration_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker1.output(0)->at<double>(0), 20.0);
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {100.0, 200.0}, {6 * sec, 7 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 150.0);
+}
+
+TEST(StatAvgTest, ResetsWithSignal) {
+    TestSetup setup(types::Kind::F64, "avg", {}, true);
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
+    auto reset1 = setup.make_reset_node();
+    write_reset(reset1, {0}, {sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker1.output(0)->at<double>(0), 20.0);
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {100.0, 200.0}, {4 * sec, 5 * sec});
+    auto reset2 = setup.make_reset_node();
+    write_reset(reset2, {1}, {4 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 150.0);
+}
 
 TEST(StatMinTest, ComputesRunningMinimum) {
     TestSetup setup(types::Kind::I32, "min");
@@ -310,6 +363,8 @@ TEST(StatMinTest, ComputesRunningMinimum) {
 
     auto checker = setup.make_target_node();
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 10);
+    EXPECT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
 }
 
 TEST(StatMinTest, MaintainsMinAcrossBatches) {
@@ -368,7 +423,83 @@ TEST(StatMinTest, ResetsWithDurationConfig) {
     EXPECT_EQ(checker2.output(0)->at<int32_t>(0), 40);
 }
 
-// ─── Max ─────────────────────────────────────────────────────────────────────
+TEST(StatMinTest, ResetsWithCountConfig) {
+    types::Param count_param;
+    count_param.name = "count";
+    count_param.type = types::Type{.kind = types::Kind::I64};
+    count_param.value = static_cast<int64_t>(3);
+
+    TestSetup setup(types::Kind::F64, "min", {count_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {5.0, 10.0, 15.0}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker1.output(0)->at<double>(0), 5.0);
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {50.0, 40.0, 30.0}, {4 * sec, 5 * sec, 6 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 30.0);
+}
+
+TEST(StatMinTest, ResetsWithSignal) {
+    TestSetup setup(types::Kind::I32, "min", {}, true);
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {50, 10, 70}, {sec, 2 * sec, 3 * sec});
+    auto reset1 = setup.make_reset_node();
+    write_reset(reset1, {0}, {sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_EQ(checker1.output(0)->at<int32_t>(0), 10);
+
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {80, 40, 60}, {4 * sec, 5 * sec, 6 * sec});
+    auto reset2 = setup.make_reset_node();
+    write_reset(reset2, {1}, {4 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_EQ(checker2.output(0)->at<int32_t>(0), 40);
+}
+
+TEST(StatMinTest, DoesNotUpdateWhenNewValuesLarger) {
+    TestSetup setup(types::Kind::F64, "min");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {5.0}, {sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {10.0, 20.0}, {2 * sec, 3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 5.0);
+}
 
 TEST(StatMaxTest, ComputesRunningMaximum) {
     TestSetup setup(types::Kind::F64, "max");
@@ -388,6 +519,87 @@ TEST(StatMaxTest, ComputesRunningMaximum) {
 
     auto checker = setup.make_target_node();
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 50.0);
+    EXPECT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
+}
+
+TEST(StatMaxTest, MaintainsMaxAcrossBatches) {
+    TestSetup setup(types::Kind::F64, "max");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0, 50.0}, {sec, 2 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {30.0, 20.0}, {3 * sec, 4 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 50.0);
+}
+
+TEST(StatMaxTest, ResetsWithDurationConfig) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = 5 * x::telem::SECOND.nanoseconds();
+
+    TestSetup setup(types::Kind::F64, "max", {duration_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0, 50.0, 30.0}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker1.output(0)->at<double>(0), 50.0);
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {5.0, 15.0}, {6 * sec, 7 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 15.0);
+}
+
+TEST(StatMaxTest, ResetsWithCountConfig) {
+    types::Param count_param;
+    count_param.name = "count";
+    count_param.type = types::Type{.kind = types::Kind::I64};
+    count_param.value = static_cast<int64_t>(2);
+
+    TestSetup setup(types::Kind::I32, "max", {count_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {10, 50}, {sec, 2 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_EQ(checker1.output(0)->at<int32_t>(0), 50);
+
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {5, 15}, {3 * sec, 4 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_EQ(checker2.output(0)->at<int32_t>(0), 15);
 }
 
 TEST(StatMaxTest, ResetsWithSignal) {
@@ -486,8 +698,6 @@ TEST(StatMaxTest, ExecutesBeforeResetSignalSendsData) {
     auto checker = setup.make_target_node();
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 50.0);
 }
-
-// ─── Derivative ──────────────────────────────────────────────────────────────
 
 TEST(StatDerivativeTest, ComputesPointwiseDerivative) {
     TestSetup setup(types::Kind::F64, "derivative");
@@ -656,8 +866,6 @@ TEST(StatDerivativeTest, U8InputNegativeDerivativeOutputsFloat64) {
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(2), -15.0);
 }
 
-// ─── Empty Input ─────────────────────────────────────────────────────────────
-
 TEST(StatAvgTest, HandlesEmptyInput) {
     TestSetup setup(types::Kind::F64, "avg");
     Module module;
@@ -699,8 +907,6 @@ TEST(StatMaxTest, HandlesEmptyInput) {
     ASSERT_NIL(node->next(ctx));
     EXPECT_FALSE(changed);
 }
-
-// ─── Non-F64 Type Tests ─────────────────────────────────────────────────────
 
 TEST(StatAvgTest, WorksWithI32) {
     TestSetup setup(types::Kind::I32, "avg");
