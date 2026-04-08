@@ -30,21 +30,17 @@ struct Config {
     x::telem::TimeSpan duration{0};
     int64_t count = 0;
 
-    static std::pair<Config, x::errors::Error>
-    create(const types::Params &params) {
+    static std::pair<Config, x::errors::Error> create(const types::Params &params) {
         Config cfg;
         for (size_t i = 0; i < params.size(); i++) {
             const auto &p = params[i];
             if (p.name == "duration") {
                 auto sv = types::to_sample_value(p.value, p.type);
                 if (sv.has_value())
-                    cfg.duration = x::telem::TimeSpan(
-                        x::telem::cast<int64_t>(*sv)
-                    );
+                    cfg.duration = x::telem::TimeSpan(x::telem::cast<int64_t>(*sv));
             } else if (p.name == "count") {
                 auto sv = types::to_sample_value(p.value, p.type);
-                if (sv.has_value())
-                    cfg.count = x::telem::cast<int64_t>(*sv);
+                if (sv.has_value()) cfg.count = x::telem::cast<int64_t>(*sv);
             }
         }
         return {cfg, x::errors::NIL};
@@ -94,8 +90,7 @@ public:
             const auto &reset_time = this->state.input_time(this->reset_idx);
             for (size_t i = 0; i < reset_data->size(); i++) {
                 auto ts = x::telem::TimeStamp(reset_time->at<int64_t>(i));
-                if (ts > this->last_reset_time &&
-                    reset_data->at<uint8_t>(i) == 1)
+                if (ts > this->last_reset_time && reset_data->at<uint8_t>(i) == 1)
                     should_reset = true;
             }
             if (reset_time->size() > 0)
@@ -125,23 +120,45 @@ public:
         if (input_data->size() == 0) return x::errors::NIL;
 
         switch (this->kind) {
-            case types::Kind::F64: this->reduce<double>(input_data); break;
-            case types::Kind::F32: this->reduce<float>(input_data); break;
-            case types::Kind::I64: this->reduce<int64_t>(input_data); break;
-            case types::Kind::I32: this->reduce<int32_t>(input_data); break;
-            case types::Kind::I16: this->reduce<int16_t>(input_data); break;
-            case types::Kind::I8: this->reduce<int8_t>(input_data); break;
-            case types::Kind::U64: this->reduce<uint64_t>(input_data); break;
-            case types::Kind::U32: this->reduce<uint32_t>(input_data); break;
-            case types::Kind::U16: this->reduce<uint16_t>(input_data); break;
-            case types::Kind::U8: this->reduce<uint8_t>(input_data); break;
-            default: break;
+            case types::Kind::F64:
+                this->reduce<double>(input_data);
+                break;
+            case types::Kind::F32:
+                this->reduce<float>(input_data);
+                break;
+            case types::Kind::I64:
+                this->reduce<int64_t>(input_data);
+                break;
+            case types::Kind::I32:
+                this->reduce<int32_t>(input_data);
+                break;
+            case types::Kind::I16:
+                this->reduce<int16_t>(input_data);
+                break;
+            case types::Kind::I8:
+                this->reduce<int8_t>(input_data);
+                break;
+            case types::Kind::U64:
+                this->reduce<uint64_t>(input_data);
+                break;
+            case types::Kind::U32:
+                this->reduce<uint32_t>(input_data);
+                break;
+            case types::Kind::U16:
+                this->reduce<uint16_t>(input_data);
+                break;
+            case types::Kind::U8:
+                this->reduce<uint8_t>(input_data);
+                break;
+            default:
+                break;
         }
 
         if (this->state.input_time(0)->size() > 0) {
             auto last_ts = this->state.input_time(0)->at<int64_t>(-1);
-            *this->state.output_time(0) =
-                x::telem::Series(std::vector<int64_t>{last_ts});
+            *this->state.output_time(0) = x::telem::Series(
+                std::vector<int64_t>{last_ts}
+            );
         }
 
         auto &output = this->state.output(0);
@@ -160,8 +177,7 @@ public:
         this->last_reset_time = x::telem::TimeStamp(0);
     }
 
-    [[nodiscard]] bool
-    is_output_truthy(const std::string &param) const override {
+    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
         return this->state.is_output_truthy(param);
     }
 
@@ -172,19 +188,21 @@ private:
         auto &output = this->state.output(0);
         const bool fresh = (output->size() == 0);
         switch (this->op) {
-            case Op::Avg: this->reduce_avg<T>(input_data, n, fresh); break;
-            case Op::Min: this->reduce_min<T>(input_data, n, fresh); break;
-            case Op::Max: this->reduce_max<T>(input_data, n, fresh); break;
+            case Op::Avg:
+                this->reduce_avg<T>(input_data, n, fresh);
+                break;
+            case Op::Min:
+                this->reduce_min<T>(input_data, n, fresh);
+                break;
+            case Op::Max:
+                this->reduce_max<T>(input_data, n, fresh);
+                break;
         }
         this->sample_count += n;
     }
 
     template<typename T>
-    void reduce_avg(
-        const runtime::state::Series &input_data,
-        int64_t n,
-        bool fresh
-    ) {
+    void reduce_avg(const runtime::state::Series &input_data, int64_t n, bool fresh) {
         double new_sum = 0;
         for (int64_t i = 0; i < n; i++)
             new_sum += static_cast<double>(input_data->at<T>(i));
@@ -204,35 +222,25 @@ private:
     }
 
     template<typename T>
-    void reduce_min(
-        const runtime::state::Series &input_data,
-        int64_t n,
-        bool fresh
-    ) {
+    void reduce_min(const runtime::state::Series &input_data, int64_t n, bool fresh) {
         T new_min = input_data->at<T>(0);
         for (int64_t i = 1; i < n; i++) {
             auto val = input_data->at<T>(i);
             if (val < new_min) new_min = val;
         }
         auto &output = this->state.output(0);
-        if (fresh || new_min < output->at<T>(0))
-            *output = x::telem::Series(new_min);
+        if (fresh || new_min < output->at<T>(0)) *output = x::telem::Series(new_min);
     }
 
     template<typename T>
-    void reduce_max(
-        const runtime::state::Series &input_data,
-        int64_t n,
-        bool fresh
-    ) {
+    void reduce_max(const runtime::state::Series &input_data, int64_t n, bool fresh) {
         T new_max = input_data->at<T>(0);
         for (int64_t i = 1; i < n; i++) {
             auto val = input_data->at<T>(i);
             if (val > new_max) new_max = val;
         }
         auto &output = this->state.output(0);
-        if (fresh || new_max > output->at<T>(0))
-            *output = x::telem::Series(new_max);
+        if (fresh || new_max > output->at<T>(0)) *output = x::telem::Series(new_max);
     }
 };
 
@@ -255,17 +263,38 @@ public:
         const auto &input_time = this->state.input_time(0);
         if (input_data->size() == 0) return x::errors::NIL;
         switch (this->kind) {
-            case types::Kind::F64: this->compute<double>(input_data, input_time, ctx); break;
-            case types::Kind::F32: this->compute<float>(input_data, input_time, ctx); break;
-            case types::Kind::I64: this->compute<int64_t>(input_data, input_time, ctx); break;
-            case types::Kind::I32: this->compute<int32_t>(input_data, input_time, ctx); break;
-            case types::Kind::I16: this->compute<int16_t>(input_data, input_time, ctx); break;
-            case types::Kind::I8: this->compute<int8_t>(input_data, input_time, ctx); break;
-            case types::Kind::U64: this->compute<uint64_t>(input_data, input_time, ctx); break;
-            case types::Kind::U32: this->compute<uint32_t>(input_data, input_time, ctx); break;
-            case types::Kind::U16: this->compute<uint16_t>(input_data, input_time, ctx); break;
-            case types::Kind::U8: this->compute<uint8_t>(input_data, input_time, ctx); break;
-            default: break;
+            case types::Kind::F64:
+                this->compute<double>(input_data, input_time, ctx);
+                break;
+            case types::Kind::F32:
+                this->compute<float>(input_data, input_time, ctx);
+                break;
+            case types::Kind::I64:
+                this->compute<int64_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::I32:
+                this->compute<int32_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::I16:
+                this->compute<int16_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::I8:
+                this->compute<int8_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::U64:
+                this->compute<uint64_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::U32:
+                this->compute<uint32_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::U16:
+                this->compute<uint16_t>(input_data, input_time, ctx);
+                break;
+            case types::Kind::U8:
+                this->compute<uint8_t>(input_data, input_time, ctx);
+                break;
+            default:
+                break;
         }
         return x::errors::NIL;
     }
@@ -276,8 +305,7 @@ public:
         this->prev_timestamp_ns = 0;
     }
 
-    [[nodiscard]] bool
-    is_output_truthy(const std::string &param) const override {
+    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
         return this->state.is_output_truthy(param);
     }
 
@@ -295,16 +323,15 @@ private:
             const auto current_val = static_cast<double>(
                 input_data->at<T>(static_cast<int64_t>(i))
             );
-            const auto current_ts = input_time->at<int64_t>(
-                static_cast<int64_t>(i)
-            );
+            const auto current_ts = input_time->at<int64_t>(static_cast<int64_t>(i));
             out_timestamps[i] = current_ts;
             if (!this->has_prev) {
                 results[i] = static_cast<T>(0);
             } else {
-                const double dt_seconds =
-                    static_cast<double>(current_ts - this->prev_timestamp_ns) /
-                    1e9;
+                const double dt_seconds = static_cast<double>(
+                                              current_ts - this->prev_timestamp_ns
+                                          ) /
+                                          1e9;
                 if (dt_seconds <= 0)
                     results[i] = static_cast<T>(0);
                 else
@@ -331,18 +358,16 @@ private:
 class Module : public stl::Module {
 public:
     bool handles(const std::string &node_type) const override {
-        return node_type == "avg" || node_type == "min" ||
-               node_type == "max" || node_type == "derivative";
+        return node_type == "avg" || node_type == "min" || node_type == "max" ||
+               node_type == "derivative";
     }
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
-        if (!this->handles(cfg.node.type))
-            return {nullptr, x::errors::NOT_FOUND};
+        if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
 
         types::Kind kind = types::Kind::Invalid;
-        if (!cfg.node.inputs.empty())
-            kind = cfg.node.inputs[0].type.kind;
+        if (!cfg.node.inputs.empty()) kind = cfg.node.inputs[0].type.kind;
 
         if (cfg.node.type == "derivative")
             return {
@@ -362,15 +387,11 @@ public:
             op = Stat::Op::Max;
 
         int reset_idx = -1;
-        auto edge = cfg.prog.edge_to(
-            ir::Handle(cfg.node.key, "reset")
-        );
+        auto edge = cfg.prog.edge_to(ir::Handle(cfg.node.key, "reset"));
         if (edge.has_value()) reset_idx = 1;
 
         return {
-            std::make_unique<Stat>(
-                std::move(cfg.state), kind, op, stat_cfg, reset_idx
-            ),
+            std::make_unique<Stat>(std::move(cfg.state), kind, op, stat_cfg, reset_idx),
             x::errors::NIL
         };
     }

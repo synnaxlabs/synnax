@@ -138,8 +138,7 @@ void write_source_f64(
     const std::vector<int64_t> &timestamps
 ) {
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
-    source.output_time(0) =
-        x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 
 void write_source_i32(
@@ -148,8 +147,7 @@ void write_source_i32(
     const std::vector<int64_t> &timestamps
 ) {
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
-    source.output_time(0) =
-        x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 
 void write_reset(
@@ -158,8 +156,7 @@ void write_reset(
     const std::vector<int64_t> &timestamps
 ) {
     reset.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
-    reset.output_time(0) =
-        x::mem::make_local_shared<x::telem::Series>(timestamps);
+    reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 }
 
