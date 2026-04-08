@@ -547,7 +547,8 @@ TEST_F(SchedulerTest, testConditionalFiresEveryTickInStage) {
 
     const auto scheduler = build(std::move(ir));
 
-    // First call: trigger→entry conditional fires, stage activates, A→B conditional fires
+    // First call: trigger→entry conditional fires, stage activates, A→B conditional
+    // fires
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     ASSERT_EQ(nodeB.next_called, 1);
 

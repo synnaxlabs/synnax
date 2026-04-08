@@ -106,15 +106,15 @@ func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err e
 // builds the change propagation graph from the IR edges.
 func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
-		nodes:               make(map[string]node, len(prog.Nodes)),
-		globalStrata:        prog.Strata,
-		sequences:           make([]sequenceState, len(prog.Sequences)),
-		transitions:         make(map[string]transitionTarget),
-		changed:             make(set.Set[string], len(prog.Nodes)),
-		selfChanged:         make(set.Set[string]),
-		currSeqIdx: -1,
-		currStageIdx:        -1,
-		tolerance:           tolerance,
+		nodes:        make(map[string]node, len(prog.Nodes)),
+		globalStrata: prog.Strata,
+		sequences:    make([]sequenceState, len(prog.Sequences)),
+		transitions:  make(map[string]transitionTarget),
+		changed:      make(set.Set[string], len(prog.Nodes)),
+		selfChanged:  make(set.Set[string]),
+		currSeqIdx:   -1,
+		currStageIdx: -1,
+		tolerance:    tolerance,
 	}
 
 	for _, n := range prog.Nodes {
