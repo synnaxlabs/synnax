@@ -48,8 +48,8 @@ You declare how data flows through your system, and Arc handles the scheduling:
 tank_pressure -> scale{factor=2.0} -> pressure_display
 ```
 
-No polling. No manual scheduling. When `tank_pressure` receives new data, Arc
-automatically runs `scale` and updates `pressure_display`.
+When `tank_pressure` receives new data, Arc runs `scale` and writes the result to
+`pressure_display`. You don't poll or schedule anything yourself.
 
 <Divider.Divider x />
 
@@ -152,8 +152,8 @@ func clamp(value f64) f64 {
 }
 ```
 
-This separation is what keeps Arc programs predictable. The reactive layer handles
-timing, ordering, and consistency. Functions handle the math.
+Stages handle timing and ordering. Functions handle the math. This separation is what
+keeps Arc programs predictable.
 
 <Divider.Divider x />
 

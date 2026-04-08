@@ -2128,6 +2128,7 @@ var _ = Describe("Statement", func() {
 				},
 				Entry("single i32", []types.Type{types.I32()}, types.I32()),
 				Entry("single i64", []types.Type{types.I64()}, types.I64()),
+				Entry("single u8", []types.Type{types.U8()}, types.U8()),
 				Entry("single u16", []types.Type{types.U16()}, types.U16()),
 				Entry("i32, i32", []types.Type{types.I32(), types.I32()}, types.I32()),
 				Entry("i16, i32", []types.Type{types.I16(), types.I32()}, types.I32()),

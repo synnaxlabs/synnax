@@ -494,10 +494,6 @@ func emitZero(w *wasm.Writer, t types.Type) {
 		w.WriteI32Const(0)
 	case wasm.I64:
 		w.WriteI64Const(0)
-	case wasm.F32:
-		w.WriteF32Const(0)
-	case wasm.F64:
-		w.WriteF64Const(0)
 	}
 }
 
@@ -507,9 +503,5 @@ func emitOne(w *wasm.Writer, t types.Type) {
 		w.WriteI32Const(1)
 	case wasm.I64:
 		w.WriteI64Const(1)
-	case wasm.F32:
-		w.WriteF32Const(1)
-	case wasm.F64:
-		w.WriteF64Const(1)
 	}
 }
