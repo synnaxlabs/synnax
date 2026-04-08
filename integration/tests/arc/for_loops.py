@@ -227,50 +227,144 @@ class ForLoopCase:
 
 CASES = [
     # Type inference across integer widths
-    ForLoopCase("i32", "for_in_i32", sy.DataType.INT32,
-                "for_out_i32", sy.DataType.INT32, 5, 15),
-    ForLoopCase("i64", "for_in_i64", sy.DataType.INT64,
-                "for_out_i64", sy.DataType.INT64, 5, 15),
-    ForLoopCase("u8", "for_in_u8", sy.DataType.UINT8,
-                "for_out_u8", sy.DataType.UINT8, 5, 15),
-    ForLoopCase("u32", "for_in_u32", sy.DataType.UINT32,
-                "for_out_u32", sy.DataType.UINT32, 5, 15),
+    ForLoopCase(
+        "i32", "for_in_i32", sy.DataType.INT32, "for_out_i32", sy.DataType.INT32, 5, 15
+    ),
+    ForLoopCase(
+        "i64", "for_in_i64", sy.DataType.INT64, "for_out_i64", sy.DataType.INT64, 5, 15
+    ),
+    ForLoopCase(
+        "u8", "for_in_u8", sy.DataType.UINT8, "for_out_u8", sy.DataType.UINT8, 5, 15
+    ),
+    ForLoopCase(
+        "u32",
+        "for_in_u32",
+        sy.DataType.UINT32,
+        "for_out_u32",
+        sy.DataType.UINT32,
+        5,
+        15,
+    ),
     # Positive step (range with 3 args)
-    ForLoopCase("step", "for_in_step", sy.DataType.INT64,
-                "for_out_step", sy.DataType.INT64, 10, 20),
+    ForLoopCase(
+        "step",
+        "for_in_step",
+        sy.DataType.INT64,
+        "for_out_step",
+        sy.DataType.INT64,
+        10,
+        20,
+    ),
     # Break: accumulate 1+2+...until sum > 10 → 1+2+3+4+5=15
-    ForLoopCase("break", "for_in_break", sy.DataType.INT32,
-                "for_out_break", sy.DataType.INT32, 100, 15),
+    ForLoopCase(
+        "break",
+        "for_in_break",
+        sy.DataType.INT32,
+        "for_out_break",
+        sy.DataType.INT32,
+        100,
+        15,
+    ),
     # Continue: sum 1..5 skipping 3 → 1+2+4+5=12
-    ForLoopCase("continue", "for_in_skip", sy.DataType.INT32,
-                "for_out_skip", sy.DataType.INT32, 5, 12),
+    ForLoopCase(
+        "continue",
+        "for_in_skip",
+        sy.DataType.INT32,
+        "for_out_skip",
+        sy.DataType.INT32,
+        5,
+        12,
+    ),
     # Negative range: countdown 5→1 → 5+4+3+2+1=15
-    ForLoopCase("countdown", "for_in_countdown", sy.DataType.INT64,
-                "for_out_countdown", sy.DataType.INT64, 5, 15),
+    ForLoopCase(
+        "countdown",
+        "for_in_countdown",
+        sy.DataType.INT64,
+        "for_out_countdown",
+        sy.DataType.INT64,
+        5,
+        15,
+    ),
     # Negative step=-2: 10,8,6,4,2 → 30
-    ForLoopCase("countdown_by_2", "for_in_cd_two", sy.DataType.INT32,
-                "for_out_cd_two", sy.DataType.INT32, 10, 30),
+    ForLoopCase(
+        "countdown_by_2",
+        "for_in_cd_two",
+        sy.DataType.INT32,
+        "for_out_cd_two",
+        sy.DataType.INT32,
+        10,
+        30,
+    ),
     # Break + negative range: countdown from 10, stop when sum > 12 → 10+9=19
-    ForLoopCase("drain_break", "for_in_drain", sy.DataType.INT32,
-                "for_out_drain", sy.DataType.INT32, 10, 19),
+    ForLoopCase(
+        "drain_break",
+        "for_in_drain",
+        sy.DataType.INT32,
+        "for_out_drain",
+        sy.DataType.INT32,
+        10,
+        19,
+    ),
     # Nested: triangular number T(4) = 1+2+3+4 = 10
-    ForLoopCase("nested", "for_in_tri", sy.DataType.UINT32,
-                "for_out_tri", sy.DataType.UINT32, 4, 10),
+    ForLoopCase(
+        "nested",
+        "for_in_tri",
+        sy.DataType.UINT32,
+        "for_out_tri",
+        sy.DataType.UINT32,
+        4,
+        10,
+    ),
     # Nested + inner break: sum(1..i) for each i in 1..4 → 1+3+6+10=20
-    ForLoopCase("inner_break", "for_in_inner_brk", sy.DataType.INT32,
-                "for_out_inner_brk", sy.DataType.INT64, 4, 20),
+    ForLoopCase(
+        "inner_break",
+        "for_in_inner_brk",
+        sy.DataType.INT32,
+        "for_out_inner_brk",
+        sy.DataType.INT64,
+        4,
+        20,
+    ),
     # Nested + continue: off-diagonal count in 4x4 grid → 16-4=12
-    ForLoopCase("nested_continue", "for_in_offdiag", sy.DataType.UINT32,
-                "for_out_offdiag", sy.DataType.UINT32, 4, 12),
+    ForLoopCase(
+        "nested_continue",
+        "for_in_offdiag",
+        sy.DataType.UINT32,
+        "for_out_offdiag",
+        sy.DataType.UINT32,
+        4,
+        12,
+    ),
     # 4-deep nesting: n^4 = 3^4 = 81
-    ForLoopCase("nest4", "for_in_nest4", sy.DataType.INT32,
-                "for_out_nest4", sy.DataType.INT32, 3, 81),
+    ForLoopCase(
+        "nest4",
+        "for_in_nest4",
+        sy.DataType.INT32,
+        "for_out_nest4",
+        sy.DataType.INT32,
+        3,
+        81,
+    ),
     # 5-deep nesting: n^5 = 3^5 = 243
-    ForLoopCase("nest5", "for_in_nest5", sy.DataType.INT64,
-                "for_out_nest5", sy.DataType.INT64, 3, 243),
+    ForLoopCase(
+        "nest5",
+        "for_in_nest5",
+        sy.DataType.INT64,
+        "for_out_nest5",
+        sy.DataType.INT64,
+        3,
+        243,
+    ),
     # Recursion inside a for loop: sum of factorials 1!+2!+3!+4!+5! = 153
-    ForLoopCase("recurse_in_loop", "for_in_rec", sy.DataType.INT64,
-                "for_out_rec", sy.DataType.INT64, 5, 153),
+    ForLoopCase(
+        "recurse_in_loop",
+        "for_in_rec",
+        sy.DataType.INT64,
+        "for_out_rec",
+        sy.DataType.INT64,
+        5,
+        153,
+    ),
 ]
 
 ALL_CHANNELS = ["loop_counter"]
@@ -321,17 +415,11 @@ class ForLoops(ArcConsoleCase):
     def verify_sequence_execution(self) -> None:
         for case in CASES:
             self.log(f"[{case.label}] Writing {case.write_val} to {case.in_ch}")
-            with self.client.open_writer(
-                sy.TimeStamp.now(), case.in_ch
-            ) as w:
+            with self.client.open_writer(sy.TimeStamp.now(), case.in_ch) as w:
                 w.write(case.in_ch, case.write_val)
 
-            self.log(
-                f"[{case.label}] Waiting for {case.out_ch} == {case.expected}"
-            )
+            self.log(f"[{case.label}] Waiting for {case.out_ch} == {case.expected}")
             self.wait_for_eq(case.out_ch, case.expected)
 
         self.log("[loop_write] Verifying channel write inside loop body")
-        self.wait_for_near(
-            "loop_counter", 5.0, tolerance=0.01, is_virtual=True
-        )
+        self.wait_for_near("loop_counter", 5.0, tolerance=0.01, is_virtual=True)

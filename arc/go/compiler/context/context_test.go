@@ -96,7 +96,7 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("EnterBlock", func() {
-		It("Should increment block depth", func() {
+		It("Should increment block depth", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			Expect(root.BlockDepth()).To(Equal(0))
 			entered := root.EnterBlock()
@@ -105,13 +105,13 @@ var _ = Describe("Context", func() {
 			Expect(nested.BlockDepth()).To(Equal(2))
 		})
 
-		It("Should not modify the original context", func() {
+		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			root.EnterBlock()
 			Expect(root.BlockDepth()).To(Equal(0))
 		})
 
-		It("Should propagate through Child", func() {
+		It("Should propagate through Child", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			entered := root.EnterBlock().EnterBlock()
 			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](entered, nil)
@@ -120,7 +120,7 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("EnterLoop", func() {
-		It("Should make the loop entry available via CurrentLoop", func() {
+		It("Should make the loop entry available via CurrentLoop", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
 			looped := root.EnterLoop(entry)
@@ -129,14 +129,14 @@ var _ = Describe("Context", func() {
 			Expect(got).To(Equal(entry))
 		})
 
-		It("Should not modify the original context", func() {
+		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			root.EnterLoop(ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2})
 			_, ok := root.CurrentLoop()
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should stack nested loops and return the innermost", func() {
+		It("Should stack nested loops and return the innermost", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			outer := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
 			inner := ccontext.LoopEntry{BreakDepth: 3, ContinueDepth: 4}
@@ -146,7 +146,7 @@ var _ = Describe("Context", func() {
 			Expect(got).To(Equal(inner))
 		})
 
-		It("Should isolate loop stacks between sibling contexts", func() {
+		It("Should isolate loop stacks between sibling contexts", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
 			branch := root.EnterLoop(entry)
@@ -157,7 +157,7 @@ var _ = Describe("Context", func() {
 			Expect(got).To(Equal(entry))
 		})
 
-		It("Should propagate through Child", func() {
+		It("Should propagate through Child", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			entry := ccontext.LoopEntry{BreakDepth: 5, ContinueDepth: 6}
 			looped := root.EnterLoop(entry)
