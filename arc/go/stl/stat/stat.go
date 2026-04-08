@@ -270,7 +270,7 @@ func (m *Module) createDerivative(cfg node.Config) (node.Node, error) {
 
 type derivativeNode struct {
 	*node.State
-	derivFn       func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool) (telem.Series, telem.Series)
+	derivFn       func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool, *telem.Series, *telem.Series)
 	prevValue     float64
 	prevTimestamp telem.TimeStamp
 	hasPrev       bool
@@ -294,20 +294,19 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	if inputData.Len() == 0 {
 		return
 	}
-	outputData, outputTime := d.derivFn(
+	d.derivFn(
 		inputData, inputTime,
 		&d.prevValue, &d.prevTimestamp, &d.hasPrev,
+		d.Output(0), d.OutputTime(0),
 	)
-	outputData.Alignment = inputData.Alignment
-	outputData.TimeRange = inputData.TimeRange
-	outputTime.Alignment = inputData.Alignment
-	outputTime.TimeRange = inputData.TimeRange
-	*d.Output(0) = outputData
-	*d.OutputTime(0) = outputTime
+	d.Output(0).Alignment = inputData.Alignment
+	d.Output(0).TimeRange = inputData.TimeRange
+	d.OutputTime(0).Alignment = inputData.Alignment
+	d.OutputTime(0).TimeRange = inputData.TimeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-var derivOps = map[telem.DataType]func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool) (telem.Series, telem.Series){
+var derivOps = map[telem.DataType]func(telem.Series, telem.Series, *float64, *telem.TimeStamp, *bool, *telem.Series, *telem.Series){
 	telem.Float64T: op.DerivativeF64,
 	telem.Float32T: op.DerivativeF32,
 	telem.Int64T:   op.DerivativeI64,

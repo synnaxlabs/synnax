@@ -889,8 +889,10 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			outData, outTime := op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			Expect(outData.Len()).To(Equal(int64(3)))
 			vals := telem.UnmarshalSeries[float64](outData)
@@ -908,14 +910,16 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
 			input1 := telem.NewSeriesV(0.0, 10.0)
 			time1 := telem.NewSeriesSecondsTSV(1, 2)
-			op.DerivativeF64(input1, time1, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeF64(input1, time1, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			input2 := telem.NewSeriesV(30.0)
 			time2 := telem.NewSeriesSecondsTSV(4)
-			outData, outTime := op.DerivativeF64(input2, time2, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeF64(input2, time2, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 10.0, 0.01))
@@ -929,8 +933,10 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			outData, _ := op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -943,8 +949,10 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			outData, outTime := op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -962,8 +970,10 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			outData, _ := op.DerivativeI32(input, inputTime, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeI32(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -977,8 +987,10 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			outData, outTime := op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			Expect(outData.Len()).To(Equal(int64(0)))
 			Expect(outTime.Len()).To(Equal(int64(0)))
@@ -991,8 +1003,10 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			outData, _ := op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev)
+			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))

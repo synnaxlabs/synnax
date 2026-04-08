@@ -329,35 +329,34 @@ private:
         const runtime::state::Series &input_time,
         runtime::node::Context &ctx
     ) {
-        const size_t n = input_data->size();
-        std::vector<double> results(n);
-        std::vector<int64_t> out_timestamps(n);
-        for (size_t i = 0; i < n; i++) {
-            const auto current_val = static_cast<double>(
-                input_data->at<T>(static_cast<int64_t>(i))
-            );
-            const auto current_ts = input_time->at<int64_t>(static_cast<int64_t>(i));
-            out_timestamps[i] = current_ts;
+        const auto n = static_cast<int64_t>(input_data->size());
+        auto &output = this->state.output(0);
+        auto &output_time = this->state.output_time(0);
+        output->resize(n);
+        output_time->resize(n);
+        for (int64_t i = 0; i < n; i++) {
+            const auto current_val = static_cast<double>(input_data->at<T>(i));
+            const auto current_ts = input_time->at<int64_t>(i);
+            output_time->set(static_cast<int>(i), current_ts);
             if (!this->has_prev) {
-                results[i] = 0.0;
+                output->set(static_cast<int>(i), 0.0);
             } else {
                 const double dt_seconds = static_cast<double>(
                                               current_ts - this->prev_timestamp_ns
                                           ) /
                                           1e9;
                 if (dt_seconds <= 0)
-                    results[i] = 0.0;
+                    output->set(static_cast<int>(i), 0.0);
                 else
-                    results[i] = (current_val - this->prev_value) / dt_seconds;
+                    output->set(
+                        static_cast<int>(i),
+                        (current_val - this->prev_value) / dt_seconds
+                    );
             }
             this->prev_value = current_val;
             this->prev_timestamp_ns = current_ts;
             this->has_prev = true;
         }
-        auto &output = this->state.output(0);
-        auto &output_time = this->state.output_time(0);
-        *output = x::telem::Series(results);
-        *output_time = x::telem::Series(out_timestamps);
         output->alignment = input_data->alignment;
         output->time_range = input_data->time_range;
         output_time->alignment = input_data->alignment;

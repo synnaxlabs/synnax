@@ -367,31 +367,32 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 
 // Template for derivative operations (pointwise rate of change)
 const derivativeFuncTemplate = `
-func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool) (telem.Series, telem.Series) {
+func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
 	n := input.Len()
 	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	out := make([]float64, n)
-	outTime := make([]telem.TimeStamp, n)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
 		ts := inTime[i]
 		outTime[i] = ts
 		if !*hasPrev {
-			out[i] = 0
+			outData[i] = 0
 		} else {
 			dtSeconds := float64(ts-*prevTS) / 1e9
 			if dtSeconds <= 0 {
-				out[i] = 0
+				outData[i] = 0
 			} else {
-				out[i] = (cur - *prevVal) / dtSeconds
+				outData[i] = (cur - *prevVal) / dtSeconds
 			}
 		}
 		*prevVal = cur
 		*prevTS = ts
 		*hasPrev = true
 	}
-	return telem.NewSeriesV(out...), telem.NewSeriesV(outTime...)
 }
 `
 
