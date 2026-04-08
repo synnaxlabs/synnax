@@ -18,10 +18,11 @@ from urllib3.response import BaseHTTPResponse
 
 from freighter.codec import Codec
 from freighter.context import Context, Role
-from freighter.exceptions import ExceptionPayload, Unreachable, decode_exception
+from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.unary import UnaryClient
 from freighter.url import URL
+from x.exceptions import ExceptionPayload, decode_exception
 
 
 class HTTPClient(MiddlewareCollector):

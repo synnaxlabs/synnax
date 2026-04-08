@@ -30,13 +30,12 @@ const SET_LISTENER: flux.ChannelListener<FluxSubStore, typeof ranger.payloadZ> =
     if (prev?.labels == null) labels = await range.retrieveLabels();
     let parent: ranger.Range | null = null;
     if (prev?.parent == null) parent = await range.retrieveParent();
-    store.ranges.set(changed.key, (p) =>
-      client.ranges.sugarOne({
-        ...range.payload,
-        labels: p?.labels ?? labels,
-        parent: p?.parent ?? parent,
-      }),
-    );
+    store.ranges.set(changed.key, (p) => {
+      const pld: ranger.Payload = { ...range.payload };
+      pld.labels = p?.labels ?? labels;
+      pld.parent = p?.parent ?? parent?.payload;
+      return client.ranges.sugarOne(pld);
+    });
   },
 };
 

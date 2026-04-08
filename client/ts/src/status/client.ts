@@ -36,6 +36,7 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
   includeLabels: z.boolean().optional(),
   hasLabels: label.keyZ.array().optional(),
+  variants: z.string().array().optional(),
 });
 
 const singleRetrieveArgsZ = z
@@ -50,7 +51,7 @@ export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => z.object({ statuses: array.nullableZ(statusZ(detailsSchema)) });
+) => z.object({ statuses: array.nullishToEmpty(statusZ(detailsSchema)) });
 
 export interface SetOptions {
   parent?: ontology.ID;
@@ -81,7 +82,7 @@ export class Client {
       retrieveResponseZ<DetailsSchema>(args.detailsSchema),
     );
     checkForMultipleOrNoResults("Status", args, res.statuses, isSingle);
-    const statuses = res.statuses as unknown as Status<DetailsSchema>[];
+    const statuses = res.statuses as Status<DetailsSchema>[];
     return isSingle ? statuses[0] : statuses;
   }
 
@@ -109,7 +110,7 @@ export class Client {
       setReqZ(opts.detailsSchema),
       setResZ(opts.detailsSchema),
     );
-    const created = res.statuses as unknown as Status<DetailsSchema>[];
+    const created = res.statuses as Status<DetailsSchema>[];
     return isMany ? created : created[0];
   }
 

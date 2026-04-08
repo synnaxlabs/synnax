@@ -10,7 +10,6 @@
 import random
 
 import synnax as sy
-
 from console.case import ConsoleCase
 from console.task.counter_read import CounterRead
 
@@ -77,11 +76,10 @@ class NICounterReadForms(ConsoleCase):
         rack = self.client.racks.create(name=rack_name)
         self.client.devices.create(
             [
-                sy.Device(
+                sy.ni.Device(
                     key="230227d9-02aa-47e4-b370-0d590add1bc1",
                     rack=rack.key,
                     name=device_name,
-                    make="NI",
                     model="NI 9229",
                     location=device_name,
                     identifier=f"{device_name}Mod1",
@@ -93,7 +91,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_edge_count_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Edge Count inputs"""
         self.log("Configuring channels of type Edge Count")
-        console = self.console
         channel_type = "Edge Count"
 
         ni_ci.add_channel(
@@ -122,7 +119,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_frequency_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Frequency inputs"""
         self.log("Configuring channels of type Frequency")
-        console = self.console
         channel_type = "Frequency"
 
         ni_ci.add_channel(
@@ -153,7 +149,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_period_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Period inputs"""
         self.log("Configuring channels of type Period")
-        console = self.console
         channel_type = "Period"
 
         ni_ci.add_channel(
@@ -192,7 +187,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_pulse_width_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Pulse Width inputs"""
         self.log("Configuring channels of type Pulse Width")
-        console = self.console
         channel_type = "Pulse Width"
 
         ni_ci.add_channel(
@@ -222,7 +216,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_semi_period_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Semi Period inputs"""
         self.log("Configuring channels of type Semi Period")
-        console = self.console
         channel_type = "Semi Period"
 
         ni_ci.add_channel(
@@ -249,7 +242,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_two_edge_sep_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Two Edge Separation inputs"""
         self.log("Configuring channels of type Two Edge Separation")
-        console = self.console
         channel_type = "Two Edge Separation"
 
         ni_ci.add_channel(
@@ -276,7 +268,6 @@ class NICounterReadForms(ConsoleCase):
     ) -> None:
         """Validate Linear Velocity inputs"""
         self.log("Configuring channels of type Velocity Linear")
-        console = self.console
         channel_type = "Velocity Linear"
 
         ni_ci.add_channel(
@@ -311,7 +302,6 @@ class NICounterReadForms(ConsoleCase):
     ) -> None:
         """Validate Angular Velocity inputs"""
         self.log("Configuring channels of type Velocity Angular")
-        console = self.console
         channel_type = "Velocity Angular"
 
         ni_ci.add_channel(
@@ -346,7 +336,6 @@ class NICounterReadForms(ConsoleCase):
     ) -> None:
         """Validate Linear Position inputs"""
         self.log("Configuring channels of type Position Linear")
-        console = self.console
         channel_type = "Position Linear"
 
         ni_ci.add_channel(
@@ -388,7 +377,6 @@ class NICounterReadForms(ConsoleCase):
     ) -> None:
         """Validate Angular Position inputs"""
         self.log("Configuring channels of type Position Angular")
-        console = self.console
         channel_type = "Position Angular"
 
         ni_ci.add_channel(
@@ -428,7 +416,6 @@ class NICounterReadForms(ConsoleCase):
     def verify_duty_cycle_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Duty Cycle inputs"""
         self.log("Configuring channels of type Duty Cycle")
-        console = self.console
         channel_type = "Duty Cycle"
 
         ni_ci.add_channel(

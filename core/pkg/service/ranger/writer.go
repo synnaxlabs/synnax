@@ -26,6 +26,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	table     *gorp.Table[uuid.UUID, Range]
 }
 
 // Create creates a new range within the DB, assigning it a unique key if it does not
@@ -53,14 +54,14 @@ func (w Writer) CreateWithParent(
 	if err := w.validate(*r); err != nil {
 		return err
 	}
-	exists, err := gorp.
-		NewRetrieve[uuid.UUID, Range]().
+	exists, err := w.table.
+		NewRetrieve().
 		WhereKeys(r.Key).
 		Exists(ctx, w.tx)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := OntologyID(r.Key)
@@ -77,10 +78,6 @@ func (w Writer) CreateWithParent(
 				ontology.RelationshipTypeParentOf,
 				otgID,
 			); relAlreadyExists || err != nil {
-				if err == nil {
-					r.tx = w.tx
-					r.otg = w.otg
-				}
 				return err
 			}
 			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
@@ -100,8 +97,6 @@ func (w Writer) CreateWithParent(
 			return err
 		}
 	}
-	r.tx = w.tx
-	r.otg = w.otg
 	return nil
 }
 
@@ -143,18 +138,11 @@ func (w Writer) CreateManyWithParent(
 
 // Rename renames the range with the given key.
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
-	return gorp.
-		NewUpdate[uuid.UUID, Range]().
+	return w.table.
+		NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
-}
-
-func (w Writer) swapRanges(ctx context.Context) error {
-	return gorp.NewUpdate[uuid.UUID, Range]().Change(func(_ gorp.Context, r Range) Range {
-		r.TimeRange = r.TimeRange.MakeValid()
-		return r
-	}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children of
@@ -169,14 +157,14 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
 		ExcludeFieldData(true).
-		// The check for query.NotFound is necessary because the child may have already
-		// been deleted, and delete is idempotent.
+		// The check for query.ErrNotFound is necessary because the child may have
+		// already been deleted, and delete is idempotent.
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {
 		// Don't delete anything that's not a child range
-		if r.ID.Type != OntologyType {
+		if r.ID.Type != ontology.ResourceTypeRange {
 			return "", false
 		}
 		return r.ID.Key, true
@@ -190,8 +178,8 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 			return err
 		}
 	}
-	if err := gorp.
-		NewDelete[uuid.UUID, Range]().
+	if err := w.table.
+		NewDelete().
 		WhereKeys(key).
 		Exec(ctx, w.tx); err != nil {
 		return err

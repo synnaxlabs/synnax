@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from synnax import ontology
+from x.deprecation import deprecated_getattr
 
 ONTOLOGY_TYPE = ontology.ID(type="arc")
 """Ontology type identifier for Arc entities."""
@@ -97,8 +98,6 @@ class Payload(BaseModel):
     graph: Graph = Graph()
     """Visual graph representation of the program."""
 
-
-from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "ARC_ONTOLOGY_TYPE": "ONTOLOGY_TYPE",

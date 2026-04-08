@@ -19,7 +19,7 @@ import {
   Header,
   Icon,
   List,
-  Menu as PMenu,
+  Menu,
   Select,
   Telem,
   Text,
@@ -118,12 +118,16 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
         channel={channel}
         namePath={`config.endpoints.${itemKey}.channel.name`}
         id={getEndpointChannelNameID(itemKey)}
+        weight={600}
+        color={10}
       />
     ),
     [channel, itemKey],
   );
-  return <EndpointListItem {...props} extra={extraNode} />;
+  return <EndpointListItem {...props} extra={extraNode} y textProps={TEXT_PROPS} />;
 };
+
+const TEXT_PROPS = { weight: 450, color: 9 } as const;
 
 const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
 
@@ -169,7 +173,7 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
         {channelKey === 0 && (
           <PForm.Field<string>
             path={`${channelPath}.dataType`}
-            label="Data type"
+            label="Synnax data type"
             showHelpText={false}
             className={CSS.B("data-type-select")}
           >
@@ -368,9 +372,9 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     [epKey],
   );
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
-    (p: PMenu.ContextMenuMenuProps) => (
+    (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu keys={p.keys} onDelete={handleDelete} />
     ),
     [handleDelete],
@@ -405,7 +409,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           </Header.Actions>
         )}
       </Header.Header>
-      <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
+      <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Select.Frame<string, WriteField>
           multiple
           data={data}
@@ -423,7 +427,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
             {listItem}
           </List.Items>
         </Select.Frame>
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
     </Flex.Box>
   );
 };
@@ -522,9 +526,9 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
     [],
   );
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
-    (p: PMenu.ContextMenuMenuProps) => (
+    (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu
         keys={p.keys}
         onDelete={handleDeleteEndpoints}
@@ -556,7 +560,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
             </Header.Actions>
           )}
         </Header.Header>
-        <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
+        <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
           <Select.Frame<string, WriteEndpoint>
             multiple
             data={data}
@@ -581,7 +585,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
               {writeEndpointListItem}
             </List.Items>
           </Select.Frame>
-        </PMenu.ContextMenu>
+        </Menu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>

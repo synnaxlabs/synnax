@@ -15,7 +15,7 @@ import {
   Channel,
   Icon,
   LinePlot as Base,
-  Menu as PMenu,
+  Menu,
   Ranger,
   Status,
   Synnax,
@@ -47,7 +47,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
@@ -111,14 +111,6 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
-  iso: "Failed to copy ISO time range",
-  python: "Failed to copy Python time range",
-  typescript: "Failed to copy TypeScript time range",
-  range: "Failed to create range from selection",
-  download: "Failed to download region as CSV",
-};
-
 interface RangeAnnotationContextMenuProps {
   lines: Channel.LineProps[];
   range: ranger.Payload;
@@ -138,20 +130,20 @@ const RangeAnnotationContextMenu = ({
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
   };
   return (
-    <PMenu.Menu level="small">
-      <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+    <ContextMenu.Menu>
+      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
         <Icon.CSV />
         Download as CSV
-      </PMenu.Item>
-      <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
+      </Menu.Item>
+      <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
         Open in new plot
-      </PMenu.Item>
-      <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
+      </Menu.Item>
+      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
         <Icon.Annotate />
         View details
-      </PMenu.Item>
-    </PMenu.Menu>
+      </Menu.Item>
+    </ContextMenu.Menu>
   );
 };
 
@@ -166,7 +158,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -178,7 +170,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const toFetch = lines.filter((line) => line.label == null);
       if (toFetch.length === 0) return;
       const fetched = await client.channels.retrieve(
-        unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+        unique.unique(toFetch.map((line) => line.channels.y)) as
+          | channel.Key[]
+          | channel.Name[],
       );
       if (signal.aborted) return;
       const update = toFetch.map((l) => ({
@@ -264,7 +258,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const rng = Range.useSelect();
 
   const handleChannelAxisDrop = useCallback(
-    (axis: string, channels: channel.Keys): void => {
+    (axis: string, channels: channel.Key[]): void => {
       if (X_AXIS_KEYS.includes(axis as XAxisKey))
         syncDispatch(
           setXChannel({
@@ -361,10 +355,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [dispatch, layoutKey],
   );
 
-  const props = PMenu.useContextMenu();
+  const props = Menu.useContextMenu();
   const linePlotRef = useRef<Base.LinePlotRef | null>(null);
 
-  interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
+  interface ContextMenuContentProps extends Menu.ContextMenuMenuProps {
     layoutKey: string;
   }
 
@@ -382,63 +376,73 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
     const downloadAsCSV = useDownloadAsCSV();
 
-    const handleSelect = (key: string): void => {
+    const handleCopyISO = () =>
       handleError(async () => {
         const tr = await getTimeRange();
         if (tr == null) return;
-        switch (key) {
-          case "iso":
-            await navigator.clipboard.writeText(
-              `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
-            );
-            break;
-          case "python":
-            await navigator.clipboard.writeText(
-              `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-            );
-            break;
-          case "typescript":
-            await navigator.clipboard.writeText(
-              `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-            );
-            break;
-          case "range":
-            placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
-            break;
-          case "download":
-            if (client == null) return;
-            downloadAsCSV({ timeRanges: [tr], lines, name });
-            break;
-        }
-      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
-    };
+        await navigator.clipboard.writeText(
+          `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
+        );
+      }, "Failed to copy ISO time range");
+
+    const handleCopyPython = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        await navigator.clipboard.writeText(
+          `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+        );
+      }, "Failed to copy Python time range");
+
+    const handleCopyTypeScript = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        await navigator.clipboard.writeText(
+          `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+        );
+      }, "Failed to copy TypeScript time range");
+
+    const handleCreateRange = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
+      }, "Failed to create range from selection");
+
+    const handleDownloadCSV = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        downloadAsCSV({ timeRanges: [tr], lines, name });
+      }, "Failed to download region as CSV");
 
     return (
-      <PMenu.Menu onChange={handleSelect} gap="small" level="small">
+      <ContextMenu.Menu>
         {!box.areaIsZero(selection) && (
           <>
-            <PMenu.Item itemKey="iso">
+            <Menu.Item itemKey="iso" onClick={handleCopyISO}>
               <Icon.Range /> Copy ISO time range
-            </PMenu.Item>
-            <PMenu.Item itemKey="python">
+            </Menu.Item>
+            <Menu.Item itemKey="python" onClick={handleCopyPython}>
               <Icon.Python /> Copy Python time range
-            </PMenu.Item>
-            <PMenu.Item itemKey="typescript">
+            </Menu.Item>
+            <Menu.Item itemKey="typescript" onClick={handleCopyTypeScript}>
               <Icon.TypeScript /> Copy TypeScript time range
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="range">
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item itemKey="range" onClick={handleCreateRange}>
               <Ranger.CreateIcon /> Create range from selection
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="download">
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
               <Icon.CSV /> Download region as CSV
-            </PMenu.Item>
-            <PMenu.Divider />
+            </Menu.Item>
+            <Menu.Divider />
           </>
         )}
-        <Menu.ReloadConsoleItem />
-      </PMenu.Menu>
+        <ContextMenu.ReloadConsoleItem />
+      </ContextMenu.Menu>
     );
   };
 
@@ -451,7 +455,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       style={{ height: "100%", width: "100%", padding: "2rem" }}
       className={props.className}
     >
-      <PMenu.ContextMenu
+      <Menu.ContextMenu
         {...props}
         menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
@@ -465,19 +469,19 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           lines={propsLines}
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={hasEditPermission ? handleTitleChange : undefined}
+          onTitleChange={hasUpdatePermission ? handleTitleChange : undefined}
           visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
-          onLineChange={hasEditPermission ? handleLineChange : undefined}
-          onRuleChange={hasEditPermission ? handleRuleChange : undefined}
-          onAxisChannelDrop={hasEditPermission ? handleChannelAxisDrop : undefined}
-          onAxisChange={hasEditPermission ? handleAxisChange : undefined}
+          onLineChange={hasUpdatePermission ? handleLineChange : undefined}
+          onRuleChange={hasUpdatePermission ? handleRuleChange : undefined}
+          onAxisChannelDrop={hasUpdatePermission ? handleChannelAxisDrop : undefined}
+          onAxisChange={hasUpdatePermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
           onLegendPositionChange={
-            hasEditPermission ? handleLegendPositionChange : undefined
+            hasUpdatePermission ? handleLegendPositionChange : undefined
           }
           legendPosition={legendPosition}
           viewportTriggers={triggers}
@@ -485,15 +489,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={hasEditPermission ? handleSelectRule : undefined}
+          onSelectRule={hasUpdatePermission ? handleSelectRule : undefined}
           onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
           measureMode={vis.measure.mode}
-          onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
+          onMeasureModeChange={
+            hasUpdatePermission ? handleMeasureModeChange : undefined
+          }
         >
           {!focused && <Controls layoutKey={layoutKey} />}
         </Channel.LinePlot>
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
       {focused && <Controls layoutKey={layoutKey} />}
     </div>
   );

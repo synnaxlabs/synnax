@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { newKey, rackKey } from "@/task/payload";
+import { task } from "@/task";
 
 describe("newKey", () => {
   describe("basic key generation", () => {
@@ -24,7 +24,7 @@ describe("newKey", () => {
     ];
     cases.forEach(({ rackKey: r, taskKey: t, expected }) => {
       it(`should combine rackKey=${r} and taskKey=${t}`, () => {
-        expect(newKey(r, t)).toBe(expected);
+        expect(task.newKey(r, t)).toBe(expected);
       });
     });
   });
@@ -34,7 +34,7 @@ describe("newKey", () => {
     const rackKeys = [0, 1, 42, 1000];
     rackKeys.forEach((r) => {
       it(`should default taskKey to 0 for rackKey=${r}`, () => {
-        expect(newKey(r)).toBe(newKey(r, 0));
+        expect(task.newKey(r)).toBe(task.newKey(r, 0));
       });
     });
   });
@@ -49,10 +49,10 @@ describe("newKey", () => {
       { rack: 100, task: 50000 },
       { rack: 2147483647, task: 2147483647 }, // max 32-bit signed integers
     ];
-    cases.forEach(({ rack, task }) => {
-      it(`should extract rack=${rack} from key generated with task=${task}`, () => {
-        const key = newKey(rack, task);
-        expect(rackKey(key)).toBe(rack);
+    cases.forEach(({ rack, task: tsk }) => {
+      it(`should extract rack=${rack} from key generated with task=${tsk}`, () => {
+        const key = task.newKey(rack, tsk);
+        expect(task.rackKey(key)).toBe(rack);
       });
     });
   });
@@ -61,22 +61,22 @@ describe("newKey", () => {
     // Verifies behavior at boundary values to ensure no overflow or precision issues.
     it("should handle max 32-bit unsigned rack key", () => {
       const maxUint32 = 0xffffffff;
-      const key = newKey(maxUint32, 0);
-      expect(rackKey(key)).toBe(maxUint32);
+      const key = task.newKey(maxUint32, 0);
+      expect(task.rackKey(key)).toBe(maxUint32);
     });
 
     it("should handle max 32-bit unsigned task key", () => {
       const maxUint32 = 0xffffffff;
-      const key = newKey(1, maxUint32);
+      const key = task.newKey(1, maxUint32);
       expect(key).toBe(((1n << 32n) + BigInt(maxUint32)).toString());
     });
 
     it("should handle both max 32-bit values", () => {
       const maxUint32 = 0xffffffff;
-      const key = newKey(maxUint32, maxUint32);
+      const key = task.newKey(maxUint32, maxUint32);
       const expected = ((BigInt(maxUint32) << 32n) + BigInt(maxUint32)).toString();
       expect(key).toBe(expected);
-      expect(rackKey(key)).toBe(maxUint32);
+      expect(task.rackKey(key)).toBe(maxUint32);
     });
   });
 });
@@ -86,28 +86,28 @@ describe("rackKey", () => {
   // Keys can be string, bigint, or number per keyZ schema.
   describe("key format handling", () => {
     const rack = 42;
-    const task = 100;
-    const expectedKey = newKey(rack, task);
+    const tsk = 100;
+    const expectedKey = task.newKey(rack, tsk);
 
     it("should extract rack from string key", () => {
-      expect(rackKey(expectedKey)).toBe(rack);
+      expect(task.rackKey(expectedKey)).toBe(rack);
     });
 
     it("should extract rack from numeric string", () => {
       const numericKey = ((42n << 32n) + 100n).toString();
-      expect(rackKey(numericKey)).toBe(42);
+      expect(task.rackKey(numericKey)).toBe(42);
     });
   });
 
   describe("zero handling", () => {
     // Verifies correct behavior when rack or task portions are zero.
     it("should return 0 for key with zero rack", () => {
-      expect(rackKey("100")).toBe(0);
+      expect(task.rackKey("100")).toBe(0);
     });
 
     it("should return rack when task portion is zero", () => {
-      const key = newKey(5, 0);
-      expect(rackKey(key)).toBe(5);
+      const key = task.newKey(5, 0);
+      expect(task.rackKey(key)).toBe(5);
     });
   });
 });

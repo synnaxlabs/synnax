@@ -10,7 +10,6 @@
 package gossip_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/rand"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type convergenceVars struct {
@@ -63,7 +63,7 @@ var _ = Describe("Convergence", func() {
 		It(fmt.Sprintf("Should converge store across %v nodes in %v cycles",
 			values.nodeCount,
 			values.convergenceThreshold,
-		), func() {
+		), func(ctx SpecContext) {
 			group := make(node.Group)
 			configs := make(map[node.Key]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
@@ -86,12 +86,10 @@ var _ = Describe("Convergence", func() {
 				s.SetState(ctx, store.State{Nodes: subNodes, HostKey: n.Key})
 				cfg := configs[n.Key]
 				cfg.Store = s
-				g, err := gossip.New(cfg)
-				Expect(err).ToNot(HaveOccurred())
+				g := MustSucceed(gossip.New(cfg))
 				gossips = append(gossips, g)
 				stores = append(stores, s)
 			}
-			ctx := context.Background()
 			for range values.convergenceThreshold {
 				wg := sync.WaitGroup{}
 				for _, g := range gossips {

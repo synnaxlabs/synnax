@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/profile/profile.h"
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
@@ -30,7 +31,7 @@ Rack::~Rack() {
 
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
     x::thread::set_name("rack");
-    LOG(INFO) << x::thread::rt::get_capabilities();
+    LOG(INFO) << x::thread::rt::capabilities();
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
         if (err) {
@@ -39,10 +40,11 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         }
         VLOG(1) << "loaded config. starting task manager";
         if (!this->breaker.running()) return;
+        auto rt_manager = std::make_shared<x::thread::rt::Manager>();
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             cfg.new_client(),
-            cfg.new_factory(),
+            cfg.new_factory(rt_manager),
             cfg.manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });

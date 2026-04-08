@@ -15,7 +15,6 @@
 #include <unordered_set>
 
 #include "glog/logging.h"
-#include "nlohmann/json.hpp"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
@@ -34,7 +33,7 @@ const auto DEFAULT_SCAN_RATE = x::telem::Rate(x::telem::SECOND * 5);
 /// @brief Merges scanner-discovered properties with existing remote properties.
 /// Scanner properties take precedence on conflicts, but remote properties are preserved
 /// if the scanner doesn't specify them.
-/// @param remote_props JSON string of properties from the remote/cluster.
+/// @param remote_props JSON properties from the remote/cluster.
 /// @param scanned_props JSON properties from the scanner.
 /// @return Merged JSON with scanner properties overriding remote on conflicts.
 inline x::json::json merge_device_properties(
@@ -103,7 +102,7 @@ struct Scanner {
 
     /// @brief Optional: Handle custom commands. Return true if handled.
     virtual bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) {
@@ -165,7 +164,6 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) override {
-        if (devs.empty()) return x::errors::NIL;
         return this->client->devices.create(devs);
     }
 
@@ -212,8 +210,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
-            dev_state != this->dev_states.end()) {
-            last_updated = dev_state->second.status.time;
+            dev_state != this->dev_states.end() &&
+            dev_state->second.status.has_value()) {
+            last_updated = dev_state->second.status->time;
         }
         const auto delta = x::telem::TimeStamp::now() - last_updated;
         return delta > x::telem::SECOND * 30;
@@ -324,7 +323,7 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = task.status_key();
+        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
         this->status.details.task = task.key;
     }
@@ -349,7 +348,7 @@ public:
     /// This is called automatically by run(), but can be called separately for testing.
     x::errors::Error init() {
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(
-            this->task.rack(),
+            synnax::task::rack_key(this->task),
             this->scanner->config().make
         );
         if (ret_err) return ret_err;
@@ -402,7 +401,7 @@ public:
         this->ctx->set_status(this->status);
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         if (cmd.type == STOP_CMD_TYPE) return this->stop(false);
         if (cmd.type == START_CMD_TYPE) {
@@ -451,60 +450,71 @@ public:
             // Step 2: Track which devices are present that need to be created.
             std::set<std::string> present;
             auto last_available = x::telem::TimeStamp::now();
-            for (auto &scanned_dev: scanned_devs) {
-                present.insert(scanned_dev.key);
+            for (auto &dev: scanned_devs) {
+                present.insert(dev.key);
                 // Unless the device already exists on the remote, it should not
                 // be configured. No exceptions.
-                scanned_dev.configured = false;
-                auto iter = this->dev_states.find(scanned_dev.key);
+                dev.configured = false;
+                auto iter = this->dev_states.find(dev.key);
                 if (iter == this->dev_states.end()) {
-                    to_create.push_back(scanned_dev);
-                    this->dev_states[scanned_dev.key] = scanned_dev;
+                    to_create.push_back(dev);
+                    this->dev_states[dev.key] = dev;
                     continue;
                 }
-                const auto remote_dev = iter->second;
+                const auto &remote_dev = iter->second;
                 bool needs_update = false;
 
-                if (scanned_dev.location != remote_dev.location) {
+                if (dev.location != remote_dev.location) {
                     LOG(INFO) << this->log_prefix << "device location changed from "
-                              << remote_dev.location << " to " << scanned_dev.location;
+                              << remote_dev.location << " to " << dev.location;
                     needs_update = true;
                 }
 
-                if (scanned_dev.rack != remote_dev.rack &&
-                    this->update_threshold_exceeded(scanned_dev.key)) {
+                if (dev.rack != remote_dev.rack &&
+                    this->update_threshold_exceeded(dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
+                    needs_update = true;
+                }
+
+                if (dev.parent != remote_dev.parent) {
+                    VLOG(1) << this->log_prefix << "device parent changed for "
+                            << dev.key << " from '"
+                            << (remote_dev.parent ? remote_dev.parent->string() : "")
+                            << "' to '" << (dev.parent ? dev.parent->string() : "")
+                            << "'";
                     needs_update = true;
                 }
 
                 auto merged_props = merge_device_properties(
                     remote_dev.properties,
-                    scanned_dev.properties
+                    dev.properties
                 );
                 if (merged_props != remote_dev.properties) {
                     VLOG(1) << this->log_prefix << "device properties changed for "
-                            << scanned_dev.key;
+                            << dev.key;
                     needs_update = true;
                 }
-                scanned_dev.properties = merged_props;
-                scanned_dev.name = remote_dev.name;
-                scanned_dev.configured = remote_dev.configured;
+                dev.properties = merged_props;
+                dev.name = remote_dev.name;
+                dev.configured = remote_dev.configured;
 
-                if (needs_update) to_create.push_back(scanned_dev);
+                if (needs_update) to_create.push_back(dev);
 
-                scanned_dev.status.time = last_available;
-                this->dev_states[scanned_dev.key] = scanned_dev;
+                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                dev.status->time = last_available;
+                this->dev_states[dev.key] = dev;
             }
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.find(key) != present.end()) continue;
-                dev.status.variant = x::status::VARIANT_WARNING;
-                dev.status.message = "Device disconnected";
+                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                dev.status->variant = x::status::VARIANT_WARNING;
+                dev.status->message = "Device disconnected";
             }
 
             statuses.reserve(this->dev_states.size());
             for (auto &info: this->dev_states | std::views::values)
-                statuses.push_back(info.status);
+                if (info.status.has_value()) statuses.push_back(*info.status);
         }
 
         if (const auto state_err = this->client->update_statuses(statuses))
@@ -513,24 +523,19 @@ public:
 
         if (to_create.empty()) return x::errors::NIL;
 
-        x::errors::Error last_err = x::errors::NIL;
-        for (auto &device: to_create) {
-            std::vector single_device = {device};
-            if (const auto create_err = this->client->create_devices(single_device)) {
-                LOG(WARNING) << this->log_prefix << "failed to create device "
-                             << device.key << ": " << create_err;
-                last_err = create_err;
-            } else
-                LOG(INFO) << this->log_prefix << "successfully created device "
-                          << device.key;
+        if (const auto err = this->client->create_devices(to_create)) {
+            LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
+            return err;
         }
-        return last_err;
+        for (const auto &dev: to_create)
+            LOG(INFO) << this->log_prefix << "successfully created device " << dev.key;
+        return x::errors::NIL;
     }
 
     std::string name() const override { return this->task.name; }
 
-    using pipeline::Base::stop;
+    using driver::pipeline::Base::stop;
 
-    void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
+    void stop(bool will_reconfigure) override { driver::pipeline::Base::stop(); }
 };
 }

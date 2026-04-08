@@ -10,6 +10,7 @@
 package kv_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -33,14 +34,14 @@ var _ = Describe("kvStore", func() {
 			kv.Config{GossipInterval: 10 * time.Millisecond},
 			cluster.Config{},
 		)
-		db = MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+		db = MustSucceed(builder.New(context.Background(), kv.Config{}, cluster.Config{}))
 	})
 
 	AfterEach(func() {
 		Expect(builder.Close()).To(Succeed())
 	})
 
-	It("should write and retrieve values", func() {
+	It("should write and retrieve values", func(ctx SpecContext) {
 		Expect(db.Set(ctx, []byte("a"), []byte("1"))).To(Succeed())
 		Expect(db.Set(ctx, []byte("b"), []byte("2"))).To(Succeed())
 		v, closer := MustSucceed2(db.Get(ctx, []byte("a")))
@@ -48,7 +49,7 @@ var _ = Describe("kvStore", func() {
 		Expect(closer.Close()).To(Succeed())
 	})
 
-	It("should overwrite existing entries", func() {
+	It("should overwrite existing entries", func(ctx SpecContext) {
 		Expect(db.Set(ctx, []byte("k"), []byte("first"))).To(Succeed())
 		Expect(db.Set(ctx, []byte("k"), []byte("second"))).To(Succeed())
 		v, closer := MustSucceed2(db.Get(ctx, []byte("k")))
@@ -56,14 +57,14 @@ var _ = Describe("kvStore", func() {
 		Expect(closer.Close()).To(Succeed())
 	})
 
-	It("should support concurrent writes without data races", func() {
+	It("should support concurrent writes without data races", func(ctx SpecContext) {
 		errs := make([]error, 50)
 		var wg sync.WaitGroup
 		for i := range 50 {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				errs[i] = db.Set(ctx, []byte(fmt.Sprintf("key%d", i)), []byte("v"))
+				errs[i] = db.Set(ctx, fmt.Appendf(nil, "key%d", i), []byte("v"))
 			}(i)
 		}
 		wg.Wait()

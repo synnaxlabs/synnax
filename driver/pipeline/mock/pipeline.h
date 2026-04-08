@@ -145,6 +145,9 @@ public:
     /// Error to return when close() is called.
     x::errors::Error close_err;
 
+    /// Error to return when set_authority() is called.
+    x::errors::Error set_authority_err;
+
     /// Index at which write() should return false to simulate failure.
     /// -1 means never return false.
     int return_false_ok_on;
@@ -156,12 +159,14 @@ public:
         std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes =
             std::make_shared<std::vector<pipeline::Authorities>>(),
         std::shared_ptr<std::vector<OpType>> ops =
-            std::make_shared<std::vector<OpType>>()
+            std::make_shared<std::vector<OpType>>(),
+        const x::errors::Error &set_authority_err = x::errors::NIL
     ):
         writes(std::move(writes)),
         authority_changes(std::move(authority_changes)),
         ops(std::move(ops)),
         close_err(close_err),
+        set_authority_err(set_authority_err),
         return_false_ok_on(return_false_ok_on) {}
 
     x::errors::Error write(const x::telem::Frame &fr) override {
@@ -176,7 +181,7 @@ public:
     x::errors::Error set_authority(const pipeline::Authorities &authorities) override {
         this->ops->push_back(OpType::SetAuthority);
         this->authority_changes->push_back(authorities);
-        return x::errors::NIL;
+        return this->set_authority_err;
     }
 
     x::errors::Error close() override { return this->close_err; }
@@ -199,6 +204,9 @@ public:
     /// A queue of errors for writers to return when closed.
     std::vector<x::errors::Error> close_errors;
 
+    /// A queue of errors for writers to return when set_authority() is called.
+    std::vector<x::errors::Error> set_authority_errors;
+
     /// A queue of indices at which writers should return false for write operations.
     std::vector<int> return_false_ok_on;
 
@@ -215,13 +223,15 @@ public:
             std::make_shared<std::vector<x::telem::Frame>>(),
         std::vector<x::errors::Error> open_errors = {},
         std::vector<x::errors::Error> close_errors = {},
-        std::vector<int> return_false_ok_on = {}
+        std::vector<int> return_false_ok_on = {},
+        std::vector<x::errors::Error> set_authority_errors = {}
     ):
         writes(std::move(writes)),
         authority_changes(std::make_shared<std::vector<pipeline::Authorities>>()),
         ops(std::make_shared<std::vector<OpType>>()),
         open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
+        set_authority_errors(std::move(set_authority_errors)),
         return_false_ok_on(std::move(return_false_ok_on)),
         config(),
         writer_opens(0) {}
@@ -243,12 +253,18 @@ public:
                                     : this->return_false_ok_on.front();
         if (!this->return_false_ok_on.empty())
             this->return_false_ok_on.erase(this->return_false_ok_on.begin());
+        auto set_auth_err = this->set_authority_errors.empty()
+                              ? x::errors::NIL
+                              : this->set_authority_errors.front();
+        if (!this->set_authority_errors.empty())
+            this->set_authority_errors.erase(this->set_authority_errors.begin());
         auto writer = std::make_unique<Writer>(
             this->writes,
             close_err,
             return_false_ok_on,
             this->authority_changes,
-            this->ops
+            this->ops,
+            set_auth_err
         );
         return {std::move(writer), err};
     }

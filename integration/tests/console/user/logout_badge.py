@@ -9,9 +9,8 @@
 
 """Test logging out via user badge dropdown."""
 
-from xpy import get_random_name
-
 from console.case import ConsoleCase
+from x import random_name
 
 
 class UserLogoutBadge(ConsoleCase):
@@ -19,7 +18,7 @@ class UserLogoutBadge(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user
-        username = f"testuser_{get_random_name()}"
+        username = f"testuser_{random_name()}"
         password = "testpassword123"
         first_name = "BadgeTest"
         last_name = "User"

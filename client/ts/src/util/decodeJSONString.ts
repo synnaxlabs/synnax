@@ -10,4 +10,4 @@
 import { binary, record } from "@synnaxlabs/x";
 
 export const decodeJSONString = (s: string): record.Unknown =>
-  s ? binary.JSON_CODEC.decodeString(s, record.unknownZ) : {};
+  s ? binary.JSON_CODEC.decodeString(s, record.unknownZ()) : {};

@@ -11,10 +11,10 @@ import json
 import random
 from typing import Any, Literal, TypeVar, overload
 
-import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.channels import ChannelClient
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -103,12 +103,18 @@ class WorkspaceClient:
             ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
-        add_btn.click(force=True)
-
-        self.layout.page.locator(".console-layout-selector__frame").wait_for(
-            state="visible", timeout=15000
-        )
-        self.layout.page.get_by_role("button", name=page_type).first.click()
+        add_btn.dispatch_event("click")
+        layout_selector = self.layout.page.locator(".console-layout-selector__frame")
+        # Retry once if the layout selector doesn't appear — on Windows CI
+        # the first dispatch can race with notification rendering.
+        try:
+            layout_selector.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            add_btn.dispatch_event("click")
+            layout_selector.wait_for(state="visible", timeout=15000)
+        type_btn = self.layout.page.get_by_role("button", name=page_type).first
+        type_btn.wait_for(state="visible", timeout=5000)
+        type_btn.click()
 
         return self._handle_new_page(page_type, page_name)
 
@@ -908,7 +914,7 @@ class WorkspaceClient:
         self.drag_page_to_mosaic(name)
         return Plot.from_open_page(self.layout, self.client, name)
 
-    def open_from_search(self, page_class: type[ConsolePage], name: str) -> ConsolePage:
+    def open_from_search(self, page_class: type[T], name: str) -> T:
         """Open an existing page by searching its name in the command palette.
 
         Args:

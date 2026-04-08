@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { DataType, json } from "@synnaxlabs/x";
+import { DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -40,7 +40,7 @@ const readEnumValuesZ = v1ReadEnumValuesZ.or(
 
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: json.pointerZ,
-  dataType: DataType.z,
+  dataType: z.string(),
   timestampFormat: timeFormatZ.optional(),
   enumValues: readEnumValuesZ
     .check(checkDuplicateKeys("label", "enum label"))
@@ -52,7 +52,7 @@ export interface ReadField extends z.infer<typeof readFieldZ> {}
 export const ZERO_READ_FIELD = {
   ...Common.Task.ZERO_READ_CHANNEL,
   pointer: "",
-  dataType: DataType.FLOAT64,
+  dataType: DataType.FLOAT64.toString(),
 } as const satisfies ReadField;
 
 const baseReadEndpointZ = z.object({
@@ -134,7 +134,7 @@ const channelFieldZ = z
     jsonType: jsonTypeZ,
     channel: channel.keyZ.default(0),
     name: z.string().default(""),
-    dataType: DataType.z.default(DataType.FLOAT64),
+    dataType: z.string().default(DataType.FLOAT64.toString()),
     timeFormat: timeFormatZ.optional(),
     enumValues: z.array(writeEnumEntryZ).optional(),
   })
@@ -161,7 +161,7 @@ export const ZERO_CHANNEL_FIELD = {
   jsonType: "number",
   channel: 0,
   name: "",
-  dataType: DataType.FLOAT64,
+  dataType: DataType.UINT8.toString(),
 } as const satisfies ChannelField;
 
 const generatorTypeZ = z.enum(["uuid", "timestamp"]);
@@ -284,6 +284,6 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
-  config: z.null(),
+  config: record.unknownZ(),
   statusData: z.null(),
 } as const satisfies task.Schemas;

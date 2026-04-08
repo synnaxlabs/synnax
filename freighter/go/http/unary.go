@@ -16,42 +16,47 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
+	xhttp "github.com/synnaxlabs/x/http"
 )
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
-	handle func(ctx context.Context, rq RQ) (RS, error)
+	handle func(context.Context, RQ) (RS, error)
 	path   string
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	internal bool
 }
 
-func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
+func (s *unaryServer[RQ, RS]) BindHandler(
+	handle func(context.Context, RQ) (RS, error),
+) {
 	s.handle = handle
 }
 
-func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
-	fCtx.Accepts(httputil.SupportedContentTypes()...)
-	codec, err := httputil.ResolveCodec(fCtx.Get(fiber.HeaderContentType))
+func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
+	fCtx.Accepts(xhttp.SupportedContentTypes()...)
+	codec, err := xhttp.ResolveCodec(fCtx.Get(fiber.HeaderContentType))
 	if err != nil {
 		return err
 	}
 	fCtx.Set(fiber.HeaderContentType, codec.ContentType())
 	var res RS
 	oMD, err := s.Exec(
-		parseRequestCtx(fCtx.Context(), fCtx, address.Address(fCtx.Path())),
+		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path())),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
 			err := codec.Decode(ctx, fCtx.BodyRaw(), &req)
-			oCtx := freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}
+			oCtx := freighter.Context{
+				Protocol: ctx.Protocol,
+				Params:   make(freighter.Params),
+			}
 			if err != nil {
 				return oCtx, err
 			}
@@ -60,7 +65,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 		}),
 	)
 	setResponseCtx(fCtx, oMD)
-	fErr := errors.Encode(fCtx.Context(), err, s.internal)
+	fErr := errors.Encode(fCtx.RequestCtx(), err, s.internal)
 	if fErr.Type == errors.TypeNil {
 		return encodeAndWrite(fCtx, codec, res)
 	}
@@ -69,7 +74,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
-	codec httputil.Codec
+	codec xhttp.Codec
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
@@ -78,17 +83,20 @@ func (u *unaryClient[RQ, RS]) Send(
 	ctx context.Context,
 	target address.Address,
 	req RQ,
-) (res RS, err error) {
-	_, err = u.Exec(
+) (RS, error) {
+	var res RS
+	_, err := u.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Protocol: unaryReporter.Protocol,
 			Target:   target,
 		},
-		freighter.FinalizerFunc(func(inCtx freighter.Context) (outCtx freighter.Context, err error) {
+		freighter.FinalizerFunc(func(
+			inCtx freighter.Context,
+		) (freighter.Context, error) {
 			b, err := u.codec.Encode(inCtx, req)
 			if err != nil {
-				return outCtx, err
+				return freighter.Context{}, err
 			}
 			httpReq, err := http.NewRequestWithContext(
 				ctx,
@@ -97,13 +105,13 @@ func (u *unaryClient[RQ, RS]) Send(
 				bytes.NewReader(b),
 			)
 			if err != nil {
-				return outCtx, err
+				return freighter.Context{}, err
 			}
 			setRequestCtx(httpReq, inCtx)
 			httpReq.Header.Set(fiber.HeaderContentType, u.codec.ContentType())
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
-			outCtx = parseResponseCtx(httpRes, target)
+			outCtx := parseResponseCtx(httpRes, target)
 			if err != nil {
 				return outCtx, err
 			}
@@ -121,8 +129,8 @@ func (u *unaryClient[RQ, RS]) Send(
 	return res, err
 }
 
-func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v any) error {
-	b, err := codec.Encode(c.Context(), v)
+func encodeAndWrite(c fiber.Ctx, codec xhttp.Codec, v any) error {
+	b, err := codec.Encode(c.RequestCtx(), v)
 	if err != nil {
 		return err
 	}
@@ -130,7 +138,11 @@ func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v any) error {
 	return err
 }
 
-func parseRequestCtx(socketCtx context.Context, fiberCtx *fiber.Ctx, target address.Address) freighter.Context {
+func parseRequestCtx(
+	socketCtx context.Context,
+	fiberCtx fiber.Ctx,
+	target address.Address,
+) freighter.Context {
 	md := freighter.Context{
 		Context:  socketCtx,
 		Protocol: unaryReporter.Protocol,
@@ -154,10 +166,10 @@ func parseRequestCtx(socketCtx context.Context, fiberCtx *fiber.Ctx, target addr
 	return md
 }
 
-func parseSecurityInfo(c *fiber.Ctx) (info freighter.SecurityInfo) {
-	if c.Context().IsTLS() {
+func parseSecurityInfo(c fiber.Ctx) (info freighter.SecurityInfo) {
+	if c.RequestCtx().IsTLS() {
 		info.TLS.Used = true
-		info.TLS.ConnectionState = c.Context().Conn().(*tls.Conn).ConnectionState()
+		info.TLS.ConnectionState = c.RequestCtx().Conn().(*tls.Conn).ConnectionState()
 	}
 	return info
 }
@@ -170,7 +182,7 @@ func setRequestCtx(c *http.Request, ctx freighter.Context) {
 	}
 }
 
-func setResponseCtx(c *fiber.Ctx, md freighter.Context) {
+func setResponseCtx(c fiber.Ctx, md freighter.Context) {
 	for k, v := range md.Params {
 		if vStr, ok := v.(string); ok {
 			c.Set(freighterCtxPrefix+k, vStr)
@@ -196,9 +208,9 @@ func parseResponseCtx(c *http.Response, target address.Address) freighter.Contex
 	return md
 }
 
-func parseQueryString(c *fiber.Ctx) map[string]string {
+func parseQueryString(c fiber.Ctx) map[string]string {
 	data := make(map[string]string)
-	for key, val := range c.Context().QueryArgs().All() {
+	for key, val := range c.RequestCtx().QueryArgs().All() {
 		k := utils.UnsafeString(key)
 		v := utils.UnsafeString(val)
 		data[k] = v

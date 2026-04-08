@@ -31,7 +31,7 @@ const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
-  position: xy.xy.or(z.null()),
+  position: xy.xyZ.or(z.null()),
   textColor: color.colorZ.default(color.ZERO),
   backgroundColor: color.colorZ.default(color.ZERO),
   borderColor: color.colorZ.default(color.ZERO),
@@ -138,8 +138,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       width: maxLabelLength * 7 + 48,
       position: this.state.position,
       draw: (i, b) => {
-        let label = "";
-        let value = "";
+        let label: string;
+        let value: string;
         let color = this.state.textColor;
         if (i === 0) {
           label = "Time";

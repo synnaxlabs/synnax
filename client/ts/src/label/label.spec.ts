@@ -17,14 +17,20 @@ const client = createTestClient();
 describe("Label", () => {
   describe("create", () => {
     it("should create a label", async () => {
-      const v = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const v = await client.labels.create({
+        name: "Label",
+        color: "#E774D0",
+      });
       expect(v.key).not.toHaveLength(0);
     });
   });
 
   describe("retrieve", () => {
     it("should retrieve a label by its key", async () => {
-      const v = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const v = await client.labels.create({
+        name: "Label",
+        color: "#E774D0",
+      });
       const retrieved = await client.labels.retrieve({ key: v.key });
       expect(retrieved).toEqual(v);
     });
@@ -32,7 +38,10 @@ describe("Label", () => {
 
   describe("delete", () => {
     it("should delete a label by its key", async () => {
-      const v = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const v = await client.labels.create({
+        name: "Label",
+        color: "#E774D0",
+      });
       await client.labels.delete(v.key);
       await expect(
         async () => await client.labels.retrieve({ key: v.key }),

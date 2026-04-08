@@ -16,7 +16,7 @@ import {
   Flex,
   Icon,
   List as BaseList,
-  Menu as PMenu,
+  Menu,
   Select,
   Status,
   Tag,
@@ -31,16 +31,17 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
-import { contextMenuRenderProp } from "@/status/list/ContextMenu";
+import { contextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
 import { removeFavorites } from "@/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No favorited statuses."
-      action="Open Status Explorer"
+      action={hasRetrievePermission ? "Open Status Explorer" : undefined}
       onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
@@ -48,7 +49,7 @@ const NoStatuses = (): ReactElement => {
 
 const List = (): ReactElement => {
   const favorites = useSelectFavorites();
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   const [selected, setSelected] = useState<status.Key[]>([]);
   return (
     <Select.Frame<status.Key, status.Status>
@@ -57,7 +58,7 @@ const List = (): ReactElement => {
       value={selected}
       onChange={setSelected}
     >
-      <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps} />
+      <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <BaseList.Items<status.Key>
         full="y"
         emptyContent={<NoStatuses />}
@@ -123,33 +124,41 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
 
 const listItem = Component.renderProp(ListItem);
 
-const Content = (): ReactElement => {
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header padded>
+      <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <List />
+  </Toolbar.Content>
+);
+
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
-    <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
-        <Toolbar.Actions>
-          {canEdit && (
-            <Toolbar.Action
-              tooltip="Create status"
-              onClick={() => placeLayout(CREATE_LAYOUT)}
-            >
-              <Icon.Add />
-            </Toolbar.Action>
-          )}
-          <Toolbar.Action
-            tooltip="Open Status Explorer"
-            onClick={() => placeLayout(EXPLORER_LAYOUT)}
-            variant="filled"
-          >
-            <Icon.Explore />
-          </Toolbar.Action>
-        </Toolbar.Actions>
-      </Toolbar.Header>
-      <List />
-    </Toolbar.Content>
+    <Toolbar.Actions>
+      {hasCreatePermission && (
+        <Toolbar.Action
+          tooltip="Create status"
+          onClick={() => placeLayout(CREATE_LAYOUT)}
+        >
+          <Icon.Add />
+        </Toolbar.Action>
+      )}
+      {hasRetrievePermission && (
+        <Toolbar.Action
+          tooltip="Open Status Explorer"
+          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          variant="filled"
+        >
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
+    </Toolbar.Actions>
   );
 };
 

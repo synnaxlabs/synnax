@@ -14,6 +14,7 @@
 
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
+#include "driver/pipeline/mock/pipeline.h"
 #include "engine/engine.h"
 
 namespace driver::ethercat {
@@ -105,12 +106,12 @@ protected:
         };
         synnax::device::Device dev{
             .key = "ecat_slave_" + std::to_string(serial),
-            .name = "Test Slave SN:" + std::to_string(serial),
             .rack = rack.key,
             .location = NETWORK_INTERFACE + ".Slot 0",
             .make = "DEWESoft",
             .model = "TestModule",
-            .properties = props.get<x::json::json::object_t>(),
+            .name = "Test Slave SN:" + std::to_string(serial),
+            .properties = props,
         };
         auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();

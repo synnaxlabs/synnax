@@ -35,7 +35,6 @@ configuration specifics differ between hardware integrations.
 """
 
 import synnax as sy
-from synnax import modbus
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
@@ -99,9 +98,9 @@ original_task = sy.modbus.ReadTask(
 client.tasks.configure(original_task)
 print(f"✓ Created task: '{original_task.name}'")
 print(f"  Task key: {original_task.key}")
-print(f"  Sample rate: 10 Hz")
-print(f"  Stream rate: 10 Hz")
-print(f"  Channels: 2 input registers")
+print("  Sample rate: 10 Hz")
+print("  Stream rate: 10 Hz")
+print("  Channels: 2 input registers")
 print()
 
 # ============================================================================
@@ -134,14 +133,14 @@ copied_task.config.auto_start = True
 client.tasks.configure(copied_task)
 
 print(f"\n✓ Copied and modified task: '{copied_task.name}'")
-print(f"  Original task:")
+print("  Original task:")
 print(f"    Key:          {original_task.key}")
-print(f"    Stream rate:  10 Hz")
-print(f"    Auto-start:   Disabled")
-print(f"  Copied task:")
+print("    Stream rate:  10 Hz")
+print("    Auto-start:   Disabled")
+print("  Copied task:")
 print(f"    Key:          {copied_task.key}")
-print(f"    Stream rate:  5 Hz (modified)")
-print(f"    Auto-start:   Enabled (task is now running)")
+print("    Stream rate:  5 Hz (modified)")
+print("    Auto-start:   Enabled (task is now running)")
 
 # Keep the copied task running for now - we'll verify it below
 print()
@@ -187,12 +186,12 @@ with client.open_streamer([input_reg_0.key, input_reg_1.key]) as streamer:
 if sample_count > 0:
     print(f"  ✓ Copied task is running (received {sample_count} samples)")
 else:
-    print(f"  ✗ No samples received from copied task")
+    print("  ✗ No samples received from copied task")
 
 # Stop the copied task to clean up
 print("  Stopping copied task...")
 copied_task.stop()
-print(f"  ✓ Copied task stopped")
+print("  ✓ Copied task stopped")
 
 # ============================================================================
 # Step 4: Delete the copied task

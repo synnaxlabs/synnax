@@ -336,7 +336,7 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 		func() {
 			f.Lock()
 			defer f.Unlock()
-			f.open = lo.Filter[controlledReader](f.open, func(r controlledReader, i int) bool {
+			f.open = lo.Filter(f.open, func(r controlledReader, i int) bool {
 				if !r.tryAcquire() {
 					// If file is held by someone else, we can't gc.
 					return true

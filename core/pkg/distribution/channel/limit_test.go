@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,16 +40,18 @@ var _ = Describe("Limit", Ordered, func() {
 		mockCluster *mock.Cluster
 		dist        mock.Node
 	)
+	// context.Background() is used because Provision creates resources stored in
+	// shared vars that are used by It blocks, so the context must outlive BeforeEach.
 	BeforeEach(func() {
 		mockCluster = mock.NewCluster()
-		dist = mockCluster.Provision(ctx, distribution.LayerConfig{
+		dist = mockCluster.Provision(context.Background(), distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})
 	})
 	AfterEach(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
-	It("Should not allow creating channels over the limit", func() {
+	It("Should not allow creating channels over the limit", func(ctx SpecContext) {
 		// Create channels up to the limit
 		for i := range limit {
 			ch := channel.Channel{
@@ -72,7 +75,7 @@ var _ = Describe("Limit", Ordered, func() {
 		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 	})
 
-	It("Should allow creating channels after deleting some to stay under the limit", func() {
+	It("Should allow creating channels after deleting some to stay under the limit", func(ctx SpecContext) {
 		// Create channels up to the limit
 		channels := make([]channel.Channel, int(limit))
 		for i := range limit {
@@ -122,7 +125,7 @@ var _ = Describe("Limit", Ordered, func() {
 		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 	})
 
-	It("Should allow retrieving channels even at the limit", func() {
+	It("Should allow retrieving channels even at the limit", func(ctx SpecContext) {
 		// Create channels up to the limit
 		createdChannels := make([]channel.Channel, int(limit))
 		for i := range limit {
@@ -150,17 +153,15 @@ var _ = Describe("Limit", Ordered, func() {
 		// Retrieve all channels - this should work fine even at the limit
 		var retrievedChannels []channel.Channel
 		retrieve := dist.Channel.NewRetrieve()
-		err = retrieve.Entries(&retrievedChannels).WhereNodeKey(1).Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(retrieve.Entries(&retrievedChannels).WhereNodeKey(1).Exec(ctx, nil)).To(Succeed())
 		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
 
 		// Retrieve a specific channel by name
 		var singleChannel channel.Channel
-		err = retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
 		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 	})
-	It("Should not edit the channel limit if a deletion fails in TS", func() {
+	It("Should not edit the channel limit if a deletion fails in TS", func(ctx SpecContext) {
 		createdChannels := make([]channel.Channel, int(limit))
 		for i := range limit {
 			ch := channel.Channel{

@@ -56,7 +56,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   ],
 });
 
-export type DeleteParams = table.Params;
+export type DeleteParams = table.Key | table.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,

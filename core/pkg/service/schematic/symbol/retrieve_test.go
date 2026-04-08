@@ -20,7 +20,7 @@ import (
 var _ = Describe("Retrieve", func() {
 	var sym1, sym2, sym3 symbol.Symbol
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		sym1 = symbol.Symbol{
 			Name: "symbol-1",
 			Data: map[string]any{
@@ -48,7 +48,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("WhereKeys", func() {
-		It("Should retrieve a single symbol by key", func() {
+		It("Should retrieve a single symbol by key", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
 				WhereKeys(sym1.Key).
@@ -59,7 +59,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(retrieved.Data["svg"]).To(Equal(sym1.Data["svg"]))
 		})
 
-		It("Should retrieve multiple symbols by keys", func() {
+		It("Should retrieve multiple symbols by keys", func(ctx SpecContext) {
 			var retrieved []symbol.Symbol
 			Expect(svc.NewRetrieve().
 				WhereKeys(sym1.Key, sym3.Key).
@@ -71,7 +71,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(keys).To(ContainElements(sym1.Key, sym3.Key))
 		})
 
-		It("Should return error when symbol not found", func() {
+		It("Should return error when symbol not found", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			err := svc.NewRetrieve().
 				WhereKeys(uuid.New()).
@@ -82,7 +82,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("Exec", func() {
-		It("Should execute with provided transaction", func() {
+		It("Should execute with provided transaction", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
 				WhereKeys(sym1.Key).
@@ -91,7 +91,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(retrieved.Key).To(Equal(sym1.Key))
 		})
 
-		It("Should execute without transaction", func() {
+		It("Should execute without transaction", func(ctx SpecContext) {
 			// Create a symbol without transaction
 			symNoTx := symbol.Symbol{
 				Name: "no-tx-symbol",
@@ -112,7 +112,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	Describe("Complex Queries", func() {
-		It("Should retrieve all symbols created", func() {
+		It("Should retrieve all symbols created", func(ctx SpecContext) {
 			var allSymbols []symbol.Symbol
 			Expect(svc.NewRetrieve().
 				Entries(&allSymbols).
@@ -126,7 +126,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(names).To(ContainElements("symbol-1", "symbol-2", "symbol-3"))
 		})
 
-		It("Should handle large data correctly", func() {
+		It("Should handle large data correctly", func(ctx SpecContext) {
 			largeData := map[string]any{
 				"svg":     "<svg>" + string(make([]byte, 10000)) + "</svg>",
 				"states":  []string{},

@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Protocol, TypeAlias, TypeVar
+from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 

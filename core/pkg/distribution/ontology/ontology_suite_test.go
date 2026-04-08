@@ -39,7 +39,7 @@ type sampleService struct {
 
 var _ ontology.Service = (*sampleService)(nil)
 
-const sampleOntologyType ontology.Type = "sample"
+const sampleOntologyType ontology.ResourceType = "sample"
 
 type Sample struct{ Key string }
 
@@ -49,7 +49,7 @@ func newSampleType(key string) ontology.ID {
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *sampleService) Type() ontology.Type { return sampleOntologyType }
+func (s *sampleService) Type() ontology.ResourceType { return sampleOntologyType }
 
 func (s *sampleService) Schema() zyn.Schema { return schema }
 
@@ -59,12 +59,11 @@ func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.T
 
 func (s *sampleService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{
-		lo.Must(s.RetrieveResource(ctx, "", nil)),
+		lo.Must(s.RetrieveResource(context.Background(), "", nil)),
 	}), xio.NopCloser, nil
 }
 
 var (
-	ctx = context.Background()
 	db  *gorp.DB
 	otg *ontology.Ontology
 	tx  gorp.Tx
@@ -72,7 +71,7 @@ var (
 
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	otg = MustSucceed(ontology.Open(context.Background(), ontology.Config{DB: db}))
 	otg.RegisterService(&sampleService{})
 })
 

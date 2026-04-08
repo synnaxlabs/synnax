@@ -11,13 +11,13 @@ package signals
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -35,8 +35,8 @@ import (
 // to instantiate this configuration directly, instead use a helper function
 // such as GorpPublisherConfigUUID.
 type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
-	// DB is the DB to subscribe to.
-	DB *gorp.DB
+	// Observable is the observable to subscribe to for entry changes.
+	Observable observe.Observable[gorp.TxReader[K, E]]
 	// SetDataType is the data type of the key used by the DB.
 	SetDataType telem.DataType
 	// DeleteDataType is the data type of the key used by the DB.
@@ -62,13 +62,14 @@ func DefaultGorpPublisherConfig[K gorp.Key, E gorp.Entry[K]]() GorpPublisherConf
 }
 
 func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) GorpPublisherConfig[K, E] {
-	g.DB = override.Nil(g.DB, other.DB)
+	g.Observable = override.Nil(g.Observable, other.Observable)
 	g.SetDataType = override.String(g.SetDataType, other.SetDataType)
 	g.DeleteDataType = override.String(g.DeleteDataType, other.DeleteDataType)
 	g.MarshalSet = override.Nil(g.MarshalSet, other.MarshalSet)
 	g.MarshalDelete = override.Nil(g.MarshalDelete, other.MarshalDelete)
 	g.SetName = override.String(g.SetName, other.SetName)
 	g.DeleteName = override.String(g.DeleteName, other.DeleteName)
+	g.Observable = override.Nil(g.Observable, other.Observable)
 	return g
 }
 
@@ -76,7 +77,7 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 	v := validate.New("cdc.gorp_publisher_config")
 	validate.NotEmptyString(v, "set_name", g.SetName)
 	validate.NotEmptyString(v, "delete_name", g.DeleteName)
-	validate.NotNil(v, "db", g.DB)
+	validate.NotNil(v, "observable", g.Observable)
 	validate.NotEmptyString(v, "set_data_type", g.SetDataType)
 	validate.NotEmptyString(v, "delete_data_type", g.DeleteDataType)
 	validate.NotNil(v, "marshal_set", g.MarshalSet)
@@ -84,10 +85,8 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 	return v.Error()
 }
 
-var jsonEcd = binary.JSONCodec{}
-
 func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
-	b, err := jsonEcd.Encode(context.TODO(), e)
+	b, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
 	}
@@ -97,9 +96,9 @@ func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 // GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that propagates
 // changes to UUID keyed gorp entries written to the provided DB. The returned
 // configuration should be passed to PublishFromGorp.
-func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisherConfig[uuid.UUID, E] {
+func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](obs observe.Observable[gorp.TxReader[uuid.UUID, E]]) GorpPublisherConfig[uuid.UUID, E] {
 	return GorpPublisherConfig[uuid.UUID, E]{
-		DB:             db,
+		Observable:     obs,
 		DeleteDataType: telem.UUIDT,
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k[:], nil },
@@ -107,9 +106,9 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisher
 	}
 }
 
-func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](obs observe.Observable[gorp.TxReader[K, E]], dt telem.DataType) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
-		DB:             db,
+		Observable:     obs,
 		DeleteDataType: dt,
 		SetDataType:    dt,
 		MarshalDelete: func(k K) (b []byte, err error) {
@@ -121,9 +120,9 @@ func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *g
 	}
 }
 
-func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](obs observe.Observable[gorp.TxReader[K, E]], dt telem.DataType) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
-		DB:             db,
+		Observable:     obs,
 		DeleteDataType: dt,
 		SetDataType:    telem.JSONT,
 		MarshalDelete: func(k K) (b []byte, err error) {
@@ -133,9 +132,9 @@ func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.
 	}
 }
 
-func GorpPublisherConfigString[E gorp.Entry[string]](db *gorp.DB) GorpPublisherConfig[string, E] {
+func GorpPublisherConfigString[E gorp.Entry[string]](obs observe.Observable[gorp.TxReader[string, E]]) GorpPublisherConfig[string, E] {
 	return GorpPublisherConfig[string, E]{
-		DB:             db,
+		Observable:     obs,
 		DeleteDataType: telem.StringT,
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k string) ([]byte, error) { return append([]byte(k), '\n'), nil },
@@ -157,7 +156,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	}
 	var (
 		obs = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
-			Observable: gorp.Observe[K, E](cfg.DB),
+			Observable: cfg.Observable,
 			Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
 				var out []change.Change[[]byte, struct{}]
 				for c := range r {

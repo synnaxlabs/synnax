@@ -18,7 +18,7 @@ import {
   Haul,
   Icon,
   List as BaseList,
-  Menu as PMenu,
+  Menu,
   Ranger,
   Select,
   Tag,
@@ -41,13 +41,12 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
-  const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
+  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
-      message="No ranges loaded."
-      action={canCreateRange ? "Create a range" : undefined}
-      onClick={handleLinkClick}
+      message="No favorited ranges."
+      action={hasRetrievePermission ? "Open Range Explorer" : undefined}
+      onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
 };
@@ -80,7 +79,7 @@ const List = (): ReactElement => {
     },
   });
 
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
 
   return (
     <Select.Frame<string, StaticRange>
@@ -88,7 +87,7 @@ const List = (): ReactElement => {
       value={activeRange?.key}
       onChange={handleSelect}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
+      <Menu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
       <BaseList.Items
         full="y"
         emptyContent={<NoRanges />}
@@ -125,7 +124,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
   const onRename = useRename();
-  const hasEditPermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
   return (
@@ -145,7 +144,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
           level="p"
           value={name}
           onChange={
-            hasEditPermission ? (name) => onRename.update({ key, name }) : undefined
+            hasUpdatePermission ? (name) => onRename.update({ key, name }) : undefined
           }
           allowDoubleClick={false}
         />
@@ -169,35 +168,43 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   );
 });
 
-const Content = (): ReactElement => {
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
-    <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Toolbar.Actions>
-          {canCreateRange && (
-            <Toolbar.Action
-              tooltip="Create range"
-              onClick={() => placeLayout(CREATE_LAYOUT)}
-            >
-              <Icon.Add />
-            </Toolbar.Action>
-          )}
-          <Toolbar.Action
-            tooltip="Open Range Explorer"
-            onClick={() => placeLayout(EXPLORER_LAYOUT)}
-            variant="filled"
-          >
-            <Icon.Explore />
-          </Toolbar.Action>
-        </Toolbar.Actions>
-      </Toolbar.Header>
-      <List />
-    </Toolbar.Content>
+    <Toolbar.Actions>
+      {hasCreatePermission && (
+        <Toolbar.Action
+          tooltip="Create range"
+          onClick={() => placeLayout(CREATE_LAYOUT)}
+        >
+          <Icon.Add />
+        </Toolbar.Action>
+      )}
+      {hasRetrievePermission && (
+        <Toolbar.Action
+          tooltip="Open Range Explorer"
+          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          variant="filled"
+        >
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
+    </Toolbar.Actions>
   );
 };
+
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header padded>
+      <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <List />
+  </Toolbar.Content>
+);
 
 export const TOOLBAR: Layout.NavDrawerItem = {
   key: "range",

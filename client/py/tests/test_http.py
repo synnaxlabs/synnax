@@ -10,7 +10,6 @@
 from random import randint
 
 import pytest
-from pydantic import ValidationError
 
 import synnax as sy
 
@@ -717,7 +716,6 @@ class TestHTTPHealthCheck:
         hc = sy.http.HealthCheck()
         assert hc.method == "GET"
         assert hc.path == "/health"
-        assert hc.validate_response is False
         assert hc.response is None
         assert hc.headers is None
         assert hc.query_params is None
@@ -742,14 +740,12 @@ class TestHTTPHealthCheck:
         """Test health check with response validation."""
         hc = sy.http.HealthCheck(
             path="/health",
-            validate_response=True,
             response=sy.http.ExpectedResponse(
                 pointer="/status",
                 expected_value_type="string",
                 expected_value="ok",
             ),
         )
-        assert hc.validate_response is True
         assert hc.response is not None
         assert hc.response.pointer == "/status"
         assert hc.response.expected_value == "ok"

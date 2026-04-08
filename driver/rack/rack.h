@@ -20,6 +20,7 @@
 
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/labjack/labjack.h"
@@ -104,7 +105,8 @@ struct Config {
 
     /// @brief returns a new task factory to use for creating tasks in the task
     /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory> new_factory() const;
+    [[nodiscard]] std::unique_ptr<task::Factory>
+    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {
@@ -113,6 +115,21 @@ struct Config {
 
     /// @brief returns true if the integration with the given name is enabled.
     [[nodiscard]] bool integration_enabled(const std::string &i) const;
+
+    /// @brief returns the list of integrations that are actually available
+    /// at runtime, filtering out NI and LabJack if their SDK libraries
+    /// are not present.
+    [[nodiscard]] std::vector<std::string> supported_integrations() const {
+        std::vector<std::string> result;
+        const bool supports_ni = ni::integration_supported();
+        const bool supports_labjack = labjack::integration_supported();
+        for (const auto &i: this->integrations) {
+            if (i == ni::INTEGRATION_NAME && !supports_ni) continue;
+            if (i == labjack::INTEGRATION_NAME && !supports_labjack) continue;
+            result.push_back(i);
+        }
+        return result;
+    }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"

@@ -14,17 +14,17 @@ package console
 import (
 	"embed"
 	"io/fs"
-	"net/http"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"go.uber.org/zap"
 )
 
-//go:embed dist/*
+//go:embed all:dist
 var embeddedAssets embed.FS
 
 const rootHTMLFile = "index.html"
@@ -46,16 +46,18 @@ func NewService() *Service {
 // BindTo binds the console UI service to the provided Fiber app. In the ui build, it
 // serves the embedded console assets.
 func (s *Service) BindTo(app *fiber.App) {
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:         http.FS(s.fs),
-		Browse:       false,
-		Index:        rootHTMLFile,
-		MaxAge:       86400,        // 1 day cache for static assets
-		NotFoundFile: rootHTMLFile, // Serve index.html for SPA routing
+	app.Use("/", static.New("", static.Config{
+		FS:         s.fs,
+		Browse:     false,
+		IndexNames: []string{rootHTMLFile},
+		MaxAge:     int((24 * time.Hour).Seconds()), // 1 day cache for static assets
+		NotFoundHandler: func(c fiber.Ctx) error {
+			return c.SendFile(rootHTMLFile, fiber.SendFile{FS: s.fs})
+		}, // Serve index.html for SPA routing
 	}))
 }
 
-func (s *Service) Use(...freighter.Middleware) {}
+func (*Service) Use(...freighter.Middleware) {}
 
 // Report implements alamos.ReportProvider.
-func (s *Service) Report() alamos.Report { return alamos.Report{"console": "enabled"} }
+func (*Service) Report() alamos.Report { return alamos.Report{"console": "enabled"} }

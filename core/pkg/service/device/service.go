@@ -11,22 +11,22 @@ package device
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -47,6 +47,9 @@ type ServiceConfig struct {
 	// Status is used to define and process statuses for devices.
 	// [REQUIRED]
 	Status *status.Service
+	// Search is the search index for fuzzy searching devices.
+	// [REQUIRED]
+	Search *search.Index
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]
@@ -67,8 +70,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -81,6 +86,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -90,36 +96,48 @@ var DefaultServiceConfig = ServiceConfig{}
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg                           ServiceConfig
-	shutdownSignals               io.Closer
-	disconnectSuspectRackObserver observe.Disconnect
-	group                         group.Group
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[string, Device]
+	group  group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close to
 // prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
+	if s.table, err = gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[string, Device]("msgpack_to_orc", v0Mig.Key()),
+		},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
-	if err := s.migrateStatusesForExistingDevices(ctx); err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
+	cfg.Search.RegisterService(s)
+	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
+	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
-		if s.shutdownSignals, err = signals.PublishFromGorp(
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigString[Device](cfg.DB),
-		); err != nil {
+			signals.GorpPublisherConfigString[Device](s.table.Observe()),
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -127,13 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // Close closes the device service and releases any resources that it may have acquired.
-func (s *Service) Close() error {
-	s.disconnectSuspectRackObserver()
-	if s.shutdownSignals == nil {
-		return nil
-	}
-	return s.shutdownSignals.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // RootGroup returns the permanent group for devices. Note that racks will be children
 // of this group, and devices will be children of racks (or children of groups that are
@@ -150,60 +162,17 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:  s.table,
 	}
 }
 
 // NewRetrieve opens a new Retrieve query to fetch devices from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[string, Device](),
+		gorp:   s.table.NewRetrieve(),
 	}
-}
-
-func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
-	var devices []Device
-	if err := s.NewRetrieve().Entries(&devices).Exec(ctx, nil); err != nil {
-		return err
-	}
-	if len(devices) == 0 {
-		return nil
-	}
-	statusKeys := make([]string, len(devices))
-	for i, d := range devices {
-		statusKeys[i] = OntologyID(d.Key).String()
-	}
-	var existingStatuses []Status
-	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []Status
-	for _, d := range devices {
-		key := OntologyID(d.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
-				Key:     key,
-				Name:    d.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: fmt.Sprintf("%s state unknown", d.Name),
-				Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	s.cfg.L.Info("creating unknown statuses for existing devices", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
@@ -213,9 +182,9 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
 	}
-	statuses := make([]Status, len(devices))
+	statuses := make([]status.Status[StatusDetails], len(devices))
 	for i, device := range devices {
-		statuses[i] = Status{
+		statuses[i] = status.Status[StatusDetails]{
 			Key:         OntologyID(device.Key).String(),
 			Name:        device.Name,
 			Time:        telem.Now(),

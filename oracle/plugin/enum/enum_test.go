@@ -46,6 +46,7 @@ var _ = Describe("CollectReferenced", func() {
 
 		structs := []resolution.Type{{
 			Name:          "Task",
+			Namespace:     "task",
 			QualifiedName: "task.Task",
 			Form: resolution.StructForm{
 				Fields: []resolution.Field{{
@@ -74,6 +75,7 @@ var _ = Describe("CollectReferenced", func() {
 		structs := []resolution.Type{
 			{
 				Name:          "Task1",
+				Namespace:     "task",
 				QualifiedName: "task.Task1",
 				Form: resolution.StructForm{
 					Fields: []resolution.Field{{
@@ -84,6 +86,7 @@ var _ = Describe("CollectReferenced", func() {
 			},
 			{
 				Name:          "Task2",
+				Namespace:     "task",
 				QualifiedName: "task.Task2",
 				Form: resolution.StructForm{
 					Fields: []resolution.Field{{
@@ -96,7 +99,7 @@ var _ = Describe("CollectReferenced", func() {
 		Expect(enum.CollectReferenced(structs, table)).To(HaveLen(1))
 	})
 
-	It("should collect multiple different enums", func() {
+	It("should only collect same-namespace enums", func() {
 		table := resolution.NewTable()
 		Expect(table.Add(resolution.Type{
 			Name:          "TaskState",
@@ -113,6 +116,7 @@ var _ = Describe("CollectReferenced", func() {
 
 		structs := []resolution.Type{{
 			Name:          "Record",
+			Namespace:     "test",
 			QualifiedName: "test.Record",
 			Form: resolution.StructForm{
 				Fields: []resolution.Field{
@@ -121,7 +125,38 @@ var _ = Describe("CollectReferenced", func() {
 				},
 			},
 		}}
-		Expect(enum.CollectReferenced(structs, table)).To(HaveLen(2))
+		Expect(enum.CollectReferenced(structs, table)).To(HaveLen(0))
+	})
+
+	It("should collect same-namespace enums and exclude cross-namespace enums", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "TaskState",
+			Namespace:     "task",
+			QualifiedName: "task.TaskState",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "DataType",
+			Namespace:     "telem",
+			QualifiedName: "telem.DataType",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "float32"}}},
+		})).To(Succeed())
+
+		structs := []resolution.Type{{
+			Name:          "Record",
+			Namespace:     "task",
+			QualifiedName: "task.Record",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "state", Type: resolution.TypeRef{Name: "task.TaskState"}},
+					{Name: "dataType", Type: resolution.TypeRef{Name: "telem.DataType"}},
+				},
+			},
+		}}
+		result := enum.CollectReferenced(structs, table)
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].Name).To(Equal("TaskState"))
 	})
 
 	It("should handle empty structs slice", func() {
@@ -515,6 +550,7 @@ var _ = Describe("CollectReferenced edge cases", func() {
 
 		structs := []resolution.Type{{
 			Name:          "Container",
+			Namespace:     "test",
 			QualifiedName: "test.Container",
 			Form: resolution.StructForm{
 				Fields: []resolution.Field{{
@@ -542,6 +578,7 @@ var _ = Describe("CollectReferenced edge cases", func() {
 
 		structs := []resolution.Type{{
 			Name:          "Result",
+			Namespace:     "test",
 			QualifiedName: "test.Result",
 			Form: resolution.StructForm{
 				Fields: []resolution.Field{{

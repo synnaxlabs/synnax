@@ -16,6 +16,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { PagerDuty } from "@/hardware/pagerduty";
 import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
 
@@ -23,8 +24,8 @@ const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,
 ): BaseSelector.Selectable => {
   const WrappedSelectable: BaseSelector.Selectable = (props) => {
-    const visible = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-    if (!visible) return null;
+    const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+    if (!hasCreatePermission) return null;
     return <Selectable {...props} />;
   };
   WrappedSelectable.type = Selectable.type;
@@ -38,6 +39,7 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
+  ...PagerDuty.Task.SELECTABLES,
 ].map(withTaskVisibility);
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";

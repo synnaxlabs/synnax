@@ -216,8 +216,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -235,7 +233,7 @@ jobs:
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
+        uses: bazel-contrib/setup-bazel@0.18.0
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
@@ -258,7 +256,7 @@ jobs:
 
       - name: Upload Windows Debug Symbols
         if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -282,7 +280,7 @@ jobs:
 
       - name: Upload macOS Debug Symbols
         if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-macos'
@@ -310,7 +308,7 @@ jobs:
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -323,7 +321,7 @@ jobs:
 
       - name: Upload NI Linux Real-Time Driver as Artifact
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-nilinuxrt' ||
@@ -363,7 +361,7 @@ jobs:
 
       - name: Upload Linux Debug Symbols
         if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-linux'
@@ -474,7 +472,7 @@ jobs:
 
       - name: Upload Driver as Artifact
         if: inputs.driver
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -530,7 +528,7 @@ jobs:
 
       - name: Upload Console Assets as Artifact
         if: inputs.console
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -554,7 +552,7 @@ jobs:
         if: inputs.core
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.work
+          go-version-file: core/go.mod
           # Don't use github cache. Local cache is faster.
           cache: false
 
@@ -646,7 +644,7 @@ jobs:
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -673,6 +671,15 @@ jobs:
             core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{
             matrix.executable }}
 
+      - name: Clean Stale Build Caches (Ubuntu)
+        if: always() && matrix.os == 'ubuntu-build-bot'
+        run: integration/scripts/clean_build_caches_unix.sh 2
+
+      - name: Clean Stale Build Caches (Windows)
+        if: always() && matrix.os == 'windows-build-bot'
+        shell: powershell
+        run: integration/scripts/CleanBuildCachesWindows.ps1 -MaxAgeHours 2
+
   docker:
     name: Build Docker Image
     needs: [setup, build]
@@ -692,7 +699,7 @@ jobs:
 
       - name: Download Linux Driver Artifact
         if: inputs.driver
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' ||
@@ -714,7 +721,7 @@ jobs:
 
       - name: Download Console Assets
         if: inputs.console
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
@@ -722,24 +729,30 @@ jobs:
           path: core/pkg/console/dist/
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Hub
         if: inputs.upload_to_release
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Extract Go version
+        id: go-version
+        run:
+          echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
+          $GITHUB_OUTPUT
+
       - name: Build and Push Docker Images
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./core/Dockerfile
@@ -768,6 +781,7 @@ jobs:
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
+            GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
   build-console-tauri:
     name: Build Console App
@@ -870,7 +884,7 @@ jobs:
         run: pnpm build --no-sign
 
       - name: Upload Console App as Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ startsWith(matrix.os, 'macos') && format('synnax-console-v{0}-macos',

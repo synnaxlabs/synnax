@@ -42,11 +42,13 @@ func (s *Service) newFree(
 	mode Mode,
 	sync bool,
 	channels []channel.Channel,
+	group uint32,
 ) StreamWriter {
 	w := &freeWriter{
 		freeWrites: s.cfg.FreeWrites,
 		mode:       mode,
 		sync:       sync,
+		group:      group,
 		indexes:    make(map[channel.Key]channel.Key),
 		alignments: make(map[channel.Key]telem.Alignment),
 	}
@@ -75,9 +77,11 @@ type freeWriter struct {
 	freeWrites confluence.Inlet[relay.Response]
 	// mode is the mode of the writer.
 	mode Mode
-	// sync is true if the writer should receive acknowledgements for all requires,
+	// sync is true if the writer should receive acknowledgements for all requests,
 	// including Write commands.
 	sync bool
+	// group is the writer group identifier, used for server-side deduplication.
+	group uint32
 }
 
 func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
@@ -111,7 +115,7 @@ func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, 
 	if req.Command == CommandWrite && w.mode.Stream() {
 		if err = signal.SendUnderContext(
 			ctx, w.freeWrites.Inlet(),
-			relay.Response{Frame: w.alignFrame(req.Frame)},
+			relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
 		); err != nil || !w.sync {
 			return
 		}

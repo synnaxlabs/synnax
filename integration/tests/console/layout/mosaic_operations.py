@@ -172,10 +172,12 @@ class MosaicOperations(ConsoleCase):
 
     def _get_theme_class(self) -> str:
         """Get the current pluto theme class from the <html> element."""
-        classes: str = str(self.console.layout.page.evaluate("""
+        classes: str = str(
+            self.console.layout.page.evaluate("""
             Array.from(document.documentElement.classList)
                 .find(c => c.startsWith('pluto-theme-')) || ''
-            """))
+            """)
+        )
         return classes
 
     def test_toggle_color_theme(self) -> None:
@@ -192,6 +194,6 @@ class MosaicOperations(ConsoleCase):
             timeout=5000,
         )
         new_theme = self._get_theme_class()
-        assert (
-            new_theme != original_theme
-        ), f"Theme should change. Before: '{original_theme}', After: '{new_theme}'"
+        assert new_theme != original_theme, (
+            f"Theme should change. Before: '{original_theme}', After: '{new_theme}'"
+        )

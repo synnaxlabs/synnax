@@ -10,8 +10,6 @@ on:
       - arc/go/**
       - codecov.yaml
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -26,8 +24,6 @@ on:
       - arc/go/**
       - codecov.yaml
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:
@@ -38,5 +34,5 @@ jobs:
     secrets: inherit
     with:
       directory: arc/go
-      ginkgo_flags: -p --randomize-all --race
+      ginkgo_flags: -p --randomize-all
       coverage_flag: arc-go

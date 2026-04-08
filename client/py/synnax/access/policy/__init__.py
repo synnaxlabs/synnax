@@ -16,7 +16,7 @@ from synnax.access.policy.payload import (
     Policy,
     ontology_id,
 )
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 _DEPRECATED = {
     "PolicyClient": "Client",

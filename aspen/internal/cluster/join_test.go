@@ -18,9 +18,10 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	"time"
 )
 
@@ -39,12 +40,12 @@ var _ = Describe("Open", func() {
 
 		Context("Name Cluster", func() {
 
-			It("Should correctly join the Cluster", func() {
+			It("Should correctly join the Cluster", func(ctx SpecContext) {
 
 				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
-				clusterOne, err := cluster.Open(
+				clusterOne := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
@@ -59,14 +60,13 @@ var _ = Describe("Open", func() {
 							Interval:        100 * time.Millisecond,
 						},
 					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				))
 				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				By("Pledging a new node to the Cluster")
 				gossipT2 := gossipNet.UnaryServer("")
 				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
-				clusterTwo, err := cluster.Open(
+				clusterTwo := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT2.Address,
@@ -81,8 +81,7 @@ var _ = Describe("Open", func() {
 							Interval:        100 * time.Millisecond,
 						},
 					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				))
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				By("Converging Cluster state through gossip")
 				Eventually(clusterOne.Nodes).Should(HaveLen(2))
@@ -96,11 +95,11 @@ var _ = Describe("Open", func() {
 
 		Context("Existing Cluster in Storage", func() {
 
-			It("Should restart Cluster activities using the persisted state", func() {
+			It("Should restart Cluster activities using the persisted state", func(ctx SpecContext) {
 
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
-				clusterOne, err := cluster.Open(
+				clusterOne := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
@@ -115,8 +114,7 @@ var _ = Describe("Open", func() {
 							Interval:        100 * time.Millisecond,
 						},
 					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				))
 				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				kvDB := memkv.New()
@@ -138,15 +136,13 @@ var _ = Describe("Open", func() {
 					StorageKey:           []byte("Cluster-join-test-storage"),
 					Storage:              kvDB,
 					StorageFlushInterval: cluster.FlushOnEvery,
-					Codec:                &binary.MsgPackCodec{},
+					Codec:                msgpack.Codec,
 				}
-				clusterTwo, err := cluster.Open(ctx, clusterTwoConfig)
-				Expect(err).ToNot(HaveOccurred())
+				clusterTwo := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwo.Close()).To(Succeed())
 
-				clusterTwoAgain, err := cluster.Open(ctx, clusterTwoConfig)
-				Expect(err).ToNot(HaveOccurred())
+				clusterTwoAgain := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
 				Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
 

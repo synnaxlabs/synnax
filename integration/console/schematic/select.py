@@ -45,24 +45,27 @@ class Select(Symbol):
         **kwargs: Any,
     ) -> dict[str, Any]:
         self.click()
+        self.notifications.close_all()
         applied_properties: dict[str, Any] = {}
 
         if channel_name is not None:
             self.set_label(channel_name)
-            self.page.get_by_text("Properties").click()
-            self.page.get_by_text("Control").last.click()
+            self.page.get_by_text("Properties").dispatch_event("click")
+            self.page.get_by_text("Control").last.dispatch_event("click")
             self.set_channel(input_field="Command Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:
             self.click()
-            self.page.get_by_text("Properties").click()
-            self.page.get_by_text("Options", exact=True).click()
+            self.page.get_by_text("Properties").dispatch_event("click")
+            self.page.get_by_text("Options", exact=True).dispatch_event("click")
             for i, option in enumerate(options):
                 if i == 0:
-                    self.page.get_by_text("Add an option").click()
+                    self.page.get_by_text("Add an option").dispatch_event("click")
                 else:
-                    self.page.get_by_text("Add option", exact=True).click()
+                    self.page.get_by_text("Add option", exact=True).dispatch_event(
+                        "click"
+                    )
                 items = self.page.locator(".pluto-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first

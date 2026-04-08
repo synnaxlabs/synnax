@@ -11,7 +11,6 @@ import warnings
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
-
 from synnax import (
     access,
     arc,
@@ -28,6 +27,7 @@ from synnax import (
     status,
     task,
     user,
+    view,
 )
 from synnax.config import try_load_options_if_none_provided
 from synnax.options import Options
@@ -36,19 +36,19 @@ from synnax.transport import Transport
 
 
 class Synnax(framer.Client):
-    """Client to perform operations against a Synnax cluster.
+    """Client to perform operations against a Synnax Core.
 
-    If using the python client for data analysis/personal use, the easiest way to
-    connect is to use the `synnax login` command, which will prompt and securely
-    store your credentials. The client can then be initialized without parameters. When
-    using the client in a production environment, it's best to provide the connection
-    parameter as arguments loaded from a configuration or environment variable.
+    If using the Python client for data analysis/personal use, the easiest way to
+    connect is to use the `sy login` command, which will prompt and securely store your
+    credentials. The client can then be initialized without parameters. When using the
+    client in a production environment, it's best to provide the connection parameter as
+    arguments loaded from a configuration or environment variable.
 
-    After running the synnax login command::
-        client = Synnax()
+    After running the sy login command::
+        client = sy.Synnax()
 
-    Without running the synnax login command::
-        client = Synnax(
+    Without running the sy login command::
+        client = sy.Synnax(
             host="synnax.example.com",
             port=9090,
             username="synnax",
@@ -70,6 +70,7 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    views: view.Client
 
     _transport: Transport
 
@@ -93,14 +94,14 @@ class Synnax(framer.Client):
         operating system's keychain.
 
         If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `synnax login` command, which will prompt and securely store your
+        is to use the `sy login` command, which will prompt and securely store your
         credentials. The client can then be initialized without parameters.
 
-        :param host: Hostname of a node in the Synnax cluster.
-        :param port: Port of the node.
+        :param host: Hostname of a Core in the Synnax cluster.
+        :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the cluster.
+        :param secure: Whether to use TLS when connecting to the Core.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
         self._transport = _configure_transport(
@@ -152,6 +153,7 @@ class Synnax(framer.Client):
         self.signals = signals.Registry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
+        self.views = view.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,

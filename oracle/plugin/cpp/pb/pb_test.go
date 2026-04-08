@@ -10,7 +10,6 @@
 package pb_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,13 +25,11 @@ func TestCppPB(t *testing.T) {
 
 var _ = Describe("C++ PB Plugin", func() {
 	var (
-		ctx      context.Context
 		loader   *MockFileLoader
 		pbPlugin *pb.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		pbPlugin = pb.New(pb.Options{
 			FileNamePattern:  "proto.gen.h",
@@ -76,7 +73,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("array alias fields (e.g., Params -> Param[])", func() {
-			It("Should use add_* for repeated fields in forward conversion", func() {
+			It("Should use add_* for repeated fields in forward conversion", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -112,7 +109,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should generate correct backward conversion for array aliases", func() {
+			It("Should generate correct backward conversion for array aliases", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -139,7 +136,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should call to_proto/from_proto for struct element types", func() {
+			It("Should call to_proto/from_proto for struct element types", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -168,7 +165,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("direct array fields (non-alias)", func() {
-			It("Should use add_* for direct array fields with struct elements", func() {
+			It("Should use add_* for direct array fields with struct elements", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -192,7 +189,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should use add_* for primitive arrays", func() {
+			It("Should use add_* for primitive arrays", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -213,7 +210,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("optional struct fields", func() {
-			It("Should use has_value() and mutable_* for optional structs", func() {
+			It("Should use has_value() and mutable_* for optional structs with error propagation", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -232,10 +229,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: check has_value() and use mutable_*
+						// Forward: check has_value(), call to_proto(), propagate error
 						"if (this->unit.has_value())",
-						"*pb.mutable_unit()",
 						"this->unit->to_proto()",
+						"*pb.mutable_unit() = v",
 						// Backward: check has_* and use inline error handling
 						"if (pb.has_unit())",
 						"Unit::from_proto(pb.unit())",
@@ -245,7 +242,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("self-referential types", func() {
-			It("Should handle self-referential optional struct fields", func() {
+			It("Should handle self-referential optional struct fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -271,7 +268,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("complex type structure from arc/types", func() {
-			It("Should handle the complete Type structure with FunctionProperties and self-refs", func() {
+			It("Should handle the complete Type structure with FunctionProperties and self-refs", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 					@pb output "arc/go/types/pb"
@@ -315,7 +312,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("enum handling", func() {
-			It("Should generate enum translator functions for string enums", func() {
+			It("Should generate string enum translators that return errors", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/status"
 					@pb output "core/pkg/service/status/pb"
@@ -333,15 +330,43 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						"VariantToPB",
-						"VariantFromPB",
-						// Should use static unordered_map for O(1) lookup
+						"variant_to_pb",
+						"variant_from_pb",
 						"static const std::unordered_map",
 						"kMap.find(cpp)",
+						// Should return pair with error type
+						"x::errors::Error",
 					)
 			})
 
-			It("Should use static_cast for int enums", func() {
+			It("Should return error for unrecognized string enum values", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
+
+				// ToPB should not silently return a default for unknown values
+				Expect(content).ToNot(ContainSubstring(
+					"it->second : ",
+				))
+				// FromPB should not silently return a default in the switch default case
+				Expect(content).ToNot(MatchRegexp(
+					`default: return "`,
+				))
+			})
+
+			It("Should return error for unrecognized int enum values", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/status"
 					@pb output "core/pkg/service/status/pb"
@@ -356,16 +381,61 @@ var _ = Describe("C++ PB Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
 
-				ExpectContent(resp, "proto.gen.h").
-					ToContain(
-						"static_cast<",
-					)
+				// Int enum struct field backward conversion should check for errors
+				Expect(content).To(ContainSubstring("x::errors::Error"))
+			})
+
+			It("Should propagate string enum errors in struct from_proto", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
+
+				// from_proto should check for errors from enum conversion
+				Expect(content).To(ContainSubstring("variant_from_pb"))
+				Expect(content).To(ContainSubstring("if (err)"))
+			})
+
+			It("Should propagate string enum errors in struct to_proto", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
+
+				// to_proto should return pair and check for errors from enum conversion
+				Expect(content).To(ContainSubstring("std::pair<"))
+				Expect(content).To(ContainSubstring("to_proto() const"))
+				Expect(content).To(ContainSubstring("variant_to_pb"))
+				Expect(content).To(ContainSubstring("return {pb, x::errors::NIL}"))
 			})
 		})
 
 		Context("any type handling", func() {
-			It("Should use x::json::to_value/from_value for any type fields", func() {
+			It("Should use json dump/parse for any type fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -379,19 +449,12 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: use mutable_* and to_value
-						"*pb.mutable_value() = x::json::to_value(this->value).first",
-						// Backward: use inline error handling with from_value
-						"x::json::from_value(pb.value())",
-						"if (err) return {{}, err}",
-					).
-					ToNotContain(
-						// Should NOT use set_value for any type
-						"pb.set_value(",
+						"pb.set_value(this->value.dump())",
+						"x::json::json::parse(pb.value()",
 					)
 			})
 
-			It("Should handle hard optional any type fields", func() {
+			It("Should handle hard optional any type fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -405,25 +468,23 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: check has_value() for hard optional
 						"if (this->value.has_value())",
-						"*pb.mutable_value() = x::json::to_value(*this->value).first",
-						// Backward: check has_* and use inline error handling
+						"(*this->value).dump()",
 						"if (pb.has_value())",
-						"x::json::from_value(pb.value())",
+						"x::json::json::parse(pb.value()",
 					)
 			})
 		})
 
 		Context("json type handling", func() {
-			It("Should use x::json::to_struct/from_struct for json type fields", func() {
+			It("Should use x::json::to_struct/from_struct for json type fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
 						name string
-						metadata json
+						metadata record
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -444,7 +505,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("Map type handling", func() {
-			It("Should iterate and insert for map fields", func() {
+			It("Should iterate and insert for map fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -478,7 +539,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("nested array handling (array of arrays)", func() {
-			It("Should use wrapper messages for nested arrays via alias", func() {
+			It("Should use wrapper messages for nested arrays via alias", func(ctx SpecContext) {
 				// This tests the Strata pattern: Strata = Stratum[] where Stratum = string[]
 				source := `
 					@cpp output "arc/cpp/ir"
@@ -511,7 +572,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should handle nested arrays in direct array fields", func() {
+			It("Should handle nested arrays in direct array fields", func(ctx SpecContext) {
 				// Oracle doesn't support string[][] directly, so we use an alias
 				source := `
 					@cpp output "arc/cpp/ir"
@@ -535,7 +596,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should handle nested arrays alongside other fields in a struct", func() {
+			It("Should handle nested arrays alongside other fields in a struct", func(ctx SpecContext) {
 				// This tests a more complex case similar to IR struct
 				source := `
 					@cpp output "arc/cpp/ir"
@@ -559,8 +620,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Regular struct array should use normal pattern
-						"for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto()",
+						// Regular struct array should use error-handling pattern
+						"for (const auto& item : this->nodes)",
+						"item.to_proto()",
+						"*pb.add_nodes() = v",
 						// Nested array should use wrapper pattern
 						"for (const auto& item : this->strata)",
 						"auto* wrapper = pb.add_strata()",
@@ -568,7 +631,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should handle nested arrays through distinct type alias", func() {
+			It("Should handle nested arrays through distinct type alias", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/ir"
 					@pb output "arc/go/ir/pb"
@@ -595,7 +658,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			// Proto uses repeated fields for arrays, not wrapper messages.
 			// So array wrapper distinct types (like Params Param[]) cannot have
 			// proto methods - there's no proto message to convert to/from.
-			It("Should not generate proto for array wrappers (proto uses repeated fields)", func() {
+			It("Should not generate proto for array wrappers (proto uses repeated fields)", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 					@pb output "x/go/types/pb"
@@ -608,7 +671,7 @@ var _ = Describe("C++ PB Plugin", func() {
 				Expect(len(resp.Files)).To(Equal(0))
 			})
 
-			It("Should generate proto for structs but not array wrappers in same schema", func() {
+			It("Should generate proto for structs but not array wrappers in same schema", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"
 					@pb output "x/go/types/pb"
@@ -635,7 +698,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("includes", func() {
-			It("Should include x/cpp/pb/pb.h for helpers", func() {
+			It("Should include x/cpp/pb/pb.h for helpers", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -652,7 +715,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should include unordered_map and string for string enums", func() {
+			It("Should include unordered_map and string for string enums", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/status"
 					@pb output "core/pkg/service/status/pb"
@@ -675,7 +738,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should only include type_traits for generic types", func() {
+			It("Should only include type_traits for generic types", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -694,13 +757,13 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("json field conversion", func() {
-			It("Should include json struct header for json fields", func() {
+			It("Should include json struct header for record fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data json
+						data record
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -709,13 +772,13 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain("x::json")
 			})
 
-			It("Should handle optional json fields with has_value check", func() {
+			It("Should handle optional record fields with has_value check", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data json??
+						data record??
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -726,7 +789,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("any field conversion", func() {
-			It("Should handle any fields with json value helpers", func() {
+			It("Should handle any fields with json value helpers", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -743,7 +806,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("bytes field conversion", func() {
-			It("Should handle bytes fields with data/size", func() {
+			It("Should handle bytes fields with data/size", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -760,7 +823,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("hard optional uuid field", func() {
-			It("Should generate has_value check for optional uuid", func() {
+			It("Should generate has_value check for optional uuid", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -779,7 +842,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("alias to struct type", func() {
-			It("Should generate to_proto/from_proto for alias that targets struct", func() {
+			It("Should generate to_proto/from_proto for alias that targets struct", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -803,7 +866,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("struct extends with fields", func() {
-			It("Should include parent fields in translation", func() {
+			It("Should include parent fields in translation", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -839,7 +902,7 @@ var _ = Describe("C++ PB Plugin", func() {
 				`)
 			})
 
-			It("Should include cross-namespace headers", func() {
+			It("Should include cross-namespace headers", func(ctx SpecContext) {
 				source := `
 					import "schemas/common"
 
@@ -860,7 +923,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("map field conversion", func() {
-			It("Should handle map fields with mutable accessor", func() {
+			It("Should handle map fields with mutable accessor", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -877,7 +940,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("distinct type with primitive base", func() {
-			It("Should cast through distinct type", func() {
+			It("Should cast through distinct type", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"

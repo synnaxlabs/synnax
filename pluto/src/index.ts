@@ -44,6 +44,7 @@ export * from "@/memo";
 export { Menu } from "@/menu";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
+export { Notation } from "@/notation";
 export { Note } from "@/note";
 export { Ontology } from "@/ontology";
 export { OS } from "@/os";

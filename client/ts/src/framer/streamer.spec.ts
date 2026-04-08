@@ -41,6 +41,36 @@ describe("Streamer", () => {
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
     });
+    test("should preserve non-zero time ranges through codec round-trip", async () => {
+      const ch = await newVirtualChannel(client);
+      const streamer = await client.openStreamer(ch.key);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: ch.key,
+      });
+      const start = new TimeStamp(1000000000n);
+      const end = new TimeStamp(6000000000n);
+      try {
+        const fr = new Frame(
+          [ch.key],
+          [
+            new Series({
+              data: new Float64Array([1, 2, 3]),
+              dataType: DataType.FLOAT64,
+              timeRange: start.spanRange(TimeSpan.seconds(5)),
+            }),
+          ],
+        );
+        await writer.write(fr);
+      } finally {
+        await writer.close();
+      }
+      const d = await streamer.read();
+      const series = d.series[0];
+      expect(series.timeRange).toBeDefined();
+      expect(series.timeRange?.start.valueOf()).toEqual(start.valueOf());
+      expect(series.timeRange?.end.valueOf()).toEqual(end.valueOf());
+    });
     test("open with config", async () => {
       const ch = await newVirtualChannel(client);
       await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();
@@ -56,6 +86,73 @@ describe("Streamer", () => {
     it("should throw an error when the streamer is opened with a channel that does not exist", async () => {
       await expect(client.openStreamer([5678])).rejects.toThrow("not found");
     });
+    describe("excludeGroups", () => {
+      test("should filter out frames from a writer whose group matches", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          excludeGroups: [42],
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+          controlSubject: { name: "grouped", key: id.create(), group: 42 },
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3]));
+          const result = await Promise.race([
+            streamer.read().then((f) => f),
+            sleep.sleep(TimeSpan.milliseconds(500)).then(() => null),
+          ]);
+          expect(result).toBeNull();
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+
+      test("should deliver frames from a writer whose group does not match", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          excludeGroups: [99],
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+          controlSubject: { name: "grouped", key: id.create(), group: 42 },
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3]));
+          const d = await streamer.read();
+          expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+
+      test("should deliver frames from a writer with group 0 even if 0 is excluded", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          excludeGroups: [0],
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3]));
+          const d = await streamer.read();
+          expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+    });
+
     describe("downsampling", () => {
       test("downsample factor of 1", async () => {
         const ch = await newVirtualChannel(client);
@@ -484,6 +581,7 @@ describe("Streamer", () => {
       expect(openMock).toHaveBeenCalledWith({
         ...config,
         downsampleFactor: 1,
+        excludeGroups: [],
         throttleRate: new Rate(0),
       });
       await hardened.update([1, 2, 3]);
