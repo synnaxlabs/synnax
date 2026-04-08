@@ -127,8 +127,9 @@ func compileForRange(
 
 	loopVarType := varSym.Type
 
+	hintCtx := loopCtx.WithHint(loopVarType)
 	if startExpr != nil {
-		if _, err = expression.Compile(context.Child(loopCtx, startExpr)); err != nil {
+		if _, err = expression.Compile(context.Child(hintCtx, startExpr)); err != nil {
 			return err
 		}
 		if err = castIfNeeded(loopCtx, startExpr, loopVarType); err != nil {
@@ -144,7 +145,7 @@ func compileForRange(
 		return err
 	}
 	limitIdx := limitSym.ID
-	if _, err = expression.Compile(context.Child(loopCtx, endExpr)); err != nil {
+	if _, err = expression.Compile(context.Child(hintCtx, endExpr)); err != nil {
 		return err
 	}
 	if err = castIfNeeded(loopCtx, endExpr, loopVarType); err != nil {
@@ -159,7 +160,7 @@ func compileForRange(
 			return err
 		}
 		stepIdx = stepSym.ID
-		if _, err = expression.Compile(context.Child(loopCtx, stepExpr)); err != nil {
+		if _, err = expression.Compile(context.Child(hintCtx, stepExpr)); err != nil {
 			return err
 		}
 		if err = castIfNeeded(loopCtx, stepExpr, loopVarType); err != nil {
