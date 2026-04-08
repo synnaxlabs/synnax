@@ -84,7 +84,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
               )}
             </Form.Field>
           )}
-          <Flex.Box x>
+          <Flex.Box x className={CSS.B("operations")} align="start">
             <Form.Field<channel.OperationType>
               path="operations.0.type"
               label="Operation"

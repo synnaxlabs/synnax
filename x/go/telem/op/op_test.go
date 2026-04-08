@@ -1013,6 +1013,23 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
 		})
+
+		It("should produce negative derivatives for decreasing unsigned input", func() {
+			input := telem.NewSeriesV[uint8](100, 80, 50)
+			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", -20.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
+		})
 	})
 
 })

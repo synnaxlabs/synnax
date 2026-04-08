@@ -708,7 +708,18 @@ TEST(StatDerivativeTest, ComputesPointwiseDerivative) {
 
     const auto sec = x::telem::SECOND.nanoseconds();
     auto source = setup.make_source_node();
-    write_source_f64(source, {10.0, 20.0, 40.0}, {sec, 2 * sec, 4 * sec});
+    auto data_series = x::telem::Series(std::vector<double>{10.0, 20.0, 40.0});
+    data_series.alignment = x::telem::Alignment(250);
+    data_series.time_range = x::telem::TimeRange(
+        x::telem::TimeStamp(sec),
+        x::telem::TimeStamp(4 * sec)
+    );
+    source.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(data_series)
+    );
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{sec, 2 * sec, 4 * sec}
+    );
     bool changed = false;
     auto ctx = make_context();
     ctx.mark_changed = [&](const std::string &) { changed = true; };
@@ -720,6 +731,10 @@ TEST(StatDerivativeTest, ComputesPointwiseDerivative) {
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 0.0);
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(1), 10.0);
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(2), 10.0);
+    EXPECT_EQ(checker.output(0)->alignment, x::telem::Alignment(250));
+    EXPECT_EQ(checker.output(0)->time_range.start, x::telem::TimeStamp(sec));
+    EXPECT_EQ(checker.output(0)->time_range.end, x::telem::TimeStamp(4 * sec));
+    EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(250));
 }
 
 TEST(StatDerivativeTest, MaintainsStateAcrossBatches) {
