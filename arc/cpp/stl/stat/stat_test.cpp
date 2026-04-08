@@ -228,6 +228,31 @@ TEST(StatAvgTest, AccumulatesAcrossBatches) {
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 20.0);
 }
 
+TEST(StatAvgTest, WeightedAverageWithUnequalBatchSizes) {
+    TestSetup setup(types::Kind::F64, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    // Batch 1: [10, 20] -> avg=15, count=2
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0, 20.0}, {sec, 2 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    // Batch 2: [40] -> sum=40, count=1
+    // Correct weighted: (15*2 + 40) / 3 = 23.333...
+    // Naive "average of averages": (15 + 40) / 2 = 27.5
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {40.0}, {3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_NEAR(checker.output(0)->at<double>(0), 23.333, 0.01);
+}
+
 TEST(StatAvgTest, ResetsWithCountConfig) {
     types::Param count_param;
     count_param.name = "count";
@@ -300,6 +325,41 @@ TEST(StatMinTest, MaintainsMinAcrossBatches) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 30);
 }
 
+TEST(StatMinTest, ResetsWithDurationConfig) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = 5 * x::telem::SECOND.nanoseconds();
+
+    TestSetup setup(types::Kind::I32, "min", {duration_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+
+    // First batch: timestamps [1s, 2s, 3s], duration 5s.
+    // No reset: 3s - 1s = 2s < 5s.
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {50, 10, 70}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    EXPECT_EQ(checker1.output(0)->at<int32_t>(0), 10);
+
+    // Second batch: timestamps [6s, 7s, 8s].
+    // Reset: 6s - 1s = 5s >= 5s (triggers reset).
+    // After reset, min should be 40 (min of second batch only).
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {80, 40, 60}, {6 * sec, 7 * sec, 8 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    EXPECT_EQ(checker2.output(0)->at<int32_t>(0), 40);
+}
+
 // ─── Max ─────────────────────────────────────────────────────────────────────
 
 TEST(StatMaxTest, ComputesRunningMaximum) {
@@ -348,6 +408,75 @@ TEST(StatMaxTest, ResetsWithSignal) {
 
     auto checker2 = setup.make_target_node();
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 15.0);
+}
+
+TEST(StatMaxTest, SumsAlignmentFromResetSignal) {
+    TestSetup setup(types::Kind::F64, "max", {}, true);
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    auto data_series = x::telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    data_series.alignment = x::telem::Alignment(100);
+    data_series.time_range = x::telem::TimeRange(
+        x::telem::TimeStamp(50 * sec),
+        x::telem::TimeStamp(150 * sec)
+    );
+    source.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(data_series)
+    );
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{50 * sec, 100 * sec, 150 * sec}
+    );
+
+    auto reset = setup.make_reset_node();
+    auto reset_series = x::telem::Series(static_cast<uint8_t>(0));
+    reset_series.alignment = x::telem::Alignment(75);
+    reset_series.time_range = x::telem::TimeRange(
+        x::telem::TimeStamp(25 * sec),
+        x::telem::TimeStamp(175 * sec)
+    );
+    reset.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(reset_series)
+    );
+    reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{25 * sec}
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->alignment, x::telem::Alignment(175));
+    EXPECT_EQ(checker.output(0)->time_range.start, x::telem::TimeStamp(25 * sec));
+    EXPECT_EQ(checker.output(0)->time_range.end, x::telem::TimeStamp(175 * sec));
+    EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(175));
+    EXPECT_EQ(checker.output_time(0)->time_range.start, x::telem::TimeStamp(25 * sec));
+    EXPECT_EQ(checker.output_time(0)->time_range.end, x::telem::TimeStamp(175 * sec));
+}
+
+TEST(StatMaxTest, ExecutesBeforeResetSignalSendsData) {
+    TestSetup setup(types::Kind::F64, "max", {}, true);
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_f64(source, {10.0, 50.0, 30.0}, {sec, 2 * sec, 3 * sec});
+    // Note: no data written to the reset signal source.
+    bool changed = false;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_TRUE(changed);
+
+    auto checker = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 50.0);
 }
 
 // ─── Derivative ──────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
@@ -163,10 +164,22 @@ public:
 
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output->alignment = input_data->alignment;
-        output->time_range = input_data->time_range;
-        output_time->alignment = input_data->alignment;
-        output_time->time_range = input_data->time_range;
+        auto alignment = input_data->alignment;
+        auto time_range = input_data->time_range;
+        if (this->reset_idx >= 0) {
+            const auto &reset_data = this->state.input(this->reset_idx);
+            alignment += reset_data->alignment;
+            if (reset_data->time_range.start != x::telem::TimeStamp(0) &&
+                (time_range.start == x::telem::TimeStamp(0) ||
+                 reset_data->time_range.start < time_range.start))
+                time_range.start = reset_data->time_range.start;
+            if (reset_data->time_range.end > time_range.end)
+                time_range.end = reset_data->time_range.end;
+        }
+        output->alignment = alignment;
+        output->time_range = time_range;
+        output_time->alignment = alignment;
+        output_time->time_range = time_range;
         ctx.mark_changed(ir::default_output_param);
         return x::errors::NIL;
     }
@@ -388,7 +401,14 @@ public:
 
         int reset_idx = -1;
         auto edge = cfg.prog.edge_to(ir::Handle(cfg.node.key, "reset"));
-        if (edge.has_value()) reset_idx = 1;
+        if (edge.has_value()) {
+            reset_idx = 1;
+            cfg.state.init_input(
+                reset_idx,
+                x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
+                x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
+            );
+        }
 
         return {
             std::make_unique<Stat>(std::move(cfg.state), kind, op, stat_cfg, reset_idx),
