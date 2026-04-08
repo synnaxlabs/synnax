@@ -1990,6 +1990,13 @@ var _ = Describe("Statement", func() {
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("integer type"))
 			})
+
+			It("should accept range with negative bounds", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(-5, 5) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
 		})
 
 		Context("series iteration", func() {

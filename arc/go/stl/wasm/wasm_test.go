@@ -2864,12 +2864,33 @@ input_ch -> count_local{} -> sink_ch
 					}
 					return sum
 				}`, nil, int64(99)),
+				Entry("negative start positive end", "range_neg_start", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("both bounds negative", "range_neg_both", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-14)),
+				Entry("positive to negative descending", "range_pos_to_neg", types.I64(), `{
+					sum i64 := 0
+					for i := range(3, -3, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(3)),
 			)
 		})
 
 		Describe("Series iteration", func() {
-			It("Should sum elements with single-ident form", func() {
-				expectOutput("series_sum", types.I32(), `{
+			It("Should sum elements with single-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_sum", types.I32(), `{
 					data series i32 := [1, 2, 3, 4, 5]
 					sum i32 := 0
 					for x := data {
@@ -2879,8 +2900,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int32(15))
 			})
 
-			It("Should compute weighted sum with two-ident form", func() {
-				expectOutput("series_weighted", types.I32(), `{
+			It("Should compute weighted sum with two-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_weighted", types.I32(), `{
 					data series i32 := [10, 20, 30]
 					sum i32 := 0
 					for i, x := data {
@@ -2889,11 +2910,22 @@ input_ch -> count_local{} -> sink_ch
 					return sum
 				}`, nil, int32(140))
 			})
+
+			It("Should produce zero iterations for empty series", func(ctx SpecContext) {
+				expectOutput(ctx, "series_empty", types.I32(), `{
+					data series i32 := []
+					sum i32 := 99
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(99))
+			})
 		})
 
 		Describe("Break and continue", func() {
-			It("Should break on threshold in series iteration", func() {
-				expectOutput("break_thresh", types.I32(), `{
+			It("Should break on threshold in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "break_thresh", types.I32(), `{
 					data series i32 := [1, 2, 3, 100, 5]
 					sum i32 := 0
 					for x := data {
@@ -2906,8 +2938,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int32(6))
 			})
 
-			It("Should continue to skip odd indices in range loop", func() {
-				expectOutput("cont_skip", types.I32(), `{
+			It("Should continue to skip odd indices in range loop", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_skip", types.I32(), `{
 					sum i32 := 0
 					for i := range(i32(6)) {
 						if i % 2 != 0 {
@@ -2919,8 +2951,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int32(6))
 			})
 
-			It("Should continue to skip elements in series iteration", func() {
-				expectOutput("cont_series", types.I32(), `{
+			It("Should continue to skip elements in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_series", types.I32(), `{
 					data series i32 := [10, -1, 20, -1, 30]
 					sum i32 := 0
 					for x := data {
@@ -2933,8 +2965,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int32(60))
 			})
 
-			It("Should continue only the inner loop when nested", func() {
-				expectOutput("cont_nested", types.I64(), `{
+			It("Should continue only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_nested", types.I64(), `{
 					sum i64 := 0
 					for i := range(3) {
 						for j := range(4) {
@@ -2948,8 +2980,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int64(9))
 			})
 
-			It("Should break only the inner loop when nested", func() {
-				expectOutput("break_inner_only", types.I64(), `{
+			It("Should break only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "break_inner_only", types.I64(), `{
 					sum i64 := 0
 					for i := range(3) {
 						for j := range(10) {
@@ -2966,8 +2998,8 @@ input_ch -> count_local{} -> sink_ch
 		})
 
 		Describe("Conditional and infinite", func() {
-			It("Should execute while-style countdown", func() {
-				expectOutput("while_count", types.I32(), `{
+			It("Should execute while-style countdown", func(ctx SpecContext) {
+				expectOutput(ctx, "while_count", types.I32(), `{
 					n i32 := 5
 					sum i32 := 0
 					for n > 0 {
@@ -2978,8 +3010,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int32(15))
 			})
 
-			It("Should execute infinite loop with break", func() {
-				expectOutput("inf_break", types.I32(), `{
+			It("Should execute infinite loop with break", func(ctx SpecContext) {
+				expectOutput(ctx, "inf_break", types.I32(), `{
 					val i32 := 1
 					for {
 						val = val * 2
@@ -2993,8 +3025,8 @@ input_ch -> count_local{} -> sink_ch
 		})
 
 		Describe("Nested loops", func() {
-			It("Should compute matrix iteration count", func() {
-				expectOutput("nested_count", types.I64(), `{
+			It("Should compute matrix iteration count", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_count", types.I64(), `{
 					count i64 := 0
 					for i := range(3) {
 						for j := range(4) {
@@ -3005,8 +3037,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int64(12))
 			})
 
-			It("Should handle inner break with outer running fully", func() {
-				expectOutput("inner_break", types.I64(), `{
+			It("Should handle inner break with outer running fully", func(ctx SpecContext) {
+				expectOutput(ctx, "inner_break", types.I64(), `{
 					count i64 := 0
 					for i := range(3) {
 						for j := range(4) {
@@ -3020,8 +3052,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int64(6))
 			})
 
-			It("Should handle 3-deep nested range loops", func() {
-				expectOutput("nested_3deep", types.I64(), `{
+			It("Should handle 3-deep nested range loops", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_3deep", types.I64(), `{
 					count i64 := 0
 					for i := range(2) {
 						for j := range(3) {
@@ -3034,8 +3066,8 @@ input_ch -> count_local{} -> sink_ch
 				}`, nil, int64(24))
 			})
 
-			It("Should nest range loop inside series iteration", func() {
-				expectOutput("series_range_nested", types.I32(), `{
+			It("Should nest range loop inside series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "series_range_nested", types.I32(), `{
 					data series i32 := [10, 20, 30]
 					sum i32 := 0
 					for x := data {
@@ -3049,7 +3081,7 @@ input_ch -> count_local{} -> sink_ch
 		})
 
 		Describe("Stateful across calls", func() {
-			It("Should accumulate across reactive executions", func() {
+			It("Should accumulate across reactive executions", func(ctx SpecContext) {
 				g := singleFunctionGraph("loop_state", types.I64(), `{
 					total i64 $= 0
 					for i := range(3) {
@@ -3057,10 +3089,10 @@ input_ch -> count_local{} -> sink_ch
 					}
 					return total
 				}`)
-				h := newHarness(g, nil)
-				defer h.Close()
+				h := newHarness(ctx, g, nil)
+				defer h.Close(ctx)
 
-				n := h.CreateNode("loop_state")
+				n := h.CreateNode(ctx, "loop_state")
 				nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 
 				n.Next(nCtx)
