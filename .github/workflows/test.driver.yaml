@@ -81,6 +81,10 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor
           }} --password-stdin
 
+      - name: Ensure Port 9090 is Free
+        run: |
+          docker ps -q --filter "publish=9090" | xargs -r docker rm -f || true
+
       - name: Start Synnax
         run: |
           docker run -d --name synnax-test-driver \
@@ -100,6 +104,11 @@ jobs:
             echo "Waiting for port 9090... (attempt $i/30)"
             sleep 1
           done
+          if ! nc -z localhost 9090 2>/dev/null; then
+            echo "Synnax failed to start within 30 seconds"
+            docker logs synnax-test-driver
+            exit 1
+          fi
 
       - name: Install Dependencies
         run: |
