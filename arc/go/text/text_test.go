@@ -1287,7 +1287,7 @@ var _ = Describe("Text", func() {
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(edge.Target.Node).To(Equal("entry_main_run"))
 				Expect(edge.Target.Param).To(Equal("activate"))
-				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
 			It("Should handle continuous flow to sequence", func(ctx SpecContext) {
@@ -1418,7 +1418,7 @@ var _ = Describe("Text", func() {
 				// Should have edges connecting to the second stage's entry node
 				secondEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
 				Expect(secondEdge.Target.Param).To(Equal("activate"))
-				Expect(secondEdge.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(secondEdge.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 		})
 
@@ -1444,7 +1444,7 @@ var _ = Describe("Text", func() {
 
 				nextEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
 				Expect(nextEdge.Target.Param).To(Equal("activate"))
-				Expect(nextEdge.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(nextEdge.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
 			DescribeTable("next keyword error cases",
@@ -1509,11 +1509,11 @@ var _ = Describe("Text", func() {
 				Expect(edge0.Target.Node).To(Equal(exprNode.Key))
 				Expect(edge0.Kind).To(Equal(ir.EdgeKindContinuous))
 
-				// Second edge: expression -> alarm (OneShot from =>)
+				// Second edge: expression -> alarm (Conditional from =>)
 				edge1 := inter.Edges[1]
 				Expect(edge1.Source.Node).To(Equal(exprNode.Key))
 				Expect(edge1.Target.Node).To(Equal("alarm_0"))
-				Expect(edge1.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(edge1.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
 			It("Should inject multiple triggers for multi-channel expression", func(ctx SpecContext) {
@@ -1654,7 +1654,7 @@ var _ = Describe("Text", func() {
 				Expect(edge.Source.Node).To(Equal(intervalNode.Key))
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(edge.Target.Node).To(Equal("press_0"))
-				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
 			It("Should generate continuous edge for interval with -> operator", func(ctx SpecContext) {

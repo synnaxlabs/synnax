@@ -101,10 +101,10 @@ func (h Handle) String() string {
 }
 
 // String returns the string representation of the edge.
-// Format: "source.param -> target.param (continuous)" or "source.param => target.param (EdgeKindOneShot)"
+// Format: "source.param -> target.param (continuous)" or "source.param => target.param (conditional)"
 func (e Edge) String() string {
 	arrow := "->"
-	if e.Kind == EdgeKindOneShot {
+	if e.Kind == EdgeKindConditional {
 		arrow = "=>"
 	}
 	return fmt.Sprintf("%s %s %s (%s)", e.Source, arrow, e.Target, e.Kind)

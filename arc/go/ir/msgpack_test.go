@@ -60,14 +60,14 @@ var _ = Describe("DecodeMsgpack", func() {
 			}{
 				Source: ir.Handle{Node: "a", Param: "out"},
 				Target: ir.Handle{Node: "b", Param: "in"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.EdgeKindConditional,
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
 			var decoded ir.Edge
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Source.Node).To(Equal("a"))
 			Expect(decoded.Target.Node).To(Equal("b"))
-			Expect(decoded.Kind).To(Equal(ir.EdgeKindOneShot))
+			Expect(decoded.Kind).To(Equal(ir.EdgeKindConditional))
 		})
 	})
 
