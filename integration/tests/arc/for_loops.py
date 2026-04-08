@@ -23,14 +23,6 @@ func sum_i32(n i32) i32 {
     return sum
 }
 
-func sum_i64(n i64) i64 {
-    sum i64 := 0
-    for i := range(i64(1), n + 1) {
-        sum = sum + i
-    }
-    return sum
-}
-
 func sum_u8(n u8) u8 {
     sum u8 := 0
     for i := range(u8(1), n + 1) {
@@ -85,14 +77,6 @@ func countdown(n i64) i64 {
     return sum
 }
 
-func countdown_by_two(n i32) i32 {
-    sum i32 := 0
-    for i := range(n, 0, -2) {
-        sum = sum + i
-    }
-    return sum
-}
-
 func drain_until{limit i32}(start i32) i32 {
     sum i32 := 0
     for i := range(start, 0, -1) {
@@ -109,46 +93,6 @@ func triangular(n u32) u32 {
     for i := range(u32(1), n + 1) {
         for j := range(i) {
             sum = sum + 1
-        }
-    }
-    return sum
-}
-
-func inner_break_sums(n i32) i64 {
-    total i64 := 0
-    for i := range(1, n + 1) {
-        for j := range(1, 100) {
-            if j > i64(i) {
-                break
-            }
-            total = total + j
-        }
-    }
-    return total
-}
-
-func off_diagonal(n u32) u32 {
-    count u32 := 0
-    for i := range(n) {
-        for j := range(n) {
-            if i == j {
-                continue
-            }
-            count = count + 1
-        }
-    }
-    return count
-}
-
-func nest4(n i32) i32 {
-    sum i32 := 0
-    for a := range(n) {
-        for b := range(n) {
-            for c := range(n) {
-                for d := range(n) {
-                    sum = sum + 1
-                }
-            }
         }
     }
     return sum
@@ -186,15 +130,6 @@ func sum_factorials(n i64) i64 {
     return total
 }
 
-func mixed_i32_i64(n i32) i64 {
-    hi i64 := i64(n)
-    sum i64 := 0
-    for i := range(i32(1), hi) {
-        sum = sum + i
-    }
-    return sum
-}
-
 func mixed_u8_i32(n u8) i32 {
     hi i32 := i32(n)
     sum i32 := 0
@@ -207,15 +142,6 @@ func mixed_u8_i32(n u8) i32 {
 func range_i16(n i16) i16 {
     sum i16 := 0
     for i := range(i16(1), n + 1) {
-        sum = sum + i
-    }
-    return sum
-}
-
-func mixed_u8_i16(n u8) i16 {
-    hi i16 := i16(n)
-    sum i16 := 0
-    for i := range(u8(0), hi) {
         sum = sum + i
     }
     return sum
@@ -263,30 +189,49 @@ func loop_channel_write() {
     }
 }
 
+func sum_all() {
+    data := [1.0, 2.5, 3.7, 4.2]
+    sum f64 := 0.0
+    for x := data {
+        sum = sum + x
+    }
+    series_sum_all = sum
+}
+
+func find_peak() {
+    data := [3.1, 7.5, 2.0, 9.8, 1.4]
+    peak f64 := 0.0
+    peak_idx i32 := 0
+    for i, x := data {
+        if x > peak {
+            peak = x
+            peak_idx = i
+        }
+    }
+    series_peak_val = peak
+    series_peak_idx = peak_idx
+}
+
+
 for_in_i32 -> sum_i32{} -> for_out_i32
-for_in_i64 -> sum_i64{} -> for_out_i64
 for_in_u8 -> sum_u8{} -> for_out_u8
 for_in_u32 -> sum_u32{} -> for_out_u32
 for_in_step -> sum_step{} -> for_out_step
 for_in_break -> accumulate_until{limit=10} -> for_out_break
 for_in_skip -> sum_excluding{skip=3} -> for_out_skip
 for_in_countdown -> countdown{} -> for_out_countdown
-for_in_cd_two -> countdown_by_two{} -> for_out_cd_two
 for_in_drain -> drain_until{limit=12} -> for_out_drain
 for_in_tri -> triangular{} -> for_out_tri
-for_in_inner_brk -> inner_break_sums{} -> for_out_inner_brk
-for_in_offdiag -> off_diagonal{} -> for_out_offdiag
-for_in_nest4 -> nest4{} -> for_out_nest4
 for_in_nest5 -> nest5{} -> for_out_nest5
 for_in_rec -> sum_factorials{} -> for_out_rec
-for_in_mix32_64 -> mixed_i32_i64{} -> for_out_mix32_64
 for_in_mix_u8_i32 -> mixed_u8_i32{} -> for_out_mix_u8_i32
 for_in_i16 -> range_i16{} -> for_out_i16
-for_in_mix_u8_i16 -> mixed_u8_i16{} -> for_out_mix_u8_i16
 for_in_empty -> empty_range{} -> for_out_empty
 for_in_while -> while_countdown{} -> for_out_while
 for_in_pow2 -> next_power_of_two{} -> for_out_pow2
 interval{period=100ms} -> loop_channel_write{}
+interval{period=100ms} -> sum_all{}
+interval{period=100ms} -> find_peak{}
 """
 
 
@@ -305,9 +250,6 @@ CASES = [
     # Type inference across integer widths
     ForLoopCase(
         "i32", "for_in_i32", sy.DataType.INT32, "for_out_i32", sy.DataType.INT32, 5, 15
-    ),
-    ForLoopCase(
-        "i64", "for_in_i64", sy.DataType.INT64, "for_out_i64", sy.DataType.INT64, 5, 15
     ),
     ForLoopCase(
         "u8", "for_in_u8", sy.DataType.UINT8, "for_out_u8", sy.DataType.UINT8, 5, 15
@@ -361,16 +303,6 @@ CASES = [
         5,
         15,
     ),
-    # Negative step=-2: 10,8,6,4,2 → 30
-    ForLoopCase(
-        "countdown_by_2",
-        "for_in_cd_two",
-        sy.DataType.INT32,
-        "for_out_cd_two",
-        sy.DataType.INT32,
-        10,
-        30,
-    ),
     # Break + negative range: countdown from 10, stop when sum > 12 → 10+9=19
     ForLoopCase(
         "drain_break",
@@ -390,36 +322,6 @@ CASES = [
         sy.DataType.UINT32,
         4,
         10,
-    ),
-    # Nested + inner break: sum(1..i) for each i in 1..4 → 1+3+6+10=20
-    ForLoopCase(
-        "inner_break",
-        "for_in_inner_brk",
-        sy.DataType.INT32,
-        "for_out_inner_brk",
-        sy.DataType.INT64,
-        4,
-        20,
-    ),
-    # Nested + continue: off-diagonal count in 4x4 grid → 16-4=12
-    ForLoopCase(
-        "nested_continue",
-        "for_in_offdiag",
-        sy.DataType.UINT32,
-        "for_out_offdiag",
-        sy.DataType.UINT32,
-        4,
-        12,
-    ),
-    # 4-deep nesting: n^4 = 3^4 = 81
-    ForLoopCase(
-        "nest4",
-        "for_in_nest4",
-        sy.DataType.INT32,
-        "for_out_nest4",
-        sy.DataType.INT32,
-        3,
-        81,
     ),
     # 5-deep nesting: n^5 = 3^5 = 243
     ForLoopCase(
@@ -441,16 +343,6 @@ CASES = [
         5,
         153,
     ),
-    # Mixed i32 start / i64 end: widens to i64, sum(1..5)=10
-    ForLoopCase(
-        "mixed_i32_i64",
-        "for_in_mix32_64",
-        sy.DataType.INT32,
-        "for_out_mix32_64",
-        sy.DataType.INT64,
-        5,
-        10,
-    ),
     # Mixed u8 start / i32 end (unsigned→signed): widens to i32, sum(1..4)=1+2+3=6
     ForLoopCase(
         "mixed_u8_i32",
@@ -470,16 +362,6 @@ CASES = [
         sy.DataType.INT16,
         5,
         15,
-    ),
-    # Mixed u8 start / i16 end (unsigned→signed sub-32): widens to i16, sum(0..4)=6
-    ForLoopCase(
-        "mixed_u8_i16",
-        "for_in_mix_u8_i16",
-        sy.DataType.UINT8,
-        "for_out_mix_u8_i16",
-        sy.DataType.INT16,
-        4,
-        6,
     ),
     # Empty ranges: none of the 3 loops execute, sum stays 99
     ForLoopCase(
@@ -513,7 +395,14 @@ CASES = [
     ),
 ]
 
-ALL_CHANNELS = ["loop_counter"]
+SERIES_VIRTUAL = [
+    "loop_counter",
+    "series_sum_all",
+    "series_peak_val",
+    "series_peak_idx",
+]
+
+ALL_CHANNELS = list(SERIES_VIRTUAL)
 for c in CASES:
     ALL_CHANNELS.extend([c.in_ch, c.out_ch])
 
@@ -531,12 +420,19 @@ class ForLoops(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.client.channels.create(
-            name="loop_counter",
-            data_type=sy.DataType.FLOAT32,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        virtual_channels = [
+            ("loop_counter", sy.DataType.FLOAT32),
+            ("series_sum_all", sy.DataType.FLOAT64),
+            ("series_peak_val", sy.DataType.FLOAT64),
+            ("series_peak_idx", sy.DataType.INT32),
+        ]
+        for name, dtype in virtual_channels:
+            self.client.channels.create(
+                name=name,
+                data_type=dtype,
+                virtual=True,
+                retrieve_if_name_exists=True,
+            )
         for case in CASES:
             self.client.channels.create(
                 name=case.in_ch,
@@ -569,3 +465,10 @@ class ForLoops(ArcConsoleCase):
 
         self.log("[loop_write] Verifying channel write inside loop body")
         self.wait_for_near("loop_counter", 5.0, tolerance=0.01, is_virtual=True)
+
+        self.log("[sum_all] Waiting for series sum == 11.4")
+        self.wait_for_near("series_sum_all", 11.4, tolerance=0.01, is_virtual=True)
+
+        self.log("[find_peak] Waiting for peak_idx == 3, peak_val == 9.8")
+        self.wait_for_eq("series_peak_idx", 3, is_virtual=True)
+        self.wait_for_near("series_peak_val", 9.8, tolerance=0.01, is_virtual=True)

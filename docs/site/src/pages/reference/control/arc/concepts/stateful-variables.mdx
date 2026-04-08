@@ -116,18 +116,20 @@ func toggle(trigger u8) u8 {
 
 ## Loops vs. Stateful Variables
 
-Arc gives you two ways to work with repeated data, and they serve different purposes.
+Arc gives you two tools for repeated work, and they serve different purposes.
 
-**[`for` loops](/reference/control/arc/reference/loops)** process data you already have.
-If a function receives a series, a loop can walk through it in a single execution:
+**[`for` loops](/reference/control/arc/reference/loops)** do work within a single
+function call, iterating over a series, counting through a range, or repeating until a
+condition is met:
 
 ```arc
-func batch_average(data series f64) f64 {
-    sum f64 := 0.0
-    for x := data {
-        sum = sum + x
+func apply_calibration(raw f64) f64 {
+    offsets := [0.1, -0.05, 0.03]
+    correction f64 := 0.0
+    for x := offsets {
+        correction = correction + x
     }
-    return sum / f64(len(data))
+    return raw + correction
 }
 ```
 
@@ -145,8 +147,8 @@ func running_average(value f64) f64 {
 }
 ```
 
-Use `for` loops for batch processing within a single function call. Use stateful
-variables for streaming computations that build up over time.
+Use `for` loops for computation within a single call. Use stateful variables for
+streaming computations that build up over time.
 
 <Divider.Divider x />
 

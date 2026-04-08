@@ -26,12 +26,13 @@ multiple executions, use
 
 ## Iterating Over a Series
 
-The most common use case is walking through each element of a series:
+Use `for` to walk through each element of a series:
 
 ```arc
-func total_impulse(thrust series f64) f64 {
+func sum_all() f64 {
+    data := [1.0, 2.5, 3.7, 4.2]
     sum f64 := 0.0
-    for x := thrust {
+    for x := data {
         sum = sum + x
     }
     return sum
@@ -46,7 +47,8 @@ visited.
 If you also need the position, declare two variables:
 
 ```arc
-func find_peak(data series f64) i32 {
+func find_peak() i32 {
+    data := [3.1, 7.5, 2.0, 9.8, 1.4]
     peak f64 := 0.0
     peak_idx i32 := 0
     for i, x := data {
@@ -178,7 +180,8 @@ func next_power_of_two(n i32) i32 {
 Stop processing a series once you hit a sentinel value:
 
 ```arc
-func sum_until_negative(data series i32) i32 {
+func sum_until_negative() i32 {
+    data := [5, 3, 8, -1, 10]
     sum i32 := 0
     for x := data {
         if x < 0 {
@@ -186,7 +189,7 @@ func sum_until_negative(data series i32) i32 {
         }
         sum = sum + x
     }
-    return sum
+    return sum  // 16 (5 + 3 + 8, stops before -1)
 }
 ```
 
@@ -195,7 +198,8 @@ func sum_until_negative(data series i32) i32 {
 Skip elements that don't meet a criterion:
 
 ```arc
-func sum_positive(data series i32) i32 {
+func sum_positive() i32 {
+    data := [5, -3, 8, -1, 10]
     sum i32 := 0
     for x := data {
         if x < 0 {
@@ -203,7 +207,7 @@ func sum_positive(data series i32) i32 {
         }
         sum = sum + x
     }
-    return sum
+    return sum  // 23 (5 + 8 + 10, skips negatives)
 }
 ```
 

@@ -141,14 +141,14 @@ programming language: variables, `if`/`else`, and
 [`for` loops](/reference/control/arc/reference/loops):
 
 ```arc
-func find_max(readings series f64) f64 {
-    peak f64 := 0.0
-    for x := readings {
-        if x > peak {
-            peak = x
-        }
+func clamp(value f64) f64 {
+    if value > 500 {
+        return 500.0
     }
-    return peak
+    if value < 0 {
+        return 0.0
+    }
+    return value
 }
 ```
 
