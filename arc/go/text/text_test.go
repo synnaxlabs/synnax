@@ -727,6 +727,31 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[1].Value).To(Equal(1.0))
 			})
 
+			It("Should resolve channel identifier as anonymous config into IR", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"sensor_chan": {Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10001},
+				}
+				source := `
+				func controller{
+					sensor chan f64,
+					setpoint f64
+				} () {
+					v := sensor
+				}
+
+				sensor_chan -> controller{sensor_chan, 100.0}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "controller_0")
+				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Config[0].Name).To(Equal("sensor"))
+				Expect(node.Config[1].Name).To(Equal("setpoint"))
+				Expect(node.Config[1].Value).To(Equal(100.0))
+			})
+
 			It("Should handle global constant as flow source to channel", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"my_channel": {Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
