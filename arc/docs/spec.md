@@ -623,7 +623,7 @@ stage step3 { }            // terminal (no outgoing transitions)
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
 stage is active.
 
-**Conditional transitions (`=>`)**: Propagate only when the condition is truthy. A
+**Conditional transitions (`=>`)**: Propagate only when the condition is truthy (non-zero). A
 transition to an already-active stage is a no-op, preventing re-entry.
 
 ### Stage Entry Semantics

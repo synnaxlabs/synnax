@@ -238,7 +238,7 @@ private:
     /// propagates when the source output is truthy.
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->curr_node().output_edges[param])
-            if (edge.kind == ir::EdgeKind::Continuous ||
+            if (edge.kind != ir::EdgeKind::Conditional ||
                 this->curr_node().node->is_output_truthy(param))
                 this->changed_flags[this->node_index[edge.target.node]] = 1;
     }
@@ -268,8 +268,9 @@ private:
     /// this is a no-op to prevent re-entering a sequence that has already been started.
     /// Within-sequence transitions always proceed.
     void transition_stage() {
-        const auto [target_seq_idx, target_stage_idx] = this->transitions
-                                                            [*this->curr_node_ptr];
+        const auto it = this->transitions.find(*this->curr_node_ptr);
+        if (it == this->transitions.end()) return;
+        const auto [target_seq_idx, target_stage_idx] = it->second;
         if (this->curr_seq_idx == NO_INDEX &&
             this->sequences[target_seq_idx].active_stage_idx != NO_INDEX)
             return;
