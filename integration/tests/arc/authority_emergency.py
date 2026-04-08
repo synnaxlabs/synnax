@@ -23,7 +23,7 @@ sequence main {
         press_pt > 50 => emergency
     }
     stage emergency {
-        set_authority{value=255},
+        set_authority{255},
         0 -> press_vlv_cmd,
         1 -> vent_vlv_cmd,
         press_pt < 5 => safed

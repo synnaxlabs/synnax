@@ -310,11 +310,30 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 			}
 		}
 	} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			anonVals,
-			"anonymous configuration values are not supported",
-		))
-		return
+		exprs := anonVals.AllExpression()
+		if len(exprs) > len(fnType.Config) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				anonVals,
+				"too many config values for func '%s': got %d, expected at most %d",
+				fnName, len(exprs), len(fnType.Config),
+			))
+			return
+		}
+		for i, expr := range exprs {
+			param := fnType.Config[i]
+			configParams[param.Name] = true
+			childCtx := context.Child(ctx, expr)
+			expression.Analyze(childCtx)
+			exprType := atypes.InferFromExpression(childCtx)
+			if err := atypes.Check(ctx.Constraints, param.Type, exprType, expr,
+				"config parameter '"+param.Name+"' for func '"+fnName+"'"); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					expr,
+					"type mismatch: config parameter '%s' expects %s but got %s",
+					param.Name, param.Type, exprType,
+				))
+			}
+		}
 	}
 
 	for _, param := range fnType.Config {

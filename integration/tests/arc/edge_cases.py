@@ -121,16 +121,16 @@ func chan_fwd_callee(ch chan f32) {
     ch = 66.0
 }
 
-interval{period=100ms} -> test_same_channel_write{}
-interval{period=100ms} -> test_diamond{}
-interval{period=100ms} -> test_multi_callee{}
-interval{period=100ms} -> test_chain{}
-interval{period=100ms} -> test_fwd_ref{}
-interval{period=100ms} -> test_chan_param_write{}
-interval{period=100ms} -> test_chan_chain{}
-interval{period=100ms} -> test_chan_diff_args{}
-interval{period=100ms} -> test_chan_multi_param{}
-interval{period=100ms} -> test_chan_fwd_ref{}
+interval{100ms} -> test_same_channel_write{}
+interval{100ms} -> test_diamond{}
+interval{100ms} -> test_multi_callee{}
+interval{100ms} -> test_chain{}
+interval{100ms} -> test_fwd_ref{}
+interval{100ms} -> test_chan_param_write{}
+interval{100ms} -> test_chan_chain{}
+interval{100ms} -> test_chan_diff_args{}
+interval{100ms} -> test_chan_multi_param{}
+interval{100ms} -> test_chan_fwd_ref{}
 """
 
 # ── Read-only monitor (no write channels, only set_status) ──
@@ -170,7 +170,7 @@ func self_rec() {
     ch1 = 1.0
     self_rec()
 }
-interval{period=100ms} -> self_rec{}
+interval{100ms} -> self_rec{}
 """
 
 # Callee called in ALL branches of if-else (no exit path)
@@ -184,7 +184,7 @@ func ping() {
     }
 }
 func pong() { ping() }
-interval{period=100ms} -> ping{}
+interval{100ms} -> ping{}
 """
 
 # Tangled web of 5 functions forming one big cycle. Branches decide arithmetic,
@@ -228,7 +228,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-interval{period=100ms} -> init_seq{}
+interval{100ms} -> init_seq{}
 """
 
 # ── Guarded circular calls (valid, should configure successfully) ──
@@ -242,7 +242,7 @@ func self_rec() {
         self_rec()
     }
 }
-interval{period=100ms} -> self_rec{}
+interval{100ms} -> self_rec{}
 """
 
 # Same tangled web but route_beta wraps its call in if ch1 > 0, providing one exit path.
@@ -287,7 +287,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-interval{period=100ms} -> init_seq{}
+interval{100ms} -> init_seq{}
 """
 
 CHANNEL_VIRTUAL = [

@@ -329,8 +329,9 @@ func controller{
 - Config parameters must be literals or channel identifiers (compile-time constants)
 - Config values are provided at instantiation using `=` syntax:
   `controller{setpoint=100.0}`
-- **Anonymous config values** are only allowed for single-parameter functions:
-  `filter{50.0}` is valid, but multi-param functions require named values
+- **Anonymous config values** map to parameters by declaration order: `filter{50.0}`
+  sets the first parameter; `average{10ms, 100}` sets the first and second. Trailing
+  parameters with defaults may be omitted.
 
 ### Input Parameters
 

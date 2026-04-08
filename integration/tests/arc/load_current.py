@@ -25,7 +25,7 @@ sequence main {
     stage first {
         1 -> flag,
         load_current > 50 => count{c_chan = lc_tick_count},
-        load_current > 50 => wait{duration=2s} => next,
+        load_current > 50 => wait{2s} => next,
     }
     stage last {
         0 -> flag,
