@@ -583,4 +583,148 @@ TEST(StatDerivativeTest, ZeroDtOutputsZero) {
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 0.0);
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(1), 0.0);
 }
+
+TEST(StatDerivativeTest, NegativeDerivative) {
+    TestSetup setup(types::Kind::F64, "derivative");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_f64(source, {100.0, 80.0, 50.0}, {sec, 2 * sec, 4 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 0.0);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(1), -20.0);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(2), -15.0);
+}
+
+TEST(StatDerivativeTest, I32InputOutputsFloat64) {
+    TestSetup setup(types::Kind::I32, "derivative");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_i32(source, {0, 100, 300}, {sec, 2 * sec, 4 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->size(), 3);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 0.0);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(1), 100.0);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(2), 100.0);
+}
+
+TEST(StatDerivativeTest, U8InputNegativeDerivativeOutputsFloat64) {
+    TestSetup setup(types::Kind::U8, "derivative");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    source.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<uint8_t>{100, 80, 50}
+    );
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{sec, 2 * sec, 4 * sec}
+    );
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->size(), 3);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 0.0);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(1), -20.0);
+    EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(2), -15.0);
+}
+
+// ─── Empty Input ─────────────────────────────────────────────────────────────
+
+TEST(StatAvgTest, HandlesEmptyInput) {
+    TestSetup setup(types::Kind::F64, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    bool changed = false;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_FALSE(changed);
+}
+
+TEST(StatMinTest, HandlesEmptyInput) {
+    TestSetup setup(types::Kind::I32, "min");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    bool changed = false;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_FALSE(changed);
+}
+
+TEST(StatMaxTest, HandlesEmptyInput) {
+    TestSetup setup(types::Kind::F64, "max");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    bool changed = false;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_FALSE(changed);
+}
+
+// ─── Non-F64 Type Tests ─────────────────────────────────────────────────────
+
+TEST(StatAvgTest, WorksWithI32) {
+    TestSetup setup(types::Kind::I32, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_i32(source, {10, 20, 30}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 20);
+}
+
+TEST(StatMaxTest, WorksWithI32) {
+    TestSetup setup(types::Kind::I32, "max");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_i32(source, {10, 50, 30}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 50);
+}
 }
