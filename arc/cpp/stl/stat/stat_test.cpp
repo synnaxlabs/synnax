@@ -39,9 +39,16 @@ struct TestSetup {
         types::Kind kind,
         const std::string &node_type,
         const std::vector<types::Param> &config_params = {},
-        bool with_reset = false
+        bool with_reset = false,
+        types::Kind output_kind = types::Kind::Invalid
     ):
-        ir(build_ir(kind, node_type, config_params, with_reset)),
+        ir(build_ir(
+            kind,
+            node_type,
+            config_params,
+            with_reset,
+            output_kind == types::Kind::Invalid ? kind : output_kind
+        )),
         state(
             runtime::state::Config{.ir = ir, .channels = {}},
             runtime::errors::noop_handler
@@ -64,7 +71,8 @@ private:
         types::Kind kind,
         const std::string &node_type,
         const std::vector<types::Param> &config_params,
-        bool with_reset
+        bool with_reset,
+        types::Kind output_kind
     ) {
         types::Param source_output;
         source_output.name = ir::default_output_param;
@@ -81,7 +89,7 @@ private:
 
         types::Param target_output;
         target_output.name = ir::default_output_param;
-        target_output.type = types::Type{.kind = kind};
+        target_output.type = types::Type{.kind = output_kind};
 
         ir::Node target_node;
         target_node.key = "target";
@@ -604,7 +612,7 @@ TEST(StatDerivativeTest, NegativeDerivative) {
 }
 
 TEST(StatDerivativeTest, I32InputOutputsFloat64) {
-    TestSetup setup(types::Kind::I32, "derivative");
+    TestSetup setup(types::Kind::I32, "derivative", {}, false, types::Kind::F64);
     Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
@@ -624,7 +632,7 @@ TEST(StatDerivativeTest, I32InputOutputsFloat64) {
 }
 
 TEST(StatDerivativeTest, U8InputNegativeDerivativeOutputsFloat64) {
-    TestSetup setup(types::Kind::U8, "derivative");
+    TestSetup setup(types::Kind::U8, "derivative", {}, false, types::Kind::F64);
     Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
