@@ -663,6 +663,69 @@ var _ = Describe("Scheduler", func() {
 
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
+
+		It("Should stop propagating when conditional becomes falsy after being truthy", func(ctx SpecContext) {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Conditional("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+
+			// Tick 1: truthy, B executes
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			// Tick 2: still truthy, B executes again
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(2))
+
+			// Tick 3: becomes falsy, B should NOT execute
+			nodeA.ParamTruthy["output"] = false
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(2))
+
+			// Tick 4: becomes truthy again, B should execute
+			nodeA.ParamTruthy["output"] = true
+			s.Next(ctx, 4*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(3))
+		})
+
+		It("Should propagate conditional edges independently per param", func(ctx SpecContext) {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+
+			nodeA.OnNext = func(ctx node.Context) {
+				ctx.MarkChanged("truthy_out")
+				ctx.MarkChanged("falsy_out")
+			}
+			nodeA.ParamTruthy["truthy_out"] = true
+			nodeA.ParamTruthy["falsy_out"] = false
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Conditional("A", "truthy_out", "B", "input").
+				Conditional("A", "falsy_out", "C", "input").
+				Strata([][]string{{"A"}, {"B", "C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(0))
+		})
 	})
 
 	Describe("Stage Filtering & Transitions", func() {
