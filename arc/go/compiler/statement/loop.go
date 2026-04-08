@@ -129,10 +129,7 @@ func compileForRange(
 
 	hintCtx := loopCtx.WithHint(loopVarType)
 	if startExpr != nil {
-		if _, err = expression.Compile(context.Child(hintCtx, startExpr)); err != nil {
-			return err
-		}
-		if err = castIfNeeded(loopCtx, startExpr, loopVarType); err != nil {
+		if err = compileAndCast(hintCtx, startExpr, loopVarType); err != nil {
 			return err
 		}
 	} else {
@@ -145,10 +142,7 @@ func compileForRange(
 		return err
 	}
 	limitIdx := limitSym.ID
-	if _, err = expression.Compile(context.Child(hintCtx, endExpr)); err != nil {
-		return err
-	}
-	if err = castIfNeeded(loopCtx, endExpr, loopVarType); err != nil {
+	if err = compileAndCast(hintCtx, endExpr, loopVarType); err != nil {
 		return err
 	}
 	ctx.Writer.WriteLocalSet(limitIdx)
@@ -160,10 +154,7 @@ func compileForRange(
 			return err
 		}
 		stepIdx = stepSym.ID
-		if _, err = expression.Compile(context.Child(hintCtx, stepExpr)); err != nil {
-			return err
-		}
-		if err = castIfNeeded(loopCtx, stepExpr, loopVarType); err != nil {
+		if err = compileAndCast(hintCtx, stepExpr, loopVarType); err != nil {
 			return err
 		}
 		ctx.Writer.WriteLocalSet(stepIdx)
@@ -477,17 +468,22 @@ func compileContinueStatement(
 	return nil
 }
 
-func castIfNeeded[ASTNode parser.IExpressionContext](
+// compileAndCast compiles an expression and emits a cast if the compiled type
+// differs from the target. This uses the return type from expression.Compile
+// rather than a TypeMap lookup, which is more reliable for variable references
+// whose TypeMap entries may be stored at sub-expression levels.
+func compileAndCast(
 	ctx context.Context[parser.IForStatementContext],
-	expr ASTNode,
+	expr parser.IExpressionContext,
 	target types.Type,
 ) error {
-	exprType, ok := ctx.TypeMap[expr]
-	if !ok {
-		return nil
+	compiledType, err := expression.Compile(context.Child(ctx, expr))
+	if err != nil {
+		return err
 	}
-	if !types.Equal(exprType, target) {
-		return expression.EmitCast(ctx, exprType, target)
+	if !types.Equal(compiledType, target) &&
+		wasm.ConvertType(compiledType) != wasm.ConvertType(target) {
+		return expression.EmitCast(ctx, compiledType, target)
 	}
 	return nil
 }

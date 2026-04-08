@@ -2885,7 +2885,134 @@ input_ch -> count_local{} -> sink_ch
 					}
 					return sum
 				}`, nil, int64(3)),
+				Entry("mixed i32 start with i64 end", "range_mixed", types.I64(), `{
+					lo i32 := 1
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("mixed i32 start with i64 end and i32 step", "range_3arg_mixed", types.I64(), `{
+					lo i32 := 0
+					hi i64 := 10
+					s i32 := 3
+					sum i64 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("mixed types with negative start", "range_mixed_neg", types.I64(), `{
+					lo i32 := -5
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("mixed types descending with negative step", "range_mixed_desc", types.I64(), `{
+					hi i64 := 5
+					lo i32 := -5
+					s i32 := -2
+					sum i64 := 0
+					for i := range(hi, lo, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(5)),
 			)
+
+			It("Should handle mixed i16 start with i32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_i32", types.I32(), `{
+					lo i16 := 0
+					hi i32 := 4
+					sum i32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should handle mixed u8 start with u32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u32", types.U32(), `{
+					lo u8 := 1
+					hi u32 := 4
+					sum u32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint32(6))
+			})
+
+			It("Should handle u8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_only", types.U8(), `{
+					sum u8 := 0
+					for i := range(u8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint8(10))
+			})
+
+			It("Should handle i8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_only", types.I8(), `{
+					sum i8 := 0
+					for i := range(i8(1), i8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int8(10))
+			})
+
+			It("Should handle u16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u16_only", types.U16(), `{
+					sum u16 := 0
+					for i := range(u16(10)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(45))
+			})
+
+			It("Should handle i16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_only", types.I16(), `{
+					sum i16 := 0
+					for i := range(i16(1), i16(6)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(15))
+			})
+
+			It("Should handle mixed i8 start with i16 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_i16", types.I16(), `{
+					lo i8 := 0
+					hi i16 := 5
+					sum i16 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(10))
+			})
+
+			It("Should handle mixed u8 start with u16 end and u8 step", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u16_step", types.U16(), `{
+					lo u8 := 0
+					hi u16 := 10
+					s u8 := 2
+					sum u16 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(20))
+			})
 		})
 
 		Describe("Series iteration", func() {

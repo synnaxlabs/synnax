@@ -103,7 +103,7 @@ var _ = Describe("FoldingRange", func() {
 	})
 
 	Describe("Loops", func() {
-		It("Should return folding range for a for loop inside a function", func() {
+		It("Should return folding range for a for loop inside a function", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() {\n\tfor i := range(10) {\n\t\tx := i\n\t}\n}")
 
@@ -125,7 +125,7 @@ var _ = Describe("FoldingRange", func() {
 			Expect(hasLoopRange).To(BeTrue())
 		})
 
-		It("Should not return folding range for single-line loop", func() {
+		It("Should not return folding range for single-line loop", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(server, ctx, uri, "func test() {\n\tfor i := range(10) { x := i }\n}")
 

@@ -186,6 +186,75 @@ func sum_factorials(n i64) i64 {
     return total
 }
 
+func mixed_i32_i64(n i32) i64 {
+    hi i64 := i64(n)
+    sum i64 := 0
+    for i := range(i32(1), hi) {
+        sum = sum + i
+    }
+    return sum
+}
+
+func mixed_u8_i32(n u8) i32 {
+    hi i32 := i32(n)
+    sum i32 := 0
+    for i := range(u8(1), hi) {
+        sum = sum + i
+    }
+    return sum
+}
+
+func range_i16(n i16) i16 {
+    sum i16 := 0
+    for i := range(i16(1), n + 1) {
+        sum = sum + i
+    }
+    return sum
+}
+
+func mixed_u8_i16(n u8) i16 {
+    hi i16 := i16(n)
+    sum i16 := 0
+    for i := range(u8(0), hi) {
+        sum = sum + i
+    }
+    return sum
+}
+
+func empty_range(n i32) i32 {
+    sum i32 := 99
+    for i := range(0) {
+        sum = sum + 1
+    }
+    for i := range(i32(10), i32(5)) {
+        sum = sum + 1
+    }
+    for i := range(i32(0), i32(10), i32(-1)) {
+        sum = sum + 1
+    }
+    return sum
+}
+
+func while_countdown(n i32) i32 {
+    sum i32 := 0
+    for n > 0 {
+        sum = sum + n
+        n = n - 1
+    }
+    return sum
+}
+
+func next_power_of_two(n i32) i32 {
+    val i32 := 1
+    for {
+        if val >= n {
+            break
+        }
+        val = val * 2
+    }
+    return val
+}
+
 func loop_channel_write() {
     count f32 := 0.0
     for i := range(5) {
@@ -210,6 +279,13 @@ for_in_offdiag -> off_diagonal{} -> for_out_offdiag
 for_in_nest4 -> nest4{} -> for_out_nest4
 for_in_nest5 -> nest5{} -> for_out_nest5
 for_in_rec -> sum_factorials{} -> for_out_rec
+for_in_mix32_64 -> mixed_i32_i64{} -> for_out_mix32_64
+for_in_mix_u8_i32 -> mixed_u8_i32{} -> for_out_mix_u8_i32
+for_in_i16 -> range_i16{} -> for_out_i16
+for_in_mix_u8_i16 -> mixed_u8_i16{} -> for_out_mix_u8_i16
+for_in_empty -> empty_range{} -> for_out_empty
+for_in_while -> while_countdown{} -> for_out_while
+for_in_pow2 -> next_power_of_two{} -> for_out_pow2
 interval{period=100ms} -> loop_channel_write{}
 """
 
@@ -364,6 +440,76 @@ CASES = [
         sy.DataType.INT64,
         5,
         153,
+    ),
+    # Mixed i32 start / i64 end: widens to i64, sum(1..5)=10
+    ForLoopCase(
+        "mixed_i32_i64",
+        "for_in_mix32_64",
+        sy.DataType.INT32,
+        "for_out_mix32_64",
+        sy.DataType.INT64,
+        5,
+        10,
+    ),
+    # Mixed u8 start / i32 end (unsigned→signed): widens to i32, sum(1..4)=1+2+3=6
+    ForLoopCase(
+        "mixed_u8_i32",
+        "for_in_mix_u8_i32",
+        sy.DataType.UINT8,
+        "for_out_mix_u8_i32",
+        sy.DataType.INT32,
+        4,
+        6,
+    ),
+    # Pure i16 range: sum(1..6)=15
+    ForLoopCase(
+        "range_i16",
+        "for_in_i16",
+        sy.DataType.INT16,
+        "for_out_i16",
+        sy.DataType.INT16,
+        5,
+        15,
+    ),
+    # Mixed u8 start / i16 end (unsigned→signed sub-32): widens to i16, sum(0..4)=6
+    ForLoopCase(
+        "mixed_u8_i16",
+        "for_in_mix_u8_i16",
+        sy.DataType.UINT8,
+        "for_out_mix_u8_i16",
+        sy.DataType.INT16,
+        4,
+        6,
+    ),
+    # Empty ranges: none of the 3 loops execute, sum stays 99
+    ForLoopCase(
+        "empty_range",
+        "for_in_empty",
+        sy.DataType.INT32,
+        "for_out_empty",
+        sy.DataType.INT32,
+        0,
+        99,
+    ),
+    # Conditional (while-style) loop: sum n+(n-1)+...+1 → 5+4+3+2+1=15
+    ForLoopCase(
+        "while_loop",
+        "for_in_while",
+        sy.DataType.INT32,
+        "for_out_while",
+        sy.DataType.INT32,
+        5,
+        15,
+    ),
+    # Infinite loop + break: next power of 2 >= 5 → 8
+    ForLoopCase(
+        "infinite_break",
+        "for_in_pow2",
+        sy.DataType.INT32,
+        "for_out_pow2",
+        sy.DataType.INT32,
+        5,
+        8,
     ),
 ]
 

@@ -532,7 +532,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Loop Keyword Completion", func() {
-		It("should show for keyword at statement start inside func body", func() {
+		It("should show for keyword at statement start inside func body", func(ctx SpecContext) {
 			content := "func foo() {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -544,7 +544,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "continue")).To(BeTrue(), "Should show 'continue' keyword at statement start in func body")
 		})
 
-		It("should not show for keyword at top level", func() {
+		It("should not show for keyword at top level", func(ctx SpecContext) {
 			content := "fo"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -556,7 +556,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' at top level")
 		})
 
-		It("should not show loop keywords inside sequence body", func() {
+		It("should not show loop keywords inside sequence body", func(ctx SpecContext) {
 			content := "sequence main {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -568,7 +568,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' inside sequence body")
 		})
 
-		It("should not show loop keywords in expression context", func() {
+		It("should not show loop keywords in expression context", func(ctx SpecContext) {
 			content := "func foo() {\n    x := \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -580,7 +580,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' in expression context")
 		})
 
-		It("should show for snippet with correct insert text", func() {
+		It("should show for snippet with correct insert text", func(ctx SpecContext) {
 			content := "func foo() {\n    fo\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
@@ -593,7 +593,7 @@ var _ = Describe("Completion", func() {
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 		})
 
-		It("should show range function in expression context", func() {
+		It("should show range function in expression context", func(ctx SpecContext) {
 			content := "func foo() {\n    x := r\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
