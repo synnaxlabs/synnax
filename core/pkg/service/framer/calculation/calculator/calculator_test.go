@@ -772,7 +772,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
-	It("Should compute derivative operation", func(ctx SpecContext) {
+	It("Should compute derivative operation with type promotion", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     channel.NewRandomName(),
 			DataType: telem.TimeStampT,
@@ -780,7 +780,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		}}
 		base := []channel.Channel{{
 			Name:     channel.NewRandomName(),
-			DataType: telem.Float64T,
+			DataType: telem.Int64T,
 		}}
 		calc := channel.Channel{
 			Name:       channel.NewRandomName(),
@@ -792,7 +792,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			},
 		}
 		c := open(ctx, &idx, &base, &calc)
-		d := telem.NewSeriesV(10.0, 20.0, 40.0)
+		d := telem.NewSeriesV[int64](10, 20, 40)
 		i := telem.NewSeriesSecondsTSV(1, 2, 4)
 		d.Alignment = telem.NewAlignment(1, 0)
 		i.Alignment = d.Alignment
@@ -809,7 +809,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(result[1]).To(BeNumerically("~", 10.0, 0.01))
 		Expect(result[2]).To(BeNumerically("~", 10.0, 0.01))
 
-		d = telem.NewSeriesV(70.0)
+		d = telem.NewSeriesV[int64](70)
 		i = telem.NewSeriesSecondsTSV(7)
 		d.Alignment = telem.NewAlignment(1, 3)
 		i.Alignment = d.Alignment
@@ -1000,7 +1000,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
 			res := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
 				Analyze(ctx, *calc))
-			calc.DataType = res.DataType
+			calc.DataType = res.ChanDataType
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,

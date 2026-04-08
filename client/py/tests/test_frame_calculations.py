@@ -677,7 +677,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
         )
@@ -732,7 +731,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
                 sy.channel.Operation(type="avg", duration=5 * sy.TimeSpan.SECOND)
@@ -784,7 +782,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
                 sy.channel.Operation(type="min", duration=5 * sy.TimeSpan.SECOND)
@@ -841,7 +838,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
                 sy.channel.Operation(type="max", duration=5 * sy.TimeSpan.SECOND)
@@ -901,7 +897,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
         )
@@ -956,7 +951,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min", reset_channel=reset.key)],
         )
@@ -1011,7 +1005,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max", reset_channel=reset.key)],
         )
@@ -1063,19 +1056,16 @@ class TestCalculationOperations:
         )
         calc_min = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min")],
         )
         calc_max = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max")],
         )
         calc_avg = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
         )
@@ -1107,7 +1097,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
                 sy.channel.Operation(type="avg", duration=3 * sy.TimeSpan.SECOND)
@@ -1162,7 +1151,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
                 sy.channel.Operation(
@@ -1225,19 +1213,16 @@ class TestCalculationOperations:
         )
         calc_min = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min")],
         )
         calc_max = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max")],
         )
         calc_avg = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
         )
@@ -1278,7 +1263,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
         )
@@ -1319,7 +1303,6 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(40.0)
 
-    @pytest.mark.focus
     def test_derivative_computes_rate_of_change(self, client: sy.Synnax):
         """Should compute pointwise derivative in units per second."""
         idx = client.channels.create(
@@ -1330,7 +1313,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT64,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="derivative")],
         )
@@ -1368,7 +1350,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT64,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="derivative")],
         )
@@ -1415,7 +1396,6 @@ class TestCalculationOperations:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT64,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="derivative")],
         )
@@ -1469,7 +1449,6 @@ class TestCalculationsAcrossDomains:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name} * 2",
         )
 
@@ -1558,13 +1537,11 @@ class TestCalculationsAcrossDomains:
         # B depends on sensor (concrete)
         calc_b = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 2",
         )
         # C depends on B (calculated)
         calc_c = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_b.name} + 10",
         )
 
@@ -1655,19 +1632,16 @@ class TestCalculationsAcrossDomains:
         # B depends on sensor (concrete)
         calc_b = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 2",
         )
         # C depends on B (calculated)
         calc_c = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_b.name} + 5",
         )
         # D depends on C (calculated)
         calc_d = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_c.name} * 3",
         )
 
@@ -1770,19 +1744,16 @@ class TestCalculationsAcrossDomains:
         # C depends on sensor
         calc_c = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} + 10",
         )
         # D also depends on sensor
         calc_d = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 5",
         )
         # E depends on both C and D
         calc_e = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_c.name} + {calc_d.name}",
         )
 
@@ -1884,13 +1855,11 @@ class TestCalculationsAcrossDomains:
         # Calculated channel that depends on both sensors
         calc_mixed = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor_1.name} + {sensor_2.name}",
         )
         # Nested calculated channel
         calc_nested = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_mixed.name} * 2",
         )
 
@@ -2023,7 +1992,6 @@ class TestCalculationsAcrossDomains:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name} * 2",
         )
 
@@ -2116,7 +2084,6 @@ class TestCalculationsAcrossDomains:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name} + 100",
         )
 
@@ -2194,17 +2161,14 @@ class TestCalculationsAcrossDomains:
         # Multiple calculations on the same source
         calc_double = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 2",
         )
         calc_square = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * {sensor.name}",
         )
         calc_plus_ten = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} + 10",
         )
 
@@ -2295,7 +2259,6 @@ class TestCalculationsAcrossDomains:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"""
             if ({data.name} > 5) {{
                 return 1
@@ -2394,7 +2357,6 @@ class TestCalculationsAcrossDomains:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor_a.name} + {sensor_b.name}",
         )
 
@@ -2485,7 +2447,6 @@ class TestStatOperationsAlignment:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
         )
@@ -2565,7 +2526,6 @@ class TestStatOperationsAlignment:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min")],
         )
@@ -2644,7 +2604,6 @@ class TestStatOperationsAlignment:
         )
         calc = client.channels.create(
             name=random_name(),
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max")],
         )

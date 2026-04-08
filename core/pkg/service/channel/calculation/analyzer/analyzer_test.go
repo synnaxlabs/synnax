@@ -27,14 +27,14 @@ var _ = Describe("Analyze", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Int64T))
+			Expect(res.ChanDataType).To(Equal(telem.Int64T))
 		})
 
 		It("Should infer the correct type for float literal expressions", func(ctx SpecContext) {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1.0 + 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should infer the correct type when referencing a float32 channel", func(ctx SpecContext) {
@@ -44,7 +44,7 @@ var _ = Describe("Analyze", func() {
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Float32T))
+			Expect(res.ChanDataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should infer the correct type when referencing an int64 channel", func(ctx SpecContext) {
@@ -54,7 +54,7 @@ var _ = Describe("Analyze", func() {
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor + 1"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Int64T))
+			Expect(res.ChanDataType).To(Equal(telem.Int64T))
 		})
 
 		It("Should infer the correct type when referencing multiple channels", func(ctx SpecContext) {
@@ -65,7 +65,7 @@ var _ = Describe("Analyze", func() {
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 	})
 
@@ -143,7 +143,7 @@ var _ = Describe("Analyze", func() {
 				LocalKey:    2,
 			}
 			res := MustSucceed(a.Analyze(ctx, calc))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should cache multiple channels and resolve a chain of dependencies", func(ctx SpecContext) {
@@ -169,7 +169,7 @@ var _ = Describe("Analyze", func() {
 				LocalKey:    7,
 			}
 			res := MustSucceed(a.Analyze(ctx, third))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should still resolve by name when the channel has key 0", func(ctx SpecContext) {
@@ -184,7 +184,7 @@ var _ = Describe("Analyze", func() {
 				Expression: "return sensor + 1.0",
 			}
 			res := MustSucceed(a.Analyze(ctx, calc))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 	})
 
@@ -216,7 +216,7 @@ var _ = Describe("Analyze", func() {
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
-			Expect(res.DataType).To(Equal(telem.UnknownT))
+			Expect(res.ChanDataType).To(Equal(telem.UnknownT))
 			Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 		})
 	})
@@ -235,7 +235,8 @@ var _ = Describe("Analyze", func() {
 				},
 			}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
+			Expect(res.ExpressionReturnType).To(Equal(types.I32()))
 		})
 
 		It("Should not override DataType when avg is the last operation", func(ctx SpecContext) {
@@ -251,7 +252,8 @@ var _ = Describe("Analyze", func() {
 				},
 			}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Int32T))
+			Expect(res.ChanDataType).To(Equal(telem.Int32T))
+			Expect(res.ExpressionReturnType).To(Equal(types.I32()))
 		})
 	})
 
@@ -263,7 +265,7 @@ var _ = Describe("Analyze", func() {
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return external * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
-			Expect(res.DataType).To(Equal(telem.Float64T))
+			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 	})
 })

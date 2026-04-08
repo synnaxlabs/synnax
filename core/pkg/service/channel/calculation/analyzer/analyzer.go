@@ -71,10 +71,14 @@ func (r *resolver) Resolve(ctx context.Context, name string) (symbol.Symbol, err
 }
 
 // Result holds the output of an analysis. On error, Unresolved may be populated
-// even though DataType and Deps are zero-valued.
+// even though ChanDataType and Deps are zero-valued.
 type Result struct {
-	// DataType is the inferred return type of the expression.
-	DataType telem.DataType
+	// ChanDataType is the inferred type of the expression when combined
+	// with operations. For example, a derivative operation will convert the
+	// channels return type to Float64.
+	ChanDataType telem.DataType
+	// ExpressionReturnType is the inferred type of the calculated expression itself.
+	ExpressionReturnType types.Type
 	// Deps lists the keys of channels read by the expression.
 	Deps channel.Keys
 	// Unresolved lists symbol names that could not be resolved during analysis.
@@ -118,5 +122,9 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 		ch.Operations[len(ch.Operations)-1].Type == channel.OperationTypeDerivative {
 		inferredDataType = telem.Float64T
 	}
-	return Result{DataType: inferredDataType, Deps: deps}, nil
+	return Result{
+		ChanDataType:         inferredDataType,
+		Deps:                 deps,
+		ExpressionReturnType: dataType,
+	}, nil
 }
