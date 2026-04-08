@@ -55,6 +55,10 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
     },
   });
   const [createMore, setCreateMore] = useState(false);
+  const operationType = Form.useFieldValue<channel.OperationType>(
+    "operations.0.type",
+    { optional: true },
+  );
   const initialLoaded = useRef(false);
   if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
   return (
@@ -87,37 +91,42 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                   <Select.Button itemKey="min">Min</Select.Button>
                   <Select.Button itemKey="max">Max</Select.Button>
                   <Select.Button itemKey="avg">Average</Select.Button>
+                  <Select.Button itemKey="derivative">Derivative</Select.Button>
                 </Select.Buttons>
               )}
             </Form.Field>
-            <Form.Field<TimeSpan>
-              path="operations.0.duration"
-              label="Window"
-              helpText="The value will be reset after this duration. If zero, the value will never be reset."
-              grow
-            >
-              {({ value, onChange }) => (
-                <Input.Numeric
-                  value={new TimeSpan(value).seconds}
-                  onChange={(v) => onChange(TimeSpan.seconds(v))}
-                  endContent="s"
-                />
-              )}
-            </Form.Field>
-            <Form.Field<channel.Key>
-              path="operations.0.resetChannel"
-              label="Reset Channel"
-              helpText="When this channel is triggered, the calculation will be reset."
-            >
-              {({ value, onChange }) => (
-                <Channel.SelectSingle
-                  value={value}
-                  onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+            {operationType !== "derivative" && (
+              <>
+                <Form.Field<TimeSpan>
+                  path="operations.0.duration"
+                  label="Window"
+                  helpText="The value will be reset after this duration. If zero, the value will never be reset."
                   grow
-                  allowNone
-                />
-              )}
-            </Form.Field>
+                >
+                  {({ value, onChange }) => (
+                    <Input.Numeric
+                      value={new TimeSpan(value).seconds}
+                      onChange={(v) => onChange(TimeSpan.seconds(v))}
+                      endContent="s"
+                    />
+                  )}
+                </Form.Field>
+                <Form.Field<channel.Key>
+                  path="operations.0.resetChannel"
+                  label="Reset Channel"
+                  helpText="When this channel is triggered, the calculation will be reset."
+                >
+                  {({ value, onChange }) => (
+                    <Channel.SelectSingle
+                      value={value}
+                      onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+                      grow
+                      allowNone
+                    />
+                  )}
+                </Form.Field>
+              </>
+            )}
           </Flex.Box>
         </Form.Form>
       </Flex.Box>

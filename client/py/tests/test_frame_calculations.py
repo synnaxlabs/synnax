@@ -1320,6 +1320,130 @@ class TestCalculationOperations:
                 assert frame[calc.key][0] == pytest.approx(40.0)
 
 
+    def test_derivative_computes_rate_of_change(self, client: sy.Synnax):
+        """Should compute pointwise derivative in units per second."""
+        idx = client.channels.create(
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT64,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="derivative")],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 4 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 20.0, 40.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                vals = frame[calc.key].to_numpy()
+                assert len(vals) == 3
+                assert vals[0] == pytest.approx(0.0, abs=0.01)
+                assert vals[1] == pytest.approx(10.0, abs=0.01)
+                assert vals[2] == pytest.approx(10.0, abs=0.01)
+
+    def test_derivative_maintains_state_across_batches(self, client: sy.Synnax):
+        """Should use previous batch state for derivative computation."""
+        idx = client.channels.create(
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT64,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="derivative")],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([0.0, 10.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 4 * sy.TimeSpan.SECOND],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([30.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                vals = frame[calc.key].to_numpy()
+                assert len(vals) == 1
+                assert vals[0] == pytest.approx(10.0, abs=0.01)
+
+    def test_derivative_negative_rate_of_change(self, client: sy.Synnax):
+        """Should correctly compute negative derivatives for decreasing signals."""
+        idx = client.channels.create(
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT64,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="derivative")],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 4 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([100.0, 80.0, 50.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                vals = frame[calc.key].to_numpy()
+                assert len(vals) == 3
+                assert vals[0] == pytest.approx(0.0, abs=0.01)
+                assert vals[1] == pytest.approx(-20.0, abs=0.01)
+                assert vals[2] == pytest.approx(-15.0, abs=0.01)
+
+
 @pytest.mark.framer
 @pytest.mark.calculations
 class TestCalculationsAcrossDomains:
