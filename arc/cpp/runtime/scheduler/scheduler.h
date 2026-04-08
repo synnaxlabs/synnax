@@ -238,9 +238,8 @@ private:
     /// propagates when the source output is truthy.
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->curr_node().output_edges[param])
-            if (edge.kind == ir::EdgeKind::Continuous)
-                this->changed_flags[this->node_index[edge.target.node]] = 1;
-            else if (this->curr_node().node->is_output_truthy(param))
+            if (edge.kind == ir::EdgeKind::Continuous ||
+                this->curr_node().node->is_output_truthy(param))
                 this->changed_flags[this->node_index[edge.target.node]] = 1;
     }
 
