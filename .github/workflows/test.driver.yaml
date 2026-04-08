@@ -83,6 +83,7 @@ jobs:
 
       - name: Ensure Port 9090 is Free
         run: |
+          docker rm -f synnax-test-driver || true
           docker ps -q --filter "publish=9090" | xargs -r docker rm -f || true
 
       - name: Start Synnax
