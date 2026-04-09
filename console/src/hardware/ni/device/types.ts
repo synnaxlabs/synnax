@@ -21,7 +21,12 @@ const ZERO_AO = { portCount: 0, stateIndex: 0, channels: {} };
 const ZERO_CI = { portCount: 0, index: 0, channels: {} };
 const ZERO_DIO = { portCount: 0, lineCounts: [] as number[] };
 const ZERO_DI = { portCount: 0, lineCounts: [] as number[], index: 0, channels: {} };
-const ZERO_DO = { portCount: 0, lineCounts: [] as number[], stateIndex: 0, channels: {} };
+const ZERO_DO = {
+  portCount: 0,
+  lineCounts: [] as number[],
+  stateIndex: 0,
+  channels: {},
+};
 
 export const propertiesZ = z.object({
   identifier: Common.Device.identifierZ.catch(""),
