@@ -25,7 +25,7 @@ from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import SynnaxConnection, Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
-from framework.telemetry_client import TelemetryClient
+from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
 from x import validate_and_sanitize_name
 

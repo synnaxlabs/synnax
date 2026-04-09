@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
 import sys
-import threading
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -24,6 +23,7 @@ import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
 from framework.streamer import Streamer
+from framework.telemetry import TelemetryWriter
 from framework.writer import Writer
 from synnax.telem import SampleValue
 from x import (
@@ -99,7 +99,7 @@ class TestCase(ABC):
         )
 
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
-        self.writer_thread: threading.Thread = threading.Thread()
+        self._telemetry_writer: TelemetryWriter | None = None
         self.streamer = Streamer(
             client=self.client,
             read_timeout=self.read_timeout,
@@ -126,75 +126,48 @@ class TestCase(ABC):
             name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
         )
 
-    def _writer_loop(self) -> None:
-        """Writer thread that writes telemetry at consistent interval."""
-        start_time = self.start_time
-        client = None
+    def _update_tlm(self, tlm: dict, now: sy.TimeStamp, uptime: float) -> None:
+        tlm[self._ch_time] = now
+        tlm[self._ch_uptime] = uptime
+        tlm[self._ch_state] = self._status.value
 
-        try:
-            client = self.client.open_writer(
-                start=start_time,
-                channels=list(self.tlm.keys()),
-                name=self.name,
-            )
+        if (
+            self._timeout_limit is not None
+            and (now - self.start_time)
+            > sy.TimeSpan.from_seconds(self._timeout_limit)
+        ):
+            self.log(f"Timeout at {uptime:.1f}s")
+            self.STATUS = STATUS.TIMEOUT
 
-            while not self.should_stop:
-                now = sy.TimeStamp.now()
-                elapsed = now - self.start_time
-                uptime_seconds = elapsed / sy.TimeSpan.SECOND
-                self.tlm[self._ch_time] = now
-                self.tlm[self._ch_uptime] = uptime_seconds
-                self.tlm[self._ch_state] = self._status.value
+        if self._status.value >= STATUS.FAILED.value:
+            tlm[self._ch_state] = self._status.value
+            self._should_stop = True
 
-                if (
-                    self._timeout_limit is not None
-                    and elapsed > sy.TimeSpan.from_seconds(self._timeout_limit)
-                ):
-                    self.log(f"Timeout at {uptime_seconds:.1f}s")
-                    self.STATUS = STATUS.TIMEOUT
-
-                if self._status.value >= STATUS.FAILED.value:
-                    self.tlm[self._ch_state] = self._status.value
-                    self._should_stop = True
-
-                try:
-                    client.write(self.tlm)
-                except Exception as e:
-                    if is_websocket_error(e):
-                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
-                    else:
-                        self.STATUS = STATUS.FAILED
-                        raise
-
-        except Exception as e:
-            if not is_websocket_error(e):
-                self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
-                self.STATUS = STATUS.FAILED
-                raise
-
-        finally:
-            if client is not None:
-                with suppress_websocket_errors():
-                    client.write(self.tlm)
-                    client.close()
+    def _handle_writer_error(self, e: Exception) -> None:
+        if is_websocket_error(e):
+            sy.sleep(self.WEBSOCKET_RETRY_DELAY)
+        else:
+            self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
+            self.STATUS = STATUS.FAILED
+            raise
 
     def log(self, message: str) -> None:
         """Log a message. Buffered by default; dumped by conductor on failure."""
         self.log_client.info(message)
 
     def _start_client_threads(self) -> None:
-        self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
-        self.writer_thread.start()
+        self._telemetry_writer = TelemetryWriter(
+            client=self.client,
+            tlm=self.tlm,
+            channels=list(self.tlm.keys()),
+            update=self._update_tlm,
+            should_stop=lambda: self._should_stop,
+            rate=self.DEFAULT_LOOP_RATE,
+            name=self.name,
+            on_error=self._handle_writer_error,
+        )
+        self._telemetry_writer.start()
         self.streamer.start()
-
-    def _join_thread(
-        self, thread: threading.Thread, label: str, timeout: float = 5
-    ) -> None:
-        """Join a thread with timeout, logging a warning if it doesn't stop."""
-        if thread.is_alive():
-            thread.join(timeout=timeout)
-            if thread.is_alive():
-                self.log(f"Warning: {label} thread did not stop within timeout")
 
     def _stop_client(self) -> None:
         """Stop client threads and wait for completion."""
@@ -203,7 +176,8 @@ class TestCase(ABC):
             self.streamer.stop()
             self.is_running = False
             self.streamer.join()
-            self._join_thread(self.writer_thread, "writer")
+            if self._telemetry_writer is not None:
+                self._telemetry_writer.stop()
             with suppress_websocket_errors():
                 self.writer.close()
 
@@ -216,7 +190,8 @@ class TestCase(ABC):
         """Wait for client threads to complete."""
         timeout_secs = sy.TimeSpan.to_seconds(timeout)
         self.streamer.join(timeout_secs)
-        self._join_thread(self.writer_thread, "writer", timeout_secs)
+        if self._telemetry_writer is not None:
+            self._telemetry_writer.stop(timeout_secs)
 
     def _check_expectation(self) -> None:
         """Check if test met expected outcome and handle failures gracefully."""
@@ -579,7 +554,7 @@ class TestCase(ABC):
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
-        return self.writer_thread.is_alive()
+        return self._telemetry_writer is not None and self._telemetry_writer.is_alive()
 
     def fail(self, message: str | None = None) -> None:
         if message is not None:
