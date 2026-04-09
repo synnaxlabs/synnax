@@ -90,6 +90,19 @@ class ChannelCollector:
         self._thread.start()
         return self.data
 
+    def wait_for_count(
+        self,
+        channel: str,
+        count: int,
+        timeout: float = 5.0,
+    ) -> None:
+        """Wait until the collector has at least `count` entries for `channel`."""
+        timer = sy.Timer()
+        while timer.elapsed() < timeout * sy.TimeSpan.SECOND:
+            if len(self.data.get(channel, [])) >= count:
+                return
+            sy.sleep(0.05)
+
     def __exit__(self, *_: object) -> None:
         self._stop.set()
         self._thread.join(timeout=3)
@@ -173,7 +186,8 @@ class ShortCircuit(ArcConsoleCase):
             "ss_count_on_time",
             "ss_count_pause_time",
         ]
-        with ChannelCollector(self.client, stream_channels) as collected:
+        collector = ChannelCollector(self.client, stream_channels)
+        with collector as collected:
             with self.client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=["ss_sensor_time", "ss_temp_a", "ss_temp_b"],
@@ -187,6 +201,8 @@ class ShortCircuit(ArcConsoleCase):
 
                 self._verify_on_pause_loop()
                 self._verify_off_transition()
+
+            collector.wait_for_count("ss_stage_str", 8)
 
         self._assert_loop_writes(collected)
 
