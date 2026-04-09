@@ -33,7 +33,7 @@ class Writer:
                     self._writer.close()
                 self._channels |= data.keys()
                 self._writer = self._client.open_writer(
-                    start=sy.TimeStamp.now() - 1 * sy.TimeSpan.MILLISECOND,
+                    start=sy.TimeStamp.now() - 5 * sy.TimeSpan.SECOND,
                     channels=list(self._channels),
                     enable_auto_commit=True,
                 )
