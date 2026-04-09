@@ -34,54 +34,65 @@ func (ie *importExporter) Import(
 	parent ontology.ID,
 	env imex.Envelope,
 ) error {
-	data, err := ie.importData(env.Version, env.Data)
+	migrated, err := ie.migrateData(env.Version, env.Data)
 	if err != nil {
 		return err
 	}
-	key, err := uuid.Parse(env.Key)
+	key, err := uuid.Parse(migrated.Key)
 	if err != nil {
-		return err
+		key = uuid.New()
 	}
 	wsKey, err := uuid.Parse(parent.Key)
 	if err != nil {
 		return err
 	}
-	l := Log{Key: key, Name: env.Name, Data: data}
+	name := migrated.Name
+	if name == "" {
+		name = "Imported Log"
+	}
+	dumped, err := v1.Schema.Dump(migrated)
+	if err != nil {
+		return err
+	}
+	l := Log{Key: key, Name: name, Data: dumped.(map[string]any)}
 	return ie.svc.NewWriter(tx).Create(ctx, wsKey, &l)
 }
 
-func (ie *importExporter) importData(
-	version string,
-	data map[string]any,
-) (map[string]any, error) {
+func (ie *importExporter) migrateData(version string, data map[string]any) (v1.Data, error) {
+	if version == "" {
+		version = ie.detectVersion(data)
+	}
 	switch version {
 	case v1.Version:
 		var d v1.Data
 		if err := v1.Schema.Parse(data, &d); err != nil {
-			return nil, err
+			return v1.Data{}, err
 		}
-		dumped, err := v1.Schema.Dump(d)
-		if err != nil {
-			return nil, err
-		}
-		return dumped.(map[string]any), nil
+		return d, nil
 	case v0.Version:
 		var d v0.Data
 		if err := v0.Schema.Parse(data, &d); err != nil {
-			return nil, err
+			return v1.Data{}, err
 		}
-		migrated, err := v1.Migrate(d)
-		if err != nil {
-			return nil, err
-		}
-		dumped, err := v1.Schema.Dump(migrated)
-		if err != nil {
-			return nil, err
-		}
-		return dumped.(map[string]any), nil
+		return v1.Migrate(d)
 	default:
-		return nil, errors.Newf("unknown log data version %q", version)
+		return v1.Data{}, errors.Newf("unknown log data version %q", version)
 	}
+}
+
+func (ie *importExporter) detectVersion(data map[string]any) string {
+	if channels, ok := data["channels"].([]any); ok && len(channels) > 0 {
+		if _, ok := channels[0].(map[string]any); ok {
+			return v1.Version
+		}
+	}
+	if _, ok := data["timestamp_precision"]; ok {
+		return v1.Version
+	}
+	if _, ok := data["timestampPrecision"]; ok {
+		return v1.Version
+	}
+	return v0.Version
 }
 
 func (ie *importExporter) Export(
@@ -97,11 +108,15 @@ func (ie *importExporter) Export(
 	if err := ie.svc.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
 		return imex.Envelope{}, err
 	}
+	data := l.Data
+	if data == nil {
+		data = make(map[string]any)
+	}
+	data["key"] = l.Key.String()
+	data["name"] = l.Name
 	return imex.Envelope{
 		Version: v1.Version,
 		Type:    string(ontology.ResourceTypeLog),
-		Key:     l.Key.String(),
-		Name:    l.Name,
-		Data:    l.Data,
+		Data:    data,
 	}, nil
 }

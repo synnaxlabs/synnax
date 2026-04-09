@@ -16,12 +16,16 @@ const Version = "0.0.0"
 // Data is the frozen type for log data at version 0.0.0. Channels are stored as
 // bare integer keys.
 type Data struct {
-	Channels      []int `json:"channels"`
-	RemoteCreated bool  `json:"remote_created"`
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	Channels      []int  `json:"channels"`
+	RemoteCreated bool   `json:"remote_created"`
 }
 
-// Schema validates the data payload at version 0.0.0.
+// Schema validates the full log resource at version 0.0.0.
 var Schema = zyn.Object(map[string]zyn.Schema{
+	"key":            zyn.String().Optional(),
+	"name":           zyn.String().Optional(),
 	"channels":       zyn.Array(zyn.Number()),
 	"remote_created": zyn.Bool(),
 })

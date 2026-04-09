@@ -25,6 +25,8 @@ type ChannelEntry struct {
 // Data is the frozen type for log data at version 1.0.0. Channels are stored as
 // config entries with display options.
 type Data struct {
+	Key                  string         `json:"key"`
+	Name                 string         `json:"name"`
 	Channels             []ChannelEntry `json:"channels"`
 	RemoteCreated        bool           `json:"remote_created"`
 	TimestampPrecision   int            `json:"timestamp_precision"`
@@ -40,11 +42,13 @@ var channelEntrySchema = zyn.Object(map[string]zyn.Schema{
 	"alias":     zyn.String(),
 })
 
-// Schema validates the data payload at version 1.0.0.
+// Schema validates the full log resource at version 1.0.0.
 var Schema = zyn.Object(map[string]zyn.Schema{
-	"channels":               zyn.Array(channelEntrySchema),
-	"remote_created":         zyn.Bool(),
-	"timestamp_precision":    zyn.Number(),
-	"show_channel_names":     zyn.Bool(),
+	"key":                  zyn.String().Optional(),
+	"name":                 zyn.String().Optional(),
+	"channels":             zyn.Array(channelEntrySchema),
+	"remote_created":       zyn.Bool(),
+	"timestamp_precision":  zyn.Number(),
+	"show_channel_names":   zyn.Bool(),
 	"show_receipt_timestamp": zyn.Bool(),
 })

@@ -11,20 +11,55 @@ package imex
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Envelope is the standard JSON envelope for importing and exporting a single resource.
-// The Version field identifies the schema version of the Data payload. The Type field
-// identifies the ontology resource type and is used for routing to the correct service.
+// Envelope is the standard format for importing and exporting a single resource.
+// Type is the most specific type identifier (e.g., "log", "modbus_read"). Version
+// is the data schema version (may be empty for old exports). Data contains the full
+// serialized resource including key, name, and all fields.
 type Envelope struct {
 	Version string         `json:"version" msgpack:"version"`
 	Type    string         `json:"type" msgpack:"type"`
-	Key     string         `json:"key" msgpack:"key"`
-	Name    string         `json:"name" msgpack:"name"`
 	Data    map[string]any `json:"data" msgpack:"data"`
+}
+
+// ParseEnvelope converts raw JSON bytes into an Envelope. It detects the format
+// automatically: if the JSON contains a nested "data" object, it's the new envelope
+// format. Otherwise it's the old console flat format, and the entire JSON becomes
+// the Data field.
+func ParseEnvelope(raw []byte) (Envelope, error) {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return Envelope{}, err
+	}
+	return ParseEnvelopeFromMap(m), nil
+}
+
+// ParseEnvelopeFromMap converts a raw map into an Envelope, detecting the format.
+func ParseEnvelopeFromMap(m map[string]any) Envelope {
+	if data, ok := m["data"].(map[string]any); ok {
+		env := Envelope{Data: data}
+		if v, ok := m["version"].(string); ok {
+			env.Version = v
+		}
+		if t, ok := m["type"].(string); ok {
+			env.Type = t
+		}
+		return env
+	}
+	env := Envelope{Data: m}
+	if v, ok := m["version"].(string); ok {
+		env.Version = v
+	}
+	if t, ok := m["type"].(string); ok {
+		env.Type = t
+	}
+	return env
 }
 
 // Importer can import a resource from an Envelope.

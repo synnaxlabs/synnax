@@ -17,31 +17,31 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Service is the central import/export registry. Each service that supports
-// import/export registers its ImporterExporter during layer initialization.
+// Service is the central import/export registry. Each service registers its
+// ImporterExporter under one or more type strings during layer initialization.
+// Type strings are the most specific type identifier (e.g., "log", "modbus_read").
 type Service struct {
 	db        *gorp.DB
-	importers map[ontology.ResourceType]Importer
-	exporters map[ontology.ResourceType]Exporter
+	importers map[string]Importer
+	exporters map[string]Exporter
 }
 
 // NewService creates a new import/export registry service.
 func NewService(db *gorp.DB) *Service {
 	return &Service{
 		db:        db,
-		importers: make(map[ontology.ResourceType]Importer),
-		exporters: make(map[ontology.ResourceType]Exporter),
+		importers: make(map[string]Importer),
+		exporters: make(map[string]Exporter),
 	}
 }
 
-// Register adds an ImporterExporter for the given resource type.
-func (s *Service) Register(rt ontology.ResourceType, ie ImporterExporter) {
-	s.importers[rt] = ie
-	s.exporters[rt] = ie
+// Register adds an ImporterExporter for the given type string.
+func (s *Service) Register(typeStr string, ie ImporterExporter) {
+	s.importers[typeStr] = ie
+	s.exporters[typeStr] = ie
 }
 
 // Import validates and persists the given envelopes within a single transaction.
-// Each envelope is routed to the appropriate service by its Type field.
 func (s *Service) Import(
 	ctx context.Context,
 	parent ontology.ID,
@@ -49,11 +49,10 @@ func (s *Service) Import(
 ) error {
 	return s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, env := range envs {
-			rt := ontology.ResourceType(env.Type)
-			imp, ok := s.importers[rt]
+			imp, ok := s.importers[env.Type]
 			if !ok {
 				return errors.Newf(
-					"no importer registered for resource type %q",
+					"no importer registered for type %q",
 					env.Type,
 				)
 			}
@@ -65,22 +64,28 @@ func (s *Service) Import(
 	})
 }
 
-// Export serializes the requested resources as envelopes.
+// Export serializes the requested resources as envelopes. Each resource is
+// identified by its type string and key.
+type ExportRequest struct {
+	Type string `json:"type" msgpack:"type"`
+	Key  string `json:"key" msgpack:"key"`
+}
+
 func (s *Service) Export(
 	ctx context.Context,
-	resources []ontology.ID,
+	resources []ExportRequest,
 ) ([]Envelope, error) {
 	var result []Envelope
 	err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for _, id := range resources {
-			exp, ok := s.exporters[id.Type]
+		for _, r := range resources {
+			exp, ok := s.exporters[r.Type]
 			if !ok {
 				return errors.Newf(
-					"no exporter registered for resource type %q",
-					id.Type,
+					"no exporter registered for type %q",
+					r.Type,
 				)
 			}
-			env, err := exp.Export(ctx, tx, id.Key)
+			env, err := exp.Export(ctx, tx, r.Key)
 			if err != nil {
 				return err
 			}

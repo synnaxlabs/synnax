@@ -26,6 +26,8 @@ func Migrate(old v0.Data) (Data, error) {
 		}
 	}
 	return Data{
+		Key:                  old.Key,
+		Name:                 old.Name,
 		Channels:             channels,
 		RemoteCreated:        old.RemoteCreated,
 		TimestampPrecision:   0,
