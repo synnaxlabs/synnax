@@ -26,18 +26,27 @@ type ObjectZ struct {
 		snake  map[string]string
 		pascal map[string]string
 	}
-	fields map[string]Schema
+	fields     map[string]Schema
+	fieldNames []string
 	baseZ
 }
 
 var _ Schema = (*ObjectZ)(nil)
 
 // fieldByName finds a field in a struct by its name, supporting both PascalCase and
-// snake_case. Uses pre-computed case conversions from the schema.
+// snake_case. Tries direct name lookup first to avoid FieldByNameFunc closure allocation.
 func (o ObjectZ) fieldByName(v reflect.Value, field string) reflect.Value {
-	snake := o.caseConversions.snake[field]
 	pascal := o.caseConversions.pascal[field]
-	return v.FieldByNameFunc(func(s string) bool { return pascal == s || snake == s })
+	f := v.FieldByName(pascal)
+	if f.IsValid() {
+		return f
+	}
+	snake := o.caseConversions.snake[field]
+	f = v.FieldByName(snake)
+	if f.IsValid() {
+		return f
+	}
+	return v.FieldByName(field)
 }
 
 // Optional marks the object field as optional. Optional fields can be nil or omitted.
