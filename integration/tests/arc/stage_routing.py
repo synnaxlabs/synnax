@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
@@ -83,9 +81,7 @@ class StageRouting(ArcConsoleCase):
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
     start_cmd_channel = "start_stage_routing_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["routing_stage_log"]
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         flag_idx = self.client.channels.create(

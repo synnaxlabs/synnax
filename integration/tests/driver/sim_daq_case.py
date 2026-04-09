@@ -41,8 +41,8 @@ class SimDaqCase(TestCase):
         sim_daq_class: SimDAQ subclass to instantiate
     """
 
-    sim_daq_class: type[SimDAQ]
-    sim_daq: SimDAQ
+    sim_daq_class: type[SimDAQ] | None
+    sim_daq: SimDAQ | None
 
     def __init__(
         self,

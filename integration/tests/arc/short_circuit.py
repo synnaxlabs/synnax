@@ -32,8 +32,6 @@ Phase 2: ss_temp_a=400
 
 import threading
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
@@ -113,7 +111,6 @@ class ShortCircuit(ArcConsoleCase):
     arc_source = SHORT_CIRCUIT_SOURCE
     arc_name_prefix = "ArcShortCircuit"
     start_cmd_channel = "end_test_cmd"  # Wrong on purpose so we can trigger manually.
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = [
         "ss_stage_str",
         "ss_sim_stage",
@@ -122,9 +119,7 @@ class ShortCircuit(ArcConsoleCase):
         "ss_temp_b",
         "ss_count_on",
         "ss_count_pause",
-        "end_test_cmd",
     ]
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         client = self.client
