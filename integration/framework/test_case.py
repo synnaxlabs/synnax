@@ -23,6 +23,7 @@ from typing import Any, Literal, overload
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.writer import Writer
 from synnax.telem import SampleValue
 from x import (
     WebSocketErrorFilter,
@@ -88,6 +89,7 @@ class TestCase(ABC):
         self._ch_log = f"{self.name}_log"
 
         self.client = synnax_connection.create_client()
+        self.writer = Writer(self.client)
 
         self.log_client = LogClient(
             name=self.name,
@@ -124,15 +126,8 @@ class TestCase(ABC):
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
-        start_time = self.start_time
-        client = None
-
         try:
-            client = self.client.open_writer(
-                start=start_time,
-                channels=list(self.tlm.keys()),
-                name=self.name,
-            )
+            self.writer.write(self.tlm)
 
             while not self.should_stop:
                 now = sy.TimeStamp.now()
@@ -154,7 +149,7 @@ class TestCase(ABC):
                     self._should_stop = True
 
                 try:
-                    client.write(self.tlm)
+                    self.writer.write(self.tlm)
                 except Exception as e:
                     if is_websocket_error(e):
                         sy.sleep(self.WEBSOCKET_RETRY_DELAY)
@@ -167,12 +162,6 @@ class TestCase(ABC):
                 self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
                 raise
-
-        finally:
-            if client is not None:
-                with suppress_websocket_errors():
-                    client.write(self.tlm)
-                    client.close()
 
     def _streamer_loop(self) -> None:
         """Streamer thread that reads data on demand with timeout."""
@@ -241,6 +230,8 @@ class TestCase(ABC):
             self.is_running = False
             self._join_thread(self.streamer_thread, "streamer")
             self._join_thread(self.writer_thread, "writer")
+            with suppress_websocket_errors():
+                self.writer.close()
 
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED

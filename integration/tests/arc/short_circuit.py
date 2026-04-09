@@ -205,8 +205,7 @@ class ShortCircuit(ArcConsoleCase):
                 self._ss_temp_b = 400.0
                 self._write_sensors()
 
-                with self.client.open_writer(sy.TimeStamp.now(), "ss_start_cmd") as w:
-                    w.write("ss_start_cmd", 1)
+                self.writer.write("ss_start_cmd", 1)
 
                 self._verify_on_pause_loop()
                 self._verify_off_transition()

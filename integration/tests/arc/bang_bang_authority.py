@@ -142,8 +142,7 @@ class BangBangAuthority(ArcConsoleCase):
 
         # Phase 2: Trigger stop → wait for stop stage to zero the valve.
         self.log("Phase 2: Triggering stop...")
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_stop_cmd") as w:
-            w.write("bb_stop_cmd", 1)
+        self.writer.write("bb_stop_cmd", 1)
         self.wait_for_eq("press_vlv_state", 0)
 
         # Phase 3: Assert sequence remains in yield — the pre-existing bb_start_cmd
@@ -157,8 +156,7 @@ class BangBangAuthority(ArcConsoleCase):
 
         # Phase 4: Send a fresh start command and verify re-entry on both channels.
         self.log("Phase 4: Sending fresh start command and verifying re-entry...")
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_start_cmd") as w:
-            w.write("bb_start_cmd", 1)
+        self.writer.write("bb_start_cmd", 1)
         self.wait_for_eq("press_vlv_state", 1)
         self.log("Bang-bang re-entered start stage")
 

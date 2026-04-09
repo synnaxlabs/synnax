@@ -105,14 +105,12 @@ class Stat(ArcConsoleCase):
         super().setup()
 
     def _write(self, channel: str, value: float) -> None:
-        with self.client.open_writer(sy.TimeStamp.now(), channel) as w:
-            w.write(channel, value)
+        self.writer.write(channel, value)
 
     def _write_many(self, channel: str, values: list[float]) -> None:
         """Write multiple values through a single writer session."""
-        with self.client.open_writer(sy.TimeStamp.now(), channel) as w:
-            for val in values:
-                w.write(channel, val)
+        for val in values:
+            self.writer.write(channel, val)
 
     def _write_spaced(
         self,
@@ -124,11 +122,10 @@ class Stat(ArcConsoleCase):
         Sleeps dt_ms between each write so the Arc runtime assigns
         predictable timestamps for derivative computation.
         """
-        with self.client.open_writer(sy.TimeStamp.now(), channel) as w:
-            for i, val in enumerate(values):
-                w.write(channel, val)
-                if i < len(values) - 1:
-                    sy.sleep(dt_ms / 1000.0)
+        for i, val in enumerate(values):
+            self.writer.write(channel, val)
+            if i < len(values) - 1:
+                sy.sleep(dt_ms / 1000.0)
 
     def verify_sequence_execution(self) -> None:
         self._test_basic_stats()

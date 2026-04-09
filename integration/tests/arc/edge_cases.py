@@ -475,10 +475,7 @@ class EdgeCases(ArcConsoleCase):
         self.console.arc.configure()
         self.console.arc.start()
 
-        with self.client.open_writer(
-            sy.TimeStamp.now(), "start_read_only_monitor_cmd"
-        ) as w:
-            w.write("start_read_only_monitor_cmd", 1)
+        self.writer.write("start_read_only_monitor_cmd", 1)
 
         self.log("Waiting for pressure status notification...")
         assert self.console.notifications.wait_for("Press Monitor"), (
