@@ -1382,4 +1382,237 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("merge")).To(Equal(3))
 		})
 	})
+
+	Describe("Flow Step Stratification", func() {
+		It("Should compute sequence strata for flow steps", func(ctx SpecContext) {
+			var (
+				nodes = []ir.Node{
+					{Key: "global_trigger", Type: "on"},
+					{Key: "entry_seq_s0", Type: "entry"},
+					{Key: "entry_seq_s1", Type: "entry"},
+					{Key: "write_a", Type: "write"},
+					{Key: "write_b", Type: "write"},
+				}
+				edges = []ir.Edge{
+					{
+						Source: ir.Handle{Node: "global_trigger", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s0", Param: "input"},
+					},
+					{
+						Source: ir.Handle{Node: "write_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s1", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "seq",
+						Steps: []ir.Step{
+							{Key: "s0", Flow: &ir.Flow{Nodes: []string{"write_a"}}},
+							{Key: "s1", Flow: &ir.Flow{Nodes: []string{"write_b"}}},
+						},
+					},
+				}
+				diag   = &diagnostics.Diagnostics{}
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(strata.Get("global_trigger")).To(Equal(0))
+			Expect(strata.Get("entry_seq_s0")).To(Equal(1))
+
+			seqStrata := sequences[0].Strata
+			Expect(seqStrata).ToNot(BeEmpty())
+			Expect(seqStrata.Has("write_a")).To(BeTrue())
+			Expect(seqStrata.Has("write_b")).To(BeTrue())
+			Expect(seqStrata.Has("entry_seq_s1")).To(BeTrue())
+			Expect(seqStrata.Get("write_a")).To(Equal(0))
+			Expect(seqStrata.Get("write_b")).To(Equal(0))
+			Expect(seqStrata.Get("entry_seq_s1")).To(Equal(1))
+		})
+
+		It("Should place flow nodes and entry nodes at correct strata depths", func(ctx SpecContext) {
+			var (
+				nodes = []ir.Node{
+					{Key: "trigger", Type: "on"},
+					{Key: "entry_seq_s0", Type: "entry"},
+					{Key: "entry_seq_s1", Type: "entry"},
+					{Key: "entry_seq_s2", Type: "entry"},
+					{Key: "node_a", Type: "write"},
+					{Key: "node_b", Type: "process"},
+					{Key: "node_c", Type: "write"},
+				}
+				edges = []ir.Edge{
+					{
+						Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s0", Param: "input"},
+					},
+					{
+						Source: ir.Handle{Node: "node_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s1", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+					{
+						Source: ir.Handle{Node: "node_b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s2", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "seq",
+						Steps: []ir.Step{
+							{Key: "s0", Flow: &ir.Flow{Nodes: []string{"node_a"}}},
+							{Key: "s1", Flow: &ir.Flow{Nodes: []string{"node_b"}}},
+							{Key: "s2", Flow: &ir.Flow{Nodes: []string{"node_c"}}},
+						},
+					},
+				}
+				diag = &diagnostics.Diagnostics{}
+			)
+			MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			Expect(diag.Ok()).To(BeTrue())
+
+			seqStrata := sequences[0].Strata
+			Expect(seqStrata.Get("node_a")).To(Equal(0))
+			Expect(seqStrata.Get("node_b")).To(Equal(0))
+			Expect(seqStrata.Get("node_c")).To(Equal(0))
+			Expect(seqStrata.Get("entry_seq_s1")).To(Equal(1))
+			Expect(seqStrata.Get("entry_seq_s2")).To(Equal(1))
+		})
+
+		It("Should insert boundary keys for stage steps in sequence strata", func(ctx SpecContext) {
+			var (
+				nodes = []ir.Node{
+					{Key: "trigger", Type: "on"},
+					{Key: "entry_seq_flow_a", Type: "entry"},
+					{Key: "entry_seq_stg_b", Type: "entry"},
+					{Key: "write_a", Type: "write"},
+					{Key: "stage_node", Type: "process"},
+				}
+				edges = []ir.Edge{
+					{
+						Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_flow_a", Param: "input"},
+					},
+					{
+						Source: ir.Handle{Node: "write_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_stg_b", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "seq",
+						Steps: []ir.Step{
+							{Key: "flow_a", Flow: &ir.Flow{Nodes: []string{"write_a"}}},
+							{Key: "stg_b", Stage: &ir.Stage{
+								Key:   "stg_b",
+								Nodes: []string{"stage_node"},
+							}},
+						},
+					},
+				}
+				diag = &diagnostics.Diagnostics{}
+			)
+			MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			Expect(diag.Ok()).To(BeTrue())
+
+			seqStrata := sequences[0].Strata
+			Expect(seqStrata.Has("write_a")).To(BeTrue())
+			Expect(seqStrata.Has("boundary_stg_b")).To(BeTrue())
+
+			stageStrata := sequences[0].Steps[1].Stage.Strata
+			Expect(stageStrata.Has("stage_node")).To(BeTrue())
+		})
+
+		It("Should not include flow step nodes in global strata", func(ctx SpecContext) {
+			var (
+				nodes = []ir.Node{
+					{Key: "trigger", Type: "on"},
+					{Key: "entry_seq_s0", Type: "entry"},
+					{Key: "flow_node", Type: "write"},
+				}
+				edges = []ir.Edge{
+					{
+						Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s0", Param: "input"},
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "seq",
+						Steps: []ir.Step{
+							{Key: "s0", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
+						},
+					},
+				}
+				diag   = &diagnostics.Diagnostics{}
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(strata.Has("flow_node")).To(BeFalse())
+			Expect(sequences[0].Strata.Has("flow_node")).To(BeTrue())
+		})
+
+		It("Should stratify mixed flow and stage steps independently", func(ctx SpecContext) {
+			var (
+				nodes = []ir.Node{
+					{Key: "trigger", Type: "on"},
+					{Key: "entry_seq_press", Type: "entry"},
+					{Key: "entry_seq_write", Type: "entry"},
+					{Key: "entry_seq_vent", Type: "entry"},
+					{Key: "press_node", Type: "process"},
+					{Key: "write_node", Type: "write"},
+					{Key: "vent_node", Type: "process"},
+				}
+				edges = []ir.Edge{
+					{
+						Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_press", Param: "input"},
+					},
+					{
+						Source: ir.Handle{Node: "press_node", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_write", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+					{
+						Source: ir.Handle{Node: "write_node", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_vent", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "seq",
+						Steps: []ir.Step{
+							{Key: "press", Stage: &ir.Stage{
+								Key:   "press",
+								Nodes: []string{"press_node"},
+							}},
+							{Key: "write", Flow: &ir.Flow{Nodes: []string{"write_node"}}},
+							{Key: "vent", Stage: &ir.Stage{
+								Key:   "vent",
+								Nodes: []string{"vent_node"},
+							}},
+						},
+					},
+				}
+				diag = &diagnostics.Diagnostics{}
+			)
+			MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			Expect(diag.Ok()).To(BeTrue())
+
+			seqStrata := sequences[0].Strata
+			Expect(seqStrata.Has("write_node")).To(BeTrue())
+			Expect(seqStrata.Has("boundary_press")).To(BeTrue())
+			Expect(seqStrata.Has("boundary_vent")).To(BeTrue())
+
+			pressStrata := sequences[0].Steps[0].Stage.Strata
+			Expect(pressStrata.Has("press_node")).To(BeTrue())
+			Expect(pressStrata.Has("entry_seq_write")).To(BeTrue())
+
+			ventStrata := sequences[0].Steps[2].Stage.Strata
+			Expect(ventStrata.Has("vent_node")).To(BeTrue())
+		})
+	})
 })

@@ -176,11 +176,17 @@ func analyzeSequenceRef(
 	kg *keyGenerator,
 ) (nodeResult, bool) {
 	firstStage, err := seqSym.FirstChildOfKind(symbol.KindStage)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no stages", seqSym.Name))
+	if err == nil {
+		return newStageTransition(seqSym.Name, firstStage.Name, kg), true
+	}
+	// For stageless sequences, the first step uses a generated key.
+	// Find the sequence's AST to determine the first step key.
+	seqDecl, ok := seqSym.AST.(parser.ISequenceDeclarationContext)
+	if !ok || len(seqDecl.AllSequenceItem()) == 0 {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no steps", seqSym.Name))
 		return nodeResult{}, false
 	}
-	return newStageTransition(seqSym.Name, firstStage.Name, kg), true
+	return newStageTransition(seqSym.Name, "step_0", kg), true
 }
 
 func analyzeStageRef(stageSym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {

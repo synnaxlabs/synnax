@@ -359,6 +359,96 @@ trigger -> counter{} -> output_b
 			}
 		}
 	})
+
+	Describe("Stageless Sequences", func() {
+		It("Should compile a stageless sequence with two writes", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => main
+
+sequence main {
+	1 -> valve_a
+	1 -> valve_b
+}
+`,
+				symbol.MapResolver{
+					"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+					"valve_a":   symbol.Symbol{Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+					"valve_b":   symbol.Symbol{Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+				},
+			)
+
+			Expect(mod.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Sequences.Find("main"))
+			Expect(seq.Steps).To(HaveLen(2))
+			Expect(seq.Steps[0].IsFlow()).To(BeTrue())
+			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
+			Expect(seq.Strata).ToNot(BeEmpty())
+
+			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
+			Expect(len(oneShotEdges)).To(BeNumerically(">=", 1))
+		})
+
+		It("Should compile a stageless sequence with a function node", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => main
+
+sequence main {
+	1 -> valve_cmd
+	wait{duration=2s}
+	0 -> valve_cmd
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"valve_cmd": symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			Expect(mod.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Sequences.Find("main"))
+			Expect(seq.Steps).To(HaveLen(3))
+			Expect(seq.Steps[0].IsFlow()).To(BeTrue())
+			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
+			Expect(seq.Steps[2].IsFlow()).To(BeTrue())
+		})
+
+		It("Should compile a mixed stage and flow sequence", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => main
+
+sequence main {
+	stage press {
+		1 -> press_cmd,
+		press_pt > 50 => next
+	}
+	0 -> press_cmd
+	1 -> vent_cmd
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"press_cmd": symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+						"press_pt":  symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+						"vent_cmd":  symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			Expect(mod.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Sequences.Find("main"))
+			Expect(seq.Steps).To(HaveLen(3))
+			Expect(seq.Steps[0].IsStage()).To(BeTrue())
+			Expect(seq.Steps[0].Key).To(Equal("press"))
+			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
+			Expect(seq.Steps[2].IsFlow()).To(BeTrue())
+			Expect(seq.Strata).ToNot(BeEmpty())
+		})
+	})
 })
 
 // wasmImport represents a parsed WASM import entry.

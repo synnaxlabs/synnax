@@ -1353,7 +1353,7 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("no stages"))
+				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
 
 			It("Should handle sequence in routing table as sink", func(ctx SpecContext) {
