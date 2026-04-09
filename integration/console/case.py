@@ -21,7 +21,9 @@ from playwright.sync_api import (
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.console import Console
+from framework.models import STATUS
 from framework.test_case import TestCase
+from framework.utils import get_results_path
 
 
 class ConsoleCase(TestCase):
@@ -88,6 +90,10 @@ class ConsoleCase(TestCase):
 
         self.console = Console(self.page, self.client)
 
+        # Capture browser DevTools console messages for debugging.
+        self._browser_logs: list[str] = []
+        self.page.on("console", self._on_browser_console)
+
         # Initialized signal (Not "Get Started" page)
         self.page.wait_for_selector(
             ".console-palette button", state="visible", timeout=10000
@@ -103,6 +109,8 @@ class ConsoleCase(TestCase):
         self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
+        if self._status in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
+            self._save_browser_logs()
         if self._cleanup_pages:
             try:
                 self.console.workspace.delete_pages(self._cleanup_pages)
@@ -111,6 +119,21 @@ class ConsoleCase(TestCase):
         self.context.close()
         self.browser.close()
         self.playwright.stop()
+
+    def _on_browser_console(self, msg) -> None:
+        self._browser_logs.append(f"[browser:{msg.type}] {msg.text}")
+
+    def _save_browser_logs(self) -> None:
+        if not self._browser_logs:
+            return
+        name = type(self).__name__
+        log_path = get_results_path(f"{name}_browser_console.log")
+        with open(log_path, "w") as f:
+            f.write("\n".join(self._browser_logs))
+        self.log(f"Browser console log saved to {log_path} ({len(self._browser_logs)} lines)")
+        # TODO: Remove this once we verify log artifact uploads work
+        for line in self._browser_logs:
+            self.log(f"DEBUG: {line}")
 
     def determine_browser(self) -> BrowserType:
         """
