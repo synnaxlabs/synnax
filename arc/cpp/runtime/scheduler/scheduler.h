@@ -181,10 +181,10 @@ public:
         }
         this->changed_flags.resize(idx, 0);
         this->self_changed_flags.resize(idx, 0);
-        this->global_strata = this->prog_.strata;
+        this->global_strata = this->prog_.root.strata;
 
-        this->sequences.reserve(this->prog_.sequences.size());
-        for (const auto &seq : this->prog_.sequences) {
+        this->sequences.reserve(this->prog_.root.sequences.size());
+        for (const auto &seq : this->prog_.root.sequences) {
             this->sequences.push_back(build_sequence_state(seq));
             this->max_convergence_iterations += count_steps(seq);
         }

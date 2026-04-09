@@ -1640,7 +1640,7 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     );
 
     // Set strata
-    interval_ir.strata = ir::Strata({{"interval_0"}, {"target_0"}});
+    interval_ir.root.strata = ir::Strata({{"interval_0"}, {"target_0"}});
 
     // Create state for interval node
     state::State state(
@@ -1711,7 +1711,7 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
         ir::EdgeKind::OneShot
     );
 
-    interval_ir.strata = ir::Strata({{"interval_0"}, {"target_0"}});
+    interval_ir.root.strata = ir::Strata({{"interval_0"}, {"target_0"}});
 
     state::State state(
         state::Config{.ir = interval_ir, .channels = {}},
@@ -1812,7 +1812,7 @@ TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
         ir::EdgeKind::Continuous
     );
 
-    wait_ir.strata = ir::Strata({{"trigger_0"}, {"wait_0"}, {"target_0"}});
+    wait_ir.root.strata = ir::Strata({{"trigger_0"}, {"wait_0"}, {"target_0"}});
 
     state::State state(
         state::Config{.ir = wait_ir, .channels = {}},
@@ -2135,11 +2135,11 @@ ir::IR build_flow_seq(
         .target = {first_entry, "input"},
         .kind = ir::EdgeKind::OneShot,
     });
-    ir.strata.push_back({trigger_key});
-    ir.strata.push_back({first_entry});
+    ir.root.strata.push_back({trigger_key});
+    ir.root.strata.push_back({first_entry});
     seq.strata.push_back(data_stratum);
     if (!entry_stratum.empty()) seq.strata.push_back(entry_stratum);
-    ir.sequences.push_back(std::move(seq));
+    ir.root.sequences.push_back(std::move(seq));
     return ir;
 }
 
@@ -2301,8 +2301,8 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
         .target = {"entry_main_flow_b", "activate"},
         .kind = ir::EdgeKind::OneShot,
     });
-    ir.strata.push_back({"trigger"});
-    ir.strata.push_back({"entry_main_stage_a"});
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_main_stage_a"});
 
     ir::Sequence seq;
     seq.key = "main";
@@ -2320,7 +2320,7 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
     flow_step.flow->nodes = {"flow_node"};
     seq.steps.push_back(std::move(flow_step));
     seq.strata.push_back({"flow_node"});
-    ir.sequences.push_back(std::move(seq));
+    ir.root.sequences.push_back(std::move(seq));
 
     const auto scheduler = build(std::move(ir));
     scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
@@ -2360,8 +2360,8 @@ TEST_F(SchedulerTest, testFlowToStageTransition) {
         .target = {"entry_main_stage_b", "activate"},
         .kind = ir::EdgeKind::OneShot,
     });
-    ir.strata.push_back({"trigger"});
-    ir.strata.push_back({"entry_main_flow_a"});
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_main_flow_a"});
 
     ir::Sequence seq;
     seq.key = "main";
@@ -2379,7 +2379,7 @@ TEST_F(SchedulerTest, testFlowToStageTransition) {
     seq.steps.push_back(std::move(s_step));
     seq.strata.push_back({"flow_node"});
     seq.strata.push_back({"entry_main_stage_b"});
-    ir.sequences.push_back(std::move(seq));
+    ir.root.sequences.push_back(std::move(seq));
 
     const auto scheduler = build(std::move(ir));
     scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
@@ -2428,8 +2428,8 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
         .target = {"entry_main_vent", "activate"},
         .kind = ir::EdgeKind::OneShot,
     });
-    ir.strata.push_back({"trigger"});
-    ir.strata.push_back({"entry_main_press"});
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_main_press"});
 
     ir::Sequence seq;
     seq.key = "main";
@@ -2455,7 +2455,7 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     seq.steps.push_back(std::move(vent));
     seq.strata.push_back({"write_node"});
     seq.strata.push_back({"entry_main_vent"});
-    ir.sequences.push_back(std::move(seq));
+    ir.root.sequences.push_back(std::move(seq));
 
     const auto scheduler = build(std::move(ir));
     scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);

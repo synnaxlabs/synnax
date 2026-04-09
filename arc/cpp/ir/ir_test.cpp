@@ -83,8 +83,8 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     Edge edge(Handle("node1", "out"), Handle("node2", "in"));
     original.edges.push_back(edge);
 
-    original.strata.push_back({"a"});
-    original.strata.push_back({"b", "c"});
+    original.root.strata.push_back({"a"});
+    original.root.strata.push_back({"b", "c"});
 
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(IR::from_proto(pb));
@@ -94,10 +94,10 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     ASSERT_EQ(reconstructed.nodes[0].key, "test_node");
     ASSERT_EQ(reconstructed.edges.size(), 1);
     ASSERT_EQ(reconstructed.edges[0].source.node, "node1");
-    ASSERT_EQ(reconstructed.strata.size(), 2);
-    ASSERT_EQ(reconstructed.strata[0][0], "a");
-    ASSERT_EQ(reconstructed.strata[1][0], "b");
-    ASSERT_EQ(reconstructed.strata[1][1], "c");
+    ASSERT_EQ(reconstructed.root.strata.size(), 2);
+    ASSERT_EQ(reconstructed.root.strata[0][0], "a");
+    ASSERT_EQ(reconstructed.root.strata[1][0], "b");
+    ASSERT_EQ(reconstructed.root.strata[1][1], "c");
 }
 
 /// @brief it should access nodes by key using node()
@@ -334,8 +334,8 @@ TEST(IRTest, testIRSequenceAccess) {
     s1.key = "main";
     Sequence s2;
     s2.key = "cleanup";
-    ir.sequences.push_back(s1);
-    ir.sequences.push_back(s2);
+    ir.root.sequences.push_back(s1);
+    ir.root.sequences.push_back(s2);
     ASSERT_EQ(ir.sequence("main").key, "main");
     ASSERT_EQ(ir.sequence("cleanup").key, "cleanup");
     ASSERT_THROW((void) ir.sequence("nonexistent"), std::runtime_error);
@@ -448,7 +448,7 @@ TEST(IRTest, testIRToString) {
 
     ir.edges.emplace_back(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
 
-    ir.strata.push_back({"add_1"});
+    ir.root.strata.push_back({"add_1"});
 
     Sequence seq;
     seq.key = "main";
@@ -459,7 +459,7 @@ TEST(IRTest, testIRToString) {
     step.key = "run";
     step.stage = std::make_unique<Stage>(std::move(s));
     seq.steps.push_back(std::move(step));
-    ir.sequences.push_back(std::move(seq));
+    ir.root.sequences.push_back(std::move(seq));
 
     const auto str = ir.to_string();
     ASSERT_NE(str.find("IR"), std::string::npos);
@@ -469,9 +469,8 @@ TEST(IRTest, testIRToString) {
     ASSERT_NE(str.find("add_1 (type: add)"), std::string::npos);
     ASSERT_NE(str.find("Edges"), std::string::npos);
     ASSERT_NE(str.find("a.out -> b.in (continuous)"), std::string::npos);
-    ASSERT_NE(str.find("Strata"), std::string::npos);
+    ASSERT_NE(str.find("Root"), std::string::npos);
     ASSERT_NE(str.find("[0]: add_1"), std::string::npos);
-    ASSERT_NE(str.find("Sequences"), std::string::npos);
     ASSERT_NE(str.find("main"), std::string::npos);
 }
 

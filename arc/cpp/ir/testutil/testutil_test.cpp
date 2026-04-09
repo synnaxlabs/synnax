@@ -17,11 +17,11 @@ TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
                   .sequence("main", {{"stage_a", {{"A", "B"}, {"C"}}}})
                   .build();
 
-    ASSERT_EQ(ir.sequences.size(), 1);
-    ASSERT_EQ(ir.sequences[0].key, "main");
-    ASSERT_EQ(ir.sequences[0].steps.size(), 1);
+    ASSERT_EQ(ir.root.sequences.size(), 1);
+    ASSERT_EQ(ir.root.sequences[0].key, "main");
+    ASSERT_EQ(ir.root.sequences[0].steps.size(), 1);
 
-    const auto &step = ir.sequences[0].steps[0];
+    const auto &step = ir.root.sequences[0].steps[0];
     ASSERT_NE(step.stage, nullptr);
     ASSERT_EQ(step.key, "stage_a");
     ASSERT_EQ(step.stage->key, "stage_a");
@@ -38,17 +38,17 @@ TEST(BuilderTest, SequenceHandlesMultipleStages) {
                   .sequence("seq", {{"first", {{"X"}}}, {"second", {{"Y"}, {"Z"}}}})
                   .build();
 
-    ASSERT_EQ(ir.sequences[0].steps.size(), 2);
-    ASSERT_EQ(ir.sequences[0].steps[0].stage->nodes.size(), 1);
-    EXPECT_EQ(ir.sequences[0].steps[0].stage->nodes[0], "X");
-    ASSERT_EQ(ir.sequences[0].steps[1].stage->nodes.size(), 2);
+    ASSERT_EQ(ir.root.sequences[0].steps.size(), 2);
+    ASSERT_EQ(ir.root.sequences[0].steps[0].stage->nodes.size(), 1);
+    EXPECT_EQ(ir.root.sequences[0].steps[0].stage->nodes[0], "X");
+    ASSERT_EQ(ir.root.sequences[0].steps[1].stage->nodes.size(), 2);
 }
 
 /// @brief sequence() should handle empty strata
 TEST(BuilderTest, SequenceHandlesEmptyStrata) {
     auto ir = arc::ir::testutil::Builder().sequence("empty", {{"stage", {}}}).build();
 
-    ASSERT_EQ(ir.sequences[0].steps[0].stage->nodes.size(), 0);
+    ASSERT_EQ(ir.root.sequences[0].steps[0].stage->nodes.size(), 0);
 }
 
 /// @brief edge() should create continuous edges

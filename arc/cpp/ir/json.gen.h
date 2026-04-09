@@ -206,8 +206,7 @@ inline IR IR::parse(x::json::Parser parser) {
         .functions = parser.field<Functions>("functions"),
         .nodes = parser.field<Nodes>("nodes"),
         .edges = parser.field<Edges>("edges"),
-        .strata = parser.field<Strata>("strata"),
-        .sequences = parser.field<Sequences>("sequences"),
+        .root = parser.field<Stage>("root"),
         .authorities = parser.field<Authorities>("authorities"),
     };
 }
@@ -217,8 +216,7 @@ inline x::json::json IR::to_json() const {
     j["functions"] = this->functions.to_json();
     j["nodes"] = this->nodes.to_json();
     j["edges"] = this->edges.to_json();
-    j["strata"] = this->strata.to_json();
-    j["sequences"] = this->sequences.to_json();
+    j["root"] = this->root.to_json();
     j["authorities"] = this->authorities.to_json();
     return j;
 }

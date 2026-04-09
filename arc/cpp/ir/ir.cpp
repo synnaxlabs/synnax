@@ -260,7 +260,7 @@ IR::edges_from(const std::string &node_key) const {
 }
 
 const Sequence &IR::sequence(const std::string &key) const {
-    for (const auto &s: this->sequences)
+    for (const auto &s: this->root.sequences)
         if (s.key == key) return s;
     throw std::runtime_error("sequence not found: " + key);
 }
@@ -283,11 +283,11 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     bool has_functions = !this->functions.empty();
     bool has_nodes = !this->nodes.empty();
     bool has_edges = !this->edges.empty();
-    bool has_strata = !this->strata.empty();
-    bool has_sequences = !this->sequences.empty();
+    bool has_root = !this->root.strata.empty() || !this->root.sequences.empty() ||
+                    !this->root.nodes.empty();
 
     if (has_functions) {
-        bool last = !has_nodes && !has_edges && !has_strata && !has_sequences;
+        bool last = !has_nodes && !has_edges && !has_root;
         ss << "\n" << prefix << tree_prefix(last) << "Functions";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < this->functions.size(); ++i) {
@@ -300,7 +300,7 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     }
 
     if (has_nodes) {
-        bool last = !has_edges && !has_strata && !has_sequences;
+        bool last = !has_edges && !has_root;
         ss << "\n" << prefix << tree_prefix(last) << "Nodes";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < this->nodes.size(); ++i) {
@@ -313,7 +313,7 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     }
 
     if (has_edges) {
-        bool last = !has_strata && !has_sequences;
+        bool last = !has_root;
         ss << "\n" << prefix << tree_prefix(last) << "Edges";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < this->edges.size(); ++i) {
@@ -323,23 +323,9 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
         }
     }
 
-    if (has_strata) {
-        bool last = !has_sequences;
-        ss << "\n" << prefix << tree_prefix(last) << "Strata";
-        std::string child_prefix = prefix + tree_indent(last);
-        ss << "\n" << this->strata.to_string_with_prefix(child_prefix);
-    }
-
-    if (has_sequences) {
-        ss << "\n" << prefix << tree_prefix(true) << "Sequences";
-        std::string child_prefix = prefix + tree_indent(true);
-        for (size_t i = 0; i < this->sequences.size(); ++i) {
-            bool s_last = (i == this->sequences.size() - 1);
-            ss << "\n" << child_prefix << tree_prefix(s_last);
-            ss << this->sequences[i].to_string_with_prefix(
-                child_prefix + tree_indent(s_last)
-            );
-        }
+    if (has_root) {
+        ss << "\n" << prefix << tree_prefix(true) << "Root ";
+        ss << this->root.to_string_with_prefix(prefix + tree_indent(true));
     }
 
     return ss.str();

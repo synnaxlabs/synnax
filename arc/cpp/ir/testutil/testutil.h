@@ -78,7 +78,7 @@ public:
     /// @brief Set global strata (topological execution order for non-staged nodes).
     /// Each inner vector is a stratum; nodes in the same stratum are independent.
     Builder &strata(std::vector<std::vector<std::string>> s) {
-        ir_.strata.assign(s.begin(), s.end());
+        ir_.root.strata.assign(s.begin(), s.end());
         return *this;
     }
 
@@ -112,7 +112,7 @@ public:
             step.stage = std::make_unique<Stage>(std::move(stage));
             seq.steps.push_back(std::move(step));
         }
-        ir_.sequences.push_back(std::move(seq));
+        ir_.root.sequences.push_back(std::move(seq));
         return *this;
     }
 

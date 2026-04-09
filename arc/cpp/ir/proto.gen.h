@@ -357,12 +357,12 @@ inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
         if (err) return {{}, err};
         *pb.add_edges() = v;
     }
-    for (const auto &item: this->strata) {
+    for (const auto &item: this->root.strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
             wrapper->add_values(v);
     }
-    for (const auto &item: this->sequences) {
+    for (const auto &item: this->root.sequences) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
         *pb.add_sequences() = v;
@@ -384,8 +384,8 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
     if (auto err = x::pb::from_proto_repeated<Edge>(cpp.edges, pb.edges()))
         return {{}, err};
     for (const auto &wrapper: pb.strata())
-        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences()))
+        cpp.root.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
+    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.root.sequences, pb.sequences()))
         return {{}, err};
     {
         auto [v, err] = Authorities::from_proto(pb.authorities());

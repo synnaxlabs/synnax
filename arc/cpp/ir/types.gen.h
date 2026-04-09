@@ -623,10 +623,10 @@ struct IR {
     Nodes nodes;
     /// @brief edges contains dataflow connections.
     Edges edges;
-    /// @brief strata contains execution stratification layers.
-    Strata strata;
-    /// @brief sequences contains state machine definitions.
-    Sequences sequences;
+    /// @brief root is the top-level execution context for the program. Its strata
+    /// field holds global stratification, its sequences field holds top-level
+    /// sequences, and its nodes field lists top-level flow node keys.
+    Stage root;
     /// @brief authorities contains the static authority declarations for this program.
     Authorities authorities;
 
