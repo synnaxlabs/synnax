@@ -17,6 +17,7 @@ class TargetFilter:
     file_filter: list[str] | None = None
     sequence_filter: str | None = None
     case_filter: str | None = None
+    exclude: str | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -24,6 +25,7 @@ class TargetFilter:
             not self.file_filter
             and self.sequence_filter is None
             and self.case_filter is None
+            and self.exclude is None
         )
 
     def matches_sequence(self, seq_name: str) -> bool:
@@ -35,6 +37,11 @@ class TargetFilter:
         if self.case_filter is None:
             return True
         return self.case_filter.lower() in case_path.lower()
+
+    def excluded(self, name: str) -> bool:
+        if self.exclude is None:
+            return False
+        return self.exclude.lower() in name.lower()
 
 
 def parse_target(target: str) -> TargetFilter:

@@ -197,6 +197,15 @@ class ConfigClient:
                             ]
                     expanded_tests.extend(expanded)
 
+            if target_filter.exclude is not None:
+                expanded_tests = [
+                    t for t in expanded_tests
+                    if not (
+                        target_filter.excluded(t.case)
+                        or (t.name is not None and target_filter.excluded(t.name))
+                    )
+                ]
+
             if not seq_name_matches and not expanded_tests:
                 continue
 
