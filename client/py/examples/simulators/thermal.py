@@ -105,7 +105,7 @@ class ThermalSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * 100)
+        loop = sy.Loop(sy.Rate.HZ * 50)
         loop_count = 0
 
         state = {

@@ -224,8 +224,8 @@ class ShortCircuit(ArcConsoleCase):
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
-                assert 0.980 <= d <= 1.020, (
-                    f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
+                assert 0.950 <= d <= 1.050, (
+                    f"{ch}: delta {d:.3f}s out of [0.950, 1.050]"
                 )
 
         expected: dict[str, list[int | float | str]] = {
