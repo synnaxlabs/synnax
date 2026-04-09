@@ -245,40 +245,7 @@ TEST(IRTest, testStrataToString) {
     ASSERT_NE(str.find("[1]: c"), std::string::npos);
 }
 
-/// @brief it should access sequence stages by index
-TEST(IRTest, testSequenceOperatorBracket) {
-    Sequence seq;
-    seq.key = "seq_1";
-    Stage s0;
-    s0.key = "init";
-    Stage s1;
-    s1.key = "run";
-    seq.stages.push_back(s0);
-    seq.stages.push_back(s1);
-    ASSERT_EQ(seq[0].key, "init");
-    ASSERT_EQ(seq[1].key, "run");
-}
-
-/// @brief it should get the next stage in a sequence
-TEST(IRTest, testSequenceNext) {
-    Sequence seq;
-    seq.key = "seq_1";
-    Stage s0;
-    s0.key = "init";
-    Stage s1;
-    s1.key = "run";
-    Stage s2;
-    s2.key = "stop";
-    seq.stages.push_back(s0);
-    seq.stages.push_back(s1);
-    seq.stages.push_back(s2);
-    ASSERT_EQ(seq.next("init").key, "run");
-    ASSERT_EQ(seq.next("run").key, "stop");
-    ASSERT_THROW((void) seq.next("stop"), std::runtime_error);
-    ASSERT_THROW((void) seq.next("nonexistent"), std::runtime_error);
-}
-
-/// @brief it should format a Sequence as a tree with stages
+/// @brief it should format a Sequence as a tree with steps
 TEST(IRTest, testSequenceToString) {
     Sequence seq;
     seq.key = "seq_1";
@@ -288,12 +255,44 @@ TEST(IRTest, testSequenceToString) {
     Stage s1;
     s1.key = "run";
     s1.nodes = {"b", "c"};
-    seq.stages.push_back(s0);
-    seq.stages.push_back(s1);
+    Step step0;
+    step0.key = "init";
+    step0.stage = std::make_unique<Stage>(std::move(s0));
+    Step step1;
+    step1.key = "run";
+    step1.stage = std::make_unique<Stage>(std::move(s1));
+    seq.steps.push_back(std::move(step0));
+    seq.steps.push_back(std::move(step1));
     const auto str = seq.to_string();
     ASSERT_NE(str.find("seq_1"), std::string::npos);
     ASSERT_NE(str.find("init: [a]"), std::string::npos);
     ASSERT_NE(str.find("run: [b, c]"), std::string::npos);
+}
+
+/// @brief it should format a Flow as "(flow): [nodes]"
+TEST(IRTest, testFlowToString) {
+    Flow flow;
+    flow.nodes = {"a", "b", "c"};
+    ASSERT_EQ(flow.to_string(), "(flow): [a, b, c]");
+}
+
+/// @brief it should format a Step containing a flow
+TEST(IRTest, testStepToStringFlow) {
+    Step step;
+    step.key = "f1";
+    step.flow = std::make_unique<Flow>();
+    step.flow->nodes = {"x", "y"};
+    ASSERT_EQ(step.to_string(), "(flow): [x, y]");
+}
+
+/// @brief it should format a Step containing a stage
+TEST(IRTest, testStepToStringStage) {
+    Step step;
+    step.key = "s1";
+    step.stage = std::make_unique<Stage>();
+    step.stage->key = "run";
+    step.stage->nodes = {"a"};
+    ASSERT_NE(step.to_string().find("run: [a]"), std::string::npos);
 }
 
 /// @brief it should access params by name using operator[]
@@ -456,8 +455,11 @@ TEST(IRTest, testIRToString) {
     Stage s;
     s.key = "run";
     s.nodes = {"add_1"};
-    seq.stages.push_back(s);
-    ir.sequences.push_back(seq);
+    Step step;
+    step.key = "run";
+    step.stage = std::make_unique<Stage>(std::move(s));
+    seq.steps.push_back(std::move(step));
+    ir.sequences.push_back(std::move(seq));
 
     const auto str = ir.to_string();
     ASSERT_NE(str.find("IR"), std::string::npos);

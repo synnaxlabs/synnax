@@ -104,11 +104,13 @@ public:
             Stage stage;
             stage.key = stage_key;
             stage.strata.assign(stage_strata.begin(), stage_strata.end());
-            // Collect all node keys from strata for the nodes list
             for (const auto &stratum: stage.strata)
                 for (const auto &node_key: stratum)
                     stage.nodes.push_back(node_key);
-            seq.stages.push_back(std::move(stage));
+            Step step;
+            step.key = stage_key;
+            step.stage = std::make_unique<Stage>(std::move(stage));
+            seq.steps.push_back(std::move(step));
         }
         ir_.sequences.push_back(std::move(seq));
         return *this;

@@ -72,6 +72,21 @@ Edge::from_proto(const ::arc::ir::pb::Edge &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::arc::ir::pb::Flow, x::errors::Error> Flow::to_proto() const {
+    ::arc::ir::pb::Flow pb;
+    for (const auto &item: this->nodes)
+        pb.add_nodes(item);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Flow, x::errors::Error>
+Flow::from_proto(const ::arc::ir::pb::Flow &pb) {
+    Flow cpp;
+    for (const auto &item: pb.nodes())
+        cpp.nodes.push_back(item);
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::arc::ir::pb::Stage, x::errors::Error> Stage::to_proto() const {
     ::arc::ir::pb::Stage pb;
     pb.set_key(this->key);
@@ -81,6 +96,11 @@ inline std::pair<::arc::ir::pb::Stage, x::errors::Error> Stage::to_proto() const
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
             wrapper->add_values(v);
+    }
+    for (const auto &item: this->sequences) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_sequences() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -93,16 +113,66 @@ Stage::from_proto(const ::arc::ir::pb::Stage &pb) {
         cpp.nodes.push_back(item);
     for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
+    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Step, x::errors::Error> Step::to_proto() const {
+    ::arc::ir::pb::Step pb;
+    pb.set_key(this->key);
+    if (this->flow) {
+        auto [v, err] = this->flow->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_flow() = v;
+    }
+    if (this->stage) {
+        auto [v, err] = this->stage->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_stage() = v;
+    }
+    if (this->sequence) {
+        auto [v, err] = this->sequence->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_sequence() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Step, x::errors::Error>
+Step::from_proto(const ::arc::ir::pb::Step &pb) {
+    Step cpp;
+    cpp.key = pb.key();
+    if (pb.has_flow()) {
+        auto [v, err] = Flow::from_proto(pb.flow());
+        if (err) return {{}, err};
+        cpp.flow = std::make_unique<Flow>(std::move(v));
+    }
+    if (pb.has_stage()) {
+        auto [v, err] = Stage::from_proto(pb.stage());
+        if (err) return {{}, err};
+        cpp.stage = std::make_unique<Stage>(std::move(v));
+    }
+    if (pb.has_sequence()) {
+        auto [v, err] = Sequence::from_proto(pb.sequence());
+        if (err) return {{}, err};
+        cpp.sequence = std::make_unique<Sequence>(std::move(v));
+    }
+    return {std::move(cpp), x::errors::NIL};
 }
 
 inline std::pair<::arc::ir::pb::Sequence, x::errors::Error> Sequence::to_proto() const {
     ::arc::ir::pb::Sequence pb;
     pb.set_key(this->key);
-    for (const auto &item: this->stages) {
+    for (const auto &item: this->steps) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
-        *pb.add_stages() = v;
+        *pb.add_steps() = v;
+    }
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
     }
     return {pb, x::errors::NIL};
 }
@@ -111,9 +181,14 @@ inline std::pair<Sequence, x::errors::Error>
 Sequence::from_proto(const ::arc::ir::pb::Sequence &pb) {
     Sequence cpp;
     cpp.key = pb.key();
-    if (auto err = x::pb::from_proto_repeated<Stage>(cpp.stages, pb.stages()))
-        return {{}, err};
-    return {cpp, x::errors::NIL};
+    for (const auto &item: pb.steps()) {
+        auto [v, err] = Step::from_proto(item);
+        if (err) return {{}, err};
+        cpp.steps.push_back(std::move(v));
+    }
+    for (const auto &wrapper: pb.strata())
+        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
+    return {std::move(cpp), x::errors::NIL};
 }
 
 inline std::pair<::arc::ir::pb::Body, x::errors::Error> Body::to_proto() const {

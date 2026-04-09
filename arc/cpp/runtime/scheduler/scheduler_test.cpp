@@ -2091,4 +2091,395 @@ TEST_F(SchedulerTest, testSourceOrderPriorityWhenEntriesAtSameStratum) {
     ASSERT_EQ(nodeB.next_called, 0);
 }
 
+ir::IR build_flow_seq(
+    SchedulerTest &t,
+    const std::string &seq_key,
+    const std::vector<std::string> &step_keys
+) {
+    ir::IR ir;
+    ir::Sequence seq;
+    seq.key = seq_key;
+    ir::Stratum data_stratum;
+    ir::Stratum entry_stratum;
+
+    for (size_t i = 0; i < step_keys.size(); i++) {
+        const auto &sk = step_keys[i];
+        const auto node_key = "node_" + sk;
+        const auto entry_key = "entry_" + seq_key + "_" + sk;
+        t.mock(node_key);
+        t.mock(entry_key);
+        ir.nodes.push_back(ir::Node{.key = node_key});
+        ir.nodes.push_back(ir::Node{.key = entry_key});
+        ir::Step step;
+        step.key = sk;
+        step.flow = std::make_unique<ir::Flow>();
+        step.flow->nodes.push_back(node_key);
+        seq.steps.push_back(std::move(step));
+        data_stratum.push_back(node_key);
+        if (i > 0) entry_stratum.push_back(entry_key);
+        if (i + 1 < step_keys.size()) {
+            const auto next_entry = "entry_" + seq_key + "_" + step_keys[i + 1];
+            ir.edges.push_back(ir::Edge{
+                .source = {node_key, "output"},
+                .target = {next_entry, "activate"},
+                .kind = ir::EdgeKind::OneShot,
+            });
+        }
+    }
+    const auto trigger_key = "trigger_" + seq_key;
+    const auto first_entry = "entry_" + seq_key + "_" + step_keys[0];
+    t.mock(trigger_key);
+    ir.nodes.push_back(ir::Node{.key = trigger_key});
+    ir.edges.push_back(ir::Edge{
+        .source = {trigger_key, "activate"},
+        .target = {first_entry, "input"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.strata.push_back({trigger_key});
+    ir.strata.push_back({first_entry});
+    seq.strata.push_back(data_stratum);
+    if (!entry_stratum.empty()) seq.strata.push_back(entry_stratum);
+    ir.sequences.push_back(std::move(seq));
+    return ir;
+}
+
+/// @brief it should execute a single flow step
+TEST_F(SchedulerTest, testFlowStepSingleExecution) {
+    auto ir = build_flow_seq(*this, "seq", {"s0"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s0"]->reset_called, 1);
+}
+
+/// @brief it should cascade two consecutive truthy writes on the same tick
+TEST_F(SchedulerTest, testFlowStepCascadeTwoTruthy) {
+    auto ir = build_flow_seq(*this, "seq", {"s0", "s1"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+    mocks_["node_s0"]->mark_on_next("output");
+    mocks_["node_s0"]->param_truthy["output"] = true;
+    mocks_["entry_seq_s1"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s1"]->next_called, 1);
+}
+
+/// @brief it should cascade three consecutive truthy writes on the same tick
+TEST_F(SchedulerTest, testFlowStepCascadeThreeTruthy) {
+    auto ir = build_flow_seq(*this, "seq", {"s0", "s1", "s2"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+    mocks_["node_s0"]->mark_on_next("output");
+    mocks_["node_s0"]->param_truthy["output"] = true;
+    mocks_["entry_seq_s1"]->activate_on_next();
+    mocks_["node_s1"]->mark_on_next("output");
+    mocks_["node_s1"]->param_truthy["output"] = true;
+    mocks_["entry_seq_s2"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s1"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s2"]->next_called, 1);
+}
+
+/// @brief it should cascade five consecutive truthy writes on the same tick
+TEST_F(SchedulerTest, testFlowStepCascadeFiveTruthy) {
+    auto ir = build_flow_seq(
+        *this, "seq", {"s0", "s1", "s2", "s3", "s4"}
+    );
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    for (const auto &sk : {"s0", "s1", "s2", "s3", "s4"}) {
+        mocks_["entry_seq_" + std::string(sk)]->activate_on_next();
+        mocks_["node_" + std::string(sk)]->mark_on_next("output");
+        mocks_["node_" + std::string(sk)]->param_truthy["output"] = true;
+    }
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    for (const auto &sk : {"s0", "s1", "s2", "s3", "s4"})
+        ASSERT_EQ(mocks_["node_" + std::string(sk)]->next_called, 1);
+}
+
+/// @brief it should block at a falsy gate and advance when it becomes truthy
+TEST_F(SchedulerTest, testFlowStepBlocksAtFalsyGate) {
+    auto ir = build_flow_seq(*this, "seq", {"s0", "s1"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+    mocks_["node_s0"]->mark_on_next("output");
+    mocks_["node_s0"]->param_truthy["output"] = false;
+    mocks_["entry_seq_s1"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s1"]->next_called, 0);
+
+    mocks_["node_s0"]->param_truthy["output"] = true;
+    scheduler->mark_node_changed("node_s0");
+    scheduler->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s1"]->next_called, 1);
+}
+
+/// @brief it should not execute nodes from inactive flow steps
+TEST_F(SchedulerTest, testFlowStepInactiveNodesSkipped) {
+    auto ir = build_flow_seq(*this, "seq", {"s0", "s1", "s2"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+    mocks_["node_s0"]->mark_on_next("output");
+    mocks_["node_s0"]->param_truthy["output"] = false;
+    mocks_["entry_seq_s1"]->activate_on_next();
+    mocks_["entry_seq_s2"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s1"]->next_called, 0);
+    ASSERT_EQ(mocks_["node_s2"]->next_called, 0);
+}
+
+/// @brief it should reset flow nodes when entering the step
+TEST_F(SchedulerTest, testFlowStepResetOnEntry) {
+    auto ir = build_flow_seq(*this, "seq", {"s0"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->reset_called, 1);
+}
+
+/// @brief it should advance from a stage step to a flow step
+TEST_F(SchedulerTest, testStageToFlowTransition) {
+    auto &trigger = mock("trigger");
+    auto &entry_stage = mock("entry_main_stage_a");
+    auto &entry_flow = mock("entry_main_flow_b");
+    auto &stage_node = mock("stage_node");
+    auto &flow_node = mock("flow_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_stage.activate_on_next();
+    stage_node.mark_on_next("output");
+    stage_node.param_truthy["output"] = true;
+    entry_flow.activate_on_next();
+
+    ir::IR ir;
+    ir.nodes.push_back({.key = "trigger"});
+    ir.nodes.push_back({.key = "entry_main_stage_a"});
+    ir.nodes.push_back({.key = "entry_main_flow_b"});
+    ir.nodes.push_back({.key = "stage_node"});
+    ir.nodes.push_back({.key = "flow_node"});
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_main_stage_a", "input"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.edges.push_back({
+        .source = {"stage_node", "output"},
+        .target = {"entry_main_flow_b", "activate"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.strata.push_back({"trigger"});
+    ir.strata.push_back({"entry_main_stage_a"});
+
+    ir::Sequence seq;
+    seq.key = "main";
+    ir::Step stage_step;
+    stage_step.key = "stage_a";
+    stage_step.stage = std::make_unique<ir::Stage>();
+    stage_step.stage->key = "stage_a";
+    stage_step.stage->nodes = {"stage_node"};
+    stage_step.stage->strata.push_back({"stage_node"});
+    stage_step.stage->strata.push_back({"entry_main_flow_b"});
+    seq.steps.push_back(std::move(stage_step));
+    ir::Step flow_step;
+    flow_step.key = "flow_b";
+    flow_step.flow = std::make_unique<ir::Flow>();
+    flow_step.flow->nodes = {"flow_node"};
+    seq.steps.push_back(std::move(flow_step));
+    seq.strata.push_back({"flow_node"});
+    ir.sequences.push_back(std::move(seq));
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(stage_node.next_called, 1);
+    ASSERT_EQ(flow_node.next_called, 1);
+}
+
+/// @brief it should advance from a flow step to a stage step
+TEST_F(SchedulerTest, testFlowToStageTransition) {
+    auto &trigger = mock("trigger");
+    auto &entry_flow = mock("entry_main_flow_a");
+    auto &entry_stage = mock("entry_main_stage_b");
+    auto &flow_node = mock("flow_node");
+    auto &stage_node = mock("stage_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_flow.activate_on_next();
+    flow_node.mark_on_next("output");
+    flow_node.param_truthy["output"] = true;
+    entry_stage.activate_on_next();
+
+    ir::IR ir;
+    ir.nodes.push_back({.key = "trigger"});
+    ir.nodes.push_back({.key = "entry_main_flow_a"});
+    ir.nodes.push_back({.key = "entry_main_stage_b"});
+    ir.nodes.push_back({.key = "flow_node"});
+    ir.nodes.push_back({.key = "stage_node"});
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_main_flow_a", "input"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.edges.push_back({
+        .source = {"flow_node", "output"},
+        .target = {"entry_main_stage_b", "activate"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.strata.push_back({"trigger"});
+    ir.strata.push_back({"entry_main_flow_a"});
+
+    ir::Sequence seq;
+    seq.key = "main";
+    ir::Step f_step;
+    f_step.key = "flow_a";
+    f_step.flow = std::make_unique<ir::Flow>();
+    f_step.flow->nodes = {"flow_node"};
+    seq.steps.push_back(std::move(f_step));
+    ir::Step s_step;
+    s_step.key = "stage_b";
+    s_step.stage = std::make_unique<ir::Stage>();
+    s_step.stage->key = "stage_b";
+    s_step.stage->nodes = {"stage_node"};
+    s_step.stage->strata.push_back({"stage_node"});
+    seq.steps.push_back(std::move(s_step));
+    seq.strata.push_back({"flow_node"});
+    seq.strata.push_back({"entry_main_stage_b"});
+    ir.sequences.push_back(std::move(seq));
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(flow_node.next_called, 1);
+    ASSERT_EQ(stage_node.next_called, 1);
+}
+
+/// @brief it should support mixed stage, flow, stage pattern
+TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
+    auto &trigger = mock("trigger");
+    auto &entry_press = mock("entry_main_press");
+    auto &entry_write = mock("entry_main_write");
+    auto &entry_vent = mock("entry_main_vent");
+    auto &press_node = mock("press_node");
+    auto &write_node = mock("write_node");
+    auto &vent_node = mock("vent_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_press.activate_on_next();
+    press_node.mark_on_next("output");
+    press_node.param_truthy["output"] = true;
+    entry_write.activate_on_next();
+    write_node.mark_on_next("output");
+    write_node.param_truthy["output"] = true;
+    entry_vent.activate_on_next();
+
+    ir::IR ir;
+    for (const auto &k : {"trigger", "entry_main_press", "entry_main_write",
+                           "entry_main_vent", "press_node", "write_node",
+                           "vent_node"})
+        ir.nodes.push_back({.key = k});
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_main_press", "input"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.edges.push_back({
+        .source = {"press_node", "output"},
+        .target = {"entry_main_write", "activate"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.edges.push_back({
+        .source = {"write_node", "output"},
+        .target = {"entry_main_vent", "activate"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.strata.push_back({"trigger"});
+    ir.strata.push_back({"entry_main_press"});
+
+    ir::Sequence seq;
+    seq.key = "main";
+    ir::Step press;
+    press.key = "press";
+    press.stage = std::make_unique<ir::Stage>();
+    press.stage->key = "press";
+    press.stage->nodes = {"press_node"};
+    press.stage->strata.push_back({"press_node"});
+    press.stage->strata.push_back({"entry_main_write"});
+    seq.steps.push_back(std::move(press));
+    ir::Step write;
+    write.key = "write";
+    write.flow = std::make_unique<ir::Flow>();
+    write.flow->nodes = {"write_node"};
+    seq.steps.push_back(std::move(write));
+    ir::Step vent;
+    vent.key = "vent";
+    vent.stage = std::make_unique<ir::Stage>();
+    vent.stage->key = "vent";
+    vent.stage->nodes = {"vent_node"};
+    vent.stage->strata.push_back({"vent_node"});
+    seq.steps.push_back(std::move(vent));
+    seq.strata.push_back({"write_node"});
+    seq.strata.push_back({"entry_main_vent"});
+    ir.sequences.push_back(std::move(seq));
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(press_node.next_called, 1);
+    ASSERT_EQ(write_node.next_called, 1);
+    ASSERT_EQ(vent_node.next_called, 1);
+}
+
+/// @brief it should report deadline from a wait node in a flow step
+TEST_F(SchedulerTest, testFlowStepDeadline) {
+    auto ir = build_flow_seq(*this, "seq", {"s0"});
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+    mocks_["node_s0"]->on_next = [](node::Context &ctx) {
+        ctx.set_deadline(5 * x::telem::SECOND);
+        ctx.mark_self_changed();
+    };
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(scheduler->next_deadline(), 5 * x::telem::SECOND);
+}
+
 }

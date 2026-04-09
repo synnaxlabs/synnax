@@ -19,15 +19,17 @@ TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
 
     ASSERT_EQ(ir.sequences.size(), 1);
     ASSERT_EQ(ir.sequences[0].key, "main");
-    ASSERT_EQ(ir.sequences[0].stages.size(), 1);
+    ASSERT_EQ(ir.sequences[0].steps.size(), 1);
 
-    const auto &stage = ir.sequences[0].stages[0];
-    ASSERT_EQ(stage.key, "stage_a");
-    ASSERT_EQ(stage.nodes.size(), 3);
-    EXPECT_EQ(stage.nodes[0], "A");
-    EXPECT_EQ(stage.nodes[1], "B");
-    EXPECT_EQ(stage.nodes[2], "C");
-    ASSERT_EQ(stage.strata.size(), 2);
+    const auto &step = ir.sequences[0].steps[0];
+    ASSERT_NE(step.stage, nullptr);
+    ASSERT_EQ(step.key, "stage_a");
+    ASSERT_EQ(step.stage->key, "stage_a");
+    ASSERT_EQ(step.stage->nodes.size(), 3);
+    EXPECT_EQ(step.stage->nodes[0], "A");
+    EXPECT_EQ(step.stage->nodes[1], "B");
+    EXPECT_EQ(step.stage->nodes[2], "C");
+    ASSERT_EQ(step.stage->strata.size(), 2);
 }
 
 /// @brief sequence() should handle multiple stages
@@ -36,17 +38,17 @@ TEST(BuilderTest, SequenceHandlesMultipleStages) {
                   .sequence("seq", {{"first", {{"X"}}}, {"second", {{"Y"}, {"Z"}}}})
                   .build();
 
-    ASSERT_EQ(ir.sequences[0].stages.size(), 2);
-    ASSERT_EQ(ir.sequences[0].stages[0].nodes.size(), 1);
-    EXPECT_EQ(ir.sequences[0].stages[0].nodes[0], "X");
-    ASSERT_EQ(ir.sequences[0].stages[1].nodes.size(), 2);
+    ASSERT_EQ(ir.sequences[0].steps.size(), 2);
+    ASSERT_EQ(ir.sequences[0].steps[0].stage->nodes.size(), 1);
+    EXPECT_EQ(ir.sequences[0].steps[0].stage->nodes[0], "X");
+    ASSERT_EQ(ir.sequences[0].steps[1].stage->nodes.size(), 2);
 }
 
 /// @brief sequence() should handle empty strata
 TEST(BuilderTest, SequenceHandlesEmptyStrata) {
     auto ir = arc::ir::testutil::Builder().sequence("empty", {{"stage", {}}}).build();
 
-    ASSERT_EQ(ir.sequences[0].stages[0].nodes.size(), 0);
+    ASSERT_EQ(ir.sequences[0].steps[0].stage->nodes.size(), 0);
 }
 
 /// @brief edge() should create continuous edges

@@ -50,8 +50,19 @@ std::string Stage::to_string_with_prefix(const std::string &prefix) const {
         ss << this->nodes[i];
     }
     ss << "]";
-    if (!this->strata.empty()) {
+    bool has_strata = !this->strata.empty();
+    bool has_sequences = !this->sequences.empty();
+    if (has_strata) {
         ss << "\n" << this->strata.to_string_with_prefix(prefix);
+    }
+    if (has_sequences) {
+        for (size_t i = 0; i < this->sequences.size(); ++i) {
+            bool last = (i == this->sequences.size() - 1) && !has_strata;
+            ss << "\n" << prefix << tree_prefix(last);
+            ss << this->sequences[i].to_string_with_prefix(
+                prefix + tree_indent(last)
+            );
+        }
     }
     return ss.str();
 }
@@ -83,18 +94,29 @@ std::ostream &operator<<(std::ostream &os, const Strata &s) {
     return os << s.to_string();
 }
 
-const Stage &Sequence::operator[](const size_t idx) const {
-    return this->stages[idx];
+std::string Flow::to_string() const {
+    std::ostringstream ss;
+    ss << "(flow): [";
+    for (size_t i = 0; i < this->nodes.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << this->nodes[i];
+    }
+    ss << "]";
+    return ss.str();
 }
 
-const Stage &Sequence::next(const std::string &stage_key) const {
-    for (size_t i = 0; i < this->stages.size(); ++i)
-        if (this->stages[i].key == stage_key) {
-            if (i + 1 >= this->stages.size())
-                throw std::runtime_error("no next stage after: " + stage_key);
-            return this->stages[i + 1];
-        }
-    throw std::runtime_error("stage not found: " + stage_key);
+std::string Step::to_string() const {
+    return this->to_string_with_prefix("");
+}
+
+std::string Step::to_string_with_prefix(const std::string &prefix) const {
+    if (this->flow)
+        return this->flow->to_string();
+    if (this->stage)
+        return this->stage->to_string_with_prefix(prefix);
+    if (this->sequence)
+        return this->sequence->to_string_with_prefix(prefix);
+    return this->key;
 }
 
 std::string Sequence::to_string() const {
@@ -104,10 +126,10 @@ std::string Sequence::to_string() const {
 std::string Sequence::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << this->key;
-    for (size_t i = 0; i < this->stages.size(); ++i) {
-        bool last = (i == this->stages.size() - 1);
+    for (size_t i = 0; i < this->steps.size(); ++i) {
+        bool last = (i == this->steps.size() - 1);
         ss << "\n" << prefix << tree_prefix(last);
-        ss << this->stages[i].to_string_with_prefix(prefix + tree_indent(last));
+        ss << this->steps[i].to_string_with_prefix(prefix + tree_indent(last));
     }
     return ss.str();
 }
