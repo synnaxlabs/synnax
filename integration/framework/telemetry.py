@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Any
 
 import synnax as sy
+from framework.utils import create_indexed_channel, create_time_index
 from x import suppress_websocket_errors
 
 
@@ -121,25 +122,20 @@ class TelemetryClient:
         self._ch_test_case_count = f"{name}_test_case_count"
         self._ch_test_cases_ran = f"{name}_test_cases_ran"
 
-        time_ch = client.channels.create(
-            name=self._ch_time,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
+        time_ch = create_time_index(client, self._ch_time)
+        idx = time_ch.key
+        uptime_ch = create_indexed_channel(
+            client, self._ch_uptime, sy.DataType.UINT32, idx
         )
-
-        def create_indexed(suffix: str, data_type: sy.DataType) -> sy.Channel:
-            return client.channels.create(
-                name=f"{name}_{suffix}",
-                data_type=data_type,
-                index=time_ch.key,
-                retrieve_if_name_exists=True,
-            )
-
-        uptime_ch = create_indexed("uptime", sy.DataType.UINT32)
-        state_ch = create_indexed("state", sy.DataType.UINT8)
-        count_ch = create_indexed("test_case_count", sy.DataType.UINT32)
-        ran_ch = create_indexed("test_cases_ran", sy.DataType.UINT32)
+        state_ch = create_indexed_channel(
+            client, self._ch_state, sy.DataType.UINT8, idx
+        )
+        count_ch = create_indexed_channel(
+            client, self._ch_test_case_count, sy.DataType.UINT32, idx
+        )
+        ran_ch = create_indexed_channel(
+            client, self._ch_test_cases_ran, sy.DataType.UINT32, idx
+        )
 
         self.tlm: dict[str, int | float | sy.TimeStamp] = {
             self._ch_time: sy.TimeStamp.now(),

@@ -24,6 +24,7 @@ from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
+from framework.utils import create_indexed_channel, create_time_index
 from framework.writer import Writer
 from synnax.telem import SampleValue
 from x import (
@@ -110,12 +111,7 @@ class TestCase(ABC):
         self._should_stop = False
         self.is_running = True
 
-        self.time_index = self.client.channels.create(
-            name=self._ch_time,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
+        self.time_index = create_time_index(self.client, self._ch_time)
 
         self.tlm = {
             self._ch_time: sy.TimeStamp.now(),
@@ -237,12 +233,7 @@ class TestCase(ABC):
         else:
             tlm_name = name
 
-        self.client.channels.create(
-            name=tlm_name,
-            data_type=data_type,
-            index=self.time_index.key,
-            retrieve_if_name_exists=True,
-        )
+        create_indexed_channel(self.client, tlm_name, data_type, self.time_index.key)
 
         self.tlm[tlm_name] = initial_value
 
