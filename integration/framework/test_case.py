@@ -23,6 +23,7 @@ from typing import Any, Literal, overload
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.streamer import Streamer
 from framework.writer import Writer
 from synnax.telem import SampleValue
 from x import (
@@ -61,7 +62,6 @@ class TestCase(ABC):
     DEFAULT_MANUAL_TIMEOUT: sy.CrudeTimeSpan | None = None
 
     log_client: LogClient
-    frame_in: sy.Frame | None
 
     def __init__(
         self,
@@ -76,7 +76,6 @@ class TestCase(ABC):
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._timeout_limit: sy.CrudeTimeSpan | None = self.DEFAULT_TIMEOUT_LIMIT
         self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
-        self.read_frame: dict[str, int | float | str] | None = None
         self.read_timeout: sy.CrudeTimeSpan = self.DEFAULT_READ_TIMEOUT
 
         self.name = validate_and_sanitize_name(name)
@@ -101,12 +100,15 @@ class TestCase(ABC):
 
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
         self.writer_thread: threading.Thread = threading.Thread()
-        self.streamer_thread: threading.Thread = threading.Thread()
+        self.streamer = Streamer(
+            client=self.client,
+            read_timeout=self.read_timeout,
+            log=self.log,
+            set_failed=lambda: setattr(self, "STATUS", STATUS.FAILED),
+        )
         self._auto_pass: bool = False
         self._should_stop = False
         self.is_running = True
-
-        self.subscribed_channels: set[str] = set()
 
         self.time_index = self.client.channels.create(
             name=self._ch_time,
@@ -176,56 +178,14 @@ class TestCase(ABC):
                     client.write(self.tlm)
                     client.close()
 
-    def _streamer_loop(self) -> None:
-        """Streamer thread that reads data on demand with timeout."""
-        self.read_frame = {}
-        streamer = None
-        if len(self.subscribed_channels):
-            for channel in self.subscribed_channels:
-                self.read_frame[channel] = 0
-        else:
-            return
-
-        try:
-            streamer = self.client.open_streamer(list(self.subscribed_channels))
-
-            while not self._should_stop:
-                try:
-                    self.frame_in = streamer.read(self.read_timeout)
-                    if self.frame_in is not None:
-                        for key, value in self.frame_in.items():
-                            self.read_frame[key] = value[-1]
-
-                except Exception as e:
-                    if is_websocket_error(e):
-                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
-                    else:
-                        self.log(f"Streamer error: {e}")
-                        break
-
-        except Exception as e:
-            if not is_websocket_error(e):
-                self.log(f"Streamer thread error: {e}\n {traceback.format_exc()}")
-                self.STATUS = STATUS.FAILED
-                raise
-
-        finally:
-            if streamer is not None:
-                with suppress_websocket_errors():
-                    streamer.close()
-
     def log(self, message: str) -> None:
         """Log a message. Buffered by default; dumped by conductor on failure."""
         self.log_client.info(message)
 
     def _start_client_threads(self) -> None:
-        # Start writer thread (writes telemetry at consistent interval)
         self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
         self.writer_thread.start()
-
-        # Start streamer thread (reads data on demand)
-        self.streamer_thread = threading.Thread(target=self._streamer_loop, daemon=True)
-        self.streamer_thread.start()
+        self.streamer.start()
 
     def _join_thread(
         self, thread: threading.Thread, label: str, timeout: float = 5
@@ -240,8 +200,9 @@ class TestCase(ABC):
         """Stop client threads and wait for completion."""
         if self.is_running:
             self._should_stop = True
+            self.streamer.stop()
             self.is_running = False
-            self._join_thread(self.streamer_thread, "streamer")
+            self.streamer.join()
             self._join_thread(self.writer_thread, "writer")
             with suppress_websocket_errors():
                 self.writer.close()
@@ -254,7 +215,7 @@ class TestCase(ABC):
     ) -> None:
         """Wait for client threads to complete."""
         timeout_secs = sy.TimeSpan.to_seconds(timeout)
-        self._join_thread(self.streamer_thread, "streamer", timeout_secs)
+        self.streamer.join(timeout_secs)
         self._join_thread(self.writer_thread, "writer", timeout_secs)
 
     def _check_expectation(self) -> None:
@@ -324,44 +285,7 @@ class TestCase(ABC):
         :param channels: Channel name(s) to subscribe to.
         :param timeout: Maximum time to wait for channels to be initialized.
         """
-        timeout_span = sy.TimeSpan.from_seconds(timeout)
-        self.log(f"Subscribing to channels: {channels} ({timeout_span} timeout)")
-
-        client = self.client
-        time_start = sy.TimeStamp.now()
-        found = False
-
-        while self.loop.wait():
-            time_now = sy.TimeStamp.now()
-            elapsed = time_now - time_start
-            if elapsed > timeout_span:
-                break
-
-            try:
-                existing_channels = client.channels.retrieve(channels)
-
-                if isinstance(channels, str):
-                    found = existing_channels is not None
-                else:
-                    found = isinstance(existing_channels, list) and len(
-                        existing_channels
-                    ) == len(channels)
-
-                if found:
-                    break
-
-            except Exception as e:
-                self.log(f"Channel retrieval failed: {e}")
-                continue
-
-        if not found:
-            raise TimeoutError(f"Unable to retrieve channels: {channels}")
-
-        self.log("Channels retrieved")
-        if isinstance(channels, str):
-            self.subscribed_channels.add(channels)
-        elif isinstance(channels, list):
-            self.subscribed_channels.update(channels)
+        self.streamer.subscribe(channels, timeout)
 
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
@@ -400,12 +324,7 @@ class TestCase(ABC):
     def read_tlm(
         self, key: str, default: int | float | str | None = None
     ) -> int | float | str | None:
-        try:
-            if self.read_frame is not None:
-                return self.read_frame.get(key, default)
-            return default
-        except Exception:
-            return default
+        return self.streamer.read(key, default)
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""
@@ -645,7 +564,7 @@ class TestCase(ABC):
         """
         log_parts: list[str] = []
         if read_timeout is not None:
-            self.read_timeout = read_timeout
+            self.streamer.read_timeout = read_timeout
             log_parts.append(f"read_timeout={read_timeout}")
         if loop_rate is not None:
             self.loop = sy.Loop(loop_rate)
@@ -660,9 +579,7 @@ class TestCase(ABC):
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
-        streamer_running = self.streamer_thread.is_alive()
-        writer_running = self.writer_thread.is_alive()
-        return bool(streamer_running or writer_running)
+        return self.writer_thread.is_alive()
 
     def fail(self, message: str | None = None) -> None:
         if message is not None:
