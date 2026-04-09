@@ -14,7 +14,7 @@ import json
 import os
 import sys
 import threading
-from abc import ABC
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -122,7 +122,6 @@ class ConfigClient:
 
         all_sequences: list[dict[str, Any]] = []
         for test_file in test_files:
-            self._log(f"Loading tests from: {test_file}")
 
             file_path = Path(test_file)
             if not file_path.exists():
@@ -375,7 +374,8 @@ class ConfigClient:
                         and issubclass(obj, TestCase)
                         and obj is not TestCase
                         and obj.__module__ == module.__name__
-                        and ABC not in obj.__bases__
+                        # skip classes with unimplemented @abstractmethod
+                        and not inspect.isabstract(obj)
                     )
                 except (AttributeError, TypeError):
                     return False
