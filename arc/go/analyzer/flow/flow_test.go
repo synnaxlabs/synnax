@@ -834,7 +834,34 @@ sensor_chan -> demux{} -> { high: some_var }
 				ctx := context.CreateRoot(bCtx, ast, localResolver)
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect((*ctx.Diagnostics)[0].Message).To(Equal("some_var is not a channel or sequence"))
+				Expect((*ctx.Diagnostics)[0].Message).To(Equal("some_var is not a channel, sequence, or stage"))
+			})
+
+			It("Should accept a stage name as a routing table target", func(bCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+func router{} (value f64) (high u8, low u8) {
+	if (value > 50) {
+		high = 1
+	} else {
+		low = 1
+	}
+}
+
+sequence main {
+	stage first {
+		sensor_chan -> router{} -> {
+			high: opt_1,
+		},
+	}
+	stage opt_1 {}
+}
+				`))
+				localResolver := symbol.MapResolver{
+					"sensor_chan": {Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+				}
+				ctx := context.CreateRoot(bCtx, ast, localResolver)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			})
 		})
 

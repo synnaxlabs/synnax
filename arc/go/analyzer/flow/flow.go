@@ -640,13 +640,13 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
-		// Allow both channels and sequences as routing targets
-		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel or sequence", idName))
+		// Allow channels, sequences, and stages as routing targets
+		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence && idSym.Kind != symbol.KindStage {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel, sequence, or stage", idName))
 			return
 		}
 
-		// Only do type checking for channels (sequences accept any input for activation)
+		// Only do type checking for channels (sequences/stages accept any input for activation)
 		if idSym.Kind == symbol.KindChannel {
 			valueType := idSym.Type.Unwrap()
 			if err = atypes.Check(
