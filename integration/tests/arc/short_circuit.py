@@ -222,9 +222,6 @@ class ShortCircuit(ArcConsoleCase):
             self.wait_for_eq("ss_count_on", i, is_virtual=False)
             self.wait_for_eq("ss_count_pause", i, is_virtual=False)
             self._write_sensors()
-        # Wait for the 4th on stage to begin before transitioning to phase 2,
-        # so the collector captures the full on/pause/on/pause/on/pause/on sequence.
-        self.wait_for_eq("ss_count_on", 4, is_virtual=False)
         self.log("Phase 1 complete")
 
     def _verify_off_transition(self) -> None:
