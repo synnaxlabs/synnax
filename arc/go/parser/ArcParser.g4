@@ -17,6 +17,7 @@ topLevelItem
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
+    | stageDeclaration
     | globalConstant
     ;
 

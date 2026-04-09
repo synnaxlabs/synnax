@@ -78,10 +78,10 @@ import (
 
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
-		len(i.Sequences) == 0 &&
+		len(i.Root.Sequences) == 0 &&
 		len(i.Nodes) == 0 &&
 		len(i.Edges) == 0 &&
-		len(i.Strata) == 0 &&
+		len(i.Root.Strata) == 0 &&
 		i.Symbols == nil &&
 		i.TypeMap == nil
 }
@@ -98,8 +98,8 @@ func (i *IR) stringWithPrefix(prefix string) string {
 	hasFunctions := len(i.Functions) > 0
 	hasNodes := len(i.Nodes) > 0
 	hasEdges := len(i.Edges) > 0
-	hasStrata := len(i.Strata) > 0
-	hasSequences := len(i.Sequences) > 0
+	hasStrata := len(i.Root.Strata) > 0
+	hasSequences := len(i.Root.Sequences) > 0
 
 	if hasFunctions {
 		isLast := !hasNodes && !hasEdges && !hasStrata && !hasSequences
@@ -171,18 +171,18 @@ func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 func (i *IR) writeStrata(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	lo.Must(fmt.Fprintf(b, "Strata (%d layers)\n", len(i.Strata)))
+	lo.Must(fmt.Fprintf(b, "Strata (%d layers)\n", len(i.Root.Strata)))
 	childPrefix := prefix + treeIndent(last)
-	b.WriteString(i.Strata.stringWithPrefix(childPrefix))
+	b.WriteString(i.Root.Strata.stringWithPrefix(childPrefix))
 }
 
 func (i *IR) writeSequences(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	lo.Must(fmt.Fprintf(b, "Sequences (%d)\n", len(i.Sequences)))
+	lo.Must(fmt.Fprintf(b, "Sequences (%d)\n", len(i.Root.Sequences)))
 	childPrefix := prefix + treeIndent(last)
-	for j, s := range i.Sequences {
-		isLast := j == len(i.Sequences)-1
+	for j, s := range i.Root.Sequences {
+		isLast := j == len(i.Root.Sequences)-1
 		b.WriteString(childPrefix)
 		b.WriteString(treePrefix(isLast))
 		b.WriteString(s.stringWithPrefix(childPrefix + treeIndent(isLast)))

@@ -87,7 +87,7 @@ type Stage struct {
 	// Strata contains execution stratification for nodes in this stage.
 	Strata Strata `json:"strata" msgpack:"strata"`
 	// Sequences contains inline sub-sequences within this stage.
-	Sequences []Sequence `json:"sequences,omitempty" msgpack:"sequences,omitempty"`
+	Sequences Sequences `json:"sequences,omitempty" msgpack:"sequences,omitempty"`
 }
 
 // Step is a tagged union representing a single child of a sequence.
@@ -173,10 +173,11 @@ type IR struct {
 	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 	// Edges contains dataflow connections.
 	Edges Edges `json:"edges" msgpack:"edges"`
-	// Strata contains execution stratification layers.
-	Strata Strata `json:"strata" msgpack:"strata"`
-	// Sequences contains state machine definitions.
-	Sequences Sequences `json:"sequences" msgpack:"sequences"`
+	// Root is the top-level execution context for the program. Its Strata field
+	// holds global stratification, its Sequences field holds top-level sequences
+	// (including top-level stages wrapped as single-step sequences), and its
+	// Nodes field lists top-level flow node keys.
+	Root Stage `json:"root" msgpack:"root"`
 	// Authorities contains the static authority declarations for this program.
 	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
 	Symbols     *symbol.Scope                          `json:"-"`

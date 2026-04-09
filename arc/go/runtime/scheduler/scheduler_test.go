@@ -2020,14 +2020,16 @@ var _ = Describe("Scheduler", func() {
 				seqStrata = append(seqStrata, stratum1)
 			}
 			return ir.IR{
-				Nodes:  irNodes,
-				Edges:  irEdges,
-				Strata: ir.Strata{{triggerKey}, {firstEntry}},
-				Sequences: ir.Sequences{{
-					Key:    seqKey,
-					Steps:  steps,
-					Strata: seqStrata,
-				}},
+				Nodes: irNodes,
+				Edges: irEdges,
+				Root: ir.Stage{
+					Strata: ir.Strata{{triggerKey}, {firstEntry}},
+					Sequences: ir.Sequences{{
+						Key:    seqKey,
+						Steps:  steps,
+						Strata: seqStrata,
+					}},
+				},
 			}
 		}
 
@@ -2235,18 +2237,20 @@ var _ = Describe("Scheduler", func() {
 						Target: ir.Handle{Node: "entry_main_flow_b", Param: "activate"},
 						Kind:   ir.EdgeKindOneShot},
 				},
-				Strata: ir.Strata{{"trigger"}, {"entry_main_stage_a"}},
-				Sequences: ir.Sequences{{
-					Key: "main",
-					Steps: ir.Steps{
-						{Key: "stage_a", Stage: &ir.Stage{
-							Key: "stage_a", Nodes: []string{"stage_node"},
-							Strata: ir.Strata{{"stage_node"}, {"entry_main_flow_b"}},
-						}},
-						{Key: "flow_b", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
-					},
-					Strata: ir.Strata{{"flow_node"}},
-				}},
+				Root: ir.Stage{
+					Strata: ir.Strata{{"trigger"}, {"entry_main_stage_a"}},
+					Sequences: ir.Sequences{{
+						Key: "main",
+						Steps: ir.Steps{
+							{Key: "stage_a", Stage: &ir.Stage{
+								Key: "stage_a", Nodes: []string{"stage_node"},
+								Strata: ir.Strata{{"stage_node"}, {"entry_main_flow_b"}},
+							}},
+							{Key: "flow_b", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
+						},
+						Strata: ir.Strata{{"flow_node"}},
+					}},
+				},
 			}
 
 			s := build(prog)
@@ -2283,18 +2287,20 @@ var _ = Describe("Scheduler", func() {
 						Target: ir.Handle{Node: "entry_main_stage_b", Param: "activate"},
 						Kind:   ir.EdgeKindOneShot},
 				},
-				Strata: ir.Strata{{"trigger"}, {"entry_main_flow_a"}},
-				Sequences: ir.Sequences{{
-					Key: "main",
-					Steps: ir.Steps{
-						{Key: "flow_a", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
-						{Key: "stage_b", Stage: &ir.Stage{
-							Key: "stage_b", Nodes: []string{"stage_node"},
-							Strata: ir.Strata{{"stage_node"}},
-						}},
-					},
-					Strata: ir.Strata{{"flow_node"}, {"entry_main_stage_b"}},
-				}},
+				Root: ir.Stage{
+					Strata: ir.Strata{{"trigger"}, {"entry_main_flow_a"}},
+					Sequences: ir.Sequences{{
+						Key: "main",
+						Steps: ir.Steps{
+							{Key: "flow_a", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
+							{Key: "stage_b", Stage: &ir.Stage{
+								Key: "stage_b", Nodes: []string{"stage_node"},
+								Strata: ir.Strata{{"stage_node"}},
+							}},
+						},
+						Strata: ir.Strata{{"flow_node"}, {"entry_main_stage_b"}},
+					}},
+				},
 			}
 
 			s := build(prog)
@@ -2334,24 +2340,26 @@ var _ = Describe("Scheduler", func() {
 						Target: ir.Handle{Node: "entry_seq_c", Param: "activate"},
 						Kind:   ir.EdgeKindOneShot},
 				},
-				Strata: ir.Strata{{"trigger"}, {"entry_seq_a"}},
-				Sequences: ir.Sequences{{
-					Key: "seq",
-					Steps: ir.Steps{
-						{Key: "a", Stage: &ir.Stage{
-							Key: "a", Nodes: []string{"node_a"},
-							Strata: ir.Strata{{"node_a"}, {"entry_seq_c"}},
-						}},
-						{Key: "b", Stage: &ir.Stage{
-							Key: "b", Nodes: []string{"node_b"},
-							Strata: ir.Strata{{"node_b"}},
-						}},
-						{Key: "c", Stage: &ir.Stage{
-							Key: "c", Nodes: []string{"node_c"},
-							Strata: ir.Strata{{"node_c"}},
-						}},
-					},
-				}},
+				Root: ir.Stage{
+					Strata: ir.Strata{{"trigger"}, {"entry_seq_a"}},
+					Sequences: ir.Sequences{{
+						Key: "seq",
+						Steps: ir.Steps{
+							{Key: "a", Stage: &ir.Stage{
+								Key: "a", Nodes: []string{"node_a"},
+								Strata: ir.Strata{{"node_a"}, {"entry_seq_c"}},
+							}},
+							{Key: "b", Stage: &ir.Stage{
+								Key: "b", Nodes: []string{"node_b"},
+								Strata: ir.Strata{{"node_b"}},
+							}},
+							{Key: "c", Stage: &ir.Stage{
+								Key: "c", Nodes: []string{"node_c"},
+								Strata: ir.Strata{{"node_c"}},
+							}},
+						},
+					}},
+				},
 			}
 
 			s := build(prog)
@@ -2393,20 +2401,22 @@ var _ = Describe("Scheduler", func() {
 						Target: ir.Handle{Node: "entry_seq_a", Param: "activate"},
 						Kind:   ir.EdgeKindOneShot},
 				},
-				Strata: ir.Strata{{"trigger"}, {"entry_seq_a"}},
-				Sequences: ir.Sequences{{
-					Key: "seq",
-					Steps: ir.Steps{
-						{Key: "a", Stage: &ir.Stage{
-							Key: "a", Nodes: []string{"node_a"},
-							Strata: ir.Strata{{"node_a"}, {"entry_seq_b"}},
-						}},
-						{Key: "b", Stage: &ir.Stage{
-							Key: "b", Nodes: []string{"node_b"},
-							Strata: ir.Strata{{"node_b"}, {"entry_seq_a"}},
-						}},
-					},
-				}},
+				Root: ir.Stage{
+					Strata: ir.Strata{{"trigger"}, {"entry_seq_a"}},
+					Sequences: ir.Sequences{{
+						Key: "seq",
+						Steps: ir.Steps{
+							{Key: "a", Stage: &ir.Stage{
+								Key: "a", Nodes: []string{"node_a"},
+								Strata: ir.Strata{{"node_a"}, {"entry_seq_b"}},
+							}},
+							{Key: "b", Stage: &ir.Stage{
+								Key: "b", Nodes: []string{"node_b"},
+								Strata: ir.Strata{{"node_b"}, {"entry_seq_a"}},
+							}},
+						},
+					}},
+				},
 			}
 
 			s := build(prog)
@@ -2461,22 +2471,24 @@ var _ = Describe("Scheduler", func() {
 						Target: ir.Handle{Node: "entry_main_vent", Param: "activate"},
 						Kind:   ir.EdgeKindOneShot},
 				},
-				Strata: ir.Strata{{"trigger"}, {"entry_main_press"}},
-				Sequences: ir.Sequences{{
-					Key: "main",
-					Steps: ir.Steps{
-						{Key: "press", Stage: &ir.Stage{
-							Key: "press", Nodes: []string{"press_node"},
-							Strata: ir.Strata{{"press_node"}, {"entry_main_write"}},
-						}},
-						{Key: "write", Flow: &ir.Flow{Nodes: []string{"write_node"}}},
-						{Key: "vent", Stage: &ir.Stage{
-							Key: "vent", Nodes: []string{"vent_node"},
-							Strata: ir.Strata{{"vent_node"}},
-						}},
-					},
-					Strata: ir.Strata{{"write_node"}, {"entry_main_vent"}},
-				}},
+				Root: ir.Stage{
+					Strata: ir.Strata{{"trigger"}, {"entry_main_press"}},
+					Sequences: ir.Sequences{{
+						Key: "main",
+						Steps: ir.Steps{
+							{Key: "press", Stage: &ir.Stage{
+								Key: "press", Nodes: []string{"press_node"},
+								Strata: ir.Strata{{"press_node"}, {"entry_main_write"}},
+							}},
+							{Key: "write", Flow: &ir.Flow{Nodes: []string{"write_node"}}},
+							{Key: "vent", Stage: &ir.Stage{
+								Key: "vent", Nodes: []string{"vent_node"},
+								Strata: ir.Strata{{"vent_node"}},
+							}},
+						},
+						Strata: ir.Strata{{"write_node"}, {"entry_main_vent"}},
+					}},
+				},
 			}
 
 			s := build(prog)

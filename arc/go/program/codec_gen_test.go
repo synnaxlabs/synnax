@@ -180,12 +180,14 @@ var _ = Describe("Codec", func() {
 							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Strata: [][]string{{"test_100"}},
-					Sequences: []ir.Sequence{
-						{
-							Key: "test_102",
-							Steps: []ir.Step{
-								{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+					Root: ir.Stage{
+						Strata: [][]string{{"test_100"}},
+						Sequences: []ir.Sequence{
+							{
+								Key: "test_102",
+								Steps: []ir.Step{
+									{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+								},
 							},
 						},
 					},
@@ -204,8 +206,7 @@ var _ = Describe("Codec", func() {
 					Functions:   nil,
 					Nodes:       nil,
 					Edges:       nil,
-					Strata:      nil,
-					Sequences:   nil,
+					Root:        ir.Stage{Strata: nil, Sequences: nil},
 					Authorities: ir.Authorities{Default: nil, Channels: nil},
 				},
 				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
@@ -215,8 +216,7 @@ var _ = Describe("Codec", func() {
 					Functions: []ir.Function{},
 					Nodes:     []ir.Node{},
 					Edges:     []ir.Edge{},
-					Strata:    [][]string{},
-					Sequences: []ir.Sequence{},
+					Root:      ir.Stage{Strata: [][]string{}, Sequences: []ir.Sequence{}},
 					Authorities: ir.Authorities{
 						Default:  func() *uint8 { v := uint8(8); return &v }(),
 						Channels: map[uint32]uint8{},
@@ -372,12 +372,14 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Strata: [][]string{{"test_100"}},
-			Sequences: []ir.Sequence{
-				{
-					Key: "test_102",
-					Steps: []ir.Step{
-						{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+			Root: ir.Stage{
+				Strata: [][]string{{"test_100"}},
+				Sequences: []ir.Sequence{
+					{
+						Key: "test_102",
+						Steps: []ir.Step{
+							{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+						},
 					},
 				},
 			},
@@ -551,12 +553,14 @@ func FuzzDecodeProgram(f *testing.F) {
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Strata: [][]string{{"test_100"}},
-				Sequences: []ir.Sequence{
-					{
-						Key: "test_102",
-						Steps: []ir.Step{
-							{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+				Root: ir.Stage{
+					Strata: [][]string{{"test_100"}},
+					Sequences: []ir.Sequence{
+						{
+							Key: "test_102",
+							Steps: []ir.Step{
+								{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+							},
 						},
 					},
 				},
@@ -582,8 +586,7 @@ func FuzzDecodeProgram(f *testing.F) {
 				Functions:   nil,
 				Nodes:       nil,
 				Edges:       nil,
-				Strata:      nil,
-				Sequences:   nil,
+				Root:        ir.Stage{Strata: nil, Sequences: nil},
 				Authorities: ir.Authorities{Default: nil, Channels: nil},
 			},
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
@@ -600,8 +603,7 @@ func FuzzDecodeProgram(f *testing.F) {
 				Functions: []ir.Function{},
 				Nodes:     []ir.Node{},
 				Edges:     []ir.Edge{},
-				Strata:    [][]string{},
-				Sequences: []ir.Sequence{},
+				Root:      ir.Stage{Strata: [][]string{}, Sequences: []ir.Sequence{}},
 				Authorities: ir.Authorities{
 					Default:  func() *uint8 { v := uint8(8); return &v }(),
 					Channels: map[uint32]uint8{},

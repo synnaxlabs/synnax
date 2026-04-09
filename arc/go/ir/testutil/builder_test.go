@@ -25,11 +25,11 @@ var _ = Describe("IRBuilder", func() {
 				}).
 				Build()
 
-			Expect(prog.Sequences).To(HaveLen(1))
-			Expect(prog.Sequences[0].Key).To(Equal("main"))
-			Expect(prog.Sequences[0].Steps).To(HaveLen(1))
+			Expect(prog.Root.Sequences).To(HaveLen(1))
+			Expect(prog.Root.Sequences[0].Key).To(Equal("main"))
+			Expect(prog.Root.Sequences[0].Steps).To(HaveLen(1))
 
-			step := prog.Sequences[0].Steps[0]
+			step := prog.Root.Sequences[0].Steps[0]
 			Expect(step.Key).To(Equal("stage_a"))
 			Expect(step.Stage).ToNot(BeNil())
 			Expect(step.Stage.Nodes).To(ConsistOf("A", "B", "C"))
@@ -44,9 +44,9 @@ var _ = Describe("IRBuilder", func() {
 				}).
 				Build()
 
-			Expect(prog.Sequences[0].Steps).To(HaveLen(2))
-			Expect(prog.Sequences[0].Steps[0].Stage.Nodes).To(Equal([]string{"X"}))
-			Expect(prog.Sequences[0].Steps[1].Stage.Nodes).To(ConsistOf("Y", "Z"))
+			Expect(prog.Root.Sequences[0].Steps).To(HaveLen(2))
+			Expect(prog.Root.Sequences[0].Steps[0].Stage.Nodes).To(Equal([]string{"X"}))
+			Expect(prog.Root.Sequences[0].Steps[1].Stage.Nodes).To(ConsistOf("Y", "Z"))
 		})
 
 		It("Should handle empty strata", func() {
@@ -56,7 +56,7 @@ var _ = Describe("IRBuilder", func() {
 				}).
 				Build()
 
-			Expect(prog.Sequences[0].Steps[0].Stage.Nodes).To(BeNil())
+			Expect(prog.Root.Sequences[0].Steps[0].Stage.Nodes).To(BeNil())
 		})
 	})
 

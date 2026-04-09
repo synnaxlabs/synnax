@@ -36,7 +36,7 @@ var _ = Describe("IR", func() {
 
 		It("Should return false when Sequences is non-empty", func() {
 			irWithSeqs := &ir.IR{
-				Sequences: ir.Sequences{{Key: "main"}},
+				Root: ir.Stage{Sequences: ir.Sequences{{Key: "main"}}},
 			}
 			Expect(irWithSeqs.IsZero()).To(BeFalse())
 		})
@@ -99,9 +99,11 @@ var _ = Describe("IR", func() {
 						Target: ir.Handle{Node: "node1", Param: "b"},
 					},
 				},
-				Strata: ir.Strata{
-					{"input_a", "input_b"},
-					{"node1"},
+				Root: ir.Stage{
+					Strata: ir.Strata{
+						{"input_a", "input_b"},
+						{"node1"},
+					},
 				},
 			}
 
@@ -125,9 +127,9 @@ var _ = Describe("IR", func() {
 			Expect(restored.Edges[0].Source.Node).To(Equal("input_a"))
 			Expect(restored.Edges[0].Target.Node).To(Equal("node1"))
 
-			Expect(restored.Strata).To(HaveLen(2))
-			Expect(restored.Strata[0]).To(HaveLen(2))
-			Expect(restored.Strata[1]).To(HaveLen(1))
+			Expect(restored.Root.Strata).To(HaveLen(2))
+			Expect(restored.Root.Strata[0]).To(HaveLen(2))
+			Expect(restored.Root.Strata[1]).To(HaveLen(1))
 		})
 
 		It("Should handle empty IR", func() {
@@ -135,7 +137,7 @@ var _ = Describe("IR", func() {
 				Functions: ir.Functions{},
 				Nodes:     ir.Nodes{},
 				Edges:     ir.Edges{},
-				Strata:    ir.Strata{},
+				Root:      ir.Stage{Strata: ir.Strata{}},
 			}
 
 			data := MustSucceed(json.Marshal(original))
@@ -144,7 +146,7 @@ var _ = Describe("IR", func() {
 			Expect(restored.Functions).To(BeEmpty())
 			Expect(restored.Nodes).To(BeEmpty())
 			Expect(restored.Edges).To(BeEmpty())
-			Expect(restored.Strata).To(BeEmpty())
+			Expect(restored.Root.Strata).To(BeEmpty())
 		})
 
 		It("Should exclude Symbols and TypeMap from JSON (json:\"-\" tag)", func() {
@@ -152,7 +154,7 @@ var _ = Describe("IR", func() {
 				Functions: ir.Functions{},
 				Nodes:     ir.Nodes{},
 				Edges:     ir.Edges{},
-				Strata:    ir.Strata{},
+				Root:      ir.Stage{Strata: ir.Strata{}},
 				Symbols:   symbol.CreateRootScope(nil),
 			}
 
@@ -203,22 +205,24 @@ var _ = Describe("IR", func() {
 						Target: ir.Handle{Node: "output_c", Param: ir.DefaultInputParam},
 					},
 				},
-				Strata: ir.Strata{
-					{"input_a", "input_b"},
-					{"add_node"},
-					{"output_c"},
+				Root: ir.Stage{
+					Strata: ir.Strata{
+						{"input_a", "input_b"},
+						{"add_node"},
+						{"output_c"},
+					},
 				},
 			}
 
 			Expect(program.Functions).To(HaveLen(1))
 			Expect(program.Nodes).To(HaveLen(4))
 			Expect(program.Edges).To(HaveLen(3))
-			Expect(program.Strata).To(HaveLen(3))
+			Expect(program.Root.Strata).To(HaveLen(3))
 
-			Expect(program.Strata.Get("input_a")).To(Equal(0))
-			Expect(program.Strata.Get("input_b")).To(Equal(0))
-			Expect(program.Strata.Get("add_node")).To(Equal(1))
-			Expect(program.Strata.Get("output_c")).To(Equal(2))
+			Expect(program.Root.Strata.Get("input_a")).To(Equal(0))
+			Expect(program.Root.Strata.Get("input_b")).To(Equal(0))
+			Expect(program.Root.Strata.Get("add_node")).To(Equal(1))
+			Expect(program.Root.Strata.Get("output_c")).To(Equal(2))
 
 			addInputs := program.Edges.GetInputs("add_node")
 			Expect(addInputs).To(HaveLen(2))
@@ -233,16 +237,6 @@ var _ = Describe("IR", func() {
 			original := &ir.IR{
 				Functions: ir.Functions{
 					{Key: "controller", Body: ir.Body{Raw: "..."}},
-				},
-				Sequences: ir.Sequences{
-					{
-						Key: "main",
-						Steps: []ir.Step{
-							stageStep("init", []string{"timer_1", "ctrl_1"}),
-							stageStep("run", []string{"ctrl_2"}),
-							stageStep("done", nil),
-						},
-					},
 				},
 				Nodes: ir.Nodes{
 					{Key: "timer_1", Type: "interval"},
@@ -264,7 +258,19 @@ var _ = Describe("IR", func() {
 						Kind:   ir.EdgeKindOneShot,
 					},
 				},
-				Strata: ir.Strata{{"timer_1"}, {"ctrl_1", "ctrl_2"}},
+				Root: ir.Stage{
+					Strata: ir.Strata{{"timer_1"}, {"ctrl_1", "ctrl_2"}},
+					Sequences: ir.Sequences{
+						{
+							Key: "main",
+							Steps: []ir.Step{
+								stageStep("init", []string{"timer_1", "ctrl_1"}),
+								stageStep("run", []string{"ctrl_2"}),
+								stageStep("done", nil),
+							},
+						},
+					},
+				},
 			}
 
 			data := MustSucceed(json.Marshal(original))
@@ -272,11 +278,11 @@ var _ = Describe("IR", func() {
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			Expect(restored.Sequences).To(HaveLen(1))
-			Expect(restored.Sequences[0].Key).To(Equal("main"))
-			Expect(restored.Sequences[0].Steps).To(HaveLen(3))
+			Expect(restored.Root.Sequences).To(HaveLen(1))
+			Expect(restored.Root.Sequences[0].Key).To(Equal("main"))
+			Expect(restored.Root.Sequences[0].Steps).To(HaveLen(3))
 
-			main := restored.Sequences.Get("main")
+			main := restored.Root.Sequences.Get("main")
 			entry := main.Entry()
 			Expect(entry.Key).To(Equal("init"))
 			Expect(entry.StageNodes()).To(Equal([]string{"timer_1", "ctrl_1"}))
@@ -299,46 +305,48 @@ var _ = Describe("IR", func() {
 				Functions: ir.Functions{{Key: "func1"}},
 				Nodes:     ir.Nodes{{Key: "node1", Type: "func1"}},
 				Edges:     ir.Edges{},
-				Strata:    ir.Strata{{"node1"}},
+				Root:      ir.Stage{Strata: ir.Strata{{"node1"}}},
 			}
 
 			data := MustSucceed(json.Marshal(original))
 
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
-			Expect(restored.Sequences).To(BeEmpty())
+			Expect(restored.Root.Sequences).To(BeEmpty())
 		})
 
 		It("Should handle IR with multiple sequences", func() {
 			original := &ir.IR{
-				Sequences: ir.Sequences{
-					{
-						Key: "main",
-						Steps: []ir.Step{
-							stageStep("run", []string{"m_1"}),
-						},
-					},
-					{
-						Key: "abort",
-						Steps: []ir.Step{
-							stageStep("safing", []string{"a_1"}),
-							stageStep("safed", nil),
-						},
-					},
-					{
-						Key: "recovery",
-						Steps: []ir.Step{
-							stageStep("assess", []string{"r_1"}),
-						},
-					},
-				},
 				Nodes: ir.Nodes{
 					{Key: "m_1", Type: "controller"},
 					{Key: "a_1", Type: "controller"},
 					{Key: "r_1", Type: "controller"},
 				},
-				Edges:  ir.Edges{},
-				Strata: ir.Strata{},
+				Edges: ir.Edges{},
+				Root: ir.Stage{
+					Strata: ir.Strata{},
+					Sequences: ir.Sequences{
+						{
+							Key: "main",
+							Steps: []ir.Step{
+								stageStep("run", []string{"m_1"}),
+							},
+						},
+						{
+							Key: "abort",
+							Steps: []ir.Step{
+								stageStep("safing", []string{"a_1"}),
+								stageStep("safed", nil),
+							},
+						},
+						{
+							Key: "recovery",
+							Steps: []ir.Step{
+								stageStep("assess", []string{"r_1"}),
+							},
+						},
+					},
+				},
 			}
 
 			data := MustSucceed(json.Marshal(original))
@@ -346,9 +354,9 @@ var _ = Describe("IR", func() {
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			Expect(restored.Sequences).To(HaveLen(3))
+			Expect(restored.Root.Sequences).To(HaveLen(3))
 
-			step, seq, ok := restored.Sequences.FindStep("safing")
+			step, seq, ok := restored.Root.Sequences.FindStep("safing")
 			Expect(ok).To(BeTrue())
 			Expect(step.Key).To(Equal("safing"))
 			Expect(seq.Key).To(Equal("abort"))
@@ -360,18 +368,6 @@ var _ = Describe("IR", func() {
 					{Key: "interval", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
 					{Key: "gt", Inputs: types.Params{{Name: ir.LHSInputParam}, {Name: ir.RHSInputParam}}, Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
 					{Key: "stage_entry", Inputs: types.Params{{Name: "activate", Type: types.U8()}}},
-				},
-				Sequences: ir.Sequences{
-					{
-						Key: "hotfire",
-						Steps: []ir.Step{
-							stageStep("precheck", []string{"timer_1", "pressure_check", "precheck_entry"}),
-							stageStep("pressurization", []string{"valve_ctrl", "pressure_monitor", "pressurization_entry"}),
-							stageStep("ignition", []string{"igniter", "ignition_entry"}),
-							stageStep("mainstage", []string{"throttle_ctrl", "mainstage_entry"}),
-							stageStep("shutdown", []string{"shutdown_seq", "shutdown_entry"}),
-						},
-					},
 				},
 				Nodes: ir.Nodes{
 					{Key: "timer_1", Type: "interval"},
@@ -394,13 +390,27 @@ var _ = Describe("IR", func() {
 					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 					{Source: ir.Handle{Node: "timer_1", Param: "timeout"}, Target: ir.Handle{Node: "shutdown_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 				},
-				Strata: ir.Strata{
-					{"timer_1", "valve_ctrl", "igniter", "throttle_ctrl", "shutdown_seq"},
-					{"pressure_check", "pressure_monitor"},
+				Root: ir.Stage{
+					Strata: ir.Strata{
+						{"timer_1", "valve_ctrl", "igniter", "throttle_ctrl", "shutdown_seq"},
+						{"pressure_check", "pressure_monitor"},
+					},
+					Sequences: ir.Sequences{
+						{
+							Key: "hotfire",
+							Steps: []ir.Step{
+								stageStep("precheck", []string{"timer_1", "pressure_check", "precheck_entry"}),
+								stageStep("pressurization", []string{"valve_ctrl", "pressure_monitor", "pressurization_entry"}),
+								stageStep("ignition", []string{"igniter", "ignition_entry"}),
+								stageStep("mainstage", []string{"throttle_ctrl", "mainstage_entry"}),
+								stageStep("shutdown", []string{"shutdown_seq", "shutdown_entry"}),
+							},
+						},
+					},
 				},
 			}
 
-			hotfire := program.Sequences.Get("hotfire")
+			hotfire := program.Root.Sequences.Get("hotfire")
 			Expect(hotfire.Steps).To(HaveLen(5))
 
 			Expect(hotfire.Entry().Key).To(Equal("precheck"))
@@ -426,7 +436,7 @@ var _ = Describe("IR", func() {
 				Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			}
 
-			precheckStep, _, ok := program.Sequences.FindStep("precheck")
+			precheckStep, _, ok := program.Root.Sequences.FindStep("precheck")
 			Expect(ok).To(BeTrue())
 			Expect(precheckStep.StageNodes()).To(ContainElements("timer_1", "pressure_check", "precheck_entry"))
 		})

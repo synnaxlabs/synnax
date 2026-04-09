@@ -31,7 +31,7 @@ func ProgramToPB(r program.Program) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	sequencesVal, err := irpb.SequencesToPB(r.Sequences)
+	sequencesVal, err := irpb.SequencesToPB(r.Root.Sequences)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func ProgramToPB(r program.Program) (*Program, error) {
 		return nil, err
 	}
 	pb := &Program{
-		Strata:            lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Strata:            lo.Map(r.Root.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 		Wasm:              r.WASM,
 		OutputMemoryBases: r.OutputMemoryBases,
 		Functions:         functionsVal,
@@ -71,7 +71,7 @@ func ProgramFromPB(pb *Program) (program.Program, error) {
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Sequences, err = irpb.SequencesFromPB(pb.Sequences)
+	r.Root.Sequences, err = irpb.SequencesFromPB(pb.Sequences)
 	if err != nil {
 		return program.Program{}, err
 	}
@@ -79,7 +79,7 @@ func ProgramFromPB(pb *Program) (program.Program, error) {
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	r.Root.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	r.WASM = pb.Wasm
 	r.OutputMemoryBases = pb.OutputMemoryBases
 	return r, nil

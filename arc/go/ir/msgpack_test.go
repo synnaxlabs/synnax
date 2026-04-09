@@ -179,7 +179,7 @@ var _ = Describe("DecodeMsgpack", func() {
 			Expect(decoded.Functions[0].Key).To(Equal("fn1"))
 			Expect(decoded.Nodes).To(HaveLen(1))
 			Expect(decoded.Edges).To(HaveLen(1))
-			Expect(decoded.Strata).To(HaveLen(1))
+			Expect(decoded.Root.Strata).To(HaveLen(1))
 		})
 	})
 })

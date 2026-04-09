@@ -88,7 +88,7 @@ func (m Program) String() string {
 	b.WriteString("Arc Program\n")
 
 	hasContent := len(m.Functions) > 0 || len(m.Nodes) > 0 ||
-		len(m.Edges) > 0 || len(m.Strata) > 0 || len(m.Sequences) > 0
+		len(m.Edges) > 0 || len(m.Root.Strata) > 0 || len(m.Root.Sequences) > 0
 
 	// WASM summary
 	b.WriteString(ir.TreePrefix(!hasContent))

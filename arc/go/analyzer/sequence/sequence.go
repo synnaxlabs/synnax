@@ -26,6 +26,9 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			collectSequenceDecl(context.Child(ctx, seqDecl), ctx.Scope)
 		}
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			collectTopLevelStage(context.Child(ctx, stageDecl), ctx.Scope)
+		}
 	}
 }
 
@@ -119,7 +122,32 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	}
 }
 
-// analyzeStage performs semantic analysis on a stage declaration.
+// collectTopLevelStage registers a top-level stage as a sequence in the symbol
+// table (since the compiler wraps it in a single-step sequence for activation).
+func collectTopLevelStage(
+	ctx context.Context[parser.IStageDeclarationContext],
+	parentScope *symbol.Scope,
+) {
+	id := ctx.AST.IDENTIFIER()
+	if id == nil {
+		return
+	}
+	name := id.GetText()
+	if _, err := parentScope.Add(ctx, symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindSequence,
+		Type: types.Sequence(),
+		AST:  ctx.AST,
+	}); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+	}
+}
+
+// AnalyzeTopLevelStage performs semantic analysis on a top-level stage declaration.
+func AnalyzeTopLevelStage(ctx context.Context[parser.IStageDeclarationContext]) {
+	analyzeStage(ctx)
+}
+
 func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {

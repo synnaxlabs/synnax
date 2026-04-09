@@ -1104,13 +1104,13 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Strata).ToNot(BeNil())
-				Expect(inter.Strata).To(HaveLen(3))
+				Expect(inter.Root.Strata).ToNot(BeNil())
+				Expect(inter.Root.Strata).To(HaveLen(3))
 
 				// Stratum 0: sensor, Stratum 1: filter, Stratum 2: transform
-				Expect(inter.Strata[0]).To(ContainElement("on_sensor_0"))
-				Expect(inter.Strata[1]).To(ContainElement("filter_0"))
-				Expect(inter.Strata[2]).To(ContainElement("transform_0"))
+				Expect(inter.Root.Strata[0]).To(ContainElement("on_sensor_0"))
+				Expect(inter.Root.Strata[1]).To(ContainElement("filter_0"))
+				Expect(inter.Root.Strata[2]).To(ContainElement("transform_0"))
 			})
 
 			It("Should calculate strata for output routing tables", func(ctx SpecContext) {
@@ -1138,12 +1138,12 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Strata).ToNot(BeNil())
-				Expect(inter.Strata).To(HaveLen(2))
+				Expect(inter.Root.Strata).ToNot(BeNil())
+				Expect(inter.Root.Strata).To(HaveLen(2))
 
 				// Stratum 0: demux, Stratum 1: alarm and logger (parallel)
-				Expect(inter.Strata[0]).To(ContainElement("demux_0"))
-				Expect(inter.Strata[1]).To(ContainElements("alarm_0", "logger_0"))
+				Expect(inter.Root.Strata[0]).To(ContainElement("demux_0"))
+				Expect(inter.Root.Strata[1]).To(ContainElements("alarm_0", "logger_0"))
 			})
 		})
 
@@ -1732,7 +1732,7 @@ var _ = Describe("Text", func() {
 			setupNode := findNodeByType(inter.Nodes, "setup")
 			Expect(setupNode.Inputs).To(BeEmpty())
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
+			seq := MustBeOk(inter.Root.Sequences.Find("main"))
 			Expect(seq.Steps[0].Stage.Nodes).To(ContainElement(setupNode.Key))
 		})
 
@@ -1756,7 +1756,7 @@ var _ = Describe("Text", func() {
 			Expect(exprNode.Outputs).To(HaveLen(1))
 			Expect(exprNode.Outputs[0].Type.Kind).To(Equal(types.KindI64))
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
+			seq := MustBeOk(inter.Root.Sequences.Find("main"))
 			Expect(seq.Steps[0].Stage.Nodes).To(ContainElement(exprNode.Key))
 		})
 
@@ -1803,7 +1803,7 @@ var _ = Describe("Text", func() {
 			initNode := findNodeByType(inter.Nodes, "initialize")
 			Expect(initNode.Inputs).To(BeEmpty())
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
+			seq := MustBeOk(inter.Root.Sequences.Find("main"))
 			Expect(seq.Steps[0].Stage.Strata).To(HaveLen(1))
 			Expect(seq.Steps[0].Stage.Strata[0]).To(ContainElement(initNode.Key))
 		})

@@ -179,8 +179,12 @@ func analyzeSequenceRef(
 	if err == nil {
 		return newStageTransition(seqSym.Name, firstStage.Name, kg), true
 	}
+	// For top-level stages (AST is IStageDeclarationContext), the step key
+	// matches the sequence/stage name.
+	if _, ok := seqSym.AST.(parser.IStageDeclarationContext); ok {
+		return newStageTransition(seqSym.Name, seqSym.Name, kg), true
+	}
 	// For stageless sequences, the first step uses a generated key.
-	// Find the sequence's AST to determine the first step key.
 	seqDecl, ok := seqSym.AST.(parser.ISequenceDeclarationContext)
 	if !ok || len(seqDecl.AllSequenceItem()) == 0 {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no steps", seqSym.Name))
@@ -389,7 +393,15 @@ func Analyze(
 			if !ok {
 				return i, aCtx.Diagnostics
 			}
-			i.Sequences = append(i.Sequences, seq)
+			i.Root.Sequences = append(i.Root.Sequences, seq)
+			i.Nodes = append(i.Nodes, nodes...)
+			i.Edges = append(i.Edges, edges...)
+		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			seq, nodes, edges, ok := analyzeTopLevelStage(acontext.Child(aCtx, stageDecl), kg)
+			if !ok {
+				return i, aCtx.Diagnostics
+			}
+			i.Root.Sequences = append(i.Root.Sequences, seq)
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
@@ -398,12 +410,12 @@ func Analyze(
 		if !analyzer.ResolveNodeTypes(i.Nodes, i.Edges, aCtx.Constraints, aCtx.Diagnostics) {
 			return i, aCtx.Diagnostics
 		}
-		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
+		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Root.Sequences, aCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
 			aCtx.Diagnostics = diag
 			return i, aCtx.Diagnostics
 		}
-		i.Strata = strata
+		i.Root.Strata = strata
 	}
 	return i, aCtx.Diagnostics
 }
@@ -915,6 +927,32 @@ func analyzeSequence(
 	}
 
 	return seq, allNodes, allEdges, true
+}
+
+func analyzeTopLevelStage(
+	ctx acontext.Context[parser.IStageDeclarationContext],
+	kg *keyGenerator,
+) (ir.Sequence, []ir.Node, []ir.Edge, bool) {
+	id := ctx.AST.IDENTIFIER()
+	if id == nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "top-level stage must have a name"))
+		return ir.Sequence{}, nil, nil, false
+	}
+	stageName := id.GetText()
+	kg.push(stageName, stageName, "")
+	stg, nodes, edges, ok := analyzeStage(ctx, stageName, kg)
+	kg.pop()
+	if !ok {
+		return ir.Sequence{}, nil, nil, false
+	}
+	seq := ir.Sequence{
+		Key: stageName,
+		Steps: []ir.Step{{
+			Key:   stageName,
+			Stage: &stg,
+		}},
+	}
+	return seq, nodes, edges, true
 }
 
 func analyzeStage(

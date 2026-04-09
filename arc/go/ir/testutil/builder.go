@@ -73,7 +73,7 @@ func (b *IRBuilder) OneShot(srcNode, srcParam, tgtNode, tgtParam string) *IRBuil
 // Strata sets the global strata (topological execution order for non-staged nodes).
 // Each inner slice is a stratum; nodes in the same stratum are independent.
 func (b *IRBuilder) Strata(s [][]string) *IRBuilder {
-	b.prog.Strata = s
+	b.prog.Root.Strata = s
 	return b
 }
 
@@ -98,7 +98,7 @@ func (b *IRBuilder) Sequence(key string, stages []StageSpec) *IRBuilder {
 			},
 		})
 	}
-	b.prog.Sequences = append(b.prog.Sequences, seq)
+	b.prog.Root.Sequences = append(b.prog.Root.Sequences, seq)
 	return b
 }
 

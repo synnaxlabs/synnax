@@ -157,8 +157,8 @@ func (ir *IR) DecodeMsgpack(dec *msgpack.Decoder) error {
 		ir.Functions = legacy.Functions
 		ir.Nodes = legacy.Nodes
 		ir.Edges = legacy.Edges
-		ir.Strata = legacy.Strata
-		ir.Sequences = legacy.Sequences
+		ir.Root.Strata = legacy.Strata
+		ir.Root.Sequences = legacy.Sequences
 	}
 	return nil
 }

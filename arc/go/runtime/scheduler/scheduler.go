@@ -56,22 +56,22 @@ type transitionTarget struct {
 
 // Scheduler orchestrates the execution of nodes in topological order.
 type Scheduler struct {
-	nodeCtx              rnode.Context
-	errorHandler         ErrorHandler
-	transitions          map[string]transitionTarget
-	boundaries           map[string]*sequenceState
-	changed              set.Set[string]
-	selfChanged          set.Set[string]
-	globalFiredOneShots  set.Set[ir.Edge]
-	nodes                map[string]node
-	currNodeKey          string
-	globalStrata         ir.Strata
-	sequences            []sequenceState
-	maxConvergenceIter   int
-	currSeq              *sequenceState
-	tolerance            telem.TimeSpan
-	nextDeadline         telem.TimeSpan
-	transitioned         bool
+	nodeCtx             rnode.Context
+	errorHandler        ErrorHandler
+	transitions         map[string]transitionTarget
+	boundaries          map[string]*sequenceState
+	changed             set.Set[string]
+	selfChanged         set.Set[string]
+	globalFiredOneShots set.Set[ir.Edge]
+	nodes               map[string]node
+	currNodeKey         string
+	globalStrata        ir.Strata
+	sequences           []sequenceState
+	maxConvergenceIter  int
+	currSeq             *sequenceState
+	tolerance           telem.TimeSpan
+	nextDeadline        telem.TimeSpan
+	transitioned        bool
 }
 
 // ErrorHandler receives errors from node execution.
@@ -90,7 +90,7 @@ func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err e
 func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
 		nodes:               make(map[string]node, len(prog.Nodes)),
-		globalStrata:        prog.Strata,
+		globalStrata:        prog.Root.Strata,
 		transitions:         make(map[string]transitionTarget),
 		boundaries:          make(map[string]*sequenceState),
 		changed:             make(set.Set[string], len(prog.Nodes)),
@@ -109,8 +109,8 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 		s.nodes[n.Key] = node{key: n.Key, outgoing: outgoing, Node: nodes[n.Key]}
 	}
 
-	s.sequences = make([]sequenceState, len(prog.Sequences))
-	for i, seq := range prog.Sequences {
+	s.sequences = make([]sequenceState, len(prog.Root.Sequences))
+	for i, seq := range prog.Root.Sequences {
 		s.sequences[i] = buildSequenceState(seq)
 		s.registerTransitions(&s.sequences[i])
 		s.registerBoundaries(&s.sequences[i])

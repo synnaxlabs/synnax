@@ -670,7 +670,7 @@ func IRToPB(r ir.IR) (*IR, error) {
 	if err != nil {
 		return nil, err
 	}
-	sequencesVal, err := SequencesToPB(r.Sequences)
+	sequencesVal, err := SequencesToPB(r.Root.Sequences)
 	if err != nil {
 		return nil, err
 	}
@@ -679,7 +679,7 @@ func IRToPB(r ir.IR) (*IR, error) {
 		return nil, err
 	}
 	pb := &IR{
-		Strata:      lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Strata:      lo.Map(r.Root.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 		Functions:   functionsVal,
 		Nodes:       nodesVal,
 		Edges:       edgesVal,
@@ -708,7 +708,7 @@ func IRFromPB(pb *IR) (ir.IR, error) {
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Sequences, err = SequencesFromPB(pb.Sequences)
+	r.Root.Sequences, err = SequencesFromPB(pb.Sequences)
 	if err != nil {
 		return ir.IR{}, err
 	}
@@ -716,7 +716,7 @@ func IRFromPB(pb *IR) (ir.IR, error) {
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	r.Root.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	return r, nil
 }
 

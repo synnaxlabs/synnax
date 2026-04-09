@@ -102,10 +102,10 @@ var _ = Describe("Arc", func() {
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
 		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		Expect(mod.Strata).To(HaveLen(3))
-		Expect(mod.Strata[0]).To(ContainElement(onNode.Key))
-		Expect(mod.Strata[1]).To(ContainElement(calcNode.Key))
-		Expect(mod.Strata[2]).To(ContainElement(writeNode.Key))
+		Expect(mod.Root.Strata).To(HaveLen(3))
+		Expect(mod.Root.Strata[0]).To(ContainElement(onNode.Key))
+		Expect(mod.Root.Strata[1]).To(ContainElement(calcNode.Key))
+		Expect(mod.Root.Strata[2]).To(ContainElement(writeNode.Key))
 	})
 
 	It("Should compile a one-stage sequence", func(ctx SpecContext) {
@@ -124,8 +124,8 @@ var _ = Describe("Arc", func() {
 				},
 			})
 
-		Expect(mod.Sequences).To(HaveLen(1))
-		seq := MustBeOk(mod.Sequences.Find("seg"))
+		Expect(mod.Root.Sequences).To(HaveLen(1))
+		seq := MustBeOk(mod.Root.Sequences.Find("seg"))
 		Expect(seq.Key).To(Equal("seg"))
 		Expect(seq.Steps).To(HaveLen(1))
 		Expect(seq.Entry().Key).To(Equal("init"))
@@ -194,8 +194,8 @@ sequence main {
 			},
 		})
 
-		Expect(mod.Sequences).To(HaveLen(1))
-		seq := MustBeOk(mod.Sequences.Find("main"))
+		Expect(mod.Root.Sequences).To(HaveLen(1))
+		seq := MustBeOk(mod.Root.Sequences.Find("main"))
 		Expect(seq.Steps).To(HaveLen(2))
 
 		pressStage := MustBeOk(seq.FindStep("press"))
@@ -272,8 +272,8 @@ sequence main {
 		MustBeOk(mod.Functions.Find("expr"))
 		MustBeOk(mod.Functions.Find("expr2"))
 
-		Expect(mod.Sequences).To(HaveLen(1))
-		seq := MustBeOk(mod.Sequences.Find("main"))
+		Expect(mod.Root.Sequences).To(HaveLen(1))
+		seq := MustBeOk(mod.Root.Sequences.Find("main"))
 		Expect(seq.Steps).To(HaveLen(2))
 
 		pressStage := MustBeOk(seq.FindStep("press"))
@@ -377,8 +377,8 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Sequences.Find("main"))
+			Expect(mod.Root.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Root.Sequences.Find("main"))
 			Expect(seq.Steps).To(HaveLen(2))
 			Expect(seq.Steps[0].IsFlow()).To(BeTrue())
 			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
@@ -407,8 +407,8 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Sequences.Find("main"))
+			Expect(mod.Root.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Root.Sequences.Find("main"))
 			Expect(seq.Steps).To(HaveLen(3))
 			Expect(seq.Steps[0].IsFlow()).To(BeTrue())
 			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
@@ -439,14 +439,80 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Sequences.Find("main"))
+			Expect(mod.Root.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Root.Sequences.Find("main"))
 			Expect(seq.Steps).To(HaveLen(3))
 			Expect(seq.Steps[0].IsStage()).To(BeTrue())
 			Expect(seq.Steps[0].Key).To(Equal("press"))
 			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
 			Expect(seq.Steps[2].IsFlow()).To(BeTrue())
 			Expect(seq.Strata).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("Top-Level Stages", func() {
+		It("Should compile a top-level stage as a single-step sequence", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => abort
+
+stage abort {
+	0 -> all_valves,
+	1 -> vent_cmd,
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd":  symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"all_valves": symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+						"vent_cmd":   symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			Expect(mod.Root.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Root.Sequences.Find("abort"))
+			Expect(seq.Steps).To(HaveLen(1))
+			Expect(seq.Steps[0].IsStage()).To(BeTrue())
+			Expect(seq.Steps[0].Key).To(Equal("abort"))
+			Expect(seq.Steps[0].Stage.Nodes).ToNot(BeEmpty())
+		})
+
+		It("Should allow => name from a sequence stage to a top-level stage", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => main
+
+sequence main {
+	stage fire {
+		1 -> engine_cmd,
+		abort_btn => abort,
+	}
+}
+
+stage abort {
+	0 -> engine_cmd,
+	1 -> vent_cmd,
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd":  symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"engine_cmd": symbol.Symbol{Name: "engine_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+						"abort_btn":  symbol.Symbol{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 3},
+						"vent_cmd":   symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			Expect(mod.Root.Sequences).To(HaveLen(2))
+			MustBeOk(mod.Root.Sequences.Find("main"))
+			abortSeq := MustBeOk(mod.Root.Sequences.Find("abort"))
+			Expect(abortSeq.Steps).To(HaveLen(1))
+			Expect(abortSeq.Steps[0].IsStage()).To(BeTrue())
+
+			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
+			Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
 		})
 	})
 })

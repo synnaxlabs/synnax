@@ -226,7 +226,7 @@ func Analyze(
 		Edges:     g.Edges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
-		Strata:    strata,
+		Root:      ir.Stage{Strata: strata},
 		TypeMap:   aCtx.TypeMap,
 	}, aCtx.Diagnostics
 }
