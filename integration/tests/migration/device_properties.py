@@ -26,6 +26,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from framework.test_case import TestCase
+from framework.utils import get_results_path
 from tests.driver.task import create_channel, create_index
 
 TASK_NAME = "mig_sy4047_ni_read"
@@ -147,6 +148,15 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
             return
         super().setup()
 
+    def _screenshot(self, label: str) -> None:
+        name = type(self).__name__
+        path = get_results_path(f"{name}_{label}.png")
+        try:
+            self.page.screenshot(path=path)
+            self.log(f"Screenshot saved: {path}")
+        except Exception as e:
+            self.log(f"Screenshot failed: {e}")
+
     def run(self) -> None:
         console = self.console
 
@@ -154,35 +164,68 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
         task_page = console.workspace.open_from_search(TaskPage, TASK_NAME)
         self.log("Task page opened")
 
-        self.log("Clicking Configure...")
-        task_page.configure()
-        self.log("Configure button clicked")
+        # Click Configure directly — don't use task_page.configure() because
+        # it waits for the button to hide, which times out on error.
+        configure_btn = task_page.page.get_by_role(
+            "button", name="Configure", exact=True
+        )
+        configure_btn.wait_for(state="visible", timeout=5000)
+        self.log("Configure button visible, clicking...")
+        self._screenshot("before_configure")
+        configure_btn.click(force=True)
 
-        notifications = console.notifications.check(timeout=3 * sy.TimeSpan.SECOND)
+        # Wait for either: button hides (success) or error notification appears.
+        try:
+            # Race: whichever comes first — button hidden or error notification.
+            task_page.page.wait_for_selector(
+                ".pluto-notification:has(svg[color*='error']), "
+                ".pluto-notification:has-text('Failed')",
+                state="visible",
+                timeout=10000,
+            )
+            got_error = True
+            self.log("Error notification appeared")
+        except Exception:
+            got_error = False
+
+        self._screenshot("after_configure")
+
+        # Also check if the button went hidden (success case).
+        button_hidden = not configure_btn.is_visible()
+        if button_hidden:
+            self.log("Configure button hidden (success)")
+
+        # Gather notification details for direct proof.
+        notifications = console.notifications.check(timeout=2 * sy.TimeSpan.SECOND)
         errors = [n for n in notifications if n.get("type") == "error"]
 
-        if errors:
-            self.log(f"Error notifications: {errors}")
-        if notifications:
-            self.log(f"All notifications: {notifications}")
+        for n in notifications:
+            self.log(f"Notification: type={n.get('type')} message={n.get('message')}")
+            if n.get("description"):
+                self.log(f"  Description: {n['description'][:500]}")
 
-        # Log browser console errors containing Zod-related keywords
+        # Log browser console errors for additional proof.
         for log_line in self._browser_logs:
             if any(kw in log_line.lower() for kw in ("error", "zod", "invalid")):
                 self.log(f"  {log_line}")
 
         if self.expect_success:
-            assert len(errors) == 0, (
+            assert not got_error and len(errors) == 0, (
                 f"Expected configure to succeed, but got error(s): "
                 f"{[e.get('message', '') for e in errors]}"
             )
             self.log("Configure succeeded — device properties migration working")
         else:
-            assert len(errors) > 0, (
-                "Expected configure to fail with ZodError, but no errors appeared. "
+            assert got_error or len(errors) > 0, (
+                "Expected configure to fail with error, but no errors appeared. "
+                f"Button hidden: {button_hidden}. "
                 f"Browser errors: {[l for l in self._browser_logs if 'error' in l.lower()]}"
             )
-            self.log(f"Configure failed as expected: {errors[0].get('message', '')}")
+            error_msg = errors[0].get("message", "") if errors else "no notification"
+            error_desc = errors[0].get("description", "")[:200] if errors else ""
+            self.log(f"Configure failed as expected: {error_msg}")
+            if error_desc:
+                self.log(f"  Error description: {error_desc}")
 
         console.notifications.close_all()
 
