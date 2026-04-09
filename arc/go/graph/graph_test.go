@@ -499,7 +499,7 @@ var _ = Describe("Graph", func() {
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("'invalid_param' not found"))
+				Expect(diagnostics.String()).To(ContainSubstring("missing required input 'input'"))
 			})
 
 			It("Should handle concrete type mismatches in edges", func(ctx SpecContext) {

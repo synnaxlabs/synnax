@@ -105,7 +105,8 @@ sensor -> controller{setpoint=setpoint_input, sensor=temp, output=cmd}
 
 ### Anonymous Config Values
 
-Single-parameter functions allow anonymous config values:
+Config values can be provided positionally instead of by name. Values map to parameters
+in declaration order:
 
 ```arc
 func scale{factor f64} (value f64) f64 {
@@ -115,19 +116,33 @@ func scale{factor f64} (value f64) f64 {
 // Named (explicit)
 sensor -> scale{factor=2.0} -> output
 
-// Anonymous (single-param only)
+// Anonymous (positional)
 sensor -> scale{2.0} -> output
 ```
 
-Multi-parameter functions require named values:
+This also works for multi-parameter functions:
 
 ```arc
 func clamp{min f64, max f64} (value f64) f64 {
     // ...
 }
 
-// Must use names
+// Named
 sensor -> clamp{min=0.0, max=100.0} -> output
+
+// Anonymous (positional: min=0.0, max=100.0)
+sensor -> clamp{0.0, 100.0} -> output
+```
+
+When trailing parameters have defaults, they can be omitted:
+
+```arc
+func controller{setpoint f64, gain f64 = 1.0} (x f64) f64 {
+    return (x - setpoint) * gain
+}
+
+// Only provide setpoint, gain uses default
+sensor -> controller{100.0} -> output
 ```
 
 <Divider.Divider x />
@@ -252,8 +267,8 @@ Each function instantiation has its own state:
 
 ```arc
 // Two separate counters with independent state
-interval{period=100ms} -> counter{} -> count1
-interval{period=200ms} -> counter{} -> count2
+interval{100ms} -> counter{} -> count1
+interval{200ms} -> counter{} -> count2
 ```
 
 <Divider.Divider x />

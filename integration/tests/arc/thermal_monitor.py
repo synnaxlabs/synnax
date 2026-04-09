@@ -52,7 +52,7 @@ abort_cmd => abort
 
 heater_cmd -> count_heater_cycles{} -> cycle_count
 temp_sensor -> track_peak_temp{} -> peak_temp
-temp_sensor -> calc_temp_error{setpoint=50.0} -> temp_error
+temp_sensor -> calc_temp_error{50.0} -> temp_error
 
 sequence monitor {
     stage heating {

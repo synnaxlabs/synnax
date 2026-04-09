@@ -13,4 +13,7 @@
     & .pluto-field__expression {
         height: 0;
     }
+    .console-operations {
+        height: 13rem;
+    }
 }

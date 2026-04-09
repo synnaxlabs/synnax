@@ -57,14 +57,14 @@ sequence bang_bang_controller {
     stage start {
         set_authority{value=220, channel=press_vlv_cmd},
         set_authority{value=220, channel=vent_vlv_cmd},
-        interval{period=200ms} -> high_bang{
+        interval{200ms} -> high_bang{
             sensor=press_pt,
             set_point=50,
             lower_deadband=5,
             upper_deadband=5,
             abort_threshold=100
         } -> press_vlv_cmd,
-        interval{period=200ms} -> low_bang{
+        interval{200ms} -> low_bang{
             sensor=press_pt,
             set_point=10,
             lower_deadband=5,
@@ -76,7 +76,7 @@ sequence bang_bang_controller {
     stage stop {
         0 -> press_vlv_cmd,
         0 -> vent_vlv_cmd,
-        wait{duration=250ms} => yield
+        wait{250ms} => yield
     }
     stage yield {
         set_authority{value=0, channel=press_vlv_cmd},

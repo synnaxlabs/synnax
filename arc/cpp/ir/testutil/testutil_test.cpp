@@ -65,14 +65,14 @@ TEST(BuilderTest, EdgeCreatesContinuousEdges) {
     EXPECT_EQ(ir.edges[0].target.param, "in");
 }
 
-/// @brief oneshot() should create one-shot edges
-TEST(BuilderTest, OneshotCreatesOneShotEdges) {
+/// @brief conditional() should create conditional edges
+TEST(BuilderTest, ConditionalCreatesConditionalEdges) {
     auto ir = arc::ir::testutil::Builder()
                   .node("A")
                   .node("B")
-                  .oneshot("A", "trigger", "B", "activate")
+                  .conditional("A", "trigger", "B", "activate")
                   .build();
 
     ASSERT_EQ(ir.edges.size(), 1);
-    EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::OneShot);
+    EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::Conditional);
 }

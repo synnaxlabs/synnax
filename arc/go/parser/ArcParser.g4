@@ -126,7 +126,7 @@ flowStatement
 
 flowOperator
     : ARROW        // -> (continuous flow)
-    | TRANSITION   // => (one-shot flow)
+    | TRANSITION   // => (conditional flow)
     ;
 
 routingTable

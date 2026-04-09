@@ -16,7 +16,12 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
-import { type CompoundFactory, createFactory } from "@/telem/aether/factory";
+import { CompoundFactory, createFactory, type Factory } from "@/telem/aether/factory";
+import { NoopFactory } from "@/telem/aether/noop";
+import { PipelineFactory } from "@/telem/aether/pipeline";
+import { RemoteFactory } from "@/telem/aether/remote";
+import { StaticFactory } from "@/telem/aether/static";
+import { TransformerFactory } from "@/telem/aether/transformers";
 import { client } from "@/telem/client";
 
 export type ProviderState = z.input<typeof providerStateZ>;
@@ -68,4 +73,22 @@ export const Provider = createProvider(createFactory);
 
 export const REGISTRY: aether.ComponentRegistry = {
   [PROVIDER_TYPE]: Provider,
+};
+
+export type FactoryConstructor = (client: client.Client) => Factory;
+
+export const createRegistry = (
+  ...factoryConstructors: FactoryConstructor[]
+): aether.ComponentRegistry => {
+  const create = (cl?: client.Client): CompoundFactory => {
+    const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
+    const f = new CompoundFactory(base);
+    if (cl != null) {
+      f.add(new RemoteFactory(cl));
+      for (const constructor of factoryConstructors) f.add(constructor(cl));
+    }
+    f.add(new PipelineFactory(f));
+    return f;
+  };
+  return { [PROVIDER_TYPE]: createProvider(create) };
 };

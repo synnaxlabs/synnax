@@ -38,10 +38,11 @@ const (
 type OperationType int32
 
 const (
-	OperationType_OPERATION_TYPE_MIN  OperationType = 0
-	OperationType_OPERATION_TYPE_MAX  OperationType = 1
-	OperationType_OPERATION_TYPE_AVG  OperationType = 2
-	OperationType_OPERATION_TYPE_NONE OperationType = 3
+	OperationType_OPERATION_TYPE_MIN        OperationType = 0
+	OperationType_OPERATION_TYPE_MAX        OperationType = 1
+	OperationType_OPERATION_TYPE_AVG        OperationType = 2
+	OperationType_OPERATION_TYPE_NONE       OperationType = 3
+	OperationType_OPERATION_TYPE_DERIVATIVE OperationType = 4
 )
 
 // Enum value maps for OperationType.
@@ -51,12 +52,14 @@ var (
 		1: "OPERATION_TYPE_MAX",
 		2: "OPERATION_TYPE_AVG",
 		3: "OPERATION_TYPE_NONE",
+		4: "OPERATION_TYPE_DERIVATIVE",
 	}
 	OperationType_value = map[string]int32{
-		"OPERATION_TYPE_MIN":  0,
-		"OPERATION_TYPE_MAX":  1,
-		"OPERATION_TYPE_AVG":  2,
-		"OPERATION_TYPE_NONE": 3,
+		"OPERATION_TYPE_MIN":        0,
+		"OPERATION_TYPE_MAX":        1,
+		"OPERATION_TYPE_AVG":        2,
+		"OPERATION_TYPE_NONE":       3,
+		"OPERATION_TYPE_DERIVATIVE": 4,
 	}
 )
 
@@ -324,12 +327,13 @@ const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12\x1e\n" +
 	"\n" +
 	"expression\x18\v \x01(\tR\n" +
-	"expression*p\n" +
+	"expression*\x8f\x01\n" +
 	"\rOperationType\x12\x16\n" +
 	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
 	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
 	"\x12OPERATION_TYPE_AVG\x10\x02\x12\x17\n" +
-	"\x13OPERATION_TYPE_NONE\x10\x03B\xe3\x01\n" +
+	"\x13OPERATION_TYPE_NONE\x10\x03\x12\x1d\n" +
+	"\x19OPERATION_TYPE_DERIVATIVE\x10\x04B\xe3\x01\n" +
 	"\x1bcom.distribution.channel.pbB\fChannelProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03DCP\xaa\x02\x17Distribution.Channel.Pb\xca\x02\x17Distribution\\Channel\\Pb\xe2\x02#Distribution\\Channel\\Pb\\GPBMetadata\xea\x02\x19Distribution::Channel::Pbb\x06proto3"
 
 var (
