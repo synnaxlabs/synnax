@@ -58,7 +58,7 @@ const TOKEN_CONFIG = {
     light: "#B45000",
     scopes: ["keyword.operator.assignment.stateful.arc"],
   },
-  edgeOneShot: {
+  edgeConditional: {
     dark: "#E06C75",
     light: "#BE3E4A",
     scopes: ["keyword.operator.transition.arc"],

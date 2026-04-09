@@ -19,12 +19,12 @@ func _() {
 	var x [1]struct{}
 	_ = x[EdgeKindUnspecified-0]
 	_ = x[EdgeKindContinuous-1]
-	_ = x[EdgeKindOneShot-2]
+	_ = x[EdgeKindConditional-2]
 }
 
-const _EdgeKind_name = "EdgeKindUnspecifiedEdgeKindContinuousEdgeKindOneShot"
+const _EdgeKind_name = "EdgeKindUnspecifiedEdgeKindContinuousEdgeKindConditional"
 
-var _EdgeKind_index = [...]uint8{0, 19, 37, 52}
+var _EdgeKind_index = [...]uint8{0, 19, 37, 56}
 
 func (i EdgeKind) String() string {
 	idx := int(i) - 0

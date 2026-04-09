@@ -17,12 +17,12 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
 
-namespace arc::runtime::stable {
+namespace arc::stl::stable {
 
 struct StableForConfig {
     x::telem::TimeSpan duration;
@@ -56,8 +56,8 @@ inline const NowFn default_now = [] { return x::telem::TimeStamp::now(); };
 /// Stability is measured from the input sample's timestamp (not scheduler
 /// elapsed time), and the current time is obtained via an injectable now()
 /// function, matching the Go runtime behavior.
-class StableFor : public node::Node {
-    state::Node state;
+class StableFor : public runtime::node::Node {
+    runtime::state::Node state;
     StableForConfig cfg;
     NowFn now;
     std::optional<uint8_t> value;
@@ -67,12 +67,12 @@ class StableFor : public node::Node {
 public:
     explicit StableFor(
         const StableForConfig &cfg,
-        state::Node &&state,
+        runtime::state::Node &&state,
         NowFn now = default_now
     ):
         state(std::move(state)), cfg(cfg), now(std::move(now)) {}
 
-    x::errors::Error next(node::Context &ctx) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->state.refresh_inputs()) {
             const auto &input_data = this->state.input(0);
             const auto &input_time = this->state.input_time(0);
@@ -117,14 +117,14 @@ public:
     }
 };
 
-class Factory : public node::Factory {
+class Module : public stl::Module {
 public:
     bool handles(const std::string &node_type) const override {
         return node_type == "stable_for";
     }
 
-    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
-    create(node::Config &&cfg) override {
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         auto [node_cfg, err] = StableForConfig::create(cfg.node.config);
         if (err) return {nullptr, err};

@@ -21,7 +21,7 @@ start_low_cmd => main
 sequence main {
     stage active {
         0 -> press_vlv_cmd,
-        wait{duration=100ms} => active
+        wait{100ms} => active
     }
 }
 """
@@ -34,14 +34,14 @@ start_high_cmd => main
 sequence main {
     stage active {
         1 -> press_vlv_cmd,
-        wait{duration=100ms} => active_hold
+        wait{100ms} => active_hold
     }
     stage active_hold {
         1 -> press_vlv_cmd,
-        wait{duration=5s} => done
+        wait{5s} => done
     }
     stage done {
-        set_authority{value=0}
+        set_authority{0}
     }
 }
 """
