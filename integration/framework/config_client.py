@@ -199,7 +199,8 @@ class ConfigClient:
 
             if target_filter.exclude is not None:
                 expanded_tests = [
-                    t for t in expanded_tests
+                    t
+                    for t in expanded_tests
                     if not (
                         target_filter.excluded(t.case)
                         or (t.name is not None and target_filter.excluded(t.name))

@@ -354,9 +354,7 @@ All matching is case-insensitive substring.
         conductor.wait_for_completion()
 
     except KeyboardInterrupt:
-        conductor.log(
-            "Keyboard interrupt received. Shutting down gracefully..."
-        )
+        conductor.log("Keyboard interrupt received. Shutting down gracefully...")
         conductor.shutdown()
     except Exception as e:
         conductor.log(f"Error occurred: {e}")
@@ -375,9 +373,7 @@ All matching is case-insensitive substring.
                     ),
                 )
             except Exception as e:
-                conductor.log(
-                    f"Warning: Failed to finalize conductor range: {e}"
-                )
+                conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 
         conductor.log("Fin.")
         if hasattr(conductor, "tests") and conductor.tests:
