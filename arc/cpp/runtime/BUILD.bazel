@@ -17,6 +17,7 @@ cc_library(
         "//arc/cpp/stl/channel",
         "//arc/cpp/stl/constant",
         "//arc/cpp/stl/control",
+        "//arc/cpp/stl/stat",
         "//arc/cpp/stl/error",
         "//arc/cpp/stl/math",
         "//arc/cpp/stl/series",

@@ -815,6 +815,32 @@ TEST(AlignmentTests, testUint64Equality) {
     ASSERT_TRUE(a != 4294967294);
 }
 
+TEST(AlignmentTests, testAddition) {
+    const auto a = Alignment(100);
+    const auto b = Alignment(75);
+    const auto c = a + b;
+    ASSERT_EQ(c, Alignment(175));
+}
+
+TEST(AlignmentTests, testAddAssign) {
+    auto a = Alignment(100);
+    a += Alignment(75);
+    ASSERT_EQ(a, Alignment(175));
+}
+
+TEST(AlignmentTests, testSubtraction) {
+    const auto a = Alignment(175);
+    const auto b = Alignment(75);
+    const auto c = a - b;
+    ASSERT_EQ(c, Alignment(100));
+}
+
+TEST(AlignmentTests, testSubAssign) {
+    auto a = Alignment(175);
+    a -= Alignment(75);
+    ASSERT_EQ(a, Alignment(100));
+}
+
 /// @brief it should convert a double to a string.
 TEST(ToStringTests, testDoubleConversion) {
     const SampleValue value = 123.456;

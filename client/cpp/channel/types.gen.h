@@ -38,6 +38,7 @@ constexpr const char *OPERATION_TYPE_MIN = "min";
 constexpr const char *OPERATION_TYPE_MAX = "max";
 constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
+constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
 
 using Key = std::uint32_t;
 
