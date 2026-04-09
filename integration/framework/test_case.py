@@ -126,8 +126,15 @@ class TestCase(ABC):
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
+        start_time = self.start_time
+        client = None
+
         try:
-            self.writer.write(self.tlm)
+            client = self.client.open_writer(
+                start=start_time,
+                channels=list(self.tlm.keys()),
+                name=self.name,
+            )
 
             while not self.should_stop:
                 now = sy.TimeStamp.now()
@@ -149,7 +156,7 @@ class TestCase(ABC):
                     self._should_stop = True
 
                 try:
-                    self.writer.write(self.tlm)
+                    client.write(self.tlm)
                 except Exception as e:
                     if is_websocket_error(e):
                         sy.sleep(self.WEBSOCKET_RETRY_DELAY)
@@ -162,6 +169,12 @@ class TestCase(ABC):
                 self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
                 raise
+
+        finally:
+            if client is not None:
+                with suppress_websocket_errors():
+                    client.write(self.tlm)
+                    client.close()
 
     def _streamer_loop(self) -> None:
         """Streamer thread that reads data on demand with timeout."""
