@@ -52,12 +52,13 @@ class SimDaqCase(TestCase):
         **params: object,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
-        if not hasattr(self, "sim_daq_class") or self.sim_daq_class is None:
-            raise TypeError(
-                f"{self.__class__.__name__} must define 'sim_daq_class' class attribute"
-            )
-        self.sim_daq = self.sim_daq_class(self.client)
-        self.sim_daq.start()
+        # Not all test cases need a simulator (e.g. edge_cases).
+        sim_cls = getattr(self, "sim_daq_class", None)
+        if sim_cls is not None:
+            self.sim_daq = sim_cls(self.client)
+            self.sim_daq.start()
+        else:
+            self.sim_daq = None
 
     def teardown(self) -> None:
         """Stop the simulator during teardown."""

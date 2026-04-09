@@ -62,6 +62,20 @@ def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
     )
 
 
+def create_virtual_channel(
+    client: sy.Synnax,
+    name: str,
+    data_type: sy.DataType = sy.DataType.FLOAT32,
+) -> sy.Channel:
+    """Create (or retrieve) a virtual channel."""
+    return client.channels.create(
+        name=name,
+        data_type=data_type,
+        virtual=True,
+        retrieve_if_name_exists=True,
+    )
+
+
 def create_indexed_channel(
     client: sy.Synnax,
     name: str,

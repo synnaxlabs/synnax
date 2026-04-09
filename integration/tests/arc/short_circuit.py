@@ -35,6 +35,7 @@ import threading
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 SHORT_CIRCUIT_SOURCE = """
@@ -128,22 +129,9 @@ class ShortCircuit(ArcConsoleCase):
     def setup(self) -> None:
         client = self.client
 
-        for name in ["ss_stage_str", "ss_sim_stage"]:
-            client.channels.create(
-                name=name,
-                data_type=(
-                    sy.DataType.STRING if name == "ss_stage_str" else sy.DataType.UINT8
-                ),
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
-
-        client.channels.create(
-            name="ss_start_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(client, "ss_stage_str", sy.DataType.STRING)
+        create_virtual_channel(client, "ss_sim_stage", sy.DataType.UINT8)
+        create_virtual_channel(client, "ss_start_cmd", sy.DataType.UINT8)
 
         for time_ch, data_ch in [
             ("ss_count_on_time", "ss_count_on"),
@@ -159,12 +147,7 @@ class ShortCircuit(ArcConsoleCase):
                 retrieve_if_name_exists=True,
             )
 
-        client.channels.create(
-            name="ss_heater_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(client, "ss_heater_cmd", sy.DataType.UINT8)
 
         self.ss_sensor_time = client.channels.create(
             name="ss_sensor_time",

@@ -10,6 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STAT_SOURCE = """
@@ -83,12 +84,7 @@ class Stat(ArcConsoleCase):
 
     def setup(self) -> None:
         for name in VIRTUAL_INPUTS:
-            self.client.channels.create(
-                name=name,
-                data_type=sy.DataType.FLOAT64,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
+            create_virtual_channel(self.client, name, sy.DataType.FLOAT64)
         for name in INDEXED_OUTPUTS:
             idx = self.client.channels.create(
                 name=f"{name}_time",

@@ -10,6 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_BANG_BANG_SOURCE = """
@@ -111,12 +112,7 @@ class BangBangAuthority(ArcConsoleCase):
     def setup(self) -> None:
         self._press_writer: sy.Writer | None = None
         self._vent_writer: sy.Writer | None = None
-        self.client.channels.create(
-            name="bb_stop_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "bb_stop_cmd", sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(60)
 

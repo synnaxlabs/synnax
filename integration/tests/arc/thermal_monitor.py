@@ -22,6 +22,7 @@ Tests Arc features not covered by arc_press_sequence:
 from examples.simulators import ThermalSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """
@@ -99,12 +100,7 @@ class ThermalMonitor(ArcConsoleCase):
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        self.client.channels.create(
-            name="abort_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
 
         cycle_count_time = self.client.channels.create(
             name="cycle_count_time",

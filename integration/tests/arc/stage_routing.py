@@ -10,6 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STAGE_ROUTING = """
@@ -111,18 +112,8 @@ class StageRouting(ArcConsoleCase):
             index=sensor_idx.key,
             retrieve_if_name_exists=True,
         )
-        self.client.channels.create(
-            name="routing_stage_log",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="next_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "routing_stage_log", sy.DataType.STRING)
+        create_virtual_channel(self.client, "next_cmd", sy.DataType.UINT8)
         super().setup()
 
     def _write_flag(self, value: int) -> None:

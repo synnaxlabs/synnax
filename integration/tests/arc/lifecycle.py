@@ -10,6 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 from x import random_name
 
@@ -141,42 +142,12 @@ class Lifecycle(ArcConsoleCase):
 
     def setup(self) -> None:
         self.new_name = f"ArcRenamed_{random_name()}"
-        self.client.channels.create(
-            name="arc_lifecycle_virt",
-            data_type=sy.DataType.FLOAT32,
-            retrieve_if_name_exists=True,
-            virtual=True,
-        )
-        self.client.channels.create(
-            name="const_output",
-            data_type=sy.DataType.FLOAT32,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="lifecycle_log",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="signal_stage_log",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="bb_signal_start_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="bb_signal_stop_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "arc_lifecycle_virt")
+        create_virtual_channel(self.client, "const_output")
+        create_virtual_channel(self.client, "lifecycle_log", sy.DataType.STRING)
+        create_virtual_channel(self.client, "signal_stage_log", sy.DataType.STRING)
+        create_virtual_channel(self.client, "bb_signal_start_cmd", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "bb_signal_stop_cmd", sy.DataType.UINT8)
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -245,17 +216,15 @@ class Lifecycle(ArcConsoleCase):
 
         # --- 4. Rename while running (triggers redeployment warning) ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")
-        self.console.arc.rename(old_name=self.arc_name, new_name=self.new_name)
-        self._arc_started = False  # Rename stops the arc
+        old_name = self.arc_name
+        self.rename_arc(self.arc_name, self.new_name)
+        self.arc_name = self.new_name
 
         self.log("Verifying new name in toolbar")
         self.console.arc.wait_for_item(self.new_name)
 
-        old_item = self.console.arc.find_item(self.arc_name)
-        assert old_item is None, f"Old name '{self.arc_name}' still present"
-
-        # Update arc_name so parent teardown uses the new name
-        self.arc_name = self.new_name
+        old_item = self.console.arc.find_item(old_name)
+        assert old_item is None, f"Old name '{old_name}' still present"
 
         # --- 5. Re-configure and re-start with new name ---
         self.log("Opening renamed Arc")
@@ -268,12 +237,10 @@ class Lifecycle(ArcConsoleCase):
 
         self.log("Re-starting with new name")
         self.console.arc.start()
-        self._arc_started = True
 
         # --- 6. Stop, then delete and verify tab removal ---
         self.log("Stopping Arc")
         self.console.arc.stop()
-        self._arc_started = False
 
         self.log("Verifying tab exists before delete")
         tab = self.console.layout.get_tab(self.new_name)
@@ -282,7 +249,7 @@ class Lifecycle(ArcConsoleCase):
 
         self.log(f"Deleting Arc: {self.new_name}")
         self.console.arc.delete(self.new_name)
-        self._arc_created = False
+        self.remove_arc(self.new_name)
 
         self.log("Verifying tab removed from mosaic")
         tab = self.console.layout.get_tab(self.new_name)
