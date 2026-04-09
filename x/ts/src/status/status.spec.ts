@@ -295,5 +295,11 @@ describe("status", () => {
       expect(result).toContain("Stack Trace:");
       expect(result).not.toContain("Details:");
     });
+
+    it("should not error when the `name` field is accidentally undefined", () => {
+      const s = status.create({ message: "cat", variant: "success" });
+      const result = status.toString(s);
+      expect(result).toContain("cat");
+    });
   });
 });

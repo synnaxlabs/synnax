@@ -191,6 +191,17 @@ describe("Text", () => {
       expect(el).toBeTruthy();
       expect(el?.className).toContain("pluto--square");
     });
+
+    it("should treat an icon with a trailing space as square", () => {
+      const c = render(
+        <Text.Text>
+          <Icon.Acquire aria-label="Acquire" /> {false}
+        </Text.Text>,
+      );
+      const el = c.getByLabelText("Acquire").parentElement;
+      expect(el).toBeTruthy();
+      expect(el?.className).toContain("pluto--square");
+    });
   });
 
   describe("status", () => {
