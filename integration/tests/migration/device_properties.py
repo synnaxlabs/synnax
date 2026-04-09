@@ -204,28 +204,42 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
             if n.get("description"):
                 self.log(f"  Description: {n['description'][:500]}")
 
-        # Log browser console errors for additional proof.
+        # Collect all evidence.
+        page_errors = [l for l in self._browser_logs if "[browser:pageerror]" in l]
+        console_errors = [l for l in self._browser_logs if "[browser:error]" in l]
+
+        # Log everything for direct proof.
         for log_line in self._browser_logs:
-            if any(kw in log_line.lower() for kw in ("error", "zod", "invalid")):
+            if any(kw in log_line.lower() for kw in ("error", "zod", "invalid", "pageerror")):
                 self.log(f"  {log_line}")
 
+        has_error = got_error or len(errors) > 0 or len(page_errors) > 0
+
+        self.log(f"Evidence: notification_error={got_error}, "
+                 f"error_notifications={len(errors)}, "
+                 f"page_errors={len(page_errors)}, "
+                 f"console_errors={len(console_errors)}, "
+                 f"button_hidden={button_hidden}")
+
         if self.expect_success:
-            assert not got_error and len(errors) == 0, (
+            assert not has_error, (
                 f"Expected configure to succeed, but got error(s): "
-                f"{[e.get('message', '') for e in errors]}"
+                f"notifications={[e.get('message', '') for e in errors]}, "
+                f"page_errors={page_errors}"
             )
             self.log("Configure succeeded — device properties migration working")
         else:
-            assert got_error or len(errors) > 0, (
+            assert has_error, (
                 "Expected configure to fail with error, but no errors appeared. "
                 f"Button hidden: {button_hidden}. "
-                f"Browser errors: {[l for l in self._browser_logs if 'error' in l.lower()]}"
+                f"All browser logs: {self._browser_logs}"
             )
-            error_msg = errors[0].get("message", "") if errors else "no notification"
-            error_desc = errors[0].get("description", "")[:200] if errors else ""
-            self.log(f"Configure failed as expected: {error_msg}")
-            if error_desc:
-                self.log(f"  Error description: {error_desc}")
+            proof = (
+                errors[0].get("message", "") if errors
+                else page_errors[0] if page_errors
+                else "button stayed visible (configure failed silently)"
+            )
+            self.log(f"Configure failed as expected: {proof}")
 
         console.notifications.close_all()
 

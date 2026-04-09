@@ -90,9 +90,10 @@ class ConsoleCase(TestCase):
 
         self.console = Console(self.page, self.client)
 
-        # Capture browser DevTools console messages for debugging.
+        # Capture browser DevTools console messages and uncaught exceptions.
         self._browser_logs: list[str] = []
         self.page.on("console", self._on_browser_console)
+        self.page.on("pageerror", self._on_page_error)
 
         # Initialized signal (Not "Get Started" page)
         self.page.wait_for_selector(
@@ -122,6 +123,9 @@ class ConsoleCase(TestCase):
 
     def _on_browser_console(self, msg) -> None:
         self._browser_logs.append(f"[browser:{msg.type}] {msg.text}")
+
+    def _on_page_error(self, error) -> None:
+        self._browser_logs.append(f"[browser:pageerror] {error}")
 
     def _save_browser_logs(self) -> None:
         if not self._browser_logs:
