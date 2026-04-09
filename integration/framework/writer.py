@@ -19,6 +19,7 @@ class Writer:
         self._client = client
         self._writer: sy.Writer | None = None
         self._channels: set[str] = set()
+        self._start: sy.TimeStamp | None = None
         self._lock = threading.Lock()
 
     def write(self, channel_or_data: str | dict, value=None) -> None:
@@ -32,8 +33,10 @@ class Writer:
                 if self._writer is not None:
                     self._writer.close()
                 self._channels |= data.keys()
+                if self._start is None:
+                    self._start = sy.TimeStamp.now()
                 self._writer = self._client.open_writer(
-                    start=sy.TimeStamp.now(),
+                    start=self._start,
                     channels=list(self._channels),
                     enable_auto_commit=True,
                 )
@@ -46,3 +49,4 @@ class Writer:
                 self._writer.close()
                 self._writer = None
                 self._channels = set()
+                self._start = None
