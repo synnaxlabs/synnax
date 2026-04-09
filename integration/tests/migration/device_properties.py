@@ -12,15 +12,11 @@
 Reproduces the bug where clicking Configure on an NI task fails with a ZodError
 because ``propertiesZ`` rejects incomplete device properties stored by older versions.
 
-These tests use the same sim NI device/task created by ``NIAnalogReadSetup``
-(in ``task_ni.py``). The setup phase strips the device properties after task
-creation. The verify phase opens the task in the Console and clicks Configure.
-
 Sequence:
-    1. ``NIAnalogReadSetup`` runs first (creates task on sim NI hardware).
-    2. ``DevicePropertiesSetup`` strips the device properties to simulate old data.
-    3. Core is upgraded to the target version.
-    4. ``DevicePropertiesConsoleVerify`` opens the task and clicks Configure.
+    1. ``DevicePropertiesSetup`` creates an NI analog read task on sim hardware,
+       then strips the device properties to simulate pre-v0.54 stored data.
+    2. Core/Console is upgraded to the target version.
+    3. ``DevicePropertiesConsoleVerify`` opens the task and clicks Configure.
        On buggy v0.54: ZodError notification. On fixed: succeeds.
 """
 
@@ -30,17 +26,21 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from framework.test_case import TestCase
+from tests.driver.task import create_channel, create_index
 
-# Must match task_ni.py constants — we reuse the same task.
-TASK_NAME = "mig_ni_analog_read"
-DEVICE_LOCATION = "E101Mod4"
+TASK_NAME = "mig_sy4047_ni_read"
+IDX_NAME = "mig_sy4047_idx"
+CHANNEL_PREFIX = "mig_sy4047_voltage"
+NUM_CHANNELS = 2
+DEVICE_LOCATION = "E101Mod4"  # NI 9205 sim
 
 
 class DevicePropertiesSetup(TestCase):
-    """Strip device properties on the NI sim device to simulate pre-v0.54 data.
+    """Create an NI analog read task on sim hardware, then strip device properties.
 
-    Must run AFTER ``NIAnalogReadSetup`` which creates the task and device.
-    Removes ``counterInput`` and makes ``analogOutput`` partial.
+    Creates the task via ``tasks.configure`` (driver ACK) so it's fully valid,
+    then overwrites the device properties to remove ``counterInput`` and make
+    ``analogOutput`` partial — simulating what a pre-v0.54 device would store.
     """
 
     def setup(self) -> None:
@@ -51,8 +51,45 @@ class DevicePropertiesSetup(TestCase):
     def run(self) -> None:
         client = self.client
 
+        # Resolve the sim NI device (registered by the driver's scan task).
         dev = client.devices.retrieve(location=DEVICE_LOCATION)
         self.log(f"Device '{dev.name}' (key={dev.key})")
+
+        # Create channels and task.
+        idx = create_index(client, IDX_NAME)
+        channels = [
+            sy.ni.AIVoltageChan(
+                port=i,
+                channel=create_channel(
+                    client,
+                    name=f"{CHANNEL_PREFIX}_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Cfg_Default",
+                min_val=-10.0,
+                max_val=10.0,
+            )
+            for i in range(NUM_CHANNELS)
+        ]
+        task = sy.ni.AnalogReadTask(
+            name=TASK_NAME,
+            device=dev.key,
+            sample_rate=50 * sy.Rate.HZ,
+            stream_rate=10 * sy.Rate.HZ,
+            data_saving=True,
+            channels=channels,
+        )
+        client.tasks.configure(task)
+        self.log(f"Task '{TASK_NAME}' configured (key={task.key})")
+
+        # Verify it runs.
+        with task.run():
+            sy.sleep(1)
+        self.log("Task ran successfully")
+
+        # Strip device properties to simulate old stored data.
+        dev = client.devices.retrieve(key=dev.key)
         self.log(f"  Original property keys: {list(dev.properties.keys())}")
 
         stripped = dict(dev.properties)
