@@ -20,6 +20,7 @@ class Writer:
         self._writer: sy.Writer | None = None
         self._channels: set[str] = set()
         self._lock = threading.Lock()
+        self._commit_ts = sy.TimeStamp.now()
 
     def write(self, channel_or_data: str | dict, value=None) -> None:
         if isinstance(channel_or_data, str):
@@ -32,13 +33,16 @@ class Writer:
                 if self._writer is not None:
                     self._writer.close()
                 self._channels |= data.keys()
+                # Use the current commit timestamp as the start for the new
+                # writer so we don't overlap with data we just committed.
                 self._writer = self._client.open_writer(
-                    start=sy.TimeStamp.now() - 5 * sy.TimeSpan.SECOND,
+                    start=self._commit_ts,
                     channels=list(self._channels),
                     enable_auto_commit=True,
                 )
             assert self._writer is not None
             self._writer.write(data)
+            self._commit_ts = sy.TimeStamp.now()
 
     def close(self) -> None:
         with self._lock:
