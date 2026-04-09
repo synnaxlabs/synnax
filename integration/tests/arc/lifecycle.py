@@ -225,14 +225,12 @@ class Lifecycle(ArcConsoleCase):
         # stage's source node must advance its watermark on activation so the
         # pre-existing bb_signal_start_cmd value is not seen as new data.
         self.log("Phase 3: Testing stale virtual channel regression (signal_ctrl)")
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
-            w.write("bb_signal_start_cmd", 1)
+        self.writer.write("bb_signal_start_cmd", 1)
 
         self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
         self.log("signal_ctrl entered start stage")
 
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_stop_cmd") as w:
-            w.write("bb_signal_stop_cmd", 1)
+        self.writer.write("bb_signal_stop_cmd", 1)
 
         self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
         self.log("signal_ctrl entered yield stage")
@@ -242,8 +240,7 @@ class Lifecycle(ArcConsoleCase):
         self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
 
         # Confirm a fresh start signal correctly re-enters start.
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
-            w.write("bb_signal_start_cmd", 1)
+        self.writer.write("bb_signal_start_cmd", 1)
         self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
 
         # --- 4. Rename while running (triggers redeployment warning) ---

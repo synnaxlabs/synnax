@@ -23,6 +23,7 @@ from typing import Any, Literal, overload
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.writer import Writer
 from synnax.telem import SampleValue
 from x import (
     WebSocketErrorFilter,
@@ -88,6 +89,7 @@ class TestCase(ABC):
         self._ch_log = f"{self.name}_log"
 
         self.client = synnax_connection.create_client()
+        self.writer = Writer(self.client)
 
         self.log_client = LogClient(
             name=self.name,
@@ -241,6 +243,8 @@ class TestCase(ABC):
             self.is_running = False
             self._join_thread(self.streamer_thread, "streamer")
             self._join_thread(self.writer_thread, "writer")
+            with suppress_websocket_errors():
+                self.writer.close()
 
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED

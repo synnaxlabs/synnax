@@ -126,30 +126,17 @@ class StageRouting(ArcConsoleCase):
         super().setup()
 
     def _write_flag(self, value: int) -> None:
-        with self.client.open_writer(
-            sy.TimeStamp.now(), ["routing_flag_time", "routing_flag"]
-        ) as w:
-            w.write(
-                {
-                    "routing_flag_time": sy.TimeStamp.now(),
-                    "routing_flag": value,
-                }
-            )
+        self.writer.write(
+            {"routing_flag_time": sy.TimeStamp.now(), "routing_flag": value}
+        )
 
     def _write_sensor(self, value: float) -> None:
-        with self.client.open_writer(
-            sy.TimeStamp.now(), ["routing_sensor_time", "routing_sensor"]
-        ) as w:
-            w.write(
-                {
-                    "routing_sensor_time": sy.TimeStamp.now(),
-                    "routing_sensor": value,
-                }
-            )
+        self.writer.write(
+            {"routing_sensor_time": sy.TimeStamp.now(), "routing_sensor": value}
+        )
 
     def _advance(self) -> None:
-        with self.client.open_writer(sy.TimeStamp.now(), "next_cmd") as w:
-            w.write("next_cmd", 1)
+        self.writer.write("next_cmd", 1)
 
     def verify_sequence_execution(self) -> None:
         # Phase 1: select routing
