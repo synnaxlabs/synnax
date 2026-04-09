@@ -31,8 +31,8 @@ export interface PDOEntry extends z.infer<typeof pdoEntryZ> {}
 
 /** Schema for PDO collections (inputs and outputs). */
 export const pdosZ = z.object({
-  inputs: z.array(pdoEntryZ).default([]),
-  outputs: z.array(pdoEntryZ).default([]),
+  inputs: z.array(pdoEntryZ),
+  outputs: z.array(pdoEntryZ),
 });
 export interface PDOs extends z.infer<typeof pdosZ> {}
 
@@ -43,23 +43,23 @@ export const ZERO_PDOS: PDOs = {
 
 /** Slave device properties schema. */
 export const slavePropertiesZ = z.object({
-  identifier: z.string().default(""),
-  serial: z.number().default(0),
-  vendorId: z.number().default(0),
-  productCode: z.number().default(0),
-  revision: z.number().default(0),
-  name: z.string().default(""),
-  network: z.string().default(""),
-  position: z.number().default(0),
-  pdos: pdosZ.default(ZERO_PDOS),
-  readIndex: z.number().default(0),
-  writeStateIndex: z.number().default(0),
-  read: z
-    .object({ channels: z.record(z.string(), z.number()).default({}) })
-    .default({ channels: {} }),
-  write: z
-    .object({ channels: z.record(z.string(), z.number()).default({}) })
-    .default({ channels: {} }),
+  identifier: z.string(),
+  serial: z.number(),
+  vendorId: z.number(),
+  productCode: z.number(),
+  revision: z.number(),
+  name: z.string(),
+  network: z.string(),
+  position: z.number(),
+  pdos: pdosZ,
+  readIndex: z.number(),
+  writeStateIndex: z.number(),
+  read: z.object({
+    channels: z.record(z.string(), z.number()),
+  }),
+  write: z.object({
+    channels: z.record(z.string(), z.number()),
+  }),
   enabled: z.boolean().optional().default(true),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}

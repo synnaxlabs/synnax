@@ -17,16 +17,12 @@ const VERSION = "1.0.0";
 
 export const propertiesZ = z.object({
   version: z.literal(VERSION),
-  connection: v0.connectionConfigZ.default(v0.ZERO_CONNECTION_CONFIG),
-  read: z
-    .object({
-      indexes: z.array(channel.keyZ).default([]),
-      channels: z.record(z.string(), channel.keyZ).default({}),
-    })
-    .default({ indexes: [], channels: {} }),
-  write: z
-    .object({ channels: z.record(z.string(), channel.keyZ).default({}) })
-    .default({ channels: {} }),
+  connection: v0.connectionConfigZ,
+  read: z.object({
+    indexes: z.array(channel.keyZ),
+    channels: z.record(z.string(), channel.keyZ),
+  }),
+  write: z.object({ channels: z.record(z.string(), channel.keyZ) }),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 
