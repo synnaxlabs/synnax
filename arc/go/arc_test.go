@@ -210,8 +210,8 @@ sequence main {
 		_, ok := seq.NextStage("stop")
 		Expect(ok).To(BeFalse())
 
-		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
-		Expect(oneShotEdges).ToNot(BeEmpty())
+		conditionalEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
+		Expect(conditionalEdges).ToNot(BeEmpty())
 
 		continuousEdges := mod.Edges.GetByKind(ir.EdgeKindContinuous)
 		Expect(continuousEdges).ToNot(BeEmpty())
@@ -288,8 +288,8 @@ sequence main {
 		_, ok := seq.NextStage("vent")
 		Expect(ok).To(BeFalse())
 
-		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
-		Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
+		conditionalEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
+		Expect(len(conditionalEdges)).To(BeNumerically(">=", 2))
 	})
 
 	It("Should correctly compile a node with a unit literal", func(ctx SpecContext) {

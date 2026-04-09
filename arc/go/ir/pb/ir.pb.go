@@ -39,7 +39,7 @@ type EdgeKind int32
 const (
 	EdgeKind_EDGE_KIND_UNSPECIFIED EdgeKind = 0
 	EdgeKind_EDGE_KIND_CONTINUOUS  EdgeKind = 1
-	EdgeKind_EDGE_KIND_ONE_SHOT    EdgeKind = 2
+	EdgeKind_EDGE_KIND_CONDITIONAL EdgeKind = 2
 )
 
 // Enum value maps for EdgeKind.
@@ -47,12 +47,12 @@ var (
 	EdgeKind_name = map[int32]string{
 		0: "EDGE_KIND_UNSPECIFIED",
 		1: "EDGE_KIND_CONTINUOUS",
-		2: "EDGE_KIND_ONE_SHOT",
+		2: "EDGE_KIND_CONDITIONAL",
 	}
 	EdgeKind_value = map[string]int32{
 		"EDGE_KIND_UNSPECIFIED": 0,
 		"EDGE_KIND_CONTINUOUS":  1,
-		"EDGE_KIND_ONE_SHOT":    2,
+		"EDGE_KIND_CONDITIONAL": 2,
 	}
 )
 
@@ -796,11 +796,11 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x121\n" +
 	"\x06strata\x18\x04 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
 	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
-	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities*W\n" +
+	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities*Z\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x16\n" +
-	"\x12EDGE_KIND_ONE_SHOT\x10\x02B\x7f\n" +
+	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +
+	"\x15EDGE_KIND_CONDITIONAL\x10\x02B\x7f\n" +
 	"\rcom.arc.ir.pbB\aIrProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/ir/pb\xa2\x02\x03AIP\xaa\x02\tArc.Ir.Pb\xca\x02\tArc\\Ir\\Pb\xe2\x02\x15Arc\\Ir\\Pb\\GPBMetadata\xea\x02\vArc::Ir::Pbb\x06proto3"
 
 var (

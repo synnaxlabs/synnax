@@ -12,16 +12,66 @@
 package service_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/synnaxlabs/synnax/cmd/service"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("FormatStatus", func() {
+	It("Should include the version in the output", func() {
+		cmd := &cobra.Command{}
+		buf := new(bytes.Buffer)
+		cmd.SetOut(buf)
+
+		info := service.StatusInfo{
+			Installed:  true,
+			State:      "Running",
+			ProcessID:  12345,
+			ConfigPath: `C:\ProgramData\Synnax\config.yaml`,
+			DataDir:    `C:\ProgramData\Synnax\data`,
+			Listen:     "localhost:9090",
+			Insecure:   true,
+		}
+		service.FormatStatus(cmd, info)
+		output := buf.String()
+		Expect(output).To(ContainSubstring("Version: "))
+		Expect(output).To(ContainSubstring(version.Get()))
+	})
+
+	It("Should show Not installed when service is not installed", func() {
+		cmd := &cobra.Command{}
+		buf := new(bytes.Buffer)
+		cmd.SetOut(buf)
+
+		info := service.StatusInfo{ConfigPath: `C:\ProgramData\Synnax\config.yaml`}
+		service.FormatStatus(cmd, info)
+		Expect(buf.String()).To(ContainSubstring("Status:  Not installed"))
+	})
+
+	It("Should show PID when service is running", func() {
+		cmd := &cobra.Command{}
+		buf := new(bytes.Buffer)
+		cmd.SetOut(buf)
+
+		info := service.StatusInfo{
+			Installed:  true,
+			State:      "Running",
+			ProcessID:  42,
+			ConfigPath: `C:\ProgramData\Synnax\config.yaml`,
+		}
+		service.FormatStatus(cmd, info)
+		Expect(buf.String()).To(ContainSubstring("Status:  Running (PID: 42)"))
+	})
+})
 
 var _ = Describe("WriteConfig", func() {
 	var (
