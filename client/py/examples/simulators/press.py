@@ -166,10 +166,10 @@ class PressSimDAQ(SimDAQ):
                             break
 
                     if state["press_vlv_state"] == 1:
-                        state["press_pt"] += 0.2
+                        state["press_pt"] += 0.25
 
                     if state["vent_vlv_state"] == 1:
-                        state["press_pt"] -= 0.2
+                        state["press_pt"] -= 0.25
 
                     if state["press_pt"] < 0:
                         state["press_pt"] = 0

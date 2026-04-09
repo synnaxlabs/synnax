@@ -184,8 +184,8 @@ class TPCSimDAQ(SimDAQ):
 
                     # Gas booster increases press tank pressure
                     if daq_state[GAS_BOOSTER_ISO_CMD] == 1:
-                        daq_state[PRESS_PT_1] += 1
-                        daq_state[PRESS_PT_2] += 1
+                        daq_state[PRESS_PT_1] += 1.25
+                        daq_state[PRESS_PT_2] += 1.25
 
                     # Pressurization logic
                     press_pt_1 = daq_state[PRESS_PT_1]
@@ -194,26 +194,26 @@ class TPCSimDAQ(SimDAQ):
                             daq_state[OX_PRESS_CMD] == 1
                             and daq_state[OX_PT_1] < press_pt_1
                         ):
-                            daq_state[OX_PT_1] += 1
-                            daq_state[OX_PT_2] += 1
-                            daq_state[PRESS_PT_1] -= 1
-                            daq_state[PRESS_PT_2] -= 1
+                            daq_state[OX_PT_1] += 1.25
+                            daq_state[OX_PT_2] += 1.25
+                            daq_state[PRESS_PT_1] -= 1.25
+                            daq_state[PRESS_PT_2] -= 1.25
                         if (
                             daq_state[FUEL_PRESS_CMD] == 1
                             and daq_state[FUEL_PT_1] < press_pt_1
                         ):
-                            daq_state[FUEL_PT_1] += 1
-                            daq_state[FUEL_PT_2] += 1
-                            daq_state[PRESS_PT_1] -= 1
-                            daq_state[PRESS_PT_2] -= 1
+                            daq_state[FUEL_PT_1] += 1.25
+                            daq_state[FUEL_PT_2] += 1.25
+                            daq_state[PRESS_PT_1] -= 1.25
+                            daq_state[PRESS_PT_2] -= 1.25
 
                     # Vent logic (note: inverted - 0 means venting)
                     if daq_state[OX_VENT_CMD] == 0:
-                        daq_state[OX_PT_1] -= 0.5
-                        daq_state[OX_PT_2] -= 0.5
+                        daq_state[OX_PT_1] -= 0.625
+                        daq_state[OX_PT_2] -= 0.625
                     if daq_state[FUEL_VENT_CMD] == 0:
-                        daq_state[FUEL_PT_1] -= 0.5
-                        daq_state[FUEL_PT_2] -= 0.5
+                        daq_state[FUEL_PT_1] -= 0.625
+                        daq_state[FUEL_PT_2] -= 0.625
 
                     # MPV consumption
                     if daq_state[OX_MPV_CMD] == 1 and ox_mpv_last_open is not None:

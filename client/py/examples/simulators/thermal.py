@@ -20,8 +20,8 @@ class ThermalSimDAQ(SimDAQ):
     end_cmd_channel = "end_thermal_test_cmd"
 
     AMBIENT_TEMP = 25.0
-    HEAT_RATE = 0.5
-    COOL_RATE = 0.2
+    HEAT_RATE = 0.625
+    COOL_RATE = 0.25
     NOISE = 0.1
 
     def _create_channels(self) -> None:

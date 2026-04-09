@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from examples.simulators import LoadCurrentSimDAQ
+
 import synnax as sy
-from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LOAD_CURRENT_SOURCE = """
@@ -53,11 +54,11 @@ class LoadCurrent(ArcConsoleCase):
     arc_source = ARC_LOAD_CURRENT_SOURCE
     arc_name_prefix = "ArcLoadCurrent"
     start_cmd_channel = "start_load_current_cmd"
+    end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["load_current", "flag", "lc_tick_count"]
+    sim_daq_class = LoadCurrentSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "load_current")
-        create_virtual_channel(self.client, "flag", sy.DataType.UINT8)
         idx = self.client.channels.create(
             name="lc_tick_count_time",
             is_index=True,
@@ -77,10 +78,10 @@ class LoadCurrent(ArcConsoleCase):
         self.wait_for_eq("flag", 1, is_virtual=True)
         self.log("flag is 1, stage first is active")
 
-        self.log("Phase 2: Writing load_current = 100 to trigger condition...")
-        self.writer.write("load_current", 100.0)
+        self.log("Phase 2: Waiting for load_current > 50 (wait timer starts)...")
+        self.wait_for_gt("load_current", 50, timeout=10 * sy.TimeSpan.SECOND)
         timer = sy.Timer()
-        self.log("load_current set to 100, wait timer should now be running")
+        self.log("load_current crossed 50, wait timer should now be running")
 
         self.log("Phase 3: Asserting flag is still 1 (wait has not elapsed yet)...")
         sy.sleep(500 * sy.TimeSpan.MILLISECOND)
