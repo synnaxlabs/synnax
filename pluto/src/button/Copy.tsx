@@ -8,22 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import {
+  Children,
+  isValidElement,
+  type MouseEvent,
+  type ReactElement,
+  useCallback,
+  useState,
+} from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
 import { Icon } from "@/icon";
+import { useAdder, useErrorHandler } from "@/status/base/Aggregator";
 
 const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
 
-export interface CopyProps extends Omit<ButtonProps, "onClick"> {
-  /** The text to copy to the clipboard, or a function that returns it. */
-  text: string | (() => string);
+export interface CopyProps extends ButtonProps {
+  /** The text to copy to the clipboard, or a function that returns it (sync or async). */
+  text: string | (() => string | Promise<string>);
   /** Optional callback invoked after successfully copying to clipboard. */
   onCopy?: () => void;
-  /** Optional callback invoked if copying fails. */
-  onCopyError?: (error: Error) => void;
   /** Duration in ms to show the checkmark after copying. Defaults to 2000. */
   copiedDuration?: CrudeTimeSpan;
+  /** Status notification message shown on successful copy. Can be a string or a function that returns one. */
+  successMessage?: string | (() => string);
 }
 
 /**
@@ -42,34 +50,46 @@ export interface CopyProps extends Omit<ButtonProps, "onClick"> {
 export const Copy = ({
   text,
   onCopy,
-  onCopyError,
   copiedDuration = COPIED_DURATION_MS,
+  successMessage,
   tooltip = "Copy",
   children,
+  onClick,
   ...rest
 }: CopyProps): ReactElement => {
   const [copied, setCopied] = useState(false);
+  const addStatus = useAdder();
+  const handleError = useErrorHandler();
 
-  const handleClick = useCallback(() => {
-    void (async () => {
-      try {
-        const resolvedText = typeof text === "function" ? text() : text;
+  const handleClick = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
+      onClick?.(e);
+      handleError(async () => {
+        const resolvedText = await (typeof text === "function" ? text() : text);
         await navigator.clipboard.writeText(resolvedText);
-        setCopied(true);
         onCopy?.();
+        if (successMessage != null) {
+          const message =
+            typeof successMessage === "function" ? successMessage() : successMessage;
+          return addStatus({ variant: "success", message });
+        }
+        setCopied(true);
         setTimeout(
           () => setCopied(false),
           TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
         );
-      } catch (err) {
-        onCopyError?.(err instanceof Error ? err : new Error(String(err)));
-      }
-    })();
-  }, [text, onCopy, onCopyError, copiedDuration]);
+      });
+    },
+    [text, onCopy, copiedDuration, addStatus, successMessage, handleError, onClick],
+  );
+
+  const childArray = Children.toArray(children);
+  const hasCustomIcon = isValidElement(childArray[0]);
+  const icon = copied ? <Icon.Check /> : hasCustomIcon ? childArray[0] : <Icon.Copy />;
 
   return (
     <Button tooltip={copied ? "Copied!" : tooltip} onClick={handleClick} {...rest}>
-      {copied ? <Icon.Check /> : <Icon.Copy />} {children}
+      {icon} {hasCustomIcon ? childArray.slice(1) : children}
     </Button>
   );
 };

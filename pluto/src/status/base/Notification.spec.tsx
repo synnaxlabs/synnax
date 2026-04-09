@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { status, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -55,5 +55,16 @@ describe("Notification Component", () => {
 
     expect(c.getByText("Action 1")).toBeTruthy();
     expect(c.getByText("Action 2")).toBeTruthy();
+  });
+
+  it("should copy diagnostics to clipboard when copy button is clicked", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const c = render(<Notification {...notificationProps} />);
+    const copyButton = c.getByRole("button", { name: /pluto-icon--copy/i });
+    fireEvent.click(copyButton);
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(status.toString(notificationProps.status));
+    });
   });
 });

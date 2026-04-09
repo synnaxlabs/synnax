@@ -882,4 +882,154 @@ var _ = Describe("Vectorized Operations", func() {
 		})
 	})
 
+	Describe("Derivative Operations", func() {
+		It("should compute pointwise derivative for F64", func() {
+			input := telem.NewSeriesV(10.0, 20.0, 40.0)
+			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			Expect(outData.Len()).To(Equal(int64(3)))
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(outTime.Len()).To(Equal(int64(3)))
+			timeVals := telem.UnmarshalSeries[telem.TimeStamp](outTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS))
+			Expect(timeVals[1]).To(Equal(2 * telem.SecondTS))
+			Expect(timeVals[2]).To(Equal(4 * telem.SecondTS))
+		})
+
+		It("should maintain state across calls", func() {
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			input1 := telem.NewSeriesV(0.0, 10.0)
+			time1 := telem.NewSeriesSecondsTSV(1, 2)
+			op.DerivativeF64(input1, time1, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			input2 := telem.NewSeriesV(30.0)
+			time2 := telem.NewSeriesSecondsTSV(4)
+			op.DerivativeF64(input2, time2, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 10.0, 0.01))
+			timeVals := telem.UnmarshalSeries[telem.TimeStamp](outTime)
+			Expect(timeVals[0]).To(Equal(4 * telem.SecondTS))
+		})
+
+		It("should output zero when dt is zero", func() {
+			input := telem.NewSeriesV(10.0, 20.0)
+			inputTime := telem.NewSeriesSecondsTSV(1, 1)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 0.0, 0.01))
+		})
+
+		It("should compute negative derivatives", func() {
+			input := telem.NewSeriesV(100.0, 80.0, 50.0)
+			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", -20.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
+			timeVals := telem.UnmarshalSeries[telem.TimeStamp](outTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS))
+			Expect(timeVals[1]).To(Equal(2 * telem.SecondTS))
+			Expect(timeVals[2]).To(Equal(4 * telem.SecondTS))
+		})
+
+		It("should work with I32 type and output float64", func() {
+			input := telem.NewSeriesV[int32](0, 100, 300)
+			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeI32(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 100.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", 100.0, 0.01))
+		})
+
+		It("should handle empty input", func() {
+			input := telem.Series{DataType: telem.Float64T}
+			inputTime := telem.Series{DataType: telem.TimeStampT}
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			Expect(outData.Len()).To(Equal(int64(0)))
+			Expect(outTime.Len()).To(Equal(int64(0)))
+			Expect(hasPrev).To(BeFalse())
+		})
+
+		It("should work with U8 type and output float64", func() {
+			input := telem.NewSeriesV[uint8](0, 10, 30)
+			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
+		})
+
+		It("should produce negative derivatives for decreasing unsigned input", func() {
+			input := telem.NewSeriesV[uint8](100, 80, 50)
+			inputTime := telem.NewSeriesSecondsTSV(1, 2, 4)
+			var prevVal float64
+			var prevTS telem.TimeStamp
+			hasPrev := false
+			outData := telem.Series{DataType: telem.Float64T}
+			outTime := telem.Series{DataType: telem.TimeStampT}
+
+			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+
+			vals := telem.UnmarshalSeries[float64](outData)
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", -20.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
+		})
+	})
+
 })

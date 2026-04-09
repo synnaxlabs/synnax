@@ -18,8 +18,8 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/status/status.h"
 
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
+#include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
 
 namespace driver::arc::status {
@@ -48,11 +48,11 @@ public:
     }
 };
 
-class Factory : public ::arc::runtime::node::Factory {
+class Module : public ::arc::stl::Module {
     std::shared_ptr<synnax::Synnax> client;
 
 public:
-    explicit Factory(std::shared_ptr<synnax::Synnax> client):
+    explicit Module(std::shared_ptr<synnax::Synnax> client):
         client(std::move(client)) {}
 
     bool handles(const std::string &node_type) const override {

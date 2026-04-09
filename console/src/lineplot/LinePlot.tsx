@@ -367,53 +367,39 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const placeLayout = Layout.usePlacer();
     const handleError = Status.useErrorHandler();
 
-    const getTimeRange = useCallback(async () => {
+    const getTimeRange = useCallback(async (): Promise<TimeRange> => {
       const bounds = await linePlotRef.current?.getBounds();
-      if (bounds == null) return null;
+      if (bounds == null) throw new Error("No bounds available");
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
     }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();
 
-    const handleCopyISO = () =>
-      handleError(async () => {
-        const tr = await getTimeRange();
-        if (tr == null) return;
-        await navigator.clipboard.writeText(
-          `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
-        );
-      }, "Failed to copy ISO time range");
+    const getISOText = useCallback(async () => {
+      const tr = await getTimeRange();
+      return `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`;
+    }, [getTimeRange]);
 
-    const handleCopyPython = () =>
-      handleError(async () => {
-        const tr = await getTimeRange();
-        if (tr == null) return;
-        await navigator.clipboard.writeText(
-          `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-        );
-      }, "Failed to copy Python time range");
+    const getPythonText = useCallback(async () => {
+      const tr = await getTimeRange();
+      return `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
+    }, [getTimeRange]);
 
-    const handleCopyTypeScript = () =>
-      handleError(async () => {
-        const tr = await getTimeRange();
-        if (tr == null) return;
-        await navigator.clipboard.writeText(
-          `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-        );
-      }, "Failed to copy TypeScript time range");
+    const getTypeScriptText = useCallback(async () => {
+      const tr = await getTimeRange();
+      return `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
+    }, [getTimeRange]);
 
     const handleCreateRange = () =>
       handleError(async () => {
         const tr = await getTimeRange();
-        if (tr == null) return;
         placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
       }, "Failed to create range from selection");
 
     const handleDownloadCSV = () =>
       handleError(async () => {
         const tr = await getTimeRange();
-        if (tr == null) return;
         downloadAsCSV({ timeRanges: [tr], lines, name });
       }, "Failed to download region as CSV");
 
@@ -421,15 +407,27 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       <ContextMenu.Menu>
         {!box.areaIsZero(selection) && (
           <>
-            <Menu.Item itemKey="iso" onClick={handleCopyISO}>
+            <Menu.CopyItem
+              itemKey="iso"
+              text={getISOText}
+              successMessage="Copied ISO time range to clipboard"
+            >
               <Icon.Range /> Copy ISO time range
-            </Menu.Item>
-            <Menu.Item itemKey="python" onClick={handleCopyPython}>
+            </Menu.CopyItem>
+            <Menu.CopyItem
+              itemKey="python"
+              text={getPythonText}
+              successMessage="Copied Python time range to clipboard"
+            >
               <Icon.Python /> Copy Python time range
-            </Menu.Item>
-            <Menu.Item itemKey="typescript" onClick={handleCopyTypeScript}>
+            </Menu.CopyItem>
+            <Menu.CopyItem
+              itemKey="typescript"
+              text={getTypeScriptText}
+              successMessage="Copied TypeScript time range to clipboard"
+            >
               <Icon.TypeScript /> Copy TypeScript time range
-            </Menu.Item>
+            </Menu.CopyItem>
             <Menu.Divider />
             <Menu.Item itemKey="range" onClick={handleCreateRange}>
               <Ranger.CreateIcon /> Create range from selection

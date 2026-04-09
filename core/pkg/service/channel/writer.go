@@ -51,7 +51,7 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 			if err != nil {
 				return err
 			}
-			(*channels)[i].DataType = result.DataType
+			(*channels)[i].DataType = result.ChanDataType
 		}
 	}
 	return w.Writer.CreateMany(ctx, channels, opts...)

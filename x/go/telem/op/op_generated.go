@@ -5438,6 +5438,286 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 }
 
+func DerivativeF64(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, float64](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeF32(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, float32](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeI64(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, int64](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeI32(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, int32](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeI16(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, int16](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeI8(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, int8](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeU64(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeU32(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeU16(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
+func DerivativeU8(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+
 func AddScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
 	output.Resize(length)

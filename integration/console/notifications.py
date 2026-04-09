@@ -95,16 +95,15 @@ class NotificationsClient:
             True if notification was closed, False if not found
         """
         try:
-            notification_elements = self.page.locator(".pluto-notification").all()
-            if notification_index >= len(notification_elements):
+            notifications = self.page.locator(".pluto-notification")
+            if notifications.count() <= notification_index:
                 return False
 
-            notification = notification_elements[notification_index]
+            notification = notifications.nth(notification_index)
             close_button = notification.locator(".pluto-notification__silence")
 
             if close_button.count() > 0:
-                close_button.wait_for(state="attached", timeout=500)
-                close_button.click()
+                close_button.click(force=True)
                 notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
