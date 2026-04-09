@@ -46,7 +46,6 @@ type runtimeHarness struct {
 	channelState *channel.ProgramState
 	nodeState    *node.ProgramState
 	wasmRT       wazero.Runtime
-	guest        wazero.CompiledModule
 	closers      []func(context.Context) error
 	alignment    telem.Alignment
 }
