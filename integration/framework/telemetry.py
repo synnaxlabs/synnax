@@ -159,9 +159,7 @@ class TelemetryClient:
             name=name,
         )
 
-    def _update_tlm(
-        self, tlm: dict, now: sy.TimeStamp, uptime: float
-    ) -> None:
+    def _update_tlm(self, tlm: dict, now: sy.TimeStamp, uptime: float) -> None:
         tlm[self._ch_time] = now
         tlm[self._ch_uptime] = uptime
         tlm[self._ch_state] = self._get_state().value

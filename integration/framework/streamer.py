@@ -143,9 +143,7 @@ class Streamer:
             if not is_websocket_error(e):
                 import traceback
 
-                self._log(
-                    f"Streamer thread error: {e}\n {traceback.format_exc()}"
-                )
+                self._log(f"Streamer thread error: {e}\n {traceback.format_exc()}")
                 self._set_failed()
                 raise
         finally:

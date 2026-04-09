@@ -9,12 +9,12 @@
 
 import glob
 import importlib.util
+import inspect
 import itertools
 import json
 import os
 import sys
 import threading
-import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -122,7 +122,6 @@ class ConfigClient:
 
         all_sequences: list[dict[str, Any]] = []
         for test_file in test_files:
-
             file_path = Path(test_file)
             if not file_path.exists():
                 file_path = self._tests_dir / test_file

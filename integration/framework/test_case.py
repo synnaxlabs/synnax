@@ -131,11 +131,9 @@ class TestCase(ABC):
         tlm[self._ch_uptime] = uptime
         tlm[self._ch_state] = self._status.value
 
-        if (
-            self._timeout_limit is not None
-            and (now - self.start_time)
-            > sy.TimeSpan.from_seconds(self._timeout_limit)
-        ):
+        if self._timeout_limit is not None and (
+            now - self.start_time
+        ) > sy.TimeSpan.from_seconds(self._timeout_limit):
             self.log(f"Timeout at {uptime:.1f}s")
             self.STATUS = STATUS.TIMEOUT
 
