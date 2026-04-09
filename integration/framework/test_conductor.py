@@ -24,7 +24,7 @@ from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import SynnaxConnection, Test
 from framework.report_client import ReportClient
-from framework.target_filter import TargetFilter, parse_target
+from framework.target_filter import TargetFilter, parse_target, split_csv
 from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
 from x import validate_and_sanitize_name
@@ -340,14 +340,14 @@ All matching is case-insensitive substring.
         if args.target:
             target_filter = parse_target(args.target)
             if args.filter:
-                target_filter.case_filter = args.filter
+                target_filter.case_filter = split_csv(args.filter)
         elif args.filter:
-            target_filter = TargetFilter(case_filter=args.filter)
+            target_filter = TargetFilter(case_filter=split_csv(args.filter))
         else:
             target_filter = TargetFilter()
 
         if args.exclude:
-            target_filter.exclude = args.exclude
+            target_filter.exclude = split_csv(args.exclude)
 
         conductor.load(target_filter)
         conductor.run_sequence()

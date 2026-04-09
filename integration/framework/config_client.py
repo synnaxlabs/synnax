@@ -221,9 +221,10 @@ class ConfigClient:
                 original_count = len(raw_tests)
                 num_expanded = len(expanded_tests)
                 if target_filter.case_filter:
+                    filter_desc = ",".join(target_filter.case_filter)
                     self._log(
                         f"Loaded sequence '{seq_name}' with {num_expanded} tests "
-                        f"matching '{target_filter.case_filter}' ({seq_order})"
+                        f"matching '{filter_desc}' ({seq_order})"
                     )
                 elif num_expanded > original_count:
                     self._log(
@@ -241,7 +242,7 @@ class ConfigClient:
             if target_filter.sequence_filter:
                 parts.append(f"sequence='{target_filter.sequence_filter}'")
             if target_filter.case_filter:
-                parts.append(f"case='{target_filter.case_filter}'")
+                parts.append(f"case='{','.join(target_filter.case_filter)}'")
             raise ValueError(f"No tests found matching filters: {', '.join(parts)}")
 
         return sequences
