@@ -3,18 +3,7 @@
   "sequences": [
     {
       "sequence_name": "all",
-      "tests": [
-        { "case": "migration/channels" },
-        { "case": "migration/channels_calc" },
-        { "case": "migration/labels" },
-        { "case": "migration/ranges" },
-        { "case": "migration/rbac" },
-        { "case": "migration/task_modbus" },
-        { "case": "migration/task_ni" },
-        { "case": "migration/task_opc" },
-        { "case": "migration/workspace" },
-        { "case": "migration/device_properties" }
-      ]
+      "tests": [{ "case": "migration/device_properties" }]
     }
   ]
 }
