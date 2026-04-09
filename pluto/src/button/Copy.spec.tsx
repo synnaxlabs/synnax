@@ -63,6 +63,17 @@ describe("Copy", () => {
       expect(c.getByLabelText("pluto-icon--python")).toBeTruthy();
       expect(c.queryByLabelText("pluto-icon--copy")).toBeFalsy();
     });
+
+    it("should render a custom icon with text without a double icon", () => {
+      const c = render(
+        <Button.Copy text="hello">
+          <Icon.Python /> Copy Python code
+        </Button.Copy>,
+      );
+      expect(c.getByLabelText("pluto-icon--python")).toBeTruthy();
+      expect(c.queryByLabelText("pluto-icon--copy")).toBeFalsy();
+      expect(c.getByText("Copy Python code")).toBeTruthy();
+    });
   });
 
   describe("copying", () => {

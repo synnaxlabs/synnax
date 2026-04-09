@@ -9,6 +9,7 @@
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
+  Children,
   isValidElement,
   type MouseEvent,
   type ReactElement,
@@ -79,15 +80,16 @@ export const Copy = ({
         );
       });
     },
-    [text, onCopy, copiedDuration, addStatus, successMessage, handleError],
+    [text, onCopy, copiedDuration, addStatus, successMessage, handleError, onClick],
   );
 
-  const customIcon = isValidElement(children);
-  const icon = copied ? <Icon.Check /> : customIcon ? children : <Icon.Copy />;
+  const childArray = Children.toArray(children);
+  const hasCustomIcon = isValidElement(childArray[0]);
+  const icon = copied ? <Icon.Check /> : hasCustomIcon ? childArray[0] : <Icon.Copy />;
 
   return (
     <Button tooltip={copied ? "Copied!" : tooltip} onClick={handleClick} {...rest}>
-      {icon} {!customIcon && children}
+      {icon} {hasCustomIcon ? childArray.slice(1) : children}
     </Button>
   );
 };

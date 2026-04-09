@@ -48,7 +48,7 @@ export const Notification = ({
 }: NotificationProps): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const { key, time, count, message, description, variant, name } = stat;
-  const getCopyText = useCallback(() => status.toString(stat), [stat]);
+  const getCopyText = () => status.toString(stat);
 
   return (
     <Flex.Box

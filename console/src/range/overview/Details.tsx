@@ -107,13 +107,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     `,
     [name, rangeKey],
   );
-  const getTypeScriptCode = useCallback(() => {
-    const name = form.get<string>("name").value;
-    return `
+  const getTypeScriptCode = useCallback(
+    () =>
+      `
       // Retrieve ${name}
       const rng = await client.ranges.retrieve("${rangeKey}")
-    `;
-  }, [form, rangeKey]);
+    `,
+    [name, rangeKey],
+  );
 
   const promptDownloadCSVModal = CSV.useDownloadModal();
 
