@@ -12,7 +12,8 @@
         { "case": "migration/task_modbus" },
         { "case": "migration/task_ni" },
         { "case": "migration/task_opc" },
-        { "case": "migration/workspace" }
+        { "case": "migration/workspace" },
+        { "case": "migration/device_properties" }
       ]
     }
   ]
