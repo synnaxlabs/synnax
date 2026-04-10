@@ -201,6 +201,12 @@ class LayoutClient:
             try:
                 target_result.wait_for(state="visible", timeout=5000)
             except PlaywrightTimeoutError:
+                # Target not in results — retry if attempts remain (search
+                # index may not have populated yet after Core restart).
+                self.page.keyboard.press("Escape")
+                if attempt < retries - 1:
+                    sy.sleep(2)
+                    continue
                 input_value = palette_input.input_value()
                 list_items = self.page.locator(
                     ".console-palette__list .pluto-list__virtualizer > div"
