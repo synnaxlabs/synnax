@@ -14,16 +14,16 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/selector/selector.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/selector/selector.h"
 
-namespace arc::runtime::selector {
+namespace arc::stl::selector {
 namespace {
-node::Context make_context() {
-    return node::Context{
+runtime::node::Context make_context() {
+    return runtime::node::Context{
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
-        .reason = node::RunReason::ChannelInput,
+        .reason = runtime::node::RunReason::ChannelInput,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
@@ -35,15 +35,22 @@ node::Context make_context() {
 /// "false" at index 1).
 struct TestSetup {
     ir::IR ir;
-    state::State state;
+    runtime::state::State state;
 
     TestSetup():
         ir(build_ir()),
-        state(state::Config{.ir = ir, .channels = {}}, runtime::errors::noop_handler) {}
+        state(
+            runtime::state::Config{.ir = ir, .channels = {}},
+            runtime::errors::noop_handler
+        ) {}
 
-    state::Node make_select_node() { return ASSERT_NIL_P(state.node("select")); }
+    runtime::state::Node make_select_node() {
+        return ASSERT_NIL_P(this->state.node("select"));
+    }
 
-    state::Node make_source_node() { return ASSERT_NIL_P(state.node("source")); }
+    runtime::state::Node make_source_node() {
+        return ASSERT_NIL_P(this->state.node("source"));
+    }
 
 private:
     static ir::IR build_ir() {
@@ -75,7 +82,6 @@ private:
         select_node.outputs.push_back(true_output);
         select_node.outputs.push_back(false_output);
 
-        // Edge from source output to select input.
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
         edge.target = ir::Handle("select", ir::default_input_param);
@@ -94,7 +100,7 @@ private:
 
 /// @brief Helper to write u8 data to the upstream source output.
 void write_source(
-    state::Node &source,
+    runtime::state::Node &source,
     const std::vector<uint8_t> &data,
     const std::vector<int64_t> &timestamps
 ) {
@@ -103,25 +109,27 @@ void write_source(
 }
 }
 
-/// @brief Test that factory returns NOT_FOUND for non-select node types.
-TEST(SelectFactoryTest, ReturnsNotFoundForWrongType) {
+/// @brief Test that module returns NOT_FOUND for non-select node types.
+TEST(SelectModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup;
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "not_select";
 
-    Factory factory;
+    Module module;
     ASSERT_OCCURRED_AS_P(
-        factory.create(node::Config(setup.ir, ir_node, setup.make_select_node())),
+        module.create(
+            runtime::node::Config(setup.ir, ir_node, setup.make_select_node())
+        ),
         x::errors::NOT_FOUND
     );
 }
 
-/// @brief Test that factory creates a Select node with valid configuration.
-TEST(SelectFactoryTest, CreatesSelectNode) {
+/// @brief Test that module creates a Select node with valid configuration.
+TEST(SelectModuleTest, CreatesSelectNode) {
     TestSetup setup;
-    Factory factory;
-    auto node = ASSERT_NIL_P(factory.create(
-        node::Config(setup.ir, setup.ir.nodes[1], setup.make_select_node())
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_select_node())
     ));
     ASSERT_NE(node, nullptr);
 }

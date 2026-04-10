@@ -126,7 +126,7 @@ flowStatement
 
 flowOperator
     : ARROW        // -> (continuous flow)
-    | TRANSITION   // => (one-shot flow)
+    | TRANSITION   // => (conditional flow)
     ;
 
 routingTable
@@ -195,6 +195,9 @@ statement
     : variableDeclaration
     | assignment
     | ifStatement
+    | forStatement
+    | breakStatement
+    | continueStatement
     | returnStatement
     | expression
     ;
@@ -239,6 +242,25 @@ elseIfClause
 
 elseClause
     : ELSE block
+    ;
+
+forStatement
+    : FOR forClause block
+    ;
+
+forClause
+    : IDENTIFIER COMMA IDENTIFIER DECLARE expression
+    | IDENTIFIER DECLARE expression
+    | expression
+    |
+    ;
+
+breakStatement
+    : BREAK
+    ;
+
+continueStatement
+    : CONTINUE
     ;
 
 returnStatement

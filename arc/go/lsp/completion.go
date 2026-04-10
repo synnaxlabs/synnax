@@ -315,6 +315,42 @@ var completions = []completionInfo{
 		InsertFormat: protocol.InsertTextFormatSnippet,
 		Category:     categoryFunctionKeyword,
 	},
+	{
+		Label:        parser.LiteralFOR,
+		Detail:       "for loop",
+		Doc:          "Loop statement",
+		Insert:       "for ${1:i} := range(${2:n}) {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunctionKeyword,
+	},
+	{
+		Label:        parser.LiteralBREAK,
+		Detail:       "break statement",
+		Doc:          "Exits the enclosing for loop",
+		Insert:       "break",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunctionKeyword,
+	},
+	{
+		Label:        parser.LiteralCONTINUE,
+		Detail:       "continue statement",
+		Doc:          "Skips to the next iteration of the enclosing for loop",
+		Insert:       "continue",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunctionKeyword,
+	},
+	{
+		Label:        "range",
+		Detail:       "range(end) or range(start, end) or range(start, end, step)",
+		Doc:          "Generates a numeric range for iteration",
+		Insert:       "range($0)",
+		Kind:         protocol.CompletionItemKindFunction,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunction | categoryValue,
+	},
 }
 
 func (s *Server) Completion(

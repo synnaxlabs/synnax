@@ -9,12 +9,12 @@
 
 import glob
 import importlib.util
+import inspect
 import itertools
 import json
 import os
 import sys
 import threading
-from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -122,8 +122,6 @@ class ConfigClient:
 
         all_sequences: list[dict[str, Any]] = []
         for test_file in test_files:
-            self._log(f"Loading tests from: {test_file}")
-
             file_path = Path(test_file)
             if not file_path.exists():
                 file_path = self._tests_dir / test_file
@@ -183,6 +181,7 @@ class ConfigClient:
                     # -f matches against both the file path (e.g. "migration/channels")
                     # and the class name (e.g. "ChannelsSetup"), so you can filter into
                     # individual classes: `tc migration -f setup` matches *Setup classes.
+                    expanded = self._expand_parameters(class_def)
                     if target_filter.case_filter is not None:
                         matches_case = target_filter.matches_case(case_path)
                         matches_class = (
@@ -190,8 +189,23 @@ class ConfigClient:
                             and target_filter.matches_case(class_def.name)
                         )
                         if not matches_case and not matches_class:
-                            continue
-                    expanded_tests.extend(self._expand_parameters(class_def))
+                            expanded = [
+                                t
+                                for t in expanded
+                                if t.name is not None
+                                and target_filter.matches_case(t.name)
+                            ]
+                    expanded_tests.extend(expanded)
+
+            if target_filter.exclude is not None:
+                expanded_tests = [
+                    t
+                    for t in expanded_tests
+                    if not (
+                        target_filter.excluded(t.case)
+                        or (t.name is not None and target_filter.excluded(t.name))
+                    )
+                ]
 
             if not seq_name_matches and not expanded_tests:
                 continue
@@ -208,9 +222,10 @@ class ConfigClient:
                 original_count = len(raw_tests)
                 num_expanded = len(expanded_tests)
                 if target_filter.case_filter:
+                    filter_desc = ",".join(target_filter.case_filter)
                     self._log(
                         f"Loaded sequence '{seq_name}' with {num_expanded} tests "
-                        f"matching '{target_filter.case_filter}' ({seq_order})"
+                        f"matching '{filter_desc}' ({seq_order})"
                     )
                 elif num_expanded > original_count:
                     self._log(
@@ -228,7 +243,7 @@ class ConfigClient:
             if target_filter.sequence_filter:
                 parts.append(f"sequence='{target_filter.sequence_filter}'")
             if target_filter.case_filter:
-                parts.append(f"case='{target_filter.case_filter}'")
+                parts.append(f"case='{','.join(target_filter.case_filter)}'")
             raise ValueError(f"No tests found matching filters: {', '.join(parts)}")
 
         return sequences
@@ -369,7 +384,8 @@ class ConfigClient:
                         and issubclass(obj, TestCase)
                         and obj is not TestCase
                         and obj.__module__ == module.__name__
-                        and ABC not in obj.__bases__
+                        # skip classes with unimplemented @abstractmethod
+                        and not inspect.isabstract(obj)
                     )
                 except (AttributeError, TypeError):
                     return False

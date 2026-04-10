@@ -192,9 +192,10 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	}
 	n.Channels.Write[chKey] = sym.Name
-	return newNodeResult(n, ir.DefaultInputParam, ""), true
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
 func buildGlobalConstantNode(
@@ -252,13 +253,14 @@ func analyzeFunctionNode(
 		))
 		return nodeResult{}, false
 	}
+	freshType := types.Freshen(sym.Type, key)
 	n := ir.Node{
 		Key:      key,
 		Type:     name,
 		Channels: sym.Channels.Copy(),
-		Config:   slices.Clone(sym.Type.Config),
-		Outputs:  slices.Clone(sym.Type.Outputs),
-		Inputs:   slices.Clone(sym.Type.Inputs),
+		Config:   slices.Clone(freshType.Config),
+		Outputs:  slices.Clone(freshType.Outputs),
+		Inputs:   slices.Clone(freshType.Inputs),
 	}
 	var ok bool
 	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)
@@ -298,11 +300,13 @@ func analyzeExpression(
 	}
 
 	key := kg.generate(sym.Name, "")
-	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
+	freshType := types.Freshen(sym.Type, key)
+	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
 		Type:     sym.Name,
 		Channels: sym.Channels.Copy(),
+		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -367,6 +371,9 @@ func Analyze(
 		}
 	}
 	if len(i.Nodes) > 0 {
+		if !analyzer.ResolveNodeTypes(i.Nodes, i.Edges, aCtx.Constraints, aCtx.Diagnostics) {
+			return i, aCtx.Diagnostics
+		}
 		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
 			aCtx.Diagnostics = diag
@@ -409,7 +416,7 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 		return ir.EdgeKindContinuous
 	}
 	if opCtx, ok := children[p.lastOpIndex].(parser.IFlowOperatorContext); ok && opCtx.TRANSITION() != nil {
-		return ir.EdgeKindOneShot
+		return ir.EdgeKindConditional
 	}
 	return ir.EdgeKindContinuous
 }
@@ -469,6 +476,14 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		return false
 	}
 	if p.prevNode != nil {
+		if len(p.prevNode.Outputs) == 0 {
+			p.ctx.Diagnostics.Add(diagnostics.Errorf(
+				flowNode,
+				"function '%s' has no output to connect in flow chain",
+				p.prevNode.Type,
+			))
+			return false
+		}
 		p.edges = append(p.edges, ir.Edge{
 			Source: p.prevOutput,
 			Target: result.input,

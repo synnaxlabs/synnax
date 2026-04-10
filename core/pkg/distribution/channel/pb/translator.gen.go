@@ -165,6 +165,8 @@ func OperationTypeToPB(v channel.OperationType) (OperationType, error) {
 		return OperationType_OPERATION_TYPE_AVG, nil
 	case channel.OperationTypeNone:
 		return OperationType_OPERATION_TYPE_NONE, nil
+	case channel.OperationTypeDerivative:
+		return OperationType_OPERATION_TYPE_DERIVATIVE, nil
 	default:
 		return 0, errors.Newf("unrecognized channel.OperationType value: %v", v)
 	}
@@ -181,6 +183,8 @@ func OperationTypeFromPB(v OperationType) (channel.OperationType, error) {
 		return channel.OperationTypeAvg, nil
 	case OperationType_OPERATION_TYPE_NONE:
 		return channel.OperationTypeNone, nil
+	case OperationType_OPERATION_TYPE_DERIVATIVE:
+		return channel.OperationTypeDerivative, nil
 	default:
 		return channel.OperationType(""), errors.Newf("unrecognized OperationType value: %v", v)
 	}
