@@ -150,50 +150,6 @@ describe("fmt.value", () => {
     });
   });
 
-  describe("redaction", () => {
-    it("should redact default sensitive keys at the top level", () => {
-      expect(
-        fmt.value({
-          name: "Alice",
-          password: "hunter2",
-          token: "abc",
-          api_key: "xyz",
-        }),
-      ).toEqual({
-        name: "Alice",
-        password: "[REDACTED]",
-        token: "[REDACTED]",
-        api_key: "[REDACTED]",
-      });
-    });
-
-    it("should redact case-insensitively across variations of the same key", () => {
-      expect(fmt.value({ Password: "one", PASSWORD: "two", ApIkEy: "three" })).toEqual({
-        Password: "[REDACTED]",
-        PASSWORD: "[REDACTED]",
-        ApIkEy: "[REDACTED]",
-      });
-    });
-
-    it("should redact sensitive keys nested inside objects", () => {
-      expect(fmt.value({ connection: { host: "localhost", secret: "shh" } })).toEqual({
-        connection: { host: "localhost", secret: "[REDACTED]" },
-      });
-    });
-
-    it("should redact using a custom key set instead of the defaults", () => {
-      expect(
-        fmt.value(
-          { ssn: "123-45-6789", password: "hunter2", name: "Alice" },
-          { redactKeys: ["ssn"] },
-        ),
-      ).toEqual({
-        ssn: "[REDACTED]",
-        password: "hunter2",
-        name: "Alice",
-      });
-    });
-  });
 });
 
 describe("fmt.stringify", () => {
@@ -215,15 +171,6 @@ describe("fmt.stringify", () => {
       2
     ]
   }
-}`,
-    );
-  });
-
-  it("should render a redacted object with REDACTED tokens", () => {
-    expect(fmt.stringify({ user: "alice", password: "hunter2" })).toBe(
-      `{
-  "user": "alice",
-  "password": "[REDACTED]"
 }`,
     );
   });

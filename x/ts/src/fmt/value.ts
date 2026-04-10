@@ -13,42 +13,16 @@ export interface Options {
   maxStringLength?: number;
   maxArrayLength?: number;
   maxDepth?: number;
-  redactKeys?: Iterable<string>;
 }
 
 const DEFAULT_MAX_STRING_LENGTH = 200;
 const DEFAULT_MAX_ARRAY_LENGTH = 10;
 const DEFAULT_MAX_DEPTH = 8;
-const REDACTED = "[REDACTED]";
-
-export const DEFAULT_REDACT_KEYS: ReadonlySet<string> = new Set([
-  "password",
-  "passwd",
-  "secret",
-  "token",
-  "apikey",
-  "api_key",
-  "accesskey",
-  "access_key",
-  "privatekey",
-  "private_key",
-  "authorization",
-  "auth",
-  "credentials",
-]);
-
-const normalizeRedactKeys = (keys?: Iterable<string>): ReadonlySet<string> => {
-  if (keys == null) return DEFAULT_REDACT_KEYS;
-  const out = new Set<string>();
-  for (const k of keys) out.add(k.toLowerCase());
-  return out;
-};
 
 /**
  * Produces a safe, JSON-friendly representation of an arbitrary value for logging and
- * display. Strings, arrays, and object depth are capped; sensitive keys (passwords,
- * tokens, credentials) are replaced with `[REDACTED]`; non-plain values such as `Date`,
- * `Error`, functions, and symbols are rendered as short bracketed tags.
+ * display. Strings, arrays, and object depth are capped; non-plain values such as
+ * `Date`, `Error`, functions, and symbols are rendered as short bracketed tags.
  *
  * Intended for user-facing error messages, debug output, and any situation where the
  * input may be untrusted or unbounded in size. The output is always structurally
@@ -58,7 +32,6 @@ export const value = (input: unknown, options: Options = {}): unknown => {
   const maxStringLength = options.maxStringLength ?? DEFAULT_MAX_STRING_LENGTH;
   const maxArrayLength = options.maxArrayLength ?? DEFAULT_MAX_ARRAY_LENGTH;
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
-  const redactKeys = normalizeRedactKeys(options.redactKeys);
 
   const walk = (v: unknown, depth: number): unknown => {
     if (v === null) return null;
@@ -85,8 +58,7 @@ export const value = (input: unknown, options: Options = {}): unknown => {
     if (narrow.isPlainObject(v)) {
       if (depth >= maxDepth) return "[Object]";
       const out: Record<string, unknown> = {};
-      for (const [k, val] of Object.entries(v))
-        out[k] = redactKeys.has(k.toLowerCase()) ? REDACTED : walk(val, depth + 1);
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val, depth + 1);
       return out;
     }
     if (v instanceof Date) return v.toISOString();
@@ -103,12 +75,9 @@ export const value = (input: unknown, options: Options = {}): unknown => {
 
 /**
  * Returns a pretty-printed JSON rendering of `input` after passing it through
- * {@link value}. Safe for untrusted or unbounded data.
+ * {@link value}. Safe for untrusted or unbounded data: `value()` always returns a
+ * JSON-compatible structure (primitives, arrays, plain objects, strings), breaks
+ * cycles at the depth cap, and converts bigints/symbols/functions to strings.
  */
-export const stringify = (input: unknown, options: Options = {}): string => {
-  try {
-    return JSON.stringify(value(input, options), null, 2);
-  } catch {
-    return String(input);
-  }
-};
+export const stringify = (input: unknown, options: Options = {}): string =>
+  JSON.stringify(value(input, options), null, 2);

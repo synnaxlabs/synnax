@@ -536,78 +536,6 @@ describe("zod.parse", () => {
     });
   });
 
-  describe("redaction", () => {
-    it("should redact sensitive sibling values in the parent view", () => {
-      expect(
-        parseExpectingError(z.object({ name: z.string(), password: z.string() }), {
-          name: 42,
-          password: "hunter2",
-        }).message,
-      ).toBe(
-        `Failed to parse value (1 issue)
-
-  {
-  ✗ "name": 42,  × expected string
-    "password": "[REDACTED]"
-  }`,
-      );
-    });
-
-    it("should redact secrets at arbitrary depth in the parent view", () => {
-      expect(
-        parseExpectingError(
-          z.object({
-            outer: z.object({
-              middle: z.object({
-                inner: z.object({
-                  name: z.string(),
-                  password: z.string(),
-                }),
-              }),
-            }),
-          }),
-          {
-            outer: {
-              middle: {
-                inner: { name: 42, password: "hunter2" },
-              },
-            },
-          },
-        ).message,
-      ).toBe(
-        `Failed to parse value (1 issue)
-
-  at outer.middle.inner
-    {
-    ✗ "name": 42,  × expected string
-      "password": "[REDACTED]"
-    }`,
-      );
-    });
-
-    it("should redact secrets in the details input regardless of depth", () => {
-      const err = parseExpectingError(
-        z.object({
-          creds: z.object({ token: z.string() }),
-          name: z.string(),
-        }),
-        { creds: { token: "secret-token" }, name: 42 },
-      );
-      const details = err.toStatus().details as Record<string, unknown>;
-      expect(JSON.stringify(details.input)).not.toContain("secret-token");
-      expect(JSON.stringify(details.input)).toContain("[REDACTED]");
-    });
-
-    it("should not touch values under keys that are not in the default redact list", () => {
-      const err = parseExpectingError(
-        z.object({ notes: z.string(), ssn: z.string() }),
-        { notes: 42, ssn: "123-45-6789" },
-      );
-      const details = err.toStatus().details as Record<string, unknown>;
-      expect(JSON.stringify(details.input)).toContain("123-45-6789");
-    });
-  });
-
   describe("truncation", () => {
     it("should bound the error message length for huge failing values", () => {
       const huge = Array.from({ length: 10_000 }, (_, i) => i);
@@ -628,8 +556,8 @@ describe("zod.parse", () => {
   describe("toStatus", () => {
     const makeError = () =>
       parseExpectingError(
-        z.object({ config: z.object({ port: z.number(), password: z.string() }) }),
-        { config: { port: "8080", password: "hunter2" } },
+        z.object({ config: z.object({ port: z.number(), host: z.string() }) }),
+        { config: { port: "8080", host: "localhost" } },
         { label: "task config", context: { taskKey: "tk-1" } },
       );
 
@@ -644,20 +572,17 @@ describe("zod.parse", () => {
   at config
     {
     ✗ "port": "8080",  × expected number
-      "password": "[REDACTED]"
+      "host": "localhost"
     }
 
   context: taskKey=tk-1`,
       );
     });
 
-    it("should return the redacted input, issues, and context in the details", () => {
+    it("should return the input, issues, and context in the details", () => {
       const details = makeError().toStatus().details as Record<string, unknown>;
       expect(details.input).toEqual({
-        config: {
-          port: "8080",
-          password: "[REDACTED]",
-        },
+        config: { port: "8080", host: "localhost" },
       });
       expect(details.context).toEqual({ taskKey: "tk-1" });
       expect(Array.isArray(details.issues)).toBe(true);
@@ -684,11 +609,11 @@ describe("zod.parse", () => {
       parseExpectingError(
         z.object({
           channels: z.array(z.object({ name: z.string(), port: z.number() })),
-          password: z.string(),
+          owner: z.string(),
         }),
         {
           channels: [{ name: "temp", port: "oops" }],
-          password: "hunter2",
+          owner: "alice",
         },
         { label: "task config", context: { taskKey: "tk-1" } },
       );
@@ -713,13 +638,13 @@ describe("zod.parse", () => {
       expect(status.fromException(makeError()).description).toBe(expectedDescription);
     });
 
-    it("should merge the redacted input, issues, and context into status.details", () => {
+    it("should merge input, issues, and context into status.details", () => {
       const s = status.fromException(makeError());
       const details = s.details as Record<string, unknown>;
       expect(details.context).toEqual({ taskKey: "tk-1" });
       expect(details.input).toEqual({
         channels: [{ name: "temp", port: "oops" }],
-        password: "[REDACTED]",
+        owner: "alice",
       });
       expect(Array.isArray(details.issues)).toBe(true);
       expect((details.issues as unknown[]).length).toBe(1);
@@ -749,17 +674,13 @@ describe("zod.parse", () => {
   describe("errors registry round-trip", () => {
     const makeError = () =>
       parseExpectingError(
-        z.object({ port: z.number(), name: z.string(), password: z.string() }),
-        { port: "8080", name: 42, password: "hunter2" },
+        z.object({ port: z.number(), name: z.string(), host: z.string() }),
+        { port: "8080", name: 42, host: "localhost" },
         { label: "task config", context: { taskKey: "tk-1" } },
       );
 
     it("should encode a ParseError with the correct type discriminator", () => {
       expect(errors.encode(makeError()).type).toBe("zod.parse");
-    });
-
-    it("should not leak secrets in the encoded payload", () => {
-      expect(errors.encode(makeError()).data).not.toContain("hunter2");
     });
 
     it("should decode a ParseError payload back into a matching instance", () => {
@@ -769,10 +690,13 @@ describe("zod.parse", () => {
       expect(decoded.issues).toHaveLength(2);
     });
 
-    it("should round-trip through the registry without leaking secrets", () => {
+    it("should round-trip the input through the registry", () => {
       const decoded = asParseError(errors.decode(errors.encode(makeError())));
-      expect(JSON.stringify(decoded.input)).not.toContain("hunter2");
-      expect(JSON.stringify(decoded.issues)).not.toContain("hunter2");
+      expect(decoded.input).toEqual({
+        port: "8080",
+        name: 42,
+        host: "localhost",
+      });
     });
   });
 });

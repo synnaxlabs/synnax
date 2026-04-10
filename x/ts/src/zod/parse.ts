@@ -25,10 +25,11 @@ export interface ParseOptions {
   context?: Record<string, unknown>;
 }
 
-// Tight formatting options for sibling context values rendered inline in a parent
-// view. The faithful version of the input lives on `err.input` and in
+// Tight defaults for sibling context values rendered inline in a parent view.
+// Callers can override any individual field via `ParseOptions.formatOptions`; the
+// faithful version of the input lives on `err.input` and in
 // `toStatus().details.input` for callers that need the full structure.
-const PARENT_VIEW_OPTIONS: fmt.Options = {
+const DEFAULT_PARENT_VIEW_OPTIONS: fmt.Options = {
   maxStringLength: 60,
   maxArrayLength: 3,
   maxDepth: 3,
@@ -36,9 +37,6 @@ const PARENT_VIEW_OPTIONS: fmt.Options = {
 
 const parentPath = (path: ReadonlyArray<PropertyKey>): ReadonlyArray<PropertyKey> =>
   path.slice(0, -1);
-
-const issueOrigin = (issue: z.core.$ZodIssue): string =>
-  "origin" in issue ? String(issue.origin) : "value";
 
 /**
  * Returns a concise "expected X" phrase for a single zod issue. This is the core
@@ -51,40 +49,24 @@ const issueOrigin = (issue: z.core.$ZodIssue): string =>
  */
 const describeCore = (issue: z.core.$ZodIssue): string => {
   switch (issue.code) {
-    case "invalid_type": {
-      const expected = "expected" in issue ? String(issue.expected) : "value";
-      return `expected ${expected}`;
-    }
-    case "invalid_value": {
-      const values = "values" in issue ? JSON.stringify(issue.values) : "<allowed>";
-      return `expected one of ${values}`;
-    }
+    case "invalid_type":
+      return `expected ${issue.expected}`;
+    case "invalid_value":
+      return `expected one of ${JSON.stringify(issue.values)}`;
     case "unrecognized_keys":
       return "unexpected key";
-    case "too_small":
+    case "too_small": {
+      const op = issue.inclusive === false ? ">" : ">=";
+      return `${issue.origin} too small: expected ${op}${issue.minimum}`;
+    }
     case "too_big": {
-      const inclusive = "inclusive" in issue ? issue.inclusive !== false : true;
-      const side = issue.code === "too_small" ? "small" : "large";
-      const op =
-        issue.code === "too_small" ? (inclusive ? ">=" : ">") : inclusive ? "<=" : "<";
-      const limit =
-        issue.code === "too_small"
-          ? "minimum" in issue
-            ? issue.minimum
-            : "?"
-          : "maximum" in issue
-            ? issue.maximum
-            : "?";
-      return `${issueOrigin(issue)} too ${side}: expected ${op}${limit}`;
+      const op = issue.inclusive === false ? "<" : "<=";
+      return `${issue.origin} too large: expected ${op}${issue.maximum}`;
     }
-    case "invalid_format": {
-      const format = "format" in issue ? String(issue.format) : "format";
-      return `expected ${format} format`;
-    }
-    case "not_multiple_of": {
-      const divisor = "divisor" in issue ? String(issue.divisor) : "?";
-      return `expected multiple of ${divisor}`;
-    }
+    case "invalid_format":
+      return `expected ${issue.format} format`;
+    case "not_multiple_of":
+      return `expected multiple of ${issue.divisor}`;
     case "custom":
       return issue.message || "custom validation failed";
     default:
@@ -94,23 +76,14 @@ const describeCore = (issue: z.core.$ZodIssue): string => {
 
 /**
  * A "expected X, received Y" phrase for root-level issues where the whole input is
- * the failing value. Appends the received value from `root` to the core description.
+ * the failing value. Only reached for path-less issues since `expandUnrecognizedKeys`
+ * pushes any `unrecognized_keys` issues into the parent-view path before this runs.
  */
 const describeFlat = (
   issue: z.core.$ZodIssue,
   root: unknown,
   options: fmt.Options,
 ): string => {
-  // `unrecognized_keys` at the root can only happen before expansion; after
-  // `expandUnrecognizedKeys` runs in `format()`, such issues have path.length > 0
-  // and take the parent-view path. Handle them here only for completeness: if they
-  // somehow reach the flat form, render the raw keys list.
-  if (
-    issue.code === "unrecognized_keys" &&
-    "keys" in issue &&
-    Array.isArray(issue.keys)
-  )
-    return `unknown keys: ${issue.keys.join(", ")}`;
   const received = JSON.stringify(fmt.value(root, options));
   return `${describeCore(issue)}, received ${received}`;
 };
@@ -241,28 +214,29 @@ const renderParentView = (
   parent: unknown,
   marks: Map<string, Mark>,
   baseIndent: string,
+  callerOptions: fmt.Options,
 ): string[] => {
   const inner = `${baseIndent}  `;
   const marked = `${baseIndent + MARKER} `;
 
+  // Merge tight parent-view defaults with any caller overrides; caller fields win.
+  let options: fmt.Options = { ...DEFAULT_PARENT_VIEW_OPTIONS, ...callerOptions };
+
   // For array parents, ensure the truncation window includes all marked indices
-  // so the ✗ lines aren't silently dropped when a bad entry lies past the default
-  // maxArrayLength.
-  let options = PARENT_VIEW_OPTIONS;
+  // so the ✗ lines aren't silently dropped when a bad entry lies past the
+  // effective maxArrayLength.
   if (Array.isArray(parent)) {
     let maxIdx = -1;
     for (const key of marks.keys()) {
       const idx = Number(key);
       if (Number.isInteger(idx) && idx > maxIdx) maxIdx = idx;
     }
-    const defaultMax = PARENT_VIEW_OPTIONS.maxArrayLength ?? 3;
-    if (maxIdx >= defaultMax)
-      options = { ...PARENT_VIEW_OPTIONS, maxArrayLength: maxIdx + 2 };
+    const effectiveMax = options.maxArrayLength ?? 3;
+    if (maxIdx >= effectiveMax) options = { ...options, maxArrayLength: maxIdx + 2 };
   }
 
-  // Sanitize the whole parent via fmt.value so sibling key redaction (passwords,
-  // tokens) runs against the parent's own keys rather than per-value, which would
-  // have no key context to match against.
+  // Pass the parent through fmt.value so depth / array / string truncation is
+  // applied consistently to the rendered siblings.
   const sanitized = fmt.value(parent, options);
 
   // Fallback for non-container parents. Only reachable when the union flattener
@@ -344,26 +318,19 @@ const renderIssues = (
   root: unknown,
   options: fmt.Options,
 ): string => {
-  // Group issues by parent path in the order they first appear, preserving zod's
-  // declaration order rather than alphabetizing.
+  // Group issues by parent path. Map iteration order is insertion order, which
+  // preserves zod's traversal order without a parallel index array.
   const groups = new Map<string, z.core.$ZodIssue[]>();
-  const order: string[] = [];
   for (const issue of issues) {
     const key =
       issue.path.length === 0 ? ROOT_GROUP : `::${fmt.path(parentPath(issue.path))}`;
-    let group = groups.get(key);
-    if (group == null) {
-      group = [];
-      groups.set(key, group);
-      order.push(key);
-    }
-    group.push(issue);
+    const existing = groups.get(key);
+    if (existing != null) existing.push(issue);
+    else groups.set(key, [issue]);
   }
 
   const blocks: string[] = [];
-  for (const key of order) {
-    const group = groups.get(key) as z.core.$ZodIssue[];
-
+  for (const [key, group] of groups) {
     // Root-level issues (path.length === 0): flat bullets, no parent view.
     if (key === ROOT_GROUP) {
       blocks.push(group.map((i) => `  × ${describeFlat(i, root, options)}`).join("\n"));
@@ -400,7 +367,7 @@ const renderIssues = (
 
     const isRootParent = parentArr.length === 0;
     const baseIndent = isRootParent ? "  " : "    ";
-    const viewLines = renderParentView(parent, marks, baseIndent);
+    const viewLines = renderParentView(parent, marks, baseIndent, options);
     if (isRootParent) blocks.push(viewLines.join("\n"));
     else blocks.push([`  at ${fmt.path(parentArr)}`, ...viewLines].join("\n"));
   }
@@ -508,16 +475,13 @@ interface ParseErrorPayload {
 
 errors.register({
   encode: (err) => {
-    if (!ParseError.matches(err) || !(err instanceof ParseError)) return null;
-    // Defensive: zod 4 rarely populates issue.input on standard issues, but
-    // custom refinements or third-party check plugins may set it. Redact it
-    // through fmt.value on the way out so no transport leaks a secret even if
-    // one does slip in.
+    if (!ParseError.matches(err)) return null;
+    const pe = err as ParseError;
     const payload: ParseErrorPayload = {
-      label: err.label,
-      context: err.context,
-      issues: err.issues.map((i) => ({ ...i, input: fmt.value(i.input) })),
-      input: fmt.value(err.input),
+      label: pe.label,
+      context: pe.context,
+      issues: pe.issues,
+      input: fmt.value(pe.input),
     };
     return { type: PARSE_ERROR_TYPE, data: JSON.stringify(payload) };
   },
