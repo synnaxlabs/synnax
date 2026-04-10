@@ -70,6 +70,19 @@ var _ = Describe("Object", func() {
 			Expect(dest.Address.City).To(Equal("Boston"))
 		})
 	})
+	Describe("Shape", func() {
+		It("Should expose fields via Shape().Fields()", func() {
+			schema := zyn.Object(map[string]zyn.Schema{
+				"Name": zyn.String(),
+				"Age":  zyn.Number(),
+			})
+			fields := schema.Shape().Fields()
+			Expect(fields).To(HaveLen(2))
+			Expect(fields).To(HaveKey("Name"))
+			Expect(fields).To(HaveKey("Age"))
+			Expect(fields["Name"].DataType()).To(Equal(zyn.StringT))
+		})
+	})
 	Describe("Validate", func() {
 		It("Should return nil if the value is a valid object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
@@ -178,6 +191,12 @@ var _ = Describe("Object", func() {
 			Expect(schema.Parse(nil, &dest)).
 				To(MatchError(ContainSubstring("required")))
 		})
+		Specify("optional whole object with nil data", func() {
+			type TestStruct struct{ Name string }
+			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()}).Optional()
+			var dest TestStruct
+			Expect(schema.Parse(nil, &dest)).To(Succeed())
+		})
 	})
 	Describe("Dump", func() {
 		Specify("basic object", func() {
@@ -234,6 +253,25 @@ var _ = Describe("Object", func() {
 			})
 			data := TestStruct{Name: "John", Email: nil}
 			Expect(schema.Dump(data)).To(Equal(map[string]any{"name": "John"}))
+		})
+		Specify("optional field missing from struct is skipped", func() {
+			type TestStruct struct{ Name string }
+			schema := zyn.Object(map[string]zyn.Schema{
+				"Name":  zyn.String(),
+				"Extra": zyn.String().Optional(),
+			})
+			Expect(schema.Dump(TestStruct{Name: "John"})).
+				To(Equal(map[string]any{"name": "John"}))
+		})
+		Specify("field dump error is returned with path", func() {
+			type TestStruct struct {
+				ID string
+			}
+			schema := zyn.Object(map[string]zyn.Schema{
+				"ID": zyn.String().UUID(),
+			})
+			Expect(schema.Dump(TestStruct{ID: "not-a-uuid"})).Error().
+				To(MatchError(ContainSubstring("ID")))
 		})
 		Specify("already dumped map[string]any", func() {
 			type TestStruct struct {

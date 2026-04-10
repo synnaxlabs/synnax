@@ -84,6 +84,27 @@ func (u UnionZ) Parse(data, dest any) error {
 	)
 }
 
+// Validate checks that the data matches at least one union variant without parsing
+// into a destination.
+func (u UnionZ) Validate(data any) error {
+	if data == nil {
+		if u.optional {
+			return nil
+		}
+		return errors.WithStack(validate.ErrRequired)
+	}
+	for _, schema := range u.schemas {
+		if err := schema.Validate(data); err == nil {
+			return nil
+		}
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"data did not match any of %d union variants",
+		len(u.schemas),
+	)
+}
+
 // Dump tries each schema in order and returns the first successful dump. If all
 // schemas fail, an error is returned.
 func (u UnionZ) Dump(data any) (any, error) {
