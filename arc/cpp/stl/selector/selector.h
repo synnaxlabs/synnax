@@ -16,24 +16,24 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::selector {
+namespace arc::stl::selector {
 
 inline const std::string true_param = "true";
 inline const std::string false_param = "false";
 
 /// @brief Select routes u8 input to "true" or "false" outputs based on value.
 /// Input values of 1 route to 1/true, all others to 0/false.
-class Select : public node::Node {
-    state::Node state;
+class Select : public runtime::node::Node {
+    runtime::state::Node state;
 
 public:
-    explicit Select(state::Node &&state): state(std::move(state)) {}
+    explicit Select(runtime::state::Node &&state): state(std::move(state)) {}
 
-    x::errors::Error next(node::Context &ctx) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(0);
         const auto &time = this->state.input_time(0);
@@ -86,14 +86,14 @@ public:
     }
 };
 
-class Factory : public node::Factory {
+class Module : public stl::Module {
 public:
     bool handles(const std::string &node_type) const override {
         return node_type == "select";
     }
 
-    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
-    create(node::Config &&cfg) override {
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         return {std::make_unique<Select>(std::move(cfg.state)), x::errors::NIL};
     }

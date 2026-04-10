@@ -49,12 +49,13 @@ ox_pt_1
 
 **Reserved keywords** cannot be used as identifiers:
 
-| Keywords    |                        |                        |                   |
-| ----------- | ---------------------- | ---------------------- | ----------------- |
-| `func`      | `if`                   | `else`                 | `return`          |
-| `sequence`  | `stage`                | `next`                 | `chan`            |
-| `series`    | `and`                  | `or`                   | `not`             |
-| `authority` | `i8` `i16` `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` `str` |
+| Keywords   |             |                        |                   |
+| ---------- | ----------- | ---------------------- | ----------------- |
+| `func`     | `if`        | `else`                 | `return`          |
+| `for`      | `break`     | `continue`             | `chan`            |
+| `sequence` | `stage`     | `next`                 | `series`          |
+| `and`      | `or`        | `not`                  | `authority`       |
+| `i8` `i16` | `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` `str` |
 
 <Divider.Divider x />
 
@@ -345,11 +346,25 @@ func process() {
 }
 ```
 
-<Note.Note variant="info">
-  Arc has no loops. Use [stateful
-  variables](/reference/control/arc/concepts/stateful-variables) with reactive execution
-  for iterative patterns.
-</Note.Note>
+### For Loops
+
+Arc supports `for` loops for iterating over series, counting through ranges, and
+repeating until a condition is met. See the
+[Loops](/reference/control/arc/reference/loops) reference for full details.
+
+```arc
+for x := data {
+    // iterate over a series
+}
+
+for i := range(10) {
+    // count from 0 to 9
+}
+
+for condition {
+    // repeat while condition is non-zero
+}
+```
 
 <Divider.Divider x />
 

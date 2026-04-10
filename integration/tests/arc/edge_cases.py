@@ -9,11 +9,9 @@
 
 from dataclasses import dataclass, field
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
-from x import random_name
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -121,16 +119,42 @@ func chan_fwd_callee(ch chan f32) {
     ch = 66.0
 }
 
-interval{period=100ms} -> test_same_channel_write{}
-interval{period=100ms} -> test_diamond{}
-interval{period=100ms} -> test_multi_callee{}
-interval{period=100ms} -> test_chain{}
-interval{period=100ms} -> test_fwd_ref{}
-interval{period=100ms} -> test_chan_param_write{}
-interval{period=100ms} -> test_chan_chain{}
-interval{period=100ms} -> test_chan_diff_args{}
-interval{period=100ms} -> test_chan_multi_param{}
-interval{period=100ms} -> test_chan_fwd_ref{}
+interval{100ms} -> test_same_channel_write{}
+interval{100ms} -> test_diamond{}
+interval{100ms} -> test_multi_callee{}
+interval{100ms} -> test_chain{}
+interval{100ms} -> test_fwd_ref{}
+interval{100ms} -> test_chan_param_write{}
+interval{100ms} -> test_chan_chain{}
+interval{100ms} -> test_chan_diff_args{}
+interval{100ms} -> test_chan_multi_param{}
+interval{100ms} -> test_chan_fwd_ref{}
+"""
+
+# ── Read-only monitor (no write channels, only set_status) ──
+# Regression test: the C++ driver unconditionally created writer/streamer
+# pipelines even when write_channels was empty, causing the server to reject
+# the empty keys list.
+
+ARC_READ_ONLY_MONITOR = """
+start_read_only_monitor_cmd => main
+
+sequence main {
+    stage on {
+        edge_monitor_input > 30 => set_status{
+            status_key = "press_monitor_status",
+            name = "Press Monitor",
+            variant = "warning",
+            message = "Pressure high"
+        },
+        edge_monitor_input < 30 => set_status{
+            status_key = "press_monitor_status",
+            name = "Press Monitor",
+            variant = "success",
+            message = "Pressure nominal"
+        },
+    }
+}
 """
 
 # ── Circular dependency sources (invalid, caught at configure time) ──
@@ -144,7 +168,7 @@ func self_rec() {
     ch1 = 1.0
     self_rec()
 }
-interval{period=100ms} -> self_rec{}
+interval{100ms} -> self_rec{}
 """
 
 # Callee called in ALL branches of if-else (no exit path)
@@ -158,7 +182,7 @@ func ping() {
     }
 }
 func pong() { ping() }
-interval{period=100ms} -> ping{}
+interval{100ms} -> ping{}
 """
 
 # Tangled web of 5 functions forming one big cycle. Branches decide arithmetic,
@@ -202,7 +226,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-interval{period=100ms} -> init_seq{}
+interval{100ms} -> init_seq{}
 """
 
 # ── Guarded circular calls (valid, should configure successfully) ──
@@ -216,7 +240,7 @@ func self_rec() {
         self_rec()
     }
 }
-interval{period=100ms} -> self_rec{}
+interval{100ms} -> self_rec{}
 """
 
 # Same tangled web but route_beta wraps its call in if ch1 > 0, providing one exit path.
@@ -261,7 +285,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-interval{period=100ms} -> init_seq{}
+interval{100ms} -> init_seq{}
 """
 
 CHANNEL_VIRTUAL = [
@@ -329,19 +353,23 @@ class EdgeCases(ArcConsoleCase):
     arc_source = ARC_CHANNEL_EDGE_CASES_SOURCE
     arc_name_prefix = "ArcEdgeCases"
     start_cmd_channel = "start_edge_case_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = CHANNEL_VIRTUAL
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self._extra_arcs: list[str] = []
         for ch in CHANNEL_VIRTUAL:
-            self.client.channels.create(
-                name=ch,
-                data_type=sy.DataType.FLOAT32,
-                virtual=True,
-                retrieve_if_name_exists=True,
+            create_virtual_channel(self.client, ch)
+        create_virtual_channel(
+            self.client, "start_read_only_monitor_cmd", sy.DataType.UINT8
+        )
+        create_virtual_channel(self.client, "edge_monitor_input")
+        self.client.statuses.set(
+            sy.Status(
+                key="press_monitor_status",
+                name="Press Monitor",
+                variant="disabled",
+                message="Initialized",
             )
+        )
         super().setup()
 
     def _verify_channel_edge_cases(self) -> None:
@@ -381,13 +409,8 @@ class EdgeCases(ArcConsoleCase):
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
 
     def _assert_circular_error(self, case: CircularCase) -> None:
-        arc_name = f"Circ{case.label}_{random_name()}"
-        self.log(f"[{case.label}] Testing {arc_name}")
-
-        self.console.arc.create(arc_name, case.source, mode="Text")
-        self._extra_arcs.append(arc_name)
-        assert self.rack is not None
-        self.console.arc.select_rack(self.rack.name)
+        self.log(f"[{case.label}] Testing circular dependency")
+        self.load_arc(case.source, f"Circ{case.label}", start=False, configure=False)
 
         self.console.arc.configure_no_wait()
         status = self.console.arc.wait_for_status(case.wait_substr)
@@ -410,32 +433,35 @@ class EdgeCases(ArcConsoleCase):
             self._assert_circular_error(case)
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
-        arc_name = f"Guard{case.label}_{random_name()}"
-        self.log(f"[Guarded {case.label}] Testing {arc_name}")
-
-        self.console.arc.create(arc_name, case.source, mode="Text")
-        self._extra_arcs.append(arc_name)
-        assert self.rack is not None
-        self.console.arc.select_rack(self.rack.name)
-
-        self.console.arc.configure()
+        self.log(f"[Guarded {case.label}] Testing guarded recursion")
+        self.load_arc(case.source, f"Guard{case.label}", start=False)
 
     def _verify_guarded_cases(self) -> None:
         self.log("=== Guarded recursion (should configure successfully) ===")
         for case in GUARDED_CASES:
             self._assert_guarded_configures(case)
 
+    def _verify_read_only_monitor(self) -> None:
+        self.log("=== Read-only monitor (no write channels) ===")
+        name = self.load_arc(
+            ARC_READ_ONLY_MONITOR,
+            "ReadOnly",
+            trigger="start_read_only_monitor_cmd",
+        )
+
+        self.writer.write("edge_monitor_input", 50.0)
+        self.log("Waiting for pressure status notification...")
+        assert self.console.notifications.wait_for("Press Monitor"), (
+            "No pressure status notification found"
+        )
+
+        assert self.console.arc.is_running(), "Read-only Arc stopped unexpectedly"
+        self.log("Read-only Arc with no write channels running successfully")
+        self.console.notifications.close_all()
+        self.stop_arc(name)
+
     def verify_sequence_execution(self) -> None:
         self._verify_channel_edge_cases()
         self._verify_circular_cases()
         self._verify_guarded_cases()
-
-    def teardown(self) -> None:
-        if self._extra_arcs:
-            try:
-                arcs = self.client.arcs.retrieve(names=self._extra_arcs)
-                if arcs:
-                    self.client.arcs.delete([a.key for a in arcs])
-            except Exception as e:
-                self.log(f"Cleanup failed for extra arcs: {e}")
-        super().teardown()
+        self._verify_read_only_monitor()

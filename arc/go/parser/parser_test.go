@@ -616,6 +616,95 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(ifStmt.ElseClause()).NotTo(BeNil())
 			})
 		})
+
+		Context("For Loops", func() {
+			It("Should parse for with range(1 arg)", func() {
+				stmt := mustParseStatement(`for i := range(10) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				Expect(forStmt.FOR()).NotTo(BeNil())
+
+				clause := forStmt.ForClause()
+				Expect(clause).NotTo(BeNil())
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(clause.AllIDENTIFIER()[0].GetText()).To(Equal("i"))
+				Expect(clause.DECLARE()).NotTo(BeNil())
+				Expect(clause.Expression()).NotTo(BeNil())
+				Expect(forStmt.Block()).NotTo(BeNil())
+			})
+
+			It("Should parse for with range(2 args)", func() {
+				stmt := mustParseStatement(`for i := range(5, 10) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(clause.DECLARE()).NotTo(BeNil())
+			})
+
+			It("Should parse for with range(3 args)", func() {
+				stmt := mustParseStatement(`for i := range(0, 10, 2) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+			})
+
+			It("Should parse for with two identifiers (series iteration)", func() {
+				stmt := mustParseStatement(`for i, x := data { y := x }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(clause.AllIDENTIFIER()[0].GetText()).To(Equal("i"))
+				Expect(clause.AllIDENTIFIER()[1].GetText()).To(Equal("x"))
+				Expect(clause.COMMA()).NotTo(BeNil())
+				Expect(clause.DECLARE()).NotTo(BeNil())
+			})
+
+			It("Should parse conditional (while-style) for loop", func() {
+				stmt := mustParseStatement(`for running { x := 1 }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.Expression()).NotTo(BeNil())
+				Expect(clause.DECLARE()).To(BeNil())
+			})
+
+			It("Should parse infinite for loop", func() {
+				stmt := mustParseStatement(`for { x := 1 }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.Expression()).To(BeNil())
+				Expect(clause.DECLARE()).To(BeNil())
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(0))
+			})
+
+			It("Should parse break statement", func() {
+				stmt := mustParseStatement(`break`)
+				Expect(stmt.BreakStatement()).NotTo(BeNil())
+				Expect(stmt.BreakStatement().BREAK()).NotTo(BeNil())
+			})
+
+			It("Should parse continue statement", func() {
+				stmt := mustParseStatement(`continue`)
+				Expect(stmt.ContinueStatement()).NotTo(BeNil())
+				Expect(stmt.ContinueStatement().CONTINUE()).NotTo(BeNil())
+			})
+
+			It("Should parse nested for loops", func() {
+				stmt := mustParseStatement(`for i := range(3) {
+					for j := range(5) {
+						x := i + j
+					}
+				}`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				block := forStmt.Block()
+				Expect(block.AllStatement()).To(HaveLen(1))
+				innerFor := block.Statement(0).ForStatement()
+				Expect(innerFor).NotTo(BeNil())
+			})
+		})
 	})
 
 	Describe("Comprehensive Tests", func() {

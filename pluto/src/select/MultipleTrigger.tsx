@@ -35,18 +35,21 @@ export interface MultipleTagProps<K extends record.Key> extends Omit<
 > {
   itemKey: K;
   onDragStart: (key: K) => void;
+  renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
 const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   itemKey,
   icon,
   onDragStart,
+  renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const item = List.useItem<K, E>(itemKey);
   const { onSelect } = useItemState(itemKey);
   let label: string = itemKey.toString();
   if (primitive.isNonZero(item?.alias)) label = item.alias;
   else if (primitive.isNonZero(item?.name)) label = item.name;
+  const resolvedIcon = renderIcon?.(item) ?? item?.icon ?? icon;
   return (
     <Tag.Tag
       onClose={onSelect}
@@ -54,7 +57,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
       draggable
       size="small"
       status={item == null ? "error" : undefined}
-      icon={item?.icon ?? icon}
+      icon={resolvedIcon}
       color={item?.color}
     >
       {label}
@@ -73,6 +76,7 @@ export interface MultipleTriggerProps<K extends record.Key> extends Pick<
   icon?: Icon.ReactElement;
   hideTags?: boolean;
   children?: RenderProp<MultipleTagProps<K>>;
+  renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
 export const staticCanDrop = <K extends record.Key>(
@@ -94,6 +98,7 @@ export const MultipleTrigger = <K extends record.Key>({
   icon,
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
+  renderIcon,
 }: MultipleTriggerProps<K>): ReactElement => {
   const value = useSelection<K>();
   const valueRef = useSyncedRef(value);
@@ -168,7 +173,7 @@ export const MultipleTrigger = <K extends record.Key>({
         </Text.Text>
       )}
       {value.map((v) =>
-        children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon }),
+        children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
       )}
       {variant !== "text" && (
         <Caret.Animated

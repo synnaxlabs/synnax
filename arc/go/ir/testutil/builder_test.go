@@ -73,15 +73,15 @@ var _ = Describe("IRBuilder", func() {
 			Expect(prog.Edges[0].Target).To(Equal(ir.Handle{Node: "B", Param: "in"}))
 		})
 
-		It("Should create one-shot edges with OneShot()", func() {
+		It("Should create conditional edges with Conditional()", func() {
 			prog := testutil.NewIRBuilder().
 				Node("A").
 				Node("B").
-				OneShot("A", "trigger", "B", "activate").
+				Conditional("A", "trigger", "B", "activate").
 				Build()
 
 			Expect(prog.Edges).To(HaveLen(1))
-			Expect(prog.Edges[0].Kind).To(Equal(ir.EdgeKindOneShot))
+			Expect(prog.Edges[0].Kind).To(Equal(ir.EdgeKindConditional))
 		})
 	})
 })

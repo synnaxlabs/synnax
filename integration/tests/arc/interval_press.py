@@ -10,6 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_INTERVAL_PRESS_SOURCE = """
@@ -25,7 +26,7 @@ func open_press() {
     }
 }
 
-interval{period=50ms} -> open_press{}
+interval{50ms} -> open_press{}
 """
 
 
@@ -56,12 +57,7 @@ class IntervalPress(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.client.channels.create(
-            name="str_chan",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "str_chan", sy.DataType.STRING)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

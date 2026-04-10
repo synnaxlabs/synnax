@@ -8,3 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * as log from "@/log/aether/Log";
+export * from "@/log/aether/telem/sources";
+export * from "@/log/aether/telem/types";

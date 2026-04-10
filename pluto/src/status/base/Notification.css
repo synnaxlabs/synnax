@@ -34,11 +34,11 @@
             max-width: 160px;
         }
     }
-    .pluto-notification__silence {
+    .pluto-notification__header-actions {
         opacity: 0;
     }
     &:hover {
-        .pluto-notification__silence {
+        .pluto-notification__header-actions {
             opacity: 1;
         }
     }

@@ -517,7 +517,7 @@ var _ = Describe("Sequences", func() {
 
 var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 	It("Should represent a complete sequence state machine with edges", func() {
-		// Build a realistic sequence with both Continuous and EdgeKindOneShot edges
+		// Build a realistic sequence with both Continuous and EdgeKindConditional edges
 		sequences := ir.Sequences{
 			{
 				Key: "main",
@@ -536,11 +536,11 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 				Target: ir.Handle{Node: "check_1", Param: "input"},
 				Kind:   ir.EdgeKindContinuous,
 			},
-			// EdgeKindOneShot transition: precheck -> pressurize
+			// EdgeKindConditional transition: precheck -> pressurize
 			{
 				Source: ir.Handle{Node: "check_1", Param: "output"},
 				Target: ir.Handle{Node: "pressurize_entry", Param: "activate"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.EdgeKindConditional,
 			},
 			// Continuous dataflow within pressurize stage
 			{
@@ -548,11 +548,11 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 				Target: ir.Handle{Node: "pressure_monitor", Param: "input"},
 				Kind:   ir.EdgeKindContinuous,
 			},
-			// EdgeKindOneShot transition: pressurize -> complete
+			// EdgeKindConditional transition: pressurize -> complete
 			{
 				Source: ir.Handle{Node: "pressure_monitor", Param: "threshold_met"},
 				Target: ir.Handle{Node: "complete_entry", Param: "activate"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.EdgeKindConditional,
 			},
 		}
 
@@ -572,13 +572,13 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 
 		// Verify edge kinds
 		continuous := edges.GetByKind(ir.EdgeKindContinuous)
-		oneShot := edges.GetByKind(ir.EdgeKindOneShot)
+		conditional := edges.GetByKind(ir.EdgeKindConditional)
 
 		Expect(continuous).To(HaveLen(2))
-		Expect(oneShot).To(HaveLen(2))
+		Expect(conditional).To(HaveLen(2))
 
-		// Verify EdgeKindOneShot edges target entry nodes
-		for _, e := range oneShot {
+		// Verify EdgeKindConditional edges target entry nodes
+		for _, e := range conditional {
 			Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			Expect(e.Target.Param).To(Equal("activate"))
 		}

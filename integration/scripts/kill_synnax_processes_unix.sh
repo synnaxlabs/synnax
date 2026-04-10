@@ -40,6 +40,18 @@ if [ "$KILLED_PROCESSES" = true ]; then
     sleep 10
 fi
 
+echo "Checking for Docker containers using port 9090..."
+DOCKER_CONTAINERS=$(docker ps -q --filter "publish=9090" 2> /dev/null || true)
+if [ -n "$DOCKER_CONTAINERS" ]; then
+    echo "Found Docker containers using port 9090, killing them..."
+    echo "$DOCKER_CONTAINERS" | xargs -r docker kill 2> /dev/null || true
+    echo "$DOCKER_CONTAINERS" | xargs -r docker rm -f 2> /dev/null || true
+    echo "Docker containers killed"
+    KILLED_PROCESSES=true
+else
+    echo "No Docker containers found using port 9090"
+fi
+
 echo "Cleaning up synnax directories..."
 [ -d "$HOME/synnax-binaries" ] && rm -rf "$HOME/synnax-binaries" && echo "Removed synnax-binaries directory from $HOME" || echo "No synnax-binaries directory found in $HOME"
 [ -d "$HOME/synnax-data" ] && rm -rf "$HOME/synnax-data" && echo "Removed synnax-data directory from $HOME" || echo "No synnax-data directory found in $HOME"

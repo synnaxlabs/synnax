@@ -531,6 +531,79 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Loop Keyword Completion", func() {
+		It("should show for keyword at statement start inside func body", func(ctx SpecContext) {
+			content := "func foo() {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeTrue(), "Should show 'for' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "break")).To(BeTrue(), "Should show 'break' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeTrue(), "Should show 'continue' keyword at statement start in func body")
+		})
+
+		It("should not show for keyword at top level", func(ctx SpecContext) {
+			content := "fo"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 2)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' at top level")
+			Expect(HasCompletion(completions.Items, "break")).To(BeFalse(), "Should not show 'break' at top level")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' at top level")
+		})
+
+		It("should not show loop keywords inside sequence body", func(ctx SpecContext) {
+			content := "sequence main {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' inside sequence body")
+			Expect(HasCompletion(completions.Items, "break")).To(BeFalse(), "Should not show 'break' inside sequence body")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' inside sequence body")
+		})
+
+		It("should not show loop keywords in expression context", func(ctx SpecContext) {
+			content := "func foo() {\n    x := \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' in expression context")
+			Expect(HasCompletion(completions.Items, "break")).To(BeFalse(), "Should not show 'break' in expression context")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' in expression context")
+		})
+
+		It("should show for snippet with correct insert text", func(ctx SpecContext) {
+			content := "func foo() {\n    fo\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 6)
+			Expect(completions).ToNot(BeNil())
+
+			item, found := FindCompletion(completions.Items, "for")
+			Expect(found).To(BeTrue())
+			Expect(item.InsertText).To(ContainSubstring("range"))
+			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
+		})
+
+		It("should show range function in expression context", func(ctx SpecContext) {
+			content := "func foo() {\n    x := r\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "range")).To(BeTrue(), "Should show 'range' function in expression context")
+		})
+	})
+
 	Describe("Stage Body Completion", func() {
 		var globalResolver symbol.MapResolver
 
