@@ -134,7 +134,9 @@ class ConsoleCase(TestCase):
         log_path = get_results_path(f"{name}_browser_console.log")
         with open(log_path, "w") as f:
             f.write("\n".join(self._browser_logs))
-        self.log(f"Browser console log saved to {log_path} ({len(self._browser_logs)} lines)")
+        self.log(
+            f"Browser console log saved to {log_path} ({len(self._browser_logs)} lines)"
+        )
         # TODO: Remove this once we verify log artifact uploads work
         for line in self._browser_logs:
             self.log(f"DEBUG: {line}")

@@ -174,11 +174,9 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
 
         self._screenshot("after_configure")
 
-        # Close notifications that may overlay the play button.
-        console.notifications.close_all()
-
         # Run the task via the Console play button.
         self.log("Running task...")
+        console.notifications.close_all()
         play_btn.dispatch_event("click")
         sy.sleep(2)
 
