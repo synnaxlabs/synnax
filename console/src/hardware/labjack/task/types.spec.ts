@@ -17,6 +17,21 @@ import {
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
 
+describe("readStatusDataZ", () => {
+  it("should accept null", () => {
+    expect(READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+  });
+  it("should accept undefined", () => {
+    expect(READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+  });
+  it("should accept a valid errors object", () => {
+    const result = READ_SCHEMAS.statusData.safeParse({
+      errors: [{ message: "bad", path: "/dev/ai0" }],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe("readConfigZ", () => {
   const readConfigZ = READ_SCHEMAS.config;
   it("should validate a valid read configuration", () => {

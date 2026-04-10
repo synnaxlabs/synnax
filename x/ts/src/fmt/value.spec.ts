@@ -149,7 +149,6 @@ describe("fmt.value", () => {
       expect(fmt.value("hi", { maxStringLength: 10 })).toBe("hi");
     });
   });
-
 });
 
 describe("fmt.stringify", () => {
