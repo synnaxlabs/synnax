@@ -139,6 +139,11 @@ public:
         );
     }
 
+    /// @brief Initializes an input's source with the given data and time series.
+    /// Used to seed optional inputs (e.g., reset signals) so that
+    /// refresh_inputs does not block on them before they receive real data.
+    void init_input(size_t param_index, const Series &data, const Series &time);
+
     /// @brief Resets accumulated input state for runtime restart.
     void reset() {
         for (auto &entry: this->accumulated) {

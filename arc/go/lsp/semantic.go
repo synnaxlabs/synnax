@@ -35,7 +35,7 @@ const (
 	SemanticTokenTypeStage
 	SemanticTokenTypeBlock
 	SemanticTokenTypeStatefulVariable
-	SemanticTokenTypeEdgeOneShot
+	SemanticTokenTypeEdgeConditional
 	SemanticTokenTypeEdgeContinuous
 	SemanticTokenTypeConstant
 	SemanticTokenTypeConfig
@@ -59,7 +59,7 @@ var semanticTokenTypes = []string{
 	"stage",
 	"block",
 	"statefulVariable",
-	"edgeOneShot",
+	"edgeConditional",
 	"edgeContinuous",
 	"constant",
 	"config",
@@ -170,7 +170,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerCHAN:
 		tokenType = SemanticTokenTypeType
 	case parser.ArcLexerTRANSITION:
-		tokenType = SemanticTokenTypeEdgeOneShot
+		tokenType = SemanticTokenTypeEdgeConditional
 	case parser.ArcLexerARROW:
 		tokenType = SemanticTokenTypeEdgeContinuous
 	case parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,

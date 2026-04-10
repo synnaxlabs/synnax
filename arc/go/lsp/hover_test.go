@@ -535,7 +535,7 @@ func add(a i32, b i32) i32 {
 			Entry("state declare $=", "x $= 1", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("assign =", "x = 1", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("arrow ->", "x -> y", uint32(lsp.SemanticTokenTypeEdgeContinuous)),
-			Entry("transition =>", "x => y", uint32(lsp.SemanticTokenTypeEdgeOneShot)),
+			Entry("transition =>", "x => y", uint32(lsp.SemanticTokenTypeEdgeConditional)),
 			Entry("plus +", "x + y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("minus -", "x - y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("star *", "x * y", uint32(lsp.SemanticTokenTypeOperator)),

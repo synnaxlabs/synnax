@@ -36,6 +36,14 @@
         {
           "case": "arc/for_loops",
           "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/stat",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/stage_routing",
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     },

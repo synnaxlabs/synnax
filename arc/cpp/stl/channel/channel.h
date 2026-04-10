@@ -110,7 +110,7 @@ public:
     Write(runtime::state::Node &&state, const types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
-    x::errors::Error next(runtime::node::Context & /*ctx*/) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(0);
         if (data->empty()) return x::errors::NIL;
@@ -123,6 +123,17 @@ public:
             )
         );
         this->state.write_series(this->channel_key, data, time);
+        auto &out = this->state.output(0);
+        out->resize(1);
+        out->set(0, static_cast<uint8_t>(1));
+        out->alignment = data->alignment;
+        out->time_range = data->time_range;
+        auto &out_time = this->state.output_time(0);
+        out_time->resize(1);
+        out_time->set(0, time->at<int64_t>(time->size() - 1));
+        out_time->alignment = data->alignment;
+        out_time->time_range = data->time_range;
+        ctx.mark_changed(ir::default_output_param);
         return x::errors::NIL;
     }
 

@@ -385,6 +385,146 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     EXPECT_EQ(consumer_node.input(0)->at<float>(1), 200.0f);
 }
 
+/// @brief init_input seeds a connected input so refresh_inputs doesn't block.
+TEST(StateTest, InitInput_SeedsConnectedInput) {
+    arc::types::Param data_output;
+    data_output.name = "output";
+    data_output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::types::Param reset_output;
+    reset_output.name = "output";
+    reset_output.type = arc::types::Type{.kind = arc::types::Kind::U8};
+
+    arc::types::Param input_data;
+    input_data.name = "data";
+    input_data.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::types::Param input_reset;
+    input_reset.name = "reset";
+    input_reset.type = arc::types::Type{.kind = arc::types::Kind::U8};
+
+    arc::ir::Node data_producer;
+    data_producer.key = "data_producer";
+    data_producer.type = "producer";
+    data_producer.outputs.push_back(data_output);
+
+    arc::ir::Node reset_producer;
+    reset_producer.key = "reset_producer";
+    reset_producer.type = "producer";
+    reset_producer.outputs.push_back(reset_output);
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(input_data);
+    consumer.inputs.push_back(input_reset);
+
+    arc::ir::Edge data_edge(
+        arc::ir::Handle("data_producer", "output"),
+        arc::ir::Handle("consumer", "data")
+    );
+    arc::ir::Edge reset_edge(
+        arc::ir::Handle("reset_producer", "output"),
+        arc::ir::Handle("consumer", "reset")
+    );
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(data_producer);
+    ir.nodes.push_back(reset_producer);
+    ir.nodes.push_back(consumer);
+    ir.edges.push_back(data_edge);
+    ir.edges.push_back(reset_edge);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto data_node = ASSERT_NIL_P(s.node("data_producer"));
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
+
+    // Without init_input, refresh_inputs blocks because reset has no data.
+    auto &o = data_node.output(0);
+    *o = x::telem::Series(std::vector<float>{1.0f, 2.0f});
+    auto &o_time = data_node.output_time(0);
+    *o_time = x::telem::Series(std::vector<int64_t>{1000, 2000});
+
+    ASSERT_FALSE(consumer_node.refresh_inputs());
+
+    // After init_input, the reset input has seed data so refresh_inputs succeeds.
+    consumer_node.init_input(
+        1,
+        x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
+        x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
+    );
+
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    EXPECT_EQ(consumer_node.input(0)->size(), 2);
+    EXPECT_EQ(consumer_node.input(0)->at<float>(0), 1.0f);
+    EXPECT_EQ(consumer_node.input(1)->size(), 1);
+    EXPECT_EQ(consumer_node.input(1)->at<uint8_t>(0), 0);
+}
+
+/// @brief init_input data gets overwritten when the real source produces data.
+TEST(StateTest, InitInput_OverwrittenByRealData) {
+    arc::types::Param data_output;
+    data_output.name = "output";
+    data_output.type = arc::types::Type{.kind = arc::types::Kind::U8};
+
+    arc::types::Param input_param;
+    input_param.name = "input";
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::U8};
+
+    arc::ir::Node producer;
+    producer.key = "producer";
+    producer.type = "producer";
+    producer.outputs.push_back(data_output);
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(input_param);
+
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(producer);
+    ir.nodes.push_back(consumer);
+    ir.edges.push_back(edge);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
+
+    // Seed with init_input.
+    consumer_node.init_input(
+        0,
+        x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
+        x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
+    );
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    EXPECT_EQ(consumer_node.input(0)->at<uint8_t>(0), 0);
+
+    // Real data overwrites the seed.
+    *producer_node.output(0) = x::telem::Series(static_cast<uint8_t>(1));
+    *producer_node.output_time(0) = x::telem::Series(
+        x::telem::TimeStamp(2000).nanoseconds()
+    );
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    EXPECT_EQ(consumer_node.input(0)->at<uint8_t>(0), 1);
+}
+
 /// @brief Helper to create a minimal State for authority/node tests
 State create_minimal_state() {
     arc::ir::Node ir_node;

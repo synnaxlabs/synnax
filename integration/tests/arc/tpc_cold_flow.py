@@ -73,7 +73,7 @@ func on_critical{} (value f32) {
 }
 
 // Dataflow: OX pressure -> classifier -> status handlers
-ox_pt_1 -> classify_pressure{safe_threshold=15, warning_threshold=40} -> {
+ox_pt_1 -> classify_pressure{15, 40} -> {
     safe_out: on_safe{},
     warning_out: on_warning{},
     critical_out: on_critical{}
@@ -87,7 +87,7 @@ sequence main {
         1 -> tpc_vent_trigger,
         0 -> tpc_mpv_trigger,
         1 -> tpc_stage,
-        wait{duration=500ms} => press_charge
+        wait{500ms} => press_charge
     }
 
     stage press_charge {
@@ -128,7 +128,7 @@ sequence main {
         1 -> tpc_vent_trigger,
         0 -> tpc_mpv_trigger,
         5 -> tpc_stage,
-        wait{duration=2s} => fire
+        wait{2s} => fire
     }
 
     stage fire {
@@ -136,7 +136,7 @@ sequence main {
         1 -> tpc_vent_trigger,
         1 -> tpc_mpv_trigger,
         6 -> tpc_stage,
-        wait{duration=1s} => shutdown
+        wait{1s} => shutdown
     }
 
     stage shutdown {

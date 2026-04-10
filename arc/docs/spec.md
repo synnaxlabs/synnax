@@ -329,8 +329,9 @@ func controller{
 - Config parameters must be literals or channel identifiers (compile-time constants)
 - Config values are provided at instantiation using `=` syntax:
   `controller{setpoint=100.0}`
-- **Anonymous config values** are only allowed for single-parameter functions:
-  `filter{50.0}` is valid, but multi-param functions require named values
+- **Anonymous config values** map to parameters by declaration order: `filter{50.0}`
+  sets the first parameter; `average{10ms, 100}` sets the first and second. Trailing
+  parameters with defaults may be omitted.
 
 ### Input Parameters
 
@@ -473,7 +474,7 @@ The flow layer connects functions via channels in the reactive scope.
 FlowStatement ::= (RoutingTable | FlowNode) (FlowOperator (RoutingTable | FlowNode))+
 
 FlowOperator ::= '->'       // continuous flow
-               | '=>'       // one-shot flow
+               | '=>'       // conditional flow
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
@@ -554,8 +555,7 @@ inactive, they don't.
 **Two edge types**:
 
 - `->` (Continuous): Reactive flow that runs while the stage is active
-- `=>` (OneShot): Fires once when condition becomes true, then doesn't fire again until
-  stage is re-entered
+- `=>` (Conditional): Propagates only when the source output is truthy
 
 ### Sequence Syntax
 
@@ -623,16 +623,15 @@ stage step3 { }            // terminal (no outgoing transitions)
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
 stage is active.
 
-**One-shot transitions (`=>`)**: Execute once when the condition becomes true, then
-stop. The "one-shot" state resets when the stage is re-entered.
+**Conditional transitions (`=>`)**: Propagate only when the condition is truthy
+(non-zero). A transition to an already-active stage is a no-op, preventing re-entry.
 
 ### Stage Entry Semantics
 
 When entering a stage:
 
-1. All one-shot transition states reset (can fire again)
-2. All stateful nodes in the stage are reset
-3. Reactive flows start fresh
+1. All stateful nodes in the stage are reset
+2. Reactive flows start fresh
 
 Stages are stateless between entries—no implicit memory of previous time in the stage.
 

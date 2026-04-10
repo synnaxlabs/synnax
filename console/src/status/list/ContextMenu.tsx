@@ -9,6 +9,7 @@
 
 import { status } from "@synnaxlabs/client";
 import { Access, Component, type Flux, Menu, Status } from "@synnaxlabs/pluto";
+import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -55,6 +56,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     () => keys.some((k) => !favoriteSet.has(k)),
     [favoriteSet, keys],
   );
+  const getCopyText = useCallback(() => {
+    if (q.variant !== "success") return "";
+    return q.data.map((s) => xstatus.toString(s)).join("\n\n");
+  }, [q]);
+
   if (q.variant !== "success") return null;
   const statuses = q.data;
   const isEmpty = statuses.length === 0;
@@ -69,6 +75,18 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
         onUnfavorite={() => dispatch(removeFavorites(keys))}
       />
       {(anyFavorited || anyNotFavorited) && <Menu.Divider />}
+      {!isEmpty && (
+        <>
+          <Menu.CopyItem
+            itemKey="copyDiagnostics"
+            text={getCopyText}
+            successMessage="Copied diagnostics to clipboard"
+          >
+            Copy Diagnostics
+          </Menu.CopyItem>
+          <Menu.Divider />
+        </>
+      )}
       {hasDeletePermission && !isEmpty && (
         <CMenu.DeleteItem
           onClick={() => {

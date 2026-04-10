@@ -26,6 +26,7 @@ import (
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
@@ -110,17 +111,21 @@ func newHarness(
 	_, _ = stlmath.NewModule(ctx, wasmRT)
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
-	_, _ = channel.NewModule(ctx, channelState, stringsState, wasmRT)
+	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
 	errorsMod.SetMemory(guest.Memory())
 
-	factory := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+	factory := node.CompoundFactory{
+		&wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       stringsState,
+			NodeKeySetter: statefulMod,
+		},
+		channelMod,
+		&stat.Module{},
 	}
 	return &testHarness{
 		graph:        g,
@@ -198,17 +203,21 @@ func newTextHarness(
 	_, _ = stlmath.NewModule(ctx, wasmRT)
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
-	_, _ = channel.NewModule(ctx, channelState, stringsState, wasmRT)
+	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
 	errorsMod.SetMemory(guest.Memory())
 
-	factory := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+	factory := node.CompoundFactory{
+		&wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       stringsState,
+			NodeKeySetter: statefulMod,
+		},
+		channelMod,
+		&stat.Module{},
 	}
 	return &testHarness{
 		prog:         prog,
