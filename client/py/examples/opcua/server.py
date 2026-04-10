@@ -356,6 +356,12 @@ class OPCUASim(DeviceSim):
         self.user_manager = user_manager
         self.max_sessions = max_sessions
 
+    def start(self) -> None:
+        super().start()
+        # Allow OPCUA Server time to startup
+        # so server doesn't reject the Core for trying to connect too many times
+        sy.sleep(5)
+
     async def _run_server(self) -> None:
         await run_server(
             self.endpoint,

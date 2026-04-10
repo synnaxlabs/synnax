@@ -20,7 +20,7 @@ from framework.log_client import (
 from framework.models import STATUS, SYMBOLS, SynnaxConnection, Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
-from framework.telemetry_client import TelemetryClient
+from framework.telemetry import TelemetryClient, TelemetryWriter
 
 __all__ = [
     "ConfigClient",
@@ -38,6 +38,7 @@ __all__ = [
     "SynnaxConnection",
     "TargetFilter",
     "TelemetryClient",
+    "TelemetryWriter",
     "Test",
     "TestDefinition",
     "parse_target",

@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STAGE_ROUTING = """
@@ -82,9 +81,7 @@ class StageRouting(ArcConsoleCase):
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
     start_cmd_channel = "start_stage_routing_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["routing_stage_log"]
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         flag_idx = self.client.channels.create(
@@ -111,45 +108,22 @@ class StageRouting(ArcConsoleCase):
             index=sensor_idx.key,
             retrieve_if_name_exists=True,
         )
-        self.client.channels.create(
-            name="routing_stage_log",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="next_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "routing_stage_log", sy.DataType.STRING)
+        create_virtual_channel(self.client, "next_cmd", sy.DataType.UINT8)
         super().setup()
 
     def _write_flag(self, value: int) -> None:
-        with self.client.open_writer(
-            sy.TimeStamp.now(), ["routing_flag_time", "routing_flag"]
-        ) as w:
-            w.write(
-                {
-                    "routing_flag_time": sy.TimeStamp.now(),
-                    "routing_flag": value,
-                }
-            )
+        self.writer.write(
+            {"routing_flag_time": sy.TimeStamp.now(), "routing_flag": value}
+        )
 
     def _write_sensor(self, value: float) -> None:
-        with self.client.open_writer(
-            sy.TimeStamp.now(), ["routing_sensor_time", "routing_sensor"]
-        ) as w:
-            w.write(
-                {
-                    "routing_sensor_time": sy.TimeStamp.now(),
-                    "routing_sensor": value,
-                }
-            )
+        self.writer.write(
+            {"routing_sensor_time": sy.TimeStamp.now(), "routing_sensor": value}
+        )
 
     def _advance(self) -> None:
-        with self.client.open_writer(sy.TimeStamp.now(), "next_cmd") as w:
-            w.write("next_cmd", 1)
+        self.writer.write("next_cmd", 1)
 
     def verify_sequence_execution(self) -> None:
         # Phase 1: select routing
