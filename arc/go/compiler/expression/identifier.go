@@ -27,7 +27,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
-	case symbol.KindVariable, symbol.KindInput:
+	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
 			if chanRef {

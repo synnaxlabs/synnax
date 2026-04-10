@@ -1,0 +1,507 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package statement
+
+import (
+	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/expression"
+	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
+)
+
+func compileForStatement(
+	ctx context.Context[parser.IForStatementContext],
+) (diverged bool, err error) {
+	clause := ctx.AST.ForClause()
+	if clause == nil {
+		return false, nil
+	}
+
+	idents := clause.AllIDENTIFIER()
+	hasDeclare := clause.DECLARE() != nil
+	hasComma := clause.COMMA() != nil
+	expr := clause.Expression()
+
+	switch {
+	case hasComma && len(idents) == 2:
+		return false, compileForTwoIdent(ctx, clause, expr)
+	case hasDeclare && len(idents) == 1:
+		return false, compileForSingleIdent(ctx, clause, idents[0].GetText(), expr)
+	case expr != nil:
+		return false, compileForCondition(ctx, expr)
+	default:
+		return false, compileForInfinite(ctx)
+	}
+}
+
+func compileForSingleIdent(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	name string,
+	expr parser.IExpressionContext,
+) error {
+	if funcCall, ok := isRangeCallExpr(expr); ok {
+		return compileForRange(ctx, clause, name, funcCall)
+	}
+	return compileForSeriesIteration(ctx, clause, name, "", expr)
+}
+
+func compileForTwoIdent(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	expr parser.IExpressionContext,
+) error {
+	idents := clause.AllIDENTIFIER()
+	indexName := idents[0].GetText()
+	elemName := idents[1].GetText()
+	return compileForSeriesIteration(ctx, clause, elemName, indexName, expr)
+}
+
+func isRangeCallExpr(expr parser.IExpressionContext) (parser.IFunctionCallSuffixContext, bool) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, false
+	}
+	if primary.IDENTIFIER().GetText() != "range" {
+		return nil, false
+	}
+	postfix := expr.LogicalOrExpression().
+		AllLogicalAndExpression()[0].
+		AllEqualityExpression()[0].
+		AllRelationalExpression()[0].
+		AllAdditiveExpression()[0].
+		AllMultiplicativeExpression()[0].
+		AllPowerExpression()[0].
+		UnaryExpression().
+		PostfixExpression()
+	if postfix == nil {
+		return nil, false
+	}
+	calls := postfix.AllFunctionCallSuffix()
+	if len(calls) != 1 {
+		return nil, false
+	}
+	return calls[0], true
+}
+
+func compileForRange(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	name string,
+	funcCall parser.IFunctionCallSuffixContext,
+) error {
+	loopScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
+	if err != nil {
+		return err
+	}
+	loopCtx := ctx.WithScope(loopScope)
+
+	args := funcCall.ArgumentList().AllExpression()
+	varSym, err := loopScope.Resolve(ctx, name)
+	if err != nil {
+		return err
+	}
+	loopVarIdx := varSym.ID
+
+	var startExpr, endExpr, stepExpr parser.IExpressionContext
+	switch len(args) {
+	case 1:
+		endExpr = args[0]
+	case 2:
+		startExpr = args[0]
+		endExpr = args[1]
+	case 3:
+		startExpr = args[0]
+		endExpr = args[1]
+		stepExpr = args[2]
+	}
+
+	loopVarType := varSym.Type
+
+	hintCtx := loopCtx.WithHint(loopVarType)
+	if startExpr != nil {
+		if err = compileAndCast(hintCtx, startExpr, loopVarType); err != nil {
+			return err
+		}
+	} else {
+		emitZero(ctx.Writer, loopVarType)
+	}
+	ctx.Writer.WriteLocalSet(loopVarIdx)
+
+	limitSym, err := loopScope.Resolve(ctx, "__for_limit")
+	if err != nil {
+		return err
+	}
+	limitIdx := limitSym.ID
+	if err = compileAndCast(hintCtx, endExpr, loopVarType); err != nil {
+		return err
+	}
+	ctx.Writer.WriteLocalSet(limitIdx)
+
+	var stepIdx int
+	if stepExpr != nil {
+		stepSym, err := loopScope.Resolve(ctx, "__for_step")
+		if err != nil {
+			return err
+		}
+		stepIdx = stepSym.ID
+		if err = compileAndCast(hintCtx, stepExpr, loopVarType); err != nil {
+			return err
+		}
+		ctx.Writer.WriteLocalSet(stepIdx)
+	}
+
+	// block $break
+	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
+
+	// loop $loop_header
+	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+
+	if stepExpr != nil {
+		ctx.Writer.WriteLocalGet(stepIdx)
+		emitZero(ctx.Writer, loopVarType)
+		if err = ctx.Writer.WriteBinaryOpInferred(">", loopVarType); err != nil {
+			return err
+		}
+		ctx.Writer.WriteIf(wasm.BlockTypeI32)
+		ctx.Writer.WriteLocalGet(loopVarIdx)
+		ctx.Writer.WriteLocalGet(limitIdx)
+		if err = ctx.Writer.WriteBinaryOpInferred(">=", loopVarType); err != nil {
+			return err
+		}
+		ctx.Writer.WriteElse()
+		ctx.Writer.WriteLocalGet(loopVarIdx)
+		ctx.Writer.WriteLocalGet(limitIdx)
+		if err = ctx.Writer.WriteBinaryOpInferred("<=", loopVarType); err != nil {
+			return err
+		}
+		ctx.Writer.WriteEnd()
+		ctx.Writer.WriteBrIf(1)
+	} else {
+		ctx.Writer.WriteLocalGet(loopVarIdx)
+		ctx.Writer.WriteLocalGet(limitIdx)
+		if err = ctx.Writer.WriteBinaryOpInferred(">=", loopVarType); err != nil {
+			return err
+		}
+		ctx.Writer.WriteBrIf(1)
+	}
+
+	// block $continue — continue lands at end of this block, before increment
+	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
+
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
+		BreakDepth:    breakDepth,
+		ContinueDepth: continueDepth,
+	})
+
+	if block := ctx.AST.Block(); block != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+			return err
+		}
+	}
+
+	// end block $continue
+	ctx.Writer.WriteEnd()
+
+	ctx.Writer.WriteLocalGet(loopVarIdx)
+	if stepExpr != nil {
+		ctx.Writer.WriteLocalGet(stepIdx)
+	} else {
+		emitOne(ctx.Writer, loopVarType)
+	}
+	if err = ctx.Writer.WriteBinaryOpInferred("+", loopVarType); err != nil {
+		return err
+	}
+	ctx.Writer.WriteLocalSet(loopVarIdx)
+
+	// br $loop_header
+	ctx.Writer.WriteBr(0)
+
+	// end loop
+	ctx.Writer.WriteEnd()
+
+	// end block $break
+	ctx.Writer.WriteEnd()
+
+	return nil
+}
+
+func compileForSeriesIteration(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	elemName string,
+	indexName string,
+	expr parser.IExpressionContext,
+) error {
+	loopScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
+	if err != nil {
+		return err
+	}
+	loopCtx := ctx.WithScope(loopScope)
+
+	handleSym, err := loopScope.Resolve(ctx, "__for_handle")
+	if err != nil {
+		return err
+	}
+	lenSym, err := loopScope.Resolve(ctx, "__for_len")
+	if err != nil {
+		return err
+	}
+	idxSym, err := loopScope.Resolve(ctx, "__for_idx")
+	if err != nil {
+		return err
+	}
+	elemSym, err := loopScope.Resolve(ctx, elemName)
+	if err != nil {
+		return err
+	}
+
+	handleIdx := handleSym.ID
+	lenIdx := lenSym.ID
+	idxIdx := idxSym.ID
+	elemIdx := elemSym.ID
+	elemType := elemSym.Type
+
+	if _, err = expression.Compile(context.Child(loopCtx, expr)); err != nil {
+		return err
+	}
+	ctx.Writer.WriteLocalSet(handleIdx)
+
+	ctx.Writer.WriteLocalGet(handleIdx)
+	ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID)
+	ctx.Writer.WriteOpcode(wasm.OpI32WrapI64)
+	ctx.Writer.WriteLocalSet(lenIdx)
+
+	ctx.Writer.WriteI32Const(0)
+	ctx.Writer.WriteLocalSet(idxIdx)
+
+	// block $break
+	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
+
+	// loop $loop_header
+	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+
+	ctx.Writer.WriteLocalGet(idxIdx)
+	ctx.Writer.WriteLocalGet(lenIdx)
+	ctx.Writer.WriteOpcode(wasm.OpI32GeS)
+	ctx.Writer.WriteBrIf(1)
+
+	ctx.Writer.WriteLocalGet(handleIdx)
+	ctx.Writer.WriteLocalGet(idxIdx)
+	ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, elemType)
+	ctx.Writer.WriteLocalSet(elemIdx)
+
+	if indexName != "" {
+		indexSym, err := loopScope.Resolve(ctx, indexName)
+		if err != nil {
+			return err
+		}
+		ctx.Writer.WriteLocalGet(idxIdx)
+		ctx.Writer.WriteLocalSet(indexSym.ID)
+	}
+
+	// block $continue — continue lands at end of this block, before increment
+	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
+
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
+		BreakDepth:    breakDepth,
+		ContinueDepth: continueDepth,
+	})
+
+	if block := ctx.AST.Block(); block != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+			return err
+		}
+	}
+
+	// end block $continue
+	ctx.Writer.WriteEnd()
+
+	ctx.Writer.WriteLocalGet(idxIdx)
+	ctx.Writer.WriteI32Const(1)
+	ctx.Writer.WriteOpcode(wasm.OpI32Add)
+	ctx.Writer.WriteLocalSet(idxIdx)
+
+	// br $loop_header
+	ctx.Writer.WriteBr(0)
+
+	// end loop
+	ctx.Writer.WriteEnd()
+
+	// end block $break
+	ctx.Writer.WriteEnd()
+
+	return nil
+}
+
+func compileForCondition(
+	ctx context.Context[parser.IForStatementContext],
+	expr parser.IExpressionContext,
+) error {
+	loopScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
+	if err != nil {
+		return err
+	}
+	loopCtx := ctx.WithScope(loopScope)
+
+	// block $break
+	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
+
+	// loop $continue
+	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
+
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
+		BreakDepth:    breakDepth,
+		ContinueDepth: continueDepth,
+	})
+
+	if _, err = expression.Compile(context.Child(bodyCtx, expr)); err != nil {
+		return err
+	}
+	ctx.Writer.WriteI32Eqz()
+	ctx.Writer.WriteBrIf(1) // br to $break if condition is false
+
+	if block := ctx.AST.Block(); block != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+			return err
+		}
+	}
+
+	// br $continue
+	ctx.Writer.WriteBr(0)
+
+	// end loop
+	ctx.Writer.WriteEnd()
+
+	// end block
+	ctx.Writer.WriteEnd()
+
+	return nil
+}
+
+func compileForInfinite(
+	ctx context.Context[parser.IForStatementContext],
+) error {
+	loopScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
+	if err != nil {
+		return err
+	}
+	loopCtx := ctx.WithScope(loopScope)
+
+	// block $break
+	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
+
+	// loop $continue
+	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
+
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
+		BreakDepth:    breakDepth,
+		ContinueDepth: continueDepth,
+	})
+
+	if block := ctx.AST.Block(); block != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+			return err
+		}
+	}
+
+	// br $continue
+	ctx.Writer.WriteBr(0)
+
+	// end loop
+	ctx.Writer.WriteEnd()
+
+	// end block
+	ctx.Writer.WriteEnd()
+
+	return nil
+}
+
+func compileBreakStatement(
+	ctx context.Context[parser.IBreakStatementContext],
+) error {
+	entry, ok := ctx.CurrentLoop()
+	if !ok {
+		return errors.New("break outside loop")
+	}
+	label := uint32(ctx.BlockDepth() - entry.BreakDepth)
+	ctx.Writer.WriteBr(label)
+	return nil
+}
+
+func compileContinueStatement(
+	ctx context.Context[parser.IContinueStatementContext],
+) error {
+	entry, ok := ctx.CurrentLoop()
+	if !ok {
+		return errors.New("continue outside loop")
+	}
+	label := uint32(ctx.BlockDepth() - entry.ContinueDepth)
+	ctx.Writer.WriteBr(label)
+	return nil
+}
+
+// compileAndCast compiles an expression and emits a cast if the compiled type
+// differs from the target. This uses the return type from expression.Compile
+// rather than a TypeMap lookup, which is more reliable for variable references
+// whose TypeMap entries may be stored at sub-expression levels.
+func compileAndCast(
+	ctx context.Context[parser.IForStatementContext],
+	expr parser.IExpressionContext,
+	target types.Type,
+) error {
+	compiledType, err := expression.Compile(context.Child(ctx, expr))
+	if err != nil {
+		return err
+	}
+	if !types.Equal(compiledType, target) &&
+		wasm.ConvertType(compiledType) != wasm.ConvertType(target) {
+		return expression.EmitCast(ctx, compiledType, target)
+	}
+	return nil
+}
+
+func emitZero(w *wasm.Writer, t types.Type) {
+	switch wasm.ConvertType(t) {
+	case wasm.I32:
+		w.WriteI32Const(0)
+	case wasm.I64:
+		w.WriteI64Const(0)
+	}
+}
+
+func emitOne(w *wasm.Writer, t types.Type) {
+	switch wasm.ConvertType(t) {
+	case wasm.I32:
+		w.WriteI32Const(1)
+	case wasm.I64:
+		w.WriteI64Const(1)
+	}
+}

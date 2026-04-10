@@ -198,15 +198,22 @@ class ArcClient:
         Waits for either "Task configured successfully" or "Task started
         successfully" to appear. The latter handles the race where the status
         transitions past "configured" before Playwright can observe it.
+        Retries once on timeout to handle transient driver slowness.
         """
-        controls = self._get_controls()
-        configure_btn = controls.locator("button:has-text('Configure')")
-        configure_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        configure_btn.click()
-        configured = controls.locator("text=Task configured successfully")
-        started = controls.locator("text=Task started successfully")
-        configured.or_(started).wait_for(state="visible", timeout=30000)
+        for attempt in range(2):
+            controls = self._get_controls()
+            configure_btn = controls.locator("button:has-text('Configure')")
+            configure_btn.wait_for(state="visible", timeout=5000)
+            self.notifications.close_all()
+            configure_btn.click()
+            configured = controls.locator("text=Task configured successfully")
+            started = controls.locator("text=Task started successfully")
+            try:
+                configured.or_(started).wait_for(state="visible", timeout=30000)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 1:
+                    raise
 
     def configure_no_wait(self) -> None:
         """Click the Configure button without waiting for a success message.
