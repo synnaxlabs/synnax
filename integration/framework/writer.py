@@ -22,7 +22,11 @@ class Writer:
         self._lock = threading.Lock()
         self._commit_ts = sy.TimeStamp.now()
 
-    def write(self, channel_or_data: str | dict[str, object], value: int | float | str | None = None) -> None:
+    def write(
+        self,
+        channel_or_data: str | dict[str, int | float | str | None],
+        value: int | float | str | None = None,
+    ) -> None:
         if isinstance(channel_or_data, str):
             data = {channel_or_data: value}
         else:

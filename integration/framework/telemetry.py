@@ -25,8 +25,8 @@ class TelemetryWriter:
         self,
         client: sy.Synnax,
         tlm: dict[str, Any],
-        channels: list,
-        update: Callable[[dict, sy.TimeStamp, float], None],
+        channels: list[str],
+        update: Callable[[dict[str, object], sy.TimeStamp, float], None],
         should_stop: Callable[[], bool],
         *,
         rate: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND,
@@ -155,7 +155,9 @@ class TelemetryClient:
             name=name,
         )
 
-    def _update_tlm(self, tlm: dict, now: sy.TimeStamp, uptime: float) -> None:
+    def _update_tlm(
+        self, tlm: dict[str, object], now: sy.TimeStamp, uptime: float
+    ) -> None:
         tlm[self._ch_time] = now
         tlm[self._ch_uptime] = uptime
         tlm[self._ch_state] = self._get_state().value
