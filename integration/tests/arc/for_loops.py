@@ -9,9 +9,8 @@
 
 from dataclasses import dataclass
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_FOR_LOOP_SOURCE = """
@@ -415,9 +414,7 @@ class ForLoops(ArcConsoleCase):
     arc_source = ARC_FOR_LOOP_SOURCE
     arc_name_prefix = "ArcForLoops"
     start_cmd_channel = "start_for_loop_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = ALL_CHANNELS
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         virtual_channels = [
@@ -427,19 +424,9 @@ class ForLoops(ArcConsoleCase):
             ("series_peak_idx", sy.DataType.INT32),
         ]
         for name, dtype in virtual_channels:
-            self.client.channels.create(
-                name=name,
-                data_type=dtype,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
+            create_virtual_channel(self.client, name, dtype)
         for case in CASES:
-            self.client.channels.create(
-                name=case.in_ch,
-                data_type=case.in_dtype,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
+            create_virtual_channel(self.client, case.in_ch, case.in_dtype)
             idx = self.client.channels.create(
                 name=f"{case.out_ch}_time",
                 is_index=True,
@@ -457,8 +444,7 @@ class ForLoops(ArcConsoleCase):
     def verify_sequence_execution(self) -> None:
         for case in CASES:
             self.log(f"[{case.label}] Writing {case.write_val} to {case.in_ch}")
-            with self.client.open_writer(sy.TimeStamp.now(), case.in_ch) as w:
-                w.write(case.in_ch, case.write_val)
+            self.writer.write(case.in_ch, case.write_val)
 
             self.log(f"[{case.label}] Waiting for {case.out_ch} == {case.expected}")
             self.wait_for_eq(case.out_ch, case.expected)
