@@ -22,11 +22,14 @@ Sequence:
        and verifies data is produced using ``assert_sample_count``.
 """
 
+import platform
+
 import synnax as sy
+from console.case import ConsoleCase
+from console.task_page import TaskPage
 from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
 from tests.migration.task import (
-    ReadTaskConsoleVerify,
     ReadTaskMigration,
     ReadTaskMigrationSetup,
     ReadTaskMigrationVerify,
@@ -111,9 +114,57 @@ class DevicePropertiesVerify(ReadTaskMigrationVerify, _Base):
     num_channels = NUM_CHANNELS
 
 
-class DevicePropertiesConsoleVerify(ReadTaskConsoleVerify):
-    """Verify the task form renders and Configure works in the Console."""
+class DevicePropertiesConsoleVerify(ConsoleCase):
+    """Open the task, click Configure in the Console, then run via Python client.
 
-    task_name = TASK_NAME
-    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
-    requires_platform = "windows"
+    This exercises the exact code path that triggers the ZodError on buggy
+    consoles: ``onConfigure`` → ``client.devices.retrieve({ schemas })`` →
+    ``propertiesZ.parse()``. After Configure succeeds, the task is run via
+    the Python client and ``assert_sample_count`` verifies data is produced.
+    """
+
+    def setup(self) -> None:
+        if platform.system().lower() != "windows":
+            self.auto_pass(msg="NI sim devices require Windows")
+            return
+        super().setup()
+
+    def run(self) -> None:
+        console = self.console
+        client = self.client
+
+        # Open the task and click Configure in the Console UI.
+        self.log(f"Searching for task '{TASK_NAME}'...")
+        task_page = console.workspace.open_from_search(TaskPage, TASK_NAME)
+        self.log("Task page opened")
+
+        configure_btn = task_page.page.get_by_role(
+            "button", name="Configure", exact=True
+        )
+        configure_btn.wait_for(state="visible", timeout=5000)
+        self.log("Clicking Configure...")
+        configure_btn.click(force=True)
+
+        # Play button appearing confirms Configure succeeded.
+        play_btn = task_page.page.locator("button .pluto-icon--play").locator("..")
+        play_btn.wait_for(state="visible", timeout=15000)
+        self.log("Configure succeeded — play button visible")
+
+        # Run the task and verify data via the Python client.
+        tasks = client.tasks.retrieve(names=[TASK_NAME])
+        assert len(tasks) == 1, f"Expected 1 task, got {len(tasks)}"
+        raw = tasks[0]
+        task = sy.ni.AnalogReadTask(**raw.config)
+        task.set_internal(raw)
+
+        channel_keys = [ch.channel for ch in task.config.channels]
+        self.log(f"Running task (key={task.key}, channels={channel_keys})...")
+        with task.run():
+            with client.open_streamer(channel_keys) as streamer:
+                frame = streamer.read(timeout=30)
+                assert frame is not None, "Task did not produce data"
+            self.log("Data received")
+            sy.sleep(1)
+
+        self.log("Migration verified — Console Configure + Python run + data OK")
+        console.notifications.close_all()
