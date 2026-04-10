@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { ZodError } from "zod";
 
 import { type rack } from "@/rack";
 import { createTestClient } from "@/testutil/client";
@@ -24,7 +23,7 @@ describe("Rack", () => {
     });
     it("should return an error if the rack doesn't have a name", async () => {
       // @ts-expect-error - Testing for error
-      await expect(client.racks.create({})).rejects.toThrow(ZodError);
+      await expect(client.racks.create({})).rejects.toThrow(zod.ParseError);
     });
     it("should create a rack with a custom status", async () => {
       const customStatus: rack.Status = {

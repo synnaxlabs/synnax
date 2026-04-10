@@ -195,7 +195,7 @@ export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
 
 const scanCommandResponseZ = z
   .object({ channels: z.array(scannedNodeZ), connection: connectionConfigZ })
-  .or(z.null());
+  .nullish();
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 

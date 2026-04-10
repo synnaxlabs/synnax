@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/zod/nullToUndefined";
-export * from "@/zod/parse";
-export * from "@/zod/schemas";
-export * from "@/zod/toArray";
-export * from "@/zod/util";
+import { testPropertiesSchema } from "@/hardware/common/device/testutil";
+import { SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
+
+testPropertiesSchema("Modbus", SCHEMAS.properties, ZERO_PROPERTIES, [
+  [
+    "properties with only connection config",
+    { connection: { host: "192.168.1.10", port: 502 } },
+  ],
+]);

@@ -64,6 +64,57 @@ describe("primitive", () => {
     });
   });
 
+  describe("is", () => {
+    it("should return true for null and undefined", () => {
+      expect(primitive.is(null)).toBe(true);
+      expect(primitive.is(undefined)).toBe(true);
+    });
+
+    it("should return true for strings", () => {
+      expect(primitive.is("")).toBe(true);
+      expect(primitive.is("hello")).toBe(true);
+    });
+
+    it("should return true for numbers", () => {
+      expect(primitive.is(0)).toBe(true);
+      expect(primitive.is(3.14)).toBe(true);
+      expect(primitive.is(NaN)).toBe(true);
+    });
+
+    it("should return true for booleans", () => {
+      expect(primitive.is(true)).toBe(true);
+      expect(primitive.is(false)).toBe(true);
+    });
+
+    it("should return true for bigints", () => {
+      expect(primitive.is(42n)).toBe(true);
+    });
+
+    it("should return true for symbols", () => {
+      expect(primitive.is(Symbol("x"))).toBe(true);
+    });
+
+    it("should return false for plain objects", () => {
+      expect(primitive.is({})).toBe(false);
+      expect(primitive.is({ a: 1 })).toBe(false);
+    });
+
+    it("should return false for arrays", () => {
+      expect(primitive.is([])).toBe(false);
+      expect(primitive.is([1, 2, 3])).toBe(false);
+    });
+
+    it("should return false for class instances", () => {
+      expect(primitive.is(new Date())).toBe(false);
+      expect(primitive.is(new Map())).toBe(false);
+      expect(primitive.is(new Error())).toBe(false);
+    });
+
+    it("should return false for functions", () => {
+      expect(primitive.is(() => 1)).toBe(false);
+    });
+  });
+
   describe("ValueExtension", () => {
     class MyValueExtension extends primitive.ValueExtension<bigint> {
       valueOf(): bigint {

@@ -236,7 +236,7 @@ class Lifecycle(ArcConsoleCase):
         self.console.arc.configure()
 
         self.log("Re-starting with new name")
-        self.console.arc.start()
+        self.start_arc(self.new_name)
 
         # --- 6. Stop, then delete and verify tab removal ---
         self.log("Stopping Arc")
