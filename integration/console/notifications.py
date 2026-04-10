@@ -103,7 +103,7 @@ class NotificationsClient:
             close_button = notification.locator(".pluto-notification__silence")
 
             if close_button.count() > 0:
-                close_button.click(force=True)
+                close_button.dispatch_event("click")
                 notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
@@ -152,7 +152,7 @@ class NotificationsClient:
 
         close_btn = notification.locator(".pluto-notification__silence")
         if close_btn.count() > 0:
-            close_btn.click(force=True)
+            close_btn.dispatch_event("click")
             return True
         return False
 

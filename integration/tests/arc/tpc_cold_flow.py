@@ -10,6 +10,7 @@
 from examples.simulators import TPCSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SEQUENCE_SOURCE = """
@@ -223,27 +224,10 @@ class TPCColdFlow(ArcConsoleCase):
     sim_daq_class = TPCSimDAQ
 
     def setup(self) -> None:
-        self.client.channels.create(
-            name="tpc_stage",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="pressure_status",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        # Trigger channels for dataflow-activated helper functions
-        # Value passed to trigger becomes the command value
+        create_virtual_channel(self.client, "tpc_stage", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "pressure_status", sy.DataType.STRING)
         for trigger_name in ["press_trigger", "vent_trigger", "mpv_trigger"]:
-            self.client.channels.create(
-                name=f"tpc_{trigger_name}",
-                data_type=sy.DataType.FLOAT32,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
+            create_virtual_channel(self.client, f"tpc_{trigger_name}")
         super().setup()
 
     def verify_sequence_execution(self) -> None:

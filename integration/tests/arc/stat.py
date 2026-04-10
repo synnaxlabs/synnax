@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STAT_SOURCE = """
@@ -77,18 +76,11 @@ class Stat(ArcConsoleCase):
     arc_source = ARC_STAT_SOURCE
     arc_name_prefix = "ArcStat"
     start_cmd_channel = "start_stat_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = ALL_CHANNELS
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         for name in VIRTUAL_INPUTS:
-            self.client.channels.create(
-                name=name,
-                data_type=sy.DataType.FLOAT64,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
+            create_virtual_channel(self.client, name, sy.DataType.FLOAT64)
         for name in INDEXED_OUTPUTS:
             idx = self.client.channels.create(
                 name=f"{name}_time",
@@ -105,30 +97,27 @@ class Stat(ArcConsoleCase):
         super().setup()
 
     def _write(self, channel: str, value: float) -> None:
-        with self.client.open_writer(sy.TimeStamp.now(), channel) as w:
-            w.write(channel, value)
+        self.writer.write(channel, value)
 
     def _write_many(self, channel: str, values: list[float]) -> None:
         """Write multiple values through a single writer session."""
-        with self.client.open_writer(sy.TimeStamp.now(), channel) as w:
-            for val in values:
-                w.write(channel, val)
+        for val in values:
+            self.writer.write(channel, val)
 
     def _write_spaced(
         self,
         channel: str,
         values: list[float],
-        dt_ms: int = 10,
+        dt_ms: int = 20,
     ) -> None:
         """Write values to a virtual channel with wall-clock spacing.
         Sleeps dt_ms between each write so the Arc runtime assigns
         predictable timestamps for derivative computation.
         """
-        with self.client.open_writer(sy.TimeStamp.now(), channel) as w:
-            for i, val in enumerate(values):
-                w.write(channel, val)
-                if i < len(values) - 1:
-                    sy.sleep(dt_ms / 1000.0)
+        for i, val in enumerate(values):
+            self.writer.write(channel, val)
+            if i < len(values) - 1:
+                sy.sleep(dt_ms / 1000.0)
 
     def verify_sequence_execution(self) -> None:
         self._test_basic_stats()
@@ -158,10 +147,10 @@ class Stat(ArcConsoleCase):
         self.log("[max] Expecting 30.0")
         self.wait_for_eq("stat_max_out", 30.0)
 
-        # 2 samples, diff=1.0, 10ms spacing: rate ≈ 1.0/0.01 = 100
+        # 2 samples, diff=1.0, 20ms spacing: rate ≈ 1.0/0.02 = 50
         self._write_spaced("stat_deriv_in", [0.0, 1.0])
-        self.log("[deriv] Expecting ≈ 100")
-        self.wait_for_near("stat_deriv_out", 100.0, tolerance=25.0)
+        self.log("[deriv] Expecting ≈ 50")
+        self.wait_for_near("stat_deriv_out", 50.0, tolerance=25.0)
 
     def _test_count_window(self) -> None:
         self.log("Count window (count=5): 15 samples, 3 windows")
@@ -250,10 +239,10 @@ class Stat(ArcConsoleCase):
         self.log("[neg_max] Expecting 100.0")
         self.wait_for_eq("stat_neg_max_out", 100.0)
 
-        # 2 samples, diff=2.0, 10ms: rate ≈ 2.0/0.01 = 200 (positive)
+        # 2 samples, diff=2.0, 20ms: rate ≈ 2.0/0.02 = 100 (positive)
         self._write_spaced("stat_deriv_in", [-1.0, 1.0])
-        self.log("[neg_deriv] Expecting ≈ 200")
-        self.wait_for_near("stat_deriv_out", 200.0, tolerance=50.0)
+        self.log("[neg_deriv] Expecting ≈ 100")
+        self.wait_for_near("stat_deriv_out", 100.0, tolerance=50.0)
 
     def _test_large_input(self) -> None:
         values = [
@@ -311,26 +300,26 @@ class Stat(ArcConsoleCase):
         self.wait_for_eq("stat_edge_max_out", 3e12)
 
     def _test_derivative_constant(self) -> None:
-        self.log("Derivative constant: 2 x 5.0 at 10ms")
+        self.log("Derivative constant: 2 x 5.0 at 20ms")
         self._write_spaced("stat_deriv_in", [5.0, 5.0])
 
         self.log("[edge_deriv] Expecting rate = 0")
         self.wait_for_eq("stat_deriv_out", 0.0)
 
     def _test_derivative_alternating(self) -> None:
-        # Positive rate: diff=1.0, 10ms: rate ≈ 1.0/0.01 = 100
-        self.log("Derivative positive: [0, 1.0] at 10ms")
+        # Positive rate: diff=1.0, 20ms: rate ≈ 1.0/0.02 = 50
+        self.log("Derivative positive: [0, 1.0] at 20ms")
         self._write_spaced("stat_deriv_in", [0.0, 1.0])
 
-        self.log("[edge_deriv] Expecting ≈ 100")
-        self.wait_for_near("stat_deriv_out", 100.0, tolerance=25.0)
+        self.log("[edge_deriv] Expecting ≈ 50")
+        self.wait_for_near("stat_deriv_out", 50.0, tolerance=25.0)
 
-        # Negative rate: diff=-1.0, 10ms: rate ≈ -1.0/0.01 = -100
-        self.log("Derivative negative: [1.0, 0] at 10ms")
+        # Negative rate: diff=-1.0, 20ms: rate ≈ -1.0/0.02 = -50
+        self.log("Derivative negative: [1.0, 0] at 20ms")
         self._write_spaced("stat_deriv_in", [1.0, 0.0])
 
-        self.log("[edge_deriv] Expecting ≈ -100")
-        self.wait_for_near("stat_deriv_out", -100.0, tolerance=25.0)
+        self.log("[edge_deriv] Expecting ≈ -50")
+        self.wait_for_near("stat_deriv_out", -50.0, tolerance=25.0)
 
     def _test_monotonic_increasing(self) -> None:
         self.log("Monotonic increasing: 1..50")
