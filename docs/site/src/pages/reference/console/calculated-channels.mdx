@@ -68,8 +68,9 @@ fields:
       {
         <td>
           Post-processing operation applied to the expression result. Options include{" "}
-          <code>min</code>, <code>max</code>, and <code>avg</code> for{" "}
-          <a href="#operations">running aggregations</a>.
+          <code>min</code>, <code>max</code>, <code>avg</code> for{" "}
+          <a href="#operations">running aggregations</a>, and <code>derivative</code>{" "}
+          for rate of change.
         </td>
       }
     </tr>
@@ -250,8 +251,21 @@ value rather than processing individual samples.
       <td>`avg`</td>
       <td>Running average. Computes the mean of all values since the last reset.</td>
     </tr>
+    <tr>
+      <td>`derivative`</td>
+      <td>
+        Rate of change. Computes the derivative (dx/dt) per second of the expression
+        result. Always outputs `float64`.
+      </td>
+    </tr>
   </tbody>
 </table>
+
+<Note.Note variant="info">
+  The derivative operation does not support window or reset channel configuration. It
+  maintains only the previous value and timestamp, so there is no accumulated state to
+  reset.
+</Note.Note>
 
 ### Reset Mechanisms
 
@@ -442,6 +456,14 @@ This tracks the maximum pressure value until the reset button is triggered.
 - **Reset Channel** -> (none)
 
 This computes the average temperature over 10-second windows.
+
+**Rate of pressure change:**
+
+- **Expression** -> `return pressure`
+- **Operation** -> `derivative`
+
+This outputs the rate of pressure change in units per second. For example, if pressure
+increases from 100 to 150 over 2 seconds, the output is 25.0.
 
 <Divider.Divider x />
 

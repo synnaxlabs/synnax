@@ -184,6 +184,32 @@ sensor -> max{count=50} -> max_display
 
 All statistical functions support a `reset` input signal (`u8`) for manual reset.
 
+### derivative
+
+Computes the rate of change per second (dx/dt) of a streaming signal.
+
+```arc
+sensor -> derivative{} -> rate_display
+```
+
+| Config     | Type    | Description                       |
+| ---------- | ------- | --------------------------------- |
+| **Input**  | numeric | Value to differentiate            |
+| **Output** | `f64`   | Rate of change per second (dx/dt) |
+
+The derivative node tracks the previous value and timestamp across invocations. On each
+sample, it computes `(current - previous) / dt`, where `dt` is the elapsed time in
+seconds. The first sample always outputs `0` since there is no previous value. If the
+time delta is zero or negative, the output is also `0`.
+
+```arc
+// Monitor rate of temperature change
+thermocouple -> derivative{} -> temp_rate
+
+// Chain with other nodes
+pressure -> derivative{} -> rate > 100.0 => alarm
+```
+
 <Divider.Divider x />
 
 ## I/O Nodes
@@ -393,6 +419,7 @@ if x < 0 {
 | `avg`           | Statistics | Running average            |
 | `min`           | Statistics | Running minimum            |
 | `max`           | Statistics | Running maximum            |
+| `derivative`    | Statistics | Rate of change (dx/dt)     |
 | `on`            | I/O        | Read from channel          |
 | `write`         | I/O        | Write to channel           |
 | `select`        | Signal     | Route by condition         |

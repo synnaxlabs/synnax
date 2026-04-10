@@ -47,7 +47,7 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
+	Commands:   [][]string{{"gofmt", "-s", "-w"}},
 }
 
 func (p *Plugin) PostWrite(files []string) error {

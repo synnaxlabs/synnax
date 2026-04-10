@@ -22,9 +22,6 @@ Key uint64 {
     """
     @ts type      string
     @ts to_string
-    // Marshal flex makes it so that `key` can be decoded from a standard JSON and/or
-    // msgpack number. This is critical for the `StatusDetails` struct because it
-    // can get saved using `status.Status[any]`.
     @go marshal   flex
 }
 

@@ -68,23 +68,48 @@ jobs:
     name: Test
     runs-on: ubuntu-build-bot
     needs: server
-    services:
-      synnax:
-        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
-        env:
-          SYNNAX_LISTEN: localhost:9090
-          SYNNAX_VERBOSE: true
-          SYNNAX_INSECURE: true
-          SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 9090:9090
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
+
+      - name: Force Quit Existing Synnax Processes
+        continue-on-error: true
+        run: integration/scripts/kill_synnax_processes_unix.sh
+
+      - name: Login to GitHub Container Registry
+        run:
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor
+          }} --password-stdin
+
+      - name: Ensure Port 9090 is Free
+        run: |
+          docker rm -f synnax-test-driver || true
+          docker ps -q --filter "publish=9090" | xargs -r docker rm -f || true
+
+      - name: Start Synnax
+        run: |
+          docker run -d --name synnax-test-driver \
+            -p 9090:9090 \
+            -e SYNNAX_LISTEN=localhost:9090 \
+            -e SYNNAX_VERBOSE=true \
+            -e SYNNAX_INSECURE=true \
+            -e SYNNAX_MEM=true \
+            -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} \
+            ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
+          echo "Waiting for Synnax to be ready..."
+          for i in $(seq 1 30); do
+            if nc -z localhost 9090 2>/dev/null; then
+              echo "Synnax is ready"
+              break
+            fi
+            echo "Waiting for port 9090... (attempt $i/30)"
+            sleep 1
+          done
+          if ! nc -z localhost 9090 2>/dev/null; then
+            echo "Synnax failed to start within 30 seconds"
+            docker logs synnax-test-driver
+            exit 1
+          fi
 
       - name: Install Dependencies
         run: |
@@ -121,3 +146,7 @@ jobs:
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1 --test_tag_filters=-hardware
+
+      - name: Stop Synnax
+        if: always()
+        run: docker rm -f synnax-test-driver || true

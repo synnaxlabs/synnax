@@ -20,6 +20,60 @@ import (
 	msgpack "github.com/vmihailenco/msgpack/v5"
 )
 
+func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
+	w.Uint64(uint64(sd.Task))
+	w.Bool(sd.Running)
+	w.String(sd.Cmd)
+	if sd.Data != nil {
+		w.Bool(true)
+		{
+			b, err := json.Marshal(sd.Data)
+			if err != nil {
+				return err
+			}
+			w.WriteWithLen(b)
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.Uint64()
+		if err != nil {
+			return err
+		}
+		sd.Task = Key(v)
+	}
+	if sd.Running, err = r.Bool(); err != nil {
+		return err
+	}
+	if sd.Cmd, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			{
+				b, err := r.ReadWithLen()
+				if err != nil {
+					return err
+				}
+				if err = json.Unmarshal(b, &sd.Data); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.Uint64(uint64(t.Key))
 	w.String(t.Name)
@@ -85,60 +139,6 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			t.Status = &v
-		}
-	}
-	return nil
-}
-
-func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Uint64(uint64(sd.Task))
-	w.Bool(sd.Running)
-	w.String(sd.Cmd)
-	if sd.Data != nil {
-		w.Bool(true)
-		{
-			b, err := json.Marshal(sd.Data)
-			if err != nil {
-				return err
-			}
-			w.WriteWithLen(b)
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		v, err := r.Uint64()
-		if err != nil {
-			return err
-		}
-		sd.Task = Key(v)
-	}
-	if sd.Running, err = r.Bool(); err != nil {
-		return err
-	}
-	if sd.Cmd, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			{
-				b, err := r.ReadWithLen()
-				if err != nil {
-					return err
-				}
-				if err = json.Unmarshal(b, &sd.Data); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil

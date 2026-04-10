@@ -18,7 +18,7 @@ authority 200
 sequence main {
     stage stage1 {
         1 -> toggle_cmd,
-        wait{duration=3s} => next,
+        wait{3s} => next,
     }
     stage stage2 {
         0 -> toggle_cmd,

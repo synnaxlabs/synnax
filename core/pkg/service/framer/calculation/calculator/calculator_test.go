@@ -772,6 +772,60 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
+	It("Should compute derivative operation with type promotion", func(ctx SpecContext) {
+		idx := []channel.Channel{{
+			Name:     channel.NewRandomName(),
+			DataType: telem.TimeStampT,
+			IsIndex:  true,
+		}}
+		base := []channel.Channel{{
+			Name:     channel.NewRandomName(),
+			DataType: telem.Int64T,
+		}}
+		calc := channel.Channel{
+			Name:       channel.NewRandomName(),
+			DataType:   telem.Float64T,
+			Virtual:    true,
+			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Operations: []channel.Operation{
+				{Type: "derivative"},
+			},
+		}
+		c := open(ctx, &idx, &base, &calc)
+		d := telem.NewSeriesV[int64](10, 20, 40)
+		i := telem.NewSeriesSecondsTSV(1, 2, 4)
+		d.Alignment = telem.NewAlignment(1, 0)
+		i.Alignment = d.Alignment
+		fr := frame.NewMulti(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+		Expect(changed).To(BeTrue())
+		Expect(o.Len()).To(BeEquivalentTo(3))
+		result := telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+		Expect(result).To(HaveLen(3))
+		Expect(result[0]).To(BeNumerically("~", 0.0, 0.01))
+		Expect(result[1]).To(BeNumerically("~", 10.0, 0.01))
+		Expect(result[2]).To(BeNumerically("~", 10.0, 0.01))
+
+		d = telem.NewSeriesV[int64](70)
+		i = telem.NewSeriesSecondsTSV(7)
+		d.Alignment = telem.NewAlignment(1, 3)
+		i.Alignment = d.Alignment
+		fr = frame.NewMulti(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed = MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+		Expect(changed).To(BeTrue())
+		result = telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+		Expect(result).To(HaveLen(1))
+		Expect(result[0]).To(BeNumerically("~", 10.0, 0.01))
+
+		Expect(c.Close()).To(Succeed())
+	})
+
 	It("Should correctly chain multiple operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     channel.NewRandomName(),
@@ -946,7 +1000,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
 			res := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
 				Analyze(ctx, *calc))
-			calc.DataType = res.DataType
+			calc.DataType = res.ChanDataType
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,

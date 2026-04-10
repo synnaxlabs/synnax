@@ -1152,6 +1152,24 @@ public:
     bool operator==(const std::uint64_t &other) const { return value == other; }
 
     bool operator!=(const std::uint64_t &other) const { return value != other; }
+
+    Alignment operator+(const Alignment &other) const {
+        return Alignment(value + other.value);
+    }
+
+    Alignment &operator+=(const Alignment &other) {
+        value += other.value;
+        return *this;
+    }
+
+    Alignment operator-(const Alignment &other) const {
+        return Alignment(value - other.value);
+    }
+
+    Alignment &operator-=(const Alignment &other) {
+        value -= other.value;
+        return *this;
+    }
 };
 
 /// Note for future editors of these types, using `inline const` is dangerous as it

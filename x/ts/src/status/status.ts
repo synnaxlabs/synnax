@@ -12,6 +12,7 @@ import { z } from "zod";
 import { id } from "@/id";
 import { narrow } from "@/narrow";
 import { type optional } from "@/optional";
+import { primitive } from "@/primitive";
 import { type Status, type Variant } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
@@ -103,7 +104,7 @@ export const toString = <Details extends z.ZodType = z.ZodNever>(
   const opts = { ...DEFAULT_TO_STRING_OPTIONS, ...options };
   const parts: string[] = [];
   let header = stat.variant.toUpperCase();
-  if (opts.includeName && stat.name.length > 0) header += ` [${stat.name}]`;
+  if (opts.includeName && primitive.isNonZero(stat.name)) header += ` [${stat.name}]`;
   header += `: ${stat.message}`;
   if (opts.includeTimestamp) header += ` (${stat.time.toString("dateTime", "local")})`;
   parts.push(header);
