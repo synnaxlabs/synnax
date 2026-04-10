@@ -174,16 +174,19 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
 
         self._screenshot("after_configure")
 
+        # Close notifications that may overlay the play button.
+        console.notifications.close_all()
+
         # Run the task via the Console play button.
         self.log("Running task...")
-        task_page.run()
+        play_btn.dispatch_event("click")
         sy.sleep(2)
 
         self._screenshot("after_run")
 
         # Stop the task.
         stop_btn = task_page.page.locator("button .pluto-icon--pause").locator("..")
-        stop_btn.click(force=True)
+        stop_btn.dispatch_event("click")
         self.log("Task stopped")
 
         # Verify data was produced via the Python client.
