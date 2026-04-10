@@ -14,8 +14,6 @@ export const MAKE = "Modbus";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("Modbus");
 
-const ZERO_CONNECTION = { host: "", port: 0, swapBytes: false, swapWords: false };
-
 const propertiesZ = z.object({
   connection: z
     .object({
@@ -24,16 +22,16 @@ const propertiesZ = z.object({
       swapBytes: z.boolean().default(false),
       swapWords: z.boolean().default(false),
     })
-    .default(ZERO_CONNECTION),
+    .default(() => ({ host: "", port: 0, swapBytes: false, swapWords: false })),
   read: z
     .object({
       index: z.number().default(0),
-      channels: z.record(z.string(), z.number()).default({}),
+      channels: z.record(z.string(), z.number()).default(() => ({})),
     })
-    .default({ index: 0, channels: {} }),
+    .default(() => ({ index: 0, channels: {} })),
   write: z
-    .object({ channels: z.record(z.string(), z.number()).default({}) })
-    .default({ channels: {} }),
+    .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
+    .default(() => ({ channels: {} })),
 });
 
 export interface Properties extends z.infer<typeof propertiesZ> {}

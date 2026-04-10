@@ -16,63 +16,55 @@ export const MAKE = "NI";
 export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
-const ZERO_AI = { portCount: 0, index: 0, channels: {} };
-const ZERO_AO = { portCount: 0, stateIndex: 0, channels: {} };
-const ZERO_CI = { portCount: 0, index: 0, channels: {} };
-const ZERO_DIO = { portCount: 0, lineCounts: [] as number[] };
-const ZERO_DI = { portCount: 0, lineCounts: [] as number[], index: 0, channels: {} };
-const ZERO_DO = {
-  portCount: 0,
-  lineCounts: [] as number[],
-  stateIndex: 0,
-  channels: {},
-};
-
 export const propertiesZ = z.object({
   identifier: Common.Device.identifierZ.catch(""),
   analogInput: z
     .object({
       portCount: z.number().default(0),
       index: channel.keyZ.catch(0),
-      channels: z.record(z.string(), channel.keyZ).default({}),
+      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
     })
-    .default(ZERO_AI),
+    .default(() => ({ portCount: 0, index: 0, channels: {} })),
   analogOutput: z
     .object({
       portCount: z.number().default(0),
       stateIndex: channel.keyZ.catch(0),
-      channels: z.record(z.string(), Common.Device.commandStatePairZ).default({}),
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
     })
-    .default(ZERO_AO),
+    .default(() => ({ portCount: 0, stateIndex: 0, channels: {} })),
   counterInput: z
     .object({
       portCount: z.number().default(0),
       index: channel.keyZ.catch(0),
-      channels: z.record(z.string(), channel.keyZ).default({}),
+      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
     })
-    .default(ZERO_CI),
+    .default(() => ({ portCount: 0, index: 0, channels: {} })),
   digitalInputOutput: z
     .object({
       portCount: z.number().default(0),
-      lineCounts: z.array(z.number()).default([]),
+      lineCounts: z.array(z.number()).default(() => []),
     })
-    .default(ZERO_DIO),
+    .default(() => ({ portCount: 0, lineCounts: [] })),
   digitalInput: z
     .object({
       portCount: z.number().default(0),
-      lineCounts: z.array(z.number()).default([]),
+      lineCounts: z.array(z.number()).default(() => []),
       index: channel.keyZ.catch(0),
-      channels: z.record(z.string(), channel.keyZ).default({}),
+      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
     })
-    .default(ZERO_DI),
+    .default(() => ({ portCount: 0, lineCounts: [], index: 0, channels: {} })),
   digitalOutput: z
     .object({
       portCount: z.number().default(0),
-      lineCounts: z.array(z.number()).default([]),
+      lineCounts: z.array(z.number()).default(() => []),
       stateIndex: channel.keyZ.catch(0),
-      channels: z.record(z.string(), Common.Device.commandStatePairZ).default({}),
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
     })
-    .default(ZERO_DO),
+    .default(() => ({ portCount: 0, lineCounts: [], stateIndex: 0, channels: {} })),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 

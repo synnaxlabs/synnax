@@ -201,29 +201,31 @@ export const PORTS: Ports = {
   [T8_MODEL]: T8_PORTS,
 };
 
-const ZERO_CHANNELS = { channels: {} };
-
 export const propertiesZ = z.object({
   identifier: Common.Device.identifierZ.catch(""),
   readIndex: channel.keyZ.catch(0),
   thermocoupleIndex: channel.keyZ.catch(0),
   writeStateIndex: channel.keyZ.catch(0),
   [AI_PORT_TYPE]: z
-    .object({ channels: z.record(z.string(), channel.keyZ).default({}) })
-    .default(ZERO_CHANNELS),
+    .object({ channels: z.record(z.string(), channel.keyZ).default(() => ({})) })
+    .default(() => ({ channels: {} })),
   [AO_PORT_TYPE]: z
     .object({
-      channels: z.record(z.string(), Common.Device.commandStatePairZ).default({}),
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
     })
-    .default(ZERO_CHANNELS),
+    .default(() => ({ channels: {} })),
   [DI_PORT_TYPE]: z
-    .object({ channels: z.record(z.string(), channel.keyZ).default({}) })
-    .default(ZERO_CHANNELS),
+    .object({ channels: z.record(z.string(), channel.keyZ).default(() => ({})) })
+    .default(() => ({ channels: {} })),
   [DO_PORT_TYPE]: z
     .object({
-      channels: z.record(z.string(), Common.Device.commandStatePairZ).default({}),
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
     })
-    .default(ZERO_CHANNELS),
+    .default(() => ({ channels: {} })),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 

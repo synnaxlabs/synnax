@@ -31,8 +31,8 @@ export interface PDOEntry extends z.infer<typeof pdoEntryZ> {}
 
 /** Schema for PDO collections (inputs and outputs). */
 export const pdosZ = z.object({
-  inputs: z.array(pdoEntryZ).default([]),
-  outputs: z.array(pdoEntryZ).default([]),
+  inputs: z.array(pdoEntryZ).default(() => []),
+  outputs: z.array(pdoEntryZ).default(() => []),
 });
 export interface PDOs extends z.infer<typeof pdosZ> {}
 
@@ -51,15 +51,15 @@ export const slavePropertiesZ = z.object({
   name: z.string().default(""),
   network: z.string().default(""),
   position: z.number().default(0),
-  pdos: pdosZ.default(ZERO_PDOS),
+  pdos: pdosZ.default(() => ({ inputs: [], outputs: [] })),
   readIndex: z.number().default(0),
   writeStateIndex: z.number().default(0),
   read: z
-    .object({ channels: z.record(z.string(), z.number()).default({}) })
-    .default({ channels: {} }),
+    .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
+    .default(() => ({ channels: {} })),
   write: z
-    .object({ channels: z.record(z.string(), z.number()).default({}) })
-    .default({ channels: {} }),
+    .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
+    .default(() => ({ channels: {} })),
   enabled: z.boolean().optional().default(true),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
