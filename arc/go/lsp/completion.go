@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -454,19 +455,51 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
-		scopeAtCursor := doc.findScopeAtPosition(pos)
-		if scopeAtCursor != nil {
-			scopes, err := scopeAtCursor.Search(ctx, prefix)
-			if err == nil {
-				for _, scope := range scopes {
-					items = append(items, symbolCompletionItem(scope.Name, scope.Type))
+		modulePrefix := ""
+		if dotIdx := strings.LastIndex(prefix, "."); dotIdx >= 0 {
+			modulePrefix = prefix[:dotIdx+1]
+		}
+		startChar := pos.Character - uint32(len(prefix))
+		if modulePrefix != "" {
+			// Module-qualified prefix (e.g. "math." or "time.n"): search
+			// only the GlobalResolver and filter to function symbols so
+			// that channels and other unrelated symbols are excluded.
+			if s.cfg.GlobalResolver != nil {
+				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+				if err == nil {
+					for _, sym := range symbols {
+						if sym.Kind != symbol.KindFunction {
+							continue
+						}
+						qualifiedName := modulePrefix + sym.Name
+						item := symbolCompletionItem(sym.Name, sym.Type)
+						item.FilterText = qualifiedName
+						item.TextEdit = &protocol.TextEdit{
+							Range: protocol.Range{
+								Start: protocol.Position{Line: pos.Line, Character: startChar},
+								End:   pos,
+							},
+							NewText: qualifiedName,
+						}
+						items = append(items, item)
+					}
 				}
 			}
-		} else if s.cfg.GlobalResolver != nil {
-			symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
-			if err == nil {
-				for _, sym := range symbols {
-					items = append(items, symbolCompletionItem(sym.Name, sym.Type))
+		} else {
+			scopeAtCursor := doc.findScopeAtPosition(pos)
+			if scopeAtCursor != nil {
+				scopes, err := scopeAtCursor.Search(ctx, prefix)
+				if err == nil {
+					for _, scope := range scopes {
+						items = append(items, symbolCompletionItem(scope.Name, scope.Type))
+					}
+				}
+			} else if s.cfg.GlobalResolver != nil {
+				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+				if err == nil {
+					for _, sym := range symbols {
+						items = append(items, symbolCompletionItem(sym.Name, sym.Type))
+					}
 				}
 			}
 		}

@@ -481,7 +481,7 @@ func add(a i32, b i32) i32 {
 	})
 
 	Describe("Qualified Module Identifiers", func() {
-		It("Should provide hover for qualified module function", func() {
+		It("Should provide hover for qualified module function", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,
 			}))
@@ -494,7 +494,7 @@ func add(a i32, b i32) i32 {
 			Expect(hover.Contents.Value).To(ContainSubstring("now"))
 		})
 
-		It("Should not provide hover for invalid module prefix", func() {
+		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,
 			}))

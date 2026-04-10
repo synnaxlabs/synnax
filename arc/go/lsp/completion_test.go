@@ -689,7 +689,26 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Module Qualified Completion", func() {
-		It("Should return module member completions for 'math.' prefix", func() {
+		var resolverWithChannels symbol.CompoundResolver
+
+		BeforeEach(func() {
+			resolverWithChannels = make(symbol.CompoundResolver, len(stl.SymbolResolver))
+			copy(resolverWithChannels, stl.SymbolResolver)
+			resolverWithChannels = append(resolverWithChannels, symbol.MapResolver{
+				"sy_node_1_metrics_time": {
+					Name: "sy_node_1_metrics_time",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"temperature_sensor": {
+					Name: "temperature_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+			})
+		})
+
+		It("Should return module members for 'math.p' prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,
 			}))
@@ -703,7 +722,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
 		})
 
-		It("Should return all members for bare 'math.' prefix", func() {
+		It("Should return all members for bare 'math.' prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,
 			}))
@@ -715,6 +734,134 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 1, 9)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
+		})
+
+		It("Should return all time module members for 'time.' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "interval")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "wait")).To(BeTrue())
+		})
+
+		It("Should return error module members for 'error.' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    error.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "panic")).To(BeTrue())
+		})
+
+		It("Should set FilterText with qualified name", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+
+			item, found := FindCompletion(completions.Items, "pow")
+			Expect(found).To(BeTrue())
+			Expect(item.FilterText).To(Equal("math.pow"))
+		})
+
+		It("Should set TextEdit that replaces the full module prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+
+			item, found := FindCompletion(completions.Items, "pow")
+			Expect(found).To(BeTrue())
+			Expect(item.TextEdit).ToNot(BeNil())
+			Expect(item.TextEdit.NewText).To(Equal("math.pow"))
+			Expect(item.TextEdit.Range.Start.Character).To(Equal(uint32(4)))
+			Expect(item.TextEdit.Range.End.Character).To(Equal(uint32(9)))
+		})
+
+		It("Should exclude channel symbols from module-qualified results", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: resolverWithChannels,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "sy_node_1_metrics_time")).To(BeFalse(),
+				"Should not show channel names in module-qualified completions")
+		})
+
+		It("Should exclude channels even with partial member prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: resolverWithChannels,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.n\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "sy_node_1_metrics_time")).To(BeFalse())
+			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeFalse())
+		})
+
+		It("Should return nothing for unknown module prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    fake.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(completions.Items).To(BeEmpty())
+		})
+
+		It("Should not affect unqualified completions", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: resolverWithChannels,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    t\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 5)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
+				"Unqualified prefix should still show channels")
 		})
 	})
 })
