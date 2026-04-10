@@ -16,8 +16,8 @@ Sequence:
     1. ``DevicePropertiesSetup`` creates an NI analog read task on sim hardware,
        then strips the device properties to simulate pre-v0.54 stored data.
     2. Core/Console is upgraded to the target version.
-    3. ``DevicePropertiesConsoleVerify`` opens the task and clicks Configure.
-       On buggy v0.54: ZodError notification. On fixed: succeeds.
+    3. ``DevicePropertiesConsoleVerify`` opens the task in the Console, clicks
+       Configure, then runs the task and verifies data is produced.
 """
 
 import platform
@@ -106,10 +106,6 @@ class DevicePropertiesSetup(TestCase):
 
         dev = client.devices.retrieve(key=dev.key)
         self.log(f"  Stripped property keys: {list(dev.properties.keys())}")
-        if "analogOutput" in dev.properties:
-            self.log(f"  analogOutput: {dev.properties['analogOutput']}")
-        elif "analog_output" in dev.properties:
-            self.log(f"  analog_output: {dev.properties['analog_output']}")
 
         has_counter = (
             "counterInput" in dev.properties or "counter_input" in dev.properties
@@ -122,19 +118,24 @@ class DevicePropertiesSetup(TestCase):
 
 
 class DevicePropertiesConsoleVerify(ConsoleCase):
-    """Open the NI task in the Console and click Configure.
+    """Open the NI task in the Console, click Configure, run, and verify data.
 
     On the buggy v0.54 console, clicking Configure triggers a ZodError because
     ``propertiesZ`` rejects incomplete device properties during
-    ``client.devices.retrieve``.
-
-    Set ``expect_success`` to control the assertion:
-      - True (default): assert Configure succeeds (for the fixed console).
-      - False: assert Configure produces an error (for the buggy console).
+    ``client.devices.retrieve``. On the fixed console, Configure succeeds,
+    the task can be run, and data channels contain samples.
     """
 
-    expect_success: bool = True
     requires_platform: str | None = "windows"
+
+    def _screenshot(self, label: str) -> None:
+        name = type(self).__name__
+        path = get_results_path(f"{name}_{label}.png")
+        try:
+            self.page.screenshot(path=path)
+            self.log(f"Screenshot saved: {path}")
+        except Exception as e:
+            self.log(f"Screenshot failed: {e}")
 
     def setup(self) -> None:
         if (
@@ -148,17 +149,9 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
             return
         super().setup()
 
-    def _screenshot(self, label: str) -> None:
-        name = type(self).__name__
-        path = get_results_path(f"{name}_{label}.png")
-        try:
-            self.page.screenshot(path=path)
-            self.log(f"Screenshot saved: {path}")
-        except Exception as e:
-            self.log(f"Screenshot failed: {e}")
-
     def run(self) -> None:
         console = self.console
+        client = self.client
 
         self.log(f"Searching for task '{TASK_NAME}'...")
         task_page = console.workspace.open_from_search(TaskPage, TASK_NAME)
@@ -166,8 +159,7 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
 
         self._screenshot("before_configure")
 
-        # Click Configure — on success the play button becomes visible,
-        # on failure an error notification or status change appears.
+        # Click Configure.
         configure_btn = task_page.page.get_by_role(
             "button", name="Configure", exact=True
         )
@@ -175,66 +167,32 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
         self.log("Clicking Configure...")
         configure_btn.click(force=True)
 
-        # Wait for the play button to appear (success) or timeout (failure).
+        # Wait for the play button — indicates configure succeeded.
         play_btn = task_page.page.locator("button .pluto-icon--play").locator("..")
-        try:
-            play_btn.wait_for(state="visible", timeout=15000)
-            configure_succeeded = True
-            self.log("Play button appeared — configure succeeded")
-        except Exception:
-            configure_succeeded = False
-            self.log("Play button did not appear — configure failed")
+        play_btn.wait_for(state="visible", timeout=15000)
+        self.log("Play button appeared — configure succeeded")
 
         self._screenshot("after_configure")
 
-        # Check status bar text (best effort — selector may not match).
-        try:
-            status = task_page.status()
-            self.log(f"Status: {status}")
-        except Exception:
-            status = {"msg": "unknown", "level": "unknown"}
-            self.log("Could not read status bar")
+        # Run the task via the Console play button.
+        self.log("Running task...")
+        task_page.run()
+        sy.sleep(2)
 
-        # Check for error notifications.
-        notifications = console.notifications.check(timeout=2 * sy.TimeSpan.SECOND)
-        errors = [n for n in notifications if n.get("type") == "error"]
-        for n in notifications:
-            self.log(f"Notification: type={n.get('type')} message={n.get('message')}")
-            if n.get("description"):
-                self.log(f"  Description: {n['description'][:500]}")
+        self._screenshot("after_run")
 
-        # Log browser errors.
-        for log_line in self._browser_logs:
-            if any(kw in log_line.lower() for kw in ("error", "zod", "invalid", "pageerror")):
-                self.log(f"  {log_line}")
+        # Stop the task.
+        stop_btn = task_page.page.locator("button .pluto-icon--pause").locator("..")
+        stop_btn.click(force=True)
+        self.log("Task stopped")
 
-        self.log(f"Evidence: configure_succeeded={configure_succeeded}, "
-                 f"error_notifications={len(errors)}, "
-                 f"status={status}")
+        # Verify data was produced via the Python client.
+        for i in range(NUM_CHANNELS):
+            ch = client.channels.retrieve(f"{CHANNEL_PREFIX}_{i}")
+            data = ch.read(sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now()))
+            assert len(data) > 0, f"Channel '{ch.name}' has no data after configure+run"
+            self.log(f"Channel '{ch.name}' has {len(data)} samples")
 
-        if self.expect_success:
-            assert configure_succeeded, (
-                f"Expected configure to succeed (play button visible), but it failed. "
-                f"Status: {status}. Errors: {[e.get('message', '') for e in errors]}"
-            )
-            self.log("Configure succeeded — device properties migration working")
-        else:
-            assert not configure_succeeded or len(errors) > 0, (
-                "Expected configure to fail, but it succeeded. "
-                f"Status: {status}"
-            )
-            self.log("Configure failed as expected")
+        self.log("Device properties migration verified — configure + run + data OK")
 
         console.notifications.close_all()
-
-
-class DevicePropertiesConsoleBugVerify(DevicePropertiesConsoleVerify):
-    """Run on the BUGGY console — expects the ZodError."""
-
-    expect_success = False
-
-
-class DevicePropertiesConsoleFixVerify(DevicePropertiesConsoleVerify):
-    """Run on the FIXED console — expects configure to succeed."""
-
-    expect_success = True
