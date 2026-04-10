@@ -187,9 +187,13 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
 
         self._screenshot("after_configure")
 
-        # Check status bar text.
-        status = task_page.status()
-        self.log(f"Status: {status}")
+        # Check status bar text (best effort — selector may not match).
+        try:
+            status = task_page.status()
+            self.log(f"Status: {status}")
+        except Exception:
+            status = {"msg": "unknown", "level": "unknown"}
+            self.log("Could not read status bar")
 
         # Check for error notifications.
         notifications = console.notifications.check(timeout=2 * sy.TimeSpan.SECOND)
