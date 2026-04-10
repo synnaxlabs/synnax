@@ -27,6 +27,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 	Members: symbol.MapResolver{
 		"pow": {
 			Name: "pow",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
 				Outputs: types.Params{{Name: "result", Type: types.Variable("T", &numConstraint)}},
