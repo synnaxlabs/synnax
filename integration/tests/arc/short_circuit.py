@@ -102,6 +102,10 @@ class ChannelCollector:
             if len(self.data.get(channel, [])) >= count:
                 return
             sy.sleep(0.05)
+        raise TimeoutError(
+            f"Timed out after {timeout}s waiting for {count} entries on '{channel}'; "
+            f"got {len(self.data.get(channel, []))}"
+        )
 
     def __exit__(self, *_: object) -> None:
         self._stop.set()
