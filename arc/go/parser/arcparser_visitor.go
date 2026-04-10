@@ -142,6 +142,18 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#elseClause.
 	VisitElseClause(ctx *ElseClauseContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#forStatement.
+	VisitForStatement(ctx *ForStatementContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#forClause.
+	VisitForClause(ctx *ForClauseContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#breakStatement.
+	VisitBreakStatement(ctx *BreakStatementContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#continueStatement.
+	VisitContinueStatement(ctx *ContinueStatementContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#returnStatement.
 	VisitReturnStatement(ctx *ReturnStatementContext) interface{}
 
