@@ -14,6 +14,8 @@ import { id } from "@/id";
 import { status } from "@/status";
 import { TimeStamp } from "@/telem";
 
+type CustomCrude = Partial<status.Crude<z.ZodRecord, "error">>;
+
 describe("status", () => {
   describe("create", () => {
     it("should create a status", () => {
@@ -128,6 +130,117 @@ describe("status", () => {
 
       const result = status.exceptionDetailsSchema.safeParse(s.details);
       expect(result.success).toBe(true);
+    });
+
+    describe("custom errors (toStatus)", () => {
+      class CustomError extends Error implements status.Custom {
+        constructor(message: string) {
+          super(message);
+          this.name = "CustomError";
+        }
+
+        toStatus(): CustomCrude {
+          return {
+            message: "custom headline",
+            description: "custom description body",
+            details: { code: 42, hint: "try again" },
+          };
+        }
+      }
+
+      it("should use toStatus.message as the status message", () => {
+        const s = status.fromException(new CustomError("raw"));
+        expect(s.message).toBe("custom headline");
+      });
+
+      it("should use toStatus.description as the status description", () => {
+        const s = status.fromException(new CustomError("raw"));
+        expect(s.description).toBe("custom description body");
+      });
+
+      it("should merge toStatus.details into status.details", () => {
+        const s = status.fromException(new CustomError("raw"));
+        const details = s.details as Record<string, unknown>;
+        expect(details.code).toBe(42);
+        expect(details.hint).toBe("try again");
+        expect(details.stack).toBeDefined();
+        expect(details.error).toBeInstanceOf(Error);
+      });
+
+      it("should prefix toStatus.message when the caller provides a custom message", () => {
+        const s = status.fromException(new CustomError("raw"), "Saving failed");
+        expect(s.message).toBe("Saving failed: custom headline");
+      });
+
+      it("should fall through to the default path for errors without toStatus", () => {
+        const s = status.fromException(new Error("plain"));
+        expect(s.message).toBe("plain");
+        expect(s.description).toBeUndefined();
+      });
+
+      it("should ignore toStatus if it throws", () => {
+        class Bad extends Error {
+          toStatus() {
+            throw new Error("explode");
+          }
+        }
+        const s = status.fromException(new Bad("fallback"));
+        expect(s.message).toBe("fallback");
+        expect(s.description).toBeUndefined();
+      });
+
+      it("should ignore toStatus if it returns a non-object", () => {
+        class Bad extends Error {
+          toStatus() {
+            return "nope" as unknown as CustomCrude;
+          }
+        }
+        const s = status.fromException(new Bad("fallback"));
+        expect(s.message).toBe("fallback");
+      });
+
+      it("should ignore toStatus if it returns null", () => {
+        class Bad extends Error {
+          toStatus() {
+            return null as unknown as CustomCrude;
+          }
+        }
+        const s = status.fromException(new Bad("fallback"));
+        expect(s.message).toBe("fallback");
+      });
+
+      it("should ignore individual fields with the wrong type", () => {
+        class Bad extends Error {
+          toStatus() {
+            return {
+              message: 42 as unknown as string,
+              description: { not: "a string" } as unknown as string,
+              details: "also not a record" as unknown as Record<string, unknown>,
+            };
+          }
+        }
+        const s = status.fromException(new Bad("fallback"));
+        expect(s.message).toBe("fallback");
+        expect(s.description).toBeUndefined();
+      });
+
+      it("should accept a partial return with only some valid fields", () => {
+        class Partial extends Error {
+          toStatus() {
+            return { message: "only headline" };
+          }
+        }
+        const s = status.fromException(new Partial("raw"));
+        expect(s.message).toBe("only headline");
+        expect(s.description).toBeUndefined();
+      });
+
+      it("should ignore toStatus if it is not a function", () => {
+        const err = new Error("fallback") as Error & { toStatus: string };
+        err.toStatus = "not a function";
+        const s = status.fromException(err);
+        expect(s.message).toBe("fallback");
+      });
     });
   });
 
@@ -300,6 +413,39 @@ describe("status", () => {
       const s = status.create({ message: "cat", variant: "success" });
       const result = status.toString(s);
       expect(result).toContain("cat");
+    });
+
+    describe("custom errors (toStatus)", () => {
+      class CustomError extends Error implements status.Custom {
+        constructor() {
+          super("raw");
+          this.name = "CustomError";
+        }
+
+        toStatus(): CustomCrude {
+          return {
+            message: "custom headline",
+            description: "line one\nline two\nline three",
+            details: { code: 42 },
+          };
+        }
+      }
+
+      it("should render the toStatus headline as the status message", () => {
+        const s = status.fromException(new CustomError());
+        expect(status.toString(s)).toContain("ERROR: custom headline");
+      });
+
+      it("should render a multi-line description on its own block", () => {
+        const out = status.toString(status.fromException(new CustomError()));
+        expect(out).toContain("Description:\nline one\nline two\nline three");
+      });
+
+      it("should include merged details under the Details section", () => {
+        const out = status.toString(status.fromException(new CustomError()));
+        expect(out).toContain("Details:");
+        expect(out).toContain('"code": 42');
+      });
     });
   });
 });

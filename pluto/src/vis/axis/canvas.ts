@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, color, dimensions, type location, xy } from "@synnaxlabs/x";
+import { bounds, box, color, dimensions, type location, xy, zod } from "@synnaxlabs/x";
 
-import { prettyParse } from "@/util/zod";
 import {
   type Axis,
   type AxisProps,
@@ -54,7 +53,7 @@ export class Base {
   }
 
   setState(state: AxisState): void {
-    this.state = prettyParse(axisStateZ, state);
+    this.state = zod.parse(axisStateZ, state, { label: "axis" });
     this.tickFactory = newTickFactory(state);
   }
 
