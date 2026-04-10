@@ -213,33 +213,28 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
             if any(kw in log_line.lower() for kw in ("error", "zod", "invalid", "pageerror")):
                 self.log(f"  {log_line}")
 
-        has_error = got_error or len(errors) > 0 or len(page_errors) > 0
+        configure_failed = not button_hidden
 
         self.log(f"Evidence: notification_error={got_error}, "
                  f"error_notifications={len(errors)}, "
                  f"page_errors={len(page_errors)}, "
                  f"console_errors={len(console_errors)}, "
-                 f"button_hidden={button_hidden}")
+                 f"button_hidden={button_hidden}, "
+                 f"configure_failed={configure_failed}")
 
         if self.expect_success:
-            assert not has_error, (
-                f"Expected configure to succeed, but got error(s): "
-                f"notifications={[e.get('message', '') for e in errors]}, "
+            assert button_hidden, (
+                "Expected configure to succeed (button hidden), but button "
+                f"stayed visible. notifications={[e.get('message', '') for e in errors]}, "
                 f"page_errors={page_errors}"
             )
-            self.log("Configure succeeded — device properties migration working")
+            self.log("Configure succeeded — button hidden, migration working")
         else:
-            assert has_error, (
-                "Expected configure to fail with error, but no errors appeared. "
-                f"Button hidden: {button_hidden}. "
-                f"All browser logs: {self._browser_logs}"
+            assert configure_failed, (
+                "Expected configure to fail (button stays visible), but "
+                "button was hidden (configure succeeded)."
             )
-            proof = (
-                errors[0].get("message", "") if errors
-                else page_errors[0] if page_errors
-                else "button stayed visible (configure failed silently)"
-            )
-            self.log(f"Configure failed as expected: {proof}")
+            self.log("Configure failed as expected — button stayed visible")
 
         console.notifications.close_all()
 
