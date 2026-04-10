@@ -9,11 +9,9 @@
 
 from dataclasses import dataclass, field
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
-from x import random_name
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -143,13 +141,13 @@ start_read_only_monitor_cmd => main
 
 sequence main {
     stage on {
-        press_pt > 30 => set_status{
+        edge_monitor_input > 30 => set_status{
             status_key = "press_monitor_status",
             name = "Press Monitor",
             variant = "warning",
             message = "Pressure high"
         },
-        press_pt < 30 => set_status{
+        edge_monitor_input < 30 => set_status{
             status_key = "press_monitor_status",
             name = "Press Monitor",
             variant = "success",
@@ -355,25 +353,15 @@ class EdgeCases(ArcConsoleCase):
     arc_source = ARC_CHANNEL_EDGE_CASES_SOURCE
     arc_name_prefix = "ArcEdgeCases"
     start_cmd_channel = "start_edge_case_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = CHANNEL_VIRTUAL
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self._extra_arcs: list[str] = []
         for ch in CHANNEL_VIRTUAL:
-            self.client.channels.create(
-                name=ch,
-                data_type=sy.DataType.FLOAT32,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
-        self.client.channels.create(
-            name="start_read_only_monitor_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
+            create_virtual_channel(self.client, ch)
+        create_virtual_channel(
+            self.client, "start_read_only_monitor_cmd", sy.DataType.UINT8
         )
+        create_virtual_channel(self.client, "edge_monitor_input")
         self.client.statuses.set(
             sy.Status(
                 key="press_monitor_status",
@@ -421,13 +409,8 @@ class EdgeCases(ArcConsoleCase):
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
 
     def _assert_circular_error(self, case: CircularCase) -> None:
-        arc_name = f"Circ{case.label}_{random_name()}"
-        self.log(f"[{case.label}] Testing {arc_name}")
-
-        self.console.arc.create(arc_name, case.source, mode="Text")
-        self._extra_arcs.append(arc_name)
-        assert self.rack is not None
-        self.console.arc.select_rack(self.rack.name)
+        self.log(f"[{case.label}] Testing circular dependency")
+        self.load_arc(case.source, f"Circ{case.label}", start=False, configure=False)
 
         self.console.arc.configure_no_wait()
         status = self.console.arc.wait_for_status(case.wait_substr)
@@ -450,15 +433,8 @@ class EdgeCases(ArcConsoleCase):
             self._assert_circular_error(case)
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
-        arc_name = f"Guard{case.label}_{random_name()}"
-        self.log(f"[Guarded {case.label}] Testing {arc_name}")
-
-        self.console.arc.create(arc_name, case.source, mode="Text")
-        self._extra_arcs.append(arc_name)
-        assert self.rack is not None
-        self.console.arc.select_rack(self.rack.name)
-
-        self.console.arc.configure()
+        self.log(f"[Guarded {case.label}] Testing guarded recursion")
+        self.load_arc(case.source, f"Guard{case.label}", start=False)
 
     def _verify_guarded_cases(self) -> None:
         self.log("=== Guarded recursion (should configure successfully) ===")
@@ -467,19 +443,13 @@ class EdgeCases(ArcConsoleCase):
 
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
-        arc_name = f"ReadOnly_{random_name()}"
-        self.console.arc.create(arc_name, ARC_READ_ONLY_MONITOR, mode="Text")
-        self._extra_arcs.append(arc_name)
-        assert self.rack is not None
-        self.console.arc.select_rack(self.rack.name)
-        self.console.arc.configure()
-        self.console.arc.start()
+        name = self.load_arc(
+            ARC_READ_ONLY_MONITOR,
+            "ReadOnly",
+            trigger="start_read_only_monitor_cmd",
+        )
 
-        with self.client.open_writer(
-            sy.TimeStamp.now(), "start_read_only_monitor_cmd"
-        ) as w:
-            w.write("start_read_only_monitor_cmd", 1)
-
+        self.writer.write("edge_monitor_input", 50.0)
         self.log("Waiting for pressure status notification...")
         assert self.console.notifications.wait_for("Press Monitor"), (
             "No pressure status notification found"
@@ -488,20 +458,10 @@ class EdgeCases(ArcConsoleCase):
         assert self.console.arc.is_running(), "Read-only Arc stopped unexpectedly"
         self.log("Read-only Arc with no write channels running successfully")
         self.console.notifications.close_all()
-        self.console.arc.stop()
+        self.stop_arc(name)
 
     def verify_sequence_execution(self) -> None:
         self._verify_channel_edge_cases()
         self._verify_circular_cases()
         self._verify_guarded_cases()
         self._verify_read_only_monitor()
-
-    def teardown(self) -> None:
-        if self._extra_arcs:
-            try:
-                arcs = self.client.arcs.retrieve(names=self._extra_arcs)
-                if arcs:
-                    self.client.arcs.delete([a.key for a in arcs])
-            except Exception as e:
-                self.log(f"Cleanup failed for extra arcs: {e}")
-        super().teardown()
