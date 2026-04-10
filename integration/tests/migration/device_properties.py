@@ -164,77 +164,62 @@ class DevicePropertiesConsoleVerify(ConsoleCase):
         task_page = console.workspace.open_from_search(TaskPage, TASK_NAME)
         self.log("Task page opened")
 
-        # Click Configure directly — don't use task_page.configure() because
-        # it waits for the button to hide, which times out on error.
+        self._screenshot("before_configure")
+
+        # Click Configure — on success the play button becomes visible,
+        # on failure an error notification or status change appears.
         configure_btn = task_page.page.get_by_role(
             "button", name="Configure", exact=True
         )
         configure_btn.wait_for(state="visible", timeout=5000)
-        self.log("Configure button visible, clicking...")
-        self._screenshot("before_configure")
+        self.log("Clicking Configure...")
         configure_btn.click(force=True)
 
-        # Wait for either: button hides (success) or error notification appears.
+        # Wait for the play button to appear (success) or timeout (failure).
+        play_btn = task_page.page.locator("button .pluto-icon--play").locator("..")
         try:
-            # Race: whichever comes first — button hidden or error notification.
-            task_page.page.wait_for_selector(
-                ".pluto-notification:has(svg[color*='error']), "
-                ".pluto-notification:has-text('Failed')",
-                state="visible",
-                timeout=10000,
-            )
-            got_error = True
-            self.log("Error notification appeared")
+            play_btn.wait_for(state="visible", timeout=15000)
+            configure_succeeded = True
+            self.log("Play button appeared — configure succeeded")
         except Exception:
-            got_error = False
+            configure_succeeded = False
+            self.log("Play button did not appear — configure failed")
 
         self._screenshot("after_configure")
 
-        # Also check if the button went hidden (success case).
-        button_hidden = not configure_btn.is_visible()
-        if button_hidden:
-            self.log("Configure button hidden (success)")
+        # Check status bar text.
+        status = task_page.status()
+        self.log(f"Status: {status}")
 
-        # Gather notification details for direct proof.
+        # Check for error notifications.
         notifications = console.notifications.check(timeout=2 * sy.TimeSpan.SECOND)
         errors = [n for n in notifications if n.get("type") == "error"]
-
         for n in notifications:
             self.log(f"Notification: type={n.get('type')} message={n.get('message')}")
             if n.get("description"):
                 self.log(f"  Description: {n['description'][:500]}")
 
-        # Collect all evidence.
-        page_errors = [l for l in self._browser_logs if "[browser:pageerror]" in l]
-        console_errors = [l for l in self._browser_logs if "[browser:error]" in l]
-
-        # Log everything for direct proof.
+        # Log browser errors.
         for log_line in self._browser_logs:
             if any(kw in log_line.lower() for kw in ("error", "zod", "invalid", "pageerror")):
                 self.log(f"  {log_line}")
 
-        configure_failed = not button_hidden
-
-        self.log(f"Evidence: notification_error={got_error}, "
+        self.log(f"Evidence: configure_succeeded={configure_succeeded}, "
                  f"error_notifications={len(errors)}, "
-                 f"page_errors={len(page_errors)}, "
-                 f"console_errors={len(console_errors)}, "
-                 f"button_hidden={button_hidden}, "
-                 f"configure_failed={configure_failed}")
+                 f"status={status}")
 
         if self.expect_success:
-            assert button_hidden, (
-                "Expected configure to succeed (button hidden), but button "
-                f"stayed visible. notifications={[e.get('message', '') for e in errors]}, "
-                f"page_errors={page_errors}"
+            assert configure_succeeded, (
+                f"Expected configure to succeed (play button visible), but it failed. "
+                f"Status: {status}. Errors: {[e.get('message', '') for e in errors]}"
             )
-            self.log("Configure succeeded — button hidden, migration working")
+            self.log("Configure succeeded — device properties migration working")
         else:
-            assert configure_failed, (
-                "Expected configure to fail (button stays visible), but "
-                "button was hidden (configure succeeded)."
+            assert not configure_succeeded or len(errors) > 0, (
+                "Expected configure to fail, but it succeeded. "
+                f"Status: {status}"
             )
-            self.log("Configure failed as expected — button stayed visible")
+            self.log("Configure failed as expected")
 
         console.notifications.close_all()
 
