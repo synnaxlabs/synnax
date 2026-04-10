@@ -69,7 +69,7 @@ struct MockNode final : public node::Node {
 };
 
 class SchedulerTest : public ::testing::Test {
-protected:
+public:
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes_;
     std::unordered_map<std::string, MockNode *> mocks_;
 
@@ -2112,7 +2112,7 @@ ir::IR build_flow_seq(
         ir.nodes.push_back(ir::Node{.key = entry_key});
         ir::Step step;
         step.key = sk;
-        step.flow = std::make_unique<ir::Flow>();
+        step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
         step.flow->nodes.push_back(node_key);
         seq.steps.push_back(std::move(step));
         data_stratum.push_back(node_key);
@@ -2308,7 +2308,7 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
     seq.key = "main";
     ir::Step stage_step;
     stage_step.key = "stage_a";
-    stage_step.stage = std::make_unique<ir::Stage>();
+    stage_step.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     stage_step.stage->key = "stage_a";
     stage_step.stage->nodes = {"stage_node"};
     stage_step.stage->strata.push_back({"stage_node"});
@@ -2316,7 +2316,7 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
     seq.steps.push_back(std::move(stage_step));
     ir::Step flow_step;
     flow_step.key = "flow_b";
-    flow_step.flow = std::make_unique<ir::Flow>();
+    flow_step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
     flow_step.flow->nodes = {"flow_node"};
     seq.steps.push_back(std::move(flow_step));
     seq.strata.push_back({"flow_node"});
@@ -2367,12 +2367,12 @@ TEST_F(SchedulerTest, testFlowToStageTransition) {
     seq.key = "main";
     ir::Step f_step;
     f_step.key = "flow_a";
-    f_step.flow = std::make_unique<ir::Flow>();
+    f_step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
     f_step.flow->nodes = {"flow_node"};
     seq.steps.push_back(std::move(f_step));
     ir::Step s_step;
     s_step.key = "stage_b";
-    s_step.stage = std::make_unique<ir::Stage>();
+    s_step.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     s_step.stage->key = "stage_b";
     s_step.stage->nodes = {"stage_node"};
     s_step.stage->strata.push_back({"stage_node"});
@@ -2435,7 +2435,7 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     seq.key = "main";
     ir::Step press;
     press.key = "press";
-    press.stage = std::make_unique<ir::Stage>();
+    press.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     press.stage->key = "press";
     press.stage->nodes = {"press_node"};
     press.stage->strata.push_back({"press_node"});
@@ -2443,12 +2443,12 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     seq.steps.push_back(std::move(press));
     ir::Step write;
     write.key = "write";
-    write.flow = std::make_unique<ir::Flow>();
+    write.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
     write.flow->nodes = {"write_node"};
     seq.steps.push_back(std::move(write));
     ir::Step vent;
     vent.key = "vent";
-    vent.stage = std::make_unique<ir::Stage>();
+    vent.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     vent.stage->key = "vent";
     vent.stage->nodes = {"vent_node"};
     vent.stage->strata.push_back({"vent_node"});
@@ -2480,6 +2480,85 @@ TEST_F(SchedulerTest, testFlowStepDeadline) {
     scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
 
     ASSERT_EQ(scheduler->next_deadline(), 5 * x::telem::SECOND);
+}
+
+/// @brief it should handle a nested sequence inside a stage step
+TEST_F(SchedulerTest, testNestedSequenceInStage) {
+    auto &trigger = mock("trigger");
+    auto &entry_outer = mock("entry_outer_stage_a");
+    auto &stage_node = mock("stage_node");
+    auto &inner_node = mock("inner_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_outer.activate_on_next();
+
+    ir::IR ir;
+    ir.nodes.push_back({.key = "trigger"});
+    ir.nodes.push_back({.key = "entry_outer_stage_a"});
+    ir.nodes.push_back({.key = "stage_node"});
+    ir.nodes.push_back({.key = "inner_node"});
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_outer_stage_a", "input"},
+        .kind = ir::EdgeKind::OneShot,
+    });
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_outer_stage_a"});
+
+    ir::Sequence inner_seq;
+    inner_seq.key = "inner";
+    ir::Step inner_flow;
+    inner_flow.key = "s0";
+    inner_flow.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    inner_flow.flow->nodes = {"inner_node"};
+    inner_seq.steps.push_back(std::move(inner_flow));
+    inner_seq.strata.push_back({"inner_node"});
+
+    ir::Stage stage;
+    stage.key = "stage_a";
+    stage.nodes = {"stage_node"};
+    stage.strata.push_back({"stage_node"});
+    stage.strata.push_back({"boundary_inner"});
+    stage.sequences.push_back(std::move(inner_seq));
+
+    ir::Sequence outer_seq;
+    outer_seq.key = "outer";
+    ir::Step stage_step;
+    stage_step.key = "stage_a";
+    stage_step.stage = x::mem::indirect<ir::Stage>(std::move(stage));
+    outer_seq.steps.push_back(std::move(stage_step));
+    ir.root.sequences.push_back(std::move(outer_seq));
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(stage_node.next_called, 1);
+    ASSERT_EQ(inner_node.next_called, 1);
+}
+
+/// @brief it should cascade through three consecutive flow steps in one tick
+TEST_F(SchedulerTest, testThreeStepFlowCascade) {
+    auto ir = build_flow_seq(*this, "seq", {"s0", "s1", "s2"});
+
+    mocks_["trigger_seq"]->mark_on_next("activate");
+    mocks_["trigger_seq"]->param_truthy["activate"] = true;
+    mocks_["entry_seq_s0"]->activate_on_next();
+
+    mocks_["node_s0"]->mark_on_next("output");
+    mocks_["node_s0"]->param_truthy["output"] = true;
+    mocks_["entry_seq_s1"]->activate_on_next();
+
+    mocks_["node_s1"]->mark_on_next("output");
+    mocks_["node_s1"]->param_truthy["output"] = true;
+    mocks_["entry_seq_s2"]->activate_on_next();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(mocks_["node_s0"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s1"]->next_called, 1);
+    ASSERT_EQ(mocks_["node_s2"]->next_called, 1);
 }
 
 }

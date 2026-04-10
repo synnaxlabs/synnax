@@ -69,11 +69,11 @@ inline Step Step::parse(x::json::Parser parser) {
     Step s;
     s.key = parser.field<std::string>("key");
     if (parser.has("flow"))
-        s.flow = std::make_unique<Flow>(parser.field<Flow>("flow"));
+        s.flow = x::mem::indirect<Flow>(parser.field<Flow>("flow"));
     if (parser.has("stage"))
-        s.stage = std::make_unique<Stage>(parser.field<Stage>("stage"));
+        s.stage = x::mem::indirect<Stage>(parser.field<Stage>("stage"));
     if (parser.has("sequence"))
-        s.sequence = std::make_unique<Sequence>(
+        s.sequence = x::mem::indirect<Sequence>(
             parser.field<Sequence>("sequence")
         );
     return s;

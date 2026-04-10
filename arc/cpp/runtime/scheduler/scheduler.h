@@ -386,6 +386,7 @@ private:
     void reset_strata(const ir::Strata &strata) {
         for (const auto &stratum : strata)
             for (const auto &key : stratum) {
+                if (this->boundaries.count(key)) continue;
                 this->self_changed_flags[this->node_index[key]] = 0;
                 this->nodes[key].node->reset();
             }
@@ -393,8 +394,10 @@ private:
 
     void clear_self_changed(const ir::Strata &strata) {
         for (const auto &stratum : strata)
-            for (const auto &key : stratum)
+            for (const auto &key : stratum) {
+                if (this->boundaries.count(key)) continue;
                 this->self_changed_flags[this->node_index[key]] = 0;
+            }
     }
 
     void reset_sequence_state(SequenceState &seq) {

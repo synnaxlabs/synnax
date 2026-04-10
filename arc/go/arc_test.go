@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
+	programpb "github.com/synnaxlabs/arc/program/pb"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
@@ -513,6 +514,108 @@ stage abort {
 
 			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
+		})
+	})
+
+	Describe("Proto Round-Trip", func() {
+		It("Should round-trip a flow step program through proto", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => main
+
+sequence main {
+	1 -> valve_cmd
+	wait{duration=2s}
+	0 -> valve_cmd
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"valve_cmd": symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			Expect(mod.Root.Sequences).To(HaveLen(1))
+			seq := MustBeOk(mod.Root.Sequences.Find("main"))
+			Expect(seq.Steps).To(HaveLen(3))
+
+			pb := MustSucceed(programpb.ProgramToPB(mod))
+			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
+
+			Expect(reconstructed.Root.Sequences).To(HaveLen(1))
+			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("main"))
+			Expect(rSeq.Steps).To(HaveLen(3))
+			Expect(rSeq.Steps[0].IsFlow()).To(BeTrue())
+			Expect(rSeq.Steps[1].IsFlow()).To(BeTrue())
+			Expect(rSeq.Steps[2].IsFlow()).To(BeTrue())
+			Expect(reconstructed.Root.Strata).ToNot(BeEmpty())
+		})
+
+		It("Should round-trip a mixed stage and flow program through proto", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => main
+
+sequence main {
+	stage press {
+		1 -> press_cmd,
+		press_pt > 50 => next
+	}
+	0 -> press_cmd
+	1 -> vent_cmd
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"press_cmd": symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+						"press_pt":  symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+						"vent_cmd":  symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			pb := MustSucceed(programpb.ProgramToPB(mod))
+			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
+
+			Expect(reconstructed.Root.Sequences).To(HaveLen(1))
+			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("main"))
+			Expect(rSeq.Steps).To(HaveLen(3))
+			Expect(rSeq.Steps[0].IsStage()).To(BeTrue())
+			Expect(rSeq.Steps[0].Key).To(Equal("press"))
+			Expect(rSeq.Steps[1].IsFlow()).To(BeTrue())
+			Expect(rSeq.Steps[2].IsFlow()).To(BeTrue())
+		})
+
+		It("Should round-trip a top-level stage program through proto", func(ctx SpecContext) {
+			mod := compile(ctx, `
+start_cmd => abort
+
+stage abort {
+	0 -> all_valves,
+	1 -> vent_cmd,
+}
+`,
+				symbol.CompoundResolver{
+					symbol.MapResolver{
+						"start_cmd":  symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+						"all_valves": symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+						"vent_cmd":   symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+					},
+					stl.SymbolResolver,
+				},
+			)
+
+			pb := MustSucceed(programpb.ProgramToPB(mod))
+			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
+
+			Expect(reconstructed.Root.Sequences).To(HaveLen(1))
+			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("abort"))
+			Expect(rSeq.Steps).To(HaveLen(1))
+			Expect(rSeq.Steps[0].IsStage()).To(BeTrue())
+			Expect(rSeq.Steps[0].Stage.Nodes).ToNot(BeEmpty())
 		})
 	})
 })

@@ -236,8 +236,8 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Sequence Body Suppresses Symbols", func() {
-		It("should not show channel symbols inside sequence body", func(ctx SpecContext) {
+	Describe("Sequence Body Shows Symbols and Keywords", func() {
+		It("should show channel symbols and stage keyword inside sequence body", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"sensor": symbol.Symbol{
 					Name: "sensor",
@@ -256,7 +256,7 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "sensor")).To(BeFalse(), "Should not show channel symbols inside sequence body")
+			Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue(), "Should show channel symbols inside sequence body for flow statements")
 			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' inside sequence body")
 		})
 	})

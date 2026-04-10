@@ -109,7 +109,7 @@ public:
                     stage.nodes.push_back(node_key);
             Step step;
             step.key = stage_key;
-            step.stage = std::make_unique<Stage>(std::move(stage));
+            step.stage = x::mem::indirect<Stage>(std::move(stage));
             seq.steps.push_back(std::move(step));
         }
         ir_.root.sequences.push_back(std::move(seq));

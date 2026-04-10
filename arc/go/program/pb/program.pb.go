@@ -87,9 +87,9 @@ type Program struct {
 	Nodes []*pb.Node `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains dataflow connections.
 	Edges []*pb.Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	// strata contains execution stratification layers.
+	// strata is deprecated. Use root.strata instead.
 	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
-	// sequences contains state machine definitions.
+	// sequences is deprecated. Use root.sequences instead.
 	Sequences []*pb.Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	// authorities contains the static authority declarations for this program.
 	Authorities *pb.Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
@@ -98,8 +98,10 @@ type Program struct {
 	// output_memory_bases contains memory base addresses for multi-output functions,
 	// mapping function keys to their base addresses.
 	OutputMemoryBases map[string]uint32 `protobuf:"bytes,8,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// root is the top-level execution context.
+	Root          *pb.Stage `protobuf:"bytes,9,opt,name=root,proto3" json:"root,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Program) Reset() {
@@ -188,13 +190,20 @@ func (x *Program) GetOutputMemoryBases() map[string]uint32 {
 	return nil
 }
 
+func (x *Program) GetRoot() *pb.Stage {
+	if x != nil {
+		return x.Root
+	}
+	return nil
+}
+
 var File_arc_go_program_pb_program_proto protoreflect.FileDescriptor
 
 const file_arc_go_program_pb_program_proto_rawDesc = "" +
 	"\n" +
 	"\x1farc/go/program/pb/program.proto\x12\x0earc.program.pb\x1a\x15arc/go/ir/pb/ir.proto\"(\n" +
 	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xe9\x03\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x8f\x04\n" +
 	"\aProgram\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
@@ -203,7 +212,8 @@ const file_arc_go_program_pb_program_proto_rawDesc = "" +
 	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
 	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12\x12\n" +
 	"\x04wasm\x18\a \x01(\fR\x04wasm\x12^\n" +
-	"\x13output_memory_bases\x18\b \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
+	"\x13output_memory_bases\x18\b \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x12$\n" +
+	"\x04root\x18\t \x01(\v2\x10.arc.ir.pb.StageR\x04root\x1aD\n" +
 	"\x16OutputMemoryBasesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\xa2\x01\n" +
@@ -231,6 +241,7 @@ var file_arc_go_program_pb_program_proto_goTypes = []any{
 	(*pb.Edge)(nil),        // 5: arc.ir.pb.Edge
 	(*pb.Sequence)(nil),    // 6: arc.ir.pb.Sequence
 	(*pb.Authorities)(nil), // 7: arc.ir.pb.Authorities
+	(*pb.Stage)(nil),       // 8: arc.ir.pb.Stage
 }
 var file_arc_go_program_pb_program_proto_depIdxs = []int32{
 	3, // 0: arc.program.pb.Program.functions:type_name -> arc.ir.pb.Function
@@ -240,11 +251,12 @@ var file_arc_go_program_pb_program_proto_depIdxs = []int32{
 	6, // 4: arc.program.pb.Program.sequences:type_name -> arc.ir.pb.Sequence
 	7, // 5: arc.program.pb.Program.authorities:type_name -> arc.ir.pb.Authorities
 	2, // 6: arc.program.pb.Program.output_memory_bases:type_name -> arc.program.pb.Program.OutputMemoryBasesEntry
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	8, // 7: arc.program.pb.Program.root:type_name -> arc.ir.pb.Stage
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_program_pb_program_proto_init() }

@@ -12,7 +12,6 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -22,6 +21,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 
 #include "arc/cpp/types/types.gen.h"
 #include "arc/go/ir/pb/ir.pb.h"
@@ -298,11 +298,11 @@ struct Step {
     /// @brief key is the name for jump targets, empty for anonymous steps.
     std::string key;
     /// @brief flow is non-null when this step is a leaf (single dataflow chain).
-    std::unique_ptr<Flow> flow;
+    x::mem::indirect<Flow> flow;
     /// @brief stage is non-null when this step is a parallel execution context.
-    std::unique_ptr<Stage> stage;
+    x::mem::indirect<Stage> stage;
     /// @brief sequence is non-null when this step is a nested sequential context.
-    std::unique_ptr<Sequence> sequence;
+    x::mem::indirect<Sequence> sequence;
 
     static Step parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

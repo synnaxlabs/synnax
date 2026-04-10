@@ -250,7 +250,7 @@ var completions = []completionInfo{
 		Insert:       "stage ${1:name} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categorySequenceKeyword,
+		Category:     categorySequenceKeyword | categoryTopLevelKeyword,
 	},
 	{
 		Label:        parser.LiteralNEXT,
@@ -417,7 +417,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
+	if completionCtx != ContextTypeAnnotation {
 		scopeAtCursor := doc.findScopeAtPosition(pos)
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.Search(ctx, prefix)

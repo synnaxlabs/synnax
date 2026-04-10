@@ -43,12 +43,17 @@ Program::to_proto() const {
         if (err) return {{}, err};
         *pb.add_edges() = v;
     }
-    for (const auto &item: this->strata) {
+    {
+        auto [v, err] = this->root.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_root() = v;
+    }
+    for (const auto &item: this->root.strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
             wrapper->add_values(v);
     }
-    for (const auto &item: this->sequences) {
+    for (const auto &item: this->root.sequences) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
         *pb.add_sequences() = v;
@@ -76,13 +81,20 @@ Program::from_proto(const ::arc::program::pb::Program &pb) {
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<::arc::ir::Edge>(cpp.edges, pb.edges()))
         return {{}, err};
-    for (const auto &wrapper: pb.strata())
-        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    if (auto err = x::pb::from_proto_repeated<::arc::ir::Sequence>(
-            cpp.sequences,
-            pb.sequences()
-        ))
-        return {{}, err};
+    if (pb.has_root()) {
+        auto [v, err] = ::arc::ir::Stage::from_proto(pb.root());
+        if (err) return {{}, err};
+        cpp.root = v;
+    } else {
+        for (const auto &wrapper: pb.strata())
+            cpp.root.strata.push_back(
+                {wrapper.values().begin(), wrapper.values().end()}
+            );
+        if (auto err = x::pb::from_proto_repeated<::arc::ir::Sequence>(
+                cpp.root.sequences, pb.sequences()
+            ))
+            return {{}, err};
+    }
     {
         auto [v, err] = ::arc::ir::Authorities::from_proto(pb.authorities());
         if (err) return {{}, err};

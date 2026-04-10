@@ -135,10 +135,13 @@ message IR {
   repeated Node nodes = 2;
   // edges contains dataflow connections.
   repeated Edge edges = 3;
-  // strata contains execution stratification layers.
+  // strata is deprecated. Use root.strata instead.
   repeated StratumWrapper strata = 4;
-  // sequences contains state machine definitions.
+  // sequences is deprecated. Use root.sequences instead.
   repeated Sequence sequences = 5;
   // authorities contains the static authority declarations for this program.
   Authorities authorities = 6;
+  // root is the top-level execution context. Its strata field holds global
+  // stratification, its sequences field holds top-level sequences.
+  Stage root = 7;
 }

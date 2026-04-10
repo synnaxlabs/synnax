@@ -257,10 +257,10 @@ TEST(IRTest, testSequenceToString) {
     s1.nodes = {"b", "c"};
     Step step0;
     step0.key = "init";
-    step0.stage = std::make_unique<Stage>(std::move(s0));
+    step0.stage = x::mem::indirect<Stage>(std::move(s0));
     Step step1;
     step1.key = "run";
-    step1.stage = std::make_unique<Stage>(std::move(s1));
+    step1.stage = x::mem::indirect<Stage>(std::move(s1));
     seq.steps.push_back(std::move(step0));
     seq.steps.push_back(std::move(step1));
     const auto str = seq.to_string();
@@ -280,8 +280,7 @@ TEST(IRTest, testFlowToString) {
 TEST(IRTest, testStepToStringFlow) {
     Step step;
     step.key = "f1";
-    step.flow = std::make_unique<Flow>();
-    step.flow->nodes = {"x", "y"};
+    step.flow = x::mem::indirect<Flow>(Flow{.nodes = {"x", "y"}});
     ASSERT_EQ(step.to_string(), "(flow): [x, y]");
 }
 
@@ -289,9 +288,7 @@ TEST(IRTest, testStepToStringFlow) {
 TEST(IRTest, testStepToStringStage) {
     Step step;
     step.key = "s1";
-    step.stage = std::make_unique<Stage>();
-    step.stage->key = "run";
-    step.stage->nodes = {"a"};
+    step.stage = x::mem::indirect<Stage>(Stage{.key = "run", .nodes = {"a"}});
     ASSERT_NE(step.to_string().find("run: [a]"), std::string::npos);
 }
 
@@ -457,7 +454,7 @@ TEST(IRTest, testIRToString) {
     s.nodes = {"add_1"};
     Step step;
     step.key = "run";
-    step.stage = std::make_unique<Stage>(std::move(s));
+    step.stage = x::mem::indirect<Stage>(std::move(s));
     seq.steps.push_back(std::move(step));
     ir.root.sequences.push_back(std::move(seq));
 

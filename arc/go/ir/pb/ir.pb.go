@@ -799,12 +799,15 @@ type IR struct {
 	Nodes []*Node `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains dataflow connections.
 	Edges []*Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	// strata contains execution stratification layers.
+	// strata is deprecated. Use root.strata instead.
 	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
-	// sequences contains state machine definitions.
+	// sequences is deprecated. Use root.sequences instead.
 	Sequences []*Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	// authorities contains the static authority declarations for this program.
-	Authorities   *Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
+	Authorities *Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
+	// root is the top-level execution context. Its strata field holds global
+	// stratification, its sequences field holds top-level sequences.
+	Root          *Stage `protobuf:"bytes,7,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -881,6 +884,13 @@ func (x *IR) GetAuthorities() *Authorities {
 	return nil
 }
 
+func (x *IR) GetRoot() *Stage {
+	if x != nil {
+		return x.Root
+	}
+	return nil
+}
+
 var File_arc_go_ir_pb_ir_proto protoreflect.FileDescriptor
 
 const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
@@ -894,14 +904,23 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
 	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"(\n" +
 	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"b\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x1c\n" +
+	"\x04Flow\x12\x14\n" +
+	"\x05nodes\x18\x01 \x03(\tR\x05nodes\"\x95\x01\n" +
 	"\x05Stage\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05nodes\x18\x02 \x03(\tR\x05nodes\x121\n" +
-	"\x06strata\x18\x03 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\"F\n" +
+	"\x06strata\x18\x03 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
+	"\tsequences\x18\x04 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\"\x96\x01\n" +
+	"\x04Step\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12#\n" +
+	"\x04flow\x18\x02 \x01(\v2\x0f.arc.ir.pb.FlowR\x04flow\x12&\n" +
+	"\x05stage\x18\x03 \x01(\v2\x10.arc.ir.pb.StageR\x05stage\x12/\n" +
+	"\bsequence\x18\x04 \x01(\v2\x13.arc.ir.pb.SequenceR\bsequence\"v\n" +
 	"\bSequence\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
-	"\x06stages\x18\x02 \x03(\v2\x10.arc.ir.pb.StageR\x06stages\"\x18\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12%\n" +
+	"\x05steps\x18\x02 \x03(\v2\x0f.arc.ir.pb.StepR\x05steps\x121\n" +
+	"\x06strata\x18\x03 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\"\x18\n" +
 	"\x04Body\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xfe\x01\n" +
 	"\bFunction\x12\x10\n" +
@@ -925,14 +944,15 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_default\"\xa5\x02\n" +
+	"\b_default\"\xcb\x02\n" +
 	"\x02IR\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x121\n" +
 	"\x06strata\x18\x04 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
 	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
-	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities*W\n" +
+	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
+	"\x04root\x18\a \x01(\v2\x10.arc.ir.pb.StageR\x04root*W\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x16\n" +
@@ -998,11 +1018,12 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	3,  // 23: arc.ir.pb.IR.strata:type_name -> arc.ir.pb.StratumWrapper
 	7,  // 24: arc.ir.pb.IR.sequences:type_name -> arc.ir.pb.Sequence
 	11, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	26, // [26:26] is the sub-list for method output_type
-	26, // [26:26] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	5,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Stage
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }

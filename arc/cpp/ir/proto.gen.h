@@ -146,19 +146,19 @@ Step::from_proto(const ::arc::ir::pb::Step &pb) {
     if (pb.has_flow()) {
         auto [v, err] = Flow::from_proto(pb.flow());
         if (err) return {{}, err};
-        cpp.flow = std::make_unique<Flow>(std::move(v));
+        cpp.flow = x::mem::indirect<Flow>(std::move(v));
     }
     if (pb.has_stage()) {
         auto [v, err] = Stage::from_proto(pb.stage());
         if (err) return {{}, err};
-        cpp.stage = std::make_unique<Stage>(std::move(v));
+        cpp.stage = x::mem::indirect<Stage>(std::move(v));
     }
     if (pb.has_sequence()) {
         auto [v, err] = Sequence::from_proto(pb.sequence());
         if (err) return {{}, err};
-        cpp.sequence = std::make_unique<Sequence>(std::move(v));
+        cpp.sequence = x::mem::indirect<Sequence>(std::move(v));
     }
-    return {std::move(cpp), x::errors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::arc::ir::pb::Sequence, x::errors::Error> Sequence::to_proto() const {
@@ -357,6 +357,11 @@ inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
         if (err) return {{}, err};
         *pb.add_edges() = v;
     }
+    {
+        auto [v, err] = this->root.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_root() = v;
+    }
     for (const auto &item: this->root.strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
@@ -383,10 +388,20 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Edge>(cpp.edges, pb.edges()))
         return {{}, err};
-    for (const auto &wrapper: pb.strata())
-        cpp.root.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.root.sequences, pb.sequences()))
-        return {{}, err};
+    if (pb.has_root()) {
+        auto [v, err] = Stage::from_proto(pb.root());
+        if (err) return {{}, err};
+        cpp.root = v;
+    } else {
+        for (const auto &wrapper: pb.strata())
+            cpp.root.strata.push_back(
+                {wrapper.values().begin(), wrapper.values().end()}
+            );
+        if (auto err = x::pb::from_proto_repeated<Sequence>(
+                cpp.root.sequences, pb.sequences()
+            ))
+            return {{}, err};
+    }
     {
         auto [v, err] = Authorities::from_proto(pb.authorities());
         if (err) return {{}, err};
