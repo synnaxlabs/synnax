@@ -122,8 +122,12 @@ class NIDevicePropertiesSetup(TestCase):
         pass
 
 
-class NIDevicePropertiesConsoleVerify(ConsoleCase):
+class NIAnalogRead_SY4047_ConsoleVerify(ConsoleCase):
     """SY-4047: Open the NI task, click Configure, then run via Python client.
+
+    Must run BEFORE NIAnalogReadVerify, which re-configures and restores
+    the stripped properties. Class name is chosen to sort between
+    NIAnalogReadConsoleVerify and NIAnalogReadVerify alphabetically.
 
     Exercises the buggy code path: ``onConfigure`` →
     ``client.devices.retrieve({ schemas })`` → ``propertiesZ.parse()``.
