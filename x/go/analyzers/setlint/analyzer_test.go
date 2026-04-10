@@ -36,7 +36,7 @@ var _ = Describe("Analyzer", func() {
 			GinkgoT(), testdata, setlint.Analyzer, "mapbool",
 		)
 		Expect(results).ToNot(BeEmpty())
-		count := 0
+		var count int
 		for _, r := range results {
 			count += len(r.Diagnostics)
 		}
