@@ -17,17 +17,20 @@ Sequence:
        then strips the device properties to simulate pre-v0.54 stored data.
     2. Core/Console is upgraded to the target version.
     3. ``DevicePropertiesConsoleVerify`` opens the task in the Console, clicks
-       Configure, then runs the task and verifies data is produced.
+       Configure, and verifies the play button appears (configure succeeded).
+    4. ``DevicePropertiesVerify`` retrieves the task via Python client, runs it,
+       and verifies data is produced using ``assert_sample_count``.
 """
 
-import platform
-
 import synnax as sy
-from console.case import ConsoleCase
-from console.task_page import TaskPage
-from framework.test_case import TestCase
-from framework.utils import get_results_path
+from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
+from tests.migration.task import (
+    ReadTaskConsoleVerify,
+    ReadTaskMigration,
+    ReadTaskMigrationSetup,
+    ReadTaskMigrationVerify,
+)
 
 TASK_NAME = "mig_sy4047_ni_read"
 IDX_NAME = "mig_sy4047_idx"
@@ -36,29 +39,18 @@ NUM_CHANNELS = 2
 DEVICE_LOCATION = "E101Mod4"  # NI 9205 sim
 
 
-class DevicePropertiesSetup(TestCase):
-    """Create an NI analog read task on sim hardware, then strip device properties.
+class _Base(ReadTaskMigration, NIAnalogReadTaskCase):
+    """Shared base for SY-4047 device properties migration tests."""
 
-    Creates the task via ``tasks.configure`` (driver ACK) so it's fully valid,
-    then overwrites the device properties to remove ``counterInput`` and make
-    ``analogOutput`` partial — simulating what a pre-v0.54 device would store.
-    """
+    task_name = TASK_NAME
+    device_locations = [DEVICE_LOCATION]
 
-    def setup(self) -> None:
-        if platform.system().lower() != "windows":
-            self.auto_pass(msg="NI sim devices require Windows")
-            return
-
-    def run(self) -> None:
-        client = self.client
-
-        # Resolve the sim NI device (registered by the driver's scan task).
-        dev = client.devices.retrieve(location=DEVICE_LOCATION)
-        self.log(f"Device '{dev.name}' (key={dev.key})")
-
-        # Create channels and task.
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIVoltageChan]:
         idx = create_index(client, IDX_NAME)
-        channels = [
+        return [
             sy.ni.AIVoltageChan(
                 port=i,
                 channel=create_channel(
@@ -73,25 +65,22 @@ class DevicePropertiesSetup(TestCase):
             )
             for i in range(NUM_CHANNELS)
         ]
-        task = sy.ni.AnalogReadTask(
-            name=TASK_NAME,
-            device=dev.key,
-            sample_rate=50 * sy.Rate.HZ,
-            stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
-            channels=channels,
-        )
-        client.tasks.configure(task)
-        self.log(f"Task '{TASK_NAME}' configured (key={task.key})")
 
-        # Verify it runs.
-        with task.run():
-            sy.sleep(1)
-        self.log("Task ran successfully")
 
-        # Strip device properties to simulate old stored data.
-        dev = client.devices.retrieve(key=dev.key)
-        self.log(f"  Original property keys: {list(dev.properties.keys())}")
+class DevicePropertiesSetup(ReadTaskMigrationSetup, _Base):
+    """Create an NI analog read task, verify it runs, then strip device properties.
+
+    After normal setup (create + configure + start/stop), overwrites the device
+    properties to remove ``counterInput`` and make ``analogOutput`` partial —
+    simulating what a pre-v0.54 device would store.
+    """
+
+    def run(self) -> None:
+        super().run()
+        client = self.client
+        dev = client.devices.retrieve(name=self.device_name)
+        self.log(f"Stripping properties for '{dev.name}' (key={dev.key})")
+        self.log(f"  Original keys: {list(dev.properties.keys())}")
 
         stripped = dict(dev.properties)
         stripped.pop("counterInput", None)
@@ -105,95 +94,26 @@ class DevicePropertiesSetup(TestCase):
         client.devices.create(dev)
 
         dev = client.devices.retrieve(key=dev.key)
-        self.log(f"  Stripped property keys: {list(dev.properties.keys())}")
-
+        self.log(f"  Stripped keys: {list(dev.properties.keys())}")
         has_counter = (
             "counterInput" in dev.properties or "counter_input" in dev.properties
         )
         assert not has_counter, "counterInput should have been stripped"
         self.log("Device properties stripped successfully")
 
-    def teardown(self) -> None:
-        pass
+
+class DevicePropertiesVerify(ReadTaskMigrationVerify, _Base):
+    """Retrieve the task, verify config survived, and run to verify data."""
+
+    task_type = "ni_analog_read"
+    task_class = sy.ni.AnalogReadTask
+    channel_prefix = CHANNEL_PREFIX
+    num_channels = NUM_CHANNELS
 
 
-class DevicePropertiesConsoleVerify(ConsoleCase):
-    """Open the NI task in the Console, click Configure, run, and verify data.
+class DevicePropertiesConsoleVerify(ReadTaskConsoleVerify):
+    """Verify the task form renders and Configure works in the Console."""
 
-    On the buggy v0.54 console, clicking Configure triggers a ZodError because
-    ``propertiesZ`` rejects incomplete device properties during
-    ``client.devices.retrieve``. On the fixed console, Configure succeeds,
-    the task can be run, and data channels contain samples.
-    """
-
-    requires_platform: str | None = "windows"
-
-    def _screenshot(self, label: str) -> None:
-        name = type(self).__name__
-        path = get_results_path(f"{name}_{label}.png")
-        try:
-            self.page.screenshot(path=path)
-            self.log(f"Screenshot saved: {path}")
-        except Exception as e:
-            self.log(f"Screenshot failed: {e}")
-
-    def setup(self) -> None:
-        if (
-            self.requires_platform is not None
-            and platform.system().lower() != self.requires_platform
-        ):
-            self.auto_pass(
-                msg=f"Requires {self.requires_platform}, "
-                f"running on {platform.system().lower()}"
-            )
-            return
-        super().setup()
-
-    def run(self) -> None:
-        console = self.console
-        client = self.client
-
-        self.log(f"Searching for task '{TASK_NAME}'...")
-        task_page = console.workspace.open_from_search(TaskPage, TASK_NAME)
-        self.log("Task page opened")
-
-        self._screenshot("before_configure")
-
-        # Click Configure.
-        configure_btn = task_page.page.get_by_role(
-            "button", name="Configure", exact=True
-        )
-        configure_btn.wait_for(state="visible", timeout=5000)
-        self.log("Clicking Configure...")
-        configure_btn.click(force=True)
-
-        # Wait for the play button — indicates configure succeeded.
-        play_btn = task_page.page.locator("button .pluto-icon--play").locator("..")
-        play_btn.wait_for(state="visible", timeout=15000)
-        self.log("Play button appeared — configure succeeded")
-
-        self._screenshot("after_configure")
-
-        # Run the task via the Console play button.
-        self.log("Running task...")
-        console.notifications.close_all()
-        play_btn.dispatch_event("click")
-        sy.sleep(2)
-
-        self._screenshot("after_run")
-
-        # Stop the task.
-        stop_btn = task_page.page.locator("button .pluto-icon--pause").locator("..")
-        stop_btn.dispatch_event("click")
-        self.log("Task stopped")
-
-        # Verify data was produced via the Python client.
-        for i in range(NUM_CHANNELS):
-            ch = client.channels.retrieve(f"{CHANNEL_PREFIX}_{i}")
-            data = ch.read(sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now()))
-            assert len(data) > 0, f"Channel '{ch.name}' has no data after configure+run"
-            self.log(f"Channel '{ch.name}' has {len(data)} samples")
-
-        self.log("Device properties migration verified — configure + run + data OK")
-
-        console.notifications.close_all()
+    task_name = TASK_NAME
+    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
+    requires_platform = "windows"
