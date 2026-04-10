@@ -145,6 +145,18 @@ class NIAnalogRead_SY4047_ConsoleVerify(ConsoleCase):
         console = self.console
         client = self.client
 
+        # Log device properties to verify the strip survived.
+        dev = client.devices.retrieve(location=DEVICE_LOCATION)
+        self.log(f"Device properties before Configure: {dev.properties}")
+        has_counter = (
+            "counterInput" in dev.properties or "counter_input" in dev.properties
+        )
+        self.log(f"  counterInput present: {has_counter}")
+        if "analogOutput" in dev.properties:
+            self.log(f"  analogOutput: {dev.properties['analogOutput']}")
+        elif "analog_output" in dev.properties:
+            self.log(f"  analog_output: {dev.properties['analog_output']}")
+
         self.log(f"Searching for task '{TASK_NAME}'...")
         task_page = console.workspace.open_from_search(TaskPage, TASK_NAME)
         self.log("Task page opened")
