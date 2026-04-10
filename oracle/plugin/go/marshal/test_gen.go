@@ -97,7 +97,7 @@ func generateTestCodecFile(
 			}
 		}
 
-		recv := receiverName(e.GoName)
+		recv := ReceiverName(e.GoName)
 		// In test files the receiver is used as a local variable, so it must
 		// not shadow the package import alias.
 		if recv == packageName {
@@ -220,6 +220,7 @@ func generateTestCodecFile(
 	tmpl, err := template.New("codec_test").Funcs(template.FuncMap{
 		"concreteGoType": concreteGoTypeForConstraint,
 		"tpNames":        tpNames,
+		"sortedImports":  sortedImports,
 	}).Parse(testCodecTemplate)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse test template")
@@ -774,8 +775,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"{{.PkgImport}}"
-{{- range $path, $alias := .ExtraImports}}
-	{{if $alias}}{{$alias}} {{end}}"{{$path}}"
+{{- range sortedImports .ExtraImports}}
+	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 

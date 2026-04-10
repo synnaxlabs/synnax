@@ -49,10 +49,11 @@ Name = string {
 }
 
 OperationType enum {
-    min  = "min"
-    max  = "max"
-    avg  = "avg"
-    none = "none"
+    min        = "min"
+    max        = "max"
+    avg        = "avg"
+    none       = "none"
+    derivative = "derivative"
 
     @doc value "is the type of aggregation operation to apply to channel data over time."
     @go output "core/pkg/distribution/channel"

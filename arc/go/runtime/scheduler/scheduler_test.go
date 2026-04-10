@@ -149,8 +149,8 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger_a", "activate", "entry_seq_stage_a", "input").
-				OneShot("trigger_b", "activate", "entry_seq_stage_b", "input").
+				Conditional("trigger_a", "activate", "entry_seq_stage_a", "input").
+				Conditional("trigger_b", "activate", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger_a", "trigger_b"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage_a", Strata: [][]string{{"A"}}},
@@ -472,8 +472,8 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	Describe("One-Shot Edge Semantics", func() {
-		It("Should fire one-shot when truthy", func(ctx SpecContext) {
+	Describe("Conditional Edge Semantics", func() {
+		It("Should fire conditional when truthy", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -483,7 +483,7 @@ var _ = Describe("Scheduler", func() {
 			prog := testutil.NewIRBuilder().
 				Node("A").
 				Node("B").
-				OneShot("A", "output", "B", "input").
+				Conditional("A", "output", "B", "input").
 				Strata([][]string{{"A"}, {"B"}}).
 				Build()
 
@@ -493,7 +493,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
-		It("Should not fire one-shot when falsy", func(ctx SpecContext) {
+		It("Should not fire conditional when falsy", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -503,7 +503,7 @@ var _ = Describe("Scheduler", func() {
 			prog := testutil.NewIRBuilder().
 				Node("A").
 				Node("B").
-				OneShot("A", "output", "B", "input").
+				Conditional("A", "output", "B", "input").
 				Strata([][]string{{"A"}, {"B"}}).
 				Build()
 
@@ -513,7 +513,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
 
-		It("Should fire one-shot only once per stage", func(ctx SpecContext) {
+		It("Should fire conditional every tick while truthy in stage", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -530,8 +530,8 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
-				OneShot("A", "output", "B", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("A", "output", "B", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}, {"B"}}},
@@ -544,10 +544,10 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(2))
 		})
 
-		It("Should fire one-shot once ever in global strata", func(ctx SpecContext) {
+		It("Should fire conditional every tick while truthy in global strata", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 
@@ -557,7 +557,7 @@ var _ = Describe("Scheduler", func() {
 			prog := testutil.NewIRBuilder().
 				Node("A").
 				Node("B").
-				OneShot("A", "output", "B", "input").
+				Conditional("A", "output", "B", "input").
 				Strata([][]string{{"A"}, {"B"}}).
 				Build()
 
@@ -567,13 +567,13 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(2))
 
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
-			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(3))
 		})
 
-		It("Should reset one-shot on stage entry", func(ctx SpecContext) {
+		It("Should not re-enter stage when triggered from global strata while sequence is active", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			entry := mock("entry_seq_stage")
 			nodeA := mock("A")
@@ -592,8 +592,8 @@ var _ = Describe("Scheduler", func() {
 				Node("B").
 				// Global: continuous edge so it triggers every time
 				Edge("trigger", "activate", "entry_seq_stage", "input").
-				// Stage: A→B one-shot
-				OneShot("A", "output", "B", "input").
+				// Stage: A→B conditional
+				Conditional("A", "output", "B", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}, {"B"}}},
@@ -606,10 +606,43 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeA.ResetCalled).To(Equal(1))
 
-			// Stage re-activates via continuous edge, clearing fired_one_shots
+			// Trigger fires again but sequence is already active, so no re-entry
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(2))
-			Expect(nodeA.ResetCalled).To(Equal(2))
+			Expect(nodeA.ResetCalled).To(Equal(1))
+		})
+
+		It("Should not re-enter an already-active stage", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+			nodeA.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeA.ResetCalled).To(Equal(1))
+
+			// Trigger is still truthy but stage is already active, so no re-entry
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(2))
+			Expect(nodeA.ResetCalled).To(Equal(1)) // NOT reset again
 		})
 
 		It("Should not affect continuous edge by truthiness", func(ctx SpecContext) {
@@ -630,6 +663,69 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should stop propagating when conditional becomes falsy after being truthy", func(ctx SpecContext) {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Conditional("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+
+			// Tick 1: truthy, B executes
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			// Tick 2: still truthy, B executes again
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(2))
+
+			// Tick 3: becomes falsy, B should NOT execute
+			nodeA.ParamTruthy["output"] = false
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(2))
+
+			// Tick 4: becomes truthy again, B should execute
+			nodeA.ParamTruthy["output"] = true
+			s.Next(ctx, 4*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeB.NextCalled).To(Equal(3))
+		})
+
+		It("Should propagate conditional edges independently per param", func(ctx SpecContext) {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+
+			nodeA.OnNext = func(ctx node.Context) {
+				ctx.MarkChanged("truthy_out")
+				ctx.MarkChanged("falsy_out")
+			}
+			nodeA.ParamTruthy["truthy_out"] = true
+			nodeA.ParamTruthy["falsy_out"] = false
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Conditional("A", "truthy_out", "B", "input").
+				Conditional("A", "falsy_out", "C", "input").
+				Strata([][]string{{"A"}, {"B", "C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(0))
 		})
 	})
 
@@ -666,7 +762,7 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},
@@ -694,7 +790,7 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger", "A"}, {"entry_seq_stage"}}). // A is global at stratum 0
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"B"}}},
@@ -721,7 +817,7 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},
@@ -754,8 +850,8 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
-				OneShot("A", "to_b", "entry_seq_stage_b", "input").
+				Conditional("trigger", "activate", "entry_seq_stage_a", "input").
+				Conditional("A", "to_b", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
@@ -788,7 +884,7 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},
@@ -824,8 +920,8 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq2_stage").
 				Node("A").
 				Node("B").
-				OneShot("trigger1", "activate", "entry_seq1_stage", "input").
-				OneShot("trigger2", "activate", "entry_seq2_stage", "input").
+				Conditional("trigger1", "activate", "entry_seq1_stage", "input").
+				Conditional("trigger2", "activate", "entry_seq2_stage", "input").
 				Strata([][]string{{"trigger1", "trigger2"}, {"entry_seq1_stage", "entry_seq2_stage"}}).
 				Sequence("seq1", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},
@@ -869,9 +965,9 @@ var _ = Describe("Scheduler", func() {
 				Node("A").
 				Node("B").
 				Node("C").
-				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
-				OneShot("A", "to_b", "entry_seq_stage_b", "input").
-				OneShot("B", "to_c", "entry_seq_stage_c", "input").
+				Conditional("trigger", "activate", "entry_seq_stage_a", "input").
+				Conditional("A", "to_b", "entry_seq_stage_b", "input").
+				Conditional("B", "to_c", "entry_seq_stage_c", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b", "entry_seq_stage_c"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
@@ -920,10 +1016,10 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_active", "input").
+				Conditional("trigger", "activate", "entry_seq_active", "input").
 				// Both conditions trigger their respective entry nodes
-				OneShot("condA", "transition", "entry_seq_stage_a", "input").
-				OneShot("condB", "transition", "entry_seq_stage_b", "input").
+				Conditional("condA", "transition", "entry_seq_stage_a", "input").
+				Conditional("condB", "transition", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
 				Sequence("seq", []testutil.StageSpec{
 					// Active stage has both conditions; condA is first in the stratum
@@ -968,8 +1064,8 @@ var _ = Describe("Scheduler", func() {
 				Node("write_ox_tpc_cmd").
 				Node("entry_seq_stage_abort").
 				Node("abort_node").
-				OneShot("trigger", "activate", "entry_seq_stage_on", "input").
-				OneShot("to_abort", "check", "entry_seq_stage_abort", "input").
+				Conditional("trigger", "activate", "entry_seq_stage_on", "input").
+				Conditional("to_abort", "check", "entry_seq_stage_abort", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage_on"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage_on", Strata: [][]string{{"to_abort"}, {"entry_seq_stage_abort", "write_ox_tpc_cmd"}}},
@@ -1021,9 +1117,9 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_active", "input").
-				OneShot("condA", "check", "entry_seq_stage_a", "input").
-				OneShot("condB", "check", "entry_seq_stage_b", "input").
+				Conditional("trigger", "activate", "entry_seq_active", "input").
+				Conditional("condA", "check", "entry_seq_stage_a", "input").
+				Conditional("condB", "check", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
 				Sequence("seq", []testutil.StageSpec{
 					// entry_b at stratum 1, entry_a at stratum 2 (different strata)
@@ -1079,9 +1175,9 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_active", "input").
-				OneShot("condA", "check", "entry_seq_stage_a", "input").
-				OneShot("condB", "check", "entry_seq_stage_b", "input").
+				Conditional("trigger", "activate", "entry_seq_active", "input").
+				Conditional("condA", "check", "entry_seq_stage_a", "input").
+				Conditional("condB", "check", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
 				Sequence("seq", []testutil.StageSpec{
 					// Both entries at the same stratum, stage_a first (source order)
@@ -1117,7 +1213,7 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},
@@ -1154,7 +1250,7 @@ var _ = Describe("Scheduler", func() {
 				Node("A").
 				Node("B").
 				Node("C").
-				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				Conditional("trigger", "activate", "entry_seq_stage_a", "input").
 				Edge("A", "output", "entry_seq_stage_b", "input").
 				Edge("B", "output", "entry_seq_stage_c", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage_a"}}).
@@ -1186,7 +1282,7 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},
@@ -1215,8 +1311,8 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
-				OneShot("A", "reenter", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("A", "reenter", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}, {"entry_seq_stage"}}},
@@ -1248,7 +1344,7 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				Conditional("trigger", "activate", "entry_seq_stage_a", "input").
 				Edge("A", "output", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage_a"}}).
 				Sequence("seq", []testutil.StageSpec{
@@ -1354,7 +1450,7 @@ var _ = Describe("Scheduler", func() {
 			}
 		})
 
-		It("Should handle mixed continuous and one-shot", func(ctx SpecContext) {
+		It("Should handle mixed continuous and conditional", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
@@ -1368,7 +1464,7 @@ var _ = Describe("Scheduler", func() {
 				Node("B").
 				Node("C").
 				Edge("A", "output", "B", "input").
-				OneShot("B", "output", "C", "input").
+				Conditional("B", "output", "C", "input").
 				Strata([][]string{{"A"}, {"B"}, {"C"}}).
 				Build()
 
@@ -1396,7 +1492,7 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage").
 				Node("G").
 				Node("S").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Edge("G", "output", "S", "input").
 				Strata([][]string{{"trigger", "G"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
@@ -1436,8 +1532,8 @@ var _ = Describe("Scheduler", func() {
 				Node("G").
 				Node("S1").
 				Node("S2").
-				OneShot("trigger1", "activate", "entry_seq1_stage", "input").
-				OneShot("trigger2", "activate", "entry_seq2_stage", "input").
+				Conditional("trigger1", "activate", "entry_seq1_stage", "input").
+				Conditional("trigger2", "activate", "entry_seq2_stage", "input").
 				Edge("G", "output", "S1", "input").
 				Edge("G", "output", "S2", "input").
 				Strata([][]string{{"trigger1", "trigger2", "G"}, {"entry_seq1_stage", "entry_seq2_stage"}}).
@@ -1500,10 +1596,10 @@ var _ = Describe("Scheduler", func() {
 				Node("auth_low_ch1").
 				Node("auth_low_ch2").
 				Node("reentry_trigger").
-				OneShot("trigger", "activate", "entry_bb_start", "input").
-				OneShot("stop_trigger", "to_stop", "entry_bb_stop", "input").
-				OneShot("yield_trigger", "to_yield", "entry_bb_yield", "input").
-				OneShot("reentry_trigger", "to_start", "entry_bb_start", "input").
+				Conditional("trigger", "activate", "entry_bb_start", "input").
+				Conditional("stop_trigger", "to_stop", "entry_bb_stop", "input").
+				Conditional("yield_trigger", "to_yield", "entry_bb_yield", "input").
+				Conditional("reentry_trigger", "to_start", "entry_bb_start", "input").
 				Strata([][]string{
 					{"trigger"},
 					{"entry_bb_start", "entry_bb_stop", "entry_bb_yield"},
@@ -1605,10 +1701,10 @@ var _ = Describe("Scheduler", func() {
 				Node("auth_low_ch1").
 				Node("auth_low_ch2").
 				Node("reentry_trigger").
-				OneShot("trigger", "activate", "entry_bb_start", "input").
-				OneShot("stop_trigger", "to_stop", "entry_bb_stop", "input").
-				OneShot("yield_trigger", "to_yield", "entry_bb_yield", "input").
-				OneShot("reentry_trigger", "to_start", "entry_bb_start", "input").
+				Conditional("trigger", "activate", "entry_bb_start", "input").
+				Conditional("stop_trigger", "to_stop", "entry_bb_stop", "input").
+				Conditional("yield_trigger", "to_yield", "entry_bb_yield", "input").
+				Conditional("reentry_trigger", "to_start", "entry_bb_start", "input").
 				Strata([][]string{
 					{"trigger"},
 					{"entry_bb_start", "entry_bb_stop", "entry_bb_yield"},
@@ -1650,9 +1746,9 @@ var _ = Describe("Scheduler", func() {
 	Describe("Self-Changed (Wait in Flow Chain)", func() {
 		It("Should allow a self-changed node in a higher stratum to keep executing", func(ctx SpecContext) {
 			// IR: comparison (stratum 0) => wait (stratum 1) -> entry_seq_next (stratum 2)
-			// The comparison fires a one-shot to the wait. The wait needs multiple
+			// The comparison fires a conditional to the wait. The wait needs multiple
 			// timer ticks to complete. Without self-changed, the wait only gets one
-			// tick (the one-shot fires once), then starves.
+			// tick (the conditional fires once), then starves.
 			comparison := mock("comparison")
 			wait := mock("wait")
 			entryNext := mock("entry_seq_next")
@@ -1696,8 +1792,8 @@ var _ = Describe("Scheduler", func() {
 				Node("comparison").
 				Node("wait").
 				Node("entry_seq_next").
-				OneShot("trigger", "activate", "entry_seq_first", "input").
-				OneShot("comparison", "output", "wait", "input").
+				Conditional("trigger", "activate", "entry_seq_first", "input").
+				Conditional("comparison", "output", "wait", "input").
 				Edge("wait", "output", "entry_seq_next", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_first"}}).
 				Sequence("seq", []testutil.StageSpec{
@@ -1708,7 +1804,7 @@ var _ = Describe("Scheduler", func() {
 
 			s := scheduler.New(prog, nodes, 0)
 
-			// Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
+			// Tick 0: trigger fires, stage activates, comparison fires conditional to wait,
 			// wait starts timing and calls MarkSelfChanged
 			s.Next(ctx, 0, node.ReasonTimerTick)
 			Expect(wait.NextCalled).To(Equal(1))
@@ -1743,17 +1839,17 @@ var _ = Describe("Scheduler", func() {
 			prog := testutil.NewIRBuilder().
 				Node("trigger").
 				Node("A").
-				OneShot("trigger", "output", "A", "input").
+				Conditional("trigger", "output", "A", "input").
 				Strata([][]string{{"trigger"}, {"A"}}).
 				Build()
 
 			s := build(prog)
 
-			// Tick 0: trigger fires one-shot to A, A executes and self-changes
+			// Tick 0: trigger fires conditional to A, A executes and self-changes
 			s.Next(ctx, 0, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 
-			// Tick 1: A executes via self-changed (one-shot already fired)
+			// Tick 1: A executes via self-changed (conditional already fired)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(2))
 
@@ -1761,10 +1857,10 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(3))
 
-			// Tick 3: A should NOT execute (callCount=3, stopped calling MarkSelfChanged,
-			// one-shot already fired, not in changed set)
+			// Tick 3: A executes via conditional edge (still truthy), even though
+			// it stopped calling MarkSelfChanged
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
-			Expect(nodeA.NextCalled).To(Equal(3))
+			Expect(nodeA.NextCalled).To(Equal(4))
 		})
 
 		It("Should clear self-changed when a node is reset via stage transition", func(ctx SpecContext) {
@@ -1796,8 +1892,8 @@ var _ = Describe("Scheduler", func() {
 				Node("entry_seq_stage_b").
 				Node("A").
 				Node("B").
-				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
-				OneShot("A", "to_b", "entry_seq_stage_b", "input").
+				Conditional("trigger", "activate", "entry_seq_stage_a", "input").
+				Conditional("A", "to_b", "entry_seq_stage_b", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
@@ -1958,7 +2054,7 @@ var _ = Describe("Scheduler", func() {
 				Node("trigger").
 				Node("entry_seq_stage").
 				Node("A").
-				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Conditional("trigger", "activate", "entry_seq_stage", "input").
 				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
 				Sequence("seq", []testutil.StageSpec{
 					{Key: "stage", Strata: [][]string{{"A"}}},

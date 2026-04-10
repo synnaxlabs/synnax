@@ -11,6 +11,7 @@ package compiler_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -152,6 +153,26 @@ var _ = Describe("Compile", func() {
 		}))
 		Expect(mod.StateConfig.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
 		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
+	})
+
+	It("Should compile expression with derivative operation", func(ctx SpecContext) {
+		base := channel.Channel{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		calc := channel.Channel{
+			Name:       channel.NewRandomName(),
+			DataType:   telem.Float64T,
+			Virtual:    true,
+			Expression: fmt.Sprintf("return %s", base.Name),
+			Operations: []channel.Operation{{Type: "derivative"}},
+		}
+		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			ChannelService: dist.Channel,
+			Channel:        calc,
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
+		}))
+		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
 	})
 
 	It("Should fail with invalid expression", func(ctx SpecContext) {

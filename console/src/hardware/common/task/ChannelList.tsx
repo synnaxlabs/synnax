@@ -13,13 +13,13 @@ import {
   Form,
   Icon,
   List,
-  Menu as PMenu,
+  Menu,
   Select,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { CSS } from "@/css";
 import { useIsSnapshot } from "@/hardware/common/task/Form";
 import { type Channel } from "@/hardware/common/task/types";
@@ -69,62 +69,55 @@ const ContextMenu = <C extends Channel>({
     () => onTare?.(keys, channels),
     [onTare, keys, channels],
   );
-  const handleSelect: Record<string, () => void> = {
-    remove: handleRemove,
-    disable: handleDisable,
-    enable: handleEnable,
-    tare: handleTare,
-    duplicate: handleDuplicate,
-  };
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
   const canDisable = channels.some(({ enabled }) => enabled);
   const canEnable = channels.some(({ enabled }) => !enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
-    <PMenu.Menu onChange={handleSelect} level="small">
+    <CMenu.Menu>
       {!isSnapshot && (
         <>
           {canDuplicate && (
-            <PMenu.Item itemKey="duplicate">
+            <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
               <Icon.Copy />
               Duplicate
-            </PMenu.Item>
+            </Menu.Item>
           )}
           {canRemove && (
-            <PMenu.Item itemKey="remove">
+            <Menu.Item itemKey="remove" onClick={handleRemove}>
               <Icon.Close />
               Remove
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          {(canDuplicate || canRemove) && <PMenu.Divider />}
+          {(canDuplicate || canRemove) && <Menu.Divider />}
           {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
-            <PMenu.Item itemKey="disable">
+            <Menu.Item itemKey="disable" onClick={handleDisable}>
               <Icon.Disable />
               Disable
-            </PMenu.Item>
+            </Menu.Item>
           )}
           {canEnable && (
-            <PMenu.Item itemKey="enable">
+            <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
               Enable
-            </PMenu.Item>
+            </Menu.Item>
           )}
-          {(canDisable || canEnable) && <PMenu.Divider />}
+          {(canDisable || canEnable) && <Menu.Divider />}
           {canTare && (
             <>
-              <PMenu.Item itemKey="tare">
+              <Menu.Item itemKey="tare" onClick={handleTare}>
                 <Icon.Tare />
                 Tare
-              </PMenu.Item>
-              <PMenu.Divider />
+              </Menu.Item>
+              <Menu.Divider />
             </>
           )}
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <CMenu.ReloadConsoleItem />
+    </CMenu.Menu>
   );
 };
 
@@ -158,11 +151,11 @@ export const ChannelList = <C extends Channel>({
     (keys: string[]) => onSelect(keys),
     [onSelect, path],
   );
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = Menu.useContextMenu();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
       {header}
-      <PMenu.ContextMenu
+      <Menu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
@@ -188,7 +181,7 @@ export const ChannelList = <C extends Channel>({
             {listItem}
           </List.Items>
         </Select.Frame>
-      </PMenu.ContextMenu>
+      </Menu.ContextMenu>
     </Flex.Box>
   );
 };

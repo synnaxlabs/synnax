@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_EMERGENCY_SOURCE = """
@@ -23,7 +23,7 @@ sequence main {
         press_pt > 50 => emergency
     }
     stage emergency {
-        set_authority{value=255},
+        set_authority{255},
         0 -> press_vlv_cmd,
         1 -> vent_vlv_cmd,
         press_pt < 5 => safed

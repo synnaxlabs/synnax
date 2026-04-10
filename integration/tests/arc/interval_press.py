@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_INTERVAL_PRESS_SOURCE = """
@@ -25,7 +25,7 @@ func open_press() {
     }
 }
 
-interval{period=50ms} -> open_press{}
+interval{50ms} -> open_press{}
 """
 
 

@@ -110,6 +110,24 @@ var _ = Describe("Codec", func() {
 			Entry("invalid string", `"abc"`, uint64(0), true),
 			Entry("invalid json", `{invalid}`, uint64(0), true),
 		)
+		DescribeTable("UnmarshalStringUint32", func(input string, expected uint32, shouldError bool) {
+			b := []byte(input)
+			val, err := json.UnmarshalStringUint32(b)
+			if shouldError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(val).To(Equal(expected))
+			}
+		},
+			Entry("direct number", `123`, uint32(123), false),
+			Entry("string number", `"123"`, uint32(123), false),
+			Entry("max uint32", `4294967295`, uint32(4294967295), false),
+			Entry("negative number", `-123`, uint32(0), true),
+			Entry("negative string", `"-123"`, uint32(0), true),
+			Entry("invalid string", `"abc"`, uint32(0), true),
+			Entry("invalid json", `{invalid}`, uint32(0), true),
+		)
 	})
 	Describe("MarshalStringInt64", func() {
 		It("Should encode an int64 value as a string", func() {

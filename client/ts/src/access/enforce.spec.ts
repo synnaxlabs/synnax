@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import { access } from "@/access";
-import { type Policy } from "@/access/policy/payload";
 import { type ontology } from "@/ontology";
 
 const id = (type: ontology.ResourceType, key: string): ontology.ID => ({ type, key });
@@ -19,7 +18,7 @@ const policy = (
   objects: ontology.ID[],
   actions: access.Action[],
   key = crypto.randomUUID(),
-): Policy => ({ key, name: "test", objects, actions, internal: false });
+): access.policy.Policy => ({ key, name: "test", objects, actions, internal: false });
 
 describe("allowRequest", () => {
   describe("single object", () => {

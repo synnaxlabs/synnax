@@ -36,6 +36,8 @@ operation_type_to_pb(const std::string &cpp) {
                 {OPERATION_TYPE_MAX, ::distribution::channel::pb::OPERATION_TYPE_MAX},
                 {OPERATION_TYPE_AVG, ::distribution::channel::pb::OPERATION_TYPE_AVG},
                 {OPERATION_TYPE_NONE, ::distribution::channel::pb::OPERATION_TYPE_NONE},
+                {OPERATION_TYPE_DERIVATIVE,
+                 ::distribution::channel::pb::OPERATION_TYPE_DERIVATIVE},
             };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -54,6 +56,8 @@ operation_type_from_pb(::distribution::channel::pb::OperationType pb) {
             return {OPERATION_TYPE_AVG, x::errors::NIL};
         case ::distribution::channel::pb::OPERATION_TYPE_NONE:
             return {OPERATION_TYPE_NONE, x::errors::NIL};
+        case ::distribution::channel::pb::OPERATION_TYPE_DERIVATIVE:
+            return {OPERATION_TYPE_DERIVATIVE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized OperationType protobuf value")};
     }

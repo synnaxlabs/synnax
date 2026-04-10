@@ -311,11 +311,30 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 			}
 		}
 	} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			anonVals,
-			"anonymous configuration values are not supported",
-		))
-		return
+		exprs := anonVals.AllExpression()
+		if len(exprs) > len(fnType.Config) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				anonVals,
+				"too many config values for func '%s': got %d, expected at most %d",
+				fnName, len(exprs), len(fnType.Config),
+			))
+			return
+		}
+		for i, expr := range exprs {
+			param := fnType.Config[i]
+			configParams.Add(param.Name)
+			childCtx := context.Child(ctx, expr)
+			expression.Analyze(childCtx)
+			exprType := atypes.InferFromExpression(childCtx)
+			if err := atypes.Check(ctx.Constraints, param.Type, exprType, expr,
+				"config parameter '"+param.Name+"' for func '"+fnName+"'"); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					expr,
+					"type mismatch: config parameter '%s' expects %s but got %s",
+					param.Name, param.Type, exprType,
+				))
+			}
+		}
 	}
 
 	for _, param := range fnType.Config {
@@ -622,13 +641,13 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
-		// Allow both channels and sequences as routing targets
-		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel or sequence", idName))
+		// Allow channels, sequences, and stages as routing targets
+		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence && idSym.Kind != symbol.KindStage {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel, sequence, or stage", idName))
 			return
 		}
 
-		// Only do type checking for channels (sequences accept any input for activation)
+		// Only do type checking for channels (sequences/stages accept any input for activation)
 		if idSym.Kind == symbol.KindChannel {
 			valueType := idSym.Type.Unwrap()
 			if err = atypes.Check(

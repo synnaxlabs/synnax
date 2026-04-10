@@ -323,6 +323,46 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		It("Should preserve enum declaration order", func(ctx SpecContext) {
+			source := `
+					@go output "core/status"
+					@pb
+
+					Alpha enum {
+						unknown = 0
+						active = 1
+					}
+
+					Beta enum {
+						unknown = 0
+						active = 1
+					}
+
+					Charlie enum {
+						unknown = 0
+						active = 1
+					}
+
+					Task struct {
+						key uuid
+						alpha Alpha
+						beta Beta
+						charlie Charlie
+					}
+				`
+			resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+			ExpectContent(resp, "translator.gen.go").
+				ToPreserveOrder(
+					"func AlphaToPB",
+					"func AlphaFromPB",
+					"func BetaToPB",
+					"func BetaFromPB",
+					"func CharlieToPB",
+					"func CharlieFromPB",
+				)
+		})
+
 		Context("hard optional fields", func() {
 			It("Should handle hard optional primitive with nil check", func(ctx SpecContext) {
 				source := `

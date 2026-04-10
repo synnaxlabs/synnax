@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_WAIT_TIMING_SOURCE = """
@@ -18,7 +18,7 @@ authority 200
 sequence main {
     stage stage1 {
         1 -> toggle_cmd,
-        wait{duration=3s} => next,
+        wait{3s} => next,
     }
     stage stage2 {
         0 -> toggle_cmd,

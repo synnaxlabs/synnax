@@ -26,7 +26,7 @@ export type Key = z.infer<typeof keyZ>;
 export const localKeyZ = zod.uint20;
 export type LocalKey = z.infer<typeof localKeyZ>;
 
-export const OPERATION_TYPES = ["min", "max", "avg", "none"] as const;
+export const OPERATION_TYPES = ["min", "max", "avg", "none", "derivative"] as const;
 export const operationTypeZ = z.enum(OPERATION_TYPES);
 export type OperationType = z.infer<typeof operationTypeZ>;
 

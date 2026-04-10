@@ -47,7 +47,7 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
+	Commands:   [][]string{{"gofmt", "-s", "-w"}},
 }
 
 func (p *Plugin) PostWrite(files []string) error {
@@ -114,15 +114,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		entries := outputEntries[goPath]
 		pkg := naming.DerivePackageName(goPath)
 
-		regContent, err := renderMigrateFile(pkg, goPath, entries, req.RepoRoot)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate migrate.gen.go for %s", goPath)
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    goPath + "/migrate.gen.go",
-			Content: regContent,
-		})
-
 		for _, entry := range entries {
 			if err := p.generateForEntry(resp, entry, goPath, pkg, migrateEntryNames, req); err != nil {
 				return nil, err
@@ -147,17 +138,27 @@ func (p *Plugin) generateForEntry(
 	versionDir := fmt.Sprintf("v%d", change.Version)
 
 	// If there's a previous migration at a DIFFERENT version, retarget its
-	// developer transform into the new version's sub-package.
+	// developer transform into the new version's sub-package and generate
+	// the companion auto-copy for the previous->current migration.
+	retargeted := false
 	if len(entry.ExistingVersions) > 0 {
 		prevVersion := entry.ExistingVersions[len(entry.ExistingVersions)-1]
 		if prevVersion != change.Version {
-			retargeted, deleteFile, err := retargetTransform(goPath, change.Version, req.RepoRoot)
+			retargetedFile, _, err := retargetTransform(goPath, change.Version, req.RepoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "failed to retarget v%d transform for %s", prevVersion, entry.GoName)
 			}
-			if retargeted.Path != "" {
-				resp.Files = append(resp.Files, retargeted)
-				resp.Deletions = append(resp.Deletions, deleteFile)
+			if retargetedFile.Path != "" {
+				resp.Files = append(resp.Files, retargetedFile)
+				// Don't add deleteFile to resp.Deletions because we'll
+				// regenerate a new template at the same path below. If the
+				// deletion runs after the write, it would remove the new file.
+				retargeted = true
+			}
+			if err := p.generateRetargetAutoCopy(
+				resp, entry, prevVersion, change.Version, req,
+			); err != nil {
+				return err
 			}
 		}
 	}
@@ -190,10 +191,12 @@ func (p *Plugin) generateForEntry(
 
 		// Generate frozen codec with EncodeOrc/DecodeOrc methods.
 		codecEntries := codecEntriesForTypes(types, codecReachable)
-		if len(codecEntries) > 0 {
+		flex := collectFlexTypes(types, rewrittenOldTable)
+		if len(codecEntries) > 0 || len(flex) > 0 {
 			codecContent, err := gomarshal.GenerateCodecFile(
 				versionDir, mirroredPath,
 				codecEntries,
+				flex,
 				rewrittenOldTable,
 				req.RepoRoot,
 			)
@@ -231,11 +234,18 @@ func (p *Plugin) generateForEntry(
 		}
 	}
 
-	// Developer transform template.
+	// Developer transform template. Generate if no migrate.go exists on disk,
+	// or if we just retargeted the previous one into a sub-package (the file
+	// is still on disk but queued for deletion in resp.Deletions).
 	entryMirrorPath := goPath + "/migrations/" + versionDir
 	templateFile := goPath + "/migrate.go"
 	templateFullPath := filepath.Join(req.RepoRoot, templateFile)
-	if _, statErr := os.Stat(templateFullPath); os.IsNotExist(statErr) {
+	needsTemplate := retargeted
+	if !needsTemplate {
+		_, statErr := os.Stat(templateFullPath)
+		needsTemplate = os.IsNotExist(statErr)
+	}
+	if needsTemplate {
 		entryMirrorImport := gomod.ResolveImportPath(entryMirrorPath, req.RepoRoot, gomod.DefaultModulePrefix)
 		tc, err := renderTransformTemplate(pkg, entry.GoName, change.Version, versionDir, entryMirrorImport)
 		if err != nil {
@@ -263,6 +273,27 @@ func codecEntriesForTypes(
 		entries = append(entries, gomarshal.CodecEntry{GoName: goName, Type: t})
 	}
 	return entries
+}
+
+func collectFlexTypes(types []resolution.Type, _ *resolution.Table) []gomarshal.FlexCodec {
+	var flex []gomarshal.FlexCodec
+	for _, t := range types {
+		form, ok := t.Form.(resolution.DistinctForm)
+		if !ok {
+			continue
+		}
+		marshalVal := domain.GetStringFromType(t, "go", "marshal")
+		if marshalVal != "flex" {
+			continue
+		}
+		goName := naming.GetGoName(t)
+		flex = append(flex, gomarshal.FlexCodec{
+			GoName:   goName,
+			Receiver: gomarshal.ReceiverName(goName),
+			BaseType: form.Base.Name,
+		})
+	}
+	return flex
 }
 
 func (p *Plugin) generateSubPackageMigration(
@@ -296,6 +327,99 @@ func (p *Plugin) generateSubPackageMigration(
 		}
 		if tc != nil {
 			resp.Files = append(resp.Files, plugin.File{Path: migrateFile, Content: tc})
+		}
+	}
+	return nil
+}
+
+// generateRetargetAutoCopy generates the auto-copy file for the retargeted
+// migration (prevVersion -> currentVersion). It loads the previous snapshot,
+// diffs it against the current snapshot (req.OldResolutions), and generates
+// auto-copy functions in the currentVersion sub-package.
+func (p *Plugin) generateRetargetAutoCopy(
+	resp *plugin.Response,
+	entry migrationEntry,
+	prevVersion, currentVersion int,
+	req *plugin.Request,
+) error {
+	if req.LoadSnapshot == nil {
+		return nil
+	}
+	prevTable, err := req.LoadSnapshot(prevVersion)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load snapshot v%d for retarget auto-copy", prevVersion)
+	}
+	if prevTable == nil {
+		return nil
+	}
+
+	prevType, found := prevTable.Get(entry.GoName)
+	if !found {
+		// Try qualified name lookup across all types.
+		for _, t := range prevTable.Types {
+			if naming.GetGoName(t) == entry.GoName {
+				prevType = t
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		return nil
+	}
+
+	// The "new" side of the retarget diff is the current snapshot
+	// (req.OldResolutions), which becomes the frozen v{currentVersion} types.
+	currentType, found := req.OldResolutions.Get(prevType.QualifiedName)
+	if !found {
+		return nil
+	}
+
+	// Collect types from the previous snapshot and build path maps.
+	prevPkgTypes, _ := collectPackageTypes(prevType, prevTable)
+	prevDir := fmt.Sprintf("v%d", prevVersion)
+	currentDir := fmt.Sprintf("v%d", currentVersion)
+
+	prevPathMap := make(map[string]string, len(prevPkgTypes))
+	for origPath := range prevPkgTypes {
+		prevPathMap[origPath] = origPath + "/migrations/" + prevDir
+	}
+	rewrittenPrevTable := rewriteOutputPaths(prevTable, prevPathMap)
+
+	// The "new" table for auto-copy is OldResolutions rewritten to the
+	// currentVersion sub-packages.
+	currentPathMap := make(map[string]string)
+	currentPkgTypes, _ := collectPackageTypes(currentType, req.OldResolutions)
+	for origPath := range currentPkgTypes {
+		currentPathMap[origPath] = origPath + "/migrations/" + currentDir
+	}
+	rewrittenCurrentTable := rewriteOutputPaths(req.OldResolutions, currentPathMap)
+
+	retargetDiff := SchemaDiff(prevType, currentType, prevTable, req.OldResolutions)
+
+	// Generate auto-copy for each package in the current version sub-package.
+	// We pass the previous (v53) types as the input types because generateAutoCopy
+	// uses typ.Form as the OLD struct form when building field mappings.
+	for origPath, types := range prevPkgTypes {
+		mirroredPath := currentPathMap[origPath]
+		if mirroredPath == "" {
+			continue
+		}
+		if !needsAutoMigrate(types, retargetDiff) {
+			continue
+		}
+		autoCopyContent, err := generateAutoCopy(
+			currentDir, mirroredPath, req.RepoRoot,
+			types, retargetDiff, rewrittenPrevTable, rewrittenCurrentTable,
+		)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate retarget auto-copy for %s", mirroredPath)
+		}
+		if autoCopyContent != nil {
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    mirroredPath + "/migrate_auto.gen.go",
+				Content: autoCopyContent,
+			})
 		}
 	}
 	return nil
@@ -582,118 +706,7 @@ func findKeyFieldGoName(form resolution.StructForm) string {
 
 // --- Templates ---
 
-var migrateTmpl = template.Must(template.New("migrate").Parse(
-	`// Code generated by oracle. DO NOT EDIT.
-
-package {{.Package}}
-
-import (
-	"github.com/synnaxlabs/x/gorp"
-{{- range .VersionImports}}
-	{{.Alias}} "{{.Path}}"
-{{- end}}
-)
-{{range $entry := .Entries}}
-func {{$entry.GoName}}Migrations() []gorp.Migration {
-	return []gorp.Migration{
-{{- range $entry.SchemaChanges}}
-{{- if .DependsOn}}
-{{- if .IsIntermediate}}
-		gorp.WithDependencies(gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
-			"v{{.Version}}_schema_migration",
-			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
-		), "{{.DependsOn}}"),
-{{- else}}
-		gorp.WithDependencies(gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
-			"v{{.Version}}_schema_migration",
-			Migrate{{$entry.GoName}},
-		), "{{.DependsOn}}"),
-{{- end}}
-{{- else}}
-{{- if .IsIntermediate}}
-		gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{.NextImportAlias}}.{{$entry.GoName}}](
-			"v{{.Version}}_schema_migration",
-			{{.NextImportAlias}}.Migrate{{$entry.GoName}},
-		),
-{{- else}}
-		gorp.NewEntryMigration[Key, Key, {{.ImportAlias}}.{{$entry.GoName}}, {{$entry.GoName}}](
-			"v{{.Version}}_schema_migration",
-			Migrate{{$entry.GoName}},
-		),
-{{- end}}
-{{- end}}
-{{- end}}
-	}
-}
-{{end}}`))
-
-type migrateTemplateData struct {
-	Package        string
-	Entries        []migrateTemplateEntry
-	VersionImports []versionImport
-}
-
 type versionImport struct{ Alias, Path string }
-
-type migrateTemplateEntry struct {
-	GoName        string
-	SchemaChanges []migrateSchemaChange
-}
-
-type migrateSchemaChange struct {
-	Version         int
-	ImportAlias     string
-	IsIntermediate  bool
-	NextImportAlias string
-	DependsOn       string
-}
-
-func renderMigrateFile(pkg, goPath string, entries []migrationEntry, repoRoot string) ([]byte, error) {
-	var templateEntries []migrateTemplateEntry
-	importSet := make(map[string]versionImport)
-	for _, entry := range entries {
-		te := migrateTemplateEntry{GoName: entry.GoName}
-		allVersions := append([]int{}, entry.ExistingVersions...)
-		if entry.SchemaChange != nil {
-			v := entry.SchemaChange.Version
-			if len(allVersions) == 0 || allVersions[len(allVersions)-1] != v {
-				allVersions = append(allVersions, v)
-			}
-		}
-		for i, version := range allVersions {
-			vDir := fmt.Sprintf("v%d", version)
-			subPkg := fmt.Sprintf("%s/migrations/%s", goPath, vDir)
-			importPath := gomod.ResolveImportPath(subPkg, repoRoot, gomod.DefaultModulePrefix)
-			importSet[vDir] = versionImport{Alias: vDir, Path: importPath}
-			isLast := i == len(allVersions)-1
-			dependsOn := ""
-			if i > 0 {
-				dependsOn = fmt.Sprintf("v%d_schema_migration", allVersions[i-1])
-			}
-			sc := migrateSchemaChange{
-				Version: version, ImportAlias: vDir,
-				IsIntermediate: !isLast, DependsOn: dependsOn,
-			}
-			if !isLast {
-				sc.NextImportAlias = fmt.Sprintf("v%d", allVersions[i+1])
-			}
-			te.SchemaChanges = append(te.SchemaChanges, sc)
-		}
-		templateEntries = append(templateEntries, te)
-	}
-	var imports []versionImport
-	for _, v := range importSet {
-		imports = append(imports, v)
-	}
-	sort.Slice(imports, func(i, j int) bool { return imports[i].Alias < imports[j].Alias })
-	var buf bytes.Buffer
-	if err := migrateTmpl.Execute(&buf, migrateTemplateData{
-		Package: pkg, Entries: templateEntries, VersionImports: imports,
-	}); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
 
 var transformTmpl = template.Must(template.New("transform").Parse(
 	`// Generated by oracle as a template. Edit this file.
@@ -703,12 +716,12 @@ var transformTmpl = template.Must(template.New("transform").Parse(
 package {{.Package}}
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"context"
 
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 
-func Migrate{{.GoName}}(ctx gorp.MigrationContext, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
+func Migrate{{.GoName}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
 	return AutoMigrate{{.GoName}}(ctx, old)
 }
 `))
@@ -731,13 +744,13 @@ var typeMigrateTmpl = template.Must(template.New("typeMigrate").Parse(
 package {{.Package}}
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"context"
 {{range .Imports}}
 	{{.Alias}} "{{.Path}}"
 {{- end}}
 )
 {{range .Functions}}
-func Migrate{{.GoName}}(ctx gorp.MigrationContext, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+func Migrate{{.GoName}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
 	migrated, err := AutoMigrate{{.GoName}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err

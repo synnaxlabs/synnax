@@ -15,6 +15,7 @@ enum OperationType {
   OPERATION_TYPE_MAX = 1;
   OPERATION_TYPE_AVG = 2;
   OPERATION_TYPE_NONE = 3;
+  OPERATION_TYPE_DERIVATIVE = 4;
 }
 
 // Operation defines an aggregation operation applied to channel data. Operations

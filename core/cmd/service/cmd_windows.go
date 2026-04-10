@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -159,8 +160,13 @@ func runStatus(c *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	FormatStatus(c, info)
+	return nil
+}
 
+func FormatStatus(c *cobra.Command, info StatusInfo) {
 	c.Printf("Service: %s\n", name)
+	c.Printf("Version: %s\n", version.Get())
 	if !info.Installed {
 		c.Println("Status:  Not installed")
 	} else if info.ProcessID > 0 {
@@ -211,8 +217,6 @@ func runStatus(c *cobra.Command, _ []string) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 // logEntry represents a parsed JSON log entry from zap.

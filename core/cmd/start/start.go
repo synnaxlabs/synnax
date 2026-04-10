@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
-	cmdauth "github.com/synnaxlabs/synnax/cmd/start/auth"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -38,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -61,10 +59,9 @@ type CoreConfig struct {
 	memBacked            *bool
 	noDriver             *bool
 	alamos.Instrumentation
-	rootUsername         string
 	dataPath             string
 	verifier             string
-	rootPassword         string
+	rootCredentials      auth.InsecureCredentials
 	listenAddress        address.Address
 	peers                []address.Address
 	disabledIntegrations []string
@@ -92,9 +89,8 @@ func (c CoreConfig) Validate() error {
 	validate.NotEmptyString(v, "listen_address", c.listenAddress)
 	validate.NotEmptyString(v, "data_path", c.dataPath)
 	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
-	validate.NotEmptyString(v, "root_username", c.rootUsername)
-	validate.NotEmptyString(v, "root_password", c.rootPassword)
 	validate.NotNil(v, "no_driver", c.noDriver)
+	v.Exec(c.rootCredentials.Validate)
 	validate.NonZero(v, "task_op_timeout", c.taskOpTimeout)
 	validate.NonZero(v, "task_poll_interval", c.taskPollInterval)
 	validate.NonZero(v, "task_shutdown_timeout", c.taskShutdownTimeout)
@@ -116,8 +112,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		peers:                override.Slice(c.peers, other.peers),
 		dataPath:             override.String(c.dataPath, other.dataPath),
 		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
-		rootUsername:         override.String(c.rootUsername, other.rootUsername),
-		rootPassword:         override.String(c.rootPassword, other.rootPassword),
+		rootCredentials:      override.Zero(c.rootCredentials, other.rootCredentials),
 		noDriver:             override.Nil(c.noDriver, other.noDriver),
 		taskOpTimeout:        override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval:     override.Numeric(c.taskPollInterval, other.taskPollInterval),
@@ -227,6 +222,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Distribution:    distributionLayer,
 		Security:        securityProvider,
 		Storage:         storageLayer,
+		RootCredentials: cfg.rootCredentials,
 	}); !ok(err, serviceLayer) {
 		return err
 	}
@@ -237,18 +233,6 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Distribution:    distributionLayer,
 	}
 	if apiLayer, err = api.NewLayer(apiCfg); !ok(err, nil) {
-		return err
-	}
-	creds := auth.InsecureCredentials{
-		Username: cfg.rootUsername,
-		Password: password.Raw(cfg.rootPassword),
-	}
-	if err = cmdauth.ProvisionRootUser(
-		ctx,
-		creds,
-		distributionLayer,
-		serviceLayer,
-	); !ok(err, nil) {
 		return err
 	}
 
@@ -310,8 +294,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 			Address:             cfg.listenAddress,
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			ClusterKey:          distributionLayer.Cluster.Key(),
-			Username:            cfg.rootUsername,
-			Password:            cfg.rootPassword,
+			Credentials:         cfg.rootCredentials,
 			Debug:               cfg.debug,
 			CACertPath:          cfg.certFactoryConfig.AbsoluteNodeCertPath(),
 			ClientCertFile:      cfg.certFactoryConfig.AbsoluteCACertPath(),

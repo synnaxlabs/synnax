@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -103,7 +102,6 @@ func (c *Cluster) Provision(
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-			GorpCodec:            json.Codec,
 			EnableServiceSignals: new(false),
 		}, c.cfg}, cfgs...)...))
 	)

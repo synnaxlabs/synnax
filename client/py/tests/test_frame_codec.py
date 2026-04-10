@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
-from synnax.channel.payload import Key, Params
+from synnax.channel.payload import Key
 from synnax.framer.codec import Codec
 
 

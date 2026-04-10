@@ -9,9 +9,9 @@
 
 from collections.abc import Generator
 
-import synnax as sy
 from pydantic import ValidationError
 
+import synnax as sy
 from tests.driver.opcua_read import OPCUAReadArray
 
 RATE_LIMIT_SECONDS = 5

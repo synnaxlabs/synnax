@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { channelConfigZ } from "@/log/aether/Log";
+export { streamMultiChannelLog } from "@/log/aether/telem/sources";
 export * from "@/log/Icons";
 export * from "@/log/Log";
 export * from "@/log/queries";
+export * from "@/log/use";

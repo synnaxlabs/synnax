@@ -32,9 +32,9 @@ Phase 2: ss_temp_a=400
 
 import threading
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 SHORT_CIRCUIT_SOURCE = """
@@ -57,15 +57,15 @@ sequence main {
         0 -> ss_sim_stage,
         1 -> ss_heater_cmd,
         // Priority is declaration order, not statement size.
-        interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
-        interval{period=1s} -> ss_temp_b > 300 => pause,
+        interval{1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
+        interval{1s} -> ss_temp_b > 300 => pause,
     }
     stage pause {
         "pause" -> ss_stage_str,
         count{c_chan = ss_count_pause},
         2 -> ss_sim_stage,
         0 -> ss_heater_cmd,
-        wait{duration=1s} => on,
+        wait{1s} => on,
     }
     stage off {
         "off" -> ss_stage_str,
@@ -247,9 +247,9 @@ class ShortCircuit(ArcConsoleCase):
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
-                assert (
-                    0.980 <= d <= 1.020
-                ), f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
+                assert 0.980 <= d <= 1.020, (
+                    f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
+                )
 
         expected: dict[str, list[int | float | str]] = {
             "ss_stage_str": ["on", "pause", "on", "pause", "on", "pause", "on", "off"],

@@ -9,9 +9,9 @@
 
 import random
 
-import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.case import ConsoleCase
 
 
@@ -202,9 +202,9 @@ class DevicesToolbar(ConsoleCase):
             ),
         )
         self.console.devices.expand(target_chassis.name)
-        assert self.console.devices.is_child_of(
-            device.name, target_chassis.name
-        ), f"'{device.name}' should be under '{target_chassis.name}'"
+        assert self.console.devices.is_child_of(device.name, target_chassis.name), (
+            f"'{device.name}' should be under '{target_chassis.name}'"
+        )
         return updated
 
     def _assert_modules_under(self, chassis_name: str) -> None:
@@ -212,8 +212,7 @@ class DevicesToolbar(ConsoleCase):
         children = self.console.devices.get_children_names(chassis_name)
         for mod in self.modules:
             assert any(mod.name in child for child in children), (
-                f"Module '{mod.name}' should be under "
-                f"'{chassis_name}', got {children}"
+                f"Module '{mod.name}' should be under '{chassis_name}', got {children}"
             )
 
     # ── Test Runner ────────────────────────────────────────────────────
@@ -244,9 +243,9 @@ class DevicesToolbar(ConsoleCase):
             self.configured_dev,
             self.chassis_b,
         ]:
-            assert self.console.devices.exists(
-                dev.name
-            ), f"Device '{dev.name}' should be visible in the devices toolbar"
+            assert self.console.devices.exists(dev.name), (
+                f"Device '{dev.name}' should be visible in the devices toolbar"
+            )
 
     def test_device_icons(self) -> None:
         """Each device should display the icon matching its make."""
@@ -264,9 +263,9 @@ class DevicesToolbar(ConsoleCase):
         ]
         for dev, expected in cases:
             icon = self.console.devices.get_icon(dev.name)
-            assert (
-                icon == expected
-            ), f"Device '{dev.name}' should have '{expected}' icon, got '{icon}'"
+            assert icon == expected, (
+                f"Device '{dev.name}' should have '{expected}' icon, got '{icon}'"
+            )
 
     def test_configure_device(self) -> None:
         """Configure an unconfigured device, verify properties."""
@@ -278,26 +277,26 @@ class DevicesToolbar(ConsoleCase):
         )
 
         props = self.console.devices.copy_properties("LabJack T4")
-        assert (
-            props["configured"] is True
-        ), f"Expected configured=True, got {props['configured']}"
-        assert (
-            props["name"] == "LabJack T4"
-        ), f"Expected name 'LabJack T4', got '{props['name']}'"
+        assert props["configured"] is True, (
+            f"Expected configured=True, got {props['configured']}"
+        )
+        assert props["name"] == "LabJack T4", (
+            f"Expected name 'LabJack T4', got '{props['name']}'"
+        )
 
         retrieved = self.client.devices.retrieve(key=dev.key)
         assert isinstance(retrieved.properties, dict)
-        assert (
-            retrieved.properties["identifier"] == "lt"
-        ), f"Expected identifier 'lt', got '{retrieved.properties['identifier']}'"
+        assert retrieved.properties["identifier"] == "lt", (
+            f"Expected identifier 'lt', got '{retrieved.properties['identifier']}'"
+        )
 
         self.console.devices.change_identifier("LabJack T4", "lt_new")
 
         retrieved = self.client.devices.retrieve(key=dev.key)
         assert isinstance(retrieved.properties, dict)
-        assert (
-            retrieved.properties["identifier"] == "lt_new"
-        ), f"Expected identifier 'lt_new', got '{retrieved.properties['identifier']}'"
+        assert retrieved.properties["identifier"] == "lt_new", (
+            f"Expected identifier 'lt_new', got '{retrieved.properties['identifier']}'"
+        )
 
         self.labjack_dev = self.client.devices.retrieve(key=dev.key)
 
@@ -347,9 +346,9 @@ class DevicesToolbar(ConsoleCase):
         new_name = f"Renamed PXI ({self.suffix})"
         self.console.devices.rename(old_name=self.standalone.name, new_name=new_name)
         updated = self.client.devices.retrieve(key=self.standalone.key)
-        assert (
-            updated.name == new_name
-        ), f"Expected name '{new_name}', got '{updated.name}'"
+        assert updated.name == new_name, (
+            f"Expected name '{new_name}', got '{updated.name}'"
+        )
         self.standalone = updated
 
     def test_rename_chassis(self) -> None:
@@ -360,7 +359,7 @@ class DevicesToolbar(ConsoleCase):
 
         updated_chassis = self.client.devices.retrieve(key=self.chassis_a.key)
         assert updated_chassis.name == new_name, (
-            f"Expected chassis name '{new_name}', " f"got '{updated_chassis.name}'"
+            f"Expected chassis name '{new_name}', got '{updated_chassis.name}'"
         )
 
         self._assert_modules_under(new_name)
@@ -375,9 +374,9 @@ class DevicesToolbar(ConsoleCase):
             [self.standalone.name, self.configured_dev.name],
             group_name,
         )
-        assert self.console.devices.tree.group_exists(
-            group_name
-        ), f"Group '{group_name}' should exist after creation"
+        assert self.console.devices.tree.group_exists(group_name), (
+            f"Group '{group_name}' should exist after creation"
+        )
         self.console.devices.tree.delete_group(group_name)
 
     def test_group_chassis_children_stay(self) -> None:

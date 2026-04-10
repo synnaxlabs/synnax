@@ -103,11 +103,6 @@ class KeyboardShortcuts(ConsoleCase):
     def test_new_tab_with_cmd_t(self) -> None:
         """Should create new tab/leaf with Cmd+T."""
         self.log("test_new_tab_with_cmd_t: Creating a new tab with Cmd+T")
-        console = self.console
-
-        # Count existing tabs/panes before
-        plots_before = self.page.locator(".pluto-line-plot").count()
-
         # Press Cmd+T to create new tab
         self.page.keyboard.press("ControlOrMeta+t")
         self.page.wait_for_timeout(500)
@@ -139,18 +134,18 @@ class KeyboardShortcuts(ConsoleCase):
             # Single press to show floating toolbar
             self.page.keyboard.press(key)
             floating_drawer.wait_for(state="visible", timeout=5000)
-            assert "pluto--selected" in (
-                btn.get_attribute("class") or ""
-            ), f"{label} nav button should be selected after single press"
+            assert "pluto--selected" in (btn.get_attribute("class") or ""), (
+                f"{label} nav button should be selected after single press"
+            )
 
             # Double press to pin the toolbar
             self.page.keyboard.press(key)
             self.page.keyboard.press(key)
             pinned_drawer.wait_for(state="visible", timeout=5000)
             floating_drawer.wait_for(state="hidden", timeout=5000)
-            assert "pluto--selected" in (
-                btn.get_attribute("class") or ""
-            ), f"{label} nav button should be selected after double press"
+            assert "pluto--selected" in (btn.get_attribute("class") or ""), (
+                f"{label} nav button should be selected after double press"
+            )
 
             # Click the nav button to close the pinned toolbar
             btn.click()

@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_CONTINUOUS_PRESS_SOURCE = """
@@ -20,7 +20,7 @@ start_seq_cmd => main
 sequence main {
     stage pressurize {
         1 -> press_vlv_cmd,
-        wait{duration=100ms} => pressurize
+        wait{100ms} => pressurize
     }
 }
 """

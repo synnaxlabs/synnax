@@ -222,6 +222,16 @@ std::vector<AuthorityChange> State::flush_authority_changes() {
     return result;
 }
 
+void Node::init_input(size_t param_index, const Series &data, const Series &time) {
+    auto &src = this->state.values[this->accumulated[param_index].source];
+    src.data = data;
+    src.time = time;
+    this->accumulated[param_index].data = data;
+    this->accumulated[param_index].time = time;
+    this->accumulated[param_index].last_timestamp = x::telem::TimeStamp(0);
+    this->accumulated[param_index].consumed = false;
+}
+
 bool Node::refresh_inputs() {
     if (this->inputs.empty()) return true;
     bool has_unconsumed = false;

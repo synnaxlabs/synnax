@@ -26,7 +26,7 @@ export interface ControllerProps
 
 export interface ContextValue {
   key: string;
-  needsControlOf: channel.Keys;
+  needsControlOf: channel.Key[];
   acquire: () => void;
   release: () => void;
 }

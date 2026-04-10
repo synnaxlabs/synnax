@@ -158,11 +158,9 @@ func Analyze(
 		}
 	}
 
-	// Step 5: Check Types Across Edges
-	for _, edge := range g.Edges {
-		if !validateEdge(aCtx, edge, g.Nodes, freshFuncTypes) {
-			return ir.IR{}, aCtx.Diagnostics
-		}
+	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
+	if !analyzer.ResolveNodeTypes(irNodes, g.Edges, aCtx.Constraints, aCtx.Diagnostics) {
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
@@ -211,35 +209,19 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 6: Unify Type Constraints
-	if err := aCtx.Constraints.Unify(); err != nil {
-		aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 7: Build IR Nodes with Unified Type Constraints
-	for i, n := range g.Nodes {
-		substituted := aCtx.Constraints.ApplySubstitutions(freshFuncTypes[n.Key])
-		irN := irNodes[i]
-		irN.Outputs = substituted.Outputs
-		irN.Inputs = substituted.Inputs
-		irN.Config = substituted.Config
-		irNodes[i] = irN
-	}
-
-	// Step 8: Build Stratified Execution Plan
+	// Step 6: Build Stratified Execution Plan
 	// Graph-based compilation doesn't support sequences, so pass nil
 	strata, err := stratifier.Stratify(aCtx, irNodes, g.Edges, nil, aCtx.Diagnostics)
 	if err != nil {
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 9: Substitute TypeMap after unification
+	// Step 7: Substitute TypeMap after unification
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
 	}
 
-	// Step 10: Return IR
+	// Step 8: Return IR
 	return ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
@@ -270,66 +252,4 @@ func bindParams(
 		}
 	}
 	return nil
-}
-
-// validateEdge checks type compatibility between an edge's source and target.
-// Returns true if validation succeeds, false if an error was added to diagnostics.
-func validateEdge(
-	ctx acontext.Context[antlr.ParserRuleContext],
-	edge Edge,
-	nodes Nodes,
-	freshFuncTypes map[string]types.Type,
-) bool {
-	sourceNode, ok := nodes.Find(edge.Source.Node)
-	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			nil, "edge source node '%s' not found", edge.Source.Node,
-		))
-		return false
-	}
-	targetNode, ok := nodes.Find(edge.Target.Node)
-	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			nil, "edge target node '%s' not found", edge.Target.Node,
-		))
-		return false
-	}
-
-	sourceFunc := freshFuncTypes[sourceNode.Key]
-	sourceParam, ok := sourceFunc.Outputs.Get(edge.Source.Param)
-	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			nil,
-			"output '%s' not found in node '%s' (%s)",
-			edge.Source.Param,
-			edge.Source.Node,
-			sourceNode.Type,
-		))
-		return false
-	}
-
-	targetFunc := freshFuncTypes[targetNode.Key]
-	targetParam, ok := targetFunc.Inputs.Get(edge.Target.Param)
-	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			nil,
-			"input '%s' not found in node '%s' (%s)",
-			edge.Target.Param,
-			edge.Target.Node,
-			targetNode.Type,
-		))
-		return false
-	}
-
-	if err := atypes.Check(
-		ctx.Constraints,
-		sourceParam.Type,
-		targetParam.Type,
-		nil,
-		"",
-	); err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, nil))
-		return false
-	}
-	return true
 }

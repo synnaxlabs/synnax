@@ -11,8 +11,6 @@ import { Button, Form, Header, Icon } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-
 export interface DetailsHeaderProps {
   path: string;
   disabled?: boolean;
@@ -20,29 +18,29 @@ export interface DetailsHeaderProps {
 
 export const DetailsHeader = ({ path, disabled = false }: DetailsHeaderProps) => {
   const { get } = Form.useContext();
-  const copy = useCopyToClipboard();
-  const handleCopy = useCallback(() => {
-    copy(binary.JSON_CODEC.encodeString(get(path).value), "details");
-  }, [copy, get, path]);
+  const getText = useCallback(
+    () => binary.JSON_CODEC.encodeString(get(path).value),
+    [get, path],
+  );
   return (
     <Header.Header>
       <Header.Title weight={500} wrap={false} color={10}>
         Details
       </Header.Title>
       <Header.Actions>
-        <Button.Button
+        <Button.Copy
           disabled={disabled}
           tooltip="Copy details as JSON"
           tooltipLocation="left"
           variant="text"
-          onClick={handleCopy}
+          text={getText}
+          successMessage="Copied details to clipboard"
           contrast={2}
+          textColor={9}
         >
-          <Icon.JSON style={ICON_STYLE} />
-        </Button.Button>
+          <Icon.JSON />
+        </Button.Copy>
       </Header.Actions>
     </Header.Header>
   );
 };
-
-const ICON_STYLE = { color: "var(--pluto-gray-l9)" };

@@ -17,4 +17,4 @@ members = ["alamos/py", "client/py", "freighter/py", "integration", "x/py"]
 alamos = { workspace = true }
 synnax-freighter = { workspace = true }
 synnax = { workspace = true }
-x = { workspace = true }
+synnax-x = { workspace = true }

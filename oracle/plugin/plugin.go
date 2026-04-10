@@ -36,6 +36,10 @@ type Request struct {
 	SnapshotVersion int
 	// RepoRoot is the absolute path to the repository root directory.
 	RepoRoot string
+	// LoadSnapshot loads and analyzes a previous schema snapshot by version number.
+	// Used by the migration plugin to access earlier snapshots when retargeting
+	// chained migrations. Returns nil if the snapshot does not exist.
+	LoadSnapshot func(version int) (*resolution.Table, error)
 }
 
 // ResolvePath resolves a repo-relative path to an absolute path.

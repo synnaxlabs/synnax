@@ -611,8 +611,8 @@ func EdgeKindToPB(v ir.EdgeKind) (EdgeKind, error) {
 		return EdgeKind_EDGE_KIND_UNSPECIFIED, nil
 	case ir.EdgeKindContinuous:
 		return EdgeKind_EDGE_KIND_CONTINUOUS, nil
-	case ir.EdgeKindOneShot:
-		return EdgeKind_EDGE_KIND_ONE_SHOT, nil
+	case ir.EdgeKindConditional:
+		return EdgeKind_EDGE_KIND_CONDITIONAL, nil
 	default:
 		return 0, errors.Newf("unrecognized ir.EdgeKind value: %v", v)
 	}
@@ -625,8 +625,8 @@ func EdgeKindFromPB(v EdgeKind) (ir.EdgeKind, error) {
 		return ir.EdgeKindUnspecified, nil
 	case EdgeKind_EDGE_KIND_CONTINUOUS:
 		return ir.EdgeKindContinuous, nil
-	case EdgeKind_EDGE_KIND_ONE_SHOT:
-		return ir.EdgeKindOneShot, nil
+	case EdgeKind_EDGE_KIND_CONDITIONAL:
+		return ir.EdgeKindConditional, nil
 	default:
 		return 0, errors.Newf("unrecognized EdgeKind value: %v", v)
 	}

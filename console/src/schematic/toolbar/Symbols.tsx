@@ -11,6 +11,7 @@ import "@/schematic/toolbar/Symbols.css";
 
 import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Component,
   Flex,
@@ -30,8 +31,9 @@ import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { EmptyAction } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
@@ -209,34 +211,20 @@ const RemoteSymbolListContextMenu = (
       }),
     );
   };
-  const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update(firstKey),
-    rename: () => {
-      if (item == null) return;
-      rename.update(item);
-    },
-    edit: handleEdit,
-    export: () => exportSymbol(firstKey),
-  };
   return (
-    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </Menu.Item>
-      <Menu.Item itemKey="rename">
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Item itemKey="edit">
+    <ContextMenu.Menu>
+      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <ContextMenu.RenameItem
+        onClick={() => {
+          if (item != null) rename.update(item);
+        }}
+      />
+      <Menu.Item itemKey="edit" onClick={handleEdit}>
         <Icon.Edit />
         Edit
       </Menu.Item>
-      <Menu.Item itemKey="export">
-        <Icon.Export />
-        Export
-      </Menu.Item>
-    </Menu.Menu>
+      <Export.ContextMenuItem onClick={() => exportSymbol(firstKey)} />
+    </ContextMenu.Menu>
   );
 };
 
@@ -355,6 +343,10 @@ const Actions = ({
   const placeLayout = Layout.usePlacer();
   const importSymbol = useImportSymbol(selectedGroup);
   const importGroup = useImportGroup();
+  const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
+  const hasCreateSymbolPermission = Access.useCreateGranted(
+    schematic.symbol.TYPE_ONTOLOGY_ID,
+  );
 
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
@@ -395,40 +387,48 @@ const Actions = ({
 
   return (
     <Flex.Box x>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Create new symbol group"
-        onClick={handleCreateGroup}
-      >
-        <CreateGroupIcon />
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Import symbol group"
-        onClick={importGroup}
-      >
-        <ImportGroupIcon />
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Create new symbol"
-        disabled={!isRemoteGroup}
-        onClick={handleCreateSymbol}
-      >
-        <CreateSymbolIcon />
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        size="small"
-        tooltip="Import symbol"
-        disabled={!isRemoteGroup}
-        onClick={importSymbol}
-      >
-        <ImportSymbolIcon />
-      </Button.Button>
+      {hasCreateGroupPermission && (
+        <>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Create new symbol group"
+            onClick={handleCreateGroup}
+          >
+            <CreateGroupIcon />
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Import symbol group"
+            onClick={importGroup}
+          >
+            <ImportGroupIcon />
+          </Button.Button>
+        </>
+      )}
+      {hasCreateSymbolPermission && (
+        <>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Create new symbol"
+            disabled={!isRemoteGroup}
+            onClick={handleCreateSymbol}
+          >
+            <CreateSymbolIcon />
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            size="small"
+            tooltip="Import symbol"
+            disabled={!isRemoteGroup}
+            onClick={importSymbol}
+          >
+            <ImportSymbolIcon />
+          </Button.Button>
+        </>
+      )}
     </Flex.Box>
   );
 };
@@ -462,36 +462,25 @@ const GroupListContextMenu = ({
     },
   });
 
-  const handleSelect: Menu.MenuProps["onChange"] = {
-    del: () => {
-      if (item == null) return;
-      deleteSymbolGroup(item);
-    },
-    rename: () => {
-      if (item == null) return;
-      rename.update(item);
-    },
-    export: () => {
-      if (item == null) return;
-      exportGroup(item);
-    },
-  };
   if (!isRemoteGroup) return null;
   return (
-    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="del">
-        <Icon.Delete />
-        Delete
-      </Menu.Item>
-      <Menu.Item itemKey="rename">
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Item itemKey="export">
-        <Icon.Export />
-        Export
-      </Menu.Item>
-    </Menu.Menu>
+    <ContextMenu.Menu>
+      <ContextMenu.DeleteItem
+        onClick={() => {
+          if (item != null) deleteSymbolGroup(item);
+        }}
+      />
+      <ContextMenu.RenameItem
+        onClick={() => {
+          if (item != null) rename.update(item);
+        }}
+      />
+      <Export.ContextMenuItem
+        onClick={() => {
+          if (item != null) exportGroup(item);
+        }}
+      />
+    </ContextMenu.Menu>
   );
 };
 
@@ -536,7 +525,10 @@ interface SearchSymbolListProps {
   onSelect: (key: string) => void;
 }
 
-const ALL_STATIC_SYMBOLS = Object.values(Schematic.Symbol.REGISTRY);
+export const CUSTOM_VARIANTS = new Set(["customActuator", "customStatic"]);
+export const ALL_STATIC_SYMBOLS = Object.values(Schematic.Symbol.REGISTRY).filter(
+  (s) => !CUSTOM_VARIANTS.has(s.key),
+);
 
 const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;

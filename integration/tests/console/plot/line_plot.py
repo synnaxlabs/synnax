@@ -8,12 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import numpy as np
-import synnax as sy
-from x import get_random_name
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
 from framework.utils import assert_link_format
+from x import random_name
 
 
 class LinePlot(ConsoleCase):
@@ -26,7 +26,7 @@ class LinePlot(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self._shared_plot_name = None
         self.ctx_plot_name = None
 
@@ -47,7 +47,7 @@ class LinePlot(ConsoleCase):
     def run(self) -> None:
         """Run all line plot tests."""
 
-        suffix = get_random_name()
+        suffix = random_name()
         index_name, data_name = self._setup_channels(suffix)
 
         plot = self.console.workspace.create_plot(f"Line Plot Test {suffix}")
@@ -142,9 +142,9 @@ class LinePlot(ConsoleCase):
         new_label = f"Custom Label {suffix}"
         plot.set_line_label(new_label)
         labels = plot.get_line_labels()
-        assert (
-            labels[0] == new_label
-        ), f"Expected label '{new_label}', got '{labels[0]}'"
+        assert labels[0] == new_label, (
+            f"Expected label '{new_label}', got '{labels[0]}'"
+        )
 
     def test_set_plot_title(self, plot: Plot, suffix: str) -> None:
         """Test setting the plot title via Properties tab."""
@@ -161,9 +161,9 @@ class LinePlot(ConsoleCase):
 
         live_channel = "line_plot_uptime"
         plot.add_channels("Y1", live_channel)
-        assert (
-            live_channel in plot.data["Y1"]
-        ), f"Channel {live_channel} should be on Y1"
+        assert live_channel in plot.data["Y1"], (
+            f"Channel {live_channel} should be on Y1"
+        )
 
     def test_drag_channel_to_canvas(self, plot: Plot) -> None:
         """Test dragging a channel from sidebar onto the plot canvas."""
@@ -201,9 +201,9 @@ class LinePlot(ConsoleCase):
         plot.create_range_from_selection(range_name)
 
         created_range = self.client.ranges.retrieve(name=range_name)
-        assert (
-            created_range.name == range_name
-        ), f"Range name mismatch: {created_range.name}"
+        assert created_range.name == range_name, (
+            f"Range name mismatch: {created_range.name}"
+        )
 
     def test_copy_link(self, plot: Plot) -> str:
         """Test copying a link to the line plot via toolbar button.
@@ -232,9 +232,9 @@ class LinePlot(ConsoleCase):
 
         data_channel = self.client.channels.retrieve(data_name)
         y1_channels = exported["channels"]["y1"]
-        assert (
-            data_channel.key in y1_channels
-        ), f"Y1 should contain channel key {data_channel.key}"
+        assert data_channel.key in y1_channels, (
+            f"Y1 should contain channel key {data_channel.key}"
+        )
 
     def test_open_plot_from_resources(self, plot_name: str, expected_link: str) -> None:
         """Test opening a plot by double-clicking it in the workspace resources toolbar."""
@@ -247,9 +247,9 @@ class LinePlot(ConsoleCase):
 
         opened_link = plot.copy_link()
         # Verify link is the same between resources and visualization toolbars
-        assert (
-            opened_link == expected_link
-        ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+        assert opened_link == expected_link, (
+            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+        )
 
         plot.close()
 
@@ -263,9 +263,9 @@ class LinePlot(ConsoleCase):
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
 
         opened_link = plot.copy_link()
-        assert (
-            opened_link == expected_link
-        ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+        assert opened_link == expected_link, (
+            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+        )
 
         plot.close()
 
@@ -275,9 +275,9 @@ class LinePlot(ConsoleCase):
 
         self.log("Testing copy link via context menu")
         link = self.console.workspace.copy_page_link(self.ctx_plot_name)
-        assert (
-            link == self.ctx_plot_link
-        ), f"Context menu link should match: expected {self.ctx_plot_link}, got {link}"
+        assert link == self.ctx_plot_link, (
+            f"Context menu link should match: expected {self.ctx_plot_link}, got {link}"
+        )
 
         self.log("Testing export plot via context menu")
         exported = self.console.workspace.export_page(self.ctx_plot_name)
@@ -288,9 +288,9 @@ class LinePlot(ConsoleCase):
         self.log("Testing rename plot via context menu")
         new_name = f"Renamed Plot {self.suffix}"
         self.console.workspace.rename_page(self.ctx_plot_name, new_name)
-        assert self.console.workspace.page_exists(
-            new_name
-        ), f"Renamed plot '{new_name}' should exist"
+        assert self.console.workspace.page_exists(new_name), (
+            f"Renamed plot '{new_name}' should exist"
+        )
         self.ctx_plot_name = new_name
 
     def test_ctx_delete_plot(self) -> None:
@@ -304,7 +304,7 @@ class LinePlot(ConsoleCase):
         """Test deleting multiple plots via multi-select and context menu."""
         self.log("Testing delete multiple plots via context menu")
 
-        suffix = get_random_name()
+        suffix = random_name()
         plot_names = []
 
         for i in range(3):
@@ -327,8 +327,8 @@ class LinePlot(ConsoleCase):
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
 
         opened_link = plot.copy_link()
-        assert (
-            opened_link == expected_link
-        ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+        assert opened_link == expected_link, (
+            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+        )
 
         plot.close()

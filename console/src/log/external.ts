@@ -17,7 +17,7 @@ export * from "@/log/export";
 export * from "@/log/Log";
 export * from "@/log/selectors";
 export * from "@/log/slice";
-export * from "@/log/Toolbar";
+export * from "@/log/toolbar/Toolbar";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

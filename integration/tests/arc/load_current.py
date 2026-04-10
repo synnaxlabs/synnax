@@ -7,18 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import LoadCurrentSimDAQ
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LOAD_CURRENT_SOURCE = """
+func count{c_chan chan u8}() {
+    n u8 $= 0
+    n = n + 1
+    c_chan = n
+}
+
 start_load_current_cmd => main
 
 sequence main {
     stage first {
         1 -> flag,
-        load_current > 50 => wait{duration=2s} => next,
+        load_current > 50 => count{c_chan = lc_tick_count},
+        load_current > 50 => wait{2s} => next,
     }
     stage last {
         0 -> flag,
@@ -36,9 +43,11 @@ class LoadCurrent(ArcConsoleCase):
     Verifies:
     1. Stage entry writes flag=1 immediately on sequence start.
     2. The wait timer does not begin until load_current exceeds 50.
-    3. After the 2s wait elapses, the sequence transitions to the last stage
+    3. While load_current > 50, the conditional edge re-fires every tick,
+       incrementing lc_tick_count above 1.
+    4. After the 2s wait elapses, the sequence transitions to the last stage
        and writes flag=0.
-    4. The elapsed time between condition firing and stage transition is
+    5. The elapsed time between condition firing and stage transition is
        approximately equal to the wait duration.
     """
 
@@ -46,10 +55,21 @@ class LoadCurrent(ArcConsoleCase):
     arc_name_prefix = "ArcLoadCurrent"
     start_cmd_channel = "start_load_current_cmd"
     end_cmd_channel = "end_test_cmd"
-    subscribe_channels = ["load_current", "flag"]
+    subscribe_channels = ["load_current", "flag", "lc_tick_count"]
     sim_daq_class = LoadCurrentSimDAQ
 
     def setup(self) -> None:
+        idx = self.client.channels.create(
+            name="lc_tick_count_time",
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="lc_tick_count",
+            index=idx.key,
+            data_type=sy.DataType.UINT8,
+            retrieve_if_name_exists=True,
+        )
         super().setup()
         self.set_manual_timeout(30)
 
@@ -67,6 +87,11 @@ class LoadCurrent(ArcConsoleCase):
         sy.sleep(500 * sy.TimeSpan.MILLISECOND)
         self.wait_for_eq("flag", 1, timeout=0, is_virtual=True)
         self.log("flag remains 1 during wait period")
+
+        self.log("Phase 3b: Verifying conditional edge re-fires while truthy...")
+        self.wait_for_gt("lc_tick_count", 1, timeout=5 * sy.TimeSpan.SECOND)
+        tick_count = self.get_value("lc_tick_count")
+        self.log(f"lc_tick_count={tick_count} (>1 confirms conditional re-fires)")
 
         self.log("Phase 4: Waiting for flag == 0 (stage last entered after 2s wait)...")
         self.wait_for_eq("flag", 0, timeout=10 * sy.TimeSpan.SECOND, is_virtual=True)

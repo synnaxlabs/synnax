@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
 
+import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
+from x import random_name
 
 ARC_LOW_PRIORITY_SOURCE = """
 authority 100
@@ -21,7 +21,7 @@ start_low_cmd => main
 sequence main {
     stage active {
         0 -> press_vlv_cmd,
-        wait{duration=100ms} => active
+        wait{100ms} => active
     }
 }
 """
@@ -34,14 +34,14 @@ start_high_cmd => main
 sequence main {
     stage active {
         1 -> press_vlv_cmd,
-        wait{duration=100ms} => active_hold
+        wait{100ms} => active_hold
     }
     stage active_hold {
         1 -> press_vlv_cmd,
-        wait{duration=5s} => done
+        wait{5s} => done
     }
     stage done {
-        set_authority{value=0}
+        set_authority{0}
     }
 }
 """
@@ -59,7 +59,7 @@ class AuthorityArcVsArc(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.arc_b_name = f"ArcHigh_{get_random_name()}"
+        self.arc_b_name = f"ArcHigh_{random_name()}"
         self._arc_b_created = False
         self._arc_b_started = False
         self.client.channels.create(

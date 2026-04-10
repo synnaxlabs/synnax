@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Access, Icon, Menu as PMenu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Common } from "@/hardware/common";
@@ -88,69 +88,80 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
   const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);
-  const canDelete = Access.useDeleteGranted(ontologyIDs);
-  const canEdit = Access.useUpdateGranted(ontologyIDs);
-  const onSelect = {
-    delete: handleDelete,
-    edit: () =>
-      handleSelect({
-        ...props,
-        selection: resources,
-        client,
-        addStatus,
-        store,
-        handleError,
-      }),
-    rename,
-    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    export: () => handleExport(ids[0].key),
-    rangeSnapshot: () =>
-      snap({ tasks: resources.map(({ id: { key }, name }) => ({ key, name })) }),
-    group: () => group(props),
-  };
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const handleEdit = () =>
+    handleSelect({
+      ...props,
+      selection: resources,
+      client,
+      addStatus,
+      store,
+      handleError,
+    });
   const singleResource = ids.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
-    <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      {canEdit && (
+    <ContextMenu.Menu>
+      {hasUpdatePermission && (
         <>
-          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-          {hasNoSnapshots && range?.persisted === true && (
-            <>
-              <Range.SnapshotMenuItem key="snapshot" range={range} />
-              <PMenu.Divider />
-            </>
-          )}
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={() => group(props)}
+          />
           {singleResource && (
             <>
-              <PMenu.Item itemKey="edit">
-                <Icon.Edit />
-                {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
-              </PMenu.Item>
-              <Menu.RenameItem />
-              <PMenu.Divider />
+              <ContextMenu.RenameItem onClick={rename} />
+              <Menu.Divider />
             </>
           )}
+        </>
+      )}
+      {hasCreatePermission && hasNoSnapshots && range?.persisted === true && (
+        <>
+          <Range.SnapshotMenuItem
+            key="snapshot"
+            range={range}
+            onClick={() =>
+              snap({
+                tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
+              })
+            }
+          />
+          <Menu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <Link.CopyMenuItem />
-          <Export.MenuItem />
-          <PMenu.Divider />
+          <Menu.Item itemKey="edit" onClick={handleEdit}>
+            <Icon.Edit />
+            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+          </Menu.Item>
+          <Menu.Divider />
         </>
       )}
-      {canDelete && (
+      {singleResource && (
         <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
+          <Link.CopyContextMenuItem
+            onClick={() =>
+              handleLink({ name: resources[0].name, ontologyID: resources[0].id })
+            }
+          />
+          <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
+          <Menu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      {hasDeletePermission && (
+        <>
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <Menu.Divider />
+        </>
+      )}
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

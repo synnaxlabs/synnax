@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
+	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/snapshot"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 func newMigrateCmd() *cobra.Command {
@@ -97,46 +97,45 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "failed to read core version")
 	}
 
+	loadSnapshot := func(version int) (*resolution.Table, error) {
+		vDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", version))
+		files, err := snapshot.Files(vDir)
+		if err != nil || len(files) == 0 {
+			return nil, nil
+		}
+		snapshotLoader := snapshot.NewFileLoader(vDir, repoRoot)
+		normalized := make([]string, 0, len(files))
+		for _, f := range files {
+			rel, err := filepath.Rel(vDir, f)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to compute relative path for %s", f)
+			}
+			normalized = append(normalized, "schemas/"+strings.TrimSuffix(rel, ".oracle"))
+		}
+		t, diag := analyzer.Analyze(ctx, normalized, snapshotLoader)
+		if diag != nil && !diag.Ok() {
+			return nil, errors.Newf("failed to analyze snapshot v%d", version)
+		}
+		return t, nil
+	}
+
 	// Build the plugin request.
 	req := &plugin.Request{
 		Resolutions:     table,
 		RepoRoot:        repoRoot,
 		SnapshotVersion: coreVersion,
+		LoadSnapshot:    loadSnapshot,
 	}
 
 	// If we have a previous snapshot, load it for diffing.
 	if latestVersion > 0 {
-		snapshotDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", latestVersion))
-		oldFiles, err := snapshot.Files(snapshotDir)
+		oldTable, err := loadSnapshot(latestVersion)
 		if err != nil {
-			return errors.Wrap(err, "failed to read snapshot files")
+			return errors.Wrap(err, "failed to load latest snapshot")
 		}
-		if len(oldFiles) > 0 {
-			// Use a snapshot-specific loader that redirects imports to the
-			// snapshot directory, preventing conflicts with current schemas.
-			snapshotLoader := snapshot.NewFileLoader(snapshotDir, repoRoot)
-			oldNormalized := make([]string, 0, len(oldFiles))
-			for _, f := range oldFiles {
-				// Convert absolute snapshot path to schemas/... import path
-				// so the analyzer derives the same namespaces as the original.
-				rel, err := filepath.Rel(snapshotDir, f)
-				if err != nil {
-					return errors.Wrapf(err, "failed to compute relative path for %s", f)
-				}
-				importPath := "schemas/" + strings.TrimSuffix(rel, ".oracle")
-				oldNormalized = append(oldNormalized, importPath)
-			}
-			oldTable, oldDiag := analyzer.Analyze(ctx, oldNormalized, snapshotLoader)
-			if oldDiag != nil {
-				printDiagnostics(oldDiag.String())
-				if !oldDiag.Ok() {
-					return errors.New("failed to analyze old schema snapshot")
-				}
-			}
-			if oldTable != nil {
-				req.OldResolutions = oldTable
-				req.SnapshotVersion = latestVersion
-			}
+		if oldTable != nil {
+			req.OldResolutions = oldTable
+			req.SnapshotVersion = latestVersion
 		}
 	}
 
@@ -144,17 +143,6 @@ func runMigrate(cmd *cobra.Command) error {
 	resp, err := registry.Get("go/migrate").Generate(req)
 	if err != nil {
 		return errors.Wrap(err, "migration generation failed")
-	}
-
-	// Detect first-time migrate.gen.go files before writing.
-	newMigrateGens := make(set.Set[string])
-	for _, f := range resp.Files {
-		if strings.HasSuffix(f.Path, "/migrate.gen.go") {
-			fullPath := filepath.Join(repoRoot, f.Path)
-			if _, statErr := os.Stat(fullPath); os.IsNotExist(statErr) {
-				newMigrateGens.Add(f.Path)
-			}
-		}
 	}
 
 	// Write generated files and track what was generated.
@@ -178,11 +166,6 @@ func runMigrate(cmd *cobra.Command) error {
 			printDim(fmt.Sprintf("  ✏️  %s ← edit this", t))
 		}
 	}
-	for path := range newMigrateGens {
-		pkg := filepath.Base(filepath.Dir(path))
-		printDim(fmt.Sprintf("  🔌 Wire %sMigrations(cfg.Codec) into your gorp.OpenTable call", strings.ToUpper(pkg[:1])+pkg[1:]))
-	}
-
 	// Delete files that were retargeted and moved.
 	for _, d := range resp.Deletions {
 		fullPath := filepath.Join(repoRoot, d)

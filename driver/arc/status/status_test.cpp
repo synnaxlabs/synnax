@@ -72,16 +72,16 @@ x::status::Status<> make_status() {
 }
 }
 
-/// @brief Test that factory handles set_status type.
-TEST(SetStatusFactoryTest, HandlesSetStatusType) {
+/// @brief Test that module handles set_status type.
+TEST(SetStatusModuleTest, HandlesSetStatusType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Factory factory(client);
-    EXPECT_TRUE(factory.handles("set_status"));
-    EXPECT_FALSE(factory.handles("not_set_status"));
+    Module module(client);
+    EXPECT_TRUE(module.handles("set_status"));
+    EXPECT_FALSE(module.handles("not_set_status"));
 }
 
-/// @brief Test that factory creates a SetStatus node.
-TEST(SetStatusFactoryTest, CreatesSetStatusNode) {
+/// @brief Test that module creates a SetStatus node.
+TEST(SetStatusModuleTest, CreatesSetStatusNode) {
     auto status_node = make_ir_node();
 
     ::arc::ir::Function fn;
@@ -98,9 +98,9 @@ TEST(SetStatusFactoryTest, CreatesSetStatusNode) {
     auto st = ASSERT_NIL_P(s.node("status"));
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Factory factory(client);
+    Module module(client);
     auto node = ASSERT_NIL_P(
-        factory.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -157,8 +157,8 @@ TEST(SetStatusTest, IsOutputTruthyReturnsFalse) {
     EXPECT_FALSE(node.is_output_truthy("anything"));
 }
 
-/// @brief Test that factory creates nodes that set status on the cluster.
-TEST(SetStatusFactoryTest, CreatedNodeSetsStatus) {
+/// @brief Test that module creates nodes that set status on the cluster.
+TEST(SetStatusModuleTest, CreatedNodeSetsStatus) {
     auto status_node = make_ir_node();
     ::arc::ir::Function fn;
     fn.key = "test";
@@ -173,9 +173,9 @@ TEST(SetStatusFactoryTest, CreatedNodeSetsStatus) {
     auto st = ASSERT_NIL_P(s.node("status"));
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Factory factory(client);
+    Module module(client);
     auto node = ASSERT_NIL_P(
-        factory.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));

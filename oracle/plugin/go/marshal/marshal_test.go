@@ -447,6 +447,56 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("marshal flex on a distinct scalar type", func() {
+			It("Should generate DecodeMsgpack and UnmarshalJSON methods", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Key uint64 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						task Key
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
+					"xmsgpack.UnmarshalUint64",
+					"func (kv *Key) UnmarshalJSON(b []byte) error",
+					"xjson.UnmarshalStringUint64",
+				)
+			})
+
+			It("Should generate uint32 helpers for uint32 base types", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Key uint32 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						rack Key
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain(
+					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
+					"xmsgpack.UnmarshalUint32",
+					"func (kv *Key) UnmarshalJSON(b []byte) error",
+					"xjson.UnmarshalStringUint32",
+				)
+			})
+		})
+
 		Context("recursive struct (self-referencing optional fields)", func() {
 			It("Should handle recursive type via delegation", func() {
 				source := `
@@ -470,6 +520,121 @@ var _ = Describe("Go Marshal Plugin", func() {
 						"func (c Container) EncodeOrc(w *orc.Writer",
 						"c.Type.EncodeOrc(w)",
 						"c.Type.DecodeOrc(r)",
+					)
+			})
+		})
+
+		Context("deterministic output ordering", func() {
+			It("Should order codec methods alphabetically by qualified name", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Zebra struct {
+						name string
+					}
+
+					Alpha struct {
+						key string
+					}
+
+					Middle struct {
+						id    uint64
+						zebra Zebra
+						alpha Alpha
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToPreserveOrder(
+						"Alpha) EncodeOrc",
+						"Alpha) DecodeOrc",
+						"Middle) EncodeOrc",
+						"Middle) DecodeOrc",
+						"Zebra) EncodeOrc",
+						"Zebra) DecodeOrc",
+					)
+			})
+
+			It("Should order test Describe blocks alphabetically by qualified name", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Zebra struct {
+						name string
+					}
+
+					Alpha struct {
+						key string
+					}
+
+					Middle struct {
+						id    uint64
+						zebra Zebra
+						alpha Alpha
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec_gen_test.go").
+					ToPreserveOrder(
+						`Describe("Alpha"`,
+						`Describe("Middle"`,
+						`Describe("Zebra"`,
+					)
+			})
+
+			It("Should order flex codec methods alphabetically", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Zulu uint64 {
+						@go marshal flex
+					}
+
+					Bravo uint32 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						task Zulu
+						tag  Bravo
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToPreserveOrder(
+						"Bravo) DecodeMsgpack",
+						"Bravo) UnmarshalJSON",
+						"Zulu) DecodeMsgpack",
+						"Zulu) UnmarshalJSON",
+					)
+			})
+
+			It("Should order extra imports alphabetically", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Key uint64 {
+						@go marshal flex
+					}
+
+					Inner struct {
+						task Key
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToPreserveOrder(
+						`"github.com/synnaxlabs/x/encoding/json"`,
+						`"github.com/synnaxlabs/x/encoding/msgpack"`,
+						`"github.com/vmihailenco/msgpack/v5"`,
 					)
 			})
 		})
