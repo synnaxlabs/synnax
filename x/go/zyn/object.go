@@ -26,8 +26,7 @@ type ObjectZ struct {
 		snake  map[string]string
 		pascal map[string]string
 	}
-	fields     map[string]Schema
-	fieldNames []string
+	fields map[string]Schema
 	baseZ
 }
 
