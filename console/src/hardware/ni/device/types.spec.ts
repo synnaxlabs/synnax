@@ -43,4 +43,33 @@ testPropertiesSchema("NI", propertiesZ, ZERO_PROPERTIES, [
     "scan-only properties from C++ driver",
     { is_simulated: false, resource_name: "Dev1", is_chassis: false },
   ],
+  [
+    "real v0.47.1 device properties (snake_case, no counterInput, partial analogOutput)",
+    {
+      identifier: "n9205",
+      analog_input: { port_count: 0, index: 1048585, channels: { "0": 1048586 } },
+      analog_output: { port_count: 0 },
+      digital_input_output: { port_count: 0, line_counts: [] },
+      digital_input: { port_count: 0, line_counts: [], index: 0, channels: {} },
+      digital_output: {
+        port_count: 0,
+        line_counts: [],
+        state_index: 0,
+        channels: {},
+      },
+      is_simulated: true,
+      resource_name: "6C1DE3E6-1E3A-11F1-80FB-9BC4D3F82D6E",
+    },
+  ],
+  [
+    "pre-v0.41.0 analogOutput with only portCount (before SY-1335)",
+    {
+      identifier: "Dev1",
+      analogInput: { portCount: 4, index: 0, channels: {} },
+      analogOutput: { portCount: 0 },
+      digitalInputOutput: { portCount: 0, lineCounts: [] },
+      digitalInput: { portCount: 0, lineCounts: [], index: 0, channels: {} },
+      digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
+    },
+  ],
 ]);

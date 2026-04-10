@@ -44,6 +44,33 @@ export const testPropertiesSchema = (
         expect(schema.safeParse({}).success).toBe(true);
       });
 
+    if (testEmpty)
+      it("should produce independent objects for successive parses of empty input", () => {
+        const a = schema.parse({});
+        const b = schema.parse({});
+        expect(a).toEqual(b);
+        expect(a).not.toBe(b);
+        // Mutate a nested object/array in `a` and verify `b` is unaffected.
+        const aAny = a as Record<string, unknown>;
+        for (const key of Object.keys(aAny)) {
+          const val = aAny[key];
+          if (val != null && typeof val === "object" && !Array.isArray(val)) {
+            (val as Record<string, unknown>).__test = true;
+            expect((b as Record<string, unknown>)[key]).not.toHaveProperty(
+              "__test",
+            );
+            delete (val as Record<string, unknown>).__test;
+            break;
+          }
+          if (Array.isArray(val)) {
+            val.push("__test");
+            expect((b as Record<string, unknown>)[key]).not.toContain("__test");
+            val.pop();
+            break;
+          }
+        }
+      });
+
     for (const [label, input] of partialCases)
       it(`should parse ${label}`, () => {
         expect(schema.safeParse(input).success).toBe(true);

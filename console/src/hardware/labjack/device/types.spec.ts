@@ -23,4 +23,21 @@ testPropertiesSchema("LabJack", propertiesZ, ZERO_PROPERTIES, [
       AI: { channels: { "0": 456 } },
     },
   ],
+  [
+    "real v0.51.3 device properties (connection/read/write format, no readIndex/thermocoupleIndex)",
+    {
+      identifier: "mlt",
+      connection: { identifier: "ANY", connection_type: "USB" },
+      read: { index: 0, channels: {} },
+      write: { channels: {} },
+    },
+  ],
+  [
+    "read task configured but no write task (missing writeStateIndex and thermocoupleIndex)",
+    {
+      identifier: "lj1",
+      readIndex: 1048584,
+      AI: { channels: { AIN0: 1048585 } },
+    },
+  ],
 ]);
