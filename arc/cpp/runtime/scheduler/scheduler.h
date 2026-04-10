@@ -45,7 +45,6 @@ class Scheduler {
         const ir::Sequence *ir;
         std::vector<StepState> steps;
         size_t active_step_idx = NO_INDEX;
-        std::unordered_set<ir::Edge> fired_one_shots;
         std::unordered_map<std::string, size_t> flow_node_owner;
         std::unordered_set<std::string> flow_data_nodes;
     };
@@ -69,7 +68,6 @@ class Scheduler {
     std::vector<uint8_t> changed_flags;
     std::vector<uint8_t> self_changed_flags;
     x::telem::TimeSpan next_deadline_ = x::telem::TimeSpan::max();
-    std::unordered_set<ir::Edge> global_fired_one_shots;
     const std::string *curr_node_ptr = nullptr;
     SequenceState *curr_seq = nullptr;
     bool transitioned = false;
@@ -204,7 +202,6 @@ public:
         std::fill(
             this->self_changed_flags.begin(), this->self_changed_flags.end(), 0
         );
-        this->global_fired_one_shots.clear();
         this->curr_node_ptr = nullptr;
         this->curr_seq = nullptr;
         this->transitioned = false;
@@ -318,27 +315,30 @@ private:
         this->error_handler(e);
     }
 
+    /// @brief Marks downstream nodes as changed based on edge propagation rules.
+    /// For continuous edges, always propagates. For conditional edges, only
+    /// propagates when the source output is truthy.
     void mark_changed(const std::string &param) {
         for (const auto &edge : this->curr_node().output_edges[param])
-            if (edge.kind == ir::EdgeKind::Continuous)
+            if (edge.kind != ir::EdgeKind::Conditional ||
+                this->curr_node().node->is_output_truthy(param))
                 this->changed_flags[this->node_index[edge.target.node]] = 1;
-            else if (this->curr_node().node->is_output_truthy(param)) {
-                auto &fired_set = this->curr_seq == nullptr
-                                      ? this->global_fired_one_shots
-                                      : this->curr_seq->fired_one_shots;
-                if (fired_set.insert(edge).second)
-                    this->changed_flags[this->node_index[edge.target.node]] = 1;
-            }
     }
 
     void mark_self_changed() {
         this->self_changed_flags[this->node_index[*this->curr_node_ptr]] = 1;
     }
 
+    /// @brief Transitions to the step associated with the currently executing
+    /// entry node. If entering from global strata and the target's sequence
+    /// already has an active step, this is a no-op to prevent re-entering a
+    /// sequence that has already been started.
     void transition_step() {
         auto it = this->transitions.find(*this->curr_node_ptr);
         if (it == this->transitions.end()) return;
         auto &[target_seq, target_step_idx] = it->second;
+        if (this->curr_seq == nullptr && target_seq->active_step_idx != NO_INDEX)
+            return;
 
         if (target_seq->active_step_idx != NO_INDEX)
             this->deactivate_step(target_seq);
@@ -349,7 +349,6 @@ private:
 
     void activate_step(SequenceState *seq, size_t step_idx) {
         seq->active_step_idx = step_idx;
-        seq->fired_one_shots.clear();
         auto &step = seq->steps[step_idx];
 
         if (step.ir->stage) {
@@ -379,7 +378,6 @@ private:
 
     void enter_sequence(SequenceState *seq) {
         if (seq->steps.empty()) return;
-        seq->fired_one_shots.clear();
         this->activate_step(seq, 0);
     }
 
@@ -402,7 +400,6 @@ private:
 
     void reset_sequence_state(SequenceState &seq) {
         seq.active_step_idx = NO_INDEX;
-        seq.fired_one_shots.clear();
         for (auto &step : seq.steps) {
             for (auto &sub : step.sub_seqs)
                 this->reset_sequence_state(sub);

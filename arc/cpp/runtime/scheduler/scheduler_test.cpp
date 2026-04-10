@@ -2162,7 +2162,7 @@ ir::IR build_flow_seq(
             ir.edges.push_back(ir::Edge{
                 .source = {node_key, "output"},
                 .target = {next_entry, "activate"},
-                .kind = ir::EdgeKind::OneShot,
+                .kind = ir::EdgeKind::Conditional,
             });
         }
     }
@@ -2173,7 +2173,7 @@ ir::IR build_flow_seq(
     ir.edges.push_back(ir::Edge{
         .source = {trigger_key, "activate"},
         .target = {first_entry, "input"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.root.strata.push_back({trigger_key});
     ir.root.strata.push_back({first_entry});
@@ -2334,12 +2334,12 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
     ir.edges.push_back({
         .source = {"trigger", "activate"},
         .target = {"entry_main_stage_a", "input"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.edges.push_back({
         .source = {"stage_node", "output"},
         .target = {"entry_main_flow_b", "activate"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.root.strata.push_back({"trigger"});
     ir.root.strata.push_back({"entry_main_stage_a"});
@@ -2393,12 +2393,12 @@ TEST_F(SchedulerTest, testFlowToStageTransition) {
     ir.edges.push_back({
         .source = {"trigger", "activate"},
         .target = {"entry_main_flow_a", "input"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.edges.push_back({
         .source = {"flow_node", "output"},
         .target = {"entry_main_stage_b", "activate"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.root.strata.push_back({"trigger"});
     ir.root.strata.push_back({"entry_main_flow_a"});
@@ -2456,17 +2456,17 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     ir.edges.push_back({
         .source = {"trigger", "activate"},
         .target = {"entry_main_press", "input"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.edges.push_back({
         .source = {"press_node", "output"},
         .target = {"entry_main_write", "activate"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.edges.push_back({
         .source = {"write_node", "output"},
         .target = {"entry_main_vent", "activate"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.root.strata.push_back({"trigger"});
     ir.root.strata.push_back({"entry_main_press"});
@@ -2541,7 +2541,7 @@ TEST_F(SchedulerTest, testNestedSequenceInStage) {
     ir.edges.push_back({
         .source = {"trigger", "activate"},
         .target = {"entry_outer_stage_a", "input"},
-        .kind = ir::EdgeKind::OneShot,
+        .kind = ir::EdgeKind::Conditional,
     });
     ir.root.strata.push_back({"trigger"});
     ir.root.strata.push_back({"entry_outer_stage_a"});

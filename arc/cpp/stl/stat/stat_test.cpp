@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iostream>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/local_shared.h"
@@ -42,17 +44,19 @@ struct TestSetup {
         bool with_reset = false,
         types::Kind output_kind = types::Kind::Invalid
     ):
-        ir(build_ir(
+        ir((std::cerr << "[DBG] TestSetup begin ir init" << std::endl, build_ir(
             kind,
             node_type,
             config_params,
             with_reset,
             output_kind == types::Kind::Invalid ? kind : output_kind
-        )),
+        ))),
         state(
-            runtime::state::Config{.ir = ir, .channels = {}},
+            (std::cerr << "[DBG] TestSetup begin state init, ir.nodes=" << ir.nodes.size() << std::endl, runtime::state::Config{.ir = ir, .channels = {}}),
             runtime::errors::noop_handler
-        ) {}
+        ) {
+        std::cerr << "[DBG] TestSetup ctor body" << std::endl;
+    }
 
     runtime::state::Node make_target_node() {
         return ASSERT_NIL_P(this->state.node("target"));

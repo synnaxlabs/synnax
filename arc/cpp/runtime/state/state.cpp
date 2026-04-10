@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstring>
+#include <iostream>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -61,7 +62,7 @@ Series parse_default_value(
 
 State::State(const Config &cfg, errors::Handler error_handler):
     State(
-        cfg,
+        (std::cerr << "[DBG] State::State(Config) delegate begin" << std::endl, cfg),
         std::make_shared<stl::channel::State>(cfg.channels),
         std::make_shared<stl::str::State>(),
         std::make_shared<stl::series::State>(),
@@ -83,9 +84,11 @@ State::State(
     series(std::move(series)),
     vars(std::move(vars)),
     error_handler(std::move(error_handler)) {
+    std::cerr << "[DBG] State::State enter, nodes=" << cfg.ir.nodes.size() << std::endl;
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)
         total += node.outputs.size();
+    std::cerr << "[DBG] State::State total_outputs=" << total << std::endl;
     this->values.reserve(total);
 
     for (const auto &node: cfg.ir.nodes) {
@@ -103,7 +106,9 @@ State::State(
 }
 
 std::pair<Node, x::errors::Error> State::node(const std::string &key) {
+    std::cerr << "[DBG] State::node enter key=" << key << std::endl;
     const auto &ir_node = this->cfg.ir.node(key);
+    std::cerr << "[DBG] State::node got ir_node, inputs=" << ir_node.inputs.size() << " outputs=" << ir_node.outputs.size() << std::endl;
     const size_t num_inputs = ir_node.inputs.size();
     std::vector<ir::Edge> inputs(num_inputs);
     std::vector<Series> aligned_data(num_inputs);
@@ -164,6 +169,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
         }
     }
 
+    std::cerr << "[DBG] State::node post-inputs key=" << key << std::endl;
     std::vector<ir::Handle> output_handles;
     std::vector<size_t> output_idx;
     std::unordered_map<std::string, size_t> output_name_idx;
@@ -174,6 +180,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
         output_idx.push_back(this->value_index[handle]);
         output_name_idx[output_param.name] = i;
     }
+    std::cerr << "[DBG] State::node about to return Node key=" << key << std::endl;
 
     return {
         Node(
