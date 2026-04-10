@@ -110,6 +110,14 @@ class ArcConsoleCase(SimDaqCase, ConsoleCase):
                 arc.started = False
                 break
 
+    def start_arc(self, name: str) -> None:
+        """Start a tracked arc by name and update tracking."""
+        self.console.arc.start()
+        for arc in self._arcs:
+            if arc.name == name:
+                arc.started = True
+                break
+
     def rename_arc(self, old_name: str, new_name: str) -> None:
         """Rename an arc and update tracking."""
         self.console.arc.rename(old_name=old_name, new_name=new_name)
