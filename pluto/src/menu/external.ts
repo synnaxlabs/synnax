@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/menu/ContextMenu";
+export * from "@/menu/CopyItem";
 export * from "@/menu/Divider";
 export * from "@/menu/Item";
 export * from "@/menu/Menu";

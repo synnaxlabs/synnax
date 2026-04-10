@@ -15,6 +15,8 @@
     padding-top: 0.5rem;
     padding-left: 1rem;
     padding-bottom: 0.5rem;
+    cursor: text;
+    user-select: none;
 
     & .pluto-log__content {
         height: 100%;

@@ -134,7 +134,7 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (disabled || variant === "preview") showDragHandle = false;
+  if (variant === "preview") showDragHandle = false;
 
   return (
     <Text
@@ -170,6 +170,7 @@ export const Numeric = ({
           size={size}
           color={color}
           contrast={contrast}
+          disabled={disabled}
         />
       )}
       {children}

@@ -12,7 +12,7 @@ option go_package = "github.com/synnaxlabs/arc/ir/pb";
 enum EdgeKind {
   EDGE_KIND_UNSPECIFIED = 0;
   EDGE_KIND_CONTINUOUS = 1;
-  EDGE_KIND_ONE_SHOT = 2;
+  EDGE_KIND_CONDITIONAL = 2;
 }
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow

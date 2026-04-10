@@ -58,10 +58,9 @@ public:
         return *this;
     }
 
-    /// @brief Add a one-shot edge: source.param => target.param
-    /// One-shot edges only fire when the source output is truthy,
-    /// and only once per stage activation.
-    Builder &oneshot(
+    /// @brief Add a conditional edge: source.param => target.param
+    /// Conditional edges only propagate when the source output is truthy.
+    Builder &conditional(
         const std::string &source_node,
         const std::string &source_param,
         const std::string &target_node,
@@ -70,7 +69,7 @@ public:
         ir_.edges.emplace_back(
             Handle{source_node, source_param},
             Handle{target_node, target_param},
-            EdgeKind::OneShot
+            EdgeKind::Conditional
         );
         return *this;
     }

@@ -535,7 +535,7 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 			{
 				Source: ir.Handle{Node: "check_1", Param: "output"},
 				Target: ir.Handle{Node: "pressurize_entry", Param: "activate"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.EdgeKindConditional,
 			},
 			{
 				Source: ir.Handle{Node: "valve_ctrl", Param: "output"},
@@ -545,7 +545,7 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 			{
 				Source: ir.Handle{Node: "pressure_monitor", Param: "threshold_met"},
 				Target: ir.Handle{Node: "complete_entry", Param: "activate"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.EdgeKindConditional,
 			},
 		}
 
@@ -561,12 +561,13 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 		Expect(next.Key).To(Equal("pressurize"))
 
 		continuous := edges.GetByKind(ir.EdgeKindContinuous)
-		oneShot := edges.GetByKind(ir.EdgeKindOneShot)
+		conditional := edges.GetByKind(ir.EdgeKindConditional)
 
 		Expect(continuous).To(HaveLen(2))
-		Expect(oneShot).To(HaveLen(2))
+		Expect(conditional).To(HaveLen(2))
 
-		for _, e := range oneShot {
+		// Verify EdgeKindConditional edges target entry nodes
+		for _, e := range conditional {
 			Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			Expect(e.Target.Param).To(Equal("activate"))
 		}

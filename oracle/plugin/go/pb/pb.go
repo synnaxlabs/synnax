@@ -15,6 +15,7 @@ package pb
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/samber/lo"
@@ -255,8 +256,13 @@ func (p *Plugin) generateFile(
 		data.usedEnums[e.QualifiedName] = &e
 	}
 
-	for _, enumRef := range data.usedEnums {
-		enumTranslator := p.generateEnumTranslator(enumRef, data)
+	enumKeys := make([]string, 0, len(data.usedEnums))
+	for k := range data.usedEnums {
+		enumKeys = append(enumKeys, k)
+	}
+	sort.Strings(enumKeys)
+	for _, k := range enumKeys {
+		enumTranslator := p.generateEnumTranslator(data.usedEnums[k], data)
 		if enumTranslator != nil {
 			data.EnumTranslators = append(data.EnumTranslators, *enumTranslator)
 		}

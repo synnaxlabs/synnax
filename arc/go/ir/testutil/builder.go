@@ -58,14 +58,13 @@ func (b *IRBuilder) Edge(srcNode, srcParam, tgtNode, tgtParam string) *IRBuilder
 	return b
 }
 
-// OneShot adds a one-shot edge: source.param => target.param.
-// One-shot edges only fire when the source output is truthy,
-// and only once per stage activation (or once ever for global strata).
-func (b *IRBuilder) OneShot(srcNode, srcParam, tgtNode, tgtParam string) *IRBuilder {
+// Conditional adds a conditional edge: source.param => target.param.
+// Conditional edges only propagate when the source output is truthy.
+func (b *IRBuilder) Conditional(srcNode, srcParam, tgtNode, tgtParam string) *IRBuilder {
 	b.prog.Edges = append(b.prog.Edges, ir.Edge{
 		Source: ir.Handle{Node: srcNode, Param: srcParam},
 		Target: ir.Handle{Node: tgtNode, Param: tgtParam},
-		Kind:   ir.EdgeKindOneShot,
+		Kind:   ir.EdgeKindConditional,
 	})
 	return b
 }

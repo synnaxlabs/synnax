@@ -12,13 +12,13 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/import";
 import { create } from "@/log/Log";
-import { stateZ } from "@/log/slice";
+import { anyStateZ } from "@/log/types";
 
 export const ingest: Import.FileIngester = (
   data,
   { layout, placeLayout, store, client },
 ) => {
-  const state = stateZ.parse(data);
+  const state = anyStateZ.parse(data);
   if (!Access.updateGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
   // create with an undefined key so we do not have to worry about the key that was from

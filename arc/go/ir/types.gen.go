@@ -48,7 +48,7 @@ type EdgeKind uint8
 const (
 	EdgeKindUnspecified EdgeKind = iota
 	EdgeKindContinuous
-	EdgeKindOneShot
+	EdgeKindConditional
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow

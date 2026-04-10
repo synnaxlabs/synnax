@@ -255,7 +255,7 @@ var _ = Describe("IR", func() {
 					{
 						Source: ir.Handle{Node: "condition_1", Param: "output"},
 						Target: ir.Handle{Node: "main_run_entry", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				},
 				Root: ir.Stage{
@@ -292,12 +292,12 @@ var _ = Describe("IR", func() {
 			Expect(next.Key).To(Equal("run"))
 
 			Expect(restored.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
-			Expect(restored.Edges[1].Kind).To(Equal(ir.EdgeKindOneShot))
+			Expect(restored.Edges[1].Kind).To(Equal(ir.EdgeKindConditional))
 
 			continuous := restored.Edges.GetByKind(ir.EdgeKindContinuous)
-			oneShot := restored.Edges.GetByKind(ir.EdgeKindOneShot)
+			conditional := restored.Edges.GetByKind(ir.EdgeKindConditional)
 			Expect(continuous).To(HaveLen(1))
-			Expect(oneShot).To(HaveLen(1))
+			Expect(conditional).To(HaveLen(1))
 		})
 
 		It("Should handle IR with no sequences", func() {
@@ -385,10 +385,10 @@ var _ = Describe("IR", func() {
 				},
 				Edges: ir.Edges{
 					{Source: ir.Handle{Node: "timer_1", Param: "output"}, Target: ir.Handle{Node: "pressure_check", Param: ir.LHSInputParam}, Kind: ir.EdgeKindContinuous},
-					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-					{Source: ir.Handle{Node: "timer_1", Param: "timeout"}, Target: ir.Handle{Node: "shutdown_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.EdgeKindConditional},
+					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.EdgeKindConditional},
+					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindConditional},
+					{Source: ir.Handle{Node: "timer_1", Param: "timeout"}, Target: ir.Handle{Node: "shutdown_entry", Param: "activate"}, Kind: ir.EdgeKindConditional},
 				},
 				Root: ir.Stage{
 					Strata: ir.Strata{
@@ -428,11 +428,12 @@ var _ = Describe("IR", func() {
 			Expect(ok).To(BeFalse())
 
 			continuous := program.Edges.GetByKind(ir.EdgeKindContinuous)
-			oneShot := program.Edges.GetByKind(ir.EdgeKindOneShot)
+			conditional := program.Edges.GetByKind(ir.EdgeKindConditional)
 			Expect(continuous).To(HaveLen(1))
-			Expect(oneShot).To(HaveLen(4))
+			Expect(conditional).To(HaveLen(4))
 
-			for _, e := range oneShot {
+			// All EdgeKindConditional edges should target stage entries
+			for _, e := range conditional {
 				Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			}
 

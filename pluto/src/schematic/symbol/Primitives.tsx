@@ -2112,6 +2112,18 @@ export const TextBox = ({
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
       {...rest}
     >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="4"
+        />
+      </HandleBoundary>
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}

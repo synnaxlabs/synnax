@@ -9,8 +9,9 @@
 
 import { type Link } from "@/link";
 import { Log } from "@/log";
+import { anyStateZ } from "@/log/types";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const log = await client.logs.retrieve({ key });
-  placeLayout(Log.create({ ...log.data, ...log }));
+  const { data, ...log } = await client.logs.retrieve({ key });
+  placeLayout(Log.create({ ...anyStateZ.parse(data), ...log }));
 };

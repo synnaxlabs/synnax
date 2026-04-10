@@ -211,8 +211,8 @@ sequence main {
 		_, ok := seq.NextStep("stop")
 		Expect(ok).To(BeFalse())
 
-		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
-		Expect(oneShotEdges).ToNot(BeEmpty())
+		conditionalEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
+		Expect(conditionalEdges).ToNot(BeEmpty())
 
 		continuousEdges := mod.Edges.GetByKind(ir.EdgeKindContinuous)
 		Expect(continuousEdges).ToNot(BeEmpty())
@@ -289,8 +289,8 @@ sequence main {
 		_, ok := seq.NextStep("vent")
 		Expect(ok).To(BeFalse())
 
-		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
-		Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
+		conditionalEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
+		Expect(len(conditionalEdges)).To(BeNumerically(">=", 2))
 	})
 
 	It("Should correctly compile a node with a unit literal", func(ctx SpecContext) {
@@ -385,7 +385,7 @@ sequence main {
 			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
 			Expect(seq.Strata).ToNot(BeEmpty())
 
-			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
+			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
 			Expect(len(oneShotEdges)).To(BeNumerically(">=", 1))
 		})
 
@@ -512,7 +512,7 @@ stage abort {
 			Expect(abortSeq.Steps).To(HaveLen(1))
 			Expect(abortSeq.Steps[0].IsStage()).To(BeTrue())
 
-			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
+			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
 			Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
 		})
 	})

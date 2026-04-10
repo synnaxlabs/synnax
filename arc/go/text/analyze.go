@@ -452,7 +452,7 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 		return ir.EdgeKindContinuous
 	}
 	if opCtx, ok := children[p.lastOpIndex].(parser.IFlowOperatorContext); ok && opCtx.TRANSITION() != nil {
-		return ir.EdgeKindOneShot
+		return ir.EdgeKindConditional
 	}
 	return ir.EdgeKindContinuous
 }
@@ -861,7 +861,7 @@ func analyzeSequence(
 					allEdges = append(allEdges, ir.Edge{
 						Source: ir.Handle{Node: lastNode.Key, Param: firstOutputParam(lastNode.Outputs)},
 						Target: ir.Handle{Node: nextEntryKey, Param: stage.EntryActivationParam},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					})
 				}
 			}
@@ -899,7 +899,7 @@ func analyzeSequence(
 				allEdges = append(allEdges, ir.Edge{
 					Source: ir.Handle{Node: node.Key, Param: firstOutputParam(node.Outputs)},
 					Target: ir.Handle{Node: nextEntryKey, Param: stage.EntryActivationParam},
-					Kind:   ir.EdgeKindOneShot,
+					Kind:   ir.EdgeKindConditional,
 				})
 			}
 

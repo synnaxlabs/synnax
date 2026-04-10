@@ -207,7 +207,7 @@ time delta is zero or negative, the output is also `0`.
 thermocouple -> derivative{} -> temp_rate
 
 // Chain with other nodes
-pressure -> derivative{} -> abs_rate > 100.0 => alarm
+pressure -> derivative{} -> rate > 100.0 => alarm
 ```
 
 <Divider.Divider x />

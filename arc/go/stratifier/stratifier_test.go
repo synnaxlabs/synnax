@@ -1011,7 +1011,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "check", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_off", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					{
 						Source: ir.Handle{Node: "interval", Param: ir.DefaultOutputParam},
@@ -1066,7 +1066,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "check_off", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_off", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					{
 						Source: ir.Handle{Node: "interval", Param: ir.DefaultOutputParam},
@@ -1086,7 +1086,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "check_pause", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_pause", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					{
 						Source: ir.Handle{Node: "interval", Param: ir.DefaultOutputParam},
@@ -1144,12 +1144,12 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "check", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_off", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					{
 						Source: ir.Handle{Node: "check", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_pause", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				}
 				sequences = []ir.Sequence{
@@ -1192,7 +1192,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "check_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_off", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					// Long chain: interval -> check_b -> and_node -> entry_main_pause (stratum 3)
 					{
@@ -1208,7 +1208,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "and_node", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_main_pause", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				}
 				sequences = []ir.Sequence{
@@ -1401,7 +1401,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "write_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_seq_s1", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				}
 				sequences = []ir.Sequence{
@@ -1449,12 +1449,12 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "node_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_seq_s1", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					{
 						Source: ir.Handle{Node: "node_b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_seq_s2", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				}
 				sequences = []ir.Sequence{
@@ -1497,7 +1497,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "write_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_seq_stg_b", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				}
 				sequences = []ir.Sequence{
@@ -1573,12 +1573,12 @@ var _ = Describe("Stratification", func() {
 					{
 						Source: ir.Handle{Node: "press_node", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_seq_write", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 					{
 						Source: ir.Handle{Node: "write_node", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "entry_seq_vent", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+						Kind:   ir.EdgeKindConditional,
 					},
 				}
 				sequences = []ir.Sequence{

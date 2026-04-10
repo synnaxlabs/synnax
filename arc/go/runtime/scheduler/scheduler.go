@@ -38,7 +38,6 @@ type sequenceState struct {
 	ir            ir.Sequence
 	steps         []stepState
 	activeStepIdx int
-	firedOneShots set.Set[ir.Edge]
 	// flowNodeOwner maps node keys to the step index that owns them.
 	// Only populated for sequences that contain flow steps.
 	flowNodeOwner map[string]int
@@ -56,22 +55,21 @@ type transitionTarget struct {
 
 // Scheduler orchestrates the execution of nodes in topological order.
 type Scheduler struct {
-	nodeCtx             rnode.Context
-	errorHandler        ErrorHandler
-	transitions         map[string]transitionTarget
-	boundaries          map[string]*sequenceState
-	changed             set.Set[string]
-	selfChanged         set.Set[string]
-	globalFiredOneShots set.Set[ir.Edge]
-	nodes               map[string]node
-	currNodeKey         string
-	globalStrata        ir.Strata
-	sequences           []sequenceState
-	maxConvergenceIter  int
-	currSeq             *sequenceState
-	tolerance           telem.TimeSpan
-	nextDeadline        telem.TimeSpan
-	transitioned        bool
+	nodeCtx            rnode.Context
+	errorHandler       ErrorHandler
+	transitions        map[string]transitionTarget
+	boundaries         map[string]*sequenceState
+	changed            set.Set[string]
+	selfChanged        set.Set[string]
+	nodes              map[string]node
+	currNodeKey        string
+	globalStrata       ir.Strata
+	sequences          []sequenceState
+	maxConvergenceIter int
+	currSeq            *sequenceState
+	tolerance          telem.TimeSpan
+	nextDeadline       telem.TimeSpan
+	transitioned       bool
 }
 
 // ErrorHandler receives errors from node execution.
@@ -89,14 +87,13 @@ func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err e
 // New creates a scheduler from an IR program and node instances.
 func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
-		nodes:               make(map[string]node, len(prog.Nodes)),
-		globalStrata:        prog.Root.Strata,
-		transitions:         make(map[string]transitionTarget),
-		boundaries:          make(map[string]*sequenceState),
-		changed:             make(set.Set[string], len(prog.Nodes)),
-		selfChanged:         make(set.Set[string]),
-		globalFiredOneShots: make(set.Set[ir.Edge]),
-		tolerance:           tolerance,
+		nodes:        make(map[string]node, len(prog.Nodes)),
+		globalStrata: prog.Root.Strata,
+		transitions:  make(map[string]transitionTarget),
+		boundaries:   make(map[string]*sequenceState),
+		changed:      make(set.Set[string], len(prog.Nodes)),
+		selfChanged:  make(set.Set[string]),
+		tolerance:    tolerance,
 	}
 
 	for _, n := range prog.Nodes {
@@ -134,7 +131,6 @@ func buildSequenceState(seq ir.Sequence) sequenceState {
 		ir:            seq,
 		steps:         make([]stepState, len(seq.Steps)),
 		activeStepIdx: -1,
-		firedOneShots: make(set.Set[ir.Edge]),
 	}
 
 	hasFlowSteps := false
@@ -232,22 +228,13 @@ func (s *Scheduler) MarkNodeChanged(nodeKey string) {
 }
 
 // markChanged propagates changes from the current node's output to downstream nodes.
+// For continuous edges, always propagates. For conditional edges, only propagates
+// when the source output is truthy.
 func (s *Scheduler) markChanged(param string) {
 	n := s.nodes[s.currNodeKey]
 	for _, edge := range n.outgoing[param] {
-		if edge.Kind == ir.EdgeKindOneShot {
-			if !n.IsOutputTruthy(param) {
-				continue
-			}
-			if s.currSeq == nil {
-				if _, fired := s.globalFiredOneShots[edge]; !fired {
-					s.globalFiredOneShots.Add(edge)
-					s.changed.Add(edge.Target.Node)
-				}
-				continue
-			}
-			if _, fired := s.currSeq.firedOneShots[edge]; !fired {
-				s.currSeq.firedOneShots.Add(edge)
+		if edge.Kind == ir.EdgeKindConditional {
+			if n.IsOutputTruthy(param) {
 				s.changed.Add(edge.Target.Node)
 			}
 			continue
@@ -377,9 +364,14 @@ func (s *Scheduler) execSequenceStep(seq *sequenceState) {
 
 // transitionStep transitions to the step associated with the currently executing
 // entry node. This deactivates the source step and activates the target step.
+// If entering from global strata and the target's sequence already has an active
+// step, this is a no-op to prevent re-entering a sequence that has already started.
 func (s *Scheduler) transitionStep() {
 	target, ok := s.transitions[s.currNodeKey]
 	if !ok {
+		return
+	}
+	if s.currSeq == nil && target.seq.activeStepIdx != -1 {
 		return
 	}
 
@@ -396,7 +388,6 @@ func (s *Scheduler) transitionStep() {
 // activateStep activates a step, resetting its nodes per RFC 7.6.
 func (s *Scheduler) activateStep(seq *sequenceState, stepIdx int) {
 	seq.activeStepIdx = stepIdx
-	clear(seq.firedOneShots)
 	step := &seq.steps[stepIdx]
 
 	switch {
@@ -436,7 +427,6 @@ func (s *Scheduler) enterSequence(seq *sequenceState) {
 	if len(seq.steps) == 0 {
 		return
 	}
-	clear(seq.firedOneShots)
 	s.activateStep(seq, 0)
 }
 
