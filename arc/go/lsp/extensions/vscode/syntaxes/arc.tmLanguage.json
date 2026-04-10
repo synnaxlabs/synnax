@@ -54,7 +54,7 @@
       "patterns": [
         {
           "name": "keyword.control.arc",
-          "match": "\\b(if|else|return)\\b"
+          "match": "\\b(if|else|return|for|break|continue)\\b"
         },
         {
           "name": "keyword.operator.logical.arc",

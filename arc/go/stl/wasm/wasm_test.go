@@ -2777,4 +2777,471 @@ input_ch -> count_local{} -> sink_ch
 			h.Execute(ctx, "log_fn")
 		})
 	})
+
+	Describe("For Loops", func() {
+		Describe("Range loops", func() {
+			DescribeTable("should compute correct sums",
+				expectOutput[int64],
+				Entry("1-arg range", "range1", types.I64(), `{
+					sum i64 := 0
+					for i := range(5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("2-arg range", "range2", types.I64(), `{
+					sum i64 := 0
+					for i := range(5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(35)),
+				Entry("3-arg range with step", "range3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(20)),
+				Entry("empty range", "range_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("reversed bounds", "range_rev", types.I64(), `{
+					sum i64 := 99
+					for i := range(10, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("step of 3", "range_step3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 3) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("explicit step of 1", "range_step1", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("step larger than range", "range_big_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("step equals range", "range_step_eq", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("negative step", "range_neg_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(30)),
+				Entry("negative step of -1", "range_neg1", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(55)),
+				Entry("negative step with large gap", "range_neg_big", types.I64(), `{
+					sum i64 := 0
+					for i := range(20, 0, -5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(50)),
+				Entry("negative step empty", "range_neg_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0, 10, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("negative start positive end", "range_neg_start", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("both bounds negative", "range_neg_both", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-14)),
+				Entry("positive to negative descending", "range_pos_to_neg", types.I64(), `{
+					sum i64 := 0
+					for i := range(3, -3, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(3)),
+				Entry("mixed i32 start with i64 end", "range_mixed", types.I64(), `{
+					lo i32 := 1
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("mixed i32 start with i64 end and i32 step", "range_3arg_mixed", types.I64(), `{
+					lo i32 := 0
+					hi i64 := 10
+					s i32 := 3
+					sum i64 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("mixed types with negative start", "range_mixed_neg", types.I64(), `{
+					lo i32 := -5
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("mixed types descending with negative step", "range_mixed_desc", types.I64(), `{
+					hi i64 := 5
+					lo i32 := -5
+					s i32 := -2
+					sum i64 := 0
+					for i := range(hi, lo, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(5)),
+			)
+
+			It("Should handle mixed i16 start with i32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_i32", types.I32(), `{
+					lo i16 := 0
+					hi i32 := 4
+					sum i32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should handle mixed u8 start with u32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u32", types.U32(), `{
+					lo u8 := 1
+					hi u32 := 4
+					sum u32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint32(6))
+			})
+
+			It("Should handle u8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_only", types.U8(), `{
+					sum u8 := 0
+					for i := range(u8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint8(10))
+			})
+
+			It("Should handle i8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_only", types.I8(), `{
+					sum i8 := 0
+					for i := range(i8(1), i8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int8(10))
+			})
+
+			It("Should handle u16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u16_only", types.U16(), `{
+					sum u16 := 0
+					for i := range(u16(10)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(45))
+			})
+
+			It("Should handle i16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_only", types.I16(), `{
+					sum i16 := 0
+					for i := range(i16(1), i16(6)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(15))
+			})
+
+			It("Should handle mixed i8 start with i16 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_i16", types.I16(), `{
+					lo i8 := 0
+					hi i16 := 5
+					sum i16 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(10))
+			})
+
+			It("Should handle mixed u8 start with u16 end and u8 step", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u16_step", types.U16(), `{
+					lo u8 := 0
+					hi u16 := 10
+					s u8 := 2
+					sum u16 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(20))
+			})
+		})
+
+		Describe("Series iteration", func() {
+			It("Should sum elements with single-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_sum", types.I32(), `{
+					data series i32 := [1, 2, 3, 4, 5]
+					sum i32 := 0
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should compute weighted sum with two-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_weighted", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for i, x := data {
+						sum = sum + x * (i + 1)
+					}
+					return sum
+				}`, nil, int32(140))
+			})
+
+			It("Should produce zero iterations for empty series", func(ctx SpecContext) {
+				expectOutput(ctx, "series_empty", types.I32(), `{
+					data series i32 := []
+					sum i32 := 99
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(99))
+			})
+		})
+
+		Describe("Break and continue", func() {
+			It("Should break on threshold in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "break_thresh", types.I32(), `{
+					data series i32 := [1, 2, 3, 100, 5]
+					sum i32 := 0
+					for x := data {
+						if x > 50 {
+							break
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip odd indices in range loop", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_skip", types.I32(), `{
+					sum i32 := 0
+					for i := range(i32(6)) {
+						if i % 2 != 0 {
+							continue
+						}
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip elements in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_series", types.I32(), `{
+					data series i32 := [10, -1, 20, -1, 30]
+					sum i32 := 0
+					for x := data {
+						if x < 0 {
+							continue
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(60))
+			})
+
+			It("Should continue only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_nested", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j == 2 {
+								continue
+							}
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int64(9))
+			})
+
+			It("Should break only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "break_inner_only", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(10) {
+							if j >= 2 {
+								break
+							}
+							sum = sum + 1
+						}
+						sum = sum + 100
+					}
+					return sum
+				}`, nil, int64(306))
+			})
+		})
+
+		Describe("Conditional and infinite", func() {
+			It("Should execute while-style countdown", func(ctx SpecContext) {
+				expectOutput(ctx, "while_count", types.I32(), `{
+					n i32 := 5
+					sum i32 := 0
+					for n > 0 {
+						sum = sum + n
+						n = n - 1
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should execute infinite loop with break", func(ctx SpecContext) {
+				expectOutput(ctx, "inf_break", types.I32(), `{
+					val i32 := 1
+					for {
+						val = val * 2
+						if val > 100 {
+							break
+						}
+					}
+					return val
+				}`, nil, int32(128))
+			})
+		})
+
+		Describe("Nested loops", func() {
+			It("Should compute matrix iteration count", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_count", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(12))
+			})
+
+			It("Should handle inner break with outer running fully", func(ctx SpecContext) {
+				expectOutput(ctx, "inner_break", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j > 1 {
+								break
+							}
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(6))
+			})
+
+			It("Should handle 3-deep nested range loops", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_3deep", types.I64(), `{
+					count i64 := 0
+					for i := range(2) {
+						for j := range(3) {
+							for k := range(4) {
+								count = count + 1
+							}
+						}
+					}
+					return count
+				}`, nil, int64(24))
+			})
+
+			It("Should nest range loop inside series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "series_range_nested", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for x := data {
+						for j := range(i32(x / 10)) {
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+		})
+
+		Describe("Stateful across calls", func() {
+			It("Should accumulate across reactive executions", func(ctx SpecContext) {
+				g := singleFunctionGraph("loop_state", types.I64(), `{
+					total i64 $= 0
+					for i := range(3) {
+						total = total + 1
+					}
+					return total
+				}`)
+				h := newHarness(ctx, g, nil)
+				defer h.Close(ctx)
+
+				n := h.CreateNode(ctx, "loop_state")
+				nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(6)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(9)))
+			})
+		})
+	})
 })
