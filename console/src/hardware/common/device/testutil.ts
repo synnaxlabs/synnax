@@ -56,9 +56,7 @@ export const testPropertiesSchema = (
           const val = aAny[key];
           if (val != null && typeof val === "object" && !Array.isArray(val)) {
             (val as Record<string, unknown>).__test = true;
-            expect((b as Record<string, unknown>)[key]).not.toHaveProperty(
-              "__test",
-            );
+            expect((b as Record<string, unknown>)[key]).not.toHaveProperty("__test");
             delete (val as Record<string, unknown>).__test;
             break;
           }
