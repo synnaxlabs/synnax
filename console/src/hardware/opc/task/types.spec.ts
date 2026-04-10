@@ -27,6 +27,14 @@ describe("OPC Scan Task Types", () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
+
+  it("should accept null statusData", () => {
+    expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+  });
+
+  it("should accept undefined statusData", () => {
+    expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+  });
 });
 
 describe("OPC Write Task Types", () => {

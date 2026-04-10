@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { control, type CrudeSeries, errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  control,
+  type CrudeSeries,
+  errors,
+  TimeSpan,
+  TimeStamp,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -203,7 +210,7 @@ export class Writer {
     client: WebSocketClient,
     config: WriterConfig,
   ): Promise<Writer> {
-    const cfg = writerConfigZ.parse(config);
+    const cfg = zod.parse(writerConfigZ, config);
     const adapter = await WriteAdapter.open(retriever, cfg.channels);
     if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSWriterCodec(adapter.codec));

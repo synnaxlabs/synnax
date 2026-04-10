@@ -135,13 +135,11 @@ class LogLifecycle(ConsoleCase):
         """Test that log streams data from a persisted channel and survives reload."""
         self.log("Testing persisted channel streaming")
 
-        with self.client.open_writer(
-            sy.TimeStamp.now(),
-            channels=[self.idx_name, self.data_name],
-        ) as w:
-            for i in range(5):
-                w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)})
-                sy.sleep(0.1)
+        for i in range(5):
+            self.writer.write(
+                {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
+            )
+            sy.sleep(0.1)
 
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
@@ -165,18 +163,13 @@ class LogLifecycle(ConsoleCase):
             "Log should be waiting for data initially (virtual channel)"
         )
 
-        with self.client.open_writer(
-            sy.TimeStamp.now(),
-            channels=[self.virtual_name],
-            enable_auto_commit=True,
-        ) as writer:
-            for i in range(5):
-                writer.write({self.virtual_name: float(i)})
-                sy.sleep(0.1)
-            assert log.wait_until_streaming(), (
-                "Log should be streaming virtual channel data"
-            )
-            assert not log.is_empty(), "Log should not be empty with virtual data"
+        for i in range(5):
+            self.writer.write(self.virtual_name, float(i))
+            sy.sleep(0.1)
+        assert log.wait_until_streaming(), (
+            "Log should be streaming virtual channel data"
+        )
+        assert not log.is_empty(), "Log should not be empty with virtual data"
 
         self.console.reload()
 

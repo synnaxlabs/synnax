@@ -11,6 +11,7 @@ import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { narrow } from "@/narrow";
+import { zod } from "@/zod";
 
 /**
  * Codec is an entity that encodes and decodes messages to and from a
@@ -62,11 +63,11 @@ export class JSONCodec implements Codec {
   decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const parsed = JSON.parse(data);
     const unpacked = caseconv.snakeToCamel(parsed, { schema });
-    return schema != null ? schema.parse(unpacked) : (unpacked as z.infer<P>);
+    return schema != null ? zod.parse(schema, unpacked) : (unpacked as z.infer<P>);
   }
 
   encodeString(payload: unknown, schema?: z.ZodType): string {
-    const parsed = schema != null ? schema.parse(payload) : payload;
+    const parsed = schema != null ? zod.parse(schema, payload) : payload;
     const caseConverted = caseconv.camelToSnake(parsed ?? {}, { schema });
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
