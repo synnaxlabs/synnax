@@ -114,8 +114,6 @@ var _ = Describe("Ferrors", Ordered, func() {
 			It("Should decode an unknown error into a human readable string", func(ctx SpecContext) {
 				pld := errors.Encode(ctx, errors.New("unknown"), false)
 				err := errors.Decode(ctx, pld)
-				pld2 := &errors.Payload{}
-				pld2.Unmarshal(pld.Error())
 				Expect(errors.Is(err, errors.New("unknown"))).To(BeTrue())
 			})
 			It("Should decode an error with no type into a human readable string", func(ctx SpecContext) {

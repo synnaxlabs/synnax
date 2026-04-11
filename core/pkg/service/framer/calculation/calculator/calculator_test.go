@@ -36,8 +36,8 @@ var _ = Describe("Calculator", Ordered, func() {
 		dist   mock.Node
 	)
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -77,7 +77,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Task:     taskSvc,
 			Search:   dist.Search,
 		}))
-		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
 	})
 
 	open := func(
