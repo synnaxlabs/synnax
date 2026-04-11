@@ -105,11 +105,10 @@ var _ = Describe("Channel", Ordered, func() {
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
-						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
-						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
-
+						Expect(subDB.RetrieveChannel(ctx, key)).Error().
+							To(MatchError(cesium.ErrDBClosed))
+						Expect(subDB.RetrieveChannels(ctx, key)).
+							Error().To(MatchError(cesium.ErrDBClosed))
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 				})
@@ -344,10 +343,18 @@ var _ = Describe("Channel", Ordered, func() {
 
 					Specify("Virtual", func(ctx SpecContext) {
 						By("Opening writers")
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Start:          0,
+								Channels:       []cesium.ChannelKey{errorKey2},
+								ControlSubject: control.Subject{Key: "rekey writer"},
+							},
+						))
 
 						By("Trying to rekey")
-						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).To(MatchError(ContainSubstring("1 unclosed writers")))
+						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).
+							Error().To(MatchError(ContainSubstring("1 unclosed writers")))
 
 						By("Closing writer")
 						Expect(w.Close()).To(Succeed())

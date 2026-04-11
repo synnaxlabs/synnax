@@ -78,8 +78,8 @@ var _ = Describe("Write", func() {
 					Subject:   control.Subject{Key: "bar"},
 				}))
 				Expect(t.Occurred()).To(BeFalse())
-				_, err := w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(MatchError(control.ErrUnauthorized))
+				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
+					Error().To(MatchError(control.ErrUnauthorized))
 				MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 				t = MustSucceed(w1.Close())
 				Expect(t.Occurred()).To(BeTrue())
@@ -94,8 +94,8 @@ var _ = Describe("Write", func() {
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
-				_, err := w.Write(telem.NewSeriesV[uint8](1, 2, 3))
-				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(w.Write(telem.NewSeriesV[uint8](1, 2, 3))).
+					Error().To(MatchError(validate.ErrValidation))
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 			})
@@ -125,7 +125,8 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
-				Expect(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).Error().To(MatchError(virtual.ErrWriterClosed))
+				Expect(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
+					Error().To(MatchError(virtual.ErrWriterClosed))
 			})
 
 		})
@@ -145,11 +146,10 @@ var _ = Describe("Write", func() {
 					Authority: control.AuthorityAbsolute - 3,
 					Subject:   control.Subject{Key: "bar"},
 				}))
-
 				Expect(t.Occurred()).To(BeFalse())
 
-				_, err := w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(MatchError(control.ErrUnauthorized))
+				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
+					Error().To(MatchError(control.ErrUnauthorized))
 				t = w2.SetAuthority(control.AuthorityAbsolute - 1)
 				Expect(t.Occurred()).To(BeTrue())
 
