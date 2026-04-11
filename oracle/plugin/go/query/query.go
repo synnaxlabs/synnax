@@ -119,6 +119,11 @@ type filterInfo struct {
 	GoType    string // resolved Go type
 	IsScalar  bool   // @filter scalar or bool type
 	IsBool    bool   // underlying primitive is bool
+	// IndexVarName is the package-level index var name if the same field also
+	// carries @index. When non-empty, the generated MatchX / MatchXs routes
+	// through the index's .Filter(...) method instead of a bespoke scan
+	// closure. Empty means no index on this field.
+	IndexVarName string
 }
 
 // indexInfo holds extracted data about a @index-annotated field. Emitted as
@@ -204,9 +209,13 @@ func generateRetrieveFile(
 		imps.AddInternal("ontology", gomod.ResolveImportPath("core/pkg/distribution/ontology", repoRoot, gomod.DefaultModulePrefix))
 	}
 
-	// Check if any info needs lo for slice filters.
+	// Check if any info needs lo for slice filters. Index-routed filters use
+	// the index's .Filter(...) method instead of lo.Contains, so only filters
+	// without an index contribute.
 	hasSliceFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
-		return lo.SomeBy(i.Filters, func(f filterInfo) bool { return !f.IsScalar })
+		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
+			return !f.IsScalar && f.IndexVarName == ""
+		})
 	})
 	if hasSliceFilter {
 		imps.AddExternal("github.com/samber/lo")
@@ -270,7 +279,8 @@ func extractRetrieveInfo(
 		}
 	}
 
-	// Collect @filter and @index fields.
+	// Collect @filter and @index fields. A field may carry both: in that
+	// case, MatchX / MatchXs are generated to route through the index.
 	var filters []filterInfo
 	var indexes []indexInfo
 	allFields := resolution.UnifiedFields(typ, table)
@@ -278,30 +288,38 @@ func extractRetrieveInfo(
 		goType := r.ResolveTypeRef(field.Type, ctx)
 		goFieldName := naming.GetFieldName(field)
 
-		if plugindomain.HasDomainFromField(field, "filter") {
-			primitive := key.ResolvePrimitive(field.Type, table)
-			isBool := primitive == "bool"
-			isScalar := isBool || plugindomain.HasExprFromField(field, "filter", "scalar")
-			filters = append(filters, filterInfo{
-				FieldName: field.Name,
-				GoName:    goFieldName,
-				GoType:    goType,
-				IsScalar:  isScalar,
-				IsBool:    isBool,
-			})
-		}
-
-		if plugindomain.HasDomainFromField(field, "index") {
+		hasFilter := plugindomain.HasDomainFromField(field, "filter")
+		hasIndex := plugindomain.HasDomainFromField(field, "index")
+		var indexVarName string
+		if hasIndex {
 			kind := "lookup"
 			if plugindomain.HasExprFromField(field, "index", "sorted") {
 				kind = "sorted"
 			}
+			// Unexported: the index variable is a package-local implementation
+			// detail, only referenced by the generated MatchX / OrderByX
+			// helpers and the package-local indexes slice.
+			indexVarName = naming.LowerFirst(goFieldName) + "Index"
 			indexes = append(indexes, indexInfo{
 				FieldName: field.Name,
 				GoName:    goFieldName,
 				GoType:    goType,
-				VarName:   goFieldName + "Index",
+				VarName:   indexVarName,
 				Kind:      kind,
+			})
+		}
+
+		if hasFilter {
+			primitive := key.ResolvePrimitive(field.Type, table)
+			isBool := primitive == "bool"
+			isScalar := isBool || plugindomain.HasExprFromField(field, "filter", "scalar")
+			filters = append(filters, filterInfo{
+				FieldName:    field.Name,
+				GoName:       goFieldName,
+				GoType:       goType,
+				IsScalar:     isScalar,
+				IsBool:       isBool,
+				IndexVarName: indexVarName,
 			})
 		}
 	}
@@ -383,7 +401,8 @@ type Retrieve struct {
 {{- range $idx := $ret.Indexes}}
 
 // {{$idx.VarName}} is the secondary index on {{$ret.GoName}}.{{$idx.GoName}}, registered on
-// the table via Indexes.
+// the table via Indexes. Match{{$idx.GoName}} / Match{{$idx.GoName | pluralize}} route through this index when it is
+// populated.
 var {{$idx.VarName}} = gorp.{{if $idx.IsSorted}}NewSorted{{else}}NewLookup{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 	"{{$idx.FieldName}}",
 	func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
@@ -391,12 +410,6 @@ var {{$idx.VarName}} = gorp.{{if $idx.IsSorted}}NewSorted{{else}}NewLookup{{end}
 	nil,
 {{- end}}
 )
-
-// By{{$idx.GoName}} returns a filter that matches {{$ret.GoName | toLower | pluralize}} whose {{$idx.GoName}} field
-// equals any of the provided values. Backed by {{$idx.VarName}}.
-func By{{$idx.GoName}}(values ...{{$idx.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-	return {{$idx.VarName}}.Filter(values...)
-}
 {{- if $idx.IsSorted}}
 
 // OrderBy{{$idx.GoName}} returns an OrderBy handle used by Retrieve.OrderBy to walk
@@ -408,9 +421,10 @@ func OrderBy{{$idx.GoName}}(dir gorp.Direction) gorp.OrderBy[{{$ret.KeyType}}, {
 {{- end}}
 {{- if $ret.HasIndexes}}
 
-// Indexes is the set of secondary indexes registered on the {{$ret.GoName}} table.
-// Pass this slice to gorp.TableConfig.Indexes when opening the table.
-var Indexes = []gorp.Index{
+// indexes is the set of secondary indexes registered on the {{$ret.GoName}} table.
+// Pass this slice to gorp.TableConfig.Indexes when opening the table from the
+// same package.
+var indexes = []gorp.Index{
 {{- range $idx := $ret.Indexes}}
 	{{$idx.VarName}},
 {{- end}}
@@ -480,27 +494,39 @@ func (r Retrieve) WhereKeys(keys ...{{$ret.KeyType}}) Retrieve {
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
 func Match{{.GoName}}(v bool) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexVarName}}
+		return {{.IndexVarName}}.Filter(v)
+{{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 			return e.{{.GoName}} == v, nil
 		})
+{{- end}}
 	}
 }
 {{else if .IsScalar}}
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
 func Match{{.GoName}}(v {{.GoType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexVarName}}
+		return {{.IndexVarName}}.Filter(v)
+{{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 			return e.{{.GoName}} == v, nil
 		})
+{{- end}}
 	}
 }
 {{else}}
 // Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexVarName}}
+		return {{.IndexVarName}}.Filter(vals...)
+{{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 			return lo.Contains(vals, e.{{.GoName}}), nil
 		})
+{{- end}}
 	}
 }
 {{end}}
@@ -508,23 +534,35 @@ func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 {{- if .IsBool}}
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
 func Match{{.GoName}}(v bool) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexVarName}}
+	return {{.IndexVarName}}.Filter(v)
+{{- else}}
 	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return e.{{.GoName}} == v, nil
 	})
+{{- end}}
 }
 {{else if .IsScalar}}
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
 func Match{{.GoName}}(v {{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexVarName}}
+	return {{.IndexVarName}}.Filter(v)
+{{- else}}
 	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return e.{{.GoName}} == v, nil
 	})
+{{- end}}
 }
 {{else}}
 // Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexVarName}}
+	return {{.IndexVarName}}.Filter(vals...)
+{{- else}}
 	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 		return lo.Contains(vals, e.{{.GoName}}), nil
 	})
+{{- end}}
 }
 {{end}}
 {{- end}}

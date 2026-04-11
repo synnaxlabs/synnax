@@ -604,7 +604,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("indexes", func() {
-			It("Should generate a lookup index var, By helper, and Indexes slice", func(ctx SpecContext) {
+			It("Should generate a lookup index var and route MatchX through it", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -623,18 +623,47 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"var UsernameIndex = gorp.NewLookup[uuid.UUID, User, string](",
+						"var usernameIndex = gorp.NewLookup[uuid.UUID, User, string](",
 						"\"username\"",
 						"func(e *User) string { return e.Username }",
-						"func ByUsername(values ...string) gorp.Filter[uuid.UUID, User]",
-						"return UsernameIndex.Filter(values...)",
-						"var Indexes = []gorp.Index{",
-						"UsernameIndex,",
 						"func MatchUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
+						"return usernameIndex.Filter(vals...)",
+						"var indexes = []gorp.Index{",
+						"usernameIndex,",
 					).
 					ToNotContain(
+						"ByUsername",
 						"OrderByUsername",
 						"gorp.NewSorted",
+						"lo.Contains",
+					)
+			})
+
+			It("Should generate an index-only field when only @index is present", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/user"
+
+					User struct {
+						key uuid {
+							@key
+						}
+						username string {
+							@index lookup
+						}
+						@ontology type "user"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"var usernameIndex = gorp.NewLookup[uuid.UUID, User, string](",
+						"var indexes = []gorp.Index{",
+						"usernameIndex,",
+					).
+					ToNotContain(
+						"func MatchUsername(",
+						"func MatchUsernames(",
 					)
 			})
 
@@ -647,6 +676,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						created_at int64 {
+							@filter scalar
 							@index sorted
 						}
 						@ontology type "event"
@@ -656,15 +686,19 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"var CreatedAtIndex = gorp.NewSorted[uuid.UUID, Event, int64](",
+						"var createdAtIndex = gorp.NewSorted[uuid.UUID, Event, int64](",
 						"\"created_at\"",
 						"func(e *Event) int64 { return e.CreatedAt }",
 						"nil,",
-						"func ByCreatedAt(values ...int64) gorp.Filter[uuid.UUID, Event]",
+						"func MatchCreatedAt(v int64) gorp.Filter[uuid.UUID, Event]",
+						"return createdAtIndex.Filter(v)",
 						"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy[uuid.UUID, Event]",
-						"return CreatedAtIndex.Ordered(dir)",
-						"var Indexes = []gorp.Index{",
-						"CreatedAtIndex,",
+						"return createdAtIndex.Ordered(dir)",
+						"var indexes = []gorp.Index{",
+						"createdAtIndex,",
+					).
+					ToNotContain(
+						"func ByCreatedAt(",
 					)
 			})
 
@@ -687,8 +721,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToNotContain(
 						"NameIndex",
-						"ByName",
-						"var Indexes",
+						"var indexes",
 					)
 			})
 		})

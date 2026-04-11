@@ -13,7 +13,6 @@ package user
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -24,6 +23,21 @@ type Retrieve struct {
 	gorp   gorp.Retrieve[Key, User]
 }
 
+// usernameIndex is the secondary index on User.Username, registered on
+// the table via Indexes. MatchUsername / MatchUsernames route through this index when it is
+// populated.
+var usernameIndex = gorp.NewLookup[Key, User, string](
+	"username",
+	func(e *User) string { return e.Username },
+)
+
+// indexes is the set of secondary indexes registered on the User table.
+// Pass this slice to gorp.TableConfig.Indexes when opening the table from the
+// same package.
+var indexes = []gorp.Index{
+	usernameIndex,
+}
+
 // WhereKeys filters for users whose key matches any of the provided keys.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
@@ -32,9 +46,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // MatchUsernames returns a filter for users whose Username matches any of the provided values.
 func MatchUsernames(vals ...string) gorp.Filter[Key, User] {
-	return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
-		return lo.Contains(vals, e.Username), nil
-	})
+	return usernameIndex.Filter(vals...)
 }
 
 // Where applies the provided filters to the query.

@@ -105,7 +105,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if s.table, err = gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
 		DB:              cfg.DB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, User]("msgpack_to_orc")},
-		Indexes:         Indexes,
+		Indexes:         indexes,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
