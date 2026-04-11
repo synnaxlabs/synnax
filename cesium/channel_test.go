@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -90,7 +89,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -107,9 +106,9 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -454,7 +453,7 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()
-					Expect(db.RenameChannel(ctx, key, "new_name")).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+					Expect(db.RenameChannel(ctx, key, "new_name")).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 		})

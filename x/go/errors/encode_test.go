@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 const myCustomErrorType string = "my-custom-error"
@@ -96,10 +95,11 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(errors.Decode(ctx, pld)).To(Succeed())
 			})
 			It("Should decode an unknown error using cockroachdb's errors package", func(ctx SpecContext) {
-				pld := errors.Encode(ctx, errors.New("unknown"), true)
+				unknownErr := errors.New("unknown")
+				pld := errors.Encode(ctx, unknownErr, true)
 				pld2 := &errors.Payload{}
 				pld2.Unmarshal(pld.Error())
-				Expect(errors.Decode(ctx, *pld2)).To(HaveOccurredAs(errors.New("unknown")))
+				Expect(errors.Is(errors.Decode(ctx, *pld2), unknownErr)).To(BeTrue())
 			})
 		})
 		Context("Internal is false", func() {
@@ -116,7 +116,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 				err := errors.Decode(ctx, pld)
 				pld2 := &errors.Payload{}
 				pld2.Unmarshal(pld.Error())
-				Expect(err).To(HaveOccurredAs(errors.New("unknown")))
+				Expect(errors.Is(err, errors.New("unknown"))).To(BeTrue())
 			})
 			It("Should decode an error with no type into a human readable string", func(ctx SpecContext) {
 				Expect(errors.Decode(ctx, errors.Payload{Data: "cat"})).

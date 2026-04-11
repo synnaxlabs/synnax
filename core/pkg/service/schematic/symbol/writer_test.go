@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -194,7 +193,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().
 				WhereKeys(sym1.Key, sym2.Key, sym3.Key).
 				Entries(&res).
-				Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal(sym3.Key))
 		})

@@ -10,8 +10,6 @@
 package graph_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -34,18 +32,15 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(context.Background())
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	dist = distB.Provision(ctx)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-	})
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
@@ -53,10 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(statusSvc.Close()).To(Succeed())
-	})
-	rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
@@ -64,10 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(rackService.Close()).To(Succeed())
-	})
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -75,10 +64,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:   statusSvc,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(taskSvc.Close()).To(Succeed())
-	})
-	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
@@ -86,10 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Task:     taskSvc,
 		Search:   dist.Search,
 	}))
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
+	DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
 })
 
 var _ = Describe("Graph", func() {
@@ -634,14 +617,12 @@ var _ = Describe("Graph", func() {
 			calc1.Expression = "return f64(cascade_raw * 1.0)"
 			calc1.DataType = telem.Float64T
 			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
-			err := g.Update(ctx, calc1)
-
 			// The update should trigger recompilation of calc2. Since calc2's
 			// stored DataType is f32 but calc1 now provides f64, the expression
 			// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
 			// f32 return type. The graph should surface this as an error.
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot return"))
+			Expect(g.Update(ctx, calc1)).
+				Error().To(MatchError(ContainSubstring("cannot return")))
 		})
 		It("Should cascade recompilation through a three-level chain", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "chain3_raw", DataType: telem.Float64T, Virtual: true}
@@ -832,9 +813,7 @@ var _ = Describe("Graph", func() {
 				Expression: "return invalid_syntax {{",
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			err := g.Add(ctx, calc)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("bad_calc_add"))
+			Expect(g.Add(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_add")))
 		})
 
 		It("Should include channel name in Update compilation errors", func(ctx SpecContext) {
@@ -850,9 +829,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			calc.Expression = "return invalid_syntax {{"
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			err := g.Update(ctx, calc)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("bad_calc_update"))
+			Expect(g.Update(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_update")))
 		})
 	})
 })

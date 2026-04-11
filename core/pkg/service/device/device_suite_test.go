@@ -16,16 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var db *gorp.DB
 
 var _ = BeforeSuite(func() {
-	db = gorp.Wrap(memkv.New())
-})
-
-var _ = AfterSuite(func() {
-	Expect(db.Close()).To(Succeed())
+	db = DeferClose(gorp.Wrap(memkv.New()))
 })
 
 func TestDevice(t *testing.T) {

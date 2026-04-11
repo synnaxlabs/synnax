@@ -10,7 +10,6 @@
 package iterator_test
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
@@ -41,18 +40,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(ctx)
-		searchIdx := MustSucceed(search.Open())
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		searchIdx := MustOpen(search.Open())
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 			Search:   searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(labelSvc.Close()).To(Succeed())
-		})
-		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
@@ -60,10 +56,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(statusSvc.Close()).To(Succeed())
-		})
-		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
@@ -71,10 +64,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Status:       statusSvc,
 			Search:       searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(rackService.Close()).To(Succeed())
-		})
-		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -82,10 +72,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Status:   statusSvc,
 			Search:   searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(taskSvc.Close()).To(Succeed())
-		})
-		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       dist.DB,
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
@@ -97,10 +84,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Channel:    svcchannel.Wrap(dist.Channel),
 			Arc:        arcSvc,
 		}))
-	})
-
-	AfterAll(func(ctx SpecContext) {
-		Expect(builder.Close()).To(Succeed())
+		DeferCleanup(func() { Expect(builder.Close()).To(Succeed()) })
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
@@ -136,8 +120,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				dataCh1 *channel.Channel
 				dataCh2 *channel.Channel
 			)
-			BeforeAll(func() {
-				ctx := context.Background()
+			BeforeAll(func(ctx SpecContext) {
 				indexCh = &channel.Channel{
 					Name:     "time",
 					DataType: telem.TimeStampT,
@@ -417,12 +400,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcA)).To(Succeed())
 
 					// Now try to open an iterator - this should fail with circular dependency error
-					_, err := iteratorSvc.Open(ctx, iterator.Config{
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcA.Key()},
 						Bounds: telem.TimeRangeMax,
-					})
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("circular dependency"))
+					})).Error().To(MatchError(ContainSubstring("circular dependency")))
 				})
 
 				It("Should handle mixed calculated and concrete channels", func(ctx SpecContext) {
@@ -492,8 +473,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					threeDomainDataCh  *channel.Channel
 					threeDomainIdxData telem.MultiSeries
 				)
-				BeforeAll(func() {
-					ctx := context.Background()
+				BeforeAll(func(ctx SpecContext) {
 					threeDomainIndexCh = &channel.Channel{
 						Name:     "three_domain_time",
 						DataType: telem.TimeStampT,

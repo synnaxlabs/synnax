@@ -58,14 +58,14 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
-		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
-		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
@@ -73,12 +73,7 @@ var _ = Describe("Task", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-	})
-
-	AfterAll(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-		Expect(statusSvc.Close()).To(Succeed())
-		Expect(dist.Close()).To(Succeed())
+		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {

@@ -79,7 +79,7 @@ var _ = Describe("Node", func() {
 			factory2 := &mockFactory{nodeType: "type2"}
 			compound := node.CompoundFactory{factory1, factory2}
 			_, err := compound.Create(ctx, newTestConfig(ctx, "unknown"))
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 		})
@@ -91,7 +91,7 @@ var _ = Describe("Node", func() {
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
 			_, err := compound.Create(ctx, newTestConfig(ctx, "type2"))
-			Expect(err).To(HaveOccurredAs(expectedErr))
+			Expect(err).To(MatchError(expectedErr))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(0))
@@ -100,7 +100,7 @@ var _ = Describe("Node", func() {
 		It("Should handle empty factory list", func(ctx SpecContext) {
 			compound := node.CompoundFactory{}
 			_, err := compound.Create(ctx, newTestConfig(ctx, "test"))
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should handle single factory", func(ctx SpecContext) {
@@ -117,7 +117,7 @@ var _ = Describe("Node", func() {
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
 			_, err := compound.Create(ctx, newTestConfig(ctx, "unknown"))
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(1))

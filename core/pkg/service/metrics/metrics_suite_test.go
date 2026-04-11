@@ -39,17 +39,17 @@ func TestMetrics(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder = mock.NewCluster()
+	builder = DeferClose(mock.NewCluster())
 	dist = builder.Provision(ctx)
-	searchIdx := MustSucceed(search.Open())
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	searchIdx := MustOpen(search.Open())
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Search:   searchIdx,
 	}))
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: dist.Ontology,
@@ -57,7 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  dist.Signals,
 		Search:   searchIdx,
 	}))
-	rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
@@ -65,7 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:   statusSvc,
 		Search:   searchIdx,
 	}))
-	arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc := MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
@@ -81,23 +81,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Task:     taskSvc,
 		Search:   searchIdx,
 	}))
-	channelSvc = MustSucceed(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+	channelSvc = MustOpen(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
 		Arc:          arcSvc,
 	}))
-	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,
 		Arc:     arcSvc,
 		Status:  statusSvc,
 		DB:      dist.DB,
 	}))
-})
-
-var _ = AfterSuite(func(ctx SpecContext) {
-	Expect(channelSvc.Close()).To(Succeed())
-	Expect(framerSvc.Close()).To(Succeed())
-	Expect(builder.Close()).To(Succeed())
 })

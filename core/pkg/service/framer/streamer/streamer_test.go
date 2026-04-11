@@ -42,15 +42,15 @@ var _ = Describe("Streamer", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		dist = builder.Provision(ctx)
-		searchIdx := MustSucceed(search.Open())
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		searchIdx := MustOpen(search.Open())
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 			Search:   searchIdx,
 		}))
-		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
@@ -58,7 +58,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
@@ -66,10 +66,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:       statusSvc,
 			Search:       searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(rackService.Close()).To(Succeed())
-		})
-		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -77,10 +74,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:   statusSvc,
 			Search:   searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(taskSvc.Close()).To(Succeed())
-		})
-		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+		arcSvc := MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
@@ -90,7 +84,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 
 		channelSvc := svcchannel.Wrap(dist.Channel)
-		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Arc:               arcSvc,
 			Framer:            dist.Framer,
@@ -103,10 +97,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Channel:     channelSvc,
 			Calculation: calc,
 		}))
-	})
-
-	AfterAll(func(ctx SpecContext) {
-		Expect(builder.Close()).To(Succeed())
+		DeferCleanup(func() { Expect(builder.Close()).To(Succeed()) })
 	})
 
 	Describe("Happy Path", func() {
