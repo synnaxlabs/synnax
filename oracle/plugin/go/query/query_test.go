@@ -153,12 +153,12 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func WhereInternal(v bool) gorp.Filter[uuid.UUID, Task]",
+						"func MatchInternal(v bool) gorp.Filter[uuid.UUID, Task]",
 					).
 					ToNotContain(
-						"WhereInternals(",
+						"MatchInternals(",
 						"lo.Contains",
-						"func (r Retrieve) WhereInternal(",
+						"func (r Retrieve) MatchInternal(",
 					)
 			})
 
@@ -181,11 +181,11 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func WhereAuthor(v uuid.UUID) gorp.Filter[uuid.UUID, Workspace]",
+						"func MatchAuthor(v uuid.UUID) gorp.Filter[uuid.UUID, Workspace]",
 					).
 					ToNotContain(
-						"WhereAuthors(",
-						"func (r Retrieve) WhereAuthor(",
+						"MatchAuthors(",
+						"func (r Retrieve) MatchAuthor(",
 					)
 			})
 
@@ -208,10 +208,10 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func WhereUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
+						"func MatchUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
 						"lo.Contains(vals, e.Username)",
 					).
-					ToNotContain("func (r Retrieve) WhereUsernames(")
+					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
 
 			It("Should generate a filter with a cross-namespace type", func(ctx SpecContext) {
@@ -241,10 +241,10 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func WhereRacks(vals ...rack.Key) gorp.Filter[string, Device]",
+						"func MatchRacks(vals ...rack.Key) gorp.Filter[string, Device]",
 						"lo.Contains(vals, e.Rack)",
 					).
-					ToNotContain("func (r Retrieve) WhereRacks(")
+					ToNotContain("func (r Retrieve) MatchRacks(")
 			})
 		})
 
@@ -274,6 +274,107 @@ var _ = Describe("Go Query Plugin", func() {
 						"func (r Retrieve) Search(term string) Retrieve",
 					).
 					ToNotContain("type Retrieve struct")
+			})
+
+			It("Should emit a Filter function type and Match/And/Or/Not combinators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						name string
+						@ontology type "rack"
+						@retrieve custom
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, p)
+
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"type Filter func(r Retrieve) gorp.Filter[uint32, Rack]",
+						"func Match(",
+						"func And(fs ...Filter) Filter",
+						"func Or(fs ...Filter) Filter",
+						"func Not(f Filter) Filter",
+					)
+			})
+
+			It("Should emit filter constructors returning Filter under @retrieve custom", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						name string {
+							@filter
+						}
+						@ontology type "rack"
+						@retrieve custom
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, p)
+
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"func MatchNames(vals ...string) Filter",
+						"return func(_ Retrieve) gorp.Filter[uint32, Rack]",
+					)
+			})
+
+			It("Should emit a Where method taking ...Filter and binding each filter to r", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						@ontology type "rack"
+						@retrieve custom
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, p)
+
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"func (r Retrieve) Where(filters ...Filter) Retrieve",
+						"bound[i] = f(r)",
+					).
+					ToNotContain(
+						"func (r Retrieve) Where(filters ...gorp.Filter[uint32, Rack]) Retrieve",
+					)
+			})
+
+			It("Should not emit Filter machinery under a plain @retrieve (non-custom)", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						name string {
+							@filter
+						}
+						@ontology type "rack"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, p)
+
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"func MatchNames(vals ...string) gorp.Filter[uint32, Rack]",
+						"func (r Retrieve) Where(filters ...gorp.Filter[uint32, Rack]) Retrieve",
+					).
+					ToNotContain(
+						"type Filter func",
+						"func And(fs ...Filter) Filter",
+					)
 			})
 		})
 
@@ -482,8 +583,8 @@ var _ = Describe("Go Query Plugin", func() {
 					"// Retrieve is used to retrieve Foo records",
 					"// Search sets a fuzzy search term",
 					"// WhereKeys filters for foos whose key",
-					"// WhereNames returns a filter for foos whose Name",
-					"// WhereActive returns a filter for foos by their Active",
+					"// MatchNames returns a filter for foos whose Name",
+					"// MatchActive returns a filter for foos by their Active",
 					"// Where applies the provided filters",
 					"// Entry binds the provided foo as the result",
 					"// Entries binds the provided slice of foos",

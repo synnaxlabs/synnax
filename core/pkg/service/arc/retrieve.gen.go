@@ -37,8 +37,8 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereNames returns a filter for arcs whose Name matches any of the provided values.
-func WhereNames(vals ...string) gorp.Filter[Key, Arc] {
+// MatchNames returns a filter for arcs whose Name matches any of the provided values.
+func MatchNames(vals ...string) gorp.Filter[Key, Arc] {
 	return gorp.Match(func(_ gorp.Context, e *Arc) (bool, error) {
 		return lo.Contains(vals, e.Name), nil
 	})

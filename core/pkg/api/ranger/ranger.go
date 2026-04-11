@@ -143,16 +143,16 @@ func (s *Service) Retrieve(
 		hasLabels       = len(req.HasLabels) > 0
 	)
 	if hasOverlapsWith {
-		q = q.Where(ranger.OverlapsWith(req.OverlapsWith))
+		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
 	}
 	if hasNames {
-		q = q.Where(ranger.WhereNames(req.Names...))
+		q = q.Where(ranger.MatchNames(req.Names...))
 	}
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasLabels {
-		q = q.Where(ranger.HasLabels(s.label, req.HasLabels...))
+		q = q.Where(ranger.MatchLabels(req.HasLabels...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)

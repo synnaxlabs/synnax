@@ -27,18 +27,21 @@ type Retrieve struct {
 	searchTerm string
 }
 
-// OverlapsWith returns a filter that matches ranges whose TimeRange overlaps with the
-// provided range.
-func OverlapsWith(tr telem.TimeRange) gorp.Filter[uuid.UUID, Range] {
-	return gorp.Match(func(_ gorp.Context, rng *Range) (bool, error) {
-		return rng.TimeRange.OverlapsWith(tr), nil
-	})
+// MatchOverlap returns a filter that matches ranges whose TimeRange overlaps
+// with the provided range.
+func MatchOverlap(tr telem.TimeRange) Filter {
+	return func(_ Retrieve) gorp.Filter[uuid.UUID, Range] {
+		return gorp.Match(func(_ gorp.Context, rng *Range) (bool, error) {
+			return rng.TimeRange.OverlapsWith(tr), nil
+		})
+	}
 }
 
-// HasLabels returns a filter that matches ranges that have any of the provided labels.
-func HasLabels(svc *label.Service, matchLabels ...label.Key) gorp.Filter[uuid.UUID, Range] {
-	return gorp.Match(func(ctx gorp.Context, rng *Range) (bool, error) {
-		labels, err := svc.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
+// MatchLabels returns a filter that matches ranges that have any of the
+// provided labels.
+func MatchLabels(matchLabels ...label.Key) Filter {
+	return Match(func(ctx gorp.Context, r Retrieve, rng *Range) (bool, error) {
+		labels, err := r.label.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}

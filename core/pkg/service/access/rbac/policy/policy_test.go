@@ -285,11 +285,11 @@ var _ = Describe("Retriever", func() {
 		})
 	})
 
-	Describe("WhereNames", func() {
+	Describe("MatchNames", func() {
 		It("Should retrieve a policy by name", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.WhereNames("alpha-policy")).
+				Where(policy.MatchNames("alpha-policy")).
 				Entry(&p).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(p.Name).To(Equal("alpha-policy"))
@@ -298,14 +298,14 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve multiple policies by names", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.WhereNames("alpha-policy", "beta-policy")).
+				Where(policy.MatchNames("alpha-policy", "beta-policy")).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
 		})
 	})
 
-	Describe("WhereSubjects", func() {
+	Describe("MatchSubjects", func() {
 		var (
 			r        *role.Role
 			subject1 ontology.ID
@@ -330,7 +330,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve policies for a subject via role", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereSubjects(subject1).
+				Where(policy.MatchSubjects(subject1)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
@@ -341,7 +341,7 @@ var _ = Describe("Retriever", func() {
 		It("Should return empty when subject has no roles", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereSubjects(subject2).
+				Where(policy.MatchSubjects(subject2)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(BeEmpty())
@@ -359,7 +359,7 @@ var _ = Describe("Retriever", func() {
 
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereSubjects(subject1, subject2).
+				Where(policy.MatchSubjects(subject1, subject2)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(3))
@@ -396,7 +396,7 @@ var _ = Describe("Retriever", func() {
 		})
 	})
 
-	Describe("WhereInternal", func() {
+	Describe("MatchInternal", func() {
 		var internalPolicy, regularPolicy policy.Policy
 		BeforeEach(func(ctx SpecContext) {
 			internalWriter := svc.NewWriter(tx, true)
@@ -419,7 +419,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.WhereInternal(true)).
+				Where(policy.MatchInternal(true)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			for _, p := range ps {
@@ -431,7 +431,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only non-internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.WhereInternal(false)).
+				Where(policy.MatchInternal(false)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			for _, p := range ps {

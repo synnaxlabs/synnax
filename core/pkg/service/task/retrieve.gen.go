@@ -37,29 +37,29 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereNames returns a filter for tasks whose Name matches any of the provided values.
-func WhereNames(vals ...string) gorp.Filter[Key, Task] {
+// MatchNames returns a filter for tasks whose Name matches any of the provided values.
+func MatchNames(vals ...string) gorp.Filter[Key, Task] {
 	return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 		return lo.Contains(vals, e.Name), nil
 	})
 }
 
-// WhereTypes returns a filter for tasks whose Type matches any of the provided values.
-func WhereTypes(vals ...string) gorp.Filter[Key, Task] {
+// MatchTypes returns a filter for tasks whose Type matches any of the provided values.
+func MatchTypes(vals ...string) gorp.Filter[Key, Task] {
 	return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 		return lo.Contains(vals, e.Type), nil
 	})
 }
 
-// WhereInternal returns a filter for tasks by their Internal field.
-func WhereInternal(v bool) gorp.Filter[Key, Task] {
+// MatchInternal returns a filter for tasks by their Internal field.
+func MatchInternal(v bool) gorp.Filter[Key, Task] {
 	return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 		return e.Internal == v, nil
 	})
 }
 
-// WhereSnapshot returns a filter for tasks by their Snapshot field.
-func WhereSnapshot(v bool) gorp.Filter[Key, Task] {
+// MatchSnapshot returns a filter for tasks by their Snapshot field.
+func MatchSnapshot(v bool) gorp.Filter[Key, Task] {
 	return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 		return e.Snapshot == v, nil
 	})

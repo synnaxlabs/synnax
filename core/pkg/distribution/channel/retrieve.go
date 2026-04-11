@@ -52,65 +52,65 @@ func (r Retrieve) Where(filters ...gorp.Filter[Key, Channel]) Retrieve {
 	return r
 }
 
-// WhereNodeKey returns a filter for channels whose Leaseholder attribute matches the
+// MatchNodeKey returns a filter for channels whose Leaseholder attribute matches the
 // provided leaseholder node Key.
-func WhereNodeKey(nodeKey cluster.NodeKey) gorp.Filter[Key, Channel] {
+func MatchNodeKey(nodeKey cluster.NodeKey) gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		return ch.Leaseholder == nodeKey, nil
 	})
 }
 
-// WhereIsIndex returns a filter for channels that are indexes if isIndex is true, or
+// MatchIsIndex returns a filter for channels that are indexes if isIndex is true, or
 // are not indexes if isIndex is false.
-func WhereIsIndex(isIndex bool) gorp.Filter[Key, Channel] {
+func MatchIsIndex(isIndex bool) gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		return ch.IsIndex == isIndex, nil
 	})
 }
 
-// WhereVirtual returns a filter for channels that are virtual if virtual is true, or are
+// MatchVirtual returns a filter for channels that are virtual if virtual is true, or are
 // not virtual if virtual is false.
-func WhereVirtual(virtual bool) gorp.Filter[Key, Channel] {
+func MatchVirtual(virtual bool) gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		isVirtual := ch.Virtual && !ch.IsCalculated()
 		return isVirtual == virtual, nil
 	})
 }
 
-// WhereInternal returns a filter for channels that are internal if internal is true, or
+// MatchInternal returns a filter for channels that are internal if internal is true, or
 // are not internal if internal is false.
-func WhereInternal(internal bool) gorp.Filter[Key, Channel] {
+func MatchInternal(internal bool) gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		return ch.Internal == internal, nil
 	})
 }
 
-// WhereDataTypes returns a filter for channels whose DataType attribute matches the
+// MatchDataTypes returns a filter for channels whose DataType attribute matches the
 // provided data types.
-func WhereDataTypes(dataTypes ...telem.DataType) gorp.Filter[Key, Channel] {
+func MatchDataTypes(dataTypes ...telem.DataType) gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		return lo.Contains(dataTypes, ch.DataType), nil
 	})
 }
 
-// WhereNotDataTypes returns a filter for channels whose DataType attribute does not
+// MatchNotDataTypes returns a filter for channels whose DataType attribute does not
 // match the provided data types.
-func WhereNotDataTypes(dataTypes ...telem.DataType) gorp.Filter[Key, Channel] {
+func MatchNotDataTypes(dataTypes ...telem.DataType) gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		return !lo.Contains(dataTypes, ch.DataType), nil
 	})
 }
 
-// WhereCalculated returns a filter for channels that have a non-empty Expression field.
-func WhereCalculated() gorp.Filter[Key, Channel] {
+// MatchCalculated returns a filter for channels that have a non-empty Expression field.
+func MatchCalculated() gorp.Filter[Key, Channel] {
 	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
 		return ch.IsCalculated(), nil
 	})
 }
 
-// WhereNames returns a filter for channels whose Name attribute matches the provided
+// MatchNames returns a filter for channels whose Name attribute matches the provided
 // names.
-func WhereNames(names ...string) gorp.Filter[Key, Channel] {
+func MatchNames(names ...string) gorp.Filter[Key, Channel] {
 	matchers := make([]func(string) bool, len(names))
 	for i, name := range names {
 		matchers[i] = formatNameMatcher(name)

@@ -82,7 +82,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 		return LoginResponse{}, err
 	}
 	var u user.User
-	if err := s.user.NewRetrieve().Where(user.WhereUsernames(req.Username)).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.user.NewRetrieve().Where(user.MatchUsernames(req.Username)).Entry(&u).Exec(ctx, nil); err != nil {
 		return LoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)

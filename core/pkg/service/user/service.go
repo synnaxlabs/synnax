@@ -133,7 +133,7 @@ func (s *Service) provisionRoot(ctx context.Context, cfg ServiceConfig) error {
 	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var rootUser User
 		if err := s.NewRetrieve().
-			Where(WhereUsernames(cfg.RootCredentials.Username)).
+			Where(MatchUsernames(cfg.RootCredentials.Username)).
 			Entry(&rootUser).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return err

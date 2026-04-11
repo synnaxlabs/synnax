@@ -303,11 +303,11 @@ var _ = Describe("Retrieve", func() {
 		})
 	})
 
-	Describe("WhereName", func() {
+	Describe("MatchName", func() {
 		It("Should retrieve a role by name", func(ctx SpecContext) {
 			var r role.Role
 			Expect(svc.NewRetrieve().
-				Where(role.WhereNames("admin")).
+				Where(role.MatchNames("admin")).
 				Entry(&r).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(r.Name).To(Equal("admin"))
@@ -316,7 +316,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return error when name not found", func(ctx SpecContext) {
 			var r role.Role
 			err := svc.NewRetrieve().
-				Where(role.WhereNames("nonexistent")).
+				Where(role.MatchNames("nonexistent")).
 				Entry(&r).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -353,7 +353,7 @@ var _ = Describe("Retrieve", func() {
 		})
 	})
 
-	Describe("WhereInternal", func() {
+	Describe("MatchInternal", func() {
 		var internalRole, regularRole role.Role
 		BeforeEach(func(ctx SpecContext) {
 			internalRole = role.Role{
@@ -373,7 +373,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve only internal roles", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
-				Where(role.WhereInternal(true)).
+				Where(role.MatchInternal(true)).
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			for _, r := range rs {
@@ -385,7 +385,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve only non-internal roles", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
-				Where(role.WhereInternal(false)).
+				Where(role.MatchInternal(false)).
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			for _, r := range rs {

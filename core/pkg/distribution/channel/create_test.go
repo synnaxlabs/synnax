@@ -324,7 +324,7 @@ var _ = Describe("Create", Ordered, func() {
 			indexName := "calculated_temp_time"
 			var indexChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				Where(channel.WhereNames(indexName)).
+				Where(channel.MatchNames(indexName)).
 				Entries(&indexChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(indexChannels).To(HaveLen(1))
@@ -412,7 +412,7 @@ var _ = Describe("Create", Ordered, func() {
 			// Verify auto-created index channels exist for calculated channels
 			var indexChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				Where(channel.WhereNames("calculated1_time", "calculated2_time")).
+				Where(channel.MatchNames("calculated1_time", "calculated2_time")).
 				Entries(&indexChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(indexChannels).To(HaveLen(2))
@@ -431,7 +431,7 @@ var _ = Describe("Create", Ordered, func() {
 			indexName := "internal_calculated_time"
 			var indexChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				Where(channel.WhereNames(indexName)).
+				Where(channel.MatchNames(indexName)).
 				Entries(&indexChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(indexChannels).To(HaveLen(1))

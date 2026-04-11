@@ -25,30 +25,39 @@ type Retrieve struct {
 	searchTerm   string
 }
 
-func WhereName(name string) gorp.Filter[Key, Rack] {
-	return gorp.Match[Key, Rack](func(_ gorp.Context, rack *Rack) (bool, error) {
-		return name == rack.Name, nil
-	})
+// MatchName returns a filter that matches racks whose Name matches the provided value.
+func MatchName(name string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
+			return name == rack.Name, nil
+		})
+	}
 }
 
-func WhereNodeIsHost(
-	host cluster.HostProvider,
-	v bool,
-) gorp.Filter[Key, Rack] {
-	return gorp.Match[Key, Rack](func(_ gorp.Context, rack *Rack) (bool, error) {
-		isNodeHost := rack.Key.Node() == host.HostKey()
+// MatchNodeIsHost returns a filter that matches racks whose node is (or is
+// not) the current host, using the host provider held on the Retrieve.
+func MatchNodeIsHost(v bool) Filter {
+	return Match(func(_ gorp.Context, r Retrieve, rack *Rack) (bool, error) {
+		isNodeHost := rack.Key.Node() == r.hostProvider.HostKey()
 		return isNodeHost == v, nil
 	})
 }
 
-func WhereIntegration(integration string) gorp.Filter[Key, Rack] {
-	return gorp.Match[Key, Rack](func(_ gorp.Context, rack *Rack) (bool, error) {
-		return slices.Contains(rack.Integrations, integration), nil
-	})
+// MatchIntegration returns a filter that matches racks that support the given
+// integration.
+func MatchIntegration(integration string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
+			return slices.Contains(rack.Integrations, integration), nil
+		})
+	}
 }
 
-func WhereNode(node cluster.NodeKey) gorp.Filter[Key, Rack] {
-	return gorp.Match[Key, Rack](func(_ gorp.Context, rack *Rack) (bool, error) {
-		return rack.Key.Node() == node, nil
-	})
+// MatchNode returns a filter that matches racks on the given cluster node.
+func MatchNode(node cluster.NodeKey) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
+			return rack.Key.Node() == node, nil
+		})
+	}
 }

@@ -10,7 +10,8 @@
 package policy
 
 import (
-	"context"
+	"slices"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -18,37 +19,45 @@ import (
 )
 
 type Retrieve struct {
-	baseTX        gorp.Tx
-	gorp          gorp.Retrieve[uuid.UUID, Policy]
-	ontology      *ontology.Ontology
-	whereSubjects []ontology.ID
+	baseTX   gorp.Tx
+	gorp     gorp.Retrieve[uuid.UUID, Policy]
+	ontology *ontology.Ontology
 }
 
-// WhereSubjects accumulates subject IDs for ontology traversal during Exec.
-func (r Retrieve) WhereSubjects(subjects ...ontology.ID) Retrieve {
-	r.whereSubjects = append(r.whereSubjects, subjects...)
-	return r
-}
-
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTX, tx)
-	if len(r.whereSubjects) > 0 {
-		var policyResources []ontology.Resource
-		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
-			ExcludeFieldData(true).
-			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(ontology.ResourceTypeRole).
-			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypePolicy).
-			Entries(&policyResources).
-			Exec(ctx, tx); err != nil {
-			return err
+// MatchSubjects returns a filter that matches policies attached to any of the
+// given subjects via the ontology. On first evaluation the filter resolves the
+// subjects to policy keys through a parent→role→child→policy traversal, caches
+// the result, and then tests key membership for each subsequent entry.
+func MatchSubjects(subjects ...ontology.ID) Filter {
+	var (
+		keys   []uuid.UUID
+		resErr error
+		once   sync.Once
+	)
+	return Match(func(ctx gorp.Context, r Retrieve, p *Policy) (bool, error) {
+		once.Do(func() {
+			var policyResources []ontology.Resource
+			if err := r.ontology.NewRetrieve().WhereIDs(subjects...).
+				ExcludeFieldData(true).
+				TraverseTo(ontology.ParentsTraverser).
+				WhereTypes(ontology.ResourceTypeRole).
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(ontology.ResourceTypePolicy).
+				Entries(&policyResources).
+				Exec(ctx, ctx.Tx); err != nil {
+				resErr = err
+				return
+			}
+			k, err := KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
+			if err != nil {
+				resErr = err
+				return
+			}
+			keys = k
+		})
+		if resErr != nil {
+			return false, resErr
 		}
-		keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
-		if err != nil {
-			return err
-		}
-		r = r.WhereKeys(keys...)
-	}
-	return r.gorp.Exec(ctx, tx)
+		return slices.Contains(keys, p.Key), nil
+	})
 }

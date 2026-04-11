@@ -30,8 +30,8 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereUsernames returns a filter for users whose Username matches any of the provided values.
-func WhereUsernames(vals ...string) gorp.Filter[Key, User] {
+// MatchUsernames returns a filter for users whose Username matches any of the provided values.
+func MatchUsernames(vals ...string) gorp.Filter[Key, User] {
 	return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
 		return lo.Contains(vals, e.Username), nil
 	})

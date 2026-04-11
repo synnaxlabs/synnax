@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// WhereRacks returns a filter for tasks whose rack key matches any of the provided keys.
-func WhereRacks(keys ...rack.Key) gorp.Filter[Key, Task] {
+// MatchRacks returns a filter for tasks whose rack key matches any of the provided keys.
+func MatchRacks(keys ...rack.Key) gorp.Filter[Key, Task] {
 	return gorp.Match(func(_ gorp.Context, t *Task) (bool, error) {
 		return lo.Contains(keys, t.Rack()), nil
 	})

@@ -82,7 +82,7 @@ func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 // Where filters resources by the provided predicate.
 func (r Retrieve) Where(filters ...gorp.Filter[string, Resource]) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Retrieve.Where(filters...)
+	c.Retrieve = c.Where(filters...)
 	return r.setCurrentClause(c)
 }
 
@@ -91,7 +91,7 @@ func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
 	} else {
-		c.Retrieve = c.Retrieve.Where(gorp.Match[string, Resource](func(_ gorp.Context, r *Resource) (bool, error) {
+		c.Retrieve = c.Where(gorp.Match[string, Resource](func(_ gorp.Context, r *Resource) (bool, error) {
 			return lo.Contains(types, r.ID.Type), nil
 		}))
 	}

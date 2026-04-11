@@ -53,7 +53,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Where(channel.WhereNodeKey(1)).
+				Where(channel.MatchNodeKey(1)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
@@ -63,7 +63,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 				g.Expect(mockCluster.Nodes[2].Channel.
 					NewRetrieve().
-					Where(channel.WhereNodeKey(1)).
+					Where(channel.MatchNodeKey(1)).
 					Entries(&resChannelsTwo).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
@@ -108,7 +108,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Where(channel.WhereNames(n)).
+				Where(channel.MatchNames(n)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
@@ -132,7 +132,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Where(channel.WhereNames("SG22.*")).
+				Where(channel.MatchNames("SG22.*")).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(2))
@@ -181,7 +181,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 	})
-	Describe("WhereCalculated", func() {
+	Describe("MatchCalculated", func() {
 		It("Should only return calculated channels", func(ctx SpecContext) {
 			base := channel.Channel{
 				Virtual:  true,
@@ -200,7 +200,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			var results []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Where(channel.WhereCalculated()).
+				Where(channel.MatchCalculated()).
 				Entries(&results).
 				Exec(ctx, nil)).To(Succeed())
 			for _, ch := range results {
@@ -224,7 +224,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			var results []channel.Channel
 			Expect(freshCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Where(channel.WhereCalculated()).
+				Where(channel.MatchCalculated()).
 				Entries(&results).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(results).To(BeEmpty())

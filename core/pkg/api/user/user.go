@@ -177,7 +177,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 		q = q.WhereKeys(req.Keys...)
 	}
 	if len(req.Usernames) > 0 {
-		q = q.Where(user.WhereUsernames(req.Usernames...))
+		q = q.Where(user.MatchUsernames(req.Usernames...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {

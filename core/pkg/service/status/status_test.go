@@ -299,10 +299,10 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("WhereKeyPrefix", func() {
+		Describe("MatchKeyPrefix", func() {
 			It("Should retrieve statuses with matching key prefix", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereKeyPrefix[any]("device-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchKeyPrefix[any]("device-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 				for _, s := range statuses {
 					Expect(s.Key).To(HavePrefix("device-"))
@@ -311,28 +311,28 @@ var _ = Describe("Status", Ordered, func() {
 
 			It("Should retrieve statuses with different prefix", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereKeyPrefix[any]("sensor-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchKeyPrefix[any]("sensor-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(1))
 				Expect(statuses[0].Key).To(Equal("sensor-001-status"))
 			})
 
 			It("Should return empty when no statuses match prefix", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereKeyPrefix[any]("nonexistent-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchKeyPrefix[any]("nonexistent-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(BeEmpty())
 			})
 
 			It("Should retrieve statuses with retrieve- prefix", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereKeyPrefix[any]("retrieve-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchKeyPrefix[any]("retrieve-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(3))
 			})
 		})
 
-		Describe("WhereVariants", func() {
+		Describe("MatchVariants", func() {
 			It("Should retrieve statuses with a single variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereVariants[any](xstatus.VariantInfo)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantInfo)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(3))
 				for _, s := range statuses {
 					Expect(s.Variant).To(Equal(xstatus.VariantInfo))
@@ -341,7 +341,7 @@ var _ = Describe("Status", Ordered, func() {
 
 			It("Should retrieve statuses with multiple variants", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereVariants[any](xstatus.VariantInfo, xstatus.VariantWarning)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantInfo, xstatus.VariantWarning)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(5))
 				for _, s := range statuses {
 					Expect(s.Variant).To(SatisfyAny(Equal(xstatus.VariantInfo), Equal(xstatus.VariantWarning)))
@@ -350,13 +350,13 @@ var _ = Describe("Status", Ordered, func() {
 
 			It("Should return empty when no statuses match variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereVariants[any](xstatus.VariantSuccess)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantSuccess)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(BeEmpty())
 			})
 
 			It("Should retrieve only error variant statuses", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.WhereVariants[any](xstatus.VariantError)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantError)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(1))
 				Expect(statuses[0].Key).To(Equal("retrieve-c"))
 			})

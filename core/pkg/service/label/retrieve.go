@@ -52,8 +52,8 @@ func (r Retrieve) Where(filters ...gorp.Filter[label.Key, label.Label]) Retrieve
 	return r
 }
 
-// WhereNames returns a filter for labels whose Name matches any of the provided values.
-func WhereNames(names ...string) gorp.Filter[label.Key, label.Label] {
+// MatchNames returns a filter for labels whose Name matches any of the provided values.
+func MatchNames(names ...string) gorp.Filter[label.Key, label.Label] {
 	return gorp.Match(func(_ gorp.Context, l *label.Label) (bool, error) {
 		return lo.Contains(names, l.Name), nil
 	})

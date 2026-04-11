@@ -37,8 +37,8 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereAuthor returns a filter for workspaces whose Author matches the provided value.
-func WhereAuthor(v uuid.UUID) gorp.Filter[Key, Workspace] {
+// MatchAuthor returns a filter for workspaces whose Author matches the provided value.
+func MatchAuthor(v uuid.UUID) gorp.Filter[Key, Workspace] {
 	return gorp.Match(func(_ gorp.Context, e *Workspace) (bool, error) {
 		return e.Author == v, nil
 	})

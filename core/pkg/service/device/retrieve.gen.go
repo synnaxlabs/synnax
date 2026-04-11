@@ -38,36 +38,36 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WhereRacks returns a filter for devices whose Rack matches any of the provided values.
-func WhereRacks(vals ...rack.Key) gorp.Filter[Key, Device] {
+// MatchRacks returns a filter for devices whose Rack matches any of the provided values.
+func MatchRacks(vals ...rack.Key) gorp.Filter[Key, Device] {
 	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Rack), nil
 	})
 }
 
-// WhereLocations returns a filter for devices whose Location matches any of the provided values.
-func WhereLocations(vals ...string) gorp.Filter[Key, Device] {
+// MatchLocations returns a filter for devices whose Location matches any of the provided values.
+func MatchLocations(vals ...string) gorp.Filter[Key, Device] {
 	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Location), nil
 	})
 }
 
-// WhereMakes returns a filter for devices whose Make matches any of the provided values.
-func WhereMakes(vals ...string) gorp.Filter[Key, Device] {
+// MatchMakes returns a filter for devices whose Make matches any of the provided values.
+func MatchMakes(vals ...string) gorp.Filter[Key, Device] {
 	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Make), nil
 	})
 }
 
-// WhereModels returns a filter for devices whose Model matches any of the provided values.
-func WhereModels(vals ...string) gorp.Filter[Key, Device] {
+// MatchModels returns a filter for devices whose Model matches any of the provided values.
+func MatchModels(vals ...string) gorp.Filter[Key, Device] {
 	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Model), nil
 	})
 }
 
-// WhereNames returns a filter for devices whose Name matches any of the provided values.
-func WhereNames(vals ...string) gorp.Filter[Key, Device] {
+// MatchNames returns a filter for devices whose Name matches any of the provided values.
+func MatchNames(vals ...string) gorp.Filter[Key, Device] {
 	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 		return lo.Contains(vals, e.Name), nil
 	})

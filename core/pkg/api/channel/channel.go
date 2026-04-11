@@ -190,19 +190,19 @@ func (s *Service) Retrieve(
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasNames {
-		q = q.Where(channel.WhereNames(req.Names...))
+		q = q.Where(channel.MatchNames(req.Names...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
 	}
 	if req.NodeKey != 0 {
-		q = q.Where(channel.WhereNodeKey(req.NodeKey))
+		q = q.Where(channel.MatchNodeKey(req.NodeKey))
 	}
 	if hasDataTypes {
-		q = q.Where(channel.WhereDataTypes(req.DataTypes...))
+		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
 	}
 	if hasNotDataTypes {
-		q = q.Where(channel.WhereNotDataTypes(req.NotDataTypes...))
+		q = q.Where(channel.MatchNotDataTypes(req.NotDataTypes...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -211,13 +211,13 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if req.Virtual != nil {
-		q = q.Where(channel.WhereVirtual(*req.Virtual))
+		q = q.Where(channel.MatchVirtual(*req.Virtual))
 	}
 	if req.IsIndex != nil {
-		q = q.Where(channel.WhereIsIndex(*req.IsIndex))
+		q = q.Where(channel.MatchIsIndex(*req.IsIndex))
 	}
 	if req.Internal != nil {
-		q = q.Where(channel.WhereInternal(*req.Internal))
+		q = q.Where(channel.MatchInternal(*req.Internal))
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
@@ -326,7 +326,7 @@ func (s *Service) Delete(
 			if err := s.
 				internal.
 				NewRetrieve().
-				Where(channel.WhereNames(req.Names...)).
+				Where(channel.MatchNames(req.Names...)).
 				Entries(&res).
 				Exec(ctx, tx); err != nil {
 				return err

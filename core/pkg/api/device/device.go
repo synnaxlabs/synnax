@@ -123,7 +123,7 @@ func (s *Service) Retrieve(
 		q = q.Search(req.SearchTerm)
 	}
 	if hasNames {
-		q = q.Where(device.WhereNames(req.Names...))
+		q = q.Where(device.MatchNames(req.Names...))
 	}
 	if hasLimit {
 		q = q.Limit(req.Limit)
@@ -132,16 +132,16 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if hasMakes {
-		q = q.Where(device.WhereMakes(req.Makes...))
+		q = q.Where(device.MatchMakes(req.Makes...))
 	}
 	if hasLocations {
-		q = q.Where(device.WhereLocations(req.Locations...))
+		q = q.Where(device.MatchLocations(req.Locations...))
 	}
 	if hasModels {
-		q = q.Where(device.WhereModels(req.Models...))
+		q = q.Where(device.MatchModels(req.Models...))
 	}
 	if hasRacks {
-		q = q.Where(device.WhereRacks(req.Racks...))
+		q = q.Where(device.MatchRacks(req.Racks...))
 	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 

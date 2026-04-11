@@ -115,7 +115,7 @@ func (s *Service) Retrieve(
 		q = q.WhereKeys(req.Keys...)
 	}
 	if len(req.Names) != 0 {
-		q = q.Where(label.WhereNames(req.Names...))
+		q = q.Where(label.MatchNames(req.Names...))
 	}
 
 	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {

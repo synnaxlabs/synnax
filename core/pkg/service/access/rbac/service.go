@@ -155,7 +155,7 @@ func (e *Enforcer) retrievePolicies(
 ) ([]policy.Policy, error) {
 	var policies []policy.Policy
 	if err := e.policy.NewRetrieve().
-		WhereSubjects(subject).
+		Where(policy.MatchSubjects(subject)).
 		Entries(&policies).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err

@@ -135,7 +135,7 @@ func (s *Service) Retrieve(
 		q = q.WhereKeys(req.Keys...)
 	}
 	if req.Author != uuid.Nil {
-		q = q.Where(workspace.WhereAuthor(req.Author))
+		q = q.Where(workspace.MatchAuthor(req.Author))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)

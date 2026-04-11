@@ -32,6 +32,51 @@ type Retrieve[D any] struct {
 	searchTerm string
 }
 
+// Filter is a per-service filter that is bound to the Retrieve when passed to
+// Where. Pure filters ignore the Retrieve argument; service-bound filters read
+// from it (e.g. r.label) to evaluate. Use Match to construct one from a closure.
+type Filter[D any] func(r Retrieve[D]) gorp.Filter[string, Status[D]]
+
+// Match wraps a closure that needs the Retrieve into a Filter.
+func Match[D any](
+	f func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error),
+) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
+			return f(ctx, r, s)
+		})
+	}
+}
+
+// And returns a filter that matches when all provided filters match.
+func And[D any](fs ...Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
+		inner := make([]gorp.Filter[string, Status[D]], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return gorp.And(inner...)
+	}
+}
+
+// Or returns a filter that matches when any provided filter matches.
+func Or[D any](fs ...Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
+		inner := make([]gorp.Filter[string, Status[D]], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return gorp.Or(inner...)
+	}
+}
+
+// Not returns a filter that inverts the provided filter.
+func Not[D any](f Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Not(f(r))
+	}
+}
+
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve[D]) Search(term string) Retrieve[D] { r.searchTerm = term; return r }
 
@@ -66,30 +111,39 @@ func (r Retrieve[D]) WhereKeys(keys ...string) Retrieve[D] {
 	return r
 }
 
-// Where applies the provided filters to the query.
-func (r Retrieve[D]) Where(filters ...gorp.Filter[string, Status[D]]) Retrieve[D] {
-	r.gorp = r.gorp.Where(filters...)
+// Where applies the provided filters to the query, binding each filter to the
+// Retrieve so service-bound filters can read from r.label, r.search, etc.
+func (r Retrieve[D]) Where(filters ...Filter[D]) Retrieve[D] {
+	bound := make([]gorp.Filter[string, Status[D]], len(filters))
+	for i, f := range filters {
+		bound[i] = f(r)
+	}
+	r.gorp = r.gorp.Where(bound...)
 	return r
 }
 
-// WhereKeyPrefix returns a filter for statuses whose key starts with the provided prefix.
-func WhereKeyPrefix[D any](prefix string) gorp.Filter[string, Status[D]] {
-	return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-		return strings.HasPrefix(s.Key, prefix), nil
-	})
+// MatchKeyPrefix returns a filter for statuses whose key starts with the provided prefix.
+func MatchKeyPrefix[D any](prefix string) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+			return strings.HasPrefix(s.Key, prefix), nil
+		})
+	}
 }
 
-// WhereVariants returns a filter for statuses with the given variants.
-func WhereVariants[D any](variants ...status.Variant) gorp.Filter[string, Status[D]] {
-	return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-		return slices.Contains(variants, s.Variant), nil
-	})
+// MatchVariants returns a filter for statuses with the given variants.
+func MatchVariants[D any](variants ...status.Variant) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+			return slices.Contains(variants, s.Variant), nil
+		})
+	}
 }
 
-// WhereHasLabels returns a filter for statuses that have any of the provided labels.
-func WhereHasLabels[D any](svc *label.Service, matchLabels ...xlabel.Key) gorp.Filter[string, Status[D]] {
-	return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
-		labels, err := svc.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
+// MatchLabels returns a filter for statuses that have any of the provided labels.
+func MatchLabels[D any](matchLabels ...xlabel.Key) Filter[D] {
+	return Match(func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error) {
+		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
