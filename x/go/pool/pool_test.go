@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/pool"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // fakeAdapter is a hand-rolled pool.Adapter used by the tests below. The
@@ -79,10 +80,8 @@ var _ = Describe("Pool", func() {
 			p := pool.New(f)
 			defer func() { Expect(p.Close()).To(Succeed()) }()
 
-			a1, err := p.Acquire("k")
-			Expect(err).ToNot(HaveOccurred())
-			a2, err := p.Acquire("k")
-			Expect(err).ToNot(HaveOccurred())
+			a1 := MustSucceed(p.Acquire("k"))
+			a2 := MustSucceed(p.Acquire("k"))
 			Expect(a2).To(BeIdenticalTo(a1))
 			Expect(f.created).To(HaveLen(1))
 		})
@@ -92,12 +91,10 @@ var _ = Describe("Pool", func() {
 			p := pool.New(f)
 			defer func() { Expect(p.Close()).To(Succeed()) }()
 
-			a1, err := p.Acquire("k")
-			Expect(err).ToNot(HaveOccurred())
+			a1 := MustSucceed(p.Acquire("k"))
 			a1.healthy = false
 
-			a2, err := p.Acquire("k")
-			Expect(err).ToNot(HaveOccurred())
+			a2 := MustSucceed(p.Acquire("k"))
 			Expect(a2).ToNot(BeIdenticalTo(a1))
 			Expect(f.created).To(HaveLen(2))
 		})
@@ -151,10 +148,8 @@ var _ = Describe("Pool", func() {
 		It("closes every cached adapter", func() {
 			f := newFactory()
 			p := pool.New(f)
-			_, err := p.Acquire("a")
-			Expect(err).ToNot(HaveOccurred())
-			_, err = p.Acquire("b")
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(p.Acquire("a"))
+			MustSucceed(p.Acquire("b"))
 
 			Expect(p.Close()).To(Succeed())
 			for _, a := range f.created {
@@ -166,20 +161,17 @@ var _ = Describe("Pool", func() {
 			f := newFactory()
 			f.closeErr = errors.New("adapter: boom")
 			p := pool.New(f)
-			_, err := p.Acquire("a")
-			Expect(err).ToNot(HaveOccurred())
-			_, err = p.Acquire("b")
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(p.Acquire("a"))
+			MustSucceed(p.Acquire("b"))
 
-			err = p.Close()
+			err := p.Close()
 			Expect(err).To(MatchError(ContainSubstring("adapter: boom")))
 		})
 
 		It("is idempotent", func() {
 			f := newFactory()
 			p := pool.New(f)
-			_, err := p.Acquire("a")
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(p.Acquire("a"))
 
 			Expect(p.Close()).To(Succeed())
 			Expect(p.Close()).To(Succeed())
@@ -193,8 +185,7 @@ var _ = Describe("Pool", func() {
 			f := newFactory()
 			f.closeBlock = make(chan struct{})
 			p := pool.New(f)
-			_, err := p.Acquire("a")
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(p.Acquire("a"))
 
 			closeReturned := make(chan error, 1)
 			go func() { closeReturned <- p.Close() }()
