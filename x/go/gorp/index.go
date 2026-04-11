@@ -115,6 +115,15 @@ func (l *Lookup[K, E, V]) Get(values ...V) []K {
 	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	if len(values) == 1 {
+		// Single-value fast path: avoid the append-grow loop. Allocate the
+		// result slice with the exact size and copy directly. This is the
+		// dominant case for index-backed exact-match queries.
+		src := l.storage.get(values[0])
+		out := make([]K, len(src))
+		copy(out, src)
+		return out
+	}
 	var out []K
 	for _, v := range values {
 		out = append(out, l.storage.get(v)...)
@@ -122,31 +131,19 @@ func (l *Lookup[K, E, V]) Get(values ...V) []K {
 	return out
 }
 
-// Filter returns a Filter[K, E] that rejects entries whose primary key is not
-// in the candidate set computed from values.
+// Filter returns a Filter[K, E] whose precomputed Keys field carries the
+// primary keys of entries matching the provided values. Retrieve.Exec converts
+// the resulting query into the execKeys fast path: only those keys are
+// fetched from the KV store, no full-table scan is performed.
 func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return filterFromKeys[K, E](l.Get(values...))
-}
-
-// filterFromKeys builds a Filter whose Key stage accepts entries whose primary
-// key is in the provided slice. An empty slice produces a filter that rejects
-// everything (no matches possible).
-func filterFromKeys[K IndexKey, E Entry[K]](keys []K) Filter[K, E] {
-	if len(keys) == 0 {
-		return Filter[K, E]{
-			Key: func(_ K) (bool, error) { return false, nil },
-		}
+	keys := l.Get(values...)
+	if keys == nil {
+		// Distinguish "no matching keys" (empty result) from "no Keys
+		// constraint" (unbounded). filterFromKeys is the canonical
+		// constructor for the former.
+		keys = []K{}
 	}
-	keySet := make(map[K]struct{}, len(keys))
-	for _, k := range keys {
-		keySet[k] = struct{}{}
-	}
-	return Filter[K, E]{
-		Key: func(k K) (bool, error) {
-			_, ok := keySet[k]
-			return ok, nil
-		},
-	}
+	return Filter[K, E]{Keys: keys}
 }
 
 // Sorted is an ordered in-memory index on a field of type V extracted from
@@ -183,13 +180,24 @@ func (s *Sorted[K, E, V]) Name() string { return s.name }
 
 func (s *Sorted[K, E, V]) populate() (error, func(E), func()) {
 	s.mu.Lock()
+	// Bulk-load: append every entry to the storage's tail without maintaining
+	// the sort invariant per insert (the per-insert path is O(N) due to slice
+	// shifting). Sort once at finish for an O(N log N) populate instead of
+	// O(N²). The write lock is held across the whole phase, so concurrent
+	// reads can never observe the partially sorted state.
 	insert := func(entry E) {
 		key := entry.GorpKey()
 		value := s.extract(&entry)
-		s.storage.put(key, value)
+		s.storage.entries = append(
+			s.storage.entries,
+			sortedEntry[K, V]{Value: value, Key: key},
+		)
 		s.reverse[key] = value
 	}
-	finish := func() { s.mu.Unlock() }
+	finish := func() {
+		s.storage.sortBulk()
+		s.mu.Unlock()
+	}
 	return nil, insert, finish
 }
 
@@ -226,6 +234,12 @@ func (s *Sorted[K, E, V]) Get(values ...V) []K {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if len(values) == 1 {
+		src := s.storage.get(values[0])
+		out := make([]K, len(src))
+		copy(out, src)
+		return out
+	}
 	var out []K
 	for _, v := range values {
 		out = append(out, s.storage.get(v)...)
@@ -233,7 +247,13 @@ func (s *Sorted[K, E, V]) Get(values ...V) []K {
 	return out
 }
 
-// Filter returns an exact-match Filter[K, E] against the sorted index.
+// Filter returns an exact-match Filter[K, E] against the sorted index. Uses
+// the same fast-path semantics as Lookup.Filter: the returned filter carries
+// a precomputed Keys set that Retrieve.Exec converts into the execKeys path.
 func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return filterFromKeys[K, E](s.Get(values...))
+	keys := s.Get(values...)
+	if keys == nil {
+		keys = []K{}
+	}
+	return Filter[K, E]{Keys: keys}
 }

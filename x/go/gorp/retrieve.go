@@ -13,7 +13,6 @@ package gorp
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -37,14 +36,10 @@ type Retrieve[K Key, E Entry[K]] struct {
 	offset     int
 	keys       *[]K
 	prefix     []byte
-	filter     *Filter[K, E]
-	orderBy    *OrderBy[K, E]
+	filter     Filter[K, E]
+	hasFilter  bool
+	orderBy    OrderQuery[K, E]
 	validators []Validator[K, E]
-	// afterCursor is set by Retrieve.After and passed to the OrderBy walk
-	// closure as the resume point. It is an opaque value of the sorted
-	// index's V type.
-	afterCursor any
-	hasAfter    bool
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -55,15 +50,27 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 // GetEntries returns the entries bound to the query.
 func (r Retrieve[K, E]) GetEntries() *Entries[K, E] { return r.entries }
 
-// Where adds the provided filters to the query, ANDing them with any existing filter.
-// If filtering by the key of the Entry, use the far more efficient WhereKeys method
-// instead.
+// Where adds the provided filters to the query, ANDing them with any existing
+// filter. If filtering by the key of the Entry, use the far more efficient
+// WhereKeys method instead.
+//
+// Fast path: when there's exactly one filter and no existing one, the filter
+// is stored directly without going through And. This avoids allocating the
+// And combinator's Eval closure and intersectKeys output, which is the
+// dominant query path for index-backed lookups (most callers do
+// Where(MatchUsernames("foo")) — one filter, no prior).
 func (r Retrieve[K, E]) Where(filters ...Filter[K, E]) Retrieve[K, E] {
-	combined := And(filters...)
-	if r.filter != nil {
-		combined = And(*r.filter, combined)
+	if !r.hasFilter && len(filters) == 1 {
+		r.filter = filters[0]
+		r.hasFilter = true
+		return r
 	}
-	r.filter = &combined
+	combined := And(filters...)
+	if r.hasFilter {
+		combined = And(r.filter, combined)
+	}
+	r.filter = combined
+	r.hasFilter = true
 	return r
 }
 
@@ -85,7 +92,7 @@ func (r Retrieve[K, E]) GetWhereKeys() []K {
 }
 
 // HasFilters returns true if any Where filters were added to the query.
-func (r Retrieve[K, E]) HasFilters() bool { return r.filter != nil }
+func (r Retrieve[K, E]) HasFilters() bool { return r.hasFilter }
 
 // WherePrefix filters entries whose key starts with the given prefix.
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
@@ -113,20 +120,16 @@ func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
 
-// OrderBy walks the results in the order defined by the given Sorted index
-// handle. Combine with Limit and After for cursor-based pagination. The handle
-// is obtained by calling Sorted.Ordered(dir) on a registered index.
-func (r Retrieve[K, E]) OrderBy(ob OrderBy[K, E]) Retrieve[K, E] {
-	r.orderBy = &ob
-	return r
-}
-
-// After sets the resume cursor for an OrderBy walk. The cursor value must
-// match the value type of the underlying Sorted index; callers typically pass
-// the last-seen cursor returned by a previous page.
-func (r Retrieve[K, E]) After(cursor any) Retrieve[K, E] {
-	r.afterCursor = cursor
-	r.hasAfter = true
+// OrderBy walks the results in the order defined by the given OrderQuery,
+// typically obtained from Sorted.Ordered(dir) (optionally with .After(cursor)
+// chained for cursor-based pagination). Combine with Limit for paged walks.
+//
+// The cursor lives inside the SortedQuery handle that satisfies OrderQuery,
+// captured at construction time when V is statically known. Retrieve stores
+// the V-erased OrderQuery interface; the typed cursor never crosses the
+// boundary as a value, so there's no `any` boxing on the pagination path.
+func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
+	r.orderBy = o
 	return r
 }
 
@@ -188,13 +191,27 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // the query, Retrieve will return a query.ErrNotFound  error if ANY of the keys do not
 // exist in the database. If Where is set on the query, Retrieve will return a query.ErrNotFound
 // if NO keys pass the Where filter.
+//
+// Dispatch order:
+//   - OrderBy   → execOrdered
+//   - WhereKeys OR an indexed filter (filter.Keys != nil) → execKeys (fast path)
+//   - otherwise → execFilter (full table scan)
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
 	if r.HasOrderBy() {
 		return r.execOrdered(ctx, tx)
 	}
-	f := lo.Ternary(r.HasWhereKeys(), r.execKeys, r.execFilter)
-	return f(ctx, tx)
+	if r.HasWhereKeys() || r.hasIndexedFilter() {
+		return r.execKeys(ctx, tx)
+	}
+	return r.execFilter(ctx, tx)
+}
+
+// hasIndexedFilter reports whether the active filter chain carries a
+// precomputed key set, which is the signal that Retrieve can short-circuit
+// into the execKeys fast path.
+func (r Retrieve[K, E]) hasIndexedFilter() bool {
+	return r.hasFilter && r.filter.Keys != nil
 }
 
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
@@ -240,15 +257,6 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if r.filter != nil && r.filter.Key != nil {
-			keyMatched, kErr := r.matchKey(reader.keyCodec.decode(iter.Iterator.Key()))
-			if kErr != nil {
-				return 0, kErr
-			}
-			if !keyMatched {
-				continue
-			}
-		}
 		rawMatched, rErr := r.matchRaw(iter.Iterator.Value())
 		if rErr != nil {
 			return 0, rErr
@@ -272,48 +280,73 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 }
 
 func (r Retrieve[K, E]) match(ctx Context, e *E) (bool, error) {
-	if r.filter == nil || r.filter.Eval == nil {
+	if !r.hasFilter || r.filter.Eval == nil {
 		return true, nil
 	}
 	return r.filter.Eval(ctx, e)
 }
 
 func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
-	if r.filter == nil || r.filter.Raw == nil {
+	if !r.hasFilter || r.filter.Raw == nil {
 		return true, nil
 	}
 	return r.filter.Raw(data)
 }
 
-func (r Retrieve[K, E]) matchKey(k K) (bool, error) {
-	if r.filter == nil || r.filter.Key == nil {
-		return true, nil
+// effectiveKeys returns the candidate key set for execKeys: the intersection
+// of any keys set via WhereKeys and any keys carried by an indexed filter via
+// filter.Keys. Either source may be nil, but at least one must be present
+// (callers gate via HasWhereKeys || hasIndexedFilter before invoking).
+func (r Retrieve[K, E]) effectiveKeys() []K {
+	hasIndexedKeys := r.hasFilter && r.filter.Keys != nil
+	switch {
+	case r.keys == nil && !hasIndexedKeys:
+		return nil
+	case r.keys != nil && !hasIndexedKeys:
+		return *r.keys
+	case r.keys == nil && hasIndexedKeys:
+		return r.filter.Keys
 	}
-	return r.filter.Key(k)
+	return intersectKeySlices(*r.keys, r.filter.Keys)
+}
+
+// intersectKeySlices returns the intersection of two key slices via linear
+// scan. Used at Exec dispatch to merge WhereKeys with an indexed filter's
+// Keys. Inputs are typically small (single-digit element counts) so the
+// O(n*m) cost is fine.
+func intersectKeySlices[K Key](a, b []K) []K {
+	if len(a) == 0 || len(b) == 0 {
+		return []K{}
+	}
+	out := make([]K, 0, min(len(a), len(b)))
+	for _, k := range a {
+		if containsKey(b, k) {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
+	keys := r.effectiveKeys()
 	var (
 		reader             = WrapReader[K, E](tx)
-		keysResult, getErr = reader.GetMany(ctx, *r.keys)
-		toReplace          = make([]E, 0, len(keysResult))
+		keysResult, getErr = reader.GetMany(ctx, keys)
 		validCount         int
 		gorpCtx            = Context{Context: ctx, Tx: tx}
 	)
-	// We don't return early even if getErr fails with a not found result in order
-	// to do a best effort retrieval of available items.
+	// We don't return early even if getErr fails with a not found result in
+	// order to do a best effort retrieval of available items. WhereKeys
+	// callers expect query.ErrNotFound when ANY requested key was missing;
+	// indexed-filter-only callers don't, but we still surface the error.
 	if getErr != nil && !errors.Is(getErr, query.ErrNotFound) {
 		return getErr
 	}
+	// Filter in place by reusing keysResult's backing array. The kept-write
+	// index never overtakes the read index, so this is safe.
+	filtered := keysResult[:0]
 	for _, e := range keysResult {
 		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
-			continue
-		}
-		keyMatched, err := r.matchKey(e.GorpKey())
-		if err != nil {
-			return err
-		}
-		if !keyMatched {
 			continue
 		}
 		match, err := r.match(gorpCtx, &e)
@@ -323,13 +356,19 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		if match {
 			validCount += 1
 			if (validCount > r.offset) && (r.limit == 0 || validCount <= r.limit+r.offset) {
-				toReplace = append(toReplace, e)
+				filtered = append(filtered, e)
 			}
 		}
 	}
-	r.entries.Replace(toReplace)
-	if err := r.runValidators(gorpCtx, toReplace); err != nil {
+	r.entries.Replace(filtered)
+	if err := r.runValidators(gorpCtx, filtered); err != nil {
 		return err
+	}
+	// Suppress not-found from indexed-filter-only queries: an indexed filter
+	// matching no keys is an empty result, not an error. Only propagate
+	// not-found when WhereKeys was explicitly set.
+	if !r.HasWhereKeys() {
+		return nil
 	}
 	return getErr
 }
@@ -349,15 +388,6 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if r.filter != nil && r.filter.Key != nil {
-			keyMatched, kErr := r.matchKey(reader.keyCodec.decode(iter.Iterator.Key()))
-			if kErr != nil {
-				return kErr
-			}
-			if !keyMatched {
-				continue
-			}
-		}
 		rawMatched, rErr := r.matchRaw(iter.Iterator.Value())
 		if rErr != nil {
 			return rErr
@@ -396,24 +426,18 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 	return err
 }
 
-// execOrdered walks a Sorted index via the configured OrderBy handle, fetching
-// entries from the KV store in page-sized batches. Any Where filters are
-// applied as post-filters after each batch decode.
+// execOrdered walks a Sorted index via the configured OrderQuery handle,
+// fetching entries from the KV store in page-sized batches. Any Where
+// filters are applied as post-filters after each batch decode.
 //
-// The walk is driven by the OrderBy closure captured from the Sorted index.
-// Callers resume pagination by passing the returned cursor back via After.
-// The cursor-emission side effect is communicated back to the caller via a
-// separate ReadCursor method rather than an out-parameter; within a single
-// Exec call, only a single page is fetched, bounded by Limit.
+// The walk is driven by the typed SortedQuery (which satisfies OrderQuery)
+// captured at OrderBy time. The cursor lives inside that handle, so this
+// path involves no `any` boxing.
 func (r Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
-	if r.orderBy == nil || r.orderBy.walk == nil {
+	if r.orderBy == nil {
 		return nil
 	}
-	var after any
-	if r.hasAfter {
-		after = r.afterCursor
-	}
-	keys, _ := r.orderBy.walk(after, r.limit)
+	keys := r.orderBy.walkOrder(r.limit)
 	if len(keys) == 0 {
 		if r.entries.isMultiple {
 			r.entries.Replace(nil)
@@ -437,15 +461,6 @@ func (r Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	// entries is already in sorted-walk order.
 	filtered := make([]E, 0, len(entries))
 	for _, e := range entries {
-		if r.filter != nil && r.filter.Key != nil {
-			keyMatched, err := r.matchKey(e.GorpKey())
-			if err != nil {
-				return err
-			}
-			if !keyMatched {
-				continue
-			}
-		}
 		match, err := r.match(Context{Context: ctx, Tx: tx}, &e)
 		if err != nil {
 			return err

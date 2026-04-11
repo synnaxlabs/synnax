@@ -184,3 +184,12 @@ func (s *sortedStorage[K, V]) get(value V) []K {
 	}
 	return out
 }
+
+// sortBulk sorts the entries slice by Value. Used by Sorted.populate to
+// finalize a bulk-loaded index in O(N log N) instead of inserting one entry
+// at a time at O(N²).
+func (s *sortedStorage[K, V]) sortBulk() {
+	slices.SortFunc(s.entries, func(a, b sortedEntry[K, V]) int {
+		return cmp.Compare(a.Value, b.Value)
+	})
+}

@@ -9,11 +9,7 @@
 
 package gorp
 
-import (
-	"cmp"
-
-	"go.uber.org/zap"
-)
+import "cmp"
 
 // Direction is the iteration direction used by a Sorted index when it is
 // consumed via Retrieve.OrderBy.
@@ -26,87 +22,89 @@ const (
 	Desc
 )
 
-// OrderBy is an opaque handle returned by Sorted.Ordered and consumed by
-// Retrieve.OrderBy. It carries direction and a walk closure that, given an
-// optional cursor and page limit, returns the next page of primary keys
-// along with a cursor usable to resume the walk. The value type V of the
-// underlying Sorted index is erased so that Retrieve does not need to know it.
-//
-// The Key constraint is Key (not IndexKey) so that Retrieve, which does not
-// require IndexKey, can hold an OrderBy[K, E]. The only valid source of an
-// OrderBy is Sorted.Ordered, which does require IndexKey, so the walk
-// closures are always constructed over comparable keys in practice.
-type OrderBy[K Key, E Entry[K]] struct {
-	name string
-	walk func(after any, limit int) (keys []K, nextCursor any)
+// OrderQuery is the V-erased handle stored on Retrieve. Implementations are
+// produced by Sorted.Ordered (returning a SortedQuery[K, E, V]) and consumed
+// by Retrieve.OrderBy. The interface erases V at the boundary so Retrieve
+// (which is parameterized only on K and E) can store it without needing to
+// know the value type. Implementations close over the typed cursor and
+// direction inside their receiver, so the per-entry hot path is fully typed
+// even though the interface signature is not.
+type OrderQuery[K Key, E Entry[K]] interface {
+	walkOrder(limit int) []K
 }
 
-// Name returns the display name of the underlying sorted index.
-func (o OrderBy[K, E]) Name() string { return o.name }
+// SortedQuery is the typed handle returned by Sorted.Ordered. It carries the
+// direction, an optional resume cursor, and a back-reference to the index it
+// was constructed from. SortedQuery satisfies OrderQuery[K, E] via the
+// walkOrder method, which dispatches the per-page walk against the typed V
+// captured in the receiver — no `any` boxing on either the cursor input or
+// the per-entry comparison.
+type SortedQuery[K IndexKey, E Entry[K], V cmp.Ordered] struct {
+	sorted    *Sorted[K, E, V]
+	dir       Direction
+	cursor    V
+	hasCursor bool
+}
 
-// Ordered returns an OrderBy handle that walks the Sorted index in the given
-// direction. The handle is passed to Retrieve.OrderBy.
-func (s *Sorted[K, E, V]) Ordered(dir Direction) OrderBy[K, E] {
-	name := s.name
-	return OrderBy[K, E]{
-		name: name,
-		walk: func(after any, limit int) ([]K, any) {
-			s.mu.RLock()
-			defer s.mu.RUnlock()
-			entries := s.storage.entries
-			if len(entries) == 0 {
-				return nil, nil
-			}
-			var start int
-			switch dir {
-			case Asc:
-				if after == nil {
-					start = 0
-				} else {
-					typed, ok := after.(V)
-					if !ok {
-						zap.S().DPanicf(
-							"gorp: OrderBy cursor for index %q has wrong type", name,
-						)
-						return nil, nil
-					}
-					start = s.storage.upperBound(typed)
-				}
-			case Desc:
-				if after == nil {
-					start = len(entries) - 1
-				} else {
-					typed, ok := after.(V)
-					if !ok {
-						zap.S().DPanicf(
-							"gorp: OrderBy cursor for index %q has wrong type", name,
-						)
-						return nil, nil
-					}
-					start = s.storage.lowerBound(typed) - 1
-				}
-			}
-			return walkSorted(entries, start, dir, limit)
-		},
+// Ordered constructs a SortedQuery for an ordered walk of the index in the
+// given direction. The returned handle is passed to Retrieve.OrderBy.
+func (s *Sorted[K, E, V]) Ordered(dir Direction) SortedQuery[K, E, V] {
+	return SortedQuery[K, E, V]{sorted: s, dir: dir}
+}
+
+// After sets the resume cursor for cursor-based pagination. The walk skips
+// every entry whose value is less than or equal to cursor (Asc) or greater
+// than or equal to cursor (Desc), so the next page begins strictly past the
+// previous page's last visited value. Calling After replaces any prior
+// cursor on this query.
+func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
+	q.cursor = cursor
+	q.hasCursor = true
+	return q
+}
+
+// walkOrder implements OrderQuery[K, E]. It takes the configured direction
+// and cursor (both typed via the receiver's V), seeks to the resume point in
+// the underlying sorted slice via binary search, and walks up to limit
+// entries from there.
+func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
+	q.sorted.mu.RLock()
+	defer q.sorted.mu.RUnlock()
+	entries := q.sorted.storage.entries
+	if len(entries) == 0 {
+		return nil
 	}
+	var start int
+	switch q.dir {
+	case Asc:
+		if !q.hasCursor {
+			start = 0
+		} else {
+			start = q.sorted.storage.upperBound(q.cursor)
+		}
+	case Desc:
+		if !q.hasCursor {
+			start = len(entries) - 1
+		} else {
+			start = q.sorted.storage.lowerBound(q.cursor) - 1
+		}
+	}
+	return walkSorted(entries, start, q.dir, limit)
 }
 
 // walkSorted walks the sorted entry slice from start in the given direction,
-// emitting up to limit keys. A limit of 0 means unbounded. Returns the keys
-// and the value of the last visited entry as the next cursor; the caller
-// passes that cursor back via Retrieve.After to continue pagination.
+// emitting up to limit keys. A limit of 0 means unbounded.
 func walkSorted[K IndexKey, V cmp.Ordered](
 	entries []sortedEntry[K, V],
 	start int,
 	dir Direction,
 	limit int,
-) ([]K, any) {
+) []K {
 	if limit < 0 {
-		return nil, nil
+		return nil
 	}
 	keys := make([]K, 0, limit)
-	var lastValue V
-	var emitted int
+	emitted := 0
 	switch dir {
 	case Asc:
 		for i := start; i < len(entries); i++ {
@@ -114,7 +112,6 @@ func walkSorted[K IndexKey, V cmp.Ordered](
 				break
 			}
 			keys = append(keys, entries[i].Key)
-			lastValue = entries[i].Value
 			emitted++
 		}
 	case Desc:
@@ -123,12 +120,8 @@ func walkSorted[K IndexKey, V cmp.Ordered](
 				break
 			}
 			keys = append(keys, entries[i].Key)
-			lastValue = entries[i].Value
 			emitted++
 		}
 	}
-	if emitted == 0 {
-		return keys, nil
-	}
-	return keys, lastValue
+	return keys
 }

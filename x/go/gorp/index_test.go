@@ -331,7 +331,7 @@ var _ = Describe("Index", func() {
 				Expect(scores).To(Equal([]int64{190, 180, 170}))
 			})
 
-			It("Should resume pagination via After", func(ctx SpecContext) {
+			It("Should resume pagination via After on the SortedQuery", func(ctx SpecContext) {
 				var page1 []indexedEntry
 				Expect(table.NewRetrieve().
 					OrderBy(scoreIdx.Ordered(gorp.Asc)).
@@ -342,8 +342,7 @@ var _ = Describe("Index", func() {
 
 				var page2 []indexedEntry
 				Expect(table.NewRetrieve().
-					OrderBy(scoreIdx.Ordered(gorp.Asc)).
-					After(lastScore).
+					OrderBy(scoreIdx.Ordered(gorp.Asc).After(lastScore)).
 					Limit(5).
 					Entries(&page2).Exec(ctx, idxDB)).To(Succeed())
 				Expect(page2).To(HaveLen(5))

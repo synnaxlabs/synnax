@@ -709,7 +709,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should generate a sorted index with OrderBy helper", func(ctx SpecContext) {
+			It("Should generate a sorted index with Order closure type and OrderByX free function", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -734,13 +734,18 @@ var _ = Describe("Go Query Plugin", func() {
 						"func(e *Event) int64 { return e.CreatedAt }",
 						"func MatchCreatedAt(v int64) Filter",
 						"return r.indexes.createdAt.Filter(v)",
-						"func (r Retrieve) OrderByCreatedAt(dir gorp.Direction) Retrieve",
-						"r.gorp = r.gorp.OrderBy(r.indexes.createdAt.Ordered(dir))",
+						"type Order func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
+						"func (r Retrieve) OrderBy(o Order) Retrieve",
+						"r.gorp = r.gorp.OrderBy(o(r))",
+						"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Order",
+						"q := r.indexes.createdAt.Ordered(dir)",
+						"q = q.After(cursor[0])",
 					).
 					ToNotContain(
 						"newCreatedAtIndex",
 						"var createdAtIndex",
 						"func ByCreatedAt(",
+						"func (r Retrieve) OrderByCreatedAt",
 						"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy",
 					)
 			})
