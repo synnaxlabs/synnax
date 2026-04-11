@@ -19,16 +19,15 @@ from enum import Enum, auto
 from typing import Any
 
 import synnax as sy
-from x import validate_and_sanitize_name
-
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import SynnaxConnection, Test
 from framework.report_client import ReportClient
-from framework.target_filter import TargetFilter, parse_target
-from framework.telemetry_client import TelemetryClient
+from framework.target_filter import TargetFilter, parse_target, split_csv
+from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
+from x import validate_and_sanitize_name
 
 
 class STATE(Enum):
@@ -94,7 +93,7 @@ class TestConductor:
         except Exception as e:
             raise RuntimeError(f"Failed to create range: {e}")
 
-        self.config_client = ConfigClient(log=self.log_message)
+        self.config_client = ConfigClient(log=self.log)
 
         self.state = STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
@@ -124,7 +123,7 @@ class TestConductor:
             tests_lock=self.tests_lock,
             active_tests=self.active_tests,
             active_tests_lock=self.active_tests_lock,
-            log=self.log_message,
+            log=self.log,
             on_status_change=self._notify_status_change,
             on_test_ran=self.telemetry_client.increment_tests_ran,
         )
@@ -135,7 +134,7 @@ class TestConductor:
             test_definitions=self.test_definitions,
             active_tests=self.active_tests,
             active_tests_lock=self.active_tests_lock,
-            log=self.log_message,
+            log=self.log,
         )
 
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -144,7 +143,7 @@ class TestConductor:
         self.telemetry_client.start()
         sy.sleep(1)
 
-    def log_message(self, message: str, use_name: bool = True) -> None:
+    def log(self, message: str, use_name: bool = True) -> None:
         """Log message with real-time output."""
         if use_name:
             self.log_client.info(message)
@@ -178,18 +177,18 @@ class TestConductor:
         self.should_stop = True
 
         if not self.telemetry_client.stop():
-            self.log_message("Warning: telemetry thread did not stop within timeout")
+            self.log("Warning: telemetry thread did not stop within timeout")
 
     def shutdown(self) -> None:
         """Gracefully shutdown the test conductor and all its processes."""
-        self.log_message("\nShut down initiated...")
+        self.log("\nShut down initiated...")
         self.state = STATE.SHUTDOWN
         self.should_stop = True
 
         self.execution_client.stop()
         self.wait_for_completion()
 
-        self.log_message("Shutdown complete\n")
+        self.log("Shutdown complete\n")
         self.log_client.close()
 
     def add_status_callback(self, callback: Callable[[Test], None]) -> None:
@@ -202,7 +201,7 @@ class TestConductor:
             try:
                 callback(result)
             except Exception as e:
-                self.log_message(f"Error in status callback: {e}")
+                self.log(f"Error in status callback: {e}")
 
     def stop_sequence(self) -> None:
         """Stop the entire test sequence execution."""
@@ -225,7 +224,7 @@ class TestConductor:
 
     def _signal_handler(self, signal_num: int, frame: Any = None) -> None:
         """Handle system signals for graceful shutdown."""
-        self.log_message(f"Received signal {signal_num}. Stopping test execution...")
+        self.log(f"Received signal {signal_num}. Stopping test execution...")
         self.shutdown()
         sys.exit(1)
 
@@ -234,12 +233,12 @@ def monitor_test_execution(conductor: TestConductor) -> None:
     """Monitor test execution and provide status updates."""
     while conductor.is_running:
         status = conductor.get_current_status()
-        conductor.log_message(
+        conductor.log(
             f"Status: {status['completed_tests']}/{status['total_tests']} tests completed"
         )
         if status["active_tests"]:
             for test in status["active_tests"]:
-                conductor.log_message(
+                conductor.log(
                     f"Running: {test['name']} (elapsed: {test['elapsed_time']:.1f}s)"
                 )
         sy.sleep(1)
@@ -264,9 +263,16 @@ def main() -> None:
   uv run tc console/channel/calc    sequence matching "channel", cases matching "calc"
   uv run tc arc/simple/...          sequence matching "simple", all cases
 
--f flag — global case filter across all JSON files:
+-f flag — case filter (global or combined with a target):
   uv run tc -f modbus               all *_tests.json, cases matching "modbus"
   uv run tc -f channel              all *_tests.json, cases matching "channel"
+  uv run tc migration -f setup      migration_tests.json, cases matching "setup"
+  uv run tc driver -f modbus        driver_tests.json, cases matching "modbus"
+
+  -f matches against both the case path and the class name, so
+  you can filter into individual test classes within a file:
+  uv run tc driver/ni -f Scaled     only NIAnalogReadScaled from ni_read.py
+  uv run tc migration -f verify     only Verify classes across migration tests
 
 ... wildcard — means "no filter" at that position:
   uv run tc console/...             same as just "console"
@@ -291,7 +297,12 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--filter",
         "-f",
-        help="Filter tests by case path substring across all test files (auto-discovers all *_tests.json)",
+        help="Filter tests by case path substring. Without a target, searches all *_tests.json. With a target, narrows results within that target.",
+    )
+    parser.add_argument(
+        "--exclude",
+        "-x",
+        help="Exclude tests whose name matches this substring.",
     )
     parser.add_argument(
         "--headed",
@@ -328,22 +339,25 @@ All matching is case-insensitive substring.
     try:
         if args.target:
             target_filter = parse_target(args.target)
+            if args.filter:
+                target_filter.case_filter = split_csv(args.filter)
         elif args.filter:
-            target_filter = TargetFilter(case_filter=args.filter)
+            target_filter = TargetFilter(case_filter=split_csv(args.filter))
         else:
             target_filter = TargetFilter()
 
+        if args.exclude:
+            target_filter.exclude = split_csv(args.exclude)
+
         conductor.load(target_filter)
-        results = conductor.run_sequence()
+        conductor.run_sequence()
         conductor.wait_for_completion()
 
     except KeyboardInterrupt:
-        conductor.log_message(
-            "Keyboard interrupt received. Shutting down gracefully..."
-        )
+        conductor.log("Keyboard interrupt received. Shutting down gracefully...")
         conductor.shutdown()
     except Exception as e:
-        conductor.log_message(f"Error occurred: {e}")
+        conductor.log(f"Error occurred: {e}")
         conductor.shutdown()
         raise
     finally:
@@ -359,26 +373,24 @@ All matching is case-insensitive substring.
                     ),
                 )
             except Exception as e:
-                conductor.log_message(
-                    f"Warning: Failed to finalize conductor range: {e}"
-                )
+                conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 
-        conductor.log_message(f"Fin.")
+        conductor.log("Fin.")
         if hasattr(conductor, "tests") and conductor.tests:
             stats = conductor._get_test_statistics()
 
             if stats["total_failed"] > 0:
-                conductor.log_message(
+                conductor.log(
                     f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests"
                 )
                 os._exit(1)
             else:
-                conductor.log_message(
+                conductor.log(
                     f"\nAll {stats['total']} tests passed successfully", False
                 )
                 os._exit(0)
         else:
-            conductor.log_message("\nNo test results available")
+            conductor.log("\nNo test results available")
             os._exit(1)
 
 

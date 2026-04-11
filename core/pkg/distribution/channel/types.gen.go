@@ -37,10 +37,11 @@ type Name = string
 type OperationType string
 
 const (
-	OperationTypeMin  OperationType = "min"
-	OperationTypeMax  OperationType = "max"
-	OperationTypeAvg  OperationType = "avg"
-	OperationTypeNone OperationType = "none"
+	OperationTypeMin        OperationType = "min"
+	OperationTypeMax        OperationType = "max"
+	OperationTypeAvg        OperationType = "avg"
+	OperationTypeNone       OperationType = "none"
+	OperationTypeDerivative OperationType = "derivative"
 )
 
 // Operation defines an aggregation operation applied to channel data. Operations

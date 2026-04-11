@@ -7,13 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from x import get_random_name
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.log import Log
 from framework.utils import assert_link_format
+from x import random_name
 
 
 class LogLifecycle(ConsoleCase):
@@ -30,7 +30,7 @@ class LogLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.suffix = get_random_name()
+        self.suffix = random_name()
         self._shared_log_name = None
         self._cleanup_groups = []
         self.ctx_log_name = ""
@@ -78,7 +78,7 @@ class LogLifecycle(ConsoleCase):
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
-        self.test_persisted_channel_streaming(log)
+        self.test_channel_streaming(log)
         self.test_rename_from_tab(log)
         self.test_copy_link(log)
         self.test_pause_resume_scrolling(log)
@@ -115,10 +115,12 @@ class LogLifecycle(ConsoleCase):
 
     def test_no_channel_configured(self, log: Log) -> None:
         """Test that log shows 'No channel configured' when no channel is set."""
-        self.log("Testing no channel configured state")
+        self.log("Testing no channels configured state")
 
-        assert log.needs_channel_configured(), "Log should show 'No channel configured'"
-        assert log.is_empty(), "Log should be empty when no channel configured"
+        assert log.needs_channel_configured(), (
+            "Log should show 'No channels configured'"
+        )
+        assert log.is_empty(), "Log should be empty when no channels configured"
         assert not log.is_streaming(), "Log should not be streaming without channel"
 
     def test_no_data_received(self, log: Log) -> None:
@@ -131,58 +133,46 @@ class LogLifecycle(ConsoleCase):
         assert log.is_empty(), "Log should be empty when no data received"
         assert not log.is_streaming(), "Log should not be streaming without data"
 
-    def test_persisted_channel_streaming(self, log: Log) -> None:
-        """Test that log streams data from a persisted channel and survives reload."""
-        self.log("Testing persisted channel streaming")
+    def test_channel_streaming(self, log: Log) -> None:
+        """Test that log streams data from a persisted channel."""
+        self.log("Testing channel streaming")
 
-        with self.client.open_writer(
-            sy.TimeStamp.now(),
-            channels=[self.idx_name, self.data_name],
-        ) as w:
-            for i in range(5):
-                w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)})
-                sy.sleep(0.1)
+        for i in range(5):
+            self.writer.write(
+                {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
+            )
+            sy.sleep(0.1)
 
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
-        self.console.reload()
-
-        assert (
-            log.wait_until_streaming()
-        ), "Log should still be streaming after reload (persisted)"
-        assert (
-            not log.is_waiting_for_data()
-        ), "Log should NOT be waiting for data after reload"
-
     def test_virtual_channel_streaming(self, log: Log) -> None:
-        """Test that log streams data from a virtual (non-persisted) channel."""
-        self.log("Testing virtual channel streaming")
+        """Test that log streams data from a virtual channel and that log data
+        does not persist across reloads.
+        """
+        self.log("Testing virtual channel streaming and reload behavior")
 
+        log.clear_channels()
         log.set_channel(self.virtual_name)
-        assert (
-            log.wait_until_waiting_for_data()
-        ), "Log should be waiting for data initially (virtual channel)"
+        assert log.wait_until_waiting_for_data(), (
+            "Log should be waiting for data initially"
+        )
 
-        with self.client.open_writer(
-            sy.TimeStamp.now(),
-            channels=[self.virtual_name],
-            enable_auto_commit=True,
-        ) as writer:
-            for i in range(5):
-                writer.write({self.virtual_name: float(i)})
-                sy.sleep(0.1)
-            assert (
-                log.wait_until_streaming()
-            ), "Log should be streaming virtual channel data"
-            assert not log.is_empty(), "Log should not be empty with virtual data"
+        for i in range(5):
+            self.writer.write(self.virtual_name, float(i))
+            sy.sleep(0.1)
+        assert log.wait_until_streaming(), (
+            "Log should be streaming virtual channel data"
+        )
+        assert not log.is_empty(), "Log should not be empty with virtual data"
 
+        # log entries are NOT persisted across reloads,
         self.console.reload()
 
-        assert (
-            log.wait_until_waiting_for_data()
-        ), "Log should be waiting for data after reload (virtual channel not persisted)"
+        assert log.wait_until_waiting_for_data(), (
+            "Log should be waiting for data after reload (entries are not persisted)"
+        )
 
     def test_rename_from_tab(self, log: Log) -> None:
         """Test renaming a log by double-clicking the mosaic tab title."""
@@ -197,9 +187,9 @@ class LogLifecycle(ConsoleCase):
         assert new_tab.is_visible(), f"Tab with new name '{new_name}' should be visible"
 
         old_tab = self.console.layout.get_tab(original_name)
-        assert (
-            old_tab.count() == 0
-        ), f"Tab with old name '{original_name}' should not exist"
+        assert old_tab.count() == 0, (
+            f"Tab with old name '{original_name}' should not exist"
+        )
 
     def test_copy_link(self, log: Log) -> None:
         """Test copying a link to the log via toolbar button."""
@@ -219,9 +209,9 @@ class LogLifecycle(ConsoleCase):
         assert log.is_scrolling_paused(), "Log should be paused after pause_scrolling()"
 
         log.resume_scrolling()
-        assert (
-            not log.is_scrolling_paused()
-        ), "Log should not be paused after resume_scrolling()"
+        assert not log.is_scrolling_paused(), (
+            "Log should not be paused after resume_scrolling()"
+        )
 
     def test_open_log_from_resources(self, log_name: str, expected_link: str) -> None:
         """Test opening a log by double-clicking it in the workspace resources toolbar."""
@@ -233,9 +223,9 @@ class LogLifecycle(ConsoleCase):
         assert log.pane_locator.is_visible(), "Log pane should be visible"
 
         opened_link = log.copy_link()
-        assert (
-            opened_link == expected_link
-        ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        assert opened_link == expected_link, (
+            f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        )
 
         log.close()
         assert not log.is_open, "Log should be closed after close()"
@@ -250,9 +240,9 @@ class LogLifecycle(ConsoleCase):
         assert log.pane_locator.is_visible(), "Log pane should be visible"
 
         opened_link = log.copy_link()
-        assert (
-            opened_link == expected_link
-        ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        assert opened_link == expected_link, (
+            f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        )
 
         log.close()
         assert not log.is_open, "Log should be closed after close()"
@@ -267,9 +257,9 @@ class LogLifecycle(ConsoleCase):
         assert log.pane_locator.is_visible(), "Log pane should be visible"
 
         opened_link = log.copy_link()
-        assert (
-            opened_link == expected_link
-        ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        assert opened_link == expected_link, (
+            f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        )
 
         log.close()
         assert not log.is_open, "Log should be closed after close()"
@@ -280,9 +270,9 @@ class LogLifecycle(ConsoleCase):
 
         self.log("Testing copy link via context menu")
         link = self.console.workspace.copy_page_link(self.ctx_log_name)
-        assert (
-            link == self.ctx_log_link
-        ), f"Context menu link should match: expected {self.ctx_log_link}, got {link}"
+        assert link == self.ctx_log_link, (
+            f"Context menu link should match: expected {self.ctx_log_link}, got {link}"
+        )
 
         self.log("Testing export log via context menu")
         exported = self.console.workspace.export_page(self.ctx_log_name)
@@ -292,9 +282,9 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing rename log via context menu")
         new_name = f"Renamed Log {self.suffix}"
         self.console.workspace.rename_page(self.ctx_log_name, new_name)
-        assert self.console.workspace.page_exists(
-            new_name
-        ), f"Renamed log '{new_name}' should exist"
+        assert self.console.workspace.page_exists(new_name), (
+            f"Renamed log '{new_name}' should exist"
+        )
         self.ctx_log_name = new_name
 
     def test_ctx_delete_log(self) -> None:
@@ -307,7 +297,7 @@ class LogLifecycle(ConsoleCase):
         """Test deleting multiple logs via multi-select and context menu."""
         self.log("Testing delete multiple logs via context menu")
 
-        suffix = get_random_name()
+        suffix = random_name()
         log_names = []
 
         for i in range(3):
@@ -324,7 +314,7 @@ class LogLifecycle(ConsoleCase):
         """Test grouping multiple logs via multi-select and context menu."""
         self.log("Testing group logs via context menu")
 
-        suffix = get_random_name()
+        suffix = random_name()
         log_names = []
 
         for i in range(2):
@@ -337,9 +327,9 @@ class LogLifecycle(ConsoleCase):
         self.console.workspace.group_pages(names=log_names, group_name=group_name)
         self._cleanup_groups.append(group_name)
 
-        assert self.console.workspace.page_exists(
-            group_name
-        ), "Group should exist after grouping"
+        assert self.console.workspace.page_exists(group_name), (
+            "Group should exist after grouping"
+        )
 
         self.console.workspace.delete_group(group_name, child_names=log_names)
         self._cleanup_groups.remove(group_name)

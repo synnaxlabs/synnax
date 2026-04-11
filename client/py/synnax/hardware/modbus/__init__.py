@@ -18,5 +18,5 @@ warnings.warn(
     stacklevel=2,
 )
 
-from synnax.modbus import *
-from synnax.modbus import __all__
+from synnax.modbus import *  # noqa: F403
+from synnax.modbus import __all__ as __all__  # noqa: F401

@@ -68,9 +68,13 @@ func UnmarshalStringInt64(b []byte) (int64, error) {
 	}
 	var str string
 	if err := json.Unmarshal(b, &str); err != nil {
-		return n, err
+		return 0, err
 	}
-	return strconv.ParseInt(str, 10, 64)
+	v, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
 }
 
 // UnmarshalStringUint64 attempts to unmarshal the uint64 directly. If that fails,
@@ -82,9 +86,31 @@ func UnmarshalStringUint64(b []byte) (uint64, error) {
 	}
 	var str string
 	if err := json.Unmarshal(b, &str); err != nil {
-		return n, err
+		return 0, err
 	}
-	return strconv.ParseUint(str, 10, 64)
+	v, err := strconv.ParseUint(str, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
+}
+
+// UnmarshalStringUint32 attempts to unmarshal the uint32 directly. If that fails,
+// it attempts to convert a string to a uint32.
+func UnmarshalStringUint32(b []byte) (uint32, error) {
+	var n uint32
+	if err := json.Unmarshal(b, &n); err == nil {
+		return n, nil
+	}
+	var str string
+	if err := json.Unmarshal(b, &str); err != nil {
+		return 0, err
+	}
+	v, err := strconv.ParseUint(str, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(v), nil
 }
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.

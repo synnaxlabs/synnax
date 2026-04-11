@@ -411,7 +411,7 @@ var _ = Describe("AsyncObserver", func() {
 			slowObs := observe.NewAsync[int](
 				slowCtx,
 				signal.WithRetryOnPanic(5),
-				signal.WithBaseRetryInterval(500*time.Millisecond),
+				signal.WithBaseRetryInterval(50*time.Millisecond),
 			)
 			disconnect := slowObs.OnChange(func(_ context.Context, v int) {
 				if v == 0 {
@@ -421,7 +421,7 @@ var _ = Describe("AsyncObserver", func() {
 			slowObs.Notify(context.Background(), 0)
 			time.Sleep(10 * time.Millisecond)
 			disconnect()
-			Eventually(slowCtx.Stopped(), 500*time.Millisecond).
+			Eventually(slowCtx.Stopped(), 2*time.Second).
 				Should(BeClosed())
 		})
 	})

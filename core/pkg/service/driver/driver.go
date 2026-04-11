@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -28,8 +27,9 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/signal"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -38,13 +38,11 @@ import (
 
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
-	cfg                Config
-	shutdownCommands   io.Closer
-	shutdownHeartbeat  io.Closer
-	disconnectObserver observe.Disconnect
-	streamerRequests   confluence.Inlet[framer.StreamerRequest]
-	rack               rack.Rack
-	mu                 struct {
+	cfg              Config
+	closer           io.MultiCloser
+	streamerRequests confluence.Inlet[framer.StreamerRequest]
+	rack             rack.Rack
+	mu               struct {
 		tasks map[task.Key]Task
 		sync.RWMutex
 	}
@@ -59,13 +57,15 @@ type commandSink struct {
 // Open creates and starts a new Go driver. The driver is fully initialized and ready to
 // receive task changes when this function returns. Background goroutines for command
 // streaming are started automatically.
-func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
+func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	d := &Driver{cfg: cfg}
+	d = &Driver{cfg: cfg}
 	d.mu.tasks = make(map[task.Key]Task)
+	cleanup, ok := service.NewOpener(ctx, &d.closer)
+	defer func() { err = cleanup(err) }()
 
 	integrations := make([]string, len(cfg.Factories))
 	for i, f := range cfg.Factories {
@@ -81,14 +81,14 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 			Embedded:     true,
 			Integrations: integrations,
 		}
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
+		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
 			return nil, err
 		}
-	} else if err != nil {
+	} else if !ok(err, nil) {
 		return nil, err
 	} else {
 		d.rack.Integrations = integrations
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
+		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -96,8 +96,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
-	d.disconnectObserver = cfg.Task.Observe().OnChange(d.handleTaskChange)
-	if err = d.startCommandStreaming(ctx); err != nil {
+	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
+	ok(nil, io.NoFailCloserFunc(disconnect))
+	if err = d.startCommandStreaming(ctx); !ok(err, nil) {
 		return nil, err
 	}
 	return d, nil
@@ -106,7 +107,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 func (d *Driver) startHeartbeat() {
 	statusWriter := status.NewWriter[rack.StatusDetails](d.cfg.Status, nil)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	d.shutdownHeartbeat = signal.NewHardShutdown(sCtx, cancel)
+	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
 	signal.GoTick(
 		sCtx,
 		d.cfg.HeartbeatInterval,
@@ -129,7 +130,7 @@ func (d *Driver) startHeartbeat() {
 // will log warnings if the command channel doesn't exist or streaming fails.
 func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	d.shutdownCommands = signal.NewGracefulShutdown(sCtx, cancel)
+	d.closer = append(d.closer, signal.NewGracefulShutdown(sCtx, cancel))
 	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys: channel.Keys{d.cfg.Task.CommandChannelKey()},
 	})
@@ -318,9 +319,8 @@ func (d *Driver) Close() error {
 	}
 	clear(d.mu.tasks)
 	d.mu.Unlock()
-	d.disconnectObserver()
 	if d.streamerRequests != nil {
 		d.streamerRequests.Close()
 	}
-	return errors.Combine(d.shutdownCommands.Close(), d.shutdownHeartbeat.Close())
+	return d.closer.Close()
 }

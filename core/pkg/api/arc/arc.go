@@ -151,6 +151,11 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 				return RetrieveResponse{}, err
 			}
 		}
+	} else {
+		// Reset the program to zero value just in case it was there
+		for i := range res.Arcs {
+			res.Arcs[i].Program = nil
+		}
 	}
 
 	if err = s.access.Enforce(ctx, access.Request{

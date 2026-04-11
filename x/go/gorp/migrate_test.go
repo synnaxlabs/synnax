@@ -16,6 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/graph"
@@ -26,8 +29,8 @@ import (
 )
 
 type entryV1 struct {
-	ID   int32  `msgpack:"id"`
-	Data string `msgpack:"data"`
+	ID   int32  `msgpack:"id" json:"id"`
+	Data string `msgpack:"data" json:"data"`
 }
 
 func (e entryV1) GorpKey() int32    { return e.ID }
@@ -323,6 +326,73 @@ var _ = Describe("Migrate", func() {
 			}, "no_dep")
 			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m2, m1})).To(Succeed())
 			Expect(order).To(Equal([]string{"no_dep", "has_dep"}))
+		})
+	})
+
+	Describe("CodecMigration", func() {
+		It("Should re-encode all entries without changing data", func(ctx SpecContext) {
+			testDB := gorp.Wrap(memkv.New())
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			w := gorp.WrapWriter[int32, entryV1](testDB)
+			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
+			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
+			Expect(w.Set(ctx, entryV1{ID: 3, Data: "three"})).To(Succeed())
+			migration := gorp.CodecMigration[int32, entryV1]("codec_v1")
+			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+			r := gorp.WrapReader[int32, entryV1](testDB)
+			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))
+			Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two"))
+			Expect(MustSucceed(r.Get(ctx, 3)).Data).To(Equal("three"))
+		})
+
+		It("Should work on an empty table", func(ctx SpecContext) {
+			testDB := gorp.Wrap(memkv.New())
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			migration := gorp.CodecMigration[int32, entryV1]("codec_empty")
+			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+		})
+
+		It("Should re-encode entries from an old codec to a new one", func(ctx SpecContext) {
+			kvDB := memkv.New()
+			defer func() { Expect(kvDB.Close()).To(Succeed()) }()
+
+			// Write entries using JSON codec.
+			jsonDB := gorp.Wrap(kvDB, gorp.WithCodec(json.Codec))
+			w := gorp.WrapWriter[int32, entryV1](jsonDB)
+			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
+			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
+
+			// Run CodecMigration with msgpack primary + JSON fallback.
+			// This reads entries via JSON fallback and writes them back as msgpack.
+			fallbackDB := gorp.Wrap(
+				kvDB,
+				gorp.WithCodec(encoding.NewDecodeFallbackCodec(msgpack.Codec, json.Codec)),
+			)
+			migration := gorp.CodecMigration[int32, entryV1]("json_to_msgpack")
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         fallbackDB,
+				Namespace:  testNamespace,
+				Migrations: []migrate.Migration{migration},
+			})).To(Succeed())
+
+			// Verify entries are now readable with plain msgpack (no fallback needed).
+			msgpackDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+			r := gorp.WrapReader[int32, entryV1](msgpackDB)
+			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))
+			Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two"))
+		})
+
+		It("Should be skipped on re-run", func(ctx SpecContext) {
+			testDB := gorp.Wrap(memkv.New())
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			w := gorp.WrapWriter[int32, entryV1](testDB)
+			Expect(w.Set(ctx, entryV1{ID: 1, Data: "stable"})).To(Succeed())
+			migration := gorp.CodecMigration[int32, entryV1]("codec_idempotent")
+			migrations := []migrate.Migration{migration}
+			Expect(migrateWithEntryV1(ctx, testDB, migrations)).To(Succeed())
+			Expect(migrateWithEntryV1(ctx, testDB, migrations)).To(Succeed())
+			r := gorp.WrapReader[int32, entryV1](testDB)
+			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("stable"))
 		})
 	})
 

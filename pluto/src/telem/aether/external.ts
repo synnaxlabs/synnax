@@ -16,3 +16,4 @@ export * from "@/telem/aether/remote";
 export * from "@/telem/aether/static";
 export * from "@/telem/aether/telem";
 export * from "@/telem/aether/transformers";
+export * from "@/telem/client";

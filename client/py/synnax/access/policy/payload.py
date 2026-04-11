@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.access.policy.types_gen import Key, Policy, ontology_id
-from synnax.util.deprecation import deprecated_getattr
+from x.deprecation import deprecated_getattr
 
 __all__ = [
     "Key",

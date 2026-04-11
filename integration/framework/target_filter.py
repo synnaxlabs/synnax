@@ -10,13 +10,27 @@
 from dataclasses import dataclass
 
 
+def split_csv(value: str) -> list[str]:
+    """Split a comma-separated string into lowercased, stripped tokens."""
+    return [s.strip().lower() for s in value.split(",") if s.strip()]
+
+
+def _any_match(patterns: list[str] | None, name: str) -> bool:
+    """True if any pattern is a substring of name (case-insensitive)."""
+    if patterns is None:
+        return False
+    lower = name.lower()
+    return any(pat in lower for pat in patterns)
+
+
 @dataclass
 class TargetFilter:
     """Flexible test filter supporting substring matching at every level."""
 
     file_filter: list[str] | None = None
     sequence_filter: str | None = None
-    case_filter: str | None = None
+    case_filter: list[str] | None = None
+    exclude: list[str] | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -24,6 +38,7 @@ class TargetFilter:
             not self.file_filter
             and self.sequence_filter is None
             and self.case_filter is None
+            and self.exclude is None
         )
 
     def matches_sequence(self, seq_name: str) -> bool:
@@ -34,7 +49,10 @@ class TargetFilter:
     def matches_case(self, case_path: str) -> bool:
         if self.case_filter is None:
             return True
-        return self.case_filter.lower() in case_path.lower()
+        return _any_match(self.case_filter, case_path)
+
+    def excluded(self, name: str) -> bool:
+        return _any_match(self.exclude, name)
 
 
 def parse_target(target: str) -> TargetFilter:
@@ -69,16 +87,16 @@ def parse_target(target: str) -> TargetFilter:
         raise ValueError(f"Target path cannot be empty: {target!r}")
 
     sequence_filter: str | None = None
-    case_filter: str | None = None
+    case_filter: list[str] | None = None
 
     if len(parts) == 2:
         if parts[1] != "...":
-            case_filter = parts[1]
+            case_filter = split_csv(parts[1])
     elif len(parts) >= 3:
         if parts[1] != "...":
             sequence_filter = parts[1]
         if parts[2] != "...":
-            case_filter = parts[2]
+            case_filter = split_csv(parts[2])
 
     return TargetFilter(
         file_filter=file_filter,

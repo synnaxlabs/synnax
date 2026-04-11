@@ -16,7 +16,7 @@ import "schemas/status"
 @pb
 
 Key uint32 {
-    @doc value """
+    @doc value  """
         is a composite identifier for a rack. The high 16 bits contain the
         core node key, and the low 16 bits contain the local sequential key.
         Racks are leased to specific nodes because task configuration signals
@@ -24,6 +24,7 @@ Key uint32 {
         through a large cluster. This structure minimizes hops and configuration
         latency.
     """
+    @go marshal flex
 }
 
 StatusDetails struct {

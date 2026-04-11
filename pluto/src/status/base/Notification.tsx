@@ -9,7 +9,7 @@
 
 import "@/status/base/Notification.css";
 
-import { array, primitive } from "@synnaxlabs/x";
+import { array, primitive, status } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Button } from "@/button";
@@ -39,7 +39,7 @@ export interface NotificationProps extends Flex.BoxProps {
 }
 
 export const Notification = ({
-  status: { key, time, count, message, description, variant, name },
+  status: stat,
   silence,
   actions,
   className,
@@ -47,6 +47,8 @@ export const Notification = ({
   ...rest
 }: NotificationProps): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
+  const { key, time, count, message, description, variant, name } = stat;
+  const getCopyText = () => status.toString(stat);
 
   return (
     <Flex.Box
@@ -84,14 +86,30 @@ export const Notification = ({
             {time}
           </TelemText.TimeStamp>
         </Flex.Box>
-        <Button.Button
-          className={CSS(CSS.BE("notification", "silence"))}
-          variant="outlined"
-          size="small"
-          onClick={() => silence(key)}
+        <Flex.Box
+          x
+          className={CSS(CSS.BE("notification", "header-actions"))}
+          gap="tiny"
         >
-          <Icon.Close />
-        </Button.Button>
+          <Button.Copy
+            className={CSS(CSS.BE("notification", "copy"))}
+            text={getCopyText}
+            variant="text"
+            size="small"
+            tooltip="Copy diagnostics"
+            square
+            contrast={2}
+            textColor={10}
+          />
+          <Button.Button
+            className={CSS(CSS.BE("notification", "silence"))}
+            variant="outlined"
+            size="small"
+            onClick={() => silence(key)}
+          >
+            <Icon.Close />
+          </Button.Button>
+        </Flex.Box>
       </Flex.Box>
       <Flex.Box
         y

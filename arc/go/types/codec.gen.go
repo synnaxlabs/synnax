@@ -17,6 +17,214 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (c Channels) EncodeOrc(w *orc.Writer) error {
+	w.Bool(c.Read != nil)
+	if c.Read != nil {
+		w.Uint32(uint32(len(c.Read)))
+		for key, val := range c.Read {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
+	}
+	w.Bool(c.Write != nil)
+	if c.Write != nil {
+		w.Uint32(uint32(len(c.Write)))
+		for key, val := range c.Write {
+			w.Uint32(uint32(key))
+			w.String(val)
+		}
+	}
+	return nil
+}
+
+func (c *Channels) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Read = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				c.Read[key] = val
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Write = make(map[uint32]string, n)
+			for range n {
+				var key uint32
+				var val string
+				if key, err = r.Uint32(); err != nil {
+					return err
+				}
+				if val, err = r.String(); err != nil {
+					return err
+				}
+				c.Write[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+func (d Dimensions) EncodeOrc(w *orc.Writer) error {
+	w.Int8(int8(d.Length))
+	w.Int8(int8(d.Mass))
+	w.Int8(int8(d.Time))
+	w.Int8(int8(d.Current))
+	w.Int8(int8(d.Temperature))
+	w.Int8(int8(d.Angle))
+	w.Int8(int8(d.Count))
+	w.Int8(int8(d.Data))
+	return nil
+}
+
+func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if d.Length, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Mass, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Time, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Current, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Temperature, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Angle, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Count, err = r.Int8(); err != nil {
+		return err
+	}
+	if d.Data, err = r.Int8(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
+	if fp.Inputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(fp.Inputs)))
+		for j := range fp.Inputs {
+			if err := fp.Inputs[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if fp.Outputs != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(fp.Outputs)))
+		for j := range fp.Outputs {
+			if err := fp.Outputs[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if fp.Config != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(fp.Config)))
+		for j := range fp.Config {
+			if err := fp.Config[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			fp.Inputs = make([]Param, n)
+			for j := range fp.Inputs {
+				if err = fp.Inputs[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			fp.Outputs = make([]Param, n)
+			for j := range fp.Outputs {
+				if err = fp.Outputs[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			fp.Config = make([]Param, n)
+			for j := range fp.Config {
+				if err = fp.Config[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (p Param) EncodeOrc(w *orc.Writer) error {
 	w.String(p.Name)
 	if err := p.Type.EncodeOrc(w); err != nil {
@@ -231,101 +439,6 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
-	if fp.Inputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Inputs)))
-		for j := range fp.Inputs {
-			if err := fp.Inputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if fp.Outputs != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Outputs)))
-		for j := range fp.Outputs {
-			if err := fp.Outputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if fp.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Config)))
-		for j := range fp.Config {
-			if err := fp.Config[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Inputs = make([]Param, n)
-			for j := range fp.Inputs {
-				if err = fp.Inputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Outputs = make([]Param, n)
-			for j := range fp.Outputs {
-				if err = fp.Outputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Config = make([]Param, n)
-			for j := range fp.Config {
-				if err = fp.Config[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (u Unit) EncodeOrc(w *orc.Writer) error {
 	if err := u.Dimensions.EncodeOrc(w); err != nil {
 		return err
@@ -345,119 +458,6 @@ func (u *Unit) DecodeOrc(r *orc.Reader) error {
 	}
 	if u.Name, err = r.String(); err != nil {
 		return err
-	}
-	return nil
-}
-
-func (d Dimensions) EncodeOrc(w *orc.Writer) error {
-	w.Int8(int8(d.Length))
-	w.Int8(int8(d.Mass))
-	w.Int8(int8(d.Time))
-	w.Int8(int8(d.Current))
-	w.Int8(int8(d.Temperature))
-	w.Int8(int8(d.Angle))
-	w.Int8(int8(d.Count))
-	w.Int8(int8(d.Data))
-	return nil
-}
-
-func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if d.Length, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Mass, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Time, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Current, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Temperature, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Angle, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Count, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Data, err = r.Int8(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c Channels) EncodeOrc(w *orc.Writer) error {
-	w.Bool(c.Read != nil)
-	if c.Read != nil {
-		w.Uint32(uint32(len(c.Read)))
-		for key, val := range c.Read {
-			w.Uint32(uint32(key))
-			w.String(val)
-		}
-	}
-	w.Bool(c.Write != nil)
-	if c.Write != nil {
-		w.Uint32(uint32(len(c.Write)))
-		for key, val := range c.Write {
-			w.Uint32(uint32(key))
-			w.String(val)
-		}
-	}
-	return nil
-}
-
-func (c *Channels) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			c.Read = make(map[uint32]string, n)
-			for range n {
-				var key uint32
-				var val string
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.String(); err != nil {
-					return err
-				}
-				c.Read[key] = val
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			c.Write = make(map[uint32]string, n)
-			for range n {
-				var key uint32
-				var val string
-				if key, err = r.Uint32(); err != nil {
-					return err
-				}
-				if val, err = r.String(); err != nil {
-					return err
-				}
-				c.Write[key] = val
-			}
-		}
 	}
 	return nil
 }

@@ -114,25 +114,6 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (vv Viewport) EncodeOrc(w *orc.Writer) error {
-	if err := vv.Position.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Float64(float64(vv.Zoom))
-	return nil
-}
-
-func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = vv.Position.DecodeOrc(r); err != nil {
-		return err
-	}
-	if vv.Zoom, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
@@ -167,6 +148,25 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	if err = nv.Position.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (vv Viewport) EncodeOrc(w *orc.Writer) error {
+	if err := vv.Position.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Float64(float64(vv.Zoom))
+	return nil
+}
+
+func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = vv.Position.DecodeOrc(r); err != nil {
+		return err
+	}
+	if vv.Zoom, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

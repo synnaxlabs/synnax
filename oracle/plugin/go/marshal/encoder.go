@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -54,8 +55,10 @@ type encoderFileOutput struct {
 	ExtraImports   map[string]string
 	NeedsMath      bool
 	NeedsJSON      bool
+	HasFlex        bool
 	ConcreteCodecs []concreteCodec
 	GenericCodecs  []genericCodec
+	FlexMethods    string
 }
 
 // --- Generation entry point ---
@@ -64,12 +67,31 @@ func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
 	entries []CodecEntry,
+	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
 	fo := encoderFileOutput{
 		Package:      packageName,
 		ExtraImports: make(map[string]string),
+	}
+
+	// Generate flex methods for distinct scalar types in sorted order.
+	if len(flex) > 0 {
+		sort.Slice(flex, func(i, j int) bool { return flex[i].GoName < flex[j].GoName })
+		var flexBuf strings.Builder
+		for _, fc := range flex {
+			methods, err := generateFlexMethods(fc)
+			if err != nil {
+				return nil, err
+			}
+			flexBuf.WriteString(methods)
+		}
+		fo.FlexMethods = flexBuf.String()
+		fo.HasFlex = true
+		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = "msgpack"
+		fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
+		fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 	}
 	for _, e := range entries {
 		b := &encoderBuilder{
@@ -101,7 +123,7 @@ func generateEncoderCodecFile(
 			}
 		}
 
-		recv := receiverName(e.GoName)
+		recv := ReceiverName(e.GoName)
 		if len(typeParams) > 0 {
 			// Generic type with non-defaulted params: generate method with
 			// type assertion + JSON fallback for type parameter fields.
@@ -145,7 +167,8 @@ func generateEncoderCodecFile(
 		}
 	}
 	tmpl, err := template.New("encoder_codec").Funcs(template.FuncMap{
-		"tpNames": tpNames,
+		"tpNames":       tpNames,
+		"sortedImports": sortedImports,
 	}).Parse(encoderCodecTemplate)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse encoder template")
@@ -173,11 +196,11 @@ var reservedNames = map[string]bool{
 	"err": true, "ok": true, // error/bool variables in method bodies
 }
 
-// receiverName derives a Go-idiomatic short receiver name from a type name.
+// ReceiverName derives a Go-idiomatic short receiver name from a type name.
 // It takes the lowercase initials of each word in the PascalCase name
 // (e.g., "TimeRange" -> "tr", "XY" -> "xy", "Status" -> "s").
 // Names that conflict with generated local variables get a "v" suffix.
-func receiverName(goName string) string {
+func ReceiverName(goName string) string {
 	var initials []byte
 	for i, c := range goName {
 		if i == 0 || (c >= 'A' && c <= 'Z') {
@@ -950,10 +973,12 @@ import (
 {{- if .NeedsJSON}}
 	"encoding/json"
 {{- end}}
+{{- if or .ConcreteCodecs .GenericCodecs}}
 
 	"github.com/synnaxlabs/x/encoding/orc"
-{{- range $path, $alias := .ExtraImports}}
-	{{if $alias}}{{$alias}} {{end}}"{{$path}}"
+{{- end}}
+{{- range sortedImports .ExtraImports}}
+	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range .ConcreteCodecs}}
@@ -982,4 +1007,4 @@ func ({{.Receiver}} *{{.GoName}}[{{tpNames .TypeParams}}]) DecodeOrc(r *orc.Read
 {{.DecodeBody}}
 	return nil
 }
-{{end}}`
+{{end}}{{if .HasFlex}}{{.FlexMethods}}{{end}}`

@@ -17,7 +17,7 @@ import { types } from "@/arc/types";
 export enum EdgeKind {
   unspecified = 0,
   continuous = 1,
-  one_shot = 2,
+  conditional = 2,
 }
 export const edgeKindZ = z.enum(EdgeKind);
 

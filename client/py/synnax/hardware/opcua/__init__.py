@@ -18,5 +18,5 @@ warnings.warn(
     stacklevel=2,
 )
 
-from synnax.opcua import *
-from synnax.opcua import __all__
+from synnax.opcua import *  # noqa: F403
+from synnax.opcua import __all__ as __all__  # noqa: F401

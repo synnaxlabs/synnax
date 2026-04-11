@@ -25,7 +25,6 @@ import { type FC, type ReactElement, useCallback } from "react";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { CSV } from "@/csv";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { FavoriteButton } from "@/range/FavoriteButton";
@@ -100,27 +99,22 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   );
   Layout.useSyncName(rangeKey, name, handleLayoutNameChange);
 
-  const copy = useCopyToClipboard();
-  const handleCopyPythonCode = () => {
-    copy(
+  const getPythonCode = useCallback(
+    () =>
       `
       # Retrieve ${name}
       rng = client.ranges.retrieve(key="${rangeKey}")
     `,
-      `Python code to retrieve ${name}`,
-    );
-  };
-
-  const handleCopyTypeScriptCode = () => {
-    const name = form.get<string>("name").value;
-    copy(
+    [name, rangeKey],
+  );
+  const getTypeScriptCode = useCallback(
+    () =>
       `
       // Retrieve ${name}
       const rng = await client.ranges.retrieve("${rangeKey}")
     `,
-      `TypeScript code to retrieve ${name}`,
-    );
-  };
+    [name, rangeKey],
+  );
 
   const promptDownloadCSVModal = CSV.useDownloadModal();
 
@@ -153,36 +147,32 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
           <Flex.Box x style={{ height: "fit-content" }} gap="small">
-            <Button.Button
+            <Button.Copy
+              text={getPythonCode}
               tooltip={`Copy Python code to retrieve ${name}`}
               tooltipLocation="bottom"
               variant="text"
-              onClick={handleCopyPythonCode}
-            >
-              <Icon.Python color={9} />
-            </Button.Button>
-            <Button.Button
-              variant="text"
-              tooltip={`Copy TypeScript code to retrieve ${name}`}
-              tooltipLocation="bottom"
-              onClick={handleCopyTypeScriptCode}
-            >
-              <Icon.TypeScript color={9} />
-            </Button.Button>
-            <Divider.Divider y />
-            <Button.Button
-              variant="text"
-              tooltip={`Copy link to ${name}`}
-              tooltipLocation="bottom"
-              onClick={handleCopyLink}
+              successMessage={`Copied Python code to retrieve ${name} to clipboard`}
               textColor={9}
             >
-              <Icon.Link color={9} />
-            </Button.Button>
+              <Icon.Python />
+            </Button.Copy>
+            <Button.Copy
+              variant="text"
+              text={getTypeScriptCode}
+              tooltip={`Copy TypeScript code to retrieve ${name}`}
+              tooltipLocation="bottom"
+              successMessage={`Copied TypeScript code to retrieve ${name} to clipboard`}
+              textColor={9}
+            >
+              <Icon.TypeScript />
+            </Button.Copy>
+            <Divider.Divider y />
             <Button.Button
               tooltip={`Download data for ${name} as a CSV`}
               tooltipLocation="bottom"
               variant="text"
+              textColor={9}
               onClick={() =>
                 handleError(async () => {
                   await promptDownloadCSVModal(
@@ -196,9 +186,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 }, "Failed to download CSV")
               }
             >
-              <Icon.CSV color={9} />
+              <Icon.CSV />
             </Button.Button>
             <Divider.Divider y />
+            <Button.Button
+              variant="text"
+              tooltip={`Copy link to ${name}`}
+              tooltipLocation="bottom"
+              onClick={handleCopyLink}
+              textColor={9}
+            >
+              <Icon.Link />
+            </Button.Button>
             {range != null && <FavoriteButton range={range} size="medium" />}
           </Flex.Box>
         </Flex.Box>

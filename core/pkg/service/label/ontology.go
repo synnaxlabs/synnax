@@ -31,12 +31,14 @@ import (
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.
 var LabelsOntologyTraverser = ontology.Traverser{
-	RawTraversal: func(_ []ontology.ID) ontology.RawTraversal {
-		return func(data []byte, nextIDs *[]ontology.ID) {
-			*nextIDs = append(
-				*nextIDs,
-				ontology.ReadRawID(orc.NewRaw(data).SkipStrings(3)),
-			)
+	Traverse: func(_ []ontology.ID) ontology.RawTraversal {
+		return func(data []byte, nextIDs *[]ontology.ID) error {
+			raw, err := orc.NewRaw(data)
+			if err != nil {
+				return err
+			}
+			*nextIDs = append(*nextIDs, ontology.ReadRawID(raw.SkipStrings(3)))
+			return nil
 		}
 	},
 	Direction:    ontology.DirectionForward,

@@ -72,6 +72,11 @@ on:
         required: false
         default: ""
         type: string
+      RUN_MIGRATION:
+        description: "Run migration tests"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -200,4 +205,16 @@ jobs:
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: ubuntu-latest
       flags: ${{ needs.setup.outputs.FLAGS }}
+    secrets: inherit
+
+  migration:
+    name: Migration
+    needs: [setup, build]
+    if:
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') && (github.base_ref == 'main' ||
+      github.event.inputs.RUN_MIGRATION == 'true') }}
+    uses: ./.github/workflows/test.migration.yaml
+    with:
+      ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
     secrets: inherit

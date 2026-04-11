@@ -1609,4 +1609,637 @@ var _ = Describe("Statement Compiler", func() {
 			))
 		})
 	})
+	Describe("For Loops", func() {
+		It("Should compile range loop with 1 arg", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				for i := range(3) {
+					x := i
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// i = 0 (default start)
+				OpI64Const, int64(0),
+				OpLocalSet, 0, // i
+				// __for_limit = 3
+				OpI64Const, int64(3),
+				OpLocalSet, 1, // __for_limit
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $loop_header
+				OpLoop, BlockTypeEmpty,
+				// i >= limit => br $break
+				OpLocalGet, 0, // i
+				OpLocalGet, 1, // __for_limit
+				OpI64GeS,
+				OpBrIf, uint32(1),
+				// block $continue
+				OpBlock, BlockTypeEmpty,
+				// x := i
+				OpLocalGet, 0,
+				OpLocalSet, 2, // x
+				// end block $continue
+				OpEnd,
+				// i = i + 1
+				OpLocalGet, 0,
+				OpI64Const, int64(1),
+				OpI64Add,
+				OpLocalSet, 0,
+				// br $loop_header
+				OpBr, uint32(0),
+				// end loop
+				OpEnd,
+				// end block $break
+				OpEnd,
+			))
+		})
+
+		It("Should compile range loop with 2 args", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				for i := range(5, 10) {
+					x := i
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// i = 5 (start)
+				OpI64Const, int64(5),
+				OpLocalSet, 0, // i
+				// __for_limit = 10
+				OpI64Const, int64(10),
+				OpLocalSet, 1, // __for_limit
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $loop_header
+				OpLoop, BlockTypeEmpty,
+				// i >= limit => br $break
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpI64GeS,
+				OpBrIf, uint32(1),
+				// block $continue
+				OpBlock, BlockTypeEmpty,
+				// x := i
+				OpLocalGet, 0,
+				OpLocalSet, 2,
+				// end block $continue
+				OpEnd,
+				// i = i + 1
+				OpLocalGet, 0,
+				OpI64Const, int64(1),
+				OpI64Add,
+				OpLocalSet, 0,
+				// br $loop_header
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile conditional (while-style) for loop", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				running i32 := 1
+				for running {
+					running = 0
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// running = 1
+				OpI32Const, int32(1),
+				OpLocalSet, 0,
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $continue
+				OpLoop, BlockTypeEmpty,
+				// condition: running
+				OpLocalGet, 0,
+				OpI32Eqz,
+				OpBrIf, uint32(1),
+				// running = 0
+				OpI32Const, int32(0),
+				OpLocalSet, 0,
+				// br $continue
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile infinite loop with break", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				for {
+					break
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $continue
+				OpLoop, BlockTypeEmpty,
+				// break → br $break (label 1 from inside loop)
+				OpBr, uint32(1),
+				// br $continue (unreachable but emitted)
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile break inside if inside for (correct label depth)", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				x i32 := 1
+				for x {
+					if x {
+						break
+					}
+					x = 0
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// x = 1
+				OpI32Const, int32(1),
+				OpLocalSet, 0,
+				// block $break (depth 1)
+				OpBlock, BlockTypeEmpty,
+				// loop $continue (depth 2)
+				OpLoop, BlockTypeEmpty,
+				// condition: x
+				OpLocalGet, 0,
+				OpI32Eqz,
+				OpBrIf, uint32(1),
+				// if x (depth 3)
+				OpLocalGet, 0,
+				OpIf, BlockTypeEmpty,
+				// break → br 2 (skip if block + loop to reach block $break)
+				OpBr, uint32(2),
+				OpEnd,
+				// x = 0
+				OpI32Const, int32(0),
+				OpLocalSet, 0,
+				// br $continue
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile continue inside for loop", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				for i := range(10) {
+					continue
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// i = 0
+				OpI64Const, int64(0),
+				OpLocalSet, 0,
+				// __for_limit = 10
+				OpI64Const, int64(10),
+				OpLocalSet, 1,
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $loop_header
+				OpLoop, BlockTypeEmpty,
+				// i >= limit
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpI64GeS,
+				OpBrIf, uint32(1),
+				// block $continue
+				OpBlock, BlockTypeEmpty,
+				// continue → br $continue (label 0, exits to increment)
+				OpBr, uint32(0),
+				// end block $continue
+				OpEnd,
+				// i = i + 1
+				OpLocalGet, 0,
+				OpI64Const, int64(1),
+				OpI64Add,
+				OpLocalSet, 0,
+				// br $loop_header
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile range loop with 3 args (step)", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				for i := range(0, 10, 2) {
+					x := i
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			// i=0, __for_limit=1, __for_step=2, x=3
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// i = 0 (start)
+				OpI64Const, int64(0),
+				OpLocalSet, 0, // i
+				// __for_limit = 10
+				OpI64Const, int64(10),
+				OpLocalSet, 1, // __for_limit
+				// __for_step = 2
+				OpI64Const, int64(2),
+				OpLocalSet, 2, // __for_step
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $loop_header
+				OpLoop, BlockTypeEmpty,
+				// direction-aware exit condition
+				OpLocalGet, 2, // step
+				OpI64Const, int64(0),
+				OpI64GtS, // step > 0?
+				OpIf, BlockTypeI32,
+				OpLocalGet, 0, // i
+				OpLocalGet, 1, // limit
+				OpI64GeS, // ascending: i >= limit
+				OpElse,
+				OpLocalGet, 0, // i
+				OpLocalGet, 1, // limit
+				OpI64LeS, // descending: i <= limit
+				OpEnd,
+				OpBrIf, uint32(1),
+				// block $continue
+				OpBlock, BlockTypeEmpty,
+				// x := i
+				OpLocalGet, 0,
+				OpLocalSet, 3, // x
+				// end block $continue
+				OpEnd,
+				// i = i + step
+				OpLocalGet, 0,
+				OpLocalGet, 2, // __for_step
+				OpI64Add,
+				OpLocalSet, 0,
+				// br $loop_header
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile range loop with negative bounds", func(bCtx SpecContext) {
+			// Negative literals compile as unary negation (not a single
+			// i64.const -5), so exact opcode matching is impractical.
+			// We verify compilation succeeds and key structural opcodes
+			// are present.
+			block := MustSucceed(parser.ParseBlock(`{
+				for i := range(-5, 5) {
+					x := i
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			bytecode := ctx.Writer.Bytes()
+			containsOpcode := func(bc []byte, opcode byte) bool {
+				for _, b := range bc {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
+			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
+		})
+
+		It("Should compile range loop with mixed concrete types", func(bCtx SpecContext) {
+			// start is i32 variable, end is i64 variable — loopVarType
+			// widens to i64. Verifies compilation succeeds with mixed widths.
+			block := MustSucceed(parser.ParseBlock(`{
+				lo i32 := 1
+				hi i64 := 10
+				for i := range(lo, hi) {
+					x := i
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			bytecode := ctx.Writer.Bytes()
+			containsOpcode := func(bc []byte, opcode byte) bool {
+				for _, b := range bc {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
+			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
+		})
+
+		It("Should compile range loop with explicit i32 type", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				for i := range(i32(5)) {
+					x := i
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// i = 0 (i32)
+				OpI32Const, int32(0),
+				OpLocalSet, 0,
+				// __for_limit = 5 (i32)
+				OpI32Const, int32(5),
+				OpLocalSet, 1,
+				// block $break
+				OpBlock, BlockTypeEmpty,
+				// loop $loop_header
+				OpLoop, BlockTypeEmpty,
+				// i >= limit
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpI32GeS,
+				OpBrIf, uint32(1),
+				// block $continue
+				OpBlock, BlockTypeEmpty,
+				// x := i
+				OpLocalGet, 0,
+				OpLocalSet, 2,
+				// end block $continue
+				OpEnd,
+				// i = i + 1 (i32)
+				OpLocalGet, 0,
+				OpI32Const, int32(1),
+				OpI32Add,
+				OpLocalSet, 0,
+				// br $loop_header
+				OpBr, uint32(0),
+				OpEnd,
+				OpEnd,
+			))
+		})
+
+		It("Should compile conditional loop with block body", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				x i32 := 10
+				sum i32 := 0
+				for x > 0 {
+					sum = sum + x
+					x = x - 1
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			bytecode := ctx.Writer.Bytes()
+			containsOpcode := func(bc []byte, opcode byte) bool {
+				for _, b := range bc {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(containsOpcode(bytecode, byte(OpI32Eqz))).To(BeTrue(), "missing condition eqz")
+			Expect(containsOpcode(bytecode, byte(OpI32Sub))).To(BeTrue(), "missing decrement")
+		})
+
+		It("Should compile infinite loop with continue", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				x i32 := 0
+				for {
+					x = x + 1
+					if x > 10 {
+						break
+					}
+					if x == 5 {
+						continue
+					}
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			bytecode := ctx.Writer.Bytes()
+			containsOpcode := func(bc []byte, opcode byte) bool {
+				for _, b := range bc {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing increment")
+			// break and continue both emit br instructions
+			Expect(containsOpcode(bytecode, byte(OpBr))).To(BeTrue(), "missing br for break/continue")
+		})
+
+		// Series iteration compiles to WASM that calls external functions
+		// (series.len, series.index_*). The byte values for those Call
+		// instructions change depending on import order, so we can't do an
+		// exact byte-for-byte match like the range loop tests. Instead we
+		// check that key opcodes are present in the output.
+
+		It("Should compile series iteration (single-ident)", func(bCtx SpecContext) {
+			compileForLoop := func(source string) []byte {
+				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+				aCtx := acontext.CreateRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				ctx := context.CreateRoot(
+					bCtx, aCtx.Scope, aCtx.TypeMap,
+					resolve.NewResolver(stl.SymbolResolver),
+				)
+				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+				Expect(diverged).To(BeFalse())
+				return FinalizeContext(ctx)
+			}
+			containsOpcode := func(bytecode []byte, opcode byte) bool {
+				for _, b := range bytecode {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			bytecode := compileForLoop(`
+				data series i32 := [1, 2, 3]
+				sum i32 := 0
+				for x := data {
+					sum = sum + x
+				}
+			`)
+			// block/loop/end structure for the for loop
+			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			// idx >= len exit condition
+			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			// idx increment: idx + 1
+			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
+			// i32.wrap_i64 to convert series.len result
+			Expect(containsOpcode(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
+			// Call instructions for series.len and series.index
+			Expect(containsOpcode(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
+		})
+
+		It("Should compile series iteration (two-ident)", func(bCtx SpecContext) {
+			compileForLoop := func(source string) []byte {
+				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+				aCtx := acontext.CreateRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				ctx := context.CreateRoot(
+					bCtx, aCtx.Scope, aCtx.TypeMap,
+					resolve.NewResolver(stl.SymbolResolver),
+				)
+				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+				Expect(diverged).To(BeFalse())
+				return FinalizeContext(ctx)
+			}
+			containsOpcode := func(bytecode []byte, opcode byte) bool {
+				for _, b := range bytecode {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			bytecode := compileForLoop(`
+				data series i32 := [10, 20, 30]
+				sum i32 := 0
+				for i, x := data {
+					sum = sum + x * (i + 1)
+				}
+			`)
+			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
+			Expect(containsOpcode(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
+			Expect(containsOpcode(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
+			// Two-ident form should also have i32.mul for the weighted sum body
+			Expect(containsOpcode(bytecode, byte(OpI32Mul))).To(BeTrue(), "missing i32.mul for weighted sum")
+		})
+
+		It("Should compile series iteration with f64 elements", func(bCtx SpecContext) {
+			compileForLoop := func(source string) []byte {
+				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+				aCtx := acontext.CreateRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				ctx := context.CreateRoot(
+					bCtx, aCtx.Scope, aCtx.TypeMap,
+					resolve.NewResolver(stl.SymbolResolver),
+				)
+				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+				Expect(diverged).To(BeFalse())
+				return FinalizeContext(ctx)
+			}
+			containsOpcode := func(bytecode []byte, opcode byte) bool {
+				for _, b := range bytecode {
+					if b == opcode {
+						return true
+					}
+				}
+				return false
+			}
+			bytecode := compileForLoop(`
+				data series f64 := [1.0, 2.0, 3.0]
+				sum f64 := 0.0
+				for x := data {
+					sum = sum + x
+				}
+			`)
+			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			// f64 addition in the loop body
+			Expect(containsOpcode(bytecode, byte(OpF64Add))).To(BeTrue(), "missing f64.add for sum")
+		})
+
+		It("Should compile nested range loops", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				count i32 := 0
+				for i := range(i32(3)) {
+					for j := range(i32(4)) {
+						count = count + 1
+					}
+				}
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			Expect(len(ctx.Writer.Bytes())).To(BeNumerically(">", 0))
+		})
+	})
 })

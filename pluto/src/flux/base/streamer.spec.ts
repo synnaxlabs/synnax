@@ -25,7 +25,7 @@ class MockHardenedStreamer implements framer.Streamer {
   readonly nextFn?: () => Promise<IteratorResult<framer.Frame>>;
 
   constructor(
-    keys: channel.Keys,
+    keys: channel.Key[],
     nextFn?: () => Promise<IteratorResult<framer.Frame>>,
     reads?: framer.Frame[],
   ) {
@@ -34,8 +34,8 @@ class MockHardenedStreamer implements framer.Streamer {
     this.nextFn = nextFn;
   }
 
-  get keys(): channel.Keys {
-    return this.keysI.at(-1) as channel.Keys;
+  get keys(): channel.Key[] {
+    return this.keysI.at(-1) as channel.Key[];
   }
 
   update(keys: channel.Params): Promise<void> {

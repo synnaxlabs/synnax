@@ -19,6 +19,8 @@ import os
 import re
 import uuid
 
+import synnax as sy
+
 # Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
 
@@ -50,6 +52,45 @@ def get_fixture_path(filename: str) -> str:
     return path
 
 
+def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
+    """Create (or retrieve) a timestamp index channel."""
+    return client.channels.create(
+        name=name,
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+        retrieve_if_name_exists=True,
+    )
+
+
+def create_virtual_channel(
+    client: sy.Synnax,
+    name: str,
+    data_type: sy.DataType = sy.DataType.FLOAT32,
+) -> sy.Channel:
+    """Create (or retrieve) a virtual channel."""
+    return client.channels.create(
+        name=name,
+        data_type=data_type,
+        virtual=True,
+        retrieve_if_name_exists=True,
+    )
+
+
+def create_indexed_channel(
+    client: sy.Synnax,
+    name: str,
+    data_type: sy.DataType,
+    index_key: int,
+) -> sy.Channel:
+    """Create (or retrieve) a data channel indexed to a time channel."""
+    return client.channels.create(
+        name=name,
+        data_type=data_type,
+        index=index_key,
+        retrieve_if_name_exists=True,
+    )
+
+
 LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
 
 
@@ -72,14 +113,14 @@ def assert_link_format(
     except ValueError:
         raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
 
-    assert (
-        actual_type == resource_type
-    ), f"Resource type should be '{resource_type}', got: {actual_type}"
+    assert actual_type == resource_type, (
+        f"Resource type should be '{resource_type}', got: {actual_type}"
+    )
 
     if resource_id is not None:
-        assert (
-            actual_id == resource_id
-        ), f"Resource ID should be '{resource_id}', got: {actual_id}"
+        assert actual_id == resource_id, (
+            f"Resource ID should be '{resource_id}', got: {actual_id}"
+        )
     else:
         try:
             uuid.UUID(actual_id)

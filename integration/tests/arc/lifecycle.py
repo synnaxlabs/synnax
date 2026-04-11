@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
-from x import get_random_name
 
+import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
+from x import random_name
 
 ARC_LIFECYCLE_SOURCE = """
 
@@ -30,7 +31,7 @@ func event_log{msg str} () {
     lifecycle_log = msg
 }
 
-press_pt -> check_high_pressure{} -> stable_for{duration=500ms} -> select{} -> {
+press_pt -> check_high_pressure{} -> stable_for{500ms} -> select{} -> {
     true: set_status{
         status_key="lifecycle_press_alarm",
         name="Lifecycle Press Alarm",
@@ -59,25 +60,25 @@ func nested_write_2(val f32) {
     nested_write_3(val)
 }
 
-interval{period=100ms} -> nested_write_1{}
+interval{100ms} -> nested_write_1{}
 
 sequence main {
     stage press {
         SOME_CONST_1 => const_output,
         1 -> press_vlv_cmd,
-        event_log{msg="pressurizing"},
+        event_log{"pressurizing"},
         press_pt > PRESS_HIGH_LIMIT + 5 => maintain
     }
 
     stage maintain {
         0 -> press_vlv_cmd,
-        wait{duration=1s} => vent
+        wait{1s} => vent
     }
 
     stage vent {
         SOME_CONST_2 * 2 => const_output,
         1 -> vent_vlv_cmd,
-        event_log{msg="venting"},
+        event_log{"venting"},
         press_pt < PRESS_LOW_LIMIT => complete
     }
 
@@ -98,7 +99,7 @@ sequence signal_ctrl {
     }
     stage stop {
         "stop" -> signal_stage_log,
-        wait{duration=250ms} => yield
+        wait{250ms} => yield
     }
     stage yield {
         "yield" -> signal_stage_log,
@@ -140,43 +141,13 @@ class Lifecycle(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self.new_name = f"ArcRenamed_{get_random_name()}"
-        self.client.channels.create(
-            name="arc_lifecycle_virt",
-            data_type=sy.DataType.FLOAT32,
-            retrieve_if_name_exists=True,
-            virtual=True,
-        )
-        self.client.channels.create(
-            name="const_output",
-            data_type=sy.DataType.FLOAT32,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="lifecycle_log",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="signal_stage_log",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="bb_signal_start_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="bb_signal_stop_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        self.new_name = f"ArcRenamed_{random_name()}"
+        create_virtual_channel(self.client, "arc_lifecycle_virt")
+        create_virtual_channel(self.client, "const_output")
+        create_virtual_channel(self.client, "lifecycle_log", sy.DataType.STRING)
+        create_virtual_channel(self.client, "signal_stage_log", sy.DataType.STRING)
+        create_virtual_channel(self.client, "bb_signal_start_cmd", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "bb_signal_stop_cmd", sy.DataType.UINT8)
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -225,14 +196,12 @@ class Lifecycle(ArcConsoleCase):
         # stage's source node must advance its watermark on activation so the
         # pre-existing bb_signal_start_cmd value is not seen as new data.
         self.log("Phase 3: Testing stale virtual channel regression (signal_ctrl)")
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
-            w.write("bb_signal_start_cmd", 1)
+        self.writer.write("bb_signal_start_cmd", 1)
 
         self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
         self.log("signal_ctrl entered start stage")
 
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_stop_cmd") as w:
-            w.write("bb_signal_stop_cmd", 1)
+        self.writer.write("bb_signal_stop_cmd", 1)
 
         self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
         self.log("signal_ctrl entered yield stage")
@@ -242,23 +211,20 @@ class Lifecycle(ArcConsoleCase):
         self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
 
         # Confirm a fresh start signal correctly re-enters start.
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
-            w.write("bb_signal_start_cmd", 1)
+        self.writer.write("bb_signal_start_cmd", 1)
         self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
 
         # --- 4. Rename while running (triggers redeployment warning) ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")
-        self.console.arc.rename(old_name=self.arc_name, new_name=self.new_name)
-        self._arc_started = False  # Rename stops the arc
+        old_name = self.arc_name
+        self.rename_arc(self.arc_name, self.new_name)
+        self.arc_name = self.new_name
 
         self.log("Verifying new name in toolbar")
         self.console.arc.wait_for_item(self.new_name)
 
-        old_item = self.console.arc.find_item(self.arc_name)
-        assert old_item is None, f"Old name '{self.arc_name}' still present"
-
-        # Update arc_name so parent teardown uses the new name
-        self.arc_name = self.new_name
+        old_item = self.console.arc.find_item(old_name)
+        assert old_item is None, f"Old name '{old_name}' still present"
 
         # --- 5. Re-configure and re-start with new name ---
         self.log("Opening renamed Arc")
@@ -270,13 +236,11 @@ class Lifecycle(ArcConsoleCase):
         self.console.arc.configure()
 
         self.log("Re-starting with new name")
-        self.console.arc.start()
-        self._arc_started = True
+        self.start_arc(self.new_name)
 
         # --- 6. Stop, then delete and verify tab removal ---
         self.log("Stopping Arc")
         self.console.arc.stop()
-        self._arc_started = False
 
         self.log("Verifying tab exists before delete")
         tab = self.console.layout.get_tab(self.new_name)
@@ -285,7 +249,7 @@ class Lifecycle(ArcConsoleCase):
 
         self.log(f"Deleting Arc: {self.new_name}")
         self.console.arc.delete(self.new_name)
-        self._arc_created = False
+        self.remove_arc(self.new_name)
 
         self.log("Verifying tab removed from mosaic")
         tab = self.console.layout.get_tab(self.new_name)

@@ -64,7 +64,7 @@ interface InternalState {
 }
 
 interface AetherControllerTelem extends telem.Telem {
-  needsControlOf: (client: Synnax) => Promise<channel.Keys>;
+  needsControlOf: (client: Synnax) => Promise<channel.Key[]>;
 }
 
 /**
@@ -232,19 +232,19 @@ export class Controller
   // would be stale relative to the new writer's start after a reconnection.
   async set(
     buildFrame: () => Promise<
-      framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>
+      framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>
     >,
   ): Promise<void> {
     await this.withRetry(async () => this.writer?.write(await buildFrame()));
   }
 
-  async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
+  async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
     await this.withRetry(async () =>
       this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
     );
   }
 
-  async releaseAuthority(keys: channel.Keys): Promise<void> {
+  async releaseAuthority(keys: channel.Key[]): Promise<void> {
     await this.withRetry(async () =>
       this.writer?.setAuthority(
         Object.fromEntries(keys.map((k) => [k, this.state.authority])),
@@ -314,7 +314,7 @@ export class SetChannelValue
     this.controller.deleteTelem(this);
   }
 
-  async needsControlOf(client: Synnax): Promise<channel.Keys> {
+  async needsControlOf(client: Synnax): Promise<channel.Key[]> {
     if (this.props.channel === 0) return [];
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
@@ -330,7 +330,9 @@ export class SetChannelValue
         throw new ValidationError("No command channel specified for actuator");
       await this.controller.set(async () => {
         const ch = await client.channels.retrieve(this.props.channel);
-        const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
+        const fr: Record<channel.Key | channel.Name, CrudeSeries> = {
+          [ch.key]: values,
+        };
         if (ch.index !== 0) {
           const index = await client.channels.retrieve(ch.index);
           const now = TimeStamp.now();
@@ -377,7 +379,7 @@ export class AcquireChannelControl
     this.controller.deleteTelem(this);
   }
 
-  async needsControlOf(client: Synnax): Promise<channel.Keys> {
+  async needsControlOf(client: Synnax): Promise<channel.Key[]> {
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     if (chan.index !== 0) keys.push(chan.index);
@@ -438,7 +440,7 @@ export class AuthoritySource
     this.controller = controller;
   }
 
-  async needsControlOf(): Promise<channel.Keys> {
+  async needsControlOf(): Promise<channel.Key[]> {
     return [];
   }
 

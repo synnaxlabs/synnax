@@ -142,6 +142,18 @@ type ArcParserListener interface {
 	// EnterElseClause is called when entering the elseClause production.
 	EnterElseClause(c *ElseClauseContext)
 
+	// EnterForStatement is called when entering the forStatement production.
+	EnterForStatement(c *ForStatementContext)
+
+	// EnterForClause is called when entering the forClause production.
+	EnterForClause(c *ForClauseContext)
+
+	// EnterBreakStatement is called when entering the breakStatement production.
+	EnterBreakStatement(c *BreakStatementContext)
+
+	// EnterContinueStatement is called when entering the continueStatement production.
+	EnterContinueStatement(c *ContinueStatementContext)
+
 	// EnterReturnStatement is called when entering the returnStatement production.
 	EnterReturnStatement(c *ReturnStatementContext)
 
@@ -348,6 +360,18 @@ type ArcParserListener interface {
 
 	// ExitElseClause is called when exiting the elseClause production.
 	ExitElseClause(c *ElseClauseContext)
+
+	// ExitForStatement is called when exiting the forStatement production.
+	ExitForStatement(c *ForStatementContext)
+
+	// ExitForClause is called when exiting the forClause production.
+	ExitForClause(c *ForClauseContext)
+
+	// ExitBreakStatement is called when exiting the breakStatement production.
+	ExitBreakStatement(c *BreakStatementContext)
+
+	// ExitContinueStatement is called when exiting the continueStatement production.
+	ExitContinueStatement(c *ContinueStatementContext)
 
 	// ExitReturnStatement is called when exiting the returnStatement production.
 	ExitReturnStatement(c *ReturnStatementContext)

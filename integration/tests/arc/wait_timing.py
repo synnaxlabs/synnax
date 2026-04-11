@@ -8,8 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from examples.simulators import PressSimDAQ
-
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_WAIT_TIMING_SOURCE = """
@@ -18,7 +16,7 @@ authority 200
 sequence main {
     stage stage1 {
         1 -> toggle_cmd,
-        wait{duration=3s} => next,
+        wait{3s} => next,
     }
     stage stage2 {
         0 -> toggle_cmd,
@@ -48,12 +46,9 @@ class WaitTiming(ArcConsoleCase):
     arc_source = ARC_WAIT_TIMING_SOURCE
     arc_name_prefix = "ArcWaitTiming"
     start_cmd_channel = "start_cmd"
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = [
         "toggle_cmd",
-        "end_test_cmd",
     ]
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         toggle_cmd_time = self.client.channels.create(

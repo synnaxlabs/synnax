@@ -22,6 +22,7 @@ Key uint64 {
     """
     @ts type      string
     @ts to_string
+    @go marshal   flex
 }
 
 StatusDetails struct<Data? = record> {

@@ -14,10 +14,8 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -54,15 +52,6 @@ func (k Key) IsZero() bool { return k == 0 }
 
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
-
-func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := xmsgpack.UnmarshalUint32(dec)
-	if err != nil {
-		return err
-	}
-	*k = Key(n)
-	return nil
-}
 
 var _ gorp.Entry[Key] = Rack{}
 

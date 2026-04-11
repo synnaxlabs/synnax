@@ -365,6 +365,37 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 }
 {{end}}`
 
+// Template for derivative operations (pointwise rate of change)
+const derivativeFuncTemplate = `
+func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
+	n := input.Len()
+	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	output.Resize(n)
+	outputTime.Resize(n)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	for i := int64(0); i < n; i++ {
+		cur := float64(inData[i])
+		ts := inTime[i]
+		outTime[i] = ts
+		if !*hasPrev {
+			outData[i] = 0
+		} else {
+			dtSeconds := float64(ts-*prevTS) / 1e9
+			if dtSeconds <= 0 {
+				outData[i] = 0
+			} else {
+				outData[i] = (cur - *prevVal) / dtSeconds
+			}
+		}
+		*prevVal = cur
+		*prevTS = ts
+		*hasPrev = true
+	}
+}
+`
+
 // Template for float modulo (binary) - uses math.Mod
 const floatModuloFuncTemplate = `
 func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
@@ -444,6 +475,7 @@ func main() {
 	floatModuloTmpl := template.Must(template.New("floatModulo").Parse(floatModuloFuncTemplate))
 	floatModuloScalarTmpl := template.Must(template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate))
 	floatReverseModuloScalarTmpl := template.Must(template.New("floatReverseModuloScalar").Parse(floatReverseModuloScalarFuncTemplate))
+	derivativeTmpl := template.Must(template.New("derivative").Parse(derivativeFuncTemplate))
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
@@ -502,6 +534,13 @@ func main() {
 		lo.Must0(reductionTmpl.Execute(&buf, map[string]interface{}{
 			"Type":       typ,
 			"Reductions": reductionOperations,
+		}))
+	}
+
+	// Generate derivative operations for all types
+	for _, typ := range types {
+		lo.Must0(derivativeTmpl.Execute(&buf, map[string]interface{}{
+			"Type": typ,
 		}))
 	}
 

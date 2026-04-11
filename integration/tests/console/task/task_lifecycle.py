@@ -7,20 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from dataclasses import dataclass
 
-import synnax as sy
 from examples.opcua import OPCUASim
-from x import get_random_name
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from framework.run_with_connection import run_scripts
 from framework.utils import assert_link_format
 from tests.driver.simulator_case import SimulatorCase
+from x import random_name
 
-RANGE_NAME = f"Task Lifecycle Range {get_random_name()}"
+RANGE_NAME = f"Task Lifecycle Range {random_name()}"
 
 
 @dataclass
@@ -98,6 +97,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.test_open_task_config()
         self.test_open_task_via_search()
         self.test_snapshot_to_active_range()
+        self.test_rename_channel_sync()
         self.test_rename_task()
         self.test_delete_task()
 
@@ -109,9 +109,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             if actual == expected:
                 return
             sy.sleep(0.5)
-        assert (
-            actual == expected
-        ), f"Task '{name}' data_saving should be {expected}, got {actual}"
+        assert actual == expected, (
+            f"Task '{name}' data_saving should be {expected}, got {actual}"
+        )
 
     def test_play_pause(self) -> None:
         """Stop and start each task (individually and in groups)."""
@@ -178,9 +178,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export_task(t.name)
         assert "type" in exported, "Exported JSON should contain a 'type' field"
-        assert (
-            exported["type"] == t.type
-        ), f"Exported type should be '{t.type}', got '{exported['type']}'"
+        assert exported["type"] == t.type, (
+            f"Exported type should be '{t.type}', got '{exported['type']}'"
+        )
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 
@@ -209,9 +209,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         name = TASKS[3].name
         self.log(f"Testing: Open task config via search palette for '{name}'")
         task_page = self.console.workspace.open_from_search(TaskPage, name)
-        assert (
-            task_page.page_name == name
-        ), f"Opened page name should be '{name}', got '{task_page.page_name}'"
+        assert task_page.page_name == name, (
+            f"Opened page name should be '{name}', got '{task_page.page_name}'"
+        )
         self.console.close_all_tabs()
 
     def test_snapshot_to_active_range(self) -> None:
@@ -225,6 +225,42 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         self.log("Testing: Snapshot multiple tasks to active range")
         self.console.tasks.snapshot_tasks(TASK_NAMES[1:], RANGE_NAME)
+
+    def test_rename_channel_sync(self) -> None:
+        """Rename channels from toolbar, verify in task config; rename back from task config, verify in toolbar."""
+        t = TASKS[0]
+        original_names = ["my_float_0", "my_float_1"]
+        renamed_names = ["renamed_float_0", "renamed_float_1"]
+
+        self.log("Testing: Channel rename synchronization with task config")
+        self.console.tasks.open_task_config(t.name)
+        pane = self.console.page.locator(f".console-task-configure--{t.type}")
+        pane.wait_for(state="visible", timeout=10000)
+
+        self.log("Testing: Rename channels from channels toolbar")
+        self.console.channels.rename(names=original_names, new_names=renamed_names)
+
+        self.log("Testing: Verify renamed channels appear in task config")
+        for name in renamed_names:
+            pane.get_by_text(name).first.wait_for(state="visible", timeout=10000)
+
+        self.log("Testing: Rename channels back from task config form")
+        for old_name, new_name in zip(renamed_names, original_names):
+            channel_text = pane.get_by_text(old_name).first
+            channel_text.wait_for(state="visible", timeout=5000)
+            self.console.layout.ctx_menu.action(channel_text, "Rename")
+            editable = pane.locator("[contenteditable='true']").first
+            editable.wait_for(state="visible", timeout=3000)
+            self.console.layout.select_all_and_type(new_name)
+            self.console.layout.press_enter()
+            sy.sleep(0.5)
+
+        self.log("Testing: Verify original channel names in channels toolbar")
+        assert self.console.channels.wait_for_channels(original_names), (
+            "Original channel names not found in channels toolbar after rename from task config"
+        )
+
+        self.console.close_all_tabs()
 
     def test_rename_task(self) -> None:
         """Rename a task and verify synchronization across UI elements."""
@@ -240,9 +276,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log("Testing: Verify rename synchronization")
         self.console.layout.get_tab(new_name).wait_for(state="visible", timeout=5000)
         name_value = self.console.layout.get_input_field("Name")
-        assert (
-            name_value == new_name
-        ), f"Task config Name field should show '{new_name}', got '{name_value}'"
+        assert name_value == new_name, (
+            f"Task config Name field should show '{new_name}', got '{name_value}'"
+        )
         self.console.close_all_tabs()
 
     def test_delete_task(self) -> None:

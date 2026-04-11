@@ -9,9 +9,10 @@
 
 from typing import Any
 
-import synnax as sy
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+import synnax as sy
 
 
 class NotificationsClient:
@@ -94,16 +95,15 @@ class NotificationsClient:
             True if notification was closed, False if not found
         """
         try:
-            notification_elements = self.page.locator(".pluto-notification").all()
-            if notification_index >= len(notification_elements):
+            notifications = self.page.locator(".pluto-notification")
+            if notifications.count() <= notification_index:
                 return False
 
-            notification = notification_elements[notification_index]
+            notification = notifications.nth(notification_index)
             close_button = notification.locator(".pluto-notification__silence")
 
             if close_button.count() > 0:
-                close_button.wait_for(state="attached", timeout=500)
-                close_button.click()
+                close_button.dispatch_event("click")
                 notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
@@ -152,7 +152,7 @@ class NotificationsClient:
 
         close_btn = notification.locator(".pluto-notification__silence")
         if close_btn.count() > 0:
-            close_btn.click(force=True)
+            close_btn.dispatch_event("click")
             return True
         return False
 

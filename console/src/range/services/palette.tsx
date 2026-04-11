@@ -13,15 +13,12 @@ import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 import { Palette } from "@/palette";
 import { Range } from "@/range";
 
-const useUpdateVisible = () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
-const useViewVisible = () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
-
 export const CreateCommand = Palette.createSimpleCommand({
   key: "define-range",
   name: "Create a range",
   icon: <Ranger.CreateIcon />,
   layout: Range.CREATE_LAYOUT,
-  useVisible: useUpdateVisible,
+  useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
@@ -29,7 +26,7 @@ export const OpenExplorerCommand = Palette.createSimpleCommand({
   name: "Open the Range Explorer",
   icon: <Icon.Explore />,
   layout: Range.EXPLORER_LAYOUT,
-  useVisible: useViewVisible,
+  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [CreateCommand, OpenExplorerCommand];

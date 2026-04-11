@@ -17,9 +17,8 @@ from pydantic import BaseModel, Field
 
 from synnax import cluster
 from synnax import status as status_
-from synnax import telem
 from synnax.ontology.payload import ID
-from synnax.x import control
+from x import control, telem
 
 Key: TypeAlias = int
 
@@ -31,8 +30,10 @@ OPERATION_TYPE_AVG: Literal["avg"] = "avg"
 
 OPERATION_TYPE_NONE: Literal["none"] = "none"
 
+OPERATION_TYPE_DERIVATIVE: Literal["derivative"] = "derivative"
 
-OperationType = Literal["min", "max", "avg", "none"]
+
+OperationType = Literal["min", "max", "avg", "none", "derivative"]
 
 Name: TypeAlias = str
 

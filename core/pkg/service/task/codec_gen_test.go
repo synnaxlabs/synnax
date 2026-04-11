@@ -28,6 +28,29 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("StatusDetails", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original task.StatusDetails) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded task.StatusDetails
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", task.StatusDetails{
+				Task:    task.Key(2),
+				Running: false,
+				Cmd:     "test_3",
+			}),
+			Entry("zero values", task.StatusDetails{
+				Task:    task.Key(0),
+				Running: false,
+				Cmd:     "",
+			}),
+		)
+	})
 	Describe("Task", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original task.Task) {
@@ -82,30 +105,28 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("StatusDetails", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original task.StatusDetails) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded task.StatusDetails
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", task.StatusDetails{
-				Task:    task.Key(2),
-				Running: false,
-				Cmd:     "test_3",
-			}),
-			Entry("zero values", task.StatusDetails{
-				Task:    task.Key(0),
-				Running: false,
-				Cmd:     "",
-			}),
-		)
-	})
 })
+
+func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
+	sd := task.StatusDetails{
+		Task:    task.Key(2),
+		Running: false,
+		Cmd:     "test_3",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sd.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded task.StatusDetails
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeTask(b *testing.B) {
 	t := task.Task{
@@ -157,25 +178,55 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	sd := task.StatusDetails{
-		Task:    task.Key(2),
-		Running: false,
-		Cmd:     "test_3",
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := sd.EncodeOrc(w); err != nil {
-			b.Fatal(err)
+func FuzzDecodeStatusDetails(f *testing.F) {
+	{
+		seed := task.StatusDetails{
+			Task:    task.Key(2),
+			Running: false,
+			Cmd:     "test_3",
 		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := task.StatusDetails{
+			Task:    task.Key(0),
+			Running: false,
+			Cmd:     "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded task.StatusDetails
-		r.ResetBytes(w.Bytes())
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
+			return
 		}
-	}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded task.StatusDetails
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
 }
 
 func FuzzDecodeTask(f *testing.F) {
@@ -246,57 +297,6 @@ func FuzzDecodeTask(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded task.Task
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
-}
-
-func FuzzDecodeStatusDetails(f *testing.F) {
-	{
-		seed := task.StatusDetails{
-			Task:    task.Key(2),
-			Running: false,
-			Cmd:     "test_3",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := task.StatusDetails{
-			Task:    task.Key(0),
-			Running: false,
-			Cmd:     "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded task.StatusDetails
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded task.StatusDetails
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

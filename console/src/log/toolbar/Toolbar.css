@@ -1,0 +1,53 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-log-toolbar {
+    height: 100%;
+
+    .console-log-toolbar__actions {
+        width: 66px;
+    }
+
+    .console-log-toolbar__tabs {
+        border-bottom: none;
+    }
+
+    .console-log__toolbar-properties {
+        padding: 2rem;
+        gap: 5rem;
+    }
+
+    .console-log__toolbar-channels {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+
+        .console-log__channel-row {
+            padding: 0.2rem 3rem 0.2rem 1rem;
+
+            .console-log__channel-select {
+                flex: 4;
+                min-width: 0;
+                overflow: hidden;
+            }
+
+            .console-log__channel-alias {
+                flex: 1;
+                min-width: 75px;
+                overflow: hidden;
+            }
+
+            .console-log__channel-precision {
+                min-width: 60px;
+                max-width: 65px;
+            }
+        }
+    }
+}

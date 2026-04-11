@@ -9,7 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Access, Icon, Log as Base, telem, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
@@ -58,16 +58,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
-  let t: telem.SeriesSourceSpec;
-  const ch = log.channels[0];
-  const zeroChannel = primitive.isZero(ch);
-  if (zeroChannel) t = telem.noopSeriesSourceSpec;
-  else
-    t = telem.streamChannelData({
-      channel: ch,
-      timeSpan: PRELOAD,
-      keepFor: DEFAULT_RETENTION,
-    });
+  const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
+  const hasChannels = activeChannels.length > 0;
+  // Stable spec — channels are passed separately via the `channels` prop so that
+  // adding/removing a channel does not destroy and recreate the telem source.
+  const t = Base.streamMultiChannelLog({
+    channels: [],
+    timeSpan: PRELOAD,
+    keepFor: DEFAULT_RETENTION,
+  });
   const handleDoubleClick = useCallback(() => {
     dispatch(
       Layout.setNavDrawerVisible({
@@ -81,15 +80,19 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <Base.Log
       telem={t}
+      channels={activeChannels}
+      showChannelNames={log.showChannelNames}
+      showReceiptTimestamp={log.showReceiptTimestamp}
+      timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
       emptyContent={
         <EmptyAction
           message={
-            zeroChannel
-              ? "No channel configured for this log."
+            !hasChannels
+              ? "No channels configured for this log."
               : "No data received yet."
           }
-          action={zeroChannel ? "Configure channel" : ""}
+          action={!hasChannels ? "Configure channels" : ""}
           onClick={handleDoubleClick}
         />
       }
@@ -112,12 +115,12 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
 };
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const visible = Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
   }, [onPlace, layoutKey]);
 
-  if (!visible) return null;
+  if (!hasCreatePermission) return null;
 
   return (
     <Selector.Item
@@ -129,7 +132,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+Selectable.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 

@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
-import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 from console.schematic.symbol import (
@@ -101,6 +101,29 @@ class Schematic(ConsolePage):
         """
         self.enable_edit()
         symbol.create(self.layout)
+        return symbol
+
+    def find_symbol(self, symbol: Symbol) -> Symbol:
+        """Find an existing symbol on the schematic by label and attach it.
+
+        Use this to get a reference to a symbol that was already created
+        (e.g., when opening a schematic as a different user).
+
+        Args:
+            symbol: Symbol instance with label set (not yet attached to schematic).
+
+        Returns:
+            The same symbol, now attached to the existing schematic node.
+        """
+        symbol.page = self.page
+        symbol.layout = self.layout
+        symbol.notifications = self.notifications
+        symbol.locator = (
+            self.page.locator(".react-flow__node")
+            .filter(has=self.page.get_by_text(symbol.label, exact=True))
+            .first
+        )
+        symbol.locator.wait_for(state="visible", timeout=5000)
         return symbol
 
     def get_control_legend_entries(self) -> list[str]:

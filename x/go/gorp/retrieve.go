@@ -22,16 +22,17 @@ import (
 // RawFilter is a predicate that operates on the raw encoded bytes of an entry
 // before it is decoded. Returning false skips the entry without allocating a
 // decoded value. Returning true allows normal decode + filter processing.
-type RawFilter func(data []byte) bool
+type RawFilter func(data []byte) (bool, error)
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries *Entries[K, E]
-	limit   int
-	offset  int
-	keys    *[]K
-	prefix  []byte
-	filter  *Filter[K, E]
+	entries    *Entries[K, E]
+	limit      int
+	offset     int
+	keys       *[]K
+	prefix     []byte
+	filters    filters[K, E]
+	rawFilters rawFilters
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -39,18 +40,25 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 	return Retrieve[K, E]{entries: new(Entries[K, E])}
 }
 
+type filterOptions struct {
+	required bool
+}
+
+type FilterOption func(*filterOptions)
+
+func Required() FilterOption {
+	return func(o *filterOptions) { o.required = true }
+}
+
+type FilterFunc[K Key, E Entry[K]] = func(ctx Context, e *E) (bool, error)
+
 // GetEntries returns the entries bound to the query.
 func (r Retrieve[K, E]) GetEntries() *Entries[K, E] { return r.entries }
 
-// Where adds the provided filters to the query, ANDing them with any existing filter.
-// If filtering by the key of the Entry, use the far more efficient WhereKeys method
-// instead.
-func (r Retrieve[K, E]) Where(filters ...Filter[K, E]) Retrieve[K, E] {
-	combined := And(filters...)
-	if r.filter != nil {
-		combined = And(*r.filter, combined)
-	}
-	r.filter = &combined
+// Where adds the provided filter to the query. If filtering by the key of the Entry,
+// use the far more efficient WhereKeys method instead.
+func (r Retrieve[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Retrieve[K, E] {
+	r.filters = append(r.filters, newFilter(filter, opts))
 	return r
 }
 
@@ -72,7 +80,7 @@ func (r Retrieve[K, E]) GetWhereKeys() []K {
 }
 
 // HasFilters returns true if any Where filters were added to the query.
-func (r Retrieve[K, E]) HasFilters() bool { return r.filter != nil }
+func (r Retrieve[K, E]) HasFilters() bool { return len(r.filters) > 0 }
 
 // WherePrefix filters entries whose key starts with the given prefix.
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
@@ -95,9 +103,14 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 
 // WhereRaw adds a raw byte filter that is evaluated before decoding each entry.
 // Entries whose raw bytes cause the filter to return false are skipped without
-// being decoded.
-func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
-	return r.Where(MatchRaw[K, E](filter))
+// being decoded. Supports the same options as Where (e.g. Required).
+func (r Retrieve[K, E]) WhereRaw(filter RawFilter, opts ...FilterOption) Retrieve[K, E] {
+	o := &filterOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+	r.rawFilters = append(r.rawFilters, rawFilter{f: filter, filterOptions: *o})
+	return r
 }
 
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
@@ -163,6 +176,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
 	if r.HasWhereKeys() {
+		// For key-based queries, we can optimize by only retrieving the keys
 		e := make([]E, 0, len(*r.keys))
 		r.entries = multipleEntries(&e)
 		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
@@ -181,16 +195,24 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.matchRaw(iter.Iterator.Value()) {
+		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
+		if err != nil {
+			return 0, err
+		}
+		if !rawMatched {
 			continue
 		}
 		v := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return 0, err
 		}
-		match, fErr := r.match(Context{Context: ctx, Tx: tx}, v)
-		if fErr != nil {
-			return 0, fErr
+		var match bool
+		match, err = r.filters.exec(Context{
+			Context: ctx,
+			Tx:      tx,
+		}, v)
+		if err != nil {
+			return 0, err
 		}
 		if match {
 			count++
@@ -199,18 +221,67 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	return count, err
 }
 
-func (r Retrieve[K, E]) match(ctx Context, e *E) (bool, error) {
-	if r.filter == nil || r.filter.Eval == nil {
-		return true, nil
-	}
-	return r.filter.Eval(ctx, e)
+type rawFilter struct {
+	f RawFilter
+	filterOptions
 }
 
-func (r Retrieve[K, E]) matchRaw(data []byte) bool {
-	if r.filter == nil || r.filter.Raw == nil {
-		return true
+type rawFilters []rawFilter
+
+func (rf rawFilters) exec(data []byte) (bool, error) {
+	if len(rf) == 0 {
+		return true, nil
 	}
-	return r.filter.Raw(data)
+	match := false
+	for _, f := range rf {
+		ok, err := f.f(data)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			match = true
+		} else if f.required {
+			return false, nil
+		}
+	}
+	return match, nil
+}
+
+type filter[K Key, E Entry[K]] struct {
+	f FilterFunc[K, E]
+	filterOptions
+}
+
+type filters[K Key, E Entry[K]] []filter[K, E]
+
+func (f filters[K, E]) exec(ctx Context, entry *E) (bool, error) {
+	if len(f) == 0 {
+		return true, nil
+	}
+	match := false
+	for _, fil := range f {
+		iMatch, err := fil.f(ctx, entry)
+		if err != nil {
+			return false, err
+		}
+		if iMatch {
+			match = true
+		} else if fil.required {
+			return false, err
+		}
+	}
+	return match, nil
+}
+
+func newFilter[K Key, E Entry[K]](
+	filterFunc FilterFunc[K, E],
+	options []FilterOption,
+) filter[K, E] {
+	opts := &filterOptions{}
+	for _, o := range options {
+		o(opts)
+	}
+	return filter[K, E]{f: filterFunc, filterOptions: *opts}
 }
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
@@ -229,7 +300,7 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
 			continue
 		}
-		match, err := r.match(Context{Context: ctx, Tx: tx}, &e)
+		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
 		if err != nil {
 			return err
 		}
@@ -257,14 +328,18 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if !r.matchRaw(iter.Iterator.Value()) {
+		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
+		if err != nil {
+			return err
+		}
+		if !rawMatched {
 			continue
 		}
 		v := iter.Value(ctx)
 		if err = iter.Error(); err != nil {
 			return err
 		}
-		match, err = r.match(Context{Context: ctx, Tx: tx}, v)
+		match, err = r.filters.exec(Context{Context: ctx, Tx: tx}, v)
 		if err != nil {
 			return err
 		}

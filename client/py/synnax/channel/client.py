@@ -21,7 +21,6 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
-    ONTOLOGY_TYPE,
     New,
     Operation,
     Payload,
@@ -39,8 +38,8 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
-from synnax.util.normalize import normalize
-from synnax.x import control
+from x import control
+from x.normalize import normalize
 
 
 class Channel(Payload):

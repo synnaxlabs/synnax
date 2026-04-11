@@ -108,7 +108,7 @@ export class WriteAdapter {
     return adapter;
   }
 
-  async adaptParams(data: channel.Params): Promise<channel.Keys> {
+  async adaptParams(data: channel.Params): Promise<channel.Key[]> {
     const arrParams = channel.paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),
@@ -135,14 +135,14 @@ export class WriteAdapter {
   }
 
   private async fetchChannel(
-    ch: channel.KeyOrName | channel.Payload,
+    ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
     const res = await this.retriever.retrieve(ch);
     if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
     return res[0];
   }
 
-  private async adaptToKey(k: channel.KeyOrName): Promise<channel.Key> {
+  private async adaptToKey(k: channel.Key | channel.Name): Promise<channel.Key> {
     if (typeof k === "number") return k;
     const res = await this.fetchChannel(k);
     return res.key;
@@ -153,7 +153,10 @@ export class WriteAdapter {
   }
 
   async adapt(
-    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | CrudeFrame,
+    columnsOrData:
+      | channel.Params
+      | Record<channel.Key | channel.Name, CrudeSeries>
+      | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {

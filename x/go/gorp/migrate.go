@@ -42,22 +42,38 @@ func (m *migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
 
 const migrationProgressMax = 1000
 
+type progressLogger struct {
+	ins   alamos.Instrumentation
+	key   string
+	count int
+}
+
+func (p *progressLogger) logProgress() {
+	if p.shouldLogProgress() {
+		p.ins.L.Info(
+			"migration progress",
+			zap.String("migration", p.key),
+			zap.Int("entries", p.count),
+		)
+	}
+}
+
 // shouldLogProgress returns true at logarithmically spaced intervals
 // (1, 10, 100, 1000) then every 1000 entries after that.
-func shouldLogProgress(entries int) bool {
-	if entries <= 0 {
+func (p *progressLogger) shouldLogProgress() bool {
+	if p.count <= 0 {
 		return false
 	}
-	if entries >= migrationProgressMax {
-		return entries%migrationProgressMax == 0
+	if p.count >= migrationProgressMax {
+		return p.count%migrationProgressMax == 0
 	}
-	for entries >= 10 {
-		if entries%10 != 0 {
+	for p.count >= 10 {
+		if p.count%10 != 0 {
 			return false
 		}
-		entries /= 10
+		p.count /= 10
 	}
-	return entries == 1
+	return p.count == 1
 }
 
 // NewEntryMigration creates a migration that iterates over all entries with the
@@ -68,14 +84,14 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
 	transform func(ctx context.Context, old I) (O, error),
 ) migrate.Migration {
-	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error {
+	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
 		var (
-			reader    = WrapReader[IK, I](tx)
-			writer    = WrapWriter[OK, O](tx)
-			entries   int
-			iter, err = reader.OpenIterator(IterOptions{})
-			newEntry  O
+			reader   = WrapReader[IK, I](tx)
+			writer   = WrapWriter[OK, O](tx)
+			logger   = &progressLogger{key: key, ins: ins}
+			newEntry O
 		)
+		iter, err := reader.OpenIterator(IterOptions{})
 		if err != nil {
 			return err
 		}
@@ -83,20 +99,10 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 			err = errors.Combine(err, iter.Close())
 		}()
 		for iter.First(); iter.Valid(); iter.Next() {
-			entries++
-			if shouldLogProgress(entries) {
-				ins.L.Info(
-					"migration progress",
-					zap.String("migration", key),
-					zap.Int("entries", entries),
-				)
-			}
+			logger.logProgress()
 			old := iter.Value(ctx)
-			if old == nil {
-				if err = iter.Error(); err != nil {
-					return err
-				}
-				continue
+			if err = iter.Error(); err != nil {
+				return err
 			}
 			newEntry, err = transform(ctx, *old)
 			if err != nil {
@@ -161,4 +167,29 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 		return err
 	}
 	return txn.Commit(ctx)
+}
+
+func CodecMigration[K Key, E Entry[K]](key string, deps ...string) migrate.Migration {
+	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
+		writer := WrapWriter[K, E](tx)
+		logger := &progressLogger{key: key, ins: ins}
+		iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Combine(err, iter.Close())
+		}()
+		for iter.First(); iter.Valid(); iter.Next() {
+			v := iter.Value(ctx)
+			logger.logProgress()
+			if err = iter.Error(); err != nil {
+				return err
+			}
+			if err = writer.Set(ctx, *v); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, deps...)
 }

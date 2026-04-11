@@ -82,26 +82,26 @@ def transform_schematic(
     print(f"Loading schematic from: {schematic_path}")
     with open(schematic_path) as f:
         schematic = json.load(f)
-    print(f"✓ Loaded schematic\n")
+    print("✓ Loaded schematic\n")
 
     # Transform schematic with statistics tracking
     print("Transforming channel keys...")
     stats = {"mapped_replacements": 0, "unknown_to_zero": 0}
     transformed = transform_value(schematic, key_map, stats)
 
-    print(f"\nReplacement summary:")
+    print("\nReplacement summary:")
     print(f"  Config keys in mapping: {len(key_map)}")
     print(f"  Config keys replaced: {stats['mapped_replacements']}")
     if stats["unknown_to_zero"] > 0:
         print(f"  Unknown channel keys replaced with 0: {stats['unknown_to_zero']}")
 
-    print(f"✓ Transformation complete\n")
+    print("✓ Transformation complete\n")
 
     # Save transformed schematic
     print(f"Saving transformed schematic to: {output_path}")
     with open(output_path, "w") as f:
         json.dump(transformed, f, indent=2)
-    print(f"✓ Saved successfully\n")
+    print("✓ Saved successfully\n")
 
     print(f"{'=' * 70}")
     print("TRANSFORMATION COMPLETE")
@@ -160,12 +160,12 @@ The script will:
     # Validate inputs
     if not schematic_path.exists():
         print(f"✗ ERROR: Schematic not found: {schematic_path}")
-        print(f"  Please ensure the schematic JSON exists.")
+        print("  Please ensure the schematic JSON exists.")
         sys.exit(1)
 
     if not mapping_path.exists():
         print(f"✗ ERROR: Channel mapping not found: {mapping_path}")
-        print(f"  Please run sim_from_task_configs.py first to generate the mapping.")
+        print("  Please run sim_from_task_configs.py first to generate the mapping.")
         sys.exit(1)
 
     # Transform

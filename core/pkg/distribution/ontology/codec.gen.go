@@ -15,16 +15,22 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (rv Resource) EncodeOrc(w *orc.Writer) error {
-	if err := rv.ID.EncodeOrc(w); err != nil {
-		return err
-	}
+func (id ID) EncodeOrc(w *orc.Writer) error {
+	w.String(string(id.Type))
+	w.String(id.Key)
 	return nil
 }
 
-func (rv *Resource) DecodeOrc(r *orc.Reader) error {
+func (id *ID) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if err = rv.ID.DecodeOrc(r); err != nil {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		id.Type = ResourceType(v)
+	}
+	if id.Key, err = r.String(); err != nil {
 		return err
 	}
 	return nil
@@ -59,22 +65,16 @@ func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (id ID) EncodeOrc(w *orc.Writer) error {
-	w.String(string(id.Type))
-	w.String(id.Key)
+func (rv Resource) EncodeOrc(w *orc.Writer) error {
+	if err := rv.ID.EncodeOrc(w); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (id *ID) DecodeOrc(r *orc.Reader) error {
+func (rv *Resource) DecodeOrc(r *orc.Reader) error {
 	var err error
-	{
-		v, err := r.String()
-		if err != nil {
-			return err
-		}
-		id.Type = ResourceType(v)
-	}
-	if id.Key, err = r.String(); err != nil {
+	if err = rv.ID.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil

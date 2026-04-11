@@ -34,9 +34,12 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -48,6 +51,7 @@ type Ontology struct {
 	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
 	registrar            serviceRegistrar
 	disconnectObservers  []observe.Disconnect
+	closer               io.MultiCloser
 	resourceTable        *gorp.Table[string, Resource]
 	relationshipTable    *gorp.Table[[]byte, Relationship]
 }
@@ -78,38 +82,42 @@ func (c Config) Override(other Config) Config {
 
 // Open opens the ontology using the given configuration. If the RootID resource does
 // not exist, it will be created.
-func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
+func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	resourceTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Resource]{
+	o = &Ontology{
+		Config:           cfg,
+		ResourceObserver: observe.New[iter.Seq[Change]](),
+		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
+	}
+	cleanup, ok := service.NewOpener(ctx, &o.closer)
+	defer func() { err = cleanup(err) }()
+	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[Resource]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[string, Resource]("msgpack_to_orc"),
+		},
+	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
-	relationshipTable, err := gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{
+	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[[]byte, Relationship]("msgpack_to_orc"),
+		},
+	}); !ok(err, o.relationshipTable) {
 		return nil, err
 	}
-	o := &Ontology{
-		Config:               cfg,
-		ResourceObserver:     observe.New[iter.Seq[Change]](),
-		RelationshipObserver: relationshipTable.Observe(),
-		registrar:            serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
-		resourceTable:        resourceTable,
-		relationshipTable:    relationshipTable,
-	}
+	o.RelationshipObserver = o.relationshipTable.Observe()
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
 		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
 	}
-	if err != nil {
+	if !ok(err, nil) {
 		return nil, err
 	}
 
@@ -188,5 +196,5 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return errors.Join(o.resourceTable.Close(), o.relationshipTable.Close())
+	return o.closer.Close()
 }

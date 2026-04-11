@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import PressSimDAQ
 
+import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_BANG_BANG_SOURCE = """
@@ -57,14 +58,14 @@ sequence bang_bang_controller {
     stage start {
         set_authority{value=220, channel=press_vlv_cmd},
         set_authority{value=220, channel=vent_vlv_cmd},
-        interval{period=200ms} -> high_bang{
+        interval{200ms} -> high_bang{
             sensor=press_pt,
             set_point=50,
             lower_deadband=5,
             upper_deadband=5,
             abort_threshold=100
         } -> press_vlv_cmd,
-        interval{period=200ms} -> low_bang{
+        interval{200ms} -> low_bang{
             sensor=press_pt,
             set_point=10,
             lower_deadband=5,
@@ -76,7 +77,7 @@ sequence bang_bang_controller {
     stage stop {
         0 -> press_vlv_cmd,
         0 -> vent_vlv_cmd,
-        wait{duration=250ms} => yield
+        wait{250ms} => yield
     }
     stage yield {
         set_authority{value=0, channel=press_vlv_cmd},
@@ -111,12 +112,7 @@ class BangBangAuthority(ArcConsoleCase):
     def setup(self) -> None:
         self._press_writer: sy.Writer | None = None
         self._vent_writer: sy.Writer | None = None
-        self.client.channels.create(
-            name="bb_stop_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "bb_stop_cmd", sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(60)
 
@@ -142,8 +138,7 @@ class BangBangAuthority(ArcConsoleCase):
 
         # Phase 2: Trigger stop → wait for stop stage to zero the valve.
         self.log("Phase 2: Triggering stop...")
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_stop_cmd") as w:
-            w.write("bb_stop_cmd", 1)
+        self.writer.write("bb_stop_cmd", 1)
         self.wait_for_eq("press_vlv_state", 0)
 
         # Phase 3: Assert sequence remains in yield — the pre-existing bb_start_cmd
@@ -157,8 +152,7 @@ class BangBangAuthority(ArcConsoleCase):
 
         # Phase 4: Send a fresh start command and verify re-entry on both channels.
         self.log("Phase 4: Sending fresh start command and verifying re-entry...")
-        with self.client.open_writer(sy.TimeStamp.now(), "bb_start_cmd") as w:
-            w.write("bb_start_cmd", 1)
+        self.writer.write("bb_start_cmd", 1)
         self.wait_for_eq("press_vlv_state", 1)
         self.log("Bang-bang re-entered start stage")
 

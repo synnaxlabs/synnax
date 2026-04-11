@@ -19,9 +19,10 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-import synnax as sy
 from examples.simulators import ThermalSimDAQ
 
+import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """
@@ -52,7 +53,7 @@ abort_cmd => abort
 
 heater_cmd -> count_heater_cycles{} -> cycle_count
 temp_sensor -> track_peak_temp{} -> peak_temp
-temp_sensor -> calc_temp_error{setpoint=50.0} -> temp_error
+temp_sensor -> calc_temp_error{50.0} -> temp_error
 
 sequence monitor {
     stage heating {
@@ -99,12 +100,7 @@ class ThermalMonitor(ArcConsoleCase):
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        self.client.channels.create(
-            name="abort_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
 
         cycle_count_time = self.client.channels.create(
             name="cycle_count_time",
@@ -192,8 +188,7 @@ class ThermalMonitor(ArcConsoleCase):
         self.log("Verifying abort transition (temp > 80)...")
 
         self.log("Triggering force overheat to simulate thermal runaway")
-        with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
-            w.write("force_overheat_cmd", 1)
+        self.writer.write("force_overheat_cmd", 1)
 
         self.log("Waiting for temp to exceed 80...")
         self.wait_for_gt("temp_sensor", 80)
@@ -205,5 +200,4 @@ class ThermalMonitor(ArcConsoleCase):
         self.wait_for_eq("alarm_active", 1)
         self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
 
-        with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
-            w.write("force_overheat_cmd", 0)
+        self.writer.write("force_overheat_cmd", 0)

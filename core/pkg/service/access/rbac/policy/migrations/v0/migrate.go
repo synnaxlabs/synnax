@@ -43,8 +43,9 @@ func Migration() migrate.Migration {
 	return gorp.NewMigration(
 		"v0.policy_conversion",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			if alreadyMigrated(ctx, tx) {
-				return nil
+			migrated, err := alreadyMigrated(ctx, tx)
+			if migrated || err != nil {
+				return err
 			}
 			var legacyPolicies []Policy
 			reader := gorp.WrapReader[uuid.UUID, Policy](tx)
@@ -74,7 +75,7 @@ func Migration() migrate.Migration {
 			if err != nil {
 				return errors.Wrap(err, "failed to marshal legacy permission mapping")
 			}
-			if err := tx.Set(ctx, []byte(LegacyMappingKVKey), mappingBytes); err != nil {
+			if err = tx.Set(ctx, []byte(LegacyMappingKVKey), mappingBytes); err != nil {
 				return err
 			}
 
@@ -87,13 +88,15 @@ func Migration() migrate.Migration {
 	)
 }
 
-func alreadyMigrated(ctx context.Context, tx gorp.Tx) bool {
+func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 	performed, closer, err := tx.Get(ctx, []byte(legacyMigrationPerformedKey))
 	if err != nil {
-		return false
+		return false, errors.Skip(err, query.ErrNotFound)
 	}
-	_ = closer.Close()
-	return string(performed) == string([]byte{1})
+	if err = closer.Close(); err != nil {
+		return false, err
+	}
+	return string(performed) == string([]byte{1}), nil
 }
 
 func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
@@ -128,14 +131,14 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 		}
 		return nil, err
 	}
-	if err := closer.Close(); err != nil {
+	if err = closer.Close(); err != nil {
 		return nil, err
 	}
 	if len(mappingBytes) == 0 {
 		return nil, nil
 	}
 	var mappings []LegacyUserMapping
-	if err := json.Unmarshal(mappingBytes, &mappings); err != nil {
+	if err = json.Unmarshal(mappingBytes, &mappings); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal legacy permission mapping")
 	}
 	return mappings, nil

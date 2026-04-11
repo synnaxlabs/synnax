@@ -247,6 +247,25 @@ var _ = Describe("Migrate", func() {
 		})
 	})
 
+	Describe("Unwrap", func() {
+		It("Should return the migration itself when not wrapped", func() {
+			m := noop("a")
+			Expect(migrate.Unwrap(m)).To(Equal(m))
+		})
+
+		It("Should unwrap a single layer of WithAddedDeps", func() {
+			m := noop("a")
+			wrapped := migrate.WithAddedDeps(m, "x")
+			Expect(migrate.Unwrap(wrapped)).To(Equal(m))
+		})
+
+		It("Should unwrap nested layers of WithAddedDeps", func() {
+			m := noop("a")
+			wrapped := migrate.WithAddedDeps(migrate.WithAddedDeps(m, "x"), "y")
+			Expect(migrate.Unwrap(wrapped)).To(Equal(m))
+		})
+	})
+
 	Describe("Logging", func() {
 		It("Should log already applied and pending migrations", func() {
 			ins, logs := ObservedInstrumentation(zapcore.InfoLevel)

@@ -63,8 +63,8 @@ func (p *Plugin) Check(req *plugin.Request) error { return nil }
 var postWriter = &exec.PostWriter{
 	ConfigFile: "pyproject.toml",
 	Commands: [][]string{
-		{"uv", "run", "isort"},
-		{"uv", "run", "black"},
+		{"uv", "run", "ruff", "format"},
+		{"uv", "run", "ruff", "check", "--fix"},
 	},
 }
 
@@ -1096,6 +1096,7 @@ func toPythonModulePath(repoPath string) string {
 		"client/py/",
 		"alamos/py/",
 		"freighter/py/",
+		"x/py/",
 	}
 
 	path := repoPath

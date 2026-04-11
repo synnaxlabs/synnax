@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { device } from "@synnaxlabs/client";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -26,7 +27,9 @@ export const ConfigureMenuItem = ({
 }: ConfigureMenuItemProps) => {
   const placeLayout = Layout.usePlacer();
   const first = getResource(ids[0]);
-  if (ids.length !== 1 || first.data?.configured === true) return null;
+  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
+  if (ids.length !== 1 || first.data?.configured === true || !hasUpdatePermission)
+    return null;
   const handleClick = () => placeLayout({ ...configureLayout, key: first.id.key });
   return (
     <Menu.Item itemKey="configure" onClick={handleClick}>

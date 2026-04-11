@@ -80,9 +80,9 @@ func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 }
 
 // Where filters resources by the provided predicate.
-func (r Retrieve) Where(filters ...gorp.Filter[string, Resource]) Retrieve {
+func (r Retrieve) Where(filter gorp.FilterFunc[string, Resource]) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Retrieve.Where(filters...)
+	c.Retrieve = c.Where(filter)
 	return r.setCurrentClause(c)
 }
 
@@ -91,9 +91,9 @@ func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
 	} else {
-		c.Retrieve = c.Retrieve.Where(gorp.Match[string, Resource](func(_ gorp.Context, r *Resource) (bool, error) {
+		c.Retrieve = c.Where(func(_ gorp.Context, r *Resource) (bool, error) {
 			return lo.Contains(types, r.ID.Type), nil
-		}))
+		})
 	}
 	return r.setCurrentClause(c)
 }
@@ -138,7 +138,7 @@ func (d Direction) GetID(rel *Relationship) ID {
 // RawTraversal is a callback that operates on raw orc-encoded relationship bytes.
 // It checks whether the row matches any of the target IDs and, if so, appends the
 // resulting ID to nextIDs. This avoids decoding the relationship entirely.
-type RawTraversal func(data []byte, nextIDs *[]ID)
+type RawTraversal func(data []byte, nextIDs *[]ID) error
 
 // RelationshipPrefix returns a FilterPrefix function that scopes traversal queries
 // to relationships of the given type originating from a specific resource.
@@ -163,16 +163,13 @@ func ReadRawID(r orc.Raw) ID {
 // Traverser is a struct that defines the traversal of a relationship between entities
 // in the ontology.
 type Traverser struct {
-	// Filter if a function that returns true if the given Resource and Relationship
-	// should be included in the traversal results.
-	Filter func(res *Resource, rel *Relationship) bool
 	// FilterPrefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
 	FilterPrefix func(id ID) []byte
-	// RawTraversal builds a raw byte callback for the given IDs that extracts
+	// Traverse builds a raw byte callback for the given IDs that extracts
 	// matching relationship targets directly from encoded bytes without decoding.
 	// When set, traverseByScan uses this instead of Filter.
-	RawTraversal func(ids []ID) RawTraversal
+	Traverse func(ids []ID) RawTraversal
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
@@ -181,7 +178,7 @@ var (
 	relationshipTypeParentOfBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
 	ParentsTraverser = Traverser{
-		RawTraversal: func(ids []ID) RawTraversal {
+		Traverse: func(ids []ID) RawTraversal {
 			w := orc.NewWriter(64)
 			encoded := make([][]byte, len(ids))
 			for i, id := range ids {
@@ -190,8 +187,11 @@ var (
 				w.String(id.Key)
 				encoded[i] = w.Copy()
 			}
-			return func(data []byte, nextIDs *[]ID) {
-				raw := orc.NewRaw(data)
+			return func(data []byte, nextIDs *[]ID) error {
+				raw, err := orc.NewRaw(data)
+				if err != nil {
+					return err
+				}
 				fromType, r := raw.ReadString()
 				fromKey, r := r.ReadString()
 				relType, r := r.ReadString()
@@ -205,16 +205,21 @@ var (
 						}
 					}
 				}
+				return nil
 			}
 		},
 		Direction: DirectionBackward,
 	}
 	// ChildrenTraverser traverse to the children of a resource.
 	ChildrenTraverser = Traverser{
-		RawTraversal: func(_ []ID) RawTraversal {
-			return func(data []byte, nextIDs *[]ID) {
-				r := orc.NewRaw(data).SkipStrings(3)
-				*nextIDs = append(*nextIDs, ReadRawID(r))
+		Traverse: func(_ []ID) RawTraversal {
+			return func(data []byte, nextIDs *[]ID) error {
+				reader, err := orc.NewRaw(data)
+				if err != nil {
+					return err
+				}
+				*nextIDs = append(*nextIDs, ReadRawID(reader.SkipStrings(3)))
+				return nil
 			}
 		},
 		Direction:    DirectionForward,
@@ -368,32 +373,15 @@ func (r Retrieve) traverseByPrefix(
 	ids []ID,
 ) ([]ID, error) {
 	nextIDs := make([]ID, 0, len(ids)*4)
-	if traverse.RawTraversal != nil {
-		rt := traverse.RawTraversal(ids)
-		for _, id := range ids {
-			q := r.relationshipTable.NewRetrieve().
-				WherePrefix(traverse.FilterPrefix(id)).
-				WhereRaw(func(data []byte) bool {
-					rt(data, &nextIDs)
-					return false
-				})
-			if err := q.Exec(ctx, tx); err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		relationships := make([]Relationship, 0, 16)
-		for _, id := range ids {
-			relationships = relationships[:0]
-			if err := r.relationshipTable.NewRetrieve().
-				WherePrefix(traverse.FilterPrefix(id)).
-				Entries(&relationships).
-				Exec(ctx, tx); err != nil {
-				return nil, err
-			}
-			for i := range relationships {
-				nextIDs = append(nextIDs, traverse.Direction.GetID(&relationships[i]))
-			}
+	rt := traverse.Traverse(ids)
+	for _, id := range ids {
+		q := r.relationshipTable.NewRetrieve().
+			WherePrefix(traverse.FilterPrefix(id)).
+			WhereRaw(func(data []byte) (bool, error) {
+				return false, rt(data, &nextIDs)
+			})
+		if err := q.Exec(ctx, tx); err != nil {
+			return nil, err
 		}
 	}
 	return nextIDs, nil
@@ -405,36 +393,16 @@ func (r Retrieve) traverseByScan(
 	traverse Traverser,
 	ids []ID,
 ) ([]ID, error) {
-	nextIDs := make([]ID, 0, len(ids)*4)
-	if traverse.RawTraversal != nil {
-		rt := traverse.RawTraversal(ids)
-		q := r.relationshipTable.NewRetrieve().
-			WhereRaw(func(data []byte) bool {
-				rt(data, &nextIDs)
-				return false
+	var (
+		nextIDs = make([]ID, 0, len(ids)*4)
+		rt      = traverse.Traverse(ids)
+		q       = r.relationshipTable.NewRetrieve().
+			WhereRaw(func(data []byte) (bool, error) {
+				return false, rt(data, &nextIDs)
 			})
-		if err := q.Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-	} else {
-		var (
-			relationships []Relationship
-			res           Resource
-		)
-		q := r.relationshipTable.NewRetrieve().
-			Entries(&relationships).
-			Where(gorp.Match[[]byte, Relationship](func(_ gorp.Context, rel *Relationship) (bool, error) {
-				for _, id := range ids {
-					res.ID = id
-					if traverse.Filter(&res, rel) {
-						nextIDs = append(nextIDs, traverse.Direction.GetID(rel))
-					}
-				}
-				return false, nil
-			}))
-		if err := q.Exec(ctx, tx); err != nil {
-			return nil, err
-		}
+	)
+	if err := q.Exec(ctx, tx); err != nil {
+		return nil, err
 	}
 	return nextIDs, nil
 }

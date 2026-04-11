@@ -20,9 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -62,47 +64,43 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg     ServiceConfig
-	signals io.Closer
-	group   group.Group
-	table   *gorp.Table[uuid.UUID, Role]
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	group  group.Group
+	table  *gorp.Table[uuid.UUID, Role]
 }
 
-func (s *Service) Close() error {
-	var err error
-	if s.signals != nil {
-		err = s.signals.Close()
-	}
-	return errors.Join(err, s.table.Close())
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Role]{
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Role]{
 		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Role]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
-		Migrations:      RoleMigrations(),
-	})
-	if err != nil {
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
 	cfg.Search.RegisterService(s)
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		if s.signals, err = signals.PublishFromGorp(
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[Role](s.table.Observe()),
-		); err != nil {
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -122,5 +120,5 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
+	return Retrieve{baseTx: s.cfg.DB, gorp: s.table.NewRetrieve()}
 }

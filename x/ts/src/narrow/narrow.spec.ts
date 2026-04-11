@@ -67,4 +67,47 @@ describe("narrow", () => {
       expect(narrow.isObject(/test/)).toBe(true);
     });
   });
+
+  describe("isPlainObject", () => {
+    it("should return true for object literals", () => {
+      expect(narrow.isPlainObject({})).toBe(true);
+      expect(narrow.isPlainObject({ a: 1 })).toBe(true);
+    });
+
+    it("should return true for objects with a null prototype", () => {
+      expect(narrow.isPlainObject(Object.create(null))).toBe(true);
+    });
+
+    it("should return false for arrays", () => {
+      expect(narrow.isPlainObject([])).toBe(false);
+      expect(narrow.isPlainObject([1, 2])).toBe(false);
+    });
+
+    it("should return false for null and undefined", () => {
+      expect(narrow.isPlainObject(null)).toBe(false);
+      expect(narrow.isPlainObject(undefined)).toBe(false);
+    });
+
+    it("should return false for primitives", () => {
+      expect(narrow.isPlainObject(0)).toBe(false);
+      expect(narrow.isPlainObject("string")).toBe(false);
+      expect(narrow.isPlainObject(true)).toBe(false);
+      expect(narrow.isPlainObject(Symbol("x"))).toBe(false);
+      expect(narrow.isPlainObject(42n)).toBe(false);
+    });
+
+    it("should return false for class instances", () => {
+      class Custom {}
+      expect(narrow.isPlainObject(new Custom())).toBe(false);
+      expect(narrow.isPlainObject(new Date())).toBe(false);
+      expect(narrow.isPlainObject(new Map())).toBe(false);
+      expect(narrow.isPlainObject(new Error())).toBe(false);
+      expect(narrow.isPlainObject(/regex/)).toBe(false);
+    });
+
+    it("should return false for functions", () => {
+      expect(narrow.isPlainObject(() => 1)).toBe(false);
+      expect(narrow.isPlainObject(async () => 1)).toBe(false);
+    });
+  });
 });

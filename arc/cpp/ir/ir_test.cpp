@@ -198,11 +198,11 @@ TEST(IRTest, testEdgeToStringContinuous) {
     ASSERT_EQ(str, "a.out -> b.in (continuous)");
 }
 
-/// @brief it should format a oneshot Edge
-TEST(IRTest, testEdgeToStringOneShot) {
-    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::OneShot);
+/// @brief it should format a conditional Edge
+TEST(IRTest, testEdgeToStringConditional) {
+    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Conditional);
     const auto str = e.to_string();
-    ASSERT_EQ(str, "a.out => b.in (oneshot)");
+    ASSERT_EQ(str, "a.out => b.in (conditional)");
 }
 
 /// @brief it should format a Stage with nodes as "key: [nodes]"

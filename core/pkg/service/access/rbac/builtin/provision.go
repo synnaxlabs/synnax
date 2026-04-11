@@ -69,7 +69,7 @@ func provisionRole(
 		desiredObjects := pol.Objects
 		desiredActions := pol.Actions
 		if err := policySvc.NewRetrieve().
-			Where(policy.WhereNames(pol.Name)).
+			WhereNames(pol.Name).
 			Entry(pol).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return uuid.Nil, err
@@ -82,7 +82,7 @@ func provisionRole(
 		policyKeys = append(policyKeys, pol.Key)
 	}
 	if err := roleSvc.NewRetrieve().
-		Where(role.WhereNames(rol.Name)).
+		WhereName(rol.Name).
 		Entry(&rol).
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return uuid.Nil, err
