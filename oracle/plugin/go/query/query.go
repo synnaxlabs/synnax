@@ -295,15 +295,21 @@ func extractRetrieveInfo(
 
 	// Collect @filter and @index fields. A field may carry both: in that
 	// case, MatchX / MatchXs are generated to route through the index.
+	// Resolve the Go type only for fields that actually contribute generated
+	// code — otherwise ResolveTypeRef would add imports for types that are
+	// never referenced in retrieve.gen.go.
 	var filters []filterInfo
 	var indexes []indexInfo
 	allFields := resolution.UnifiedFields(typ, table)
 	for _, field := range allFields {
+		hasFilter := plugindomain.HasDomainFromField(field, "filter")
+		hasIndex := plugindomain.HasDomainFromField(field, "index")
+		if !hasFilter && !hasIndex {
+			continue
+		}
 		goType := r.ResolveTypeRef(field.Type, ctx)
 		goFieldName := naming.GetFieldName(field)
 
-		hasFilter := plugindomain.HasDomainFromField(field, "filter")
-		hasIndex := plugindomain.HasDomainFromField(field, "index")
 		var indexVarName string
 		if hasIndex {
 			kind := "lookup"

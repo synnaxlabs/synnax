@@ -87,7 +87,8 @@ Operation struct {
 
 Channel struct {
     name        Name                {
-        @doc value "is the human-readable channel name."
+        @doc value    "is the human-readable channel name."
+        @index lookup
     }
     leaseholder cluster.NodeKey     {
         @doc value """

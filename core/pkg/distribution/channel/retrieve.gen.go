@@ -18,6 +18,21 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// nameIndex is the secondary index on Channel.Name, registered on
+// the table via Indexes. MatchName / MatchNames route through this index when it is
+// populated.
+var nameIndex = gorp.NewLookup[Key, Channel, Name](
+	"name",
+	func(e *Channel) Name { return e.Name },
+)
+
+// indexes is the set of secondary indexes registered on the Channel table.
+// Pass this slice to gorp.TableConfig.Indexes when opening the table from the
+// same package.
+var indexes = []gorp.Index{
+	nameIndex,
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.label, r.hostProvider) to evaluate. Use Match to construct
