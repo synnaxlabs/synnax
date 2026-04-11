@@ -28,8 +28,8 @@ import (
 
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				fs      fs.FS

@@ -9,7 +9,15 @@
 
 package pool
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/synnaxlabs/x/errors"
+)
+
+// ErrClosed is returned by Acquire after Close has been called. It signals
+// callers that they must stop using this pool.
+var ErrClosed = errors.New("pool: closed")
 
 type Adapter interface {
 	Healthy() bool
@@ -24,6 +32,10 @@ type Factory[K comparable, A Adapter] interface {
 
 type Pool[K comparable, A Adapter] interface {
 	Acquire(key K) (A, error)
+	// Close closes every adapter held by the pool and marks the pool as
+	// closed. Subsequent Acquire calls return ErrClosed. Close is safe to
+	// call multiple times — the second call is a no-op.
+	Close() error
 }
 
 func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
@@ -34,11 +46,15 @@ type core[K comparable, A Adapter] struct {
 	factory Factory[K, A]
 	pool    map[K][]A
 	mu      sync.RWMutex
+	closed  bool
 }
 
-func (p *core[K, A]) Acquire(key K) (A, error) {
+func (p *core[K, A]) Acquire(key K) (a A, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.closed {
+		return a, ErrClosed
+	}
 	if adapters, ok := p.pool[key]; ok {
 		for _, adapter := range adapters {
 			if adapter.Healthy() {
@@ -47,6 +63,23 @@ func (p *core[K, A]) Acquire(key K) (A, error) {
 		}
 	}
 	return p.new(key)
+}
+
+func (p *core[K, A]) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return nil
+	}
+	p.closed = true
+	var err error
+	for _, adapters := range p.pool {
+		for _, adapter := range adapters {
+			err = errors.Combine(err, adapter.Close())
+		}
+	}
+	p.pool = make(map[K][]A)
+	return err
 }
 
 func (p *core[K, A]) new(key K) (a A, err error) {

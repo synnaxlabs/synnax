@@ -29,6 +29,8 @@ func TestWorkspace(t *testing.T) {
 	RunSpecs(t, "Workspace Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db     *gorp.DB
 	svc    *workspace.Service

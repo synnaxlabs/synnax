@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("Cluster", func() {
-	ShouldNotLeakGoroutinesBeforeEach()
+	ShouldNotLeakGoroutinesPerSpec()
 	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
 			mockCluster := mock.NewCluster()

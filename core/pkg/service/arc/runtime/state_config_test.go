@@ -29,9 +29,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 	var dist mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
-		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
+		dist = DeferClose(mock.NewCluster()).Provision(ctx)
 	})
 
 	Describe("NewStateConfig", func() {

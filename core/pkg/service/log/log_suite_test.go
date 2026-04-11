@@ -30,6 +30,8 @@ func TestLog(t *testing.T) {
 	RunSpecs(t, "Service Layer Log Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db  *gorp.DB
 	ws  workspace.Workspace

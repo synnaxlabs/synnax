@@ -175,7 +175,7 @@ var _ = Describe("txn", func() {
 		})
 
 		It("Should delete a key written directly to the engine without a digest", func(ctx SpecContext) {
-			engine := memkv.New()
+			engine := DeferClose(memkv.New())
 			kv := MustSucceed(
 				builder.New(ctx, kv.Config{Engine: engine}, cluster.Config{}),
 			)
@@ -317,8 +317,11 @@ var _ = Describe("txn", func() {
 			}).Should(Succeed())
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
-					To(MatchError(query.ErrNotFound))
+				_, closer, err := kv2.Get(ctx, []byte("key"))
+				if closer != nil {
+					Expect(closer.Close()).To(Succeed())
+				}
+				g.Expect(err).To(MatchError(query.ErrNotFound))
 			}).Should(Succeed())
 		})
 

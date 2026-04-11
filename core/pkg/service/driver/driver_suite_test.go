@@ -44,8 +44,11 @@ func TestDriver(t *testing.T) {
 	RunSpecs(t, "Driver Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	ShouldNotLeakGoroutines()
+	dist = DeferClose(mock.NewCluster()).Provision(ctx)
 	db = dist.DB
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

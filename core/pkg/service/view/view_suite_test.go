@@ -29,3 +29,5 @@ func TestView(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "View Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

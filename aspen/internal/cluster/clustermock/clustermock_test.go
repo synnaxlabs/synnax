@@ -26,9 +26,14 @@ var _ = Describe("Cluster Mock", func() {
 	Describe("Builder", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}
-			builder := clustermock.NewBuilder(cfg)
 			ctx, cancel := signal.Isolated()
-			defer cancel()
+			// Registered first so it runs LAST (LIFO): cancel + wait after
+			// the builder has torn down all clusters via the DeferClose below.
+			DeferCleanup(func() {
+				cancel()
+				Expect(ctx.Wait()).To(Succeed())
+			})
+			builder := DeferClose(clustermock.NewBuilder(cfg))
 			c1 := MustSucceed(builder.New(ctx, cfg))
 			Expect(c1.HostKey()).To(Equal(node.Key(1)))
 			c2 := MustSucceed(builder.New(ctx, cfg))
