@@ -216,21 +216,35 @@ func extractRetrieveInfo(
 		return nil
 	}
 
-	// Find the @key field.
-	var keyField *resolution.Field
-	for i := range form.Fields {
-		if plugindomain.HasDomainFromField(form.Fields[i], "key") {
-			keyField = &form.Fields[i]
-			break
+	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override
+	// takes precedence; this is useful when the entry type has a computed
+	// GorpKey that is not stored as a field on the struct (e.g. channel.Channel).
+	// Otherwise, fall back to the first field carrying `@key`.
+	var keyType, keyPrimitive string
+	if keyTypeName := plugindomain.GetStringFromType(typ, "retrieve", "key"); keyTypeName != "" {
+		qualified := keyTypeName
+		if typ.Namespace != "" && !strings.Contains(keyTypeName, ".") {
+			qualified = typ.Namespace + "." + keyTypeName
 		}
-	}
-	if keyField == nil {
-		return nil
+		keyRef := resolution.TypeRef{Name: qualified}
+		keyType = r.ResolveTypeRef(keyRef, ctx)
+		keyPrimitive = key.ResolvePrimitive(keyRef, table)
+	} else {
+		var keyField *resolution.Field
+		for i := range form.Fields {
+			if plugindomain.HasDomainFromField(form.Fields[i], "key") {
+				keyField = &form.Fields[i]
+				break
+			}
+		}
+		if keyField == nil {
+			return nil
+		}
+		keyType = r.ResolveTypeRef(keyField.Type, ctx)
+		keyPrimitive = key.ResolvePrimitive(keyField.Type, table)
 	}
 
 	goName := naming.GetGoName(typ)
-	keyType := r.ResolveTypeRef(keyField.Type, ctx)
-	keyPrimitive := key.ResolvePrimitive(keyField.Type, table)
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	hasSearch := plugindomain.HasDomainFromType(typ, "search")

@@ -10,162 +10,116 @@
 package channel
 
 import (
-	"context"
 	"regexp"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Retrieve is used to retrieve information about Channel(s) in the synnax distribution
-// layer
+// layer. It is a thin wrapper around gorp.Retrieve that adds channel-specific filter
+// functions, fuzzy search, and cluster-level validation. The generated retrieve.gen.go
+// file provides Filter, Match/And/Or/Not, Where, WhereKeys, Entry, Entries, Limit,
+// Offset, Search, Exec, Count, and Exists.
 type Retrieve struct {
-	tx                        gorp.Tx
-	gorp                      gorp.Retrieve[Key, Channel]
-	search                    *search.Index
-	validateRetrievedChannels func([]Channel) ([]Channel, error)
-	searchTerm                string
-	keys                      Keys
-}
-
-// Search sets the search term for the query. Note that the fuzzy search will be executed
-// before any other filters that are applied.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
-
-// Entry binds the Channel that Retrieve will fill results into. This is an identical
-// interface to gorp.Retrieve.
-func (r Retrieve) Entry(ch *Channel) Retrieve { r.gorp = r.gorp.Entry(ch); return r }
-
-// Entries binds a slice that Retrieve will fill results into.  This is an identical
-// interface to gorp.Retrieve.
-func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp = r.gorp.Entries(ch); return r }
-
-// Where adds the provided filters to the query, ANDing them with any existing filters.
-func (r Retrieve) Where(filters ...gorp.Filter[Key, Channel]) Retrieve {
-	r.gorp = r.gorp.Where(filters...)
-	return r
+	baseTX     gorp.Tx
+	gorp       gorp.Retrieve[Key, Channel]
+	search     *search.Index
+	searchTerm string
 }
 
 // MatchNodeKey returns a filter for channels whose Leaseholder attribute matches the
 // provided leaseholder node Key.
-func MatchNodeKey(nodeKey cluster.NodeKey) gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return ch.Leaseholder == nodeKey, nil
-	})
+func MatchNodeKey(nodeKey cluster.NodeKey) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return ch.Leaseholder == nodeKey, nil
+		})
+	}
 }
 
 // MatchIsIndex returns a filter for channels that are indexes if isIndex is true, or
 // are not indexes if isIndex is false.
-func MatchIsIndex(isIndex bool) gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return ch.IsIndex == isIndex, nil
-	})
+func MatchIsIndex(isIndex bool) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return ch.IsIndex == isIndex, nil
+		})
+	}
 }
 
-// MatchVirtual returns a filter for channels that are virtual if virtual is true, or are
-// not virtual if virtual is false.
-func MatchVirtual(virtual bool) gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		isVirtual := ch.Virtual && !ch.IsCalculated()
-		return isVirtual == virtual, nil
-	})
+// MatchVirtual returns a filter for channels that are virtual if virtual is true, or
+// are not virtual if virtual is false. Calculated channels are excluded from the
+// virtual bucket even though they are stored with Virtual=true.
+func MatchVirtual(virtual bool) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			isVirtual := ch.Virtual && !ch.IsCalculated()
+			return isVirtual == virtual, nil
+		})
+	}
 }
 
-// MatchInternal returns a filter for channels that are internal if internal is true, or
-// are not internal if internal is false.
-func MatchInternal(internal bool) gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return ch.Internal == internal, nil
-	})
+// MatchInternal returns a filter for channels that are internal if internal is true,
+// or are not internal if internal is false.
+func MatchInternal(internal bool) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return ch.Internal == internal, nil
+		})
+	}
 }
 
-// MatchDataTypes returns a filter for channels whose DataType attribute matches the
-// provided data types.
-func MatchDataTypes(dataTypes ...telem.DataType) gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return lo.Contains(dataTypes, ch.DataType), nil
-	})
+// MatchDataTypes returns a filter for channels whose DataType attribute matches any
+// of the provided data types.
+func MatchDataTypes(dataTypes ...telem.DataType) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return lo.Contains(dataTypes, ch.DataType), nil
+		})
+	}
 }
 
 // MatchNotDataTypes returns a filter for channels whose DataType attribute does not
-// match the provided data types.
-func MatchNotDataTypes(dataTypes ...telem.DataType) gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return !lo.Contains(dataTypes, ch.DataType), nil
-	})
+// match any of the provided data types.
+func MatchNotDataTypes(dataTypes ...telem.DataType) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return !lo.Contains(dataTypes, ch.DataType), nil
+		})
+	}
 }
 
-// MatchCalculated returns a filter for channels that have a non-empty Expression field.
-func MatchCalculated() gorp.Filter[Key, Channel] {
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return ch.IsCalculated(), nil
-	})
+// MatchCalculated returns a filter for channels that have a non-empty Expression
+// field.
+func MatchCalculated() Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return ch.IsCalculated(), nil
+		})
+	}
 }
 
-// MatchNames returns a filter for channels whose Name attribute matches the provided
-// names.
-func MatchNames(names ...string) gorp.Filter[Key, Channel] {
+// MatchNames returns a filter for channels whose Name attribute matches any of the
+// provided name patterns. Each pattern may be a literal name or a regular expression;
+// a pattern that is neither anchored with ^ nor $ is wrapped in ^...$ before
+// compilation.
+func MatchNames(names ...string) Filter {
 	matchers := make([]func(string) bool, len(names))
 	for i, name := range names {
 		matchers[i] = formatNameMatcher(name)
 	}
-	return gorp.Match[Key, Channel](func(_ gorp.Context, ch *Channel) (bool, error) {
-		return lo.SomeBy(matchers, func(matcher func(string) bool) bool {
-			return matcher(ch.Name)
-		}), nil
-	})
-}
-
-// WhereKeys filters for channels with the provided Key. This is an identical interface
-// to gorp.Retrieve.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.keys = append(r.keys, keys...)
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
-// Limit limits the number of results returned by the query. This is an identical
-// interface to gorp.Retrieve.
-func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
-
-// Offset offsets the results returned by the query. This is an identical interface to
-// gorp.Retrieve.
-func (r Retrieve) Offset(offset int) Retrieve { r.gorp = r.gorp.Offset(offset); return r }
-
-// Exec executes the query, binding
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	if r.searchTerm != "" {
-		ids, err := r.search.Search(ctx, search.Request{
-			Type: ontology.ResourceTypeChannel,
-			Term: r.searchTerm,
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return lo.SomeBy(matchers, func(matcher func(string) bool) bool {
+				return matcher(ch.Name)
+			}), nil
 		})
-		if err != nil {
-			return err
-		}
-		keys, err := KeysFromOntologyIDs(ids)
-		if err != nil {
-			return err
-		}
-		r = r.WhereKeys(keys...)
 	}
-	err := r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
-	entries := r.gorp.GetEntries()
-	channels, vErr := r.validateRetrievedChannels(entries.All())
-	r.gorp = r.gorp.Entries(&channels)
-	return errors.Combine(err, vErr)
-}
-
-// Exists checks if the query has results matching its parameters. If used in conjunction
-// with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
-// Otherwise, Exists returns true if the query has ANY results.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.tx, tx))
 }
 
 func formatNameMatcher(name string) func(name string) bool {
@@ -177,5 +131,4 @@ func formatNameMatcher(name string) func(name string) bool {
 		return func(s string) bool { return s == name }
 	}
 	return rx.MatchString
-
 }
