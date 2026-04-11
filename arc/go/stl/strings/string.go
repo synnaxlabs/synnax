@@ -35,15 +35,15 @@ var SymbolResolver = &symbol.ModuleResolver{
 			Name: "concat",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},
 		"equal": {
 			Name: "equal",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
+				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 			}),
 		},
@@ -51,7 +51,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 			Name: "len",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "handle", Type: types.I32()}},
+				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			}),
 		},

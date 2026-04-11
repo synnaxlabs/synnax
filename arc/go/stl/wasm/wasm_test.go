@@ -946,6 +946,42 @@ var _ = Describe("WASM", func() {
 				return len(a + b)
 			}`, stl.SymbolResolver, int32(11)),
 		)
+
+		DescribeTable("qualified string.len() calls",
+			expectOutput[int32],
+			Entry("simple string", "qlen_str", types.I64(), `{
+				return string.len("hello")
+			}`, stl.SymbolResolver, int32(5)),
+			Entry("empty string", "qlen_empty", types.I64(), `{
+				return string.len("")
+			}`, stl.SymbolResolver, int32(0)),
+			Entry("string variable", "qlen_var", types.I64(), `{
+				s str := "world"
+				return string.len(s)
+			}`, stl.SymbolResolver, int32(5)),
+		)
+
+		DescribeTable("qualified string.concat() calls",
+			expectOutput[int32],
+			Entry("two literals", "qconcat_lit", types.I64(), `{
+				return len(string.concat("ab", "cd"))
+			}`, stl.SymbolResolver, int32(4)),
+			Entry("variables", "qconcat_var", types.I64(), `{
+				a str := "hello"
+				b str := " world"
+				return string.len(string.concat(a, b))
+			}`, stl.SymbolResolver, int32(11)),
+		)
+
+		DescribeTable("qualified string.equal() calls",
+			expectOutput[int32],
+			Entry("equal strings", "qeq_true", types.I32(), `{
+				return string.equal("abc", "abc")
+			}`, stl.SymbolResolver, int32(1)),
+			Entry("unequal strings", "qeq_false", types.I32(), `{
+				return string.equal("abc", "def")
+			}`, stl.SymbolResolver, int32(0)),
+		)
 	})
 
 	Describe("No-Input Node Initialization", func() {
