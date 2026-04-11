@@ -3712,6 +3712,36 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(BeNumerically(">", 0))
 		})
 
+		It("Should resolve type variables consistently across arguments", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func square(val f32) f32 {
+				return math.pow(val, 2)
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			square := mod.ExportedFunction("square")
+			Expect(square).ToNot(BeNil())
+
+			results := MustSucceed(square.Call(ctx, uint64(math.Float32bits(3.0))))
+			Expect(math.Float32frombits(uint32(results[0]))).To(BeNumerically("~", 9.0, 0.001))
+		})
+
+		It("Should execute math.pow with literal arguments", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return math.pow(2, 3)
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(results[0]).To(Equal(uint64(8)))
+		})
+
 		It("Should use qualified and bare now() interchangeably", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {

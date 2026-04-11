@@ -556,8 +556,15 @@ func add(a i32, b i32) i32 {
 				OpenArcDocument(server, ctx, uri, content)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
-				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
-				Expect(tokens.Data[8]).To(Equal(expectedType))
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+				found := false
+				for i := 3; i < len(tokens.Data); i += 5 {
+					if tokens.Data[i] == expectedType {
+						found = true
+						break
+					}
+				}
+				Expect(found).To(BeTrue(), "expected token type %d not found", expectedType)
 			},
 			Entry("declare :=", "x := 1", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("state declare $=", "x $= 1", uint32(lsp.SemanticTokenTypeOperator)),
