@@ -3693,12 +3693,12 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Qualified Module Calls", func() {
-		BeforeEach(func() {
-			bindDefaultModules(r)
+		BeforeEach(func(ctx SpecContext) {
+			bindDefaultModules(ctx, r)
 		})
 
-		It("Should execute time.now() via qualified name", func() {
-			output := MustSucceed(compileWithHostImports(`
+		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {
 				return time.now()
 			}
@@ -3712,8 +3712,8 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(BeNumerically(">", 0))
 		})
 
-		It("Should use qualified and bare now() interchangeably", func() {
-			output := MustSucceed(compileWithHostImports(`
+		It("Should use qualified and bare now() interchangeably", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {
 				a := time.now()
 				b := now()

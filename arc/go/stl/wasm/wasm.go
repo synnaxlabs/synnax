@@ -64,6 +64,12 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	memOffsets := make([]uint32, len(irFn.Outputs))
 	offset := base + 8
 	for i, t := range irFn.Outputs {
+		if !t.Type.IsValid() {
+			return nil, errors.Newf(
+				"node %s has output %q with unresolved type",
+				cfg.Node.Key, t.Name,
+			)
+		}
 		memOffsets[i] = offset
 		offset += uint32(t.Type.Density())
 	}
