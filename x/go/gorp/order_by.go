@@ -9,7 +9,11 @@
 
 package gorp
 
-import "go.uber.org/zap"
+import (
+	"cmp"
+
+	"go.uber.org/zap"
+)
 
 // Direction is the iteration direction used by a Sorted index when it is
 // consumed via Retrieve.OrderBy.
@@ -41,8 +45,7 @@ type OrderBy[K Key, E Entry[K]] struct {
 func (o OrderBy[K, E]) Name() string { return o.name }
 
 // Ordered returns an OrderBy handle that walks the Sorted index in the given
-// direction. The handle is passed to Retrieve.OrderBy. A nil index data pointer
-// (unregistered index) causes the walk to return no keys and fires a DPanic.
+// direction. The handle is passed to Retrieve.OrderBy.
 func (s *Sorted[K, E, V]) Ordered(dir Direction) OrderBy[K, E] {
 	name := s.name
 	return OrderBy[K, E]{
@@ -50,16 +53,7 @@ func (s *Sorted[K, E, V]) Ordered(dir Direction) OrderBy[K, E] {
 		walk: func(after any, limit int) ([]K, any) {
 			s.mu.RLock()
 			defer s.mu.RUnlock()
-			if s.data == nil {
-				s.warnOnce.Do(func() {
-					zap.S().DPanicf(
-						"gorp: Sorted index %q used by OrderBy before registration",
-						name,
-					)
-				})
-				return nil, nil
-			}
-			entries := s.data.storage.entries
+			entries := s.storage.entries
 			if len(entries) == 0 {
 				return nil, nil
 			}
@@ -76,7 +70,7 @@ func (s *Sorted[K, E, V]) Ordered(dir Direction) OrderBy[K, E] {
 						)
 						return nil, nil
 					}
-					start = s.data.storage.upperBound(typed)
+					start = s.storage.upperBound(typed)
 				}
 			case Desc:
 				if after == nil {
@@ -89,7 +83,7 @@ func (s *Sorted[K, E, V]) Ordered(dir Direction) OrderBy[K, E] {
 						)
 						return nil, nil
 					}
-					start = s.data.storage.lowerBound(typed) - 1
+					start = s.storage.lowerBound(typed) - 1
 				}
 			}
 			return walkSorted(entries, start, dir, limit)
@@ -101,7 +95,7 @@ func (s *Sorted[K, E, V]) Ordered(dir Direction) OrderBy[K, E] {
 // emitting up to limit keys. A limit of 0 means unbounded. Returns the keys
 // and the value of the last visited entry as the next cursor; the caller
 // passes that cursor back via Retrieve.After to continue pagination.
-func walkSorted[K IndexKey, V comparable](
+func walkSorted[K IndexKey, V cmp.Ordered](
 	entries []sortedEntry[K, V],
 	start int,
 	dir Direction,

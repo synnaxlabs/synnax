@@ -19,8 +19,8 @@ import (
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
-// from it (e.g. r.label, r.hostProvider) to evaluate. Use Match to construct
-// one from a closure.
+// from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
+// construct one from a closure.
 type Filter func(r Retrieve) gorp.Filter[Key, Role]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
@@ -72,7 +72,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // MatchNames returns a filter for roles whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Role] {
+	return func(r Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})
@@ -81,7 +81,7 @@ func MatchNames(vals ...string) Filter {
 
 // MatchInternal returns a filter for roles by their Internal field.
 func MatchInternal(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Role] {
+	return func(r Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
 			return e.Internal == v, nil
 		})
@@ -89,7 +89,8 @@ func MatchInternal(v bool) Filter {
 }
 
 // Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.label, r.hostProvider, etc.
+// Retrieve so service-bound filters can read from r.indexes, r.label,
+// r.hostProvider, etc.
 func (r Retrieve) Where(filters ...Filter) Retrieve {
 	bound := make([]gorp.Filter[Key, Role], len(filters))
 	for i, f := range filters {

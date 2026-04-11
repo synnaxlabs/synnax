@@ -94,7 +94,7 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}
 	cleanup, ok := service.NewOpener(ctx, &o.closer)
 	defer func() { err = cleanup(err) }()
-	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[Resource]{
+	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Resource]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Migrations: []migrate.Migration{
@@ -103,7 +103,7 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
-	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{
+	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[[]byte, Relationship]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Migrations: []migrate.Migration{

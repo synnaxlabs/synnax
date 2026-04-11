@@ -36,10 +36,11 @@ type Service struct {
 	db     *gorp.DB
 	closer io.MultiCloser
 	Writer
-	proxy *leaseProxy
-	otg   *ontology.Ontology
-	group group.Group
-	table *gorp.Table[Key, Channel]
+	proxy   *leaseProxy
+	otg     *ontology.Ontology
+	group   group.Group
+	table   *gorp.Table[Key, Channel]
+	indexes indexes
 }
 
 type IntOverflowChecker = func(types.Uint20) error
@@ -99,13 +100,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.ClusterDB, otg: cfg.Ontology}
+	s = &Service{cfg: cfg, db: cfg.ClusterDB, otg: cfg.Ontology, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:              cfg.ClusterDB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Channel]("msgpack_to_orc")},
-		Indexes:         indexes,
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -139,9 +140,10 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTX: s.db,
-		gorp:   s.table.NewRetrieve().Validate(s.validateChannels),
-		search: s.cfg.Search,
+		baseTX:  s.db,
+		gorp:    s.table.NewRetrieve().Validate(s.validateChannels),
+		search:  s.cfg.Search,
+		indexes: s.indexes,
 	}
 }
 

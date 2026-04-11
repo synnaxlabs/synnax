@@ -217,30 +217,6 @@ var _ = Describe("Index", func() {
 			})
 		})
 
-		Describe("Graceful degradation", func() {
-			It("Should fall back to an extract-based scan when unregistered", func(ctx SpecContext) {
-				seed := []indexedEntry{
-					{ID: 1, Name: "one"},
-					{ID: 2, Name: "two"},
-					{ID: 3, Name: "one"},
-				}
-				Expect(gorp.NewCreate[int32, indexedEntry]().
-					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
-				unregistered := gorp.NewLookup[int32, indexedEntry, string](
-					"name", func(e *indexedEntry) string { return e.Name },
-				)
-				var res []indexedEntry
-				Expect(gorp.NewRetrieve[int32, indexedEntry]().
-					Where(unregistered.Filter("one")).
-					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				ids := make([]int32, len(res))
-				for i, e := range res {
-					ids[i] = e.ID
-				}
-				Expect(ids).To(ConsistOf(int32(1), int32(3)))
-			})
-		})
-
 		Describe("Concurrency", func() {
 			It("Should permit concurrent Filter calls while the observer processes writes", func(ctx SpecContext) {
 				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
@@ -288,7 +264,7 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 				scoreIdx := gorp.NewSorted[int32, indexedEntry, int64](
-					"score", func(e *indexedEntry) int64 { return e.Score }, nil,
+					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
 				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
@@ -310,7 +286,7 @@ var _ = Describe("Index", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				scoreIdx = gorp.NewSorted[int32, indexedEntry, int64](
-					"score", func(e *indexedEntry) int64 { return e.Score }, nil,
+					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
 				var err error
 				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{

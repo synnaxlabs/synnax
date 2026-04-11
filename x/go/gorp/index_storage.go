@@ -10,7 +10,7 @@
 package gorp
 
 import (
-	"reflect"
+	"cmp"
 	"slices"
 	"sort"
 )
@@ -35,7 +35,7 @@ type lookupStorage[K IndexKey, V comparable] interface {
 }
 
 // newLookupStorage constructs a lookup backing keyed on V. Specialized
-// implementations are chosen by reflecting on the zero value of V:
+// implementations are chosen by type-switching on the zero value of V:
 //   - bool           -> boolLookupStorage (two buckets, no hashing)
 //   - anything else  -> mapLookupStorage (map[V][]K)
 //
@@ -43,12 +43,11 @@ type lookupStorage[K IndexKey, V comparable] interface {
 // added without changing the interface.
 func newLookupStorage[K IndexKey, V comparable]() lookupStorage[K, V] {
 	var zero V
-	switch reflect.TypeOf(zero).Kind() {
-	case reflect.Bool:
+	switch any(zero).(type) {
+	case bool:
 		// boolLookupStorage always satisfies lookupStorage[K, bool]; the type
 		// assertion is safe because we only enter this branch when V is bool.
-		var s any = newBoolLookupStorage[K]()
-		return s.(lookupStorage[K, V])
+		return any(new(boolLookupStorage[K])).(lookupStorage[K, V])
 	default:
 		return newMapLookupStorage[K, V]()
 	}
@@ -91,12 +90,7 @@ func (s *mapLookupStorage[K, V]) get(value V) []K {
 // There are only two possible values, so we avoid hashing and map overhead
 // entirely by keeping one slice per bucket.
 type boolLookupStorage[K IndexKey] struct {
-	trueKeys  []K
-	falseKeys []K
-}
-
-func newBoolLookupStorage[K IndexKey]() *boolLookupStorage[K] {
-	return &boolLookupStorage[K]{}
+	trueKeys, falseKeys []K
 }
 
 func (s *boolLookupStorage[K]) put(key K, value bool) {
@@ -128,38 +122,37 @@ func (s *boolLookupStorage[K]) get(value bool) []K {
 }
 
 // sortedEntry is a single (value, key) pair inside a sorted index slice.
-type sortedEntry[K IndexKey, V comparable] struct {
+type sortedEntry[K IndexKey, V cmp.Ordered] struct {
 	Value V
 	Key   K
 }
 
-// sortedStorage backs a Sorted index. It keeps entries in ascending order of V
-// using a caller-supplied less function. Insertion is O(log n) binary search
-// plus O(n) slice shift. At the target scale (<100k entries) this is
-// acceptable; if profiling shows the shift cost matters, swap the backing
-// for a B-tree without changing the outer API. Within equal values, entries
-// are kept in insertion order; removal scans that sub-range for an exact key
-// match.
-type sortedStorage[K IndexKey, V comparable] struct {
+// sortedStorage backs a Sorted index. It keeps entries in ascending order of
+// V using the native `<` operator (V is constrained to cmp.Ordered).
+// Insertion is O(log n) binary search plus O(n) slice shift. At the target
+// scale (<100k entries) this is acceptable; if profiling shows the shift cost
+// matters, swap the backing for a B-tree without changing the outer API.
+// Within equal values, entries are kept in insertion order; removal scans
+// that sub-range for an exact key match.
+type sortedStorage[K IndexKey, V cmp.Ordered] struct {
 	entries []sortedEntry[K, V]
-	less    func(a, b V) bool
 }
 
-func newSortedStorage[K IndexKey, V comparable](less func(a, b V) bool) *sortedStorage[K, V] {
-	return &sortedStorage[K, V]{less: less}
+func newSortedStorage[K IndexKey, V cmp.Ordered]() *sortedStorage[K, V] {
+	return &sortedStorage[K, V]{}
 }
 
-// lowerBound returns the first index i such that !less(entries[i].Value, value).
+// lowerBound returns the first index i such that entries[i].Value >= value.
 func (s *sortedStorage[K, V]) lowerBound(value V) int {
 	return sort.Search(len(s.entries), func(i int) bool {
-		return !s.less(s.entries[i].Value, value)
+		return s.entries[i].Value >= value
 	})
 }
 
-// upperBound returns the first index i such that less(value, entries[i].Value).
+// upperBound returns the first index i such that entries[i].Value > value.
 func (s *sortedStorage[K, V]) upperBound(value V) int {
 	return sort.Search(len(s.entries), func(i int) bool {
-		return s.less(value, s.entries[i].Value)
+		return s.entries[i].Value > value
 	})
 }
 
@@ -190,31 +183,4 @@ func (s *sortedStorage[K, V]) get(value V) []K {
 		out[i-lo] = s.entries[i].Key
 	}
 	return out
-}
-
-// defaultLess returns a native less function for V if one can be derived from
-// the type's kind, or nil if the caller must supply one. Supports signed and
-// unsigned integers, floats, and strings.
-func defaultLess[V comparable]() func(a, b V) bool {
-	var zero V
-	kind := reflect.TypeOf(zero).Kind()
-	switch kind {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return func(a, b V) bool {
-			return reflect.ValueOf(a).Int() < reflect.ValueOf(b).Int()
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return func(a, b V) bool {
-			return reflect.ValueOf(a).Uint() < reflect.ValueOf(b).Uint()
-		}
-	case reflect.Float32, reflect.Float64:
-		return func(a, b V) bool {
-			return reflect.ValueOf(a).Float() < reflect.ValueOf(b).Float()
-		}
-	case reflect.String:
-		return func(a, b V) bool {
-			return reflect.ValueOf(a).String() < reflect.ValueOf(b).String()
-		}
-	}
-	return nil
 }

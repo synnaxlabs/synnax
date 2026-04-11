@@ -90,28 +90,41 @@ func OpenTable[K Key, E Entry[K]](
 
 // populateIndexes performs a single sequential scan over every entry in the
 // table and feeds each decoded entry into every registered index.
+//
+// Each index returns an insert closure and a finish closure from populate;
+// the orchestrator collects them, scans the table once, fans every decoded
+// entry through every insert closure, and runs the finish closures at the
+// end. If any index fails to start, finish is invoked on every index that
+// already started so the populate-phase write locks are released cleanly.
 func populateIndexes[K Key, E Entry[K]](
 	ctx context.Context,
 	db *DB,
 	indexes []Index[K, E],
-) error {
-	for _, idx := range indexes {
-		if err := idx.populateBegin(); err != nil {
-			return err
+) (err error) {
+	inserts := make([]func(E), 0, len(indexes))
+	finishes := make([]func(), 0, len(indexes))
+	defer func() {
+		for _, f := range finishes {
+			f()
 		}
+	}()
+	for _, idx := range indexes {
+		startErr, insert, finish := idx.populate()
+		if startErr != nil {
+			return startErr
+		}
+		inserts = append(inserts, insert)
+		finishes = append(finishes, finish)
 	}
-	nexter, closer, err := WrapReader[K, E](db).OpenNexter(ctx)
-	if err != nil {
-		return err
+	nexter, closer, nexterErr := WrapReader[K, E](db).OpenNexter(ctx)
+	if nexterErr != nil {
+		return nexterErr
 	}
 	defer func() { _ = closer.Close() }()
 	for e := range nexter {
-		for _, idx := range indexes {
-			idx.populateInsert(e)
+		for _, insert := range inserts {
+			insert(e)
 		}
-	}
-	for _, idx := range indexes {
-		idx.populateFinish()
 	}
 	return nil
 }
@@ -126,11 +139,11 @@ func attachIndexObserver[K Key, E Entry[K]](db *DB, indexes []Index[K, E]) func(
 			switch ch.Variant {
 			case change.VariantSet:
 				for _, idx := range indexes {
-					idx.applySet(ch.Key, ch.Value)
+					idx.set(ch.Key, ch.Value)
 				}
 			case change.VariantDelete:
 				for _, idx := range indexes {
-					idx.applyDelete(ch.Key)
+					idx.delete(ch.Key)
 				}
 			}
 		}

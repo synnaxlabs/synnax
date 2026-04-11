@@ -30,6 +30,7 @@ type Retrieve struct {
 	gorp       gorp.Retrieve[Key, Channel]
 	search     *search.Index
 	searchTerm string
+	indexes    indexes
 }
 
 // MatchNodeKey returns a filter for channels whose Leaseholder attribute matches the
@@ -117,14 +118,15 @@ var literalNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 // regular expression; unanchored patterns are wrapped in ^...$ before
 // compilation.
 //
-// When every input is a literal channel name, MatchNames routes through
-// nameIndex.Filter for an O(1) candidate-key lookup instead of a full scan.
-// If any input contains regex metacharacters, MatchNames compiles each
-// pattern and falls back to a scan that tests every decoded channel.
+// When every input is a literal channel name, MatchNames routes through the
+// per-Service name index (r.indexes.name) for an O(1) candidate-key lookup
+// instead of a full scan. If any input contains regex metacharacters,
+// MatchNames compiles each pattern and falls back to a scan that tests every
+// decoded channel.
 func MatchNames(names ...string) Filter {
 	if len(names) > 0 && allLiteralNames(names) {
-		return func(_ Retrieve) gorp.Filter[Key, Channel] {
-			return nameIndex.Filter(names...)
+		return func(r Retrieve) gorp.Filter[Key, Channel] {
+			return r.indexes.name.Filter(names...)
 		}
 	}
 	matchers := make([]func(string) bool, len(names))

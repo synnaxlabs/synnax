@@ -10,9 +10,8 @@
 package gorp
 
 import (
+	"cmp"
 	"sync"
-
-	"go.uber.org/zap"
 )
 
 // Index is a registered secondary index on a Table. Implementations are
@@ -23,184 +22,110 @@ type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string
 
-	// populateBegin allocates backing storage and transitions the index into
-	// the populated state. Returns an error if the index is already populated
-	// (double registration).
-	populateBegin() error
-	// populateInsert inserts a decoded entry during initial population. The
-	// entry must be the Table's entry type; each index casts internally.
-	populateInsert(entry E)
-	// populateFinish marks population as complete.
-	populateFinish()
+	// populate transitions the index into the populated state and returns
+	// (init error, insert closure, finish closure). The caller invokes insert
+	// once for every existing entry in the table, then invokes finish exactly
+	// once after the last insert. The implementation may hold a write lock
+	// across the entire populate phase, so finish is mandatory; failing to
+	// call it leaks the lock.
+	populate() (error, func(entry E), func())
 
-	// applySet is invoked by the Table observer when an entry is created or
+	// set is invoked by the Table observer when an entry is created or
 	// updated. The index extracts the new indexed value from entry, removes
 	// any stale mapping for key, and inserts the new one.
-	applySet(key K, entry E)
-	// applyDelete is invoked by the Table observer when an entry is deleted.
-	// The index uses its reverse map to locate and remove the stale mapping.
-	applyDelete(key K)
-}
-
-// lookupData holds the populated state of a Lookup index. A nil pointer means
-// the index has not been registered on a Table yet.
-type lookupData[K IndexKey, V comparable] struct {
-	storage lookupStorage[K, V]
-	reverse map[K]V
+	set(key K, entry E)
+	// delete is invoked by the Table observer when an entry is deleted. The
+	// index uses its reverse map to locate and remove the stale mapping.
+	delete(key K)
 }
 
 // Lookup is an in-memory exact-match index on a field of type V extracted
 // from entries of type E. Construct with NewLookup and register on a Table
-// via TableConfig.Indexes. Once registered, Get and Filter return matches
-// via an O(1) backing lookup; before registration they DPanic and fall back
-// to an extract-based scan, preserving correctness.
+// via TableConfig.Indexes.
 type Lookup[K IndexKey, E Entry[K], V comparable] struct {
 	name    string
 	extract func(e *E) V
 
-	mu       sync.RWMutex
-	data     *lookupData[K, V]
-	warnOnce sync.Once
+	mu      sync.RWMutex
+	storage lookupStorage[K, V]
+	reverse map[K]V
 }
 
 // NewLookup constructs a Lookup index with the given display name and extract
-// function. The returned index is unpopulated; register it on a Table through
-// TableConfig.Indexes to activate the fast path.
+// function. The returned index is empty; register it on a Table through
+// TableConfig.Indexes to populate it from the existing table contents and
+// keep it in sync with future writes.
 func NewLookup[K IndexKey, E Entry[K], V comparable](
 	name string,
 	extract func(e *E) V,
 ) *Lookup[K, E, V] {
-	return &Lookup[K, E, V]{name: name, extract: extract}
+	return &Lookup[K, E, V]{
+		name:    name,
+		extract: extract,
+		storage: newLookupStorage[K, V](),
+		reverse: make(map[K]V),
+	}
 }
 
 // Name implements Index.
 func (l *Lookup[K, E, V]) Name() string { return l.name }
 
-func (l *Lookup[K, E, V]) populateBegin() error {
+func (l *Lookup[K, E, V]) populate() (error, func(E), func()) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.data != nil {
-		zap.S().DPanicf("gorp: index %q registered on more than one table", l.name)
-		return nil
+	insert := func(entry E) {
+		key := entry.GorpKey()
+		value := l.extract(&entry)
+		l.storage.put(key, value)
+		l.reverse[key] = value
 	}
-	l.data = &lookupData[K, V]{
-		storage: newLookupStorage[K, V](),
-		reverse: make(map[K]V),
-	}
-	return nil
+	finish := func() { l.mu.Unlock() }
+	return nil, insert, finish
 }
 
-func (l *Lookup[K, E, V]) populateInsert(entry E) {
+func (l *Lookup[K, E, V]) set(key K, entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.data == nil {
-		return
-	}
-	key := entry.GorpKey()
-	value := l.extract(&entry)
-	l.data.storage.put(key, value)
-	l.data.reverse[key] = value
-}
-
-func (l *Lookup[K, E, V]) populateFinish() {}
-
-func (l *Lookup[K, E, V]) applySet(key K, entry E) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.data == nil {
-		return
-	}
 	newValue := l.extract(&entry)
-	if oldValue, existed := l.data.reverse[key]; existed {
+	if oldValue, existed := l.reverse[key]; existed {
 		if oldValue == newValue {
 			return
 		}
-		l.data.storage.remove(key, oldValue)
+		l.storage.remove(key, oldValue)
 	}
-	l.data.storage.put(key, newValue)
-	l.data.reverse[key] = newValue
+	l.storage.put(key, newValue)
+	l.reverse[key] = newValue
 }
 
-func (l *Lookup[K, E, V]) applyDelete(key K) {
+func (l *Lookup[K, E, V]) delete(key K) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.data == nil {
-		return
-	}
-	oldValue, existed := l.data.reverse[key]
+	oldValue, existed := l.reverse[key]
 	if !existed {
 		return
 	}
-	l.data.storage.remove(key, oldValue)
-	delete(l.data.reverse, key)
+	l.storage.remove(key, oldValue)
+	delete(l.reverse, key)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of
-// the provided values. Returns nil if the index has not been populated; in
-// that case the caller is expected to fall back to a scan.
+// the provided values.
 func (l *Lookup[K, E, V]) Get(values ...V) []K {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	if l.data == nil {
-		l.warnOnce.Do(func() {
-			zap.S().DPanicf(
-				"gorp: Lookup index %q used before registration; falling back to scan",
-				l.name,
-			)
-		})
-		return nil
-	}
 	if len(values) == 0 {
 		return nil
 	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	var out []K
 	for _, v := range values {
-		out = append(out, l.data.storage.get(v)...)
+		out = append(out, l.storage.get(v)...)
 	}
 	return out
 }
 
 // Filter returns a Filter[K, E] that rejects entries whose primary key is not
-// in the candidate set computed from values. If the index is registered the
-// candidate set is built via the O(1) forward map; otherwise the filter falls
-// back to an extract-based Eval comparison and fires a DPanic once to surface
-// the misconfiguration.
+// in the candidate set computed from values.
 func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
-	l.mu.RLock()
-	registered := l.data != nil
-	l.mu.RUnlock()
-	if !registered {
-		l.warnOnce.Do(func() {
-			zap.S().DPanicf(
-				"gorp: Lookup index %q used before registration; falling back to scan",
-				l.name,
-			)
-		})
-		return l.scanFilter(values)
-	}
-	keys := l.Get(values...)
-	return filterFromKeys[K, E](keys)
-}
-
-// scanFilter produces an Eval-based Filter that compares each decoded entry's
-// extracted value against the candidate set. Used as the fallback when the
-// index has not been populated.
-func (l *Lookup[K, E, V]) scanFilter(values []V) Filter[K, E] {
-	if len(values) == 0 {
-		return Filter[K, E]{
-			Eval: func(_ Context, _ *E) (bool, error) { return false, nil },
-		}
-	}
-	valueSet := make(map[V]struct{}, len(values))
-	for _, v := range values {
-		valueSet[v] = struct{}{}
-	}
-	return Filter[K, E]{
-		Eval: func(_ Context, e *E) (bool, error) {
-			_, ok := valueSet[l.extract(e)]
-			return ok, nil
-		},
-	}
+	return filterFromKeys[K, E](l.Get(values...))
 }
 
 // filterFromKeys builds a Filter whose Key stage accepts entries whose primary
@@ -224,163 +149,91 @@ func filterFromKeys[K IndexKey, E Entry[K]](keys []K) Filter[K, E] {
 	}
 }
 
-// sortedData holds the populated state of a Sorted index.
-type sortedData[K IndexKey, V comparable] struct {
+// Sorted is an ordered in-memory index on a field of type V extracted from
+// entries of type E. V is constrained to cmp.Ordered so the storage can use
+// the native `<` operator without a caller-supplied comparator. Sorted
+// supports exact-match lookups via Filter (same semantics as Lookup) and
+// ordered cursor-based pagination via Retrieve.OrderBy.
+type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
+	name    string
+	extract func(e *E) V
+
+	mu      sync.RWMutex
 	storage *sortedStorage[K, V]
 	reverse map[K]V
 }
 
-// Sorted is an ordered in-memory index on a field of type V extracted from
-// entries of type E. It supports exact-match lookups via Filter (same
-// semantics as Lookup) and ordered cursor-based pagination via Retrieve.OrderBy.
-type Sorted[K IndexKey, E Entry[K], V comparable] struct {
-	name    string
-	extract func(e *E) V
-	less    func(a, b V) bool
-
-	mu       sync.RWMutex
-	data     *sortedData[K, V]
-	warnOnce sync.Once
-}
-
-// NewSorted constructs a Sorted index. If less is nil, a native comparison is
-// selected based on the kind of V (supports integers, floats, and strings).
-// Callers must pass a non-nil less function for other ordered types.
-func NewSorted[K IndexKey, E Entry[K], V comparable](
+// NewSorted constructs a Sorted index over the provided extract function.
+// V must satisfy cmp.Ordered (any built-in ordered primitive: signed and
+// unsigned integers, floats, or strings).
+func NewSorted[K IndexKey, E Entry[K], V cmp.Ordered](
 	name string,
 	extract func(e *E) V,
-	less func(a, b V) bool,
 ) *Sorted[K, E, V] {
-	if less == nil {
-		less = defaultLess[V]()
+	return &Sorted[K, E, V]{
+		name:    name,
+		extract: extract,
+		storage: newSortedStorage[K, V](),
+		reverse: make(map[K]V),
 	}
-	if less == nil {
-		zap.S().DPanicf(
-			"gorp: Sorted index %q constructed with nil less and no default ordering for value type",
-			name,
-		)
-	}
-	return &Sorted[K, E, V]{name: name, extract: extract, less: less}
 }
 
 // Name implements Index.
 func (s *Sorted[K, E, V]) Name() string { return s.name }
 
-func (s *Sorted[K, E, V]) populateBegin() error {
+func (s *Sorted[K, E, V]) populate() (error, func(E), func()) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.data != nil {
-		zap.S().DPanicf("gorp: index %q registered on more than one table", s.name)
-		return nil
+	insert := func(entry E) {
+		key := entry.GorpKey()
+		value := s.extract(&entry)
+		s.storage.put(key, value)
+		s.reverse[key] = value
 	}
-	s.data = &sortedData[K, V]{
-		storage: newSortedStorage[K, V](s.less),
-		reverse: make(map[K]V),
-	}
-	return nil
+	finish := func() { s.mu.Unlock() }
+	return nil, insert, finish
 }
 
-func (s *Sorted[K, E, V]) populateInsert(entry E) {
+func (s *Sorted[K, E, V]) set(key K, entry E) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.data == nil {
-		return
-	}
-	key := entry.GorpKey()
-	value := s.extract(&entry)
-	s.data.storage.put(key, value)
-	s.data.reverse[key] = value
-}
-
-func (s *Sorted[K, E, V]) populateFinish() {}
-
-func (s *Sorted[K, E, V]) applySet(key K, entry E) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.data == nil {
-		return
-	}
 	newValue := s.extract(&entry)
-	if oldValue, existed := s.data.reverse[key]; existed {
-		if oldValue == newValue {
+	if oldValue, existed := s.reverse[key]; existed {
+		if cmp.Compare(oldValue, newValue) == 0 {
 			return
 		}
-		s.data.storage.remove(key, oldValue)
+		s.storage.remove(key, oldValue)
 	}
-	s.data.storage.put(key, newValue)
-	s.data.reverse[key] = newValue
+	s.storage.put(key, newValue)
+	s.reverse[key] = newValue
 }
 
-func (s *Sorted[K, E, V]) applyDelete(key K) {
+func (s *Sorted[K, E, V]) delete(key K) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.data == nil {
-		return
-	}
-	oldValue, existed := s.data.reverse[key]
+	oldValue, existed := s.reverse[key]
 	if !existed {
 		return
 	}
-	s.data.storage.remove(key, oldValue)
-	delete(s.data.reverse, key)
+	s.storage.remove(key, oldValue)
+	delete(s.reverse, key)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of
 // the provided values.
 func (s *Sorted[K, E, V]) Get(values ...V) []K {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.data == nil {
-		s.warnOnce.Do(func() {
-			zap.S().DPanicf(
-				"gorp: Sorted index %q used before registration; falling back to scan",
-				s.name,
-			)
-		})
-		return nil
-	}
 	if len(values) == 0 {
 		return nil
 	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	var out []K
 	for _, v := range values {
-		out = append(out, s.data.storage.get(v)...)
+		out = append(out, s.storage.get(v)...)
 	}
 	return out
 }
 
-// Filter returns an exact-match Filter[K, E] against the sorted index. Uses
-// the same fast-path semantics as Lookup.Filter.
+// Filter returns an exact-match Filter[K, E] against the sorted index.
 func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
-	s.mu.RLock()
-	registered := s.data != nil
-	s.mu.RUnlock()
-	if !registered {
-		s.warnOnce.Do(func() {
-			zap.S().DPanicf(
-				"gorp: Sorted index %q used before registration; falling back to scan",
-				s.name,
-			)
-		})
-		return s.scanFilter(values)
-	}
 	return filterFromKeys[K, E](s.Get(values...))
-}
-
-func (s *Sorted[K, E, V]) scanFilter(values []V) Filter[K, E] {
-	if len(values) == 0 {
-		return Filter[K, E]{
-			Eval: func(_ Context, _ *E) (bool, error) { return false, nil },
-		}
-	}
-	valueSet := make(map[V]struct{}, len(values))
-	for _, v := range values {
-		valueSet[v] = struct{}{}
-	}
-	return Filter[K, E]{
-		Eval: func(_ Context, e *E) (bool, error) {
-			_, ok := valueSet[s.extract(e)]
-			return ok, nil
-		},
-	}
 }

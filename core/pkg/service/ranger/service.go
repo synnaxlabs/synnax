@@ -113,11 +113,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Instrumentation: cfg.Instrumentation,
 	})
-	if s.table, err = gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+	if s.table, err = gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[uuid.UUID, Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[uuid.UUID, Range]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, Range]("msgpack_to_orc", v0Mig.Key()),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

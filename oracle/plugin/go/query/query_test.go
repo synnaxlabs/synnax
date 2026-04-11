@@ -153,7 +153,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func MatchInternal(v bool) gorp.Filter[uuid.UUID, Task]",
+						"func MatchInternal(v bool) Filter",
 					).
 					ToNotContain(
 						"MatchInternals(",
@@ -181,7 +181,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func MatchAuthor(v uuid.UUID) gorp.Filter[uuid.UUID, Workspace]",
+						"func MatchAuthor(v uuid.UUID) Filter",
 					).
 					ToNotContain(
 						"MatchAuthors(",
@@ -208,7 +208,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func MatchUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
+						"func MatchUsernames(vals ...string) Filter",
 						"lo.Contains(vals, e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
@@ -241,7 +241,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func MatchRacks(vals ...rack.Key) gorp.Filter[string, Device]",
+						"func MatchRacks(vals ...rack.Key) Filter",
 						"lo.Contains(vals, e.Rack)",
 					).
 					ToNotContain("func (r Retrieve) MatchRacks(")
@@ -321,7 +321,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"func MatchNames(vals ...string) Filter",
-						"return func(_ Retrieve) gorp.Filter[uint32, Rack]",
+						"return func(r Retrieve) gorp.Filter[uint32, Rack]",
 					)
 			})
 
@@ -349,7 +349,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should not emit Filter machinery under a plain @retrieve (non-custom)", func(ctx SpecContext) {
+			It("Should emit the Filter wrapper for plain @retrieve (non-custom)", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -368,12 +368,14 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func MatchNames(vals ...string) gorp.Filter[uint32, Rack]",
-						"func (r Retrieve) Where(filters ...gorp.Filter[uint32, Rack]) Retrieve",
+						"type Filter func(r Retrieve) gorp.Filter[uint32, Rack]",
+						"func And(fs ...Filter) Filter",
+						"func MatchNames(vals ...string) Filter",
+						"func (r Retrieve) Where(filters ...Filter) Retrieve",
+						"bound[i] = f(r)",
 					).
 					ToNotContain(
-						"type Filter func",
-						"func And(fs ...Filter) Filter",
+						"func (r Retrieve) Where(filters ...gorp.Filter[uint32, Rack]) Retrieve",
 					)
 			})
 
@@ -403,7 +405,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter func(r Retrieve) gorp.Filter[Key, Channel]",
 						"func MatchNames(vals ...string) Filter",
-						"return func(_ Retrieve) gorp.Filter[Key, Channel]",
+						"return func(r Retrieve) gorp.Filter[Key, Channel]",
 						"func (r Retrieve) WhereKeys(keys ...Key) Retrieve",
 					)
 			})
@@ -654,15 +656,22 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"var usernameIndex = gorp.NewLookup[uuid.UUID, User, string](",
+						"type indexes struct {",
+						"username *gorp.Lookup[uuid.UUID, User, string]",
+						"func newIndexes() indexes",
+						"username: gorp.NewLookup[uuid.UUID, User, string](",
 						"\"username\"",
 						"func(e *User) string { return e.Username }",
-						"func MatchUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
-						"return usernameIndex.Filter(vals...)",
-						"var indexes = []gorp.Index{",
-						"usernameIndex,",
+						"func (i indexes) all() []gorp.Index[uuid.UUID, User]",
+						"i.username,",
+						"indexes    indexes",
+						"func MatchUsernames(vals ...string) Filter",
+						"return r.indexes.username.Filter(vals...)",
 					).
 					ToNotContain(
+						"var usernameIndex",
+						"var indexes",
+						"newUsernameIndex",
 						"ByUsername",
 						"OrderByUsername",
 						"gorp.NewSorted",
@@ -688,11 +697,13 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"var usernameIndex = gorp.NewLookup[uuid.UUID, User, string](",
-						"var indexes = []gorp.Index{",
-						"usernameIndex,",
+						"type indexes struct {",
+						"username *gorp.Lookup[uuid.UUID, User, string]",
+						"func newIndexes() indexes",
+						"username: gorp.NewLookup[uuid.UUID, User, string](",
 					).
 					ToNotContain(
+						"newUsernameIndex",
 						"func MatchUsername(",
 						"func MatchUsernames(",
 					)
@@ -717,23 +728,24 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"var createdAtIndex = gorp.NewSorted[uuid.UUID, Event, int64](",
+						"createdAt *gorp.Sorted[uuid.UUID, Event, int64]",
+						"createdAt: gorp.NewSorted[uuid.UUID, Event, int64](",
 						"\"created_at\"",
 						"func(e *Event) int64 { return e.CreatedAt }",
-						"nil,",
-						"func MatchCreatedAt(v int64) gorp.Filter[uuid.UUID, Event]",
-						"return createdAtIndex.Filter(v)",
-						"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy[uuid.UUID, Event]",
-						"return createdAtIndex.Ordered(dir)",
-						"var indexes = []gorp.Index{",
-						"createdAtIndex,",
+						"func MatchCreatedAt(v int64) Filter",
+						"return r.indexes.createdAt.Filter(v)",
+						"func (r Retrieve) OrderByCreatedAt(dir gorp.Direction) Retrieve",
+						"r.gorp = r.gorp.OrderBy(r.indexes.createdAt.Ordered(dir))",
 					).
 					ToNotContain(
+						"newCreatedAtIndex",
+						"var createdAtIndex",
 						"func ByCreatedAt(",
+						"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy",
 					)
 			})
 
-			It("Should not emit an Indexes slice when no fields have @index", func(ctx SpecContext) {
+			It("Should not emit an indexes struct when no fields have @index", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/foo"
 
@@ -752,7 +764,8 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToNotContain(
 						"NameIndex",
-						"var indexes",
+						"type indexes struct",
+						"newIndexes",
 					)
 			})
 		})
