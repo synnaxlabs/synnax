@@ -257,7 +257,7 @@ const ZERO_READ_CONFIG = {
 
 const readStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
-  .or(z.null());
+  .nullish();
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),

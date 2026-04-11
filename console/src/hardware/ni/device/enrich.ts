@@ -26,5 +26,9 @@ export const enrich = (model: string, properties: Properties): Properties => {
   const enriched = (data as record.Unknown)[model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
-  return { ...deep.copy(ZERO_PROPERTIES), ...enriched?.estimatedPinout, ...properties };
+  return deep.override(
+    deep.copy(ZERO_PROPERTIES),
+    enriched?.estimatedPinout ?? {},
+    properties,
+  );
 };
