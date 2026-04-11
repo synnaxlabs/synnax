@@ -117,7 +117,17 @@ func ShouldNotLeakGoroutinesPerSpec(opts ...LeakOption) bool {
 	ginkgo.BeforeEach(func() {
 		h := &snapshotHolder{}
 		current = h
-		ginkgo.DeferCleanup(func() { assertNoLeakedGoroutines(h.snapshot, cfg) })
+		ginkgo.DeferCleanup(func() {
+			// If a BeforeEach panicked or skipped before JustBeforeEach
+			// captured the snapshot, h.snapshot is nil. Running the
+			// assertion in that state would treat every currently running
+			// goroutine as a leak, stacking a noisy second failure on top
+			// of the real one. Bail out instead.
+			if h.snapshot == nil {
+				return
+			}
+			assertNoLeakedGoroutines(h.snapshot, cfg)
+		})
 	})
 	return ginkgo.JustBeforeEach(func() {
 		current.snapshot = gleak.Goroutines()
