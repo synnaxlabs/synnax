@@ -19,7 +19,7 @@ import (
 // provided by gorp (Lookup, Sorted) and constructed via NewLookup / NewSorted.
 // The interface methods are unexported so external code cannot substitute
 // custom implementations; callers should use the provided generic types.
-type Index interface {
+type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string
 
@@ -29,17 +29,17 @@ type Index interface {
 	populateBegin() error
 	// populateInsert inserts a decoded entry during initial population. The
 	// entry must be the Table's entry type; each index casts internally.
-	populateInsert(entry any)
+	populateInsert(entry E)
 	// populateFinish marks population as complete.
 	populateFinish()
 
 	// applySet is invoked by the Table observer when an entry is created or
 	// updated. The index extracts the new indexed value from entry, removes
 	// any stale mapping for key, and inserts the new one.
-	applySet(key any, entry any)
+	applySet(key K, entry E)
 	// applyDelete is invoked by the Table observer when an entry is deleted.
 	// The index uses its reverse map to locate and remove the stale mapping.
-	applyDelete(key any)
+	applyDelete(key K)
 }
 
 // lookupData holds the populated state of a Lookup index. A nil pointer means
@@ -90,69 +90,49 @@ func (l *Lookup[K, E, V]) populateBegin() error {
 	return nil
 }
 
-func (l *Lookup[K, E, V]) populateInsert(entry any) {
-	typed, ok := entry.(E)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong entry type during populate", l.name)
-		return
-	}
+func (l *Lookup[K, E, V]) populateInsert(entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.data == nil {
 		return
 	}
-	key := typed.GorpKey()
-	value := l.extract(&typed)
+	key := entry.GorpKey()
+	value := l.extract(&entry)
 	l.data.storage.put(key, value)
 	l.data.reverse[key] = value
 }
 
 func (l *Lookup[K, E, V]) populateFinish() {}
 
-func (l *Lookup[K, E, V]) applySet(key any, entry any) {
-	typedKey, ok := key.(K)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong key type for set", l.name)
-		return
-	}
-	typedEntry, ok := entry.(E)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong entry type for set", l.name)
-		return
-	}
+func (l *Lookup[K, E, V]) applySet(key K, entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.data == nil {
 		return
 	}
-	newValue := l.extract(&typedEntry)
-	if oldValue, existed := l.data.reverse[typedKey]; existed {
+	newValue := l.extract(&entry)
+	if oldValue, existed := l.data.reverse[key]; existed {
 		if oldValue == newValue {
 			return
 		}
-		l.data.storage.remove(typedKey, oldValue)
+		l.data.storage.remove(key, oldValue)
 	}
-	l.data.storage.put(typedKey, newValue)
-	l.data.reverse[typedKey] = newValue
+	l.data.storage.put(key, newValue)
+	l.data.reverse[key] = newValue
 }
 
-func (l *Lookup[K, E, V]) applyDelete(key any) {
-	typedKey, ok := key.(K)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong key type for delete", l.name)
-		return
-	}
+func (l *Lookup[K, E, V]) applyDelete(key K) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.data == nil {
 		return
 	}
-	oldValue, existed := l.data.reverse[typedKey]
+	oldValue, existed := l.data.reverse[key]
 	if !existed {
 		return
 	}
-	l.data.storage.remove(typedKey, oldValue)
-	delete(l.data.reverse, typedKey)
+	l.data.storage.remove(key, oldValue)
+	delete(l.data.reverse, key)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of
@@ -300,69 +280,49 @@ func (s *Sorted[K, E, V]) populateBegin() error {
 	return nil
 }
 
-func (s *Sorted[K, E, V]) populateInsert(entry any) {
-	typed, ok := entry.(E)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong entry type during populate", s.name)
-		return
-	}
+func (s *Sorted[K, E, V]) populateInsert(entry E) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.data == nil {
 		return
 	}
-	key := typed.GorpKey()
-	value := s.extract(&typed)
+	key := entry.GorpKey()
+	value := s.extract(&entry)
 	s.data.storage.put(key, value)
 	s.data.reverse[key] = value
 }
 
 func (s *Sorted[K, E, V]) populateFinish() {}
 
-func (s *Sorted[K, E, V]) applySet(key any, entry any) {
-	typedKey, ok := key.(K)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong key type for set", s.name)
-		return
-	}
-	typedEntry, ok := entry.(E)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong entry type for set", s.name)
-		return
-	}
+func (s *Sorted[K, E, V]) applySet(key K, entry E) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.data == nil {
 		return
 	}
-	newValue := s.extract(&typedEntry)
-	if oldValue, existed := s.data.reverse[typedKey]; existed {
+	newValue := s.extract(&entry)
+	if oldValue, existed := s.data.reverse[key]; existed {
 		if oldValue == newValue {
 			return
 		}
-		s.data.storage.remove(typedKey, oldValue)
+		s.data.storage.remove(key, oldValue)
 	}
-	s.data.storage.put(typedKey, newValue)
-	s.data.reverse[typedKey] = newValue
+	s.data.storage.put(key, newValue)
+	s.data.reverse[key] = newValue
 }
 
-func (s *Sorted[K, E, V]) applyDelete(key any) {
-	typedKey, ok := key.(K)
-	if !ok {
-		zap.S().DPanicf("gorp: index %q received wrong key type for delete", s.name)
-		return
-	}
+func (s *Sorted[K, E, V]) applyDelete(key K) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.data == nil {
 		return
 	}
-	oldValue, existed := s.data.reverse[typedKey]
+	oldValue, existed := s.data.reverse[key]
 	if !existed {
 		return
 	}
-	s.data.storage.remove(typedKey, oldValue)
-	delete(s.data.reverse, typedKey)
+	s.data.storage.remove(key, oldValue)
+	delete(s.data.reverse, key)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of

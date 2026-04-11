@@ -28,21 +28,21 @@ import (
 )
 
 // TableConfig configures a Table opened via OpenTable.
-type TableConfig[E any] struct {
+type TableConfig[K Key, E Entry[K]] struct {
 	DB         *DB
 	Migrations []migrate.Migration
 	// Indexes is the set of secondary indexes to register on this table. Each
 	// index is populated at open time from the current table contents, then
 	// kept in sync via the table's observer pipeline for the lifetime of the
 	// table. See NewLookup and NewSorted for constructing index values.
-	Indexes []Index
+	Indexes []Index[K, E]
 	alamos.Instrumentation
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
 	DB                 *DB
-	indexes            []Index
+	indexes            []Index[K, E]
 	disconnectObserver func()
 }
 
@@ -63,7 +63,7 @@ func (t *Table[K, E]) Close() error {
 // kept in sync via the observer pipeline.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
-	cfg TableConfig[E],
+	cfg TableConfig[K, E],
 ) (_ *Table[K, E], err error) {
 	wrapped := make([]migrate.Migration, len(cfg.Migrations)+1)
 	copy(wrapped[1:], cfg.Migrations)
@@ -93,7 +93,7 @@ func OpenTable[K Key, E Entry[K]](
 func populateIndexes[K Key, E Entry[K]](
 	ctx context.Context,
 	db *DB,
-	indexes []Index,
+	indexes []Index[K, E],
 ) error {
 	for _, idx := range indexes {
 		if err := idx.populateBegin(); err != nil {
@@ -119,7 +119,7 @@ func populateIndexes[K Key, E Entry[K]](
 // attachIndexObserver wires a single observer onto the table's underlying KV
 // store that fans every set/delete into every registered index. The returned
 // disconnect function unregisters the observer; it is invoked by Table.Close.
-func attachIndexObserver[K Key, E Entry[K]](db *DB, indexes []Index) func() {
+func attachIndexObserver[K Key, E Entry[K]](db *DB, indexes []Index[K, E]) func() {
 	observable := newObservable[K, E](db)
 	return observable.OnChange(func(_ context.Context, changes iter.Seq[change.Change[K, E]]) {
 		for ch := range changes {

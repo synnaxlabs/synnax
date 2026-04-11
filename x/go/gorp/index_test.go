@@ -29,7 +29,7 @@ type indexedEntry struct {
 	Flag     bool
 }
 
-func (e indexedEntry) GorpKey() int32   { return e.ID }
+func (e indexedEntry) GorpKey() int32    { return e.ID }
 func (e indexedEntry) SetOptions() []any { return nil }
 
 var _ = Describe("Index", func() {
@@ -57,9 +57,9 @@ var _ = Describe("Index", func() {
 				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{nameIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() { Expect(table.Close()).To(Succeed()) }()
@@ -83,9 +83,9 @@ var _ = Describe("Index", func() {
 				flagIdx := gorp.NewLookup[int32, indexedEntry, bool](
 					"flag", func(e *indexedEntry) bool { return e.Flag },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{flagIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{flagIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() { Expect(table.Close()).To(Succeed()) }()
@@ -105,9 +105,9 @@ var _ = Describe("Index", func() {
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{nameIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -167,9 +167,9 @@ var _ = Describe("Index", func() {
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{nameIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 				seed := []indexedEntry{
@@ -246,9 +246,9 @@ var _ = Describe("Index", func() {
 				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{nameIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() { Expect(table.Close()).To(Succeed()) }()
@@ -290,9 +290,9 @@ var _ = Describe("Index", func() {
 				scoreIdx := gorp.NewSorted[int32, indexedEntry, int64](
 					"score", func(e *indexedEntry) int64 { return e.Score }, nil,
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{scoreIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{scoreIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() { Expect(table.Close()).To(Succeed()) }()
@@ -313,9 +313,9 @@ var _ = Describe("Index", func() {
 					"score", func(e *indexedEntry) int64 { return e.Score }, nil,
 				)
 				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[indexedEntry]{
+				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
-					Indexes: []gorp.Index{scoreIdx},
+					Indexes: []gorp.Index[int32, indexedEntry]{scoreIdx},
 				})
 				Expect(err).ToNot(HaveOccurred())
 				seed := make([]indexedEntry, 20)
