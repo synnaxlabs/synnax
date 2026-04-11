@@ -133,7 +133,7 @@ func (s *Service) provisionRoot(ctx context.Context, cfg ServiceConfig) error {
 	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var rootUser User
 		if err := s.NewRetrieve().
-			WhereUsernames(cfg.RootCredentials.Username).
+			Where(WhereUsernames(cfg.RootCredentials.Username)).
 			Entry(&rootUser).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return err
@@ -172,9 +172,9 @@ func (s *Service) NewRetrieve() Retrieve {
 // UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
 	return s.table.NewRetrieve().
-		Where(func(_ gorp.Context, u *User) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, u *User) (bool, error) {
 			return u.Username == username, nil
-		}).
+		})).
 		Exists(ctx, s.cfg.DB)
 }
 

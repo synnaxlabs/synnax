@@ -52,4 +52,3 @@ func WhereNode(node cluster.NodeKey) gorp.Filter[Key, Rack] {
 		return rack.Key.Node() == node, nil
 	})
 }
-

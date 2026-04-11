@@ -16,7 +16,7 @@ type Filter[K Key, E Entry[K]] struct {
 	Eval func(ctx Context, e *E) (bool, error)
 	// Raw evaluates the raw encoded bytes before decoding. Returning false skips
 	// the entry without allocating a decoded value. Nil means no raw constraint.
-	Raw func(data []byte) bool
+	Raw func(data []byte) (bool, error)
 }
 
 // Match wraps a bare closure as a Filter.
@@ -26,7 +26,7 @@ func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K,
 
 // MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs before
 // decoding; returning false skips the entry entirely.
-func MatchRaw[K Key, E Entry[K]](f func(data []byte) bool) Filter[K, E] {
+func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{Raw: f}
 }
 
@@ -47,20 +47,21 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		},
 	}
-	var raws []func([]byte) bool
+	var raws []func([]byte) (bool, error)
 	for _, child := range filters {
 		if child.Raw != nil {
 			raws = append(raws, child.Raw)
 		}
 	}
 	if len(raws) > 0 {
-		f.Raw = func(data []byte) bool {
+		f.Raw = func(data []byte) (bool, error) {
 			for _, r := range raws {
-				if !r(data) {
-					return false
+				ok, err := r(data)
+				if err != nil || !ok {
+					return false, err
 				}
 			}
-			return true
+			return true, nil
 		}
 	}
 	return f

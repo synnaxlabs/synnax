@@ -114,11 +114,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 // filterInfo holds extracted data about a @filter-annotated field.
 type filterInfo struct {
-	FieldName  string // oracle field name
-	GoName     string // PascalCase
-	GoType     string // resolved Go type
-	IsScalar bool // @filter scalar or bool type
-	IsBool   bool // underlying primitive is bool
+	FieldName string // oracle field name
+	GoName    string // PascalCase
+	GoType    string // resolved Go type
+	IsScalar  bool   // @filter scalar or bool type
+	IsBool    bool   // underlying primitive is bool
 }
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
@@ -267,11 +267,11 @@ func extractRetrieveInfo(
 		goFieldName := naming.GetFieldName(field)
 
 		filters = append(filters, filterInfo{
-			FieldName:  field.Name,
-			GoName:     goFieldName,
-			GoType:   goType,
-			IsScalar: isScalar,
-			IsBool:   isBool,
+			FieldName: field.Name,
+			GoName:    goFieldName,
+			GoType:    goType,
+			IsScalar:  isScalar,
+			IsBool:    isBool,
 		})
 	}
 

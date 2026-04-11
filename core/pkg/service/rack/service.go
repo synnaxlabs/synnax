@@ -184,9 +184,9 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 		name         = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
 	)
 	err := s.NewRetrieve().
-		WhereName(name, gorp.Required()).
-		WhereEmbedded(true, gorp.Required()).
-		WhereNode(s.HostProvider.HostKey(), gorp.Required()).
+		Where(WhereName(name)).
+		Where(WhereEmbedded(true)).
+		Where(WhereNode(s.HostProvider.HostKey())).
 		Entry(&embeddedRack).Exec(ctx, s.DB)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err

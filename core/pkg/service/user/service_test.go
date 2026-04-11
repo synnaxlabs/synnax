@@ -112,18 +112,18 @@ var _ = Describe("User", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should retrieve a user by its username", func(ctx SpecContext) {
-			var user user.User
-			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username).Entry(&user).Exec(ctx, nil)).To(Succeed())
-			Expect(user).To(Equal(users[0]))
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.WhereUsernames(users[0].Username)).Entry(&u).Exec(ctx, nil)).To(Succeed())
+			Expect(u).To(Equal(users[0]))
 		})
 		It("Should retrieve multiple users by usernames", func(ctx SpecContext) {
 			var ret []user.User
-			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username, users[1].Username).Entries(&ret).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.WhereUsernames(users[0].Username, users[1].Username)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
 		It("Should return an error if the user does not exist", func(ctx SpecContext) {
-			var user user.User
-			err := svc.NewRetrieve().WhereUsernames("test5").Entry(&user).Exec(ctx, nil)
+			var u user.User
+			err := svc.NewRetrieve().Where(user.WhereUsernames("test5")).Entry(&u).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -227,7 +227,7 @@ var _ = Describe("ProvisionRootUser", func() {
 		defer func() { Expect(svc.Close()).To(Succeed()) }()
 
 		var rootUser user.User
-		Expect(svc.NewRetrieve().WhereUsernames("synnax").Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
+		Expect(svc.NewRetrieve().Where(user.WhereUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
 		Expect(rootUser.RootUser).To(BeTrue())
 		Expect(rootUser.Key).ToNot(Equal(uuid.Nil))
 	})
@@ -253,7 +253,7 @@ var _ = Describe("ProvisionRootUser", func() {
 		}))
 
 		var rootUser user.User
-		Expect(svc1.NewRetrieve().WhereUsernames("synnax").Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
+		Expect(svc1.NewRetrieve().Where(user.WhereUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
 		firstKey := rootUser.Key
 		Expect(svc1.Close()).To(Succeed())
 
@@ -264,7 +264,7 @@ var _ = Describe("ProvisionRootUser", func() {
 		defer func() { Expect(svc2.Close()).To(Succeed()) }()
 
 		var rootUser2 user.User
-		Expect(svc2.NewRetrieve().WhereUsernames("synnax").Entry(&rootUser2).Exec(ctx, nil)).To(Succeed())
+		Expect(svc2.NewRetrieve().Where(user.WhereUsernames("synnax")).Entry(&rootUser2).Exec(ctx, nil)).To(Succeed())
 		Expect(rootUser2.Key).To(Equal(firstKey))
 	})
 

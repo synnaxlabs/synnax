@@ -122,11 +122,11 @@ var _ = Describe("Legacy Permission Migration", func() {
 		defer func() { Expect(tx2.Close()).To(Succeed()) }()
 
 		var ownerRole role.Role
-		Expect(testRBAC.Role.NewRetrieve().WhereName("Owner").Entry(&ownerRole).Exec(ctx, tx2)).To(Succeed())
+		Expect(testRBAC.Role.NewRetrieve().Where(role.WhereNames("Owner")).Entry(&ownerRole).Exec(ctx, tx2)).To(Succeed())
 		var engineerRole role.Role
-		Expect(testRBAC.Role.NewRetrieve().WhereName("Engineer").Entry(&engineerRole).Exec(ctx, tx2)).To(Succeed())
+		Expect(testRBAC.Role.NewRetrieve().Where(role.WhereNames("Engineer")).Entry(&engineerRole).Exec(ctx, tx2)).To(Succeed())
 		var operatorRole role.Role
-		Expect(testRBAC.Role.NewRetrieve().WhereName("Operator").Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
+		Expect(testRBAC.Role.NewRetrieve().Where(role.WhereNames("Operator")).Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
 
 		// Root user -> Owner
 		Expect(userHasSpecificRole(ctx, tx2, testOtg, user.OntologyID(rootUser.Key), ownerRole.Key)).To(BeTrue())

@@ -66,7 +66,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			if err = cfg.Group.
 				NewRetrieve().
 				Entry(&topLevelGroup).
-				WhereNames("Ranges").
+				Where(group.WhereNames("Ranges")).
 				Exec(ctx, tx); err != nil {
 				if errors.Is(err, query.ErrNotFound) {
 					return nil
