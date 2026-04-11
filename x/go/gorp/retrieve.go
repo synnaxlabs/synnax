@@ -24,15 +24,22 @@ import (
 // decoded value. Returning true allows normal decode + filter processing.
 type RawFilter func(data []byte) (bool, error)
 
+// Validator is a batch check that runs on the final bound result set after
+// Exec populates entries. Returning a non-nil error causes Exec to return that
+// error. Validators are attached via Retrieve.Validate and cannot filter
+// results — if you need to filter, use Where.
+type Validator[K Key, E Entry[K]] func(ctx Context, entries []E) error
+
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries *Entries[K, E]
-	limit   int
-	offset  int
-	keys    *[]K
-	prefix  []byte
-	filter  *Filter[K, E]
-	orderBy *OrderBy[K, E]
+	entries    *Entries[K, E]
+	limit      int
+	offset     int
+	keys       *[]K
+	prefix     []byte
+	filter     *Filter[K, E]
+	orderBy    *OrderBy[K, E]
+	validators []Validator[K, E]
 	// afterCursor is set by Retrieve.After and passed to the OrderBy walk
 	// closure as the resume point. It is an opaque value of the sorted
 	// index's V type.
@@ -125,6 +132,30 @@ func (r Retrieve[K, E]) After(cursor any) Retrieve[K, E] {
 
 // HasOrderBy returns true if OrderBy was set on the query.
 func (r Retrieve[K, E]) HasOrderBy() bool { return r.orderBy != nil }
+
+// Validate attaches a batch validator that runs once on the final bound
+// result set after Exec populates entries. A non-nil error from any validator
+// causes Exec to return that error. Multiple Validate calls accumulate and
+// run in the order they were attached; the first error wins. Validators
+// cannot filter results — use Where for filtering.
+func (r Retrieve[K, E]) Validate(f Validator[K, E]) Retrieve[K, E] {
+	r.validators = append(r.validators, f)
+	return r
+}
+
+// runValidators runs every attached validator against the provided entry
+// snapshot, returning the first non-nil error.
+func (r Retrieve[K, E]) runValidators(ctx Context, entries []E) error {
+	for _, v := range r.validators {
+		if v == nil {
+			continue
+		}
+		if err := v(ctx, entries); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
 // this lookup is substantially faster than a general Where query. If called in
@@ -267,6 +298,7 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		keysResult, getErr = reader.GetMany(ctx, *r.keys)
 		toReplace          = make([]E, 0, len(keysResult))
 		validCount         int
+		gorpCtx            = Context{Context: ctx, Tx: tx}
 	)
 	// We don't return early even if getErr fails with a not found result in order
 	// to do a best effort retrieval of available items.
@@ -284,7 +316,7 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		if !keyMatched {
 			continue
 		}
-		match, err := r.match(Context{Context: ctx, Tx: tx}, &e)
+		match, err := r.match(gorpCtx, &e)
 		if err != nil {
 			return err
 		}
@@ -296,6 +328,9 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		}
 	}
 	r.entries.Replace(toReplace)
+	if err := r.runValidators(gorpCtx, toReplace); err != nil {
+		return err
+	}
 	return getErr
 }
 
@@ -304,6 +339,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		validCount int
 		match      bool
 		reader     = WrapReader[K, E](tx)
+		gorpCtx    = Context{Context: ctx, Tx: tx}
 	)
 	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
@@ -333,7 +369,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		if err = iter.Error(); err != nil {
 			return err
 		}
-		match, err = r.match(Context{Context: ctx, Tx: tx}, v)
+		match, err = r.match(gorpCtx, v)
 		if err != nil {
 			return err
 		}
@@ -343,6 +379,9 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 				r.entries.Add(*v)
 			}
 		}
+	}
+	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
+		return vErr
 	}
 	if r.entries.isMultiple || !r.entries.Bound() {
 		return err

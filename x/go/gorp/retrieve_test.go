@@ -572,4 +572,133 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 	})
+
+	Describe("Validate", func() {
+		var (
+			entries []entry
+			tx      gorp.Tx
+		)
+		BeforeEach(func(ctx SpecContext) {
+			tx = db.OpenTx()
+			entries = make([]entry, 5)
+			for i := range entries {
+				entries[i] = entry{ID: int32(i), Data: "data"}
+			}
+			Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		})
+		AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+
+		It("Should receive the final bound result set via execFilter", func(ctx SpecContext) {
+			var seen []entry
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Validate(func(_ gorp.Context, entries []entry) error {
+					seen = append([]entry(nil), entries...)
+					return nil
+				}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(5))
+			Expect(seen).To(Equal(res))
+		})
+
+		It("Should receive the filtered result set when Where is also set", func(ctx SpecContext) {
+			var seen []entry
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+					return e.ID >= 2, nil
+				})).
+				Validate(func(_ gorp.Context, entries []entry) error {
+					seen = entries
+					return nil
+				}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(3))
+			Expect(seen).To(HaveLen(3))
+		})
+
+		It("Should receive the result set via execKeys", func(ctx SpecContext) {
+			var seen []entry
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereKeys(1, 3).
+				Validate(func(_ gorp.Context, entries []entry) error {
+					seen = entries
+					return nil
+				}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(2))
+			Expect(seen).To(HaveLen(2))
+		})
+
+		It("Should short-circuit Exec with a validator error", func(ctx SpecContext) {
+			var res []entry
+			err := gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					return errors.New("validator rejected query")
+				}).
+				Exec(ctx, tx)
+			Expect(err).To(MatchError(ContainSubstring("validator rejected query")))
+		})
+
+		It("Should short-circuit on the first validator error when multiple are attached", func(ctx SpecContext) {
+			var (
+				firstCalls, secondCalls, thirdCalls int
+				res                                 []entry
+			)
+			err := gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					firstCalls++
+					return nil
+				}).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					secondCalls++
+					return errors.New("second validator failed")
+				}).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					thirdCalls++
+					return nil
+				}).
+				Exec(ctx, tx)
+			Expect(err).To(MatchError(ContainSubstring("second validator failed")))
+			Expect(firstCalls).To(Equal(1))
+			Expect(secondCalls).To(Equal(1))
+			Expect(thirdCalls).To(Equal(0))
+		})
+
+		It("Should run all validators in order on success", func(ctx SpecContext) {
+			var order []int
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Validate(func(_ gorp.Context, _ []entry) error { order = append(order, 1); return nil }).
+				Validate(func(_ gorp.Context, _ []entry) error { order = append(order, 2); return nil }).
+				Validate(func(_ gorp.Context, _ []entry) error { order = append(order, 3); return nil }).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(order).To(Equal([]int{1, 2, 3}))
+		})
+
+		It("Should observe an empty slice when no entries match", func(ctx SpecContext) {
+			var seen []entry
+			var res []entry
+			err := gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+					return e.ID > 100, nil
+				})).
+				Validate(func(_ gorp.Context, entries []entry) error {
+					seen = entries
+					return nil
+				}).
+				Exec(ctx, tx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(seen).To(BeEmpty())
+			Expect(res).To(BeEmpty())
+		})
+	})
 })

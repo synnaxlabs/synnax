@@ -376,6 +376,37 @@ var _ = Describe("Go Query Plugin", func() {
 						"func And(fs ...Filter) Filter",
 					)
 			})
+
+			It("Should use a struct-level @retrieve key override when no field has @key", func(ctx SpecContext) {
+				// Channel uses a computed GorpKey that is not stored as a field
+				// on the struct. A struct-level `@retrieve key "Key"` override
+				// tells oracle which declared type to use for the retrieve's
+				// key type without forcing a synthetic field.
+				source := `
+					@go output "core/pkg/distribution/channel"
+
+					Key uint32 {
+						@go output "core/pkg/distribution/channel"
+					}
+
+					Channel struct {
+						name string {
+							@filter
+						}
+						@retrieve custom
+						@retrieve key "Key"
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, p)
+
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"type Filter func(r Retrieve) gorp.Filter[Key, Channel]",
+						"func MatchNames(vals ...string) Filter",
+						"return func(_ Retrieve) gorp.Filter[Key, Channel]",
+						"func (r Retrieve) WhereKeys(keys ...Key) Retrieve",
+					)
+			})
 		})
 
 		Context("key types", func() {
