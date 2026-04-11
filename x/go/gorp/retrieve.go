@@ -32,6 +32,12 @@ type Retrieve[K Key, E Entry[K]] struct {
 	keys    *[]K
 	prefix  []byte
 	filter  *Filter[K, E]
+	orderBy *OrderBy[K, E]
+	// afterCursor is set by Retrieve.After and passed to the OrderBy walk
+	// closure as the resume point. It is an opaque value of the sorted
+	// index's V type.
+	afterCursor any
+	hasAfter    bool
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -100,6 +106,26 @@ func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
 
+// OrderBy walks the results in the order defined by the given Sorted index
+// handle. Combine with Limit and After for cursor-based pagination. The handle
+// is obtained by calling Sorted.Ordered(dir) on a registered index.
+func (r Retrieve[K, E]) OrderBy(ob OrderBy[K, E]) Retrieve[K, E] {
+	r.orderBy = &ob
+	return r
+}
+
+// After sets the resume cursor for an OrderBy walk. The cursor value must
+// match the value type of the underlying Sorted index; callers typically pass
+// the last-seen cursor returned by a previous page.
+func (r Retrieve[K, E]) After(cursor any) Retrieve[K, E] {
+	r.afterCursor = cursor
+	r.hasAfter = true
+	return r
+}
+
+// HasOrderBy returns true if OrderBy was set on the query.
+func (r Retrieve[K, E]) HasOrderBy() bool { return r.orderBy != nil }
+
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
 // this lookup is substantially faster than a general Where query. If called in
 // conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
@@ -133,6 +159,9 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // if NO keys pass the Where filter.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
+	if r.HasOrderBy() {
+		return r.execOrdered(ctx, tx)
+	}
 	f := lo.Ternary(r.HasWhereKeys(), r.execKeys, r.execFilter)
 	return f(ctx, tx)
 }
@@ -171,9 +200,8 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		return len(r.entries.All()), nil
 	}
 
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
-		prefix: r.prefix,
-	})
+	reader := WrapReader[K, E](tx)
+	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return 0, err
 	}
@@ -181,6 +209,15 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		if r.filter != nil && r.filter.Key != nil {
+			keyMatched, kErr := r.matchKey(reader.keyCodec.decode(iter.Iterator.Key()))
+			if kErr != nil {
+				return 0, kErr
+			}
+			if !keyMatched {
+				continue
+			}
+		}
 		rawMatched, rErr := r.matchRaw(iter.Iterator.Value())
 		if rErr != nil {
 			return 0, rErr
@@ -217,6 +254,13 @@ func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
 	return r.filter.Raw(data)
 }
 
+func (r Retrieve[K, E]) matchKey(k K) (bool, error) {
+	if r.filter == nil || r.filter.Key == nil {
+		return true, nil
+	}
+	return r.filter.Key(k)
+}
+
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
 		reader             = WrapReader[K, E](tx)
@@ -231,6 +275,13 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	}
 	for _, e := range keysResult {
 		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
+			continue
+		}
+		keyMatched, err := r.matchKey(e.GorpKey())
+		if err != nil {
+			return err
+		}
+		if !keyMatched {
 			continue
 		}
 		match, err := r.match(Context{Context: ctx, Tx: tx}, &e)
@@ -252,8 +303,9 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 	var (
 		validCount int
 		match      bool
+		reader     = WrapReader[K, E](tx)
 	)
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
 	}
@@ -261,6 +313,15 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		if r.filter != nil && r.filter.Key != nil {
+			keyMatched, kErr := r.matchKey(reader.keyCodec.decode(iter.Iterator.Key()))
+			if kErr != nil {
+				return kErr
+			}
+			if !keyMatched {
+				continue
+			}
+		}
 		rawMatched, rErr := r.matchRaw(iter.Iterator.Value())
 		if rErr != nil {
 			return rErr
@@ -294,4 +355,76 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		)
 	}
 	return err
+}
+
+// execOrdered walks a Sorted index via the configured OrderBy handle, fetching
+// entries from the KV store in page-sized batches. Any Where filters are
+// applied as post-filters after each batch decode.
+//
+// The walk is driven by the OrderBy closure captured from the Sorted index.
+// Callers resume pagination by passing the returned cursor back via After.
+// The cursor-emission side effect is communicated back to the caller via a
+// separate ReadCursor method rather than an out-parameter; within a single
+// Exec call, only a single page is fetched, bounded by Limit.
+func (r Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
+	if r.orderBy == nil || r.orderBy.walk == nil {
+		return nil
+	}
+	var after any
+	if r.hasAfter {
+		after = r.afterCursor
+	}
+	keys, _ := r.orderBy.walk(after, r.limit)
+	if len(keys) == 0 {
+		if r.entries.isMultiple {
+			r.entries.Replace(nil)
+			return nil
+		}
+		if !r.entries.Bound() {
+			return nil
+		}
+		return errors.Wrapf(
+			query.ErrNotFound,
+			"no %s found matching query",
+			types.PluralName[E](),
+		)
+	}
+	reader := WrapReader[K, E](tx)
+	entries, getErr := reader.GetMany(ctx, keys)
+	if getErr != nil && !errors.Is(getErr, query.ErrNotFound) {
+		return getErr
+	}
+	// GetMany preserves input key order (omitting any not-found keys), so
+	// entries is already in sorted-walk order.
+	filtered := make([]E, 0, len(entries))
+	for _, e := range entries {
+		if r.filter != nil && r.filter.Key != nil {
+			keyMatched, err := r.matchKey(e.GorpKey())
+			if err != nil {
+				return err
+			}
+			if !keyMatched {
+				continue
+			}
+		}
+		match, err := r.match(Context{Context: ctx, Tx: tx}, &e)
+		if err != nil {
+			return err
+		}
+		if match {
+			filtered = append(filtered, e)
+		}
+	}
+	r.entries.Replace(filtered)
+	if r.entries.isMultiple || !r.entries.Bound() {
+		return nil
+	}
+	if len(filtered) == 0 {
+		return errors.Wrapf(
+			query.ErrNotFound,
+			"no %s found matching query",
+			types.PluralName[E](),
+		)
+	}
+	return nil
 }

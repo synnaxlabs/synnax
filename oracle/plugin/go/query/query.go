@@ -121,6 +121,21 @@ type filterInfo struct {
 	IsBool    bool   // underlying primitive is bool
 }
 
+// indexInfo holds extracted data about a @index-annotated field. Emitted as
+// a package-level gorp.Lookup or gorp.Sorted variable plus a By{Name} helper
+// (and an OrderBy{Name} helper for sorted indexes).
+type indexInfo struct {
+	FieldName string // oracle field name
+	GoName    string // PascalCase field name (e.g. "Username")
+	GoType    string // resolved Go type (e.g. "string")
+	VarName   string // package-level variable name (e.g. "UsernameIndex")
+	Kind      string // "lookup" or "sorted"
+}
+
+// IsSorted reports whether the index is a sorted index. Used by the template
+// to decide whether to emit an OrderBy helper.
+func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
+
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
 	TypeName                    string
@@ -132,7 +147,12 @@ type retrieveInfo struct {
 	OntologyType                string
 	KeysFromOntologyIDsHasError bool
 	Filters                     []filterInfo
+	Indexes                     []indexInfo
 }
+
+// HasIndexes reports whether the retrieve declared any @index fields. Used by
+// the template to gate the Indexes registration slice.
+func (r retrieveInfo) HasIndexes() bool { return len(r.Indexes) > 0 }
 
 func generateRetrieveFile(
 	outputPath string,
@@ -250,29 +270,40 @@ func extractRetrieveInfo(
 		}
 	}
 
-	// Collect @filter fields.
+	// Collect @filter and @index fields.
 	var filters []filterInfo
+	var indexes []indexInfo
 	allFields := resolution.UnifiedFields(typ, table)
 	for _, field := range allFields {
-		if !plugindomain.HasDomainFromField(field, "filter") {
-			continue
-		}
-
-		primitive := key.ResolvePrimitive(field.Type, table)
-		isBool := primitive == "bool"
-
-		isScalar := isBool || plugindomain.HasExprFromField(field, "filter", "scalar")
-
 		goType := r.ResolveTypeRef(field.Type, ctx)
 		goFieldName := naming.GetFieldName(field)
 
-		filters = append(filters, filterInfo{
-			FieldName: field.Name,
-			GoName:    goFieldName,
-			GoType:    goType,
-			IsScalar:  isScalar,
-			IsBool:    isBool,
-		})
+		if plugindomain.HasDomainFromField(field, "filter") {
+			primitive := key.ResolvePrimitive(field.Type, table)
+			isBool := primitive == "bool"
+			isScalar := isBool || plugindomain.HasExprFromField(field, "filter", "scalar")
+			filters = append(filters, filterInfo{
+				FieldName: field.Name,
+				GoName:    goFieldName,
+				GoType:    goType,
+				IsScalar:  isScalar,
+				IsBool:    isBool,
+			})
+		}
+
+		if plugindomain.HasDomainFromField(field, "index") {
+			kind := "lookup"
+			if plugindomain.HasExprFromField(field, "index", "sorted") {
+				kind = "sorted"
+			}
+			indexes = append(indexes, indexInfo{
+				FieldName: field.Name,
+				GoName:    goFieldName,
+				GoType:    goType,
+				VarName:   goFieldName + "Index",
+				Kind:      kind,
+			})
+		}
 	}
 
 	return &retrieveInfo{
@@ -285,6 +316,7 @@ func extractRetrieveInfo(
 		OntologyType:                ontologyType,
 		KeysFromOntologyIDsHasError: keyPrimitive != "string",
 		Filters:                     filters,
+		Indexes:                     indexes,
 	}
 }
 
@@ -345,6 +377,42 @@ type Retrieve struct {
 {{- if $ret.HasSearch}}
 	search     *search.Index
 	searchTerm string
+{{- end}}
+}
+{{- end}}
+{{- range $idx := $ret.Indexes}}
+
+// {{$idx.VarName}} is the secondary index on {{$ret.GoName}}.{{$idx.GoName}}, registered on
+// the table via Indexes.
+var {{$idx.VarName}} = gorp.{{if $idx.IsSorted}}NewSorted{{else}}NewLookup{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
+	"{{$idx.FieldName}}",
+	func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
+{{- if $idx.IsSorted}}
+	nil,
+{{- end}}
+)
+
+// By{{$idx.GoName}} returns a filter that matches {{$ret.GoName | toLower | pluralize}} whose {{$idx.GoName}} field
+// equals any of the provided values. Backed by {{$idx.VarName}}.
+func By{{$idx.GoName}}(values ...{{$idx.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return {{$idx.VarName}}.Filter(values...)
+}
+{{- if $idx.IsSorted}}
+
+// OrderBy{{$idx.GoName}} returns an OrderBy handle used by Retrieve.OrderBy to walk
+// {{$ret.GoName | toLower | pluralize}} sorted by {{$idx.GoName}} in the given direction.
+func OrderBy{{$idx.GoName}}(dir gorp.Direction) gorp.OrderBy[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return {{$idx.VarName}}.Ordered(dir)
+}
+{{- end}}
+{{- end}}
+{{- if $ret.HasIndexes}}
+
+// Indexes is the set of secondary indexes registered on the {{$ret.GoName}} table.
+// Pass this slice to gorp.TableConfig.Indexes when opening the table.
+var Indexes = []gorp.Index{
+{{- range $idx := $ret.Indexes}}
+	{{$idx.VarName}},
 {{- end}}
 }
 {{- end}}

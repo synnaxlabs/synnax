@@ -603,6 +603,96 @@ var _ = Describe("Go Query Plugin", func() {
 			})
 		})
 
+		Context("indexes", func() {
+			It("Should generate a lookup index var, By helper, and Indexes slice", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/user"
+
+					User struct {
+						key uuid {
+							@key
+						}
+						username string {
+							@filter
+							@index lookup
+						}
+						@ontology type "user"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"var UsernameIndex = gorp.NewLookup[uuid.UUID, User, string](",
+						"\"username\"",
+						"func(e *User) string { return e.Username }",
+						"func ByUsername(values ...string) gorp.Filter[uuid.UUID, User]",
+						"return UsernameIndex.Filter(values...)",
+						"var Indexes = []gorp.Index{",
+						"UsernameIndex,",
+						"func MatchUsernames(vals ...string) gorp.Filter[uuid.UUID, User]",
+					).
+					ToNotContain(
+						"OrderByUsername",
+						"gorp.NewSorted",
+					)
+			})
+
+			It("Should generate a sorted index with OrderBy helper", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Event struct {
+						key uuid {
+							@key
+						}
+						created_at int64 {
+							@index sorted
+						}
+						@ontology type "event"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"var CreatedAtIndex = gorp.NewSorted[uuid.UUID, Event, int64](",
+						"\"created_at\"",
+						"func(e *Event) int64 { return e.CreatedAt }",
+						"nil,",
+						"func ByCreatedAt(values ...int64) gorp.Filter[uuid.UUID, Event]",
+						"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy[uuid.UUID, Event]",
+						"return CreatedAtIndex.Ordered(dir)",
+						"var Indexes = []gorp.Index{",
+						"CreatedAtIndex,",
+					)
+			})
+
+			It("Should not emit an Indexes slice when no fields have @index", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/foo"
+
+					Foo struct {
+						key uuid {
+							@key
+						}
+						name string {
+							@filter
+						}
+						@ontology type "foo"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "foo", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToNotContain(
+						"NameIndex",
+						"ByName",
+						"var Indexes",
+					)
+			})
+		})
+
 		Context("multiple structs in same output", func() {
 			It("Should generate methods for both structs in one file", func(ctx SpecContext) {
 				source := `

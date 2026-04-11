@@ -17,6 +17,7 @@ import (
 	"sort"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -30,21 +31,36 @@ import (
 type TableConfig[E any] struct {
 	DB         *DB
 	Migrations []migrate.Migration
+	// Indexes is the set of secondary indexes to register on this table. Each
+	// index is populated at open time from the current table contents, then
+	// kept in sync via the table's observer pipeline for the lifetime of the
+	// table. See NewLookup and NewSorted for constructing index values.
+	Indexes []Index
 	alamos.Instrumentation
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	DB *DB
+	DB                 *DB
+	indexes            []Index
+	disconnectObserver func()
 }
 
+// Close disconnects the table's index observer, if any, and releases related
+// resources.
 func (t *Table[K, E]) Close() error {
+	if t.disconnectObserver != nil {
+		t.disconnectObserver()
+		t.disconnectObserver = nil
+	}
 	return nil
 }
 
 // OpenTable creates or opens a table for the given entry type. It runs any provided
 // versioned migrations followed by key migrations to ensure entries are stored under
-// the current prefix and key encoding format.
+// the current prefix and key encoding format. After migrations complete, any
+// secondary indexes in cfg.Indexes are populated by scanning the full table and
+// kept in sync via the observer pipeline.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
@@ -62,7 +78,63 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	return &Table[K, E]{DB: cfg.DB}, nil
+	t := &Table[K, E]{DB: cfg.DB, indexes: cfg.Indexes}
+	if len(cfg.Indexes) > 0 {
+		if err = populateIndexes[K, E](ctx, cfg.DB, cfg.Indexes); err != nil {
+			return nil, err
+		}
+		t.disconnectObserver = attachIndexObserver[K, E](cfg.DB, cfg.Indexes)
+	}
+	return t, nil
+}
+
+// populateIndexes performs a single sequential scan over every entry in the
+// table and feeds each decoded entry into every registered index.
+func populateIndexes[K Key, E Entry[K]](
+	ctx context.Context,
+	db *DB,
+	indexes []Index,
+) error {
+	for _, idx := range indexes {
+		if err := idx.populateBegin(); err != nil {
+			return err
+		}
+	}
+	nexter, closer, err := WrapReader[K, E](db).OpenNexter(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = closer.Close() }()
+	for e := range nexter {
+		for _, idx := range indexes {
+			idx.populateInsert(e)
+		}
+	}
+	for _, idx := range indexes {
+		idx.populateFinish()
+	}
+	return nil
+}
+
+// attachIndexObserver wires a single observer onto the table's underlying KV
+// store that fans every set/delete into every registered index. The returned
+// disconnect function unregisters the observer; it is invoked by Table.Close.
+func attachIndexObserver[K Key, E Entry[K]](db *DB, indexes []Index) func() {
+	observable := newObservable[K, E](db)
+	return observable.OnChange(func(_ context.Context, changes iter.Seq[change.Change[K, E]]) {
+		for ch := range changes {
+			switch ch.Variant {
+			case change.VariantSet:
+				for _, idx := range indexes {
+					idx.applySet(ch.Key, ch.Value)
+				}
+			case change.VariantDelete:
+				for _, idx := range indexes {
+					idx.applyDelete(ch.Key)
+				}
+			}
+		}
+	})
 }
 
 // NewCreate returns a Create query builder.
