@@ -31,7 +31,7 @@ type fakeAdapter struct {
 	closeBlock chan struct{}
 }
 
-func (a *fakeAdapter) Healthy() bool { return a.healthy }
+func (a *fakeAdapter) Healthy() bool  { return a.healthy }
 func (a *fakeAdapter) Acquire() error { return nil }
 func (a *fakeAdapter) Release()       {}
 func (a *fakeAdapter) Close() error {
