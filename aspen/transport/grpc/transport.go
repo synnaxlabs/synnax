@@ -26,7 +26,6 @@ import (
 	falamos "github.com/synnaxlabs/freighter/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -142,9 +141,12 @@ var (
 	_ freighter.Transport                = (*Transport)(nil)
 )
 
+// New constructs a Transport that uses the supplied pool for client
+// connections. The Transport does NOT take ownership of the pool — closing
+// the Transport will not close the pool. The caller is responsible for
+// closing the pool after every Transport that references it has been closed.
 func New(pool *fgrpc.Pool) *Transport {
 	return &Transport{
-		pool: pool,
 		pledgeClient: &pledgeClient{
 			Pool:               pool,
 			RequestTranslator:  pledgeTranslator{},
@@ -264,7 +266,6 @@ func New(pool *fgrpc.Pool) *Transport {
 
 // Transport implements the aspen.Transport interface.
 type Transport struct {
-	pool           *fgrpc.Pool
 	pledgeServer   *pledgeServer
 	pledgeClient   *pledgeClient
 	gossipServer   *clusterGossipServer
@@ -383,14 +384,8 @@ func (t *Transport) Serve() error {
 }
 
 func (t *Transport) Close() error {
-	// Stop the server (and any cluster goroutines that hold the
-	// transport) first so nothing is calling pool.Acquire concurrently
-	// with pool.Close. Without this ordering, an in-flight gossip
-	// goroutine can spawn a fresh grpc client connection between our
-	// pool iteration and shutdown, leaking grpc internals.
-	var err error
-	if t.shutdown != nil {
-		err = t.shutdown.Close()
+	if t.shutdown == nil {
+		return nil
 	}
-	return errors.Combine(err, t.pool.Close())
+	return t.shutdown.Close()
 }

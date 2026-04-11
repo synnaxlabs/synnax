@@ -10,6 +10,7 @@
 package clustermock_test
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,13 +28,12 @@ var _ = Describe("Cluster Mock", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}
 			ctx, cancel := signal.Isolated()
-			// Registered first so it runs LAST (LIFO): cancel + wait after
-			// the builder has torn down all clusters via the DeferClose below.
+			builder := clustermock.NewBuilder(cfg)
 			DeferCleanup(func() {
+				Expect(builder.Close()).To(Succeed())
 				cancel()
-				Expect(ctx.Wait()).To(Succeed())
+				Expect(ctx.Err()).To(MatchError(context.Canceled))
 			})
-			builder := DeferClose(clustermock.NewBuilder(cfg))
 			c1 := MustSucceed(builder.New(ctx, cfg))
 			Expect(c1.HostKey()).To(Equal(node.Key(1)))
 			c2 := MustSucceed(builder.New(ctx, cfg))

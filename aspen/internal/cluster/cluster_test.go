@@ -35,19 +35,18 @@ var _ = Describe("Cluster", func() {
 	// in a shared var and used by It blocks, so it must outlive BeforeEach.
 	BeforeEach(func() {
 		clusterCtx, shutdown = signal.WithCancel(context.Background())
-		// Registered first so it runs LAST (LIFO): cancel the test's context
-		// and wait for it to drain after all clusters held by builder have
-		// shut down via DeferClose below. By the time this runs, builder.Close
-		// has already torn down every cluster's internal signal context, so
-		// clusterCtx itself has no live routines and Wait returns nil.
-		DeferCleanup(func() {
-			shutdown()
-			Expect(clusterCtx.Wait()).To(Succeed())
-		})
-		builder = DeferClose(clustermock.NewBuilder(cluster.Config{
+		builder = clustermock.NewBuilder(cluster.Config{
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},
-		}))
+		})
+		// Tear down in explicit order: clusters first (so their internal
+		// signal contexts cancel and drain), then cancel the test's
+		// clusterCtx and verify the cancellation took effect.
+		DeferCleanup(func() {
+			Expect(builder.Close()).To(Succeed())
+			shutdown()
+			Expect(clusterCtx.Err()).To(MatchError(context.Canceled))
+		})
 	})
 
 	Describe("Node", func() {
