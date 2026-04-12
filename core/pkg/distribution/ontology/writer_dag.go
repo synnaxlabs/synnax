@@ -26,6 +26,7 @@ type dagWriter struct {
 	registrar         serviceRegistrar
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[[]byte, Relationship]
+	relIndexes        relationshipIndexes
 }
 
 var _ Writer = dagWriter{}
@@ -141,7 +142,7 @@ func (d dagWriter) DeleteRelationship(
 
 // NewRetrieve implements the Writer interface.
 func (d dagWriter) NewRetrieve() Retrieve {
-	return newRetrieve(d.registrar, d.tx, d.resourceTable, d.relationshipTable)
+	return newRetrieve(d.registrar, d.tx, d.resourceTable, d.relationshipTable, d.relIndexes)
 }
 
 func (d dagWriter) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Resource, error) {
