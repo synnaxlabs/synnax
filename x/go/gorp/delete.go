@@ -35,6 +35,24 @@ func (d Delete[K, E]) Where(filters ...Filter[K, E]) Delete[K, E] {
 	return d
 }
 
+// WherePrefix narrows the underlying scan to entries whose pebble key starts
+// with the given prefix. Combine with Where to skip ranges of the keyspace
+// that cannot possibly match.
+func (d Delete[K, E]) WherePrefix(prefix []byte) Delete[K, E] {
+	d.retrieve = d.retrieve.WherePrefix(prefix)
+	return d
+}
+
+// WhereRaw adds a raw byte filter that runs against each entry's pebble key
+// and encoded value before decoding. Returning false skips the entry without
+// allocating a decoded value, so a key-shaped predicate can drop most rows
+// without paying decode cost. Use in tandem with WherePrefix when the
+// keyspace itself can be narrowed.
+func (d Delete[K, E]) WhereRaw(filter RawFilter) Delete[K, E] {
+	d.retrieve = d.retrieve.WhereRaw(filter)
+	return d
+}
+
 // Guard executes the given function on each entry matching the query. If the function
 // returns an error, the query will fail and no further entries will be processed. If
 // the provided guard function is nil, no guard will be applied.

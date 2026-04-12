@@ -369,21 +369,21 @@ var _ = Describe("Filter Combinators", func() {
 		// matchRawDataContains returns a raw filter that matches when the encoded
 		// bytes contain the provided byte sequence.
 		matchRawDataContains := func(sub []byte) gorp.Filter[int32, entry] {
-			return gorp.MatchRaw[int32, entry](func(data []byte) (bool, error) {
+			return gorp.MatchRaw[int32, entry](func(_, data []byte) (bool, error) {
 				return bytes.Contains(data, sub), nil
 			})
 		}
 		// matchRawAlways returns a raw filter that always matches and records how
 		// many times it was invoked.
 		matchRawAlways := func(calls *int) gorp.Filter[int32, entry] {
-			return gorp.MatchRaw[int32, entry](func(data []byte) (bool, error) {
+			return gorp.MatchRaw[int32, entry](func(_, _ []byte) (bool, error) {
 				*calls++
 				return true, nil
 			})
 		}
 		// matchRawErr returns a raw filter that always errors.
 		matchRawErr := func() gorp.Filter[int32, entry] {
-			return gorp.MatchRaw[int32, entry](func(data []byte) (bool, error) {
+			return gorp.MatchRaw[int32, entry](func(_, _ []byte) (bool, error) {
 				return false, fmt.Errorf("raw filter error")
 			})
 		}
@@ -394,7 +394,7 @@ var _ = Describe("Filter Combinators", func() {
 				Eval: func(_ gorp.Context, e *entry) (bool, error) {
 					return e.ID < idBelow, nil
 				},
-				Raw: func(data []byte) (bool, error) {
+				Raw: func(_, data []byte) (bool, error) {
 					return bytes.Contains(data, sub), nil
 				},
 			}

@@ -19,9 +19,12 @@ import (
 )
 
 // RawFilter is a predicate that operates on the raw encoded bytes of an entry
-// before it is decoded. Returning false skips the entry without allocating a
-// decoded value. Returning true allows normal decode + filter processing.
-type RawFilter func(data []byte) (bool, error)
+// before it is decoded. The filter receives both the pebble key and the
+// encoded value, so callers can filter on key-shaped data without ever
+// touching the value (or vice versa). Returning false skips the entry without
+// allocating a decoded value. Returning true allows normal decode + filter
+// processing.
+type RawFilter func(key, value []byte) (bool, error)
 
 // Validator is a batch check that runs on the final bound result set after
 // Exec populates entries. Returning a non-nil error causes Exec to return that
@@ -113,9 +116,11 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 	return r
 }
 
-// WhereRaw adds a raw byte filter that is evaluated before decoding each entry.
-// Entries whose raw bytes cause the filter to return false are skipped without
-// being decoded.
+// WhereRaw adds a raw byte filter that is evaluated before decoding each
+// entry. The filter receives both the pebble key and the encoded value, so
+// callers can short-circuit on key-shaped data without ever touching the
+// value (or vice versa). Entries whose raw bytes cause the filter to return
+// false are skipped without being decoded.
 func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
@@ -278,7 +283,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		rawMatched, rErr := r.matchRaw(iter.Iterator.Value())
+		rawMatched, rErr := r.matchRaw(iter.Iterator.Key(), iter.Iterator.Value())
 		if rErr != nil {
 			return 0, rErr
 		}
@@ -307,11 +312,11 @@ func (r Retrieve[K, E]) match(ctx Context, e *E) (bool, error) {
 	return r.filter.Eval(ctx, e)
 }
 
-func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
+func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
 	if !r.hasFilter || r.filter.Raw == nil {
 		return true, nil
 	}
-	return r.filter.Raw(data)
+	return r.filter.Raw(key, value)
 }
 
 // effectiveKeys returns the candidate key set for execKeys: the intersection
@@ -419,7 +424,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		rawMatched, rErr := r.matchRaw(iter.Iterator.Value())
+		rawMatched, rErr := r.matchRaw(iter.Iterator.Key(), iter.Iterator.Value())
 		if rErr != nil {
 			return rErr
 		}

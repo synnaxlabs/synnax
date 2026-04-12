@@ -21,7 +21,6 @@ import (
 type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string
-
 	// populate transitions the index into the populated state and returns
 	// (init error, insert closure, finish closure). The caller invokes insert
 	// once for every existing entry in the table, then invokes finish exactly
@@ -29,7 +28,6 @@ type Index[K Key, E Entry[K]] interface {
 	// across the entire populate phase, so finish is mandatory; failing to
 	// call it leaks the lock.
 	populate() (error, func(entry E), func())
-
 	// set is invoked by the Table observer when an entry is created or
 	// updated. The index extracts the new indexed value from entry, removes
 	// any stale mapping for key, and inserts the new one.
@@ -45,7 +43,6 @@ type Index[K Key, E Entry[K]] interface {
 type Lookup[K IndexKey, E Entry[K], V comparable] struct {
 	name    string
 	extract func(e *E) V
-
 	mu      sync.RWMutex
 	storage lookupStorage[K, V]
 	reverse map[K]V

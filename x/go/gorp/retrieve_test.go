@@ -407,7 +407,7 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, data []byte) (bool, error) {
 					return bytes.Contains(data, []byte("data")), nil
 				}).
 				Exec(ctx, tx),
@@ -419,7 +419,7 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, _ []byte) (bool, error) {
 					return false, nil
 				}).
 				Exec(ctx, tx),
@@ -431,12 +431,24 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, _ []byte) (bool, error) {
 					return true, errors.New("cat")
 				}).
 				Exec(ctx, tx),
 			).To(MatchError(ContainSubstring("cat")))
 			Expect(res).To(BeEmpty())
+		})
+
+		It("Should expose the pebble key to the filter", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereRaw(func(key, _ []byte) (bool, error) {
+					return len(key) > 0, nil
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(HaveLen(10))
 		})
 	})
 

@@ -377,7 +377,7 @@ func (r Retrieve) traverseByPrefix(
 	for _, id := range ids {
 		q := r.relationshipTable.NewRetrieve().
 			WherePrefix(traverse.FilterPrefix(id)).
-			WhereRaw(func(data []byte) (bool, error) {
+			WhereRaw(func(_, data []byte) (bool, error) {
 				return false, rt(data, &nextIDs)
 			})
 		if err := q.Exec(ctx, tx); err != nil {
@@ -397,7 +397,7 @@ func (r Retrieve) traverseByScan(
 		nextIDs = make([]ID, 0, len(ids)*4)
 		rt      = traverse.Traverse(ids)
 		q       = r.relationshipTable.NewRetrieve().
-			WhereRaw(func(data []byte) (bool, error) {
+			WhereRaw(func(_, data []byte) (bool, error) {
 				return false, rt(data, &nextIDs)
 			})
 	)

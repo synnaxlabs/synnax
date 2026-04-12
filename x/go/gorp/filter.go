@@ -23,9 +23,12 @@ import (
 type Filter[K Key, E Entry[K]] struct {
 	// Eval evaluates a decoded entry. Nil means no decoded-entry constraint.
 	Eval func(ctx Context, e *E) (bool, error)
-	// Raw evaluates the raw encoded bytes before decoding. Returning false skips
-	// the entry without allocating a decoded value. Nil means no raw constraint.
-	Raw func(data []byte) (bool, error)
+	// Raw evaluates the raw encoded bytes before decoding. The filter receives
+	// both the pebble key and the encoded value, so callers can short-circuit
+	// on key-shaped data without ever touching the value (or vice versa).
+	// Returning false skips the entry without allocating a decoded value. Nil
+	// means no raw constraint.
+	Raw func(key, value []byte) (bool, error)
 	// Keys, if non-nil, is the precomputed set of candidate primary keys this
 	// filter matches. Set by index-backed filter constructors (Lookup.Filter /
 	// Sorted.Filter) via newIndexedFilter, and by And/Or composition via
@@ -105,8 +108,9 @@ func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K,
 }
 
 // MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs before
-// decoding; returning false skips the entry entirely.
-func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
+// decoding and receives both the pebble key and the encoded value; returning
+// false skips the entry entirely.
+func MatchRaw[K Key, E Entry[K]](f func(key, value []byte) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{Raw: f}
 }
 
@@ -130,16 +134,16 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		},
 	}
-	var raws []func([]byte) (bool, error)
+	var raws []func([]byte, []byte) (bool, error)
 	for _, child := range filters {
 		if child.Raw != nil {
 			raws = append(raws, child.Raw)
 		}
 	}
 	if len(raws) > 0 {
-		f.Raw = func(data []byte) (bool, error) {
+		f.Raw = func(key, value []byte) (bool, error) {
 			for _, r := range raws {
-				ok, err := r(data)
+				ok, err := r(key, value)
 				if err != nil || !ok {
 					return false, err
 				}
