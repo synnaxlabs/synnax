@@ -76,7 +76,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[Log]{
+	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[uuid.UUID, Log]{
 		DB:              cfg.DB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Log]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,

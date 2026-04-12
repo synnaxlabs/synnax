@@ -88,9 +88,10 @@ func (c ServiceConfig) Validate() error {
 
 // A Service is how users are managed in the Synnax cluster.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[uuid.UUID, User]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[uuid.UUID, User]
+	indexes indexes
 }
 
 // OpenService opens a new Service with the given context ctx and configurations configs.
@@ -99,12 +100,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{
+	if s.table, err = gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[uuid.UUID, User]{
 		DB:              cfg.DB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, User]("msgpack_to_orc")},
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -164,18 +166,15 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new retrieve query capable of retrieving Users.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }
 
 // UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
-	return s.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, u *User) (bool, error) {
-			return u.Username == username, nil
-		})).
-		Exists(ctx, s.cfg.DB)
+	return s.NewRetrieve().Where(MatchUsernames(username)).Exists(ctx, s.cfg.DB)
 }
 
 // Close closes the service and stops any signal publishing.

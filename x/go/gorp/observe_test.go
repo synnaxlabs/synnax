@@ -28,8 +28,8 @@ var _ = Describe("Observe", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		entryTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
-		grapeTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[grape]{DB: db}))
+		entryTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
+		grapeTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}))
 	})
 	AfterEach(func() {
 		Expect(entryTable.Close()).To(Succeed())

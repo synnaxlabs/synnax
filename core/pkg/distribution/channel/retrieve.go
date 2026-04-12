@@ -30,6 +30,7 @@ type Retrieve struct {
 	gorp       gorp.Retrieve[Key, Channel]
 	search     *search.Index
 	searchTerm string
+	indexes    indexes
 }
 
 // MatchNodeKey returns a filter for channels whose Leaseholder attribute matches the
@@ -104,11 +105,30 @@ func MatchCalculated() Filter {
 	}
 }
 
-// MatchNames returns a filter for channels whose Name attribute matches any of the
-// provided name patterns. Each pattern may be a literal name or a regular expression;
-// a pattern that is neither anchored with ^ nor $ is wrapped in ^...$ before
+// literalNamePattern matches the character set enforced by ValidateName. A
+// channel's stored Name is always accepted by this regex, so any input that
+// passes this check is a literal exact-match target and can be routed through
+// the in-memory name index instead of a scan. Any input that fails the check
+// contains regex metacharacters (., *, ?, brackets, anchors) and must fall
+// back to the regex matcher to preserve the historical contract.
+var literalNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// MatchNames returns a filter for channels whose Name matches any of the
+// provided patterns. Each pattern may be a literal channel name or a Go
+// regular expression; unanchored patterns are wrapped in ^...$ before
 // compilation.
+//
+// When every input is a literal channel name, MatchNames routes through the
+// per-Service name index (r.indexes.name) for an O(1) candidate-key lookup
+// instead of a full scan. If any input contains regex metacharacters,
+// MatchNames compiles each pattern and falls back to a scan that tests every
+// decoded channel.
 func MatchNames(names ...string) Filter {
+	if len(names) > 0 && allLiteralNames(names) {
+		return func(r Retrieve) gorp.Filter[Key, Channel] {
+			return r.indexes.name.Filter(names...)
+		}
+	}
 	matchers := make([]func(string) bool, len(names))
 	for i, name := range names {
 		matchers[i] = formatNameMatcher(name)
@@ -120,6 +140,15 @@ func MatchNames(names ...string) Filter {
 			}), nil
 		})
 	}
+}
+
+func allLiteralNames(names []string) bool {
+	for _, n := range names {
+		if !literalNamePattern.MatchString(n) {
+			return false
+		}
+	}
+	return true
 }
 
 func formatNameMatcher(name string) func(name string) bool {

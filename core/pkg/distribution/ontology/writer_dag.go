@@ -10,6 +10,7 @@
 package ontology
 
 import (
+	"bytes"
 	"context"
 	"maps"
 
@@ -25,6 +26,7 @@ type dagWriter struct {
 	registrar         serviceRegistrar
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[[]byte, Relationship]
+	relIndexes        relationshipIndexes
 }
 
 var _ Writer = dagWriter{}
@@ -140,7 +142,7 @@ func (d dagWriter) DeleteRelationship(
 
 // NewRetrieve implements the Writer interface.
 func (d dagWriter) NewRetrieve() Retrieve {
-	return newRetrieve(d.registrar, d.tx, d.resourceTable, d.relationshipTable)
+	return newRetrieve(d.registrar, d.tx, d.resourceTable, d.relationshipTable, d.relIndexes)
 }
 
 func (d dagWriter) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Resource, error) {
@@ -189,28 +191,46 @@ func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resou
 	return descendants, nil
 }
 
+// Relationship gorp keys are encoded as "<from>-><type>-><to>" (see
+// Relationship.GorpKey). The four delete helpers below exploit that layout to
+// avoid the decode-every-row pattern that gorp.Match would force:
+//
+//   - From-anchored deletes can use WherePrefix to narrow the pebble scan to
+//     the matching key range, so iteration cost drops from O(table) to
+//     O(matches).
+//   - To-anchored deletes still have to walk the table because To lives at
+//     the tail of the key, but a WhereRaw key-suffix check skips the ORC
+//     decode for every non-match (which is most rows).
+
 func (d dagWriter) deleteIncomingRelationships(ctx context.Context, id ID) error {
-	return d.relationshipTable.NewDelete().Where(gorp.Match[[]byte, Relationship](func(ctx gorp.Context, rel *Relationship) (bool, error) {
-		return rel.To == id, nil
-	})).Exec(ctx, d.tx)
+	suffix := []byte(relationshipKeySep + id.String())
+	return d.relationshipTable.NewDelete().
+		WhereRaw(func(key, _ []byte) (bool, error) {
+			return bytes.HasSuffix(key, suffix), nil
+		}).
+		Exec(ctx, d.tx)
 }
 
 func (d dagWriter) deleteOutgoingRelationships(ctx context.Context, from ID) error {
-	return d.relationshipTable.NewDelete().Where(gorp.Match[[]byte, Relationship](func(ctx gorp.Context, rel *Relationship) (bool, error) {
-		return rel.From == from, nil
-	})).Exec(ctx, d.tx)
+	return d.relationshipTable.NewDelete().
+		WherePrefix([]byte(from.String()+relationshipKeySep)).
+		Exec(ctx, d.tx)
 }
 
 func (d dagWriter) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error {
-	return d.relationshipTable.NewDelete().Where(gorp.Match[[]byte, Relationship](func(ctx gorp.Context, rel *Relationship) (bool, error) {
-		return rel.From == from && rel.Type == relationshipType, nil
-	})).Exec(ctx, d.tx)
+	prefix := from.String() + relationshipKeySep + string(relationshipType) + relationshipKeySep
+	return d.relationshipTable.NewDelete().
+		WherePrefix([]byte(prefix)).
+		Exec(ctx, d.tx)
 }
 
 func (d dagWriter) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error {
-	return d.relationshipTable.NewDelete().Where(gorp.Match[[]byte, Relationship](func(ctx gorp.Context, rel *Relationship) (bool, error) {
-		return rel.To == to && rel.Type == relationshipType, nil
-	})).Exec(ctx, d.tx)
+	suffix := []byte(relationshipKeySep + string(relationshipType) + relationshipKeySep + to.String())
+	return d.relationshipTable.NewDelete().
+		WhereRaw(func(key, _ []byte) (bool, error) {
+			return bytes.HasSuffix(key, suffix), nil
+		}).
+		Exec(ctx, d.tx)
 }
 
 func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship) (bool, error) {

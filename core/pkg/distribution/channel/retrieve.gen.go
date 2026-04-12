@@ -18,10 +18,38 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// indexes bundles the per-Service secondary indexes registered on the
+// Channel table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	name *gorp.Lookup[Key, Channel, Name]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one index instance
+// per registered field. Call once per Service in OpenService and store the
+// result on the Service struct.
+func newIndexes() indexes {
+	return indexes{
+		name: gorp.NewLookup[Key, Channel, Name](
+			"name",
+			func(e *Channel) Name { return e.Name },
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Channel] {
+	return []gorp.Index[Key, Channel]{
+		i.name,
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
-// from it (e.g. r.label, r.hostProvider) to evaluate. Use Match to construct
-// one from a closure.
+// from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
+// construct one from a closure.
 type Filter func(r Retrieve) gorp.Filter[Key, Channel]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
@@ -75,7 +103,8 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 // Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.label, r.hostProvider, etc.
+// Retrieve so service-bound filters can read from r.indexes, r.label,
+// r.hostProvider, etc.
 func (r Retrieve) Where(filters ...Filter) Retrieve {
 	bound := make([]gorp.Filter[Key, Channel], len(filters))
 	for i, f := range filters {
