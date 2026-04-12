@@ -112,7 +112,7 @@ func (l *BytesLookup[E, V]) resolveTx(tx Tx, values []V) [][]byte {
 		committedStrings[i] = string(k)
 	}
 	resolved := l.overlay.resolve(tx, committedStrings, values)
-	if len(resolved) == len(committedStrings) && tx.txIdentity() == nil {
+	if tx.txIdentity() == nil {
 		return committed
 	}
 	out := make([][]byte, len(resolved))

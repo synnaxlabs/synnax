@@ -340,7 +340,13 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 }
 
 func (r Retrieve[K, E]) match(ctx Context, e *E) (bool, error) {
-	if !r.hasFilter || r.filter.Eval == nil {
+	if !r.hasFilter {
+		return true, nil
+	}
+	if r.filter.Eval == nil {
+		if r.filter.Keys != nil {
+			return r.filter.containsKey((*e).GorpKey()), nil
+		}
 		return true, nil
 	}
 	return r.filter.Eval(ctx, e)

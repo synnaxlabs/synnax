@@ -641,4 +641,73 @@ var _ = Describe("Index", func() {
 			})
 		})
 	})
+
+	Describe("Not with index-backed filters", func() {
+		It("Should negate an index-backed filter", func(ctx SpecContext) {
+			db := gorp.Wrap(memkv.New())
+			defer func() { Expect(db.Close()).To(Succeed()) }()
+			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				DB:      db,
+				Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+			}))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+			seed := []indexedEntry{
+				{ID: 1, Name: "a"},
+				{ID: 2, Name: "b"},
+				{ID: 3, Name: "a"},
+				{ID: 4, Name: "c"},
+			}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&seed).Exec(ctx, db)).To(Succeed())
+
+			var res []indexedEntry
+			Expect(table.NewRetrieve().
+				Where(gorp.Not(nameIdx.Filter("a"))).
+				Entries(&res).Exec(ctx, db)).To(Succeed())
+			ids := make([]int32, len(res))
+			for i, e := range res {
+				ids[i] = e.ID
+			}
+			Expect(ids).To(ConsistOf(int32(2), int32(4)))
+		})
+	})
+
+	Describe("Where with OrderBy", func() {
+		It("Should apply an index-backed Where filter with OrderBy", func(ctx SpecContext) {
+			db := gorp.Wrap(memkv.New())
+			defer func() { Expect(db.Close()).To(Succeed()) }()
+			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			scoreIdx := gorp.NewSorted[int32, indexedEntry, int64](
+				"score", func(e *indexedEntry) int64 { return e.Score },
+			)
+			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				DB:      db,
+				Indexes: []gorp.Index[int32, indexedEntry]{nameIdx, scoreIdx},
+			}))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+			seed := []indexedEntry{
+				{ID: 1, Name: "a", Score: 50},
+				{ID: 2, Name: "b", Score: 10},
+				{ID: 3, Name: "a", Score: 30},
+				{ID: 4, Name: "b", Score: 40},
+			}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&seed).Exec(ctx, db)).To(Succeed())
+
+			var res []indexedEntry
+			Expect(table.NewRetrieve().
+				Where(nameIdx.Filter("a")).
+				OrderBy(scoreIdx.Ordered(gorp.Asc)).
+				Entries(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res).To(HaveLen(2))
+			for _, e := range res {
+				Expect(e.Name).To(Equal("a"))
+			}
+		})
+	})
 })

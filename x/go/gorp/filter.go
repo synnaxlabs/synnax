@@ -404,15 +404,32 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 // Resolve is dropped for the same reason — if Keys can't survive inversion,
 // neither can their deferred computation.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
-	return Filter[K, E]{
+	out := Filter[K, E]{
 		Eval: func(ctx Context, e *E) (bool, error) {
-			if f.Eval == nil {
-				return false, nil
+			if f.Eval != nil {
+				ok, err := f.Eval(ctx, e)
+				return !ok, err
 			}
-			ok, err := f.Eval(ctx, e)
-			return !ok, err
+			if f.Keys != nil {
+				return !f.containsKey((*e).GorpKey()), nil
+			}
+			return false, nil
 		},
 	}
+	if f.resolve != nil {
+		out.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			keys, build, err := f.resolve(ctx, tx)
+			if err != nil {
+				return nil, nil, err
+			}
+			f.Keys = keys
+			if build != nil && keys != nil {
+				f.membership = newLazyMembership(keys, build)
+			}
+			return nil, nil, nil
+		}
+	}
+	return out
 }
 
 // anyHasResolver reports whether any child filter carries a deferred
