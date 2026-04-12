@@ -139,11 +139,12 @@ func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
 	keys := l.Get(values...)
 	if keys == nil {
 		// Distinguish "no matching keys" (empty result) from "no Keys
-		// constraint" (unbounded). filterFromKeys is the canonical
-		// constructor for the former.
+		// constraint" (unbounded). newIndexedFilter is the canonical
+		// constructor for the former and also bakes the typed O(1)
+		// membership predicate that downstream composition uses.
 		keys = []K{}
 	}
-	return Filter[K, E]{Keys: keys}
+	return newIndexedFilter[K, E](keys)
 }
 
 // Sorted is an ordered in-memory index on a field of type V extracted from
@@ -249,11 +250,12 @@ func (s *Sorted[K, E, V]) Get(values ...V) []K {
 
 // Filter returns an exact-match Filter[K, E] against the sorted index. Uses
 // the same fast-path semantics as Lookup.Filter: the returned filter carries
-// a precomputed Keys set that Retrieve.Exec converts into the execKeys path.
+// a precomputed Keys set plus a typed O(1) membership predicate, both built
+// at construction via newIndexedFilter.
 func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
 	keys := s.Get(values...)
 	if keys == nil {
 		keys = []K{}
 	}
-	return Filter[K, E]{Keys: keys}
+	return newIndexedFilter[K, E](keys)
 }

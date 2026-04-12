@@ -217,6 +217,96 @@ var _ = Describe("Index", func() {
 			})
 		})
 
+		Describe("Composition with And/Or", func() {
+			var (
+				table       *gorp.Table[int32, indexedEntry]
+				nameIdx     *gorp.Lookup[int32, indexedEntry, string]
+				categoryIdx *gorp.Lookup[int32, indexedEntry, string]
+			)
+			BeforeEach(func(ctx SpecContext) {
+				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				categoryIdx = gorp.NewLookup[int32, indexedEntry, string](
+					"category", func(e *indexedEntry) string { return e.Category },
+				)
+				var err error
+				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+					DB: idxDB,
+					Indexes: []gorp.Index[int32, indexedEntry]{
+						nameIdx, categoryIdx,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				seed := []indexedEntry{
+					{ID: 1, Name: "a", Category: "x"},
+					{ID: 2, Name: "a", Category: "y"},
+					{ID: 3, Name: "b", Category: "x"},
+					{ID: 4, Name: "b", Category: "y"},
+					{ID: 5, Name: "c", Category: "x"},
+				}
+				Expect(gorp.NewCreate[int32, indexedEntry]().
+					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+			})
+			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+			It("Should intersect two indexed filters via And", func(ctx SpecContext) {
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(gorp.And(nameIdx.Filter("a"), categoryIdx.Filter("x"))).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].ID).To(Equal(int32(1)))
+			})
+
+			It("Should union two indexed filters via Or", func(ctx SpecContext) {
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(gorp.Or(nameIdx.Filter("c"), categoryIdx.Filter("y"))).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(2), int32(4), int32(5)))
+			})
+
+			It("Should preserve membership through nested And composition", func(ctx SpecContext) {
+				// Regression: previously, And(A, B) returned a Filter with
+				// Keys set but membership nil, so a subsequent And(prev, C)
+				// silently dropped every key (containsKey on prev always
+				// returned false) and returned an empty result.
+				inner := gorp.And(nameIdx.Filter("a", "b"), categoryIdx.Filter("x", "y"))
+				outer := gorp.And(inner, nameIdx.Filter("a"))
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(outer).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(1), int32(2)))
+			})
+
+			It("Should preserve membership through nested Or composition", func(ctx SpecContext) {
+				// Same regression as above but for Or: an Or-result with
+				// membership nil cannot be merged with another indexed
+				// filter via WhereKeys intersection or further composition.
+				inner := gorp.Or(nameIdx.Filter("a"), nameIdx.Filter("c"))
+				outer := gorp.And(inner, categoryIdx.Filter("x"))
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(outer).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(1), int32(5)))
+			})
+		})
+
 		Describe("Concurrency", func() {
 			It("Should permit concurrent Filter calls while the observer processes writes", func(ctx SpecContext) {
 				nameIdx := gorp.NewLookup[int32, indexedEntry, string](

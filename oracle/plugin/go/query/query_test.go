@@ -293,11 +293,15 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"type Filter func(r Retrieve) gorp.Filter[uint32, Rack]",
+						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
 						"func Match(",
+						"gorp.MatchBound[Retrieve, uint32, Rack]",
 						"func And(fs ...Filter) Filter",
+						"gorp.AndBound[Retrieve, uint32, Rack](fs...)",
 						"func Or(fs ...Filter) Filter",
+						"gorp.OrBound[Retrieve, uint32, Rack](fs...)",
 						"func Not(f Filter) Filter",
+						"gorp.NotBound[Retrieve, uint32, Rack](f)",
 					)
 			})
 
@@ -368,8 +372,9 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"type Filter func(r Retrieve) gorp.Filter[uint32, Rack]",
+						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
 						"func And(fs ...Filter) Filter",
+						"gorp.AndBound[Retrieve, uint32, Rack](fs...)",
 						"func MatchNames(vals ...string) Filter",
 						"func (r Retrieve) Where(filters ...Filter) Retrieve",
 						"bound[i] = f(r)",
@@ -403,7 +408,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"type Filter func(r Retrieve) gorp.Filter[Key, Channel]",
+						"type Filter = gorp.BoundFilter[Retrieve, Key, Channel]",
 						"func MatchNames(vals ...string) Filter",
 						"return func(r Retrieve) gorp.Filter[Key, Channel]",
 						"func (r Retrieve) WhereKeys(keys ...Key) Retrieve",

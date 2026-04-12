@@ -217,6 +217,11 @@ func (r Retrieve[K, E]) hasIndexedFilter() bool {
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
 // set on the query, Exists will return true if ANY of the keys exist in the database. If
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
+//
+// Dispatch mirrors Exec: WhereKeys or an indexed filter routes through
+// execKeys, otherwise execFilter. Routing through execKeys is critical for
+// indexed filters: their Filter.Keys carries the candidate set, but Eval is
+// nil, so execFilter would match every row.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	if r.HasWhereKeys() {
 		e := make([]E, 0, len(*r.keys))
@@ -225,6 +230,18 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 			return false, err
 		}
 		return len(e) == len(*r.keys), nil
+	}
+	if r.hasIndexedFilter() {
+		keys := r.effectiveKeys()
+		if len(keys) == 0 {
+			return false, nil
+		}
+		e := make([]E, 0, len(keys))
+		r.entries = multipleEntries(&e)
+		if err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return false, err
+		}
+		return len(e) > 0, nil
 	}
 	e := make([]E, 0, 1)
 	r.entries = multipleEntries(&e)
@@ -237,10 +254,14 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 // Count returns the number of records matching the query. If the WhereKeys method is
 // set on the query, Count will return the number of existing keys. If Where is set
 // on the query, Count will return the number of records that pass the Where filter.
+//
+// Dispatch mirrors Exec: indexed filters route through execKeys so the
+// candidate set comes from the index rather than a full table scan.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
-	if r.HasWhereKeys() {
-		e := make([]E, 0, len(*r.keys))
+	if r.HasWhereKeys() || r.hasIndexedFilter() {
+		keys := r.effectiveKeys()
+		e := make([]E, 0, len(keys))
 		r.entries = multipleEntries(&e)
 		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return 0, err
@@ -297,6 +318,12 @@ func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
 // of any keys set via WhereKeys and any keys carried by an indexed filter via
 // filter.Keys. Either source may be nil, but at least one must be present
 // (callers gate via HasWhereKeys || hasIndexedFilter before invoking).
+//
+// When both sources are present, the intersection is computed by walking the
+// WhereKeys slice and probing the filter's typed O(1) membership predicate.
+// This avoids any-boxing on the per-key comparison and remains correct for
+// tables whose K is ~[]byte (which are not strictly comparable but never
+// reach this path because indexed filters require IndexKey).
 func (r Retrieve[K, E]) effectiveKeys() []K {
 	hasIndexedKeys := r.hasFilter && r.filter.Keys != nil
 	switch {
@@ -307,20 +334,13 @@ func (r Retrieve[K, E]) effectiveKeys() []K {
 	case r.keys == nil && hasIndexedKeys:
 		return r.filter.Keys
 	}
-	return intersectKeySlices(*r.keys, r.filter.Keys)
-}
-
-// intersectKeySlices returns the intersection of two key slices via linear
-// scan. Used at Exec dispatch to merge WhereKeys with an indexed filter's
-// Keys. Inputs are typically small (single-digit element counts) so the
-// O(n*m) cost is fine.
-func intersectKeySlices[K Key](a, b []K) []K {
-	if len(a) == 0 || len(b) == 0 {
+	whereKeys := *r.keys
+	if len(whereKeys) == 0 || len(r.filter.Keys) == 0 {
 		return []K{}
 	}
-	out := make([]K, 0, min(len(a), len(b)))
-	for _, k := range a {
-		if containsKey(b, k) {
+	out := make([]K, 0, min(len(whereKeys), len(r.filter.Keys)))
+	for _, k := range whereKeys {
+		if r.filter.containsKey(k) {
 			out = append(out, k)
 		}
 	}
@@ -364,13 +384,24 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	if err := r.runValidators(gorpCtx, filtered); err != nil {
 		return err
 	}
-	// Suppress not-found from indexed-filter-only queries: an indexed filter
-	// matching no keys is an empty result, not an error. Only propagate
-	// not-found when WhereKeys was explicitly set.
-	if !r.HasWhereKeys() {
+	if r.HasWhereKeys() {
+		return getErr
+	}
+	// Indexed-filter-only path: an indexed filter matching no keys is an empty
+	// result, not an error, for multi-entry or unbound queries. Single-entry
+	// binds still expect query.ErrNotFound when nothing matched, mirroring the
+	// execFilter contract.
+	if r.entries.isMultiple || !r.entries.Bound() {
 		return nil
 	}
-	return getErr
+	if r.entries.changes == 0 {
+		return errors.Wrapf(
+			query.ErrNotFound,
+			"no %s found matching query",
+			types.PluralName[E](),
+		)
+	}
+	return nil
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
