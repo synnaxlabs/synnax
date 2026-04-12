@@ -290,7 +290,7 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		// resolved — into intersectKeys. The eager path below is
 		// skipped to avoid snapshotting stale Keys at compose time.
 		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			materialized, err := resolveChildren[K, E](ctx, tx, filters)
+			materialized, err := materializeFilters[K, E](ctx, tx, filters)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -345,7 +345,7 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		// copy.
 		filters = append([]Filter[K, E](nil), filters...)
 		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			if err := resolveInPlace[K, E](ctx, tx, filters); err != nil {
+			if err := materializeFiltersMut[K, E](ctx, tx, filters); err != nil {
 				return nil, nil, err
 			}
 			keys, build := unionKeys[K, E](filters)
@@ -427,13 +427,13 @@ func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 	return false
 }
 
-// resolveChildren returns a slice of filters with every resolver-child
+// materializeFilters returns a slice of filters with every resolver-child
 // materialized against the open tx. Eager children are copied through
 // unchanged. The returned slice is a fresh copy; the input is not
 // mutated. Used by And's deferred resolver, which does not need
 // in-place updates because And.Eval never probes children's memberships
 // directly.
-func resolveChildren[K Key, E Entry[K]](
+func materializeFilters[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
 	filters []Filter[K, E],
@@ -459,7 +459,7 @@ func resolveChildren[K Key, E Entry[K]](
 	return out, nil
 }
 
-// resolveInPlace is the in-place counterpart to resolveChildren. It
+// materializeFiltersMut is the in-place counterpart to materializeFilters. It
 // overwrites resolver-carrying children with their materialized form so
 // downstream closures that captured the same slice observe the
 // post-resolution state. Used by Or whose Eval closure may probe child
@@ -467,7 +467,7 @@ func resolveChildren[K Key, E Entry[K]](
 // filter. Callers must ensure the slice is owned by the composed
 // filter (copy before calling) so the mutation isn't observed by the
 // original caller.
-func resolveInPlace[K Key, E Entry[K]](
+func materializeFiltersMut[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
 	filters []Filter[K, E],

@@ -55,13 +55,7 @@ type Lookup[K IndexKey, E Entry[K], V comparable] struct {
 	mu      sync.RWMutex
 	storage lookupStorage[K, V]
 	reverse map[K]V
-
-	// deltaMu guards txDeltas. It is held independently of mu so tx-scoped
-	// staging writers never block committed-index readers, and vice versa.
-	// Contention on deltaMu is bounded by the number of concurrent write
-	// transactions touching this index, which is typically 1.
-	deltaMu  sync.Mutex
-	txDeltas map[*txState]*lookupDelta[K, V]
+	overlay deltaOverlay[K, V]
 }
 
 // NewLookup constructs a Lookup index with the given display name and extract
@@ -120,74 +114,16 @@ func (l *Lookup[K, E, V]) delete(key K) {
 	delete(l.reverse, key)
 }
 
-// stageSet records a pending insert or update against the open
-// transaction. Called from the table-bound Writer after a successful
-// kv.Tx.Set. The committed index is untouched. If tx has no identity
-// (DB acting as Tx, or a Tx implementation without per-tx scoping), the
-// call is a no-op — writes go straight to the store and the global
-// index is updated post-commit by the DB observer.
 func (l *Lookup[K, E, V]) stageSet(tx Tx, key K, entry E) {
-	state := tx.txIdentity()
-	if state == nil {
-		return
-	}
-	value := l.extract(&entry)
-	l.loadOrCreateDelta(state).stageSet(key, value)
+	l.overlay.stage(tx, key, l.extract(&entry))
 }
 
-// stageDelete records a pending deletion against the open transaction.
-// Called from the table-bound Writer after a successful kv.Tx.Delete.
 func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
-	state := tx.txIdentity()
-	if state == nil {
-		return
-	}
-	l.loadOrCreateDelta(state).stageDelete(key)
+	l.overlay.unstage(tx, key)
 }
 
-// loadOrCreateDelta returns the per-tx delta for this index, creating
-// it lazily on first stage. On creation it registers a cleanup hook on
-// the tx state that drops the delta when the tx commits or closes.
-// This ensures overlays are dropped deterministically, regardless of
-// whether the tx committed or rolled back.
-func (l *Lookup[K, E, V]) loadOrCreateDelta(state *txState) *lookupDelta[K, V] {
-	l.deltaMu.Lock()
-	defer l.deltaMu.Unlock()
-	if l.txDeltas == nil {
-		l.txDeltas = make(map[*txState]*lookupDelta[K, V])
-	}
-	if d, ok := l.txDeltas[state]; ok {
-		return d
-	}
-	d := newLookupDelta[K, V]()
-	l.txDeltas[state] = d
-	state.onCleanup(func() {
-		l.deltaMu.Lock()
-		delete(l.txDeltas, state)
-		l.deltaMu.Unlock()
-	})
-	return d
-}
-
-// resolveTx computes the effective key set for an exact-match query
-// under a given transaction. If the tx has no per-tx scoping or no
-// staged mutations for this index, it returns the committed result
-// unchanged. Otherwise it overlays the per-tx delta via delta.merge.
-// This is the core read-your-own-writes hook for indexed Retrieve
-// queries inside an open write tx.
 func (l *Lookup[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	committed := l.Get(values...)
-	state := tx.txIdentity()
-	if state == nil {
-		return committed
-	}
-	l.deltaMu.Lock()
-	d, ok := l.txDeltas[state]
-	l.deltaMu.Unlock()
-	if !ok || d.isEmpty() {
-		return committed
-	}
-	return d.merge(committed, values)
+	return l.overlay.resolve(tx, l.Get(values...), values)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of
@@ -266,16 +202,10 @@ func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) []K {
 type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
 	name    string
 	extract func(e *E) V
-
 	mu      sync.RWMutex
 	storage *sortedStorage[K, V]
 	reverse map[K]V
-
-	// deltaMu guards txDeltas, mirroring the Lookup pattern. Kept
-	// independent from mu so cursor walks on the committed storage
-	// aren't blocked by staging writers on disjoint transactions.
-	deltaMu  sync.Mutex
-	txDeltas map[*txState]*lookupDelta[K, V]
+	overlay deltaOverlay[K, V]
 }
 
 // NewSorted constructs a Sorted index over the provided extract function.
@@ -344,65 +274,16 @@ func (s *Sorted[K, E, V]) delete(key K) {
 	delete(s.reverse, key)
 }
 
-// stageSet records a pending insert or update against the open
-// transaction. See Lookup.stageSet for full semantics. Sorted reuses
-// lookupDelta because only equality queries consult the delta in v1;
-// ordered cursor iteration (Sorted.Ordered / walkOrder) remains
-// committed-only.
 func (s *Sorted[K, E, V]) stageSet(tx Tx, key K, entry E) {
-	state := tx.txIdentity()
-	if state == nil {
-		return
-	}
-	value := s.extract(&entry)
-	s.loadOrCreateDelta(state).stageSet(key, value)
+	s.overlay.stage(tx, key, s.extract(&entry))
 }
 
-// stageDelete records a pending deletion against the open transaction.
 func (s *Sorted[K, E, V]) stageDelete(tx Tx, key K) {
-	state := tx.txIdentity()
-	if state == nil {
-		return
-	}
-	s.loadOrCreateDelta(state).stageDelete(key)
+	s.overlay.unstage(tx, key)
 }
 
-func (s *Sorted[K, E, V]) loadOrCreateDelta(state *txState) *lookupDelta[K, V] {
-	s.deltaMu.Lock()
-	defer s.deltaMu.Unlock()
-	if s.txDeltas == nil {
-		s.txDeltas = make(map[*txState]*lookupDelta[K, V])
-	}
-	if d, ok := s.txDeltas[state]; ok {
-		return d
-	}
-	d := newLookupDelta[K, V]()
-	s.txDeltas[state] = d
-	state.onCleanup(func() {
-		s.deltaMu.Lock()
-		delete(s.txDeltas, state)
-		s.deltaMu.Unlock()
-	})
-	return d
-}
-
-// resolveTx computes the effective key set for an exact-match query
-// under a given transaction. See Lookup.resolveTx for semantics. Only
-// Sorted.Filter (exact-match) routes through this path; ordered cursor
-// iteration via OrderBy does not consult the delta in v1.
 func (s *Sorted[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	committed := s.Get(values...)
-	state := tx.txIdentity()
-	if state == nil {
-		return committed
-	}
-	s.deltaMu.Lock()
-	d, ok := s.txDeltas[state]
-	s.deltaMu.Unlock()
-	if !ok || d.isEmpty() {
-		return committed
-	}
-	return d.merge(committed, values)
+	return s.overlay.resolve(tx, s.Get(values...), values)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of

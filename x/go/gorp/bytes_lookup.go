@@ -29,14 +29,10 @@ import (
 type BytesLookup[E Entry[[]byte], V comparable] struct {
 	name    string
 	extract func(e *E) V
-
 	mu      sync.RWMutex
 	storage *bytesLookupStorage[V]
 	reverse map[string]V
-
-	// deltaMu guards txDeltas. See Lookup.deltaMu for rationale.
-	deltaMu  sync.Mutex
-	txDeltas map[*txState]*bytesLookupDelta[V]
+	overlay deltaOverlay[string, V]
 }
 
 // NewBytesLookup constructs a BytesLookup index with the given display name
@@ -96,60 +92,29 @@ func (l *BytesLookup[E, V]) delete(key []byte) {
 	delete(l.reverse, skey)
 }
 
-// stageSet records a pending insert or update against the open
-// transaction. See Lookup.stageSet for semantics.
 func (l *BytesLookup[E, V]) stageSet(tx Tx, key []byte, entry E) {
-	state := tx.txIdentity()
-	if state == nil {
-		return
-	}
-	value := l.extract(&entry)
-	l.loadOrCreateDelta(state).stageSet(key, value)
+	l.overlay.stage(tx, string(key), l.extract(&entry))
 }
 
-// stageDelete records a pending deletion against the open transaction.
 func (l *BytesLookup[E, V]) stageDelete(tx Tx, key []byte) {
-	state := tx.txIdentity()
-	if state == nil {
-		return
-	}
-	l.loadOrCreateDelta(state).stageDelete(key)
+	l.overlay.unstage(tx, string(key))
 }
 
-func (l *BytesLookup[E, V]) loadOrCreateDelta(state *txState) *bytesLookupDelta[V] {
-	l.deltaMu.Lock()
-	defer l.deltaMu.Unlock()
-	if l.txDeltas == nil {
-		l.txDeltas = make(map[*txState]*bytesLookupDelta[V])
-	}
-	if d, ok := l.txDeltas[state]; ok {
-		return d
-	}
-	d := newBytesLookupDelta[V]()
-	l.txDeltas[state] = d
-	state.onCleanup(func() {
-		l.deltaMu.Lock()
-		delete(l.txDeltas, state)
-		l.deltaMu.Unlock()
-	})
-	return d
-}
-
-// resolveTx computes the effective key set for an exact-match query
-// under a given transaction. See Lookup.resolveTx for semantics.
 func (l *BytesLookup[E, V]) resolveTx(tx Tx, values []V) [][]byte {
 	committed := l.Get(values...)
-	state := tx.txIdentity()
-	if state == nil {
+	committedStrings := make([]string, len(committed))
+	for i, k := range committed {
+		committedStrings[i] = string(k)
+	}
+	resolved := l.overlay.resolve(tx, committedStrings, values)
+	if len(resolved) == len(committedStrings) && tx.txIdentity() == nil {
 		return committed
 	}
-	l.deltaMu.Lock()
-	d, ok := l.txDeltas[state]
-	l.deltaMu.Unlock()
-	if !ok || d.isEmpty() {
-		return committed
+	out := make([][]byte, len(resolved))
+	for i, s := range resolved {
+		out[i] = []byte(s)
 	}
-	return d.merge(committed, values)
+	return out
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of

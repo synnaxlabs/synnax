@@ -59,7 +59,7 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	w := newCreateWriter(tx, c.indexes)
+	w := newWriter(tx, c.indexes)
 	if len(c.onUpdate) == 0 {
 		return w.Set(ctx, c.entries.All()...)
 	}
@@ -86,12 +86,12 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	return w.Set(ctx, toWrite...)
 }
 
-// newCreateWriter picks between the index-aware table writer and the
+// newWriter picks between the index-aware table writer and the
 // bare writer based on whether the query carries an index list.
 // Encapsulated here (and mirrored in update.go / delete.go) so every
 // caller uses the same resolution logic and tests can exercise both
 // paths without duplicating the conditional.
-func newCreateWriter[K Key, E Entry[K]](tx Tx, indexes []Index[K, E]) *Writer[K, E] {
+func newWriter[K Key, E Entry[K]](tx Tx, indexes []Index[K, E]) *Writer[K, E] {
 	if indexes == nil {
 		return WrapWriter[K, E](tx)
 	}

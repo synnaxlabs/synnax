@@ -94,7 +94,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return newCreateWriter(tx, d.indexes).Delete(ctx, keys...)
+	return newWriter(tx, d.indexes).Delete(ctx, keys...)
 }
 
 type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error

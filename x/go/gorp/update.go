@@ -59,7 +59,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return newCreateWriter(tx, u.indexes).Set(ctx, entries...)
+	return newWriter(tx, u.indexes).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

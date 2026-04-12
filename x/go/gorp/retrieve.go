@@ -231,17 +231,8 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	if err != nil {
 		return err
 	}
-	// A resolver that returns nil means "no matching keys" (empty
-	// result), NOT "unbounded." Normalize to a non-nil empty slice so
-	// hasIndexedFilter() correctly routes through execKeys (which
-	// returns 0 results for an empty key set) instead of falling
-	// through to execFilter (which would run a full table scan with
-	// no Eval predicate and match every row).
-	if keys == nil {
-		keys = make([]K, 0)
-	}
 	r.filter.Keys = keys
-	if build != nil {
+	if build != nil && keys != nil {
 		r.filter.membership = newLazyMembership(keys, build)
 	} else {
 		r.filter.membership = nil
