@@ -74,7 +74,18 @@ func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
 // Only the equality Filter path (Sorted.Filter) merges the tx delta.
 // This is a known v1 limitation; if your use case requires ordered
 // iteration that sees uncommitted writes, the delta merge must be
-// extended to produce a sorted view — tracked as v2 follow-up work.
+// extended to produce a sorted view, tracked as v2 follow-up work.
+//
+// Note on Where + OrderBy interaction: when a caller combines OrderBy
+// with a Where filter, execOrdered walks the committed sorted keys via
+// walkOrder, fetches entries via GetMany, and then runs match() as a
+// post-filter. An Eval-based Where predicate runs normally against the
+// fetched entries. An index-backed Where (Keys != nil, Eval == nil)
+// is checked via containsKey in match(). In both cases the Where
+// constraint is applied, but only against entries that appear in the
+// committed sorted slice. Entries staged in the current tx that would
+// match the Where + OrderBy are invisible because walkOrder does not
+// consult the delta.
 //
 //nolint:unused
 func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {

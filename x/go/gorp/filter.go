@@ -407,6 +407,13 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	out := Filter[K, E]{
 		Eval: func(ctx Context, e *E) (bool, error) {
 			if f.Eval != nil {
+				// f.Eval may be a partial predicate (And.Eval skips
+				// Keys-only children). If f also has a Keys constraint,
+				// an entry outside that set can never satisfy f, so
+				// Not(f) is trivially true.
+				if f.Keys != nil && !f.containsKey((*e).GorpKey()) {
+					return true, nil
+				}
 				ok, err := f.Eval(ctx, e)
 				return !ok, err
 			}

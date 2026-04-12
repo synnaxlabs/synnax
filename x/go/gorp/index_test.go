@@ -673,6 +673,43 @@ var _ = Describe("Index", func() {
 			}
 			Expect(ids).To(ConsistOf(int32(2), int32(4)))
 		})
+
+		It("Should negate And(indexed, eval) without dropping the index constraint", func(ctx SpecContext) {
+			db := gorp.Wrap(memkv.New())
+			defer func() { Expect(db.Close()).To(Succeed()) }()
+			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				DB:      db,
+				Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+			}))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+			seed := []indexedEntry{
+				{ID: 1, Name: "a", Score: 60},
+				{ID: 2, Name: "b", Score: 60},
+				{ID: 3, Name: "a", Score: 10},
+				{ID: 4, Name: "b", Score: 10},
+			}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&seed).Exec(ctx, db)).To(Succeed())
+
+			aboveFifty := gorp.Match[int32, indexedEntry](func(_ gorp.Context, e *indexedEntry) (bool, error) {
+				return e.Score > 50, nil
+			})
+			// Not(And(name="a", score>50)) should exclude entries that
+			// are BOTH name="a" AND score>50. Only ID=1 satisfies both.
+			// IDs 2, 3, 4 should be returned.
+			var res []indexedEntry
+			Expect(table.NewRetrieve().
+				Where(gorp.Not(gorp.And(nameIdx.Filter("a"), aboveFifty))).
+				Entries(&res).Exec(ctx, db)).To(Succeed())
+			ids := make([]int32, len(res))
+			for i, e := range res {
+				ids[i] = e.ID
+			}
+			Expect(ids).To(ConsistOf(int32(2), int32(3), int32(4)))
+		})
 	})
 
 	Describe("Where with OrderBy", func() {
