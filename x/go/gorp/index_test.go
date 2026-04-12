@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // indexedEntry is the test entry type used by the index suite. It carries two
@@ -57,11 +58,10 @@ var _ = Describe("Index", func() {
 				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
 				keys := nameIdx.Get("alpha")
@@ -83,11 +83,10 @@ var _ = Describe("Index", func() {
 				flagIdx := gorp.NewLookup[int32, indexedEntry, bool](
 					"flag", func(e *indexedEntry) bool { return e.Flag },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{flagIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
 				Expect(flagIdx.Get(true)).To(ConsistOf(int32(1), int32(3)))
@@ -104,12 +103,10 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 			})
 			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
@@ -166,12 +163,10 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				seed := []indexedEntry{
 					{ID: 1, Name: "a"},
 					{ID: 2, Name: "b"},
@@ -230,14 +225,12 @@ var _ = Describe("Index", func() {
 				categoryIdx = gorp.NewLookup[int32, indexedEntry, string](
 					"category", func(e *indexedEntry) string { return e.Category },
 				)
-				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB: idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{
 						nameIdx, categoryIdx,
 					},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				seed := []indexedEntry{
 					{ID: 1, Name: "a", Category: "x"},
 					{ID: 2, Name: "a", Category: "y"},
@@ -312,11 +305,10 @@ var _ = Describe("Index", func() {
 				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
 				var wg sync.WaitGroup
@@ -363,12 +355,10 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				seed := []indexedEntry{
 					{ID: 1, Name: "alpha"},
 					{ID: 2, Name: "beta"},
@@ -545,11 +535,10 @@ var _ = Describe("Index", func() {
 				scoreIdx := gorp.NewSorted[int32, indexedEntry, int64](
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
-				table, err := gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{scoreIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
 				Expect(scoreIdx.Get(int64(20))).To(ConsistOf(int32(3), int32(4)))
@@ -567,12 +556,10 @@ var _ = Describe("Index", func() {
 				scoreIdx = gorp.NewSorted[int32, indexedEntry, int64](
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
-				var err error
-				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
 					DB:      idxDB,
 					Indexes: []gorp.Index[int32, indexedEntry]{scoreIdx},
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				seed := make([]indexedEntry, 20)
 				for i := range 20 {
 					seed[i] = indexedEntry{ID: int32(i), Score: int64(i * 10)}

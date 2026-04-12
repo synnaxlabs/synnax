@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // byteEntry is the test entry type for BytesLookup. Its gorp key is the
@@ -50,11 +51,10 @@ var _ = Describe("BytesLookup", func() {
 			toIdx := gorp.NewBytesLookup[byteEntry, string](
 				"to", func(e *byteEntry) string { return e.To },
 			)
-			table, err := gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+			table := MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
 				DB:      idxDB,
 				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
 			keys := toIdx.Get("x")
@@ -75,12 +75,10 @@ var _ = Describe("BytesLookup", func() {
 			toIdx = gorp.NewBytesLookup[byteEntry, string](
 				"to", func(e *byteEntry) string { return e.To },
 			)
-			var err error
-			table, err = gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+			table = MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
 				DB:      idxDB,
 				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 		})
 		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
@@ -136,11 +134,10 @@ var _ = Describe("BytesLookup", func() {
 			toIdx := gorp.NewBytesLookup[byteEntry, string](
 				"to", func(e *byteEntry) string { return e.To },
 			)
-			table, err := gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+			table := MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
 				DB:      idxDB,
 				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
 			var res []byteEntry
@@ -161,11 +158,10 @@ var _ = Describe("BytesLookup", func() {
 			toIdx := gorp.NewBytesLookup[byteEntry, string](
 				"to", func(e *byteEntry) string { return e.To },
 			)
-			table, err := gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+			table := MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
 				DB:      idxDB,
 				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
 			var res []byteEntry
@@ -192,12 +188,10 @@ var _ = Describe("BytesLookup", func() {
 			toIdx = gorp.NewBytesLookup[byteEntry, string](
 				"to", func(e *byteEntry) string { return e.To },
 			)
-			var err error
-			table, err = gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+			table = MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
 				DB:      idxDB,
 				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			seed := []byteEntry{
 				{From: "a", To: "x"},
 				{From: "b", To: "y"},

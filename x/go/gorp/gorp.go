@@ -125,6 +125,8 @@ type txState struct {
 // onCleanup registers a hook to run when the owning transaction commits
 // or closes. Safe to call from any goroutine that holds a reference to
 // the state handle.
+//
+//nolint:unused
 func (s *txState) onCleanup(fn func()) {
 	s.mu.Lock()
 	s.cleanups = append(s.cleanups, fn)

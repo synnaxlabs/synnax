@@ -109,7 +109,7 @@ func populateIndexes[K Key, E Entry[K]](
 		}
 	}()
 	for _, idx := range indexes {
-		startErr, insert, finish := idx.populate()
+		insert, finish, startErr := idx.populate()
 		if startErr != nil {
 			return startErr
 		}

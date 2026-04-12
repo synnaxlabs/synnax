@@ -33,6 +33,7 @@ type delta[SK comparable, V comparable] struct {
 	forward map[V]map[SK]struct{}
 }
 
+//nolint:unused
 func newDelta[SK comparable, V comparable]() *delta[SK, V] {
 	return &delta[SK, V]{
 		state:   make(map[SK]deltaEntry[V]),
@@ -42,6 +43,7 @@ func newDelta[SK comparable, V comparable]() *delta[SK, V] {
 
 func (d *delta[SK, V]) isEmpty() bool { return len(d.state) == 0 }
 
+//nolint:unused
 func (d *delta[SK, V]) stageSet(key SK, value V) {
 	if prev, ok := d.state[key]; ok && !prev.deleted {
 		d.removeFromForward(key, prev.value)
@@ -50,6 +52,7 @@ func (d *delta[SK, V]) stageSet(key SK, value V) {
 	d.addToForward(key, value)
 }
 
+//nolint:unused
 func (d *delta[SK, V]) stageDelete(key SK) {
 	if prev, ok := d.state[key]; ok && !prev.deleted {
 		d.removeFromForward(key, prev.value)
@@ -58,6 +61,7 @@ func (d *delta[SK, V]) stageDelete(key SK) {
 	d.state[key] = deltaEntry[V]{value: zero, deleted: true}
 }
 
+//nolint:unused
 func (d *delta[SK, V]) addToForward(key SK, value V) {
 	bucket, ok := d.forward[value]
 	if !ok {
@@ -67,6 +71,7 @@ func (d *delta[SK, V]) addToForward(key SK, value V) {
 	bucket[key] = struct{}{}
 }
 
+//nolint:unused
 func (d *delta[SK, V]) removeFromForward(key SK, value V) {
 	bucket, ok := d.forward[value]
 	if !ok {
@@ -123,6 +128,7 @@ type deltaOverlay[SK comparable, V comparable] struct {
 	txDeltas map[*txState]*delta[SK, V]
 }
 
+//nolint:unused
 func (o *deltaOverlay[SK, V]) stage(tx Tx, key SK, value V) {
 	state := tx.txIdentity()
 	if state == nil {
@@ -131,6 +137,7 @@ func (o *deltaOverlay[SK, V]) stage(tx Tx, key SK, value V) {
 	o.loadOrCreate(state).stageSet(key, value)
 }
 
+//nolint:unused
 func (o *deltaOverlay[SK, V]) unstage(tx Tx, key SK) {
 	state := tx.txIdentity()
 	if state == nil {
@@ -163,6 +170,7 @@ func (o *deltaOverlay[SK, V]) resolve(
 	return d.merge(committed, values)
 }
 
+//nolint:unused
 func (o *deltaOverlay[SK, V]) loadOrCreate(state *txState) *delta[SK, V] {
 	o.deltaMu.Lock()
 	defer o.deltaMu.Unlock()

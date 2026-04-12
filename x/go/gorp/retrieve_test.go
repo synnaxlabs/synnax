@@ -698,7 +698,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should observe an empty slice when no entries match", func(ctx SpecContext) {
 			var seen []entry
 			var res []entry
-			err := gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
 					return e.ID > 100, nil
@@ -707,8 +707,7 @@ var _ = Describe("Retrieve", func() {
 					seen = entries
 					return nil
 				}).
-				Exec(ctx, tx)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, tx)).To(Succeed())
 			Expect(seen).To(BeEmpty())
 			Expect(res).To(BeEmpty())
 		})

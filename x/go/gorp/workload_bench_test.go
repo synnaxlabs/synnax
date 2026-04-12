@@ -70,7 +70,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
@@ -104,19 +103,6 @@ type workloadChannel struct {
 
 func (c workloadChannel) GorpKey() uint32   { return c.Key }
 func (c workloadChannel) SetOptions() []any { return nil }
-
-// workloadUUIDEntry is a second entry shape with a uuid.UUID key. UUIDs
-// are 16-byte value types with no internal pointers, but they force the
-// key encoder through a different path than uint32, and they stress the
-// reverse map's bucket sizing because the key value is larger. Used to
-// compare GC behavior under primitive vs. composite keys.
-type workloadUUIDEntry struct {
-	Key  uuid.UUID
-	Name string
-}
-
-func (e workloadUUIDEntry) GorpKey() uuid.UUID { return e.Key }
-func (e workloadUUIDEntry) SetOptions() []any  { return nil }
 
 // --- Workload-scale parameters ---
 

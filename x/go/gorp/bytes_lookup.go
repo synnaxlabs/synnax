@@ -54,7 +54,8 @@ func NewBytesLookup[E Entry[[]byte], V comparable](
 // Name implements Index.
 func (l *BytesLookup[E, V]) Name() string { return l.name }
 
-func (l *BytesLookup[E, V]) populate() (error, func(E), func()) {
+//nolint:unused
+func (l *BytesLookup[E, V]) populate() (func(E), func(), error) {
 	l.mu.Lock()
 	insert := func(entry E) {
 		key := entry.GorpKey()
@@ -63,9 +64,10 @@ func (l *BytesLookup[E, V]) populate() (error, func(E), func()) {
 		l.reverse[string(key)] = value
 	}
 	finish := func() { l.mu.Unlock() }
-	return nil, insert, finish
+	return insert, finish, nil
 }
 
+//nolint:unused
 func (l *BytesLookup[E, V]) set(key []byte, entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -80,6 +82,7 @@ func (l *BytesLookup[E, V]) set(key []byte, entry E) {
 	l.reverse[string(key)] = newValue
 }
 
+//nolint:unused
 func (l *BytesLookup[E, V]) delete(key []byte) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -92,10 +95,12 @@ func (l *BytesLookup[E, V]) delete(key []byte) {
 	delete(l.reverse, skey)
 }
 
+//nolint:unused
 func (l *BytesLookup[E, V]) stageSet(tx Tx, key []byte, entry E) {
 	l.overlay.stage(tx, string(key), l.extract(&entry))
 }
 
+//nolint:unused
 func (l *BytesLookup[E, V]) stageDelete(tx Tx, key []byte) {
 	l.overlay.unstage(tx, string(key))
 }
@@ -177,10 +182,12 @@ func newBytesLookupStorage[V comparable]() *bytesLookupStorage[V] {
 	return &bytesLookupStorage[V]{forward: make(map[V][][]byte)}
 }
 
+//nolint:unused
 func (s *bytesLookupStorage[V]) put(key []byte, value V) {
 	s.forward[value] = append(s.forward[value], append([]byte(nil), key...))
 }
 
+//nolint:unused
 func (s *bytesLookupStorage[V]) remove(key []byte, value V) {
 	keys := s.forward[value]
 	for i, k := range keys {

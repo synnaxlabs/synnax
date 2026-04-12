@@ -75,6 +75,8 @@ func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
 // This is a known v1 limitation; if your use case requires ordered
 // iteration that sees uncommitted writes, the delta merge must be
 // extended to produce a sorted view — tracked as v2 follow-up work.
+//
+//nolint:unused
 func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 	q.sorted.mu.RLock()
 	defer q.sorted.mu.RUnlock()
@@ -102,6 +104,8 @@ func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 
 // walkSorted walks the sorted entry slice from start in the given direction,
 // emitting up to limit keys. A limit of 0 means unbounded.
+//
+//nolint:unused
 func walkSorted[K IndexKey, V cmp.Ordered](
 	entries []sortedEntry[K, V],
 	start int,

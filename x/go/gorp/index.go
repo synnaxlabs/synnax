@@ -28,7 +28,7 @@ type Index[K Key, E Entry[K]] interface {
 	// once after the last insert. The implementation may hold a write lock
 	// across the entire populate phase, so finish is mandatory; failing to
 	// call it leaks the lock.
-	populate() (error, func(entry E), func())
+	populate() (func(entry E), func(), error)
 	// set is invoked by the Table observer when an entry is created or
 	// updated. The index extracts the new indexed value from entry, removes
 	// any stale mapping for key, and inserts the new one.
@@ -77,7 +77,8 @@ func NewLookup[K IndexKey, E Entry[K], V comparable](
 // Name implements Index.
 func (l *Lookup[K, E, V]) Name() string { return l.name }
 
-func (l *Lookup[K, E, V]) populate() (error, func(E), func()) {
+//nolint:unused
+func (l *Lookup[K, E, V]) populate() (func(E), func(), error) {
 	l.mu.Lock()
 	insert := func(entry E) {
 		key := entry.GorpKey()
@@ -86,9 +87,10 @@ func (l *Lookup[K, E, V]) populate() (error, func(E), func()) {
 		l.reverse[key] = value
 	}
 	finish := func() { l.mu.Unlock() }
-	return nil, insert, finish
+	return insert, finish, nil
 }
 
+//nolint:unused
 func (l *Lookup[K, E, V]) set(key K, entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -103,6 +105,7 @@ func (l *Lookup[K, E, V]) set(key K, entry E) {
 	l.reverse[key] = newValue
 }
 
+//nolint:unused
 func (l *Lookup[K, E, V]) delete(key K) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -114,10 +117,12 @@ func (l *Lookup[K, E, V]) delete(key K) {
 	delete(l.reverse, key)
 }
 
+//nolint:unused
 func (l *Lookup[K, E, V]) stageSet(tx Tx, key K, entry E) {
 	l.overlay.stage(tx, key, l.extract(&entry))
 }
 
+//nolint:unused
 func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
 	l.overlay.unstage(tx, key)
 }
@@ -226,7 +231,8 @@ func NewSorted[K IndexKey, E Entry[K], V cmp.Ordered](
 // Name implements Index.
 func (s *Sorted[K, E, V]) Name() string { return s.name }
 
-func (s *Sorted[K, E, V]) populate() (error, func(E), func()) {
+//nolint:unused
+func (s *Sorted[K, E, V]) populate() (func(E), func(), error) {
 	s.mu.Lock()
 	// Bulk-load: append every entry to the storage's tail without maintaining
 	// the sort invariant per insert (the per-insert path is O(N) due to slice
@@ -246,9 +252,10 @@ func (s *Sorted[K, E, V]) populate() (error, func(E), func()) {
 		s.storage.sortBulk()
 		s.mu.Unlock()
 	}
-	return nil, insert, finish
+	return insert, finish, nil
 }
 
+//nolint:unused
 func (s *Sorted[K, E, V]) set(key K, entry E) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -263,6 +270,7 @@ func (s *Sorted[K, E, V]) set(key K, entry E) {
 	s.reverse[key] = newValue
 }
 
+//nolint:unused
 func (s *Sorted[K, E, V]) delete(key K) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -274,10 +282,12 @@ func (s *Sorted[K, E, V]) delete(key K) {
 	delete(s.reverse, key)
 }
 
+//nolint:unused
 func (s *Sorted[K, E, V]) stageSet(tx Tx, key K, entry E) {
 	s.overlay.stage(tx, key, s.extract(&entry))
 }
 
+//nolint:unused
 func (s *Sorted[K, E, V]) stageDelete(tx Tx, key K) {
 	s.overlay.unstage(tx, key)
 }

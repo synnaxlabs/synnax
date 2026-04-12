@@ -63,10 +63,12 @@ func newMapLookupStorage[K IndexKey, V comparable]() *mapLookupStorage[K, V] {
 	return &mapLookupStorage[K, V]{forward: make(map[V][]K)}
 }
 
+//nolint:unused
 func (s *mapLookupStorage[K, V]) put(key K, value V) {
 	s.forward[value] = append(s.forward[value], key)
 }
 
+//nolint:unused
 func (s *mapLookupStorage[K, V]) remove(key K, value V) {
 	keys := s.forward[value]
 	for i, k := range keys {
@@ -82,6 +84,7 @@ func (s *mapLookupStorage[K, V]) remove(key K, value V) {
 	s.forward[value] = keys
 }
 
+//nolint:unused
 func (s *mapLookupStorage[K, V]) get(value V) []K {
 	return s.forward[value]
 }
@@ -90,9 +93,10 @@ func (s *mapLookupStorage[K, V]) get(value V) []K {
 // There are only two possible values, so we avoid hashing and map overhead
 // entirely by keeping one slice per bucket.
 type boolLookupStorage[K IndexKey] struct {
-	trueKeys, falseKeys []K
+	trueKeys, falseKeys []K //nolint:unused
 }
 
+//nolint:unused
 func (s *boolLookupStorage[K]) put(key K, value bool) {
 	if value {
 		s.trueKeys = append(s.trueKeys, key)
@@ -101,6 +105,7 @@ func (s *boolLookupStorage[K]) put(key K, value bool) {
 	s.falseKeys = append(s.falseKeys, key)
 }
 
+//nolint:unused
 func (s *boolLookupStorage[K]) remove(key K, value bool) {
 	bucket := &s.falseKeys
 	if value {
@@ -114,6 +119,7 @@ func (s *boolLookupStorage[K]) remove(key K, value bool) {
 	}
 }
 
+//nolint:unused
 func (s *boolLookupStorage[K]) get(value bool) []K {
 	if value {
 		return s.trueKeys
@@ -156,11 +162,13 @@ func (s *sortedStorage[K, V]) upperBound(value V) int {
 	})
 }
 
+//nolint:unused
 func (s *sortedStorage[K, V]) put(key K, value V) {
 	i := s.upperBound(value)
 	s.entries = slices.Insert(s.entries, i, sortedEntry[K, V]{Value: value, Key: key})
 }
 
+//nolint:unused
 func (s *sortedStorage[K, V]) remove(key K, value V) {
 	lo := s.lowerBound(value)
 	hi := s.upperBound(value)
@@ -188,6 +196,8 @@ func (s *sortedStorage[K, V]) get(value V) []K {
 // sortBulk sorts the entries slice by Value. Used by Sorted.populate to
 // finalize a bulk-loaded index in O(N log N) instead of inserting one entry
 // at a time at O(N²).
+//
+//nolint:unused
 func (s *sortedStorage[K, V]) sortBulk() {
 	slices.SortFunc(s.entries, func(a, b sortedEntry[K, V]) int {
 		return cmp.Compare(a.Value, b.Value)
