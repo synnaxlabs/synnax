@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"context"
 	"sync"
 )
 
@@ -32,6 +33,10 @@ type BytesLookup[E Entry[[]byte], V comparable] struct {
 	mu      sync.RWMutex
 	storage *bytesLookupStorage[V]
 	reverse map[string]V
+
+	// deltaMu guards txDeltas. See Lookup.deltaMu for rationale.
+	deltaMu  sync.Mutex
+	txDeltas map[*txState]*bytesLookupDelta[V]
 }
 
 // NewBytesLookup constructs a BytesLookup index with the given display name
@@ -91,6 +96,62 @@ func (l *BytesLookup[E, V]) delete(key []byte) {
 	delete(l.reverse, skey)
 }
 
+// stageSet records a pending insert or update against the open
+// transaction. See Lookup.stageSet for semantics.
+func (l *BytesLookup[E, V]) stageSet(tx Tx, key []byte, entry E) {
+	state := tx.txIdentity()
+	if state == nil {
+		return
+	}
+	value := l.extract(&entry)
+	l.loadOrCreateDelta(state).stageSet(key, value)
+}
+
+// stageDelete records a pending deletion against the open transaction.
+func (l *BytesLookup[E, V]) stageDelete(tx Tx, key []byte) {
+	state := tx.txIdentity()
+	if state == nil {
+		return
+	}
+	l.loadOrCreateDelta(state).stageDelete(key)
+}
+
+func (l *BytesLookup[E, V]) loadOrCreateDelta(state *txState) *bytesLookupDelta[V] {
+	l.deltaMu.Lock()
+	defer l.deltaMu.Unlock()
+	if l.txDeltas == nil {
+		l.txDeltas = make(map[*txState]*bytesLookupDelta[V])
+	}
+	if d, ok := l.txDeltas[state]; ok {
+		return d
+	}
+	d := newBytesLookupDelta[V]()
+	l.txDeltas[state] = d
+	state.onCleanup(func() {
+		l.deltaMu.Lock()
+		delete(l.txDeltas, state)
+		l.deltaMu.Unlock()
+	})
+	return d
+}
+
+// resolveTx computes the effective key set for an exact-match query
+// under a given transaction. See Lookup.resolveTx for semantics.
+func (l *BytesLookup[E, V]) resolveTx(tx Tx, values []V) [][]byte {
+	committed := l.Get(values...)
+	state := tx.txIdentity()
+	if state == nil {
+		return committed
+	}
+	l.deltaMu.Lock()
+	d, ok := l.txDeltas[state]
+	l.deltaMu.Unlock()
+	if !ok || d.isEmpty() {
+		return committed
+	}
+	return d.merge(committed, values)
+}
+
 // Get returns the primary keys of entries whose indexed field matches any of
 // the provided values. Returned keys are owned by the caller and may be
 // freely retained.
@@ -117,16 +178,27 @@ func (l *BytesLookup[E, V]) Get(values ...V) [][]byte {
 	return out
 }
 
-// Filter returns a Filter[[]byte, E] whose precomputed Keys field carries
-// the primary keys of entries matching the provided values. Retrieve.Exec
-// converts the resulting query into the execKeys fast path: only those keys
-// are fetched from the KV store, no full-table scan is performed.
+// Filter returns a Filter[[]byte, E] whose Keys are resolved at
+// Retrieve.Exec time against the passed transaction. See
+// Lookup.Filter for the read-your-own-writes semantics.
 func (l *BytesLookup[E, V]) Filter(values ...V) Filter[[]byte, E] {
-	keys := l.Get(values...)
-	if keys == nil {
-		keys = [][]byte{}
+	captured := append([]V(nil), values...)
+	return Filter[[]byte, E]{
+		resolve: func(_ context.Context, tx Tx) ([][]byte, func([][]byte) keyMembership[[]byte], error) {
+			return l.resolveTx(tx, captured), bytesIndexedKeyMembership, nil
+		},
 	}
-	return newBytesIndexedFilter[E](keys)
+}
+
+// GetTx is the tx-aware counterpart to Get. See Lookup.GetTx for
+// semantics. Used by graph-traversal helpers (e.g. ontology's
+// parentsByIndex) that need to probe the index for candidate keys
+// directly without going through Retrieve.Exec.
+func (l *BytesLookup[E, V]) GetTx(tx Tx, values ...V) [][]byte {
+	if len(values) == 0 {
+		return nil
+	}
+	return l.resolveTx(tx, values)
 }
 
 // bytesLookupStorage is the byte-keyed analogue of mapLookupStorage. The

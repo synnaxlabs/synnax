@@ -177,10 +177,12 @@ type Traverser struct {
 	Direction Direction
 	// Index, if set, is invoked instead of traverseByPrefix / traverseByScan
 	// and is expected to resolve the next-hop IDs by probing the relationship
-	// secondary index. The closure receives the current Retrieve so it can
-	// pick the appropriate per-direction index off r.relIndexes. When nil
-	// the dispatcher falls back to FilterPrefix or a full scan.
-	Index func(r Retrieve, ids []ID) ([]ID, error)
+	// secondary index. The closure receives the current Retrieve and the
+	// open transaction so index probes honor per-tx delta overlays: a
+	// traverse inside a write tx must see relationships written earlier in
+	// the same tx, not just committed state. When nil the dispatcher falls
+	// back to FilterPrefix or a full scan.
+	Index func(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error)
 }
 
 var (
@@ -230,7 +232,12 @@ var (
 // The index returns every relationship pointing at a given ID regardless of
 // type, so the type filter still has to run here; it's a string compare per
 // matched key, which is negligible compared to the scan it replaces.
-func parentsByIndex(r Retrieve, ids []ID) ([]ID, error) {
+//
+// The probe goes through BytesLookup.GetTx so the per-tx delta overlay
+// fires: a traverse inside the same write tx that just created a new
+// parent relationship will see that pending write and include it in the
+// next-hop set, preserving read-your-own-writes for graph traversal.
+func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 	idx := r.relIndexes.byTo
 	if idx == nil {
 		// Defensive: fall back to scan if the index isn't wired (e.g. tests
@@ -240,7 +247,7 @@ func parentsByIndex(r Retrieve, ids []ID) ([]ID, error) {
 	}
 	nextIDs := make([]ID, 0, len(ids)*4)
 	for _, id := range ids {
-		for _, key := range idx.Get(id) {
+		for _, key := range idx.GetTx(tx, id) {
 			rel, err := ParseRelationship(key)
 			if err != nil {
 				return nil, err
@@ -408,7 +415,7 @@ func (r Retrieve) traverse(
 	ids []ID,
 ) ([]ID, error) {
 	if traverse.Index != nil {
-		nextIDs, err := traverse.Index(r, ids)
+		nextIDs, err := traverse.Index(r, tx, ids)
 		if err == nil {
 			return nextIDs, nil
 		}

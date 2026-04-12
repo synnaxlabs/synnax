@@ -198,11 +198,15 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // if NO keys pass the Where filter.
 //
 // Dispatch order:
+//   - Resolve indexed filter (if deferred) → populate filter.Keys
 //   - OrderBy   → execOrdered
 //   - WhereKeys OR an indexed filter (filter.Keys != nil) → execKeys (fast path)
 //   - otherwise → execFilter (full table scan)
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
+	if err := r.resolveFilter(ctx, tx); err != nil {
+		return err
+	}
 	if r.HasOrderBy() {
 		return r.execOrdered(ctx, tx)
 	}
@@ -210,6 +214,39 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return r.execKeys(ctx, tx)
 	}
 	return r.execFilter(ctx, tx)
+}
+
+// resolveFilter invokes the filter's deferred resolver, if any, and
+// populates r.filter.Keys + r.filter.membership with the merge of
+// committed index state and per-tx staged mutations. No-op for bare
+// Match/MatchRaw filters and for composed filters whose children are
+// all eager. Called from Exec/Exists/Count before dispatch so the rest
+// of the pipeline sees read-your-own-writes semantics through the
+// normal Keys/membership fields.
+func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
+	if !r.hasFilter || r.filter.resolve == nil {
+		return nil
+	}
+	keys, build, err := r.filter.resolve(ctx, tx)
+	if err != nil {
+		return err
+	}
+	// A resolver that returns nil means "no matching keys" (empty
+	// result), NOT "unbounded." Normalize to a non-nil empty slice so
+	// hasIndexedFilter() correctly routes through execKeys (which
+	// returns 0 results for an empty key set) instead of falling
+	// through to execFilter (which would run a full table scan with
+	// no Eval predicate and match every row).
+	if keys == nil {
+		keys = make([]K, 0)
+	}
+	r.filter.Keys = keys
+	if build != nil {
+		r.filter.membership = newLazyMembership(keys, build)
+	} else {
+		r.filter.membership = nil
+	}
+	return nil
 }
 
 // hasIndexedFilter reports whether the active filter chain carries a
@@ -228,6 +265,9 @@ func (r Retrieve[K, E]) hasIndexedFilter() bool {
 // indexed filters: their Filter.Keys carries the candidate set, but Eval is
 // nil, so execFilter would match every row.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
+	if err := r.resolveFilter(ctx, tx); err != nil {
+		return false, err
+	}
 	if r.HasWhereKeys() {
 		e := make([]E, 0, len(*r.keys))
 		r.entries = multipleEntries(&e)
@@ -264,6 +304,9 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 // candidate set comes from the index rather than a full table scan.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
+	if err := r.resolveFilter(ctx, tx); err != nil {
+		return 0, err
+	}
 	if r.HasWhereKeys() || r.hasIndexedFilter() {
 		keys := r.effectiveKeys()
 		e := make([]E, 0, len(keys))

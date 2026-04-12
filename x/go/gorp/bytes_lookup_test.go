@@ -176,4 +176,122 @@ var _ = Describe("BytesLookup", func() {
 			Expect(res).To(BeEmpty())
 		})
 	})
+
+	// Tx delta visibility mirrors the Lookup test block: inserts,
+	// updates, deletes, and rollback exercised against a BytesLookup.
+	// This is the byte-keyed analogue that covers the ontology
+	// relationship shape directly — the motivating broken case
+	// (dagWriter.DefineRelationship cycle check over a byTo
+	// BytesLookup) is reproduced here.
+	Describe("Tx delta visibility", func() {
+		var (
+			table *gorp.Table[[]byte, byteEntry]
+			toIdx *gorp.BytesLookup[byteEntry, string]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			toIdx = gorp.NewBytesLookup[byteEntry, string](
+				"to", func(e *byteEntry) string { return e.To },
+			)
+			var err error
+			table, err = gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+				DB:      idxDB,
+				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			seed := []byteEntry{
+				{From: "a", To: "x"},
+				{From: "b", To: "y"},
+			}
+			Expect(table.NewCreate().
+				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+		})
+		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+		It("Should see an insert staged in the same tx", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+			Expect(table.NewCreate().
+				Entry(&byteEntry{From: "c", To: "x"}).
+				Exec(ctx, tx)).To(Succeed())
+
+			var res []byteEntry
+			Expect(table.NewRetrieve().
+				Where(toIdx.Filter("x")).
+				Entries(&res).Exec(ctx, tx)).To(Succeed())
+			froms := make([]string, len(res))
+			for i, e := range res {
+				froms[i] = e.From
+			}
+			Expect(froms).To(ConsistOf("a", "c"))
+		})
+
+		It("Should exclude an entry deleted in the same tx", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+			Expect(table.NewDelete().
+				WhereKeys([]byte("a->x")).Exec(ctx, tx)).To(Succeed())
+
+			var res []byteEntry
+			Expect(table.NewRetrieve().
+				Where(toIdx.Filter("x")).
+				Entries(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Should drop the delta on rollback without touching the global index", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			Expect(table.NewCreate().
+				Entry(&byteEntry{From: "z", To: "x"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			keys := toIdx.Get("x")
+			Expect(keys).To(HaveLen(1))
+			Expect(string(keys[0])).To(Equal("a->x"))
+		})
+
+		It("Should persist the staged insert on commit", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			Expect(table.NewCreate().
+				Entry(&byteEntry{From: "q", To: "x"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			keys := toIdx.Get("x")
+			asStrings := make([]string, len(keys))
+			for i, k := range keys {
+				asStrings[i] = string(k)
+			}
+			Expect(asStrings).To(ConsistOf("a->x", "q->x"))
+		})
+
+		// Regression for the ontology DAG writer cycle check. The
+		// dagWriter.DefineRelationship flow writes a relationship
+		// and then traverses descendants via byTo.Filter to detect
+		// cycles. Before the overlay, the filter missed
+		// in-tx writes and cycle detection silently passed invalid
+		// graphs. This test reproduces the shape: insert A->B and
+		// then retrieve via byTo.Filter("B") in the same tx.
+		It("Should surface a newly-written relationship via byTo.Filter in the same tx", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+			rel := byteEntry{From: "A", To: "B"}
+			Expect(table.NewCreate().Entry(&rel).Exec(ctx, tx)).To(Succeed())
+
+			var descendants []byteEntry
+			Expect(table.NewRetrieve().
+				Where(toIdx.Filter("B")).
+				Entries(&descendants).Exec(ctx, tx)).To(Succeed())
+
+			keys := make([]string, len(descendants))
+			for i, d := range descendants {
+				keys[i] = d.From + "->" + d.To
+			}
+			Expect(keys).To(ConsistOf("A->B"))
+		})
+	})
 })

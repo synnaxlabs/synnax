@@ -150,9 +150,14 @@ func attachIndexObserver[K Key, E Entry[K]](db *DB, indexes []Index[K, E]) func(
 	})
 }
 
-// NewCreate returns a Create query builder.
+// NewCreate returns a Create query builder bound to this Table's
+// secondary indexes. Writes through the returned query stage
+// mutations against each registered index's per-tx delta, so a
+// Retrieve via idx.Filter in the same tx sees its own writes.
 func (t *Table[K, E]) NewCreate() Create[K, E] {
-	return NewCreate[K, E]()
+	c := NewCreate[K, E]()
+	c.indexes = t.indexes
+	return c
 }
 
 // NewRetrieve returns a Retrieve query builder.
@@ -160,14 +165,22 @@ func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 	return NewRetrieve[K, E]()
 }
 
-// NewUpdate returns an Update query builder.
+// NewUpdate returns an Update query builder bound to this Table's
+// secondary indexes. Writes through the returned query stage
+// mutations against each registered index's per-tx delta.
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
-	return NewUpdate[K, E]()
+	u := NewUpdate[K, E]()
+	u.indexes = t.indexes
+	return u
 }
 
-// NewDelete returns a Delete query builder.
+// NewDelete returns a Delete query builder bound to this Table's
+// secondary indexes. Deletions through the returned query stage
+// removal against each registered index's per-tx delta.
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
-	return NewDelete[K, E]()
+	d := NewDelete[K, E]()
+	d.indexes = t.indexes
+	return d
 }
 
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for

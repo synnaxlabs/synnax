@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"cmp"
+	"context"
 	"sync"
 )
 
@@ -35,6 +36,14 @@ type Index[K Key, E Entry[K]] interface {
 	// delete is invoked by the Table observer when an entry is deleted. The
 	// index uses its reverse map to locate and remove the stale mapping.
 	delete(key K)
+	// stageSet is invoked by a table-bound Writer after a tx-scoped Set,
+	// before the tx commits. It records the pending insert or update in a
+	// per-tx delta keyed off tx.txIdentity(). If the tx has no identity (DB
+	// acting as Tx), it is a no-op. The committed index is not touched.
+	stageSet(tx Tx, key K, entry E)
+	// stageDelete is the delete analogue of stageSet. It records a pending
+	// deletion in the per-tx delta. The committed index is not touched.
+	stageDelete(tx Tx, key K)
 }
 
 // Lookup is an in-memory exact-match index on a field of type V extracted
@@ -46,6 +55,13 @@ type Lookup[K IndexKey, E Entry[K], V comparable] struct {
 	mu      sync.RWMutex
 	storage lookupStorage[K, V]
 	reverse map[K]V
+
+	// deltaMu guards txDeltas. It is held independently of mu so tx-scoped
+	// staging writers never block committed-index readers, and vice versa.
+	// Contention on deltaMu is bounded by the number of concurrent write
+	// transactions touching this index, which is typically 1.
+	deltaMu  sync.Mutex
+	txDeltas map[*txState]*lookupDelta[K, V]
 }
 
 // NewLookup constructs a Lookup index with the given display name and extract
@@ -104,6 +120,76 @@ func (l *Lookup[K, E, V]) delete(key K) {
 	delete(l.reverse, key)
 }
 
+// stageSet records a pending insert or update against the open
+// transaction. Called from the table-bound Writer after a successful
+// kv.Tx.Set. The committed index is untouched. If tx has no identity
+// (DB acting as Tx, or a Tx implementation without per-tx scoping), the
+// call is a no-op — writes go straight to the store and the global
+// index is updated post-commit by the DB observer.
+func (l *Lookup[K, E, V]) stageSet(tx Tx, key K, entry E) {
+	state := tx.txIdentity()
+	if state == nil {
+		return
+	}
+	value := l.extract(&entry)
+	l.loadOrCreateDelta(state).stageSet(key, value)
+}
+
+// stageDelete records a pending deletion against the open transaction.
+// Called from the table-bound Writer after a successful kv.Tx.Delete.
+func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
+	state := tx.txIdentity()
+	if state == nil {
+		return
+	}
+	l.loadOrCreateDelta(state).stageDelete(key)
+}
+
+// loadOrCreateDelta returns the per-tx delta for this index, creating
+// it lazily on first stage. On creation it registers a cleanup hook on
+// the tx state that drops the delta when the tx commits or closes.
+// This ensures overlays are dropped deterministically, regardless of
+// whether the tx committed or rolled back.
+func (l *Lookup[K, E, V]) loadOrCreateDelta(state *txState) *lookupDelta[K, V] {
+	l.deltaMu.Lock()
+	defer l.deltaMu.Unlock()
+	if l.txDeltas == nil {
+		l.txDeltas = make(map[*txState]*lookupDelta[K, V])
+	}
+	if d, ok := l.txDeltas[state]; ok {
+		return d
+	}
+	d := newLookupDelta[K, V]()
+	l.txDeltas[state] = d
+	state.onCleanup(func() {
+		l.deltaMu.Lock()
+		delete(l.txDeltas, state)
+		l.deltaMu.Unlock()
+	})
+	return d
+}
+
+// resolveTx computes the effective key set for an exact-match query
+// under a given transaction. If the tx has no per-tx scoping or no
+// staged mutations for this index, it returns the committed result
+// unchanged. Otherwise it overlays the per-tx delta via delta.merge.
+// This is the core read-your-own-writes hook for indexed Retrieve
+// queries inside an open write tx.
+func (l *Lookup[K, E, V]) resolveTx(tx Tx, values []V) []K {
+	committed := l.Get(values...)
+	state := tx.txIdentity()
+	if state == nil {
+		return committed
+	}
+	l.deltaMu.Lock()
+	d, ok := l.txDeltas[state]
+	l.deltaMu.Unlock()
+	if !ok || d.isEmpty() {
+		return committed
+	}
+	return d.merge(committed, values)
+}
+
 // Get returns the primary keys of entries whose indexed field matches any of
 // the provided values.
 func (l *Lookup[K, E, V]) Get(values ...V) []K {
@@ -128,20 +214,43 @@ func (l *Lookup[K, E, V]) Get(values ...V) []K {
 	return out
 }
 
-// Filter returns a Filter[K, E] whose precomputed Keys field carries the
-// primary keys of entries matching the provided values. Retrieve.Exec converts
-// the resulting query into the execKeys fast path: only those keys are
-// fetched from the KV store, no full-table scan is performed.
+// Filter returns a Filter[K, E] whose Keys are resolved at
+// Retrieve.Exec time against the passed transaction. The resolver
+// overlays any per-tx delta staged against this index on top of the
+// committed index state, so an indexed Retrieve inside the same write
+// tx that created / updated / deleted an entry sees those pending
+// changes (read-your-own-writes). When the tx has no per-tx scoping
+// (DB passed directly) or no staged mutations, the resolver falls
+// through to the committed-only path and returns the same keys that
+// the pre-overlay Filter would have returned.
+//
+// The returned Filter carries `resolve` instead of an eager `Keys`
+// field. Retrieve.Exec / Exists / Count invoke the resolver before
+// dispatch and assign the result to `Keys` + `membership` on the
+// local filter copy, after which the rest of the pipeline works
+// unchanged (execKeys fast path, composition with And/Or, etc.).
 func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
-	keys := l.Get(values...)
-	if keys == nil {
-		// Distinguish "no matching keys" (empty result) from "no Keys
-		// constraint" (unbounded). newIndexedFilter is the canonical
-		// constructor for the former and also bakes the typed O(1)
-		// membership predicate that downstream composition uses.
-		keys = []K{}
+	captured := append([]V(nil), values...)
+	return Filter[K, E]{
+		resolve: func(_ context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			return l.resolveTx(tx, captured), indexedKeyMembership[K], nil
+		},
 	}
-	return newIndexedFilter[K, E](keys)
+}
+
+// GetTx is the tx-aware counterpart to Get. It returns the primary
+// keys of entries whose indexed field matches any of the provided
+// values, merging committed index state with any per-tx delta staged
+// against the open transaction. When tx is a DB (no per-tx scoping)
+// or has no staged mutations for this index, it returns the same
+// result as Get. Use GetTx when consuming keys directly outside of
+// Retrieve — e.g. graph traversal helpers that probe the index for
+// candidate IDs.
+func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) []K {
+	if len(values) == 0 {
+		return nil
+	}
+	return l.resolveTx(tx, values)
 }
 
 // Sorted is an ordered in-memory index on a field of type V extracted from
@@ -149,6 +258,11 @@ func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
 // the native `<` operator without a caller-supplied comparator. Sorted
 // supports exact-match lookups via Filter (same semantics as Lookup) and
 // ordered cursor-based pagination via Retrieve.OrderBy.
+//
+// Tx delta overlay is v1-scoped to equality Filter. Ordered cursor
+// iteration via Retrieve.OrderBy / SortedQuery.walkOrder does NOT
+// reflect uncommitted tx writes — it reads the committed sorted slice
+// directly.
 type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
 	name    string
 	extract func(e *E) V
@@ -156,6 +270,12 @@ type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
 	mu      sync.RWMutex
 	storage *sortedStorage[K, V]
 	reverse map[K]V
+
+	// deltaMu guards txDeltas, mirroring the Lookup pattern. Kept
+	// independent from mu so cursor walks on the committed storage
+	// aren't blocked by staging writers on disjoint transactions.
+	deltaMu  sync.Mutex
+	txDeltas map[*txState]*lookupDelta[K, V]
 }
 
 // NewSorted constructs a Sorted index over the provided extract function.
@@ -224,6 +344,67 @@ func (s *Sorted[K, E, V]) delete(key K) {
 	delete(s.reverse, key)
 }
 
+// stageSet records a pending insert or update against the open
+// transaction. See Lookup.stageSet for full semantics. Sorted reuses
+// lookupDelta because only equality queries consult the delta in v1;
+// ordered cursor iteration (Sorted.Ordered / walkOrder) remains
+// committed-only.
+func (s *Sorted[K, E, V]) stageSet(tx Tx, key K, entry E) {
+	state := tx.txIdentity()
+	if state == nil {
+		return
+	}
+	value := s.extract(&entry)
+	s.loadOrCreateDelta(state).stageSet(key, value)
+}
+
+// stageDelete records a pending deletion against the open transaction.
+func (s *Sorted[K, E, V]) stageDelete(tx Tx, key K) {
+	state := tx.txIdentity()
+	if state == nil {
+		return
+	}
+	s.loadOrCreateDelta(state).stageDelete(key)
+}
+
+func (s *Sorted[K, E, V]) loadOrCreateDelta(state *txState) *lookupDelta[K, V] {
+	s.deltaMu.Lock()
+	defer s.deltaMu.Unlock()
+	if s.txDeltas == nil {
+		s.txDeltas = make(map[*txState]*lookupDelta[K, V])
+	}
+	if d, ok := s.txDeltas[state]; ok {
+		return d
+	}
+	d := newLookupDelta[K, V]()
+	s.txDeltas[state] = d
+	state.onCleanup(func() {
+		s.deltaMu.Lock()
+		delete(s.txDeltas, state)
+		s.deltaMu.Unlock()
+	})
+	return d
+}
+
+// resolveTx computes the effective key set for an exact-match query
+// under a given transaction. See Lookup.resolveTx for semantics. Only
+// Sorted.Filter (exact-match) routes through this path; ordered cursor
+// iteration via OrderBy does not consult the delta in v1.
+func (s *Sorted[K, E, V]) resolveTx(tx Tx, values []V) []K {
+	committed := s.Get(values...)
+	state := tx.txIdentity()
+	if state == nil {
+		return committed
+	}
+	s.deltaMu.Lock()
+	d, ok := s.txDeltas[state]
+	s.deltaMu.Unlock()
+	if !ok || d.isEmpty() {
+		return committed
+	}
+	return d.merge(committed, values)
+}
+
 // Get returns the primary keys of entries whose indexed field matches any of
 // the provided values.
 func (s *Sorted[K, E, V]) Get(values ...V) []K {
@@ -245,14 +426,25 @@ func (s *Sorted[K, E, V]) Get(values ...V) []K {
 	return out
 }
 
-// Filter returns an exact-match Filter[K, E] against the sorted index. Uses
-// the same fast-path semantics as Lookup.Filter: the returned filter carries
-// a precomputed Keys set plus a typed O(1) membership predicate, both built
-// at construction via newIndexedFilter.
+// Filter returns an exact-match Filter[K, E] against the sorted index.
+// Like Lookup.Filter, the returned filter carries a deferred resolver
+// that merges committed index state with any per-tx delta at
+// Retrieve.Exec time. Ordered cursor iteration (Sorted.Ordered / OrderBy)
+// is not covered by the delta overlay in v1; only equality Filter.
 func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
-	keys := s.Get(values...)
-	if keys == nil {
-		keys = []K{}
+	captured := append([]V(nil), values...)
+	return Filter[K, E]{
+		resolve: func(_ context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			return s.resolveTx(tx, captured), indexedKeyMembership[K], nil
+		},
 	}
-	return newIndexedFilter[K, E](keys)
+}
+
+// GetTx is the tx-aware counterpart to Get. See Lookup.GetTx for
+// semantics.
+func (s *Sorted[K, E, V]) GetTx(tx Tx, values ...V) []K {
+	if len(values) == 0 {
+		return nil
+	}
+	return s.resolveTx(tx, values)
 }

@@ -340,6 +340,195 @@ var _ = Describe("Index", func() {
 					Should(Equal(100))
 			})
 		})
+
+		// Tx delta visibility exercises the per-tx index overlay: a
+		// Retrieve via idx.Filter(...) inside an open write tx must
+		// see mutations staged earlier in the same tx. Without the
+		// overlay, the Filter would only see committed index state
+		// (the observer fires on commit) and would return stale
+		// results inside the tx.
+		//
+		// Each case opens a tx, performs a write through a
+		// table-bound query (which wires the writer through
+		// wrapTableWriter so the index observer sees the stage call),
+		// and then retrieves via the same tx. Rollback cases close
+		// the tx without committing and assert the global index was
+		// never touched.
+		Describe("Tx delta visibility", func() {
+			var (
+				table   *gorp.Table[int32, indexedEntry]
+				nameIdx *gorp.Lookup[int32, indexedEntry, string]
+			)
+			BeforeEach(func(ctx SpecContext) {
+				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				var err error
+				table, err = gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
+					DB:      idxDB,
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				seed := []indexedEntry{
+					{ID: 1, Name: "alpha"},
+					{ID: 2, Name: "beta"},
+				}
+				Expect(table.NewCreate().
+					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+			})
+			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+			It("Should see an insert staged in the same tx", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 10, Name: "alpha"}).
+					Exec(ctx, tx)).To(Succeed())
+
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&res).Exec(ctx, tx)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(1), int32(10)))
+			})
+
+			It("Should reflect an update that moves a key to a different value", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 1, Name: "zeta"}).
+					Exec(ctx, tx)).To(Succeed())
+
+				var oldMatches []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&oldMatches).Exec(ctx, tx)).To(Succeed())
+				Expect(oldMatches).To(BeEmpty())
+
+				var newMatches []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("zeta")).
+					Entries(&newMatches).Exec(ctx, tx)).To(Succeed())
+				Expect(newMatches).To(HaveLen(1))
+				Expect(newMatches[0].ID).To(Equal(int32(1)))
+			})
+
+			It("Should exclude an entry deleted in the same tx", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+				Expect(table.NewDelete().
+					WhereKeys(1).Exec(ctx, tx)).To(Succeed())
+
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(BeEmpty())
+			})
+
+			It("Should union staged and committed matches for multi-value filters", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 20, Name: "gamma"}).
+					Exec(ctx, tx)).To(Succeed())
+
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("beta", "gamma")).
+					Entries(&res).Exec(ctx, tx)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(2), int32(20)))
+			})
+
+			It("Should isolate staged writes to the owning tx", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 30, Name: "alpha"}).
+					Exec(ctx, tx)).To(Succeed())
+
+				// Another Retrieve against the bare DB (a different
+				// txIdentity) must not see the staged insert.
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(1)))
+			})
+
+			It("Should drop the delta on rollback without touching the global index", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 40, Name: "alpha"}).
+					Exec(ctx, tx)).To(Succeed())
+				// Close without commit: cleanups fire via *tx.Close,
+				// dropping the delta. The global index should not
+				// carry the rolled-back write.
+				Expect(tx.Close()).To(Succeed())
+
+				Expect(nameIdx.Get("alpha")).To(ConsistOf(int32(1)))
+
+				// And a fresh retrieve via the bare DB should see
+				// committed-only state.
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].ID).To(Equal(int32(1)))
+			})
+
+			It("Should see the staged write on committed global index after commit", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 50, Name: "alpha"}).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+
+				// Committed observer should have fired, updating the
+				// global index.
+				Expect(nameIdx.Get("alpha")).To(ConsistOf(int32(1), int32(50)))
+			})
+
+			It("Should support set-then-delete in the same tx", func(ctx SpecContext) {
+				tx := idxDB.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 60, Name: "alpha"}).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(table.NewDelete().
+					WhereKeys(60).Exec(ctx, tx)).To(Succeed())
+
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&res).Exec(ctx, tx)).To(Succeed())
+				ids := make([]int32, len(res))
+				for i, e := range res {
+					ids[i] = e.ID
+				}
+				Expect(ids).To(ConsistOf(int32(1)))
+			})
+		})
 	})
 
 	Describe("Sorted", func() {
