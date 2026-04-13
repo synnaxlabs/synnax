@@ -36,12 +36,12 @@ import (
 
 var _ = Describe("Streamer", Ordered, func() {
 	var (
-		builder     = mock.NewCluster()
 		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = builder.Provision(ctx)
+		builder := DeferClose(mock.NewCluster())
+		dist = DeferClose(builder.Provision(ctx))
 		searchIdx := MustOpen(search.Open())
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
@@ -97,7 +97,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			Channel:     channelSvc,
 			Calculation: calc,
 		}))
-		DeferCleanup(func() { Expect(builder.Close()).To(Succeed()) })
 	})
 
 	Describe("Happy Path", func() {

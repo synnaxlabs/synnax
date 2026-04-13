@@ -102,8 +102,8 @@ var _ = Describe("Calculation", Ordered, func() {
 	}
 
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -152,7 +152,6 @@ var _ = Describe("Calculation", Ordered, func() {
 			Arc:               arcSvc,
 			Status:            statusSvc,
 		}))
-		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
 	})
 
 	Describe("Calculation Patterns", func() {

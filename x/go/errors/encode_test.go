@@ -95,11 +95,8 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(errors.Decode(ctx, pld)).To(Succeed())
 			})
 			It("Should decode an unknown error using cockroachdb's errors package", func(ctx SpecContext) {
-				unknownErr := errors.New("unknown")
-				pld := errors.Encode(ctx, unknownErr, true)
-				pld2 := &errors.Payload{}
-				pld2.Unmarshal(pld.Error())
-				Expect(errors.Is(errors.Decode(ctx, *pld2), unknownErr)).To(BeTrue())
+				pld := errors.Encode(ctx, errors.New("unknown"), true)
+				Expect(errors.Decode(ctx, pld)).To(MatchError("unknown"))
 			})
 		})
 		Context("Internal is false", func() {
@@ -113,8 +110,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 			})
 			It("Should decode an unknown error into a human readable string", func(ctx SpecContext) {
 				pld := errors.Encode(ctx, errors.New("unknown"), false)
-				err := errors.Decode(ctx, pld)
-				Expect(errors.Is(err, errors.New("unknown"))).To(BeTrue())
+				Expect(errors.Decode(ctx, pld)).To(MatchError("unknown"))
 			})
 			It("Should decode an error with no type into a human readable string", func(ctx SpecContext) {
 				Expect(errors.Decode(ctx, errors.Payload{Data: "cat"})).

@@ -56,8 +56,8 @@ var _ = Describe("Task", Ordered, func() {
 	ShouldNotLeakGoroutinesBeforeEach()
 
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -73,7 +73,6 @@ var _ = Describe("Task", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
