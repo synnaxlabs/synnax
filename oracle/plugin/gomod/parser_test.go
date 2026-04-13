@@ -52,9 +52,8 @@ var _ = Describe("ParseModuleName", func() {
 	It("should return an error for a go.mod without module directive", func() {
 		modPath := filepath.Join(tmpDir, "go.mod")
 		Expect(os.WriteFile(modPath, []byte("go 1.21\n"), 0o644)).To(Succeed())
-		_, err := gomod.ParseModuleName(modPath)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("no module directive"))
+		Expect(gomod.ParseModuleName(modPath)).
+			Error().To(MatchError(ContainSubstring("no module directive")))
 	})
 })
 

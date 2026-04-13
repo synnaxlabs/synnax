@@ -247,7 +247,7 @@ var _ = Describe("Codec", func() {
 			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
-			Expect(err).To(HaveOccurredAs(validate.ErrValidation))
+			Expect(err).To(MatchError(validate.ErrValidation))
 		})
 	})
 

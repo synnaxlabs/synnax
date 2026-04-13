@@ -94,9 +94,8 @@ var _ = Describe("Table", func() {
 				Form:          resolution.StructForm{},
 			}
 			Expect(table.Add(typ)).To(Succeed())
-			err := table.Add(typ)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("duplicate type"))
+			Expect(table.Add(typ)).
+				Error().To(MatchError(ContainSubstring("duplicate type")))
 		})
 	})
 

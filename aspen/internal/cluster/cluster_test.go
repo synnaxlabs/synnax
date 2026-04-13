@@ -11,6 +11,8 @@ package cluster_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Cluster", func() {
@@ -42,7 +43,7 @@ var _ = Describe("Cluster", func() {
 
 	AfterEach(func() {
 		shutdown()
-		Expect(clusterCtx.Err()).To(HaveOccurredAs(context.Canceled))
+		Expect(clusterCtx.Err()).To(MatchError(context.Canceled))
 	})
 
 	Describe("Node", func() {

@@ -91,8 +91,7 @@ var _ = Describe("storage", func() {
 			if contains == "" {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(contains))
+				Expect(err).To(MatchError(ContainSubstring(contains)))
 			}
 		},
 			Entry("Directory not set",

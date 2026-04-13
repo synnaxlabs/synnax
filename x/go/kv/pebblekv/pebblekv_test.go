@@ -87,7 +87,7 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("abc-tx-key")
 			value := []byte("abc-tx-value")
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
-			Expect(db.Get(ctx, key)).Error().To(HaveOccurredAs(query.ErrNotFound))
+			Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should iterate over values correctly", func(ctx SpecContext) {

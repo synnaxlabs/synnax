@@ -25,7 +25,6 @@ import (
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,28 +37,22 @@ func TestPagerDuty(t *testing.T) {
 var (
 	db        *gorp.DB
 	statusSvc *status.Service
-	closer    xio.MultiCloser
 )
 
-var _ = BeforeSuite(func(ctx context.Context) {
-	db = gorp.Wrap(memkv.New())
-	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustSucceed(search.Open())
-	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+var _ = BeforeSuite(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg, Search: searchIdx,
 	}))
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Search: searchIdx,
 	}))
-	statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db, Ontology: otg, Label: labelSvc, Group: g, Search: searchIdx,
 	}))
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
-	closer = xio.MultiCloser{db, otg, g, labelSvc, statusSvc}
-})
-
-var _ = AfterSuite(func() {
-	Expect(closer.Close()).To(Succeed())
 })
 
 // mockEventSender records events sent through it for test assertions.

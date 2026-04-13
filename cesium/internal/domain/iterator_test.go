@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -322,10 +321,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func(ctx SpecContext) {
-					var (
-						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						e = resource.NewClosedError("domain.iterator")
-					)
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.SeekLE(ctx, 0)).To(BeFalse())
@@ -334,9 +330,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Next()).To(BeFalse())
 					Expect(i.Prev()).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
-					_, err := i.OpenReader(ctx)
-					Expect(err).To(HaveOccurredAs(e))
-					Expect(i.Close()).To(Succeed())
+					Expect(i.OpenReader(ctx)).Error().To(MatchError(domain.ErrIteratorClosed))
 				})
 
 				It("Should give an iterator that cannot be used when the db is closed", func(ctx SpecContext) {
