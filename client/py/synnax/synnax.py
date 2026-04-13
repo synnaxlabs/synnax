@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
+from importlib.metadata import version as _version
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
@@ -16,6 +17,7 @@ from synnax import (
     arc,
     auth,
     channel,
+    connection,
     control,
     device,
     framer,
@@ -58,6 +60,7 @@ class Synnax(framer.Client):
     """
 
     channels: channel.Client
+    connectivity: connection.Checker
     access: access.Client
     users: user.Client
     ranges: ranger.Client
@@ -119,11 +122,15 @@ class Synnax(framer.Client):
             transport=self._transport.unary,
             username=opts.username,
             password=opts.password,
-            clock_skew_threshold=clock_skew_threshold,
         )
         self.auth.authenticate()
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
+        self.connectivity = connection.Checker(
+            client=self._transport.unary,
+            client_version=_version("synnax"),
+            clock_skew_threshold=clock_skew_threshold,
+        )
 
         cluster_retriever = channel.ClusterRetriever(
             self._transport.unary, instrumentation
@@ -200,9 +207,14 @@ class Synnax(framer.Client):
         """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """
-        # No-op for now, we'll definitely add cleanup logic in the future, so it's
-        # good to have this API defined.
-        ...
+        # getattr guard: if the constructor failed before connectivity was assigned,
+        # __del__ still calls close() and we need to handle the missing attribute.
+        conn = getattr(self, "connectivity", None)
+        if conn is not None:
+            conn.stop()
+
+    def __del__(self) -> None:
+        self.close()
 
 
 def _configure_transport(

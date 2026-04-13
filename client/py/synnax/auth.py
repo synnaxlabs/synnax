@@ -8,8 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 
-import warnings
-
 from pydantic import BaseModel
 
 from freighter import (
@@ -24,8 +22,7 @@ from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 from x.deprecation import deprecated_getattr
-from x.telem import TimeSpan, TimeStamp
-from x.telem.clock_skew import ClockSkewCalculator
+from x.telem import TimeStamp
 
 
 class InsecureCredentials(BaseModel):
@@ -65,37 +62,19 @@ class Client:
         transport: UnaryClient,
         username: str,
         password: str,
-        clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
     ) -> None:
         self.client = transport
         self.username = username
         self.password = password
         self.authenticated = False
-        self._skew_calc = ClockSkewCalculator()
-        self._clock_skew_threshold = clock_skew_threshold
-
-    @property
-    def clock_skew(self) -> TimeSpan:
-        return self._skew_calc.skew
 
     def authenticate(self) -> None:
-        self._skew_calc.start()
         res = send_required(
             self.client,
             "/auth/login",
             InsecureCredentials(username=self.username, password=self.password),
             TokenResponse,
         )
-        self._skew_calc.end(res.cluster_info.node_time)
-        if self._skew_calc.exceeds(self._clock_skew_threshold):
-            direction = "ahead of" if int(self._skew_calc.skew) > 0 else "behind"
-            warnings.warn(
-                f"Measured excessive clock skew between this host and "
-                f"Synnax Core. This host is {direction} Synnax Core "
-                f"by approximately {abs(self._skew_calc.skew)}.",
-                UserWarning,
-                stacklevel=2,
-            )
         self.token = res.token
         self.user = res.user
         self.authenticated = True
