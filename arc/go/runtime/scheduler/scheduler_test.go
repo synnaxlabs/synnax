@@ -618,7 +618,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 			nodeA.MarkOnNext("output")
 
@@ -670,7 +670,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
@@ -690,12 +690,12 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(2))
 
 			// Tick 3: becomes falsy, B should NOT execute
-			nodeA.ParamTruthy["output"] = false
+			nodeA.ParamTruthy.Remove("output")
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(2))
 
 			// Tick 4: becomes truthy again, B should execute
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 			s.Next(ctx, 4*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(3))
 		})
@@ -709,8 +709,8 @@ var _ = Describe("Scheduler", func() {
 				ctx.MarkChanged("truthy_out")
 				ctx.MarkChanged("falsy_out")
 			}
-			nodeA.ParamTruthy["truthy_out"] = true
-			nodeA.ParamTruthy["falsy_out"] = false
+			nodeA.ParamTruthy.Add("truthy_out")
+			nodeA.ParamTruthy.Remove("falsy_out")
 
 			prog := testutil.NewIRBuilder().
 				Node("A").
