@@ -3742,6 +3742,43 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(8)))
 		})
 
+		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return string.len("hello")
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
+		})
+
+		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return string.len(string.concat("ab", "cd"))
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
+		})
+
+		It("Should resolve output type variable from input types", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() f64 {
+				return math.pow(2.5, 2.0)
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(math.Float64frombits(results[0])).To(BeNumerically("~", 6.25, 0.001))
+		})
+
 		It("Should use qualified and bare now() interchangeably", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {

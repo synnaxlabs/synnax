@@ -17,6 +17,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -700,6 +701,29 @@ var _ = Describe("Type Inference", func() {
 					MatchError(ContainSubstring("unknown unit")),
 				)
 			})
+		})
+	})
+
+	Describe("Qualified Identifier Type Inference", func() {
+		It("should infer the return type of time.now()", func(ctx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("time.now()"))
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			t := atypes.InferFromExpression(aCtx)
+			Expect(t).To(Equal(types.TimeStamp()))
+		})
+
+		It("should infer the return type of string.len()", func(ctx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression(`string.len("hi")`))
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			t := atypes.InferFromExpression(aCtx)
+			Expect(t).To(Equal(types.I64()))
+		})
+
+		It("should return invalid type for undefined qualified identifier", func(ctx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("fake.thing"))
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			t := atypes.InferFromExpression(aCtx)
+			Expect(t.IsValid()).To(BeFalse())
 		})
 	})
 })
