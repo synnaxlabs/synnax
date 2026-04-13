@@ -52,12 +52,6 @@ func (c *offsetCache) set(domainIdx uint32, t *offsetTable) {
 	c.tables[domainIdx] = t
 }
 
-func (c *offsetCache) invalidate(domainIdx uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.tables, domainIdx)
-}
-
 func (c *offsetCache) invalidateAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -84,14 +78,3 @@ func buildOffsetTable(r *domain.Reader, domainSize telem.Size) (*offsetTable, er
 	return t, nil
 }
 
-func buildOffsetTableFromBytes(data []byte) *offsetTable {
-	t := &offsetTable{}
-	offset := 0
-	for offset+4 <= len(data) {
-		t.offsets = append(t.offsets, uint32(offset))
-		length := int(binary.LittleEndian.Uint32(data[offset:]))
-		offset += 4 + length
-		t.sampleCount++
-	}
-	return t
-}
