@@ -20,8 +20,8 @@ class ThermalSimDAQ(SimDAQ):
     end_cmd_channel = "end_thermal_test_cmd"
 
     AMBIENT_TEMP = 25.0
-    HEAT_RATE = 0.5
-    COOL_RATE = 0.2
+    HEAT_RATE = 1.0
+    COOL_RATE = 0.4
     NOISE = 0.1
 
     def _create_channels(self) -> None:
@@ -105,7 +105,7 @@ class ThermalSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * 100)
+        loop = sy.Loop(sy.Rate.HZ * 50)
         loop_count = 0
 
         state = {
