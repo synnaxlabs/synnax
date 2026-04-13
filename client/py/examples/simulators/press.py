@@ -116,7 +116,7 @@ class PressSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * 100)
+        loop = sy.Loop(sy.Rate.HZ * 50)
         loop_count = 0
 
         state = {
@@ -166,10 +166,10 @@ class PressSimDAQ(SimDAQ):
                             break
 
                     if state["press_vlv_state"] == 1:
-                        state["press_pt"] += 0.2
+                        state["press_pt"] += 0.4
 
                     if state["vent_vlv_state"] == 1:
-                        state["press_pt"] -= 0.2
+                        state["press_pt"] -= 0.4
 
                     if state["press_pt"] < 0:
                         state["press_pt"] = 0

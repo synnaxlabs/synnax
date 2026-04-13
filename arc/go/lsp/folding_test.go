@@ -102,6 +102,46 @@ var _ = Describe("FoldingRange", func() {
 		})
 	})
 
+	Describe("Loops", func() {
+		It("Should return folding range for a for loop inside a function", func(ctx SpecContext) {
+			server, uri := SetupTestServer()
+			OpenArcDocument(server, ctx, uri, "func test() {\n\tfor i := range(10) {\n\t\tx := i\n\t}\n}")
+
+			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				},
+			}))
+
+			Expect(len(ranges)).To(BeNumerically(">=", 2))
+			hasLoopRange := false
+			for _, r := range ranges {
+				if r.StartLine == 1 && r.EndLine == 3 {
+					hasLoopRange = true
+					Expect(r.Kind).To(Equal(protocol.RegionFoldingRange))
+					break
+				}
+			}
+			Expect(hasLoopRange).To(BeTrue())
+		})
+
+		It("Should not return folding range for single-line loop", func(ctx SpecContext) {
+			server, uri := SetupTestServer()
+			OpenArcDocument(server, ctx, uri, "func test() {\n\tfor i := range(10) { x := i }\n}")
+
+			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				},
+			}))
+
+			for _, r := range ranges {
+				Expect(r.StartLine).ToNot(Equal(uint32(1)),
+					"Single-line loop should not produce a folding range")
+			}
+		})
+	})
+
 	Describe("Edge Cases", func() {
 		It("Should return empty ranges for empty document", func(ctx SpecContext) {
 			server, uri := SetupTestServer()

@@ -163,7 +163,7 @@ jobs:
 
   build:
     needs: [setup, create-release]
-    if: always() && needs.setup.result == 'success'
+    if: needs.setup.result == 'success'
     permissions:
       contents: write
       packages: write
@@ -272,7 +272,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.event_name == 'push' && !cancelled()
+    if: github.event_name == 'push' && !cancelled() && github.ref == 'refs/heads/main'
     needs: [create-release, build]
     env:
       VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
@@ -300,7 +300,6 @@ jobs:
 
       - name: Add Auto Update JSON File
         uses: actions/github-script@v8
-        if: github.ref == 'refs/heads/main'
         env:
           CONSOLE_VERSION: ${{ steps.console-version.outputs.CONSOLE_VERSION }}
         with:
@@ -349,7 +348,6 @@ jobs:
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
 
       - name: Commit & Push Auto Update JSON File on Main
-        if: github.ref == 'refs/heads/main'
         uses: EndBug/add-and-commit@v9
         with:
           add: "*"

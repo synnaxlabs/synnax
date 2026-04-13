@@ -174,24 +174,6 @@ stage retry {
 
 Each time the stage is entered, all `=>` transitions can fire again.
 
-### Expecting Loops
-
-Arc has no loops. Use stateful variables with reactive execution:
-
-```arc
-// Wrong: trying to loop
-// for i := 0; i < 10; i++ { ... }
-
-// Right: stateful counter triggered by interval
-func counter() i64 {
-    count $= 0
-    count = count + 1
-    return count
-}
-
-interval{period=100ms} -> counter{} -> count_output
-```
-
 ### Multiple Writes to Same Channel
 
 When multiple flows write to the same channel, last write wins:

@@ -105,3 +105,15 @@ export const isZero = <V extends Value>(value: V): value is V & ZeroValue => {
  */
 export const isNonZero = <V extends Value>(value: V): value is V & NonZeroValue =>
   !isZero(value);
+
+/**
+ * @returns true if the given value is a JavaScript primitive: `null`, `undefined`,
+ * or a value whose `typeof` is not `"object"` or `"function"`. Returns false for
+ * objects (including arrays), functions, and class instances.
+ *
+ * Complements {@link isZero} and {@link isNonZero}, which check for the zero value
+ * of a known primitive type. Use `is` when you have an `unknown` value and want to
+ * decide whether to render it inline vs. recurse into it.
+ */
+export const is = (value: unknown): boolean =>
+  value == null || (typeof value !== "object" && typeof value !== "function");

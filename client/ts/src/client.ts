@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { breaker, TimeSpan, TimeStamp, URL, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -109,7 +109,7 @@ export default class Synnax extends framer.Client {
    * the client from polling the cluster for connectivity information.
    */
   constructor(params: SynnaxParams) {
-    const parsedParams = synnaxParamsZ.parse(params);
+    const parsedParams = zod.parse(synnaxParamsZ, params);
     const {
       host,
       port,
@@ -196,7 +196,7 @@ export const checkConnection = async (params: CheckConnectionParams) =>
 
 export const newConnectionChecker = (params: CheckConnectionParams) => {
   const { host, port, secure, name, retry } = params;
-  const retryConfig = breaker.breakerConfigZ.optional().parse(retry);
+  const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
   const url = new URL({ host, port: Number(port) });
   const transport = new Transport(url, retryConfig, secure);
   return new connection.Checker(transport.unary, undefined, __VERSION__, name);

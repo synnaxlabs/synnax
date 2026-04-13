@@ -14,16 +14,16 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/stable/stable.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/stable/stable.h"
 
-namespace arc::runtime::stable {
+namespace arc::stl::stable {
 namespace {
-node::Context make_context() {
-    return node::Context{
+runtime::node::Context make_context() {
+    return runtime::node::Context{
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
-        .reason = node::RunReason::TimerTick,
+        .reason = runtime::node::RunReason::TimerTick,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
@@ -33,14 +33,22 @@ node::Context make_context() {
 /// @brief Builds an IR with an upstream source node connected to a stable_for node.
 struct TestSetup {
     ir::IR ir;
-    state::State state;
+    runtime::state::State state;
 
     explicit TestSetup(const int64_t duration_ns):
         ir(build_ir(duration_ns)),
-        state(state::Config{.ir = ir, .channels = {}}, runtime::errors::noop_handler) {}
+        state(
+            runtime::state::Config{.ir = ir, .channels = {}},
+            runtime::errors::noop_handler
+        ) {}
 
-    state::Node make_stable_node() { return ASSERT_NIL_P(state.node("stable")); }
-    state::Node make_source_node() { return ASSERT_NIL_P(state.node("source")); }
+    runtime::state::Node make_stable_node() {
+        return ASSERT_NIL_P(this->state.node("stable"));
+    }
+
+    runtime::state::Node make_source_node() {
+        return ASSERT_NIL_P(this->state.node("source"));
+    }
 
 private:
     static ir::IR build_ir(const int64_t duration_ns) {
@@ -91,7 +99,7 @@ private:
 
 /// @brief Helper to write u8 data to the upstream source output.
 void write_source(
-    state::Node &source,
+    runtime::state::Node &source,
     const std::vector<uint8_t> &data,
     const std::vector<int64_t> &timestamps
 ) {
@@ -126,23 +134,25 @@ TEST(StableForConfigTest, ReturnsErrorForNullDuration) {
     ASSERT_OCCURRED_AS_P(StableForConfig::create(params), x::errors::VALIDATION);
 }
 
-TEST(StableForFactoryTest, ReturnsNotFoundForWrongType) {
+TEST(StableForModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "not_stable_for";
 
-    Factory factory;
+    Module module;
     ASSERT_OCCURRED_AS_P(
-        factory.create(node::Config(setup.ir, ir_node, setup.make_stable_node())),
+        module.create(
+            runtime::node::Config(setup.ir, ir_node, setup.make_stable_node())
+        ),
         x::errors::NOT_FOUND
     );
 }
 
-TEST(StableForFactoryTest, CreatesStableForNode) {
+TEST(StableForModuleTest, CreatesStableForNode) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    Factory factory;
-    auto node = ASSERT_NIL_P(factory.create(
-        node::Config(setup.ir, setup.ir.nodes[1], setup.make_stable_node())
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_stable_node())
     ));
     ASSERT_NE(node, nullptr);
 }

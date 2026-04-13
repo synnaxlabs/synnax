@@ -548,8 +548,9 @@ var _ = Describe("Channel", func() {
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
 					},
 					{
-						Key:    "write",
-						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.F32()}},
+						Key:     "write",
+						Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.F32()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 					},
 				},
 			}
@@ -565,22 +566,39 @@ var _ = Describe("Channel", func() {
 
 		Describe("Data Writing", func() {
 			It("Should write channel data when input available", func(ctx SpecContext) {
+				sinkState := progState.Node("sink")
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
 						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
-					State: progState.Node("sink"),
+					State: sinkState,
 				}))
 				upstream := progState.Node("upstream")
-				*upstream.Output(0) = telem.NewSeriesV[float32](7.7, 8.8)
+				inputData := telem.NewSeriesV[float32](7.7, 8.8)
+				inputData.Alignment = 42
+				inputData.TimeRange = telem.TimeRange{Start: 500 * telem.SecondTS, End: 501 * telem.SecondTS}
+				*upstream.Output(0) = inputData
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500, 501)
-				Expect(progState.Node("sink").RefreshInputs()).To(BeTrue())
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
-				fr, changed := channelState.Flush(telem.Frame[uint32]{})
+				changed := false
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { changed = true }})
 				Expect(changed).To(BeTrue())
+
+				outData := *sinkState.Output(0)
+				Expect(outData.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[uint8](outData, 0)).To(Equal(uint8(1)))
+				Expect(outData.Alignment).To(Equal(telem.Alignment(42)))
+				Expect(outData.TimeRange.Start).To(Equal(500 * telem.SecondTS))
+
+				outTime := *sinkState.OutputTime(0)
+				Expect(outTime.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[telem.TimeStamp](outTime, 0)).To(Equal(501 * telem.SecondTS))
+				Expect(outTime.Alignment).To(Equal(telem.Alignment(42)))
+
+				fr, flushed := channelState.Flush(telem.Frame[uint32]{})
+				Expect(flushed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
-				Expect(fr.Get(100).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](7.7, 8.8)))
+				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[float32](7.7, 8.8))
 				Expect(fr.Get(101).Series).To(HaveLen(1))
 				Expect(fr.Get(101).Series[0]).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
@@ -663,8 +681,9 @@ var _ = Describe("Channel", func() {
 							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 						},
 						{
-							Key:    "write",
-							Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+							Key:     "write",
+							Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 						},
 					},
 				}
@@ -724,9 +743,11 @@ var _ = Describe("Channel", func() {
 						{Key: "on2", Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.F64()}}},
 						{Key: "write", Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F32()}}},
+							{Name: ir.DefaultInputParam, Type: types.F32()}},
+							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
 						{Key: "write2", Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F64()}}},
+							{Name: ir.DefaultInputParam, Type: types.F64()}},
+							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
 					},
 				}
 				channelState := channel.NewProgramState([]channel.Digest{

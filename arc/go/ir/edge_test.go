@@ -20,13 +20,13 @@ import (
 
 var _ = Describe("EdgeKind", func() {
 	Describe("Constants", func() {
-		It("Should distinguish Continuous and OneShot", func() {
-			Expect(ir.EdgeKindContinuous).ToNot(Equal(ir.EdgeKindOneShot))
+		It("Should distinguish Continuous and Conditional", func() {
+			Expect(ir.EdgeKindContinuous).ToNot(Equal(ir.EdgeKindConditional))
 		})
 
-		It("Should have Continuous = 1 and OneShot = 2 to match protobuf", func() {
+		It("Should have Continuous = 1 and Conditional = 2 to match protobuf", func() {
 			Expect(int(ir.EdgeKindContinuous)).To(Equal(1))
-			Expect(int(ir.EdgeKindOneShot)).To(Equal(2))
+			Expect(int(ir.EdgeKindConditional)).To(Equal(2))
 		})
 	})
 
@@ -41,11 +41,11 @@ var _ = Describe("EdgeKind", func() {
 			Expect(string(data)).To(ContainSubstring(`"kind":1`))
 		})
 
-		It("Should marshal OneShot as 2", func() {
+		It("Should marshal Conditional as 2", func() {
 			edge := ir.Edge{
 				Source: ir.Handle{Node: "a", Param: "out"},
 				Target: ir.Handle{Node: "b", Param: "in"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.EdgeKindConditional,
 			}
 			data := MustSucceed(json.Marshal(edge))
 			Expect(string(data)).To(ContainSubstring(`"kind":2`))
@@ -58,11 +58,11 @@ var _ = Describe("EdgeKind", func() {
 			Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 		})
 
-		It("Should unmarshal OneShot edge", func() {
+		It("Should unmarshal Conditional edge", func() {
 			data := []byte(`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":2}`)
 			var edge ir.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
-			Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
+			Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
 		})
 	})
 })
@@ -206,7 +206,7 @@ var _ = Describe("Edges", func() {
 				{
 					Source: ir.Handle{Node: "condition", Param: "output"},
 					Target: ir.Handle{Node: "stage_entry", Param: "activate"},
-					Kind:   ir.EdgeKindOneShot,
+					Kind:   ir.EdgeKindConditional,
 				},
 				{
 					Source: ir.Handle{Node: "sensor", Param: "output"},
@@ -216,7 +216,7 @@ var _ = Describe("Edges", func() {
 				{
 					Source: ir.Handle{Node: "timeout", Param: "output"},
 					Target: ir.Handle{Node: "abort_entry", Param: "activate"},
-					Kind:   ir.EdgeKindOneShot,
+					Kind:   ir.EdgeKindConditional,
 				},
 				{
 					Source: ir.Handle{Node: "pid", Param: "output"},
@@ -234,11 +234,11 @@ var _ = Describe("Edges", func() {
 			}
 		})
 
-		It("Should filter OneShot edges", func() {
-			oneShot := mixedEdges.GetByKind(ir.EdgeKindOneShot)
-			Expect(oneShot).To(HaveLen(2))
-			for _, e := range oneShot {
-				Expect(e.Kind).To(Equal(ir.EdgeKindOneShot))
+		It("Should filter Conditional edges", func() {
+			conditional := mixedEdges.GetByKind(ir.EdgeKindConditional)
+			Expect(conditional).To(HaveLen(2))
+			for _, e := range conditional {
+				Expect(e.Kind).To(Equal(ir.EdgeKindConditional))
 			}
 		})
 
@@ -248,24 +248,24 @@ var _ = Describe("Edges", func() {
 				{Kind: ir.EdgeKindContinuous},
 				{Kind: ir.EdgeKindContinuous},
 			}
-			Expect(allContinuous.GetByKind(ir.EdgeKindOneShot)).To(BeEmpty())
+			Expect(allContinuous.GetByKind(ir.EdgeKindConditional)).To(BeEmpty())
 		})
 
 		It("Should return empty from empty collection", func() {
 			empty := ir.Edges{}
 			Expect(empty.GetByKind(ir.EdgeKindContinuous)).To(BeEmpty())
-			Expect(empty.GetByKind(ir.EdgeKindOneShot)).To(BeEmpty())
+			Expect(empty.GetByKind(ir.EdgeKindConditional)).To(BeEmpty())
 		})
 
 		It("Should preserve source and target handles when filtering", func() {
-			oneShot := mixedEdges.GetByKind(ir.EdgeKindOneShot)
-			Expect(oneShot).To(HaveLen(2))
-			// Verify first OneShot edge
-			Expect(oneShot[0].Source.Node).To(Equal("condition"))
-			Expect(oneShot[0].Target.Node).To(Equal("stage_entry"))
-			// Verify second OneShot edge
-			Expect(oneShot[1].Source.Node).To(Equal("timeout"))
-			Expect(oneShot[1].Target.Node).To(Equal("abort_entry"))
+			conditional := mixedEdges.GetByKind(ir.EdgeKindConditional)
+			Expect(conditional).To(HaveLen(2))
+			// Verify first Conditional edge
+			Expect(conditional[0].Source.Node).To(Equal("condition"))
+			Expect(conditional[0].Target.Node).To(Equal("stage_entry"))
+			// Verify second Conditional edge
+			Expect(conditional[1].Source.Node).To(Equal("timeout"))
+			Expect(conditional[1].Target.Node).To(Equal("abort_entry"))
 		})
 
 		It("Should return edges in original order", func() {

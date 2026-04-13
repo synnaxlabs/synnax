@@ -37,7 +37,9 @@ export const connectionConfigZ = v0.connectionConfigZ;
 export interface ConnectionConfig extends v0.ConnectionConfig {}
 export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
 
-export const propertiesZ = v1.propertiesZ;
+export const propertiesZ: z.ZodType<v1.Properties> = v1.propertiesZ.or(
+  v0.propertiesZ.transform(v1.propertiesMigration),
+);
 export interface Properties extends v1.Properties {}
 export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 

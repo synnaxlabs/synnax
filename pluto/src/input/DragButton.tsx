@@ -77,6 +77,7 @@ export const DragButton = ({
   value,
   resetValue,
   onDragEnd,
+  disabled,
   ...rest
 }: DragButtonProps): ReactElement => {
   const vRef = useRef({
@@ -104,7 +105,7 @@ export const DragButton = ({
     ref: elRef,
     onMove: useCallback(
       (b: box.Box) => {
-        if (elRef.current == null) return;
+        if (elRef.current == null || disabled) return;
         let value = vRef.current.prev;
         vRef.current.dragging = true;
         value = calculateValue(
@@ -117,11 +118,11 @@ export const DragButton = ({
         vRef.current.curr = value;
         onChange(value);
       },
-      [onChange, normalDragScale, normalDragThreshold],
+      [onChange, normalDragScale, normalDragThreshold, disabled],
     ),
     onEnd: useCallback(
       (b: box.Box, _: unknown) => {
-        if (elRef.current == null) return;
+        if (elRef.current == null || disabled) return;
         let value = vRef.current.prev;
         value = calculateValue(
           value,
@@ -137,7 +138,7 @@ export const DragButton = ({
         onDragEnd?.(value);
         rest.onBlur?.();
       },
-      [rest.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
+      [rest.onBlur, onDragEnd, normalDragScale, normalDragThreshold, disabled],
     ),
   });
 
@@ -159,6 +160,7 @@ export const DragButton = ({
       onClick={preventDefault}
       contrast={0}
       textColor={9}
+      disabled={disabled}
       {...rest}
     >
       <Icon.Drag />

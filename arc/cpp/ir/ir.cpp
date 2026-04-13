@@ -25,12 +25,12 @@ std::ostream &operator<<(std::ostream &os, const Handle &h) {
 std::string Edge::to_string() const {
     std::ostringstream ss;
     ss << this->source.to_string();
-    ss << (this->kind == EdgeKind::OneShot ? " => " : " -> ");
+    ss << (this->kind == EdgeKind::Conditional ? " => " : " -> ");
     ss << this->target.to_string();
     if (this->kind == EdgeKind::Continuous)
         ss << " (continuous)";
-    else if (this->kind == EdgeKind::OneShot)
-        ss << " (oneshot)";
+    else if (this->kind == EdgeKind::Conditional)
+        ss << " (conditional)";
     return ss.str();
 }
 

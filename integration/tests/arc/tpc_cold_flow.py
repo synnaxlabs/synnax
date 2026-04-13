@@ -10,6 +10,7 @@
 from examples.simulators import TPCSimDAQ
 
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SEQUENCE_SOURCE = """
@@ -73,7 +74,7 @@ func on_critical{} (value f32) {
 }
 
 // Dataflow: OX pressure -> classifier -> status handlers
-ox_pt_1 -> classify_pressure{safe_threshold=15, warning_threshold=40} -> {
+ox_pt_1 -> classify_pressure{15, 40} -> {
     safe_out: on_safe{},
     warning_out: on_warning{},
     critical_out: on_critical{}
@@ -87,7 +88,7 @@ sequence main {
         1 -> tpc_vent_trigger,
         0 -> tpc_mpv_trigger,
         1 -> tpc_stage,
-        wait{duration=500ms} => press_charge
+        wait{500ms} => press_charge
     }
 
     stage press_charge {
@@ -128,7 +129,7 @@ sequence main {
         1 -> tpc_vent_trigger,
         0 -> tpc_mpv_trigger,
         5 -> tpc_stage,
-        wait{duration=2s} => fire
+        wait{2s} => fire
     }
 
     stage fire {
@@ -136,7 +137,7 @@ sequence main {
         1 -> tpc_vent_trigger,
         1 -> tpc_mpv_trigger,
         6 -> tpc_stage,
-        wait{duration=1s} => shutdown
+        wait{1s} => shutdown
     }
 
     stage shutdown {
@@ -223,27 +224,10 @@ class TPCColdFlow(ArcConsoleCase):
     sim_daq_class = TPCSimDAQ
 
     def setup(self) -> None:
-        self.client.channels.create(
-            name="tpc_stage",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="pressure_status",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        # Trigger channels for dataflow-activated helper functions
-        # Value passed to trigger becomes the command value
+        create_virtual_channel(self.client, "tpc_stage", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "pressure_status", sy.DataType.STRING)
         for trigger_name in ["press_trigger", "vent_trigger", "mpv_trigger"]:
-            self.client.channels.create(
-                name=f"tpc_{trigger_name}",
-                data_type=sy.DataType.FLOAT32,
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
+            create_virtual_channel(self.client, f"tpc_{trigger_name}")
         super().setup()
 
     def verify_sequence_execution(self) -> None:

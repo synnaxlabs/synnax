@@ -30,8 +30,10 @@ OPERATION_TYPE_AVG: Literal["avg"] = "avg"
 
 OPERATION_TYPE_NONE: Literal["none"] = "none"
 
+OPERATION_TYPE_DERIVATIVE: Literal["derivative"] = "derivative"
 
-OperationType = Literal["min", "max", "avg", "none"]
+
+OperationType = Literal["min", "max", "avg", "none", "derivative"]
 
 Name: TypeAlias = str
 

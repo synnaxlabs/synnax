@@ -26,8 +26,6 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
-#include "arc/cpp/runtime/selector/selector.h"
-#include "arc/cpp/runtime/stable/stable.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -36,8 +34,11 @@
 #include "arc/cpp/stl/control/control.h"
 #include "arc/cpp/stl/error/error.h"
 #include "arc/cpp/stl/math/math.h"
+#include "arc/cpp/stl/selector/selector.h"
 #include "arc/cpp/stl/series/series.h"
+#include "arc/cpp/stl/stable/stable.h"
 #include "arc/cpp/stl/stage/stage.h"
+#include "arc/cpp/stl/stat/stat.h"
 #include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
 #include "arc/cpp/stl/time/time.h"
@@ -278,6 +279,9 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::stage::Module>(),
         std::make_shared<stl::constant::Module>(),
         std::make_shared<stl::authority::Module>(state),
+        std::make_shared<stl::stable::Module>(),
+        std::make_shared<stl::selector::Module>(),
+        std::make_shared<stl::stat::Module>(),
     };
 
     wasm::ModuleConfig module_cfg{
@@ -292,8 +296,6 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     factories.push_back(std::make_shared<wasm::Factory>(mod));
     for (auto &m: stl_modules)
         factories.push_back(m);
-    factories.push_back(std::make_shared<stable::Factory>());
-    factories.push_back(std::make_shared<selector::Factory>());
     for (const auto &f: cfg.factories)
         factories.push_back(f);
     node::MultiFactory fact(factories);

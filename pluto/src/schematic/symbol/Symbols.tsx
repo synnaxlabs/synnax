@@ -1208,6 +1208,7 @@ export const TextBox = ({
   autoFit,
   level,
   value,
+  orientation,
 }: SymbolProps<Omit<TextBoxProps, "onChange">>): ReactElement => (
   <Primitives.TextBox
     className={DRAG_HANDLE_CLASS}
@@ -1219,6 +1220,7 @@ export const TextBox = ({
     width={width}
     align={align}
     autoFit={autoFit}
+    orientation={orientation}
   />
 );
 

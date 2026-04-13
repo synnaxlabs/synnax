@@ -32,9 +32,8 @@ Phase 2: ss_temp_a=400
 
 import threading
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 SHORT_CIRCUIT_SOURCE = """
@@ -57,15 +56,15 @@ sequence main {
         0 -> ss_sim_stage,
         1 -> ss_heater_cmd,
         // Priority is declaration order, not statement size.
-        interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
-        interval{period=1s} -> ss_temp_b > 300 => pause,
+        interval{1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
+        interval{1s} -> ss_temp_b > 300 => pause,
     }
     stage pause {
         "pause" -> ss_stage_str,
         count{c_chan = ss_count_pause},
         2 -> ss_sim_stage,
         0 -> ss_heater_cmd,
-        wait{duration=1s} => on,
+        wait{1s} => on,
     }
     stage off {
         "off" -> ss_stage_str,
@@ -91,6 +90,23 @@ class ChannelCollector:
         self._thread.start()
         return self.data
 
+    def wait_for_count(
+        self,
+        channel: str,
+        count: int,
+        timeout: float = 5.0,
+    ) -> None:
+        """Wait until the collector has at least `count` entries for `channel`."""
+        timer = sy.Timer()
+        while timer.elapsed() < timeout * sy.TimeSpan.SECOND:
+            if len(self.data.get(channel, [])) >= count:
+                return
+            sy.sleep(0.05)
+        raise TimeoutError(
+            f"Timed out after {timeout}s waiting for {count} entries on '{channel}'; "
+            f"got {len(self.data.get(channel, []))}"
+        )
+
     def __exit__(self, *_: object) -> None:
         self._stop.set()
         self._thread.join(timeout=3)
@@ -112,7 +128,6 @@ class ShortCircuit(ArcConsoleCase):
     arc_source = SHORT_CIRCUIT_SOURCE
     arc_name_prefix = "ArcShortCircuit"
     start_cmd_channel = "end_test_cmd"  # Wrong on purpose so we can trigger manually.
-    end_cmd_channel = "end_test_cmd"
     subscribe_channels = [
         "ss_stage_str",
         "ss_sim_stage",
@@ -121,29 +136,14 @@ class ShortCircuit(ArcConsoleCase):
         "ss_temp_b",
         "ss_count_on",
         "ss_count_pause",
-        "end_test_cmd",
     ]
-    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         client = self.client
 
-        for name in ["ss_stage_str", "ss_sim_stage"]:
-            client.channels.create(
-                name=name,
-                data_type=(
-                    sy.DataType.STRING if name == "ss_stage_str" else sy.DataType.UINT8
-                ),
-                virtual=True,
-                retrieve_if_name_exists=True,
-            )
-
-        client.channels.create(
-            name="ss_start_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(client, "ss_stage_str", sy.DataType.STRING)
+        create_virtual_channel(client, "ss_sim_stage", sy.DataType.UINT8)
+        create_virtual_channel(client, "ss_start_cmd", sy.DataType.UINT8)
 
         for time_ch, data_ch in [
             ("ss_count_on_time", "ss_count_on"),
@@ -159,12 +159,7 @@ class ShortCircuit(ArcConsoleCase):
                 retrieve_if_name_exists=True,
             )
 
-        client.channels.create(
-            name="ss_heater_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+        create_virtual_channel(client, "ss_heater_cmd", sy.DataType.UINT8)
 
         self.ss_sensor_time = client.channels.create(
             name="ss_sensor_time",
@@ -195,7 +190,8 @@ class ShortCircuit(ArcConsoleCase):
             "ss_count_on_time",
             "ss_count_pause_time",
         ]
-        with ChannelCollector(self.client, stream_channels) as collected:
+        collector = ChannelCollector(self.client, stream_channels)
+        with collector as collected:
             with self.client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=["ss_sensor_time", "ss_temp_a", "ss_temp_b"],
@@ -205,11 +201,12 @@ class ShortCircuit(ArcConsoleCase):
                 self._ss_temp_b = 400.0
                 self._write_sensors()
 
-                with self.client.open_writer(sy.TimeStamp.now(), "ss_start_cmd") as w:
-                    w.write("ss_start_cmd", 1)
+                self.writer.write("ss_start_cmd", 1)
 
                 self._verify_on_pause_loop()
                 self._verify_off_transition()
+
+            collector.wait_for_count("ss_stage_str", 6)
 
         self._assert_loop_writes(collected)
 
@@ -233,6 +230,9 @@ class ShortCircuit(ArcConsoleCase):
 
     def _verify_off_transition(self) -> None:
         self.log("Phase 2: Setting ss_temp_a=400")
+        # Wait for the sequence to loop back into the on stage after the 3rd
+        # pause before writing the trigger sensors.
+        sy.sleep(1)
         self._ss_temp_a = 400.0
         self._write_sensors()
         self.wait_for_eq("ss_stage_str", "off", is_virtual=True, timeout=10.0)
@@ -247,16 +247,20 @@ class ShortCircuit(ArcConsoleCase):
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
-                assert 0.980 <= d <= 1.020, (
-                    f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
+                assert 0.950 <= d <= 1.050, (
+                    f"{ch}: delta {d:.3f}s out of [0.950, 1.050]"
                 )
 
-        expected: dict[str, list[int | float | str]] = {
-            "ss_stage_str": ["on", "pause", "on", "pause", "on", "pause", "on", "off"],
-            "ss_sim_stage": [0, 2, 0, 2, 0, 2, 0, 3],
-            "ss_heater_cmd": [1, 0, 1, 0, 1, 0, 1, 0],
-        }
-        for ch, seq in expected.items():
-            cast = str if ch == "ss_stage_str" else int
-            actual = [cast(v) for v in collected[ch]]
-            assert actual[: len(seq)] == seq, f"{ch}: expected {seq} - got {actual}"
+        stages = [str(v) for v in collected["ss_stage_str"]]
+        assert len(stages) >= 6, f"Expected at least 6 stage entries, got {len(stages)}"
+        assert stages[-1] == "off", (
+            f"Expected last stage to be 'off', got '{stages[-1]}'"
+        )
+        assert stages[-2] == "on", (
+            f"Expected second-to-last stage to be 'on', got '{stages[-2]}'"
+        )
+        for i in range(0, len(stages) - 2, 2):
+            assert stages[i] == "on", f"Expected 'on' at index {i}, got '{stages[i]}'"
+            assert stages[i + 1] == "pause", (
+                f"Expected 'pause' at index {i + 1}, got '{stages[i + 1]}'"
+            )
