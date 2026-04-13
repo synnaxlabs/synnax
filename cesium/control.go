@@ -152,7 +152,10 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
 	s.DataType = telem.StringT
-	s.Data, err = (json.Codec).Encode(ctx, u)
-	s.Data = append(s.Data, '\n')
-	return s, err
+	raw, err := (json.Codec).Encode(ctx, u)
+	if err != nil {
+		return s, err
+	}
+	s.Data = telem.MarshalVariableSample(raw)
+	return s, nil
 }

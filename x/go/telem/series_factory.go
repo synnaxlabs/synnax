@@ -120,6 +120,16 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 // marshalled into JSON.
 func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
+// MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
+// prefix. This is useful for code that accumulates samples into a Series.Data buffer
+// incrementally rather than using NewSeriesV.
+func MarshalVariableSample(sample []byte) []byte {
+	b := make([]byte, 4+len(sample))
+	binary.LittleEndian.PutUint32(b, uint32(len(sample)))
+	copy(b[4:], sample)
+	return b
+}
+
 func marshalVariable[T VariableSample](data []T) []byte {
 	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 4 })
 	b := make([]byte, total)

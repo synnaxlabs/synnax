@@ -1141,7 +1141,7 @@ var _ = Describe("Writer Behavior", func() {
 						authorized = MustSucceed(w1.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{key2},
 							[]telem.Series{
-								{DataType: telem.StringT, Data: []byte("hehe")},
+								telem.NewSeriesV("hehe"),
 							},
 						)))
 						Expect(authorized).To(BeFalse())
