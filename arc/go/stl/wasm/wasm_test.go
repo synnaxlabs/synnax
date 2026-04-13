@@ -984,6 +984,68 @@ var _ = Describe("WASM", func() {
 		)
 	})
 
+	Describe("String Function Type Safety", func() {
+		DescribeTable("Should reject non-string arguments to string functions",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+			},
+			Entry("string.len with integer", `
+				func bad() i64 { return string.len(123) }
+			`),
+			Entry("string.concat with integer", `
+				func bad() str { return string.concat(1, 2) }
+			`),
+			Entry("string.equal with integer", `
+				func bad() i32 { return string.equal(1, 2) }
+			`),
+		)
+	})
+
+	Describe("String Channel Input", func() {
+		It("Should convert string channel data to handles for function parameters", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "str_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "str_len", Type: "str_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "str_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "str_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("str_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+	})
+
 	Describe("No-Input Node Initialization", func() {
 		It("Should execute only once per stage entry for nodes with no inputs", func(ctx SpecContext) {
 			// Create a stateful counter function with no inputs

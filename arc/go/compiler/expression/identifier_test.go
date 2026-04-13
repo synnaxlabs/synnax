@@ -528,8 +528,9 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("Qualified Function Calls", func() {
-		It("Should compile time.now() via qualified name", func() {
+		It("Should compile time.now() via qualified name", func(ctx SpecContext) {
 			bytecode, exprType := compileWithAnalyzer(
+				ctx,
 				"time.now()",
 				stl.SymbolResolver,
 			)
