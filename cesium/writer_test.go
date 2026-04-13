@@ -36,6 +36,7 @@ import (
 var _ = Describe("Writer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				fs      fs.FS
@@ -51,8 +52,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Happy Path", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
-
 				Context("Indexed", func() {
 					Specify("Basic Write", func(ctx SpecContext) {
 						var (
@@ -1151,7 +1150,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Stream Only Mode", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				It("Should not persist data", func(ctx SpecContext) {
 					var (
 						basic1      = GenerateChannelKey()
@@ -1190,7 +1188,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Open Errors", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				Specify("Channel that does not exist", func(ctx SpecContext) {
 					_, err := db.OpenWriter(
 						ctx,
@@ -1216,7 +1213,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Write Errors", Ordered, func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					idx  = GenerateChannelKey()
 					data = GenerateChannelKey()
@@ -1323,7 +1319,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Index Errors", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				Context("Discontinuous Index", func() {
 					var (
 						disc1      = GenerateChannelKey()
@@ -1397,7 +1392,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Data Type Errors", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				Specify("Invalid Data Type for series", func(ctx SpecContext) {
 					var dtErrKey = GenerateChannelKey()
 					Expect(db.CreateChannel(
@@ -1429,7 +1423,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Error On ErrUnauthorized Open", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					key        cesium.ChannelKey
 					controlKey = GenerateChannelKey()
@@ -1470,7 +1463,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Virtual Channel", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
 				It("Should write to virtual channel", func(ctx SpecContext) {
 					var virtual1 = GenerateChannelKey()
 					By("Creating a channel")
@@ -1629,7 +1621,6 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Close", func() {
 				Describe("Without Leaks", func() {
-					ShouldNotLeakRoutinesJustBeforeEach()
 					It("Should not allow operations on a closed writer", func(ctx SpecContext) {
 						key := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Close 1", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())

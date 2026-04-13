@@ -36,8 +36,8 @@ func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpd
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS

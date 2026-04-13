@@ -70,20 +70,11 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(context.Background(), ontology.Config{DB: db}))
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(context.Background(), ontology.Config{DB: db}))
 	otg.RegisterService(&sampleService{})
 })
 
-var _ = AfterSuite(func() {
-	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
-})
-
 var _ = BeforeEach(func() {
-	tx = db.OpenTx()
-})
-
-var _ = AfterEach(func() {
-	Expect(tx.Close()).To(Succeed())
+	tx = DeferClose(db.OpenTx())
 })

@@ -23,6 +23,8 @@ func TestSymbol(t *testing.T) {
 	RunSpecs(t, "Symbol Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {

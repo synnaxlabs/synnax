@@ -30,6 +30,8 @@ func TestLinePlot(t *testing.T) {
 	RunSpecs(t, "Line Plot Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db  *gorp.DB
 	otg *ontology.Ontology

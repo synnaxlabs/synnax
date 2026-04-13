@@ -30,6 +30,8 @@ func TestSchematic(t *testing.T) {
 	RunSpecs(t, "Schematic Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db  *gorp.DB
 	otg *ontology.Ontology

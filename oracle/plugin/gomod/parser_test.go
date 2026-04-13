@@ -25,10 +25,9 @@ var _ = Describe("ParseModuleName", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "gomod-test"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should extract the module name from a go.mod file", func() {
@@ -62,10 +61,9 @@ var _ = Describe("ResolveImportPath", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "gomod-test"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should use fallback prefix when repo root is empty", func() {

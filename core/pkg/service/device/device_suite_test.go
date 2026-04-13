@@ -29,3 +29,5 @@ func TestDevice(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Device Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

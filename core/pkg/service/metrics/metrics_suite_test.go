@@ -38,6 +38,8 @@ func TestMetrics(t *testing.T) {
 	RunSpecs(t, "Metrics Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var _ = BeforeSuite(func(ctx SpecContext) {
 	builder = DeferClose(mock.NewCluster())
 	dist = builder.Provision(ctx)

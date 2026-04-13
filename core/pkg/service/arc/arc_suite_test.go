@@ -34,6 +34,8 @@ func TestArc(t *testing.T) {
 	RunSpecs(t, "Arc Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db       *gorp.DB
 	otg      *ontology.Ontology

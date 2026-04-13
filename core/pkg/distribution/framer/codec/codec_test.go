@@ -252,6 +252,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Dynamic Codec", Ordered, func() {
+		ShouldNotLeakGoroutinesPerSpec()
 		var (
 			builder    *mock.Cluster
 			channelSvc *channel.Service
@@ -279,7 +280,6 @@ var _ = Describe("Codec", func() {
 		AfterAll(func() {
 			Expect(builder.Close()).To(Succeed())
 		})
-		ShouldNotLeakGoroutinesBeforeEach()
 
 		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {
 			codec := codec.NewDynamic(channelSvc)

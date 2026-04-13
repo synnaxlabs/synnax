@@ -61,3 +61,5 @@ func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "RBAC Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

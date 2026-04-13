@@ -35,6 +35,8 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "Service Channel Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(mock.NewCluster().Provision(ctx))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

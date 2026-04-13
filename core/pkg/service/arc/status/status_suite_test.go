@@ -29,6 +29,8 @@ func TestStatus(t *testing.T) {
 	RunSpecs(t, "Status Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db       *gorp.DB
 	otg      *ontology.Ontology

@@ -77,11 +77,8 @@ var _ = Describe("Rack", Ordered, func() {
 		}))
 	})
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
-		DeferCleanup(func() {
-			Expect(tx.Close()).To(Succeed())
-		})
 	})
 	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func(ctx SpecContext) {

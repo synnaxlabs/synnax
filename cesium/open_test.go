@@ -23,8 +23,8 @@ import (
 
 var _ = Describe("Open", func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				fs      fs.FS
 				cleanUp func() error

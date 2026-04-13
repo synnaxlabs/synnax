@@ -34,6 +34,8 @@ func TestPagerDuty(t *testing.T) {
 	RunSpecs(t, "PagerDuty Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db        *gorp.DB
 	statusSvc *status.Service

@@ -50,15 +50,12 @@ var _ = Describe("Task", Ordered, func() {
 	var (
 		dist      mock.Node
 		statusSvc *status.Service
-		labelSvc  *label.Service
 	)
-
-	ShouldNotLeakGoroutinesBeforeEach()
 
 	BeforeAll(func(ctx SpecContext) {
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,

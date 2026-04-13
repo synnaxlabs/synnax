@@ -30,6 +30,8 @@ func TestTable(t *testing.T) {
 	RunSpecs(t, "Table Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db  *gorp.DB
 	ws  workspace.Workspace

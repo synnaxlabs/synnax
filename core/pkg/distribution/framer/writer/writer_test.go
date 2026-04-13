@@ -239,7 +239,10 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Alignment", Ordered, func() {
 		It("Should correctly set alignments on indexed free channels", func(ctx SpecContext) {
 			var (
-				s     = gatewayOnlyScenario(ctx)
+				s = gatewayOnlyScenario(ctx)
+			)
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			var (
 				idxCh = channel.Channel{
 					Name:        "free_time",
 					IsIndex:     true,
