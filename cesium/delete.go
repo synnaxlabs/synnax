@@ -189,12 +189,29 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 					)
 				}
 			}
+			for _, otherDB := range db.mu.variableDBs {
+				if otherDB.Channel().Index == uDB.Channel().Key {
+					return errors.Newf(
+						"cannot delete channel %v "+
+							"because it indexes data in channel %v",
+						uDB.Channel(),
+						otherDB.Channel(),
+					)
+				}
+			}
 		}
-
 		if err := uDB.Close(); err != nil {
 			return err
 		}
 		delete(db.mu.unaryDBs, ch)
+		return nil
+	}
+	varDB, varOk := db.mu.variableDBs[ch]
+	if varOk {
+		if err := varDB.Close(); err != nil {
+			return err
+		}
+		delete(db.mu.variableDBs, ch)
 		return nil
 	}
 	vDB, vOk := db.mu.virtualDBs[ch]
@@ -205,7 +222,6 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 		delete(db.mu.virtualDBs, ch)
 		return nil
 	}
-
 	return nil
 }
 
@@ -227,34 +243,38 @@ func (db *DB) DeleteTimeRange(
 
 	for _, ch := range chs {
 		uDB, uOk := db.mu.unaryDBs[ch]
-		if !uOk {
-			// If the channel is virtual, delete is a no-op but we don't return an
-			// error.
-			if _, vOk := db.mu.virtualDBs[ch]; vOk {
-				continue
+		if uOk {
+			if uDB.Channel().IsIndex {
+				indexChannels = append(indexChannels, ch)
+			} else {
+				dataChannels = append(dataChannels, ch)
 			}
-			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
-		}
-
-		// Cannot delete an index channel that other channels rely on.
-		if uDB.Channel().IsIndex {
-			indexChannels = append(indexChannels, ch)
 			continue
 		}
-
-		dataChannels = append(dataChannels, ch)
+		if _, varOk := db.mu.variableDBs[ch]; varOk {
+			dataChannels = append(dataChannels, ch)
+			continue
+		}
+		if _, vOk := db.mu.virtualDBs[ch]; vOk {
+			continue
+		}
+		return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 	}
 
 	for _, ch := range dataChannels {
-		udb := db.mu.unaryDBs[ch]
-		if err := udb.Delete(ctx, tr); err != nil {
-			return err
+		if udb, ok := db.mu.unaryDBs[ch]; ok {
+			if err := udb.Delete(ctx, tr); err != nil {
+				return err
+			}
+		} else if vardb, ok := db.mu.variableDBs[ch]; ok {
+			if err := vardb.Delete(ctx, tr); err != nil {
+				return err
+			}
 		}
 	}
 
 	for _, ch := range indexChannels {
 		udb := db.mu.unaryDBs[ch]
-		// Cannot delete an index channel that other channels rely on.
 		for otherDBKey, otherDB := range db.mu.unaryDBs {
 			if otherDBKey == ch || otherDB.Channel().Index != ch {
 				continue
@@ -270,7 +290,21 @@ func (db *DB) DeleteTimeRange(
 				)
 			}
 		}
-
+		for _, otherDB := range db.mu.variableDBs {
+			if otherDB.Channel().Index != ch {
+				continue
+			}
+			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
+			if err != nil || hasOverlap {
+				return errors.Newf(
+					"cannot delete index channel %v "+
+						"with channel %v depending on it on the time range %s",
+					udb.Channel(),
+					otherDB.Channel(),
+					tr,
+				)
+			}
+		}
 		if err := udb.Delete(ctx, tr); err != nil {
 			return err
 		}
@@ -293,11 +327,20 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 			db.mu.RUnlock()
 			return err
 		}
-		uDB := uDB
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
 			return uDB.GarbageCollect(_ctx)
 		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
+	}
+	for _, varDB := range db.mu.variableDBs {
+		if err := sem.Acquire(ctx, 1); err != nil {
+			db.mu.RUnlock()
+			return err
+		}
+		sCtx.Go(func(_ctx context.Context) error {
+			defer sem.Release(1)
+			return varDB.GarbageCollect(_ctx)
+		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", varDB.Channel()))
 	}
 	db.mu.RUnlock()
 	return sCtx.Wait()

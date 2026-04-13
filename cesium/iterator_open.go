@@ -12,6 +12,7 @@ package cesium
 import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -39,7 +40,10 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
-	internal := make([]*unary.Iterator, len(cfg.Channels))
+	var (
+		internal    []*unary.Iterator
+		varInternal []*variable.Iterator
+	)
 	defer func() {
 		if err == nil {
 			return
@@ -49,23 +53,36 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 				err = errors.Combine(err, iter.Close())
 			}
 		}
-	}()
-	for i, key := range cfg.Channels {
-		uDB, ok := db.mu.unaryDBs[key]
-		if !ok {
-			vdb, vok := db.mu.virtualDBs[key]
-			if vok {
-				return nil, errors.Newf(
-					"cannot open iterator on virtual channel %v",
-					vdb.Channel,
-				)
+		for _, iter := range varInternal {
+			if iter != nil {
+				err = errors.Combine(err, iter.Close())
 			}
-			return nil, channel.NewNotFoundError(key)
 		}
-		internal[i], err = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
-		if err != nil {
-			return nil, err
+	}()
+	for _, key := range cfg.Channels {
+		if uDB, ok := db.mu.unaryDBs[key]; ok {
+			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
+			if iterErr != nil {
+				return nil, iterErr
+			}
+			internal = append(internal, iter)
+			continue
 		}
+		if varDB, ok := db.mu.variableDBs[key]; ok {
+			iter, iterErr := varDB.OpenIterator(variable.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
+			if iterErr != nil {
+				return nil, iterErr
+			}
+			varInternal = append(varInternal, iter)
+			continue
+		}
+		if vdb, ok := db.mu.virtualDBs[key]; ok {
+			return nil, errors.Newf(
+				"cannot open iterator on virtual channel %v",
+				vdb.Channel,
+			)
+		}
+		return nil, channel.NewNotFoundError(key)
 	}
-	return &streamIterator{internal: internal}, nil
+	return &streamIterator{internal: internal, varInternal: varInternal}, nil
 }

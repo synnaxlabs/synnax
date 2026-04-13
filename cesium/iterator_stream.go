@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -122,7 +123,8 @@ type IteratorResponse struct {
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	internal []*unary.Iterator
+	internal    []*unary.Iterator
+	varInternal []*variable.Iterator
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -171,28 +173,51 @@ func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool
 	switch req.Command {
 	case IteratorCommandNext:
 		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
+		ok = s.execVarWithResponse(req.SeqNum, func(i *variable.Iterator) bool { return i.Next(ctx, req.Span) }) || ok
 	case IteratorCommandPrev:
 		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
+		ok = s.execVarWithResponse(req.SeqNum, func(i *variable.Iterator) bool { return i.Prev(ctx, req.Span) }) || ok
 	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
+		ok = s.execVarWithoutResponse(func(i *variable.Iterator) bool { return i.SeekFirst(ctx) }) || ok
 	case IteratorCommandSeekLast:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
+		ok = s.execVarWithoutResponse(func(i *variable.Iterator) bool { return i.SeekLast(ctx) }) || ok
 	case IterCommandSeekLE:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
+		ok = s.execVarWithoutResponse(func(i *variable.Iterator) bool { return i.SeekLE(ctx, req.Stamp) }) || ok
 	case IteratorCommandSeekGE:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
+		ok = s.execVarWithoutResponse(func(i *variable.Iterator) bool { return i.SeekGE(ctx, req.Stamp) }) || ok
 	case IteratorCommandValid:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.Valid() })
+		ok = s.execVarWithoutResponse(func(i *variable.Iterator) bool { return i.Valid() }) || ok
 	case IteratorCommandError:
 		err = s.error()
 	case IteratorCommandSetBounds:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
+		ok = s.execVarWithoutResponse(func(i *variable.Iterator) bool { i.SetBounds(req.Bounds); return true }) || ok
 	}
 	return
 }
 
 func (s *streamIterator) execWithResponse(seqNum int, f func(i *unary.Iterator) bool) (ok bool) {
 	for _, i := range s.internal {
+		if f(i) {
+			ok = true
+			s.Out.Inlet() <- IteratorResponse{
+				Variant: IteratorResponseVariantData,
+				Command: IteratorCommandNext,
+				SeqNum:  seqNum,
+				Frame:   i.Value(),
+			}
+		}
+	}
+	return ok
+}
+
+func (s *streamIterator) execVarWithResponse(seqNum int, f func(i *variable.Iterator) bool) (ok bool) {
+	for _, i := range s.varInternal {
 		if f(i) {
 			ok = true
 			s.Out.Inlet() <- IteratorResponse{
@@ -215,8 +240,22 @@ func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok
 	return
 }
 
+func (s *streamIterator) execVarWithoutResponse(f func(i *variable.Iterator) bool) (ok bool) {
+	for _, i := range s.varInternal {
+		if f(i) {
+			ok = true
+		}
+	}
+	return
+}
+
 func (s *streamIterator) error() error {
 	for _, i := range s.internal {
+		if err := i.Error(); err != nil {
+			return err
+		}
+	}
+	for _, i := range s.varInternal {
 		if err := i.Error(); err != nil {
 			return err
 		}
@@ -226,6 +265,11 @@ func (s *streamIterator) error() error {
 
 func (s *streamIterator) close() error {
 	for _, i := range s.internal {
+		if err := i.Close(); err != nil {
+			return err
+		}
+	}
+	for _, i := range s.varInternal {
 		if err := i.Close(); err != nil {
 			return err
 		}
