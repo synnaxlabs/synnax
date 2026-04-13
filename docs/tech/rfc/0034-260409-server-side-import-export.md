@@ -1,22 +1,22 @@
 # 34 - Server-Side Metadata Import/Export
 
-**Feature Name**: Server-Side Metadata Import/Export <br /> **Status**: Draft <br />
-**Start Date**: 2026-04-09 <br /> **Authors**: Emiliano Bonilla <br />
+**Feature Name**: Server-Side Metadata Import/Export <br /> **Status**: In Progress
+<br /> **Start Date**: 2026-04-09 <br /> **Authors**: Emiliano Bonilla <br />
 
 # 0 - Summary
 
 Move all metadata import/export logic from the Console to the server. Each Core service
 owns its import and export logic, accepting arbitrary prior versions of its data
 structures and always exporting the current version. A single import endpoint and a
-single export endpoint route to the correct service via ontology resource type. One
-`[]byte` JSON payload represents one resource.
+single export endpoint route to the correct service via a type string. The portable
+format is flat JSON where every resource is self-describing.
 
 Historical TypeScript migrations are ported to Go as hand-written typed structs with
-hand-written zyn schemas for full-depth validation. Future versions use Oracle-generated
-frozen types, zyn schemas, and migration functions. Import validates untrusted JSON with
-zyn, parses into version-specific typed structs, runs the migration chain to the current
+hand-written zyn schemas for validation. Future versions use Oracle-generated frozen
+types, zyn schemas, and migration functions. Import validates untrusted JSON with zyn,
+parses into version-specific typed structs, runs the migration chain to the current
 version, and persists through the existing service `Writer` path. Export reads from the
-database and serializes the current version as JSON.
+database and serializes the current version as flat JSON.
 
 # 1 - Vocabulary
 
@@ -24,9 +24,9 @@ database and serializes the current version as JSON.
 - **Import** - Accept a JSON payload (potentially from an older version), validate it,
   migrate it to the current schema version, and persist it through the existing service
   create/update path.
-- **Portable JSON** - The JSON wire format used for import/export. Always includes a
-  `version` field and a `type` field. Distinct from the internal binary (ORC) storage
-  format.
+- **Portable JSON** - The flat JSON wire format used for import/export. Always includes
+  a numeric `version` field and a `type` field alongside all resource fields. Distinct
+  from the internal binary (ORC) storage format.
 - **Frozen type** - A Go struct representing a data structure at a specific historical
   version. For pre-Oracle versions, these are hand-written. For Oracle-managed versions,
   these are generated in `migrations/vN/`.
@@ -59,8 +59,8 @@ portable line plot or schematic looks like.
 
 1. **No contract between server and clients.** Clients must reverse-engineer the
    Console's JSON format.
-2. **No validation on import.** The server stores whatever JSON blob the client sends
-   in the `Data` field.
+2. **No validation on import.** The server stores whatever JSON blob the client sends in
+   the `Data` field.
 3. **Version detection is fragile.** The Console uses Zod union types to try parsing
    every known version in reverse order. A malformed file can silently match the wrong
    version.
@@ -87,22 +87,21 @@ is for portability.
 
 ## 3.2 - Every Exported Resource Carries Its Version and Type
 
-Every exported JSON object includes a `version` field (semver string) and a `type` field
-(ontology resource type string). The server routes the payload to the correct service and
-migration chain without external metadata.
+Every exported JSON object includes a numeric `version` field and a `type` field. The
+server routes the payload to the correct service and migration chain without external
+metadata.
 
 ## 3.3 - Untrusted Input Gets Full Validation
 
 Data stored in the database can generally be trusted. Data arriving via import cannot.
-Every historical version of every importable type has a full-depth zyn schema that
-validates the complete structure of incoming JSON before deserialization into a typed
-struct.
+Every historical version of every importable type has a zyn schema that validates the
+complete structure of incoming JSON before deserialization into a typed struct.
 
 ## 3.4 - Export Dumps What Is Stored
 
 Export is a faithful serialization of what the server holds. No field stripping, no
-separation of user state from configuration state. The schema defines what is stored;
-export serializes it.
+separation of user state from configuration state. The schema defines what is stored,
+and export serializes it.
 
 ## 3.5 - Import Calls Through Existing Create/Update Paths
 
@@ -114,31 +113,50 @@ search indexing, and signal emission happen automatically.
 
 ## 4.0 - Scope
 
-Single-resource import and export only. One `[]byte` JSON payload in, one resource out.
-Bundle/multi-resource export (workspaces with child visualizations), directory structures,
-and zip archives are out of scope.
+Single-resource import and export only. One JSON payload in, one resource out.
+Bundle/multi-resource export (workspaces with child visualizations), directory
+structures, and zip archives are out of scope.
 
 Strongly typing the visualization `data` field (replacing `EncodedJSON` with
-Oracle-defined fields) is also out of scope. The import/export system works regardless of
-whether `data` is an opaque JSON blob or fully typed Oracle fields.
+Oracle-defined fields) is also out of scope. The import/export system works regardless
+of whether `data` is an opaque JSON blob or fully typed Oracle fields.
 
-## 4.1 - Resource JSON Envelope
+## 4.1 - Flat JSON Format
 
-Every exportable resource has a standard envelope:
+Every resource is a flat JSON object. There is no envelope wrapper or nested `data`
+field. `version`, `type`, `key`, `name`, and all resource-specific fields sit at the
+same level:
 
 ```json
 {
-  "version": "2.0.0",
-  "type": "lineplot",
+  "version": 54,
+  "type": "log",
   "key": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "Temperature Overview",
-  "data": { ... }
+  "name": "Temperature Log",
+  "channels": [
+    {
+      "channel": 1,
+      "color": "red",
+      "notation": "scientific",
+      "precision": 2,
+      "alias": "temp"
+    }
+  ],
+  "remote_created": false,
+  "timestamp_precision": 1,
+  "show_channel_names": true,
+  "show_receipt_timestamp": false
 }
 ```
 
-The `type` field is the ontology resource type string. Oracle is the single source of
-truth for these strings. The `version` field is the schema version of the resource, not
-the Synnax server version.
+The `type` field is the resource type string (e.g., `"log"`, `"lineplot"`,
+`"modbus_read"`). The `version` field is a numeric schema version derived from the core
+version (see section 4.3). Handlers receive the complete flat map for zyn schema
+parsing. `key` and `name` are not stripped from the data before passing to the handler.
+
+Old Console exports used semver strings for the version field (e.g., `"1.0.0"`). The
+server accepts both numeric and semver string versions on import, converting the latter
+to numeric form (see section 4.3).
 
 ## 4.2 - Two Independent Paths, Shared Migration Logic
 
@@ -153,50 +171,68 @@ struct, transforms between frozen types using the same migration functions, pers
 through the service Writer.
 
 **Export** runs on API request. Reads the current-version entity from the database,
-serializes to JSON.
+serializes to flat JSON.
 
 The migration functions (`func(old vN.Type) (vN+1.Type, error)`) operate on Go structs
 and do not care whether those structs came from ORC, msgpack, or JSON.
 
-## 4.3 - Import: Envelope Decoding and Version Dispatch
+## 4.3 - Versioning
 
-The import path decodes the JSON envelope via standard `json.Unmarshal` into the
-`Envelope` struct, which gives direct access to `Version`, `Type`, `Key`, `Name`, and
-`Data`. The central registry routes by `Type`. The service switches on `Version` to
-select the correct frozen struct and zyn schema for the `Data` payload.
+### 4.3.0 - Numeric Versions
+
+The version field is a numeric integer derived from the core semver version using the
+formula `major * 1000 + minor`. The `version` package exposes `Numeric()` which computes
+this from the embedded `VERSION` file. For core version `0.54.3`, `Numeric()` returns
+`54`.
+
+The export version is stamped by the central import/export service, not by individual
+handlers. All exports from a given server build carry the same version number.
+
+### 4.3.1 - Legacy Semver Conversion
+
+Old Console exports used semver strings like `"0.0.0"`, `"1.0.0"`, `"0.1.0"`. The
+Console inconsistently bumped major, minor, or patch to indicate new versions. On
+import, the `Envelope.UnmarshalJSON` method detects string-typed version fields and
+converts them to numeric using the formula `major * 5 + minor * 2 + patch`.
+
+This formula was chosen because it produces unique values for all existing Console
+version strings within each resource type, and all results are below 54 (the first
+Oracle-managed core version). The maximum legacy value is 45 (from layout version
+`"9.0.0"`).
+
+### 4.3.2 - Range-Based Version Dispatch
+
+Handlers use range-based version dispatch, not exact matching. Each frozen type defines
+a floor version. The current version handles everything from its floor upward. This
+means a log exported at core version 55 can be imported by a server at core version 57
+without modification, as long as the log schema did not change between those versions.
 
 ```go
-func ImportSchematic(env importexport.Envelope) (Schematic, error) {
-    switch env.Version {
-    case "5.0.0":
-        var s DataV5
-        if err := SchemaV5.Parse(env.Data, &s); err != nil {
-            return Schematic{}, err
+func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
+    switch {
+    case version >= v1.Version:
+        var d v1.Data
+        if err := v1.Schema.Parse(data, &d); err != nil {
+            return v1.Data{}, err
         }
-        return fromDataV5(env, s), nil
-    case "4.0.0":
-        var s DataV4
-        if err := SchemaV4.Parse(env.Data, &s); err != nil {
-            return Schematic{}, err
+        return d, nil
+    case version >= v0.Version:
+        var d v0.Data
+        if err := v0.Schema.Parse(data, &d); err != nil {
+            return v1.Data{}, err
         }
-        return fromDataV5(env, migrateV4ToV5(s)), nil
-    case "3.0.0":
-        var s DataV3
-        if err := SchemaV3.Parse(env.Data, &s); err != nil {
-            return Schematic{}, err
-        }
-        m4 := migrateV3ToV4(s)
-        return fromDataV5(env, migrateV4ToV5(m4)), nil
+        return v1.Migrate(d)
     default:
-        return Schematic{}, fmt.Errorf("unknown schematic version %q", env.Version)
+        return v1.Data{}, errors.Newf("unknown log data version %d", version)
     }
 }
 ```
 
-The version-specific `ObjectZ.Parse` validates the full depth of the data payload and
-deserializes into the frozen struct in one pass. `ObjectZ.Parse` handles field name case
-conversion (snake_case input to PascalCase struct fields) automatically and silently
-ignores extra fields not defined in the schema.
+The zyn `ObjectZ.Parse` validates the data payload and deserializes into the frozen
+struct in one pass. `ObjectZ.Parse` handles field name case conversion (camelCase,
+snake_case, and PascalCase) automatically and silently ignores extra fields not defined
+in the schema. This means `version`, `type`, and other envelope fields can remain in the
+data map without interfering with schema parsing.
 
 ## 4.4 - Versioned Types and Zyn Schemas
 
@@ -210,7 +246,7 @@ The Console's TypeScript migrations are ported to Go. For each historical versio
 
 All three live in `migrations/vN/` alongside any Oracle-generated files.
 
-The TypeScript migrations are straightforward to port. They fall into five categories:
+The TypeScript migrations fall into five categories:
 
 **Field addition with defaults** (most common). Schematic v0->v1 adds `legend` with
 `visible: true`. Lineplot v3->v4 adds `measure` with `mode: "one"`. Layout v0->v4 adds
@@ -238,7 +274,7 @@ Once a type is defined in an `.oracle` schema, Oracle generates for each version
 2. Frozen ORC codec in `migrations/vN/codec.gen.go`
 3. Auto-migrate helper in `migrations/vN/migrate_auto.gen.go`
 4. Migration template in `migrations/vN/migrate.go` (developer edits)
-5. Full-depth zyn `ObjectZ` schema in `migrations/vN/schema.gen.go` (new)
+5. Zyn `ObjectZ` schema in `migrations/vN/schema.gen.go` (new)
 
 The zyn schema generation is a new Oracle plugin that walks the `.oracle` struct fields
 and emits `zyn.Object(map[string]zyn.Schema{...})` with the correct zyn type for each
@@ -251,7 +287,7 @@ core/pkg/service/schematic/
     migrations/
         v0/                         # Pre-Oracle: hand-written
             schematic.go            # Frozen struct
-            schema.go               # Full-depth zyn ObjectZ schema
+            schema.go               # Zyn ObjectZ schema
             migrate.go              # Migration v0 -> v1
         v1/
             schematic.go
@@ -270,73 +306,78 @@ core/pkg/service/schematic/
             migrate.go              # Developer transform template
 ```
 
-## 4.5 - Service-Level Import/Export Interface
+## 4.5 - Service-Level Import/Export
 
-Each service that supports import/export implements:
+Each service that supports import/export implements the `imex.ImporterExporter`
+interface directly on its `Service` struct:
 
 ```go
 type Importer interface {
-    Import(ctx context.Context, tx gorp.Tx, data []byte) error
+    Import(ctx context.Context, tx gorp.Tx, parent ontology.ID, env Envelope) error
 }
 
 type Exporter interface {
-    Export(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) ([]byte, error)
+    Export(ctx context.Context, tx gorp.Tx, key string) (Envelope, error)
+}
+
+type ImporterExporter interface {
+    Importer
+    Exporter
 }
 ```
 
-These are added directly to each service's `Service` struct. `Import` validates with the
-version-specific zyn schema, parses into the matched frozen type, runs the migration
-chain, and calls `Writer.Create` or `Writer.Update`. `Export` uses `Retrieve` to load
-the entity and serializes it as current-version JSON in the standard envelope.
+`Import` receives the full `Envelope` with the complete flat data map. The handler
+validates with the version-specific zyn schema, parses into the matched frozen type,
+runs the migration chain, and calls `Writer.Create`. The handler reads `key` and `name`
+from the envelope's promoted fields for identity, and also from the zyn-parsed struct
+(since `key` and `name` remain in the data map).
 
-## 4.6 - API Layer
+`Export` returns an `Envelope` with `Type`, `Key`, `Name`, and `Data` populated. The
+handler does not set `Version`. The central `imex.Service` stamps the export version
+(derived from `version.Numeric()`) on every envelope before returning it to the caller.
+
+## 4.6 - Central Registry and API Layer
 
 A single import endpoint and a single export endpoint:
 
 ```
-POST /api/v1/import   - Import a single resource
-POST /api/v1/export   - Export a single resource by key and type
+POST /api/v1/import   - Import one or more resources
+POST /api/v1/export   - Export one or more resources by key and type
 ```
 
-The import endpoint reads the `type` field from the JSON payload, maps it to an ontology
-`ResourceType`, and delegates to the registered service:
+The central `imex.Service` is a registry mapping type strings to handlers:
 
 ```go
-type ImportExportService struct {
-    importers map[ontology.ResourceType]Importer
-    exporters map[ontology.ResourceType]Exporter
+type Service struct {
+    db            *gorp.DB
+    exportVersion int
+    importers     map[string]Importer
+    exporters     map[string]Exporter
 }
 ```
 
-Services register during layer initialization, following the same pattern as ontology and
-search registration. Authentication and authorization are enforced by the existing API
-auth middleware and the Writer's RBAC checks.
+Services register during layer initialization. The registry supports separate
+registration of importers and exporters via `Register`, `RegisterImporter`, and
+`RegisterExporter`. This supports task subtypes that only need importer registration
+(see section 4.7).
 
-## 4.7 - Task Config Sub-Registry
+Import runs all envelopes within a single database transaction. If any import fails, the
+entire batch rolls back. Export stamps `exportVersion` on every returned envelope.
+
+Authentication and authorization are enforced by the API layer's RBAC checks before
+delegating to the service.
+
+## 4.7 - Task Types as First-Class Registry Entries
 
 Tasks have a `type` string field that subdivides into hardware-specific variants
-(`modbus_read`, `opc_scan`, `labjack_write`), each with its own config schema. The task
-service owns a sub-registry of config validators and migrators keyed by this type string.
+(`modbus_read`, `opc_scan`, `labjack_write`), each with its own config schema. Rather
+than a sub-registry within the task service, each task subtype registers directly in the
+central `imex.Service` registry as a first-class type string.
 
-When the task service's `Import` is called, it validates the outer task envelope, reads
-the `type` field, and dispatches config validation and migration to the registered
-handler. The zyn discriminated union (already implemented in `x/go/zyn`) can validate
-that the task type is known and the config matches the expected schema for that type:
-
-```go
-configSchema := zyn.DiscriminatedUnion("type",
-    zyn.Object(map[string]zyn.Schema{
-        "type":        zyn.Literal("modbus_read"),
-        "sample_rate": zyn.Number(),
-        "channels":    zyn.Array(modbusChannelSchema),
-    }),
-    zyn.Object(map[string]zyn.Schema{
-        "type":     zyn.Literal("opc_scan"),
-        "endpoint": zyn.String(),
-    }),
-    // ...
-)
-```
+For import, each task subtype registers its own importer via `RegisterImporter`. For
+export, a single task exporter registered under `"task"` handles all subtypes. It reads
+the task's `Type` field from the database and sets it on the envelope so the exported
+JSON carries the specific subtype (e.g., `"modbus_read"`), not the generic `"task"`.
 
 Handlers are registered statically during service initialization, following the driver
 factory pattern. Task configs can be imported even when the target driver is offline.
@@ -347,71 +388,88 @@ Oracle's code generation is extended with two capabilities:
 
 ### 4.8.0 - Zyn Schema Generation
 
-A new `@zyn` attribute on Oracle struct definitions generates a full-depth `zyn.ObjectZ`
-schema from the field definitions. This replaces the hand-written schemas in each
-service's `ontology.go`. Oracle generates `schema.gen.go` in the service package (for
+A new `@zyn` attribute on Oracle struct definitions generates a `zyn.ObjectZ` schema
+from the field definitions. Oracle generates `schema.gen.go` in the service package (for
 the current version) and in each `migrations/vN/` package (for frozen versions).
 
 ### 4.8.1 - Import/Export Helpers
 
 A new `@go import_export` attribute generates:
 
-1. `ExportJSON(entity Type) ([]byte, error)` - wraps the entity in the standard envelope
-   and marshals to JSON.
+1. `ExportJSON(entity Type) ([]byte, error)` - wraps the entity in the flat JSON format
+   and marshals.
 2. `ImportJSON(data []byte) (Type, error)` - unmarshals to `map[string]any`, reads the
-   version, switches to the correct frozen type and zyn schema, validates, parses, and
-   runs the migration chain. For pre-Oracle historical versions where frozen types and
-   schemas are hand-written, Oracle detects their presence in `migrations/vN/` and
-   includes them in the version switch.
+   version, dispatches to the correct frozen type and zyn schema using range-based
+   version matching, validates, parses, and runs the migration chain. For pre-Oracle
+   historical versions where frozen types and schemas are hand-written, Oracle detects
+   their presence in `migrations/vN/` and includes them in the version switch.
 
 # 5 - Console Code Replaced
 
-| Console Code | Server Replacement |
-|---|---|
-| `console/src/import/import.ts` | Server import API endpoint |
-| `console/src/export/extractor.ts` | Server export API endpoint |
-| `console/src/lineplot/export.ts` | `lineplot.Service.Export()` |
-| `console/src/lineplot/services/import.ts` | `lineplot.Service.Import()` |
-| `console/src/schematic/export.ts` | `schematic.Service.Export()` |
-| `console/src/schematic/services/import.ts` | `schematic.Service.Import()` |
-| `console/src/log/export.ts` | `log.Service.Export()` |
-| `console/src/log/services/import.ts` | `log.Service.Import()` |
-| `console/src/table/export.ts` | `table.Service.Export()` |
-| `console/src/table/services/import.ts` | `table.Service.Import()` |
-| `console/src/arc/export.ts` | `arc.Service.Export()` |
-| `console/src/arc/import.ts` | `arc.Service.Import()` |
-| `console/src/lineplot/types/v*.ts` | Hand-written Go migrations |
-| `console/src/schematic/types/v*.ts` | Hand-written Go migrations |
-| `console/src/layout/types/v*.ts` | Hand-written Go migrations |
-| `console/src/log/types/v*.ts` | Hand-written Go migrations |
-| `console/src/workspace/types/v*.ts` | Hand-written Go migrations |
-| `console/src/import/FileIngestersProvider.tsx` | Single API call |
-| `console/src/export/ExtractorsProvider.tsx` | Single API call |
+| Console Code                                   | Server Replacement           |
+| ---------------------------------------------- | ---------------------------- |
+| `console/src/import/import.ts`                 | Server import API endpoint   |
+| `console/src/export/extractor.ts`              | Server export API endpoint   |
+| `console/src/lineplot/export.ts`               | `lineplot.Service.Export()`  |
+| `console/src/lineplot/services/import.ts`      | `lineplot.Service.Import()`  |
+| `console/src/schematic/export.ts`              | `schematic.Service.Export()` |
+| `console/src/schematic/services/import.ts`     | `schematic.Service.Import()` |
+| `console/src/log/export.ts`                    | `log.Service.Export()`       |
+| `console/src/log/services/import.ts`           | `log.Service.Import()`       |
+| `console/src/table/export.ts`                  | `table.Service.Export()`     |
+| `console/src/table/services/import.ts`         | `table.Service.Import()`     |
+| `console/src/arc/export.ts`                    | `arc.Service.Export()`       |
+| `console/src/arc/import.ts`                    | `arc.Service.Import()`       |
+| `console/src/lineplot/types/v*.ts`             | Hand-written Go migrations   |
+| `console/src/schematic/types/v*.ts`            | Hand-written Go migrations   |
+| `console/src/layout/types/v*.ts`               | Hand-written Go migrations   |
+| `console/src/log/types/v*.ts`                  | Hand-written Go migrations   |
+| `console/src/workspace/types/v*.ts`            | Hand-written Go migrations   |
+| `console/src/import/FileIngestersProvider.tsx` | Single API call              |
+| `console/src/export/ExtractorsProvider.tsx`    | Single API call              |
 
 # 6 - Resolved Design Decisions
 
-## 6.0 - Version Dispatch Via Envelope Decoding
+## 6.0 - Flat Format, No Envelope Wrapper
 
-The JSON payload is decoded into the `Envelope` struct via standard `json.Unmarshal`.
-The `Version` field is directly accessible as a string on the struct. Each service
-switches on `env.Version` to select the correct frozen struct and version-specific
-`ObjectZ` schema for the `Data` payload. No special zyn infrastructure is needed for
-version dispatch because the envelope gives us the version as a typed field.
+The portable format is a flat JSON object. All fields sit at the same level. There is no
+nested `data` object. This is backwards compatible with old Console exports, which were
+already flat. Handlers receive the complete map for zyn parsing. `version` and `type`
+are promoted to typed fields on the `Envelope` struct for routing and identity, but they
+remain in the data map for schema parsing. `key` and `name` are also promoted for
+convenient access (file naming, identity checks) without being removed from the map.
 
-## 6.1 - Channel References Left Unresolved on Import
+## 6.1 - Numeric Versions Tied to Core Version
+
+The version field is numeric, not semver. The export version is `major * 1000 + minor`
+of the core version, computed once by `version.Numeric()` and stamped by the central
+service on all exports. This ties resource schema versions to the core release cycle.
+Legacy semver strings from old Console exports are converted on import using
+`major * 5 + minor * 2 + patch`. All legacy values fall below 54 (the first
+Oracle-managed version).
+
+## 6.2 - Range-Based Version Dispatch
+
+Handlers match version ranges, not exact values. Each frozen type defines a floor
+version. The current version handles all versions from its floor upward. This means a
+resource exported at core version 55 imports correctly at core version 58 as long as the
+schema did not change between those versions. No per-version registration is needed for
+unchanged schemas.
+
+## 6.3 - Channel References Left Unresolved on Import
 
 Exported visualizations reference channels by key. When importing into a different
 deployment where those keys do not exist, the import succeeds and leaves references
 unresolved. Missing channels appear as "not found" in the UI. The user fixes them.
 Import should not fail for a problem the user can fix after the fact.
 
-## 6.2 - Authentication and Authorization Inherited from Writer Path
+## 6.4 - Authentication and Authorization Inherited from Writer Path
 
 Import calls through the existing Writer, which already enforces RBAC via the API auth
 middleware. No special handling needed.
 
-## 6.3 - Task Config Handlers Registered Statically at Startup
+## 6.5 - Task Subtypes Are First-Class
 
-Task config handlers are registered during service initialization, following the driver
-factory pattern. The server knows every task type it supports regardless of what drivers
-are online. Task configs can be imported even when the driver is disconnected.
+Task subtypes (`modbus_read`, `opc_scan`, etc.) register directly in the central
+registry, not in a sub-registry owned by the task service. This eliminates two-level
+dispatch and makes every importable type a flat entry in a single map.

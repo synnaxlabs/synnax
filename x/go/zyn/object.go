@@ -27,8 +27,7 @@ type ObjectZ struct {
 		pascal map[string]string
 		camel  map[string]string
 	}
-	fields     map[string]Schema
-	fieldNames []string
+	fields map[string]Schema
 	baseZ
 }
 

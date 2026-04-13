@@ -24,6 +24,10 @@ import (
 var fs embed.FS
 
 const unknown = "unknown"
+
+// majorMultiplier is the multiplier applied to the major version component
+// when computing the numeric version (major * majorMultiplier + minor).
+const majorMultiplier = 1000
 const errorMsg = "unexpected failure to resolve version"
 
 // These variables can be set at build time using -ldflags:
@@ -109,7 +113,7 @@ func Numeric() int {
 	if err != nil {
 		return 0
 	}
-	return major*1000 + minor
+	return major*majorMultiplier + minor
 }
 
 // Full returns the full version string with commit and build date.
