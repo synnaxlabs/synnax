@@ -17,8 +17,8 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/fixed"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
@@ -61,7 +61,7 @@ type DB struct {
 		fixedDBs    map[ChannelKey]fixed.DB
 		variableDBs map[ChannelKey]variable.DB
 		virtualDBs  map[ChannelKey]virtual.DB
-		digests    struct {
+		digests     struct {
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
 			outlet   confluence.Outlet[WriterResponse]

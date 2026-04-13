@@ -28,7 +28,7 @@ import (
 type DB struct {
 	domain           *domain.DB
 	controller       *control.Controller[*controlledWriter]
-	idx             *index.Domain
+	idx              *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32

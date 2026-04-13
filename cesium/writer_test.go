@@ -325,9 +325,9 @@ var _ = Describe("Writer Behavior", func() {
 					})
 					Specify("Multiple variable channels sharing an index", func(ctx SpecContext) {
 						var (
-							idx     = GenerateChannelKey()
-							strCh   = GenerateChannelKey()
-							jsonCh  = GenerateChannelKey()
+							idx    = GenerateChannelKey()
+							strCh  = GenerateChannelKey()
+							jsonCh = GenerateChannelKey()
 						)
 						Expect(db.CreateChannel(ctx,
 							cesium.Channel{Key: idx, Name: "multi-var-idx", IsIndex: true, DataType: telem.TimeStampT},

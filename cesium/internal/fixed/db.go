@@ -33,7 +33,7 @@ type DB struct {
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
-	idx             *index.Domain
+	idx              *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
