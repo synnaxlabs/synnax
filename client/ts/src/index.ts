@@ -36,6 +36,7 @@ export {
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
+export { imex } from "@/imex";
 export { label } from "@/label";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";

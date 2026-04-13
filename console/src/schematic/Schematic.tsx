@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type ontology, schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -18,17 +18,27 @@ import {
   Haul,
   Icon,
   Schematic as Base,
+  Synnax,
   User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, location, uuid, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
+import {
+  memo,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
 import { Layout } from "@/layout";
 import {
+  selectPendingUpload,
   useSelectControlStatus,
   useSelectEditable,
   useSelectFitViewOnResize,
@@ -37,13 +47,16 @@ import {
   useSelectViewport,
 } from "@/schematic/selectors";
 import {
+  clearPendingUpload,
   internalCreate,
   setControlStatus,
   setEditable,
   setFitViewOnResize,
   setSelected,
+  type StoreState,
   setViewport,
 } from "@/schematic/slice";
+import { Workspace } from "@/workspace";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
 
@@ -109,6 +122,26 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const { data: doc } = Base.useRetrieve({ key: layoutKey });
   const dispatch = useDispatch();
+
+  const client = Synnax.use();
+  const workspaceKey = Workspace.useSelectActiveKey();
+  const pendingUpload = useSelector((state: StoreState) =>
+    selectPendingUpload(state, layoutKey),
+  );
+  useEffect(() => {
+    if (pendingUpload == null || client == null || workspaceKey == null) return;
+    const parent: ontology.ID = { type: "workspace", key: workspaceKey };
+    const envelope = {
+      version: pendingUpload.version,
+      type: "schematic",
+      key: layoutKey,
+      name,
+      ...pendingUpload,
+    };
+    void client.imex.import_(parent, [envelope]).then(() => {
+      dispatch(clearPendingUpload({ key: layoutKey }));
+    });
+  }, [pendingUpload, client, workspaceKey, layoutKey, name, dispatch]);
 
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&

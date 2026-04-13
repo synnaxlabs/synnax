@@ -413,6 +413,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	l.ImEx = imex.NewService(cfg.Distribution.DB, version.Numeric())
 	l.ImEx.Register("log", l.Log)
+	l.ImEx.Register("schematic", l.Schematic)
 
 	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{

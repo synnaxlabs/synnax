@@ -12,6 +12,7 @@ import { type Control } from "@synnaxlabs/pluto";
 import { useMemoSelect } from "@/hooks";
 import {
   type LegendState,
+  type PendingUpload,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -82,3 +83,8 @@ export const selectViewport = (state: StoreState, key: string): Viewport =>
 
 export const useSelectViewport = (key: string): Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
+
+export const selectPendingUpload = (
+  state: StoreState,
+  key: string,
+): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;

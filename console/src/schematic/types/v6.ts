@@ -29,6 +29,19 @@ export const legendStateZ = z.object({
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
+export const pendingUploadZ = z
+  .object({
+    version: z.string(),
+    nodes: z.array(z.unknown()),
+    edges: z.array(z.unknown()),
+    props: z.record(z.string(), z.unknown()),
+    legend: z.unknown().optional(),
+    snapshot: z.boolean(),
+    authority: z.number().optional(),
+  })
+  .optional();
+export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+
 export const stateZ = z.object({
   version: z.literal(VERSION),
   selected: z.array(z.string()).default([]),
@@ -39,6 +52,7 @@ export const stateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   viewport: viewportZ,
+  pendingUpload: pendingUploadZ,
 });
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -52,6 +66,7 @@ export const ZERO_STATE: State = {
   editable: true,
   fitViewOnResize: false,
   viewport: { position: xy.ZERO, zoom: 1 },
+  pendingUpload: undefined,
 };
 
 export const sliceStateZ = z.object({
@@ -77,6 +92,17 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
     editable: state.editable,
     fitViewOnResize: state.fitViewOnResize,
     viewport: state.viewport,
+    pendingUpload: state.remoteCreated
+      ? undefined
+      : {
+          version: state.version,
+          nodes: state.nodes,
+          edges: state.edges,
+          props: state.props,
+          legend: state.legend,
+          snapshot: state.snapshot,
+          authority: state.authority,
+        },
   }),
 });
 

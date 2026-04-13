@@ -16,6 +16,7 @@ export type State = latest.State;
 export type SliceState = latest.SliceState;
 export type ToolbarTab = latest.ToolbarTab;
 export type LegendState = latest.LegendState;
+export type PendingUpload = latest.PendingUpload;
 export type Viewport = latest.Viewport;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
@@ -152,6 +153,11 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.schematics[key]);
     },
+    clearPendingUpload: (state, { payload }: PayloadAction<{ key: string }>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.pendingUpload = undefined;
+    },
   },
 });
 
@@ -167,6 +173,7 @@ export const {
   setFitViewOnResize,
   setViewport,
   remove,
+  clearPendingUpload,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

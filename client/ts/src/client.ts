@@ -19,6 +19,7 @@ import { control } from "@/control";
 import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { imex } from "@/imex";
 import { group } from "@/group";
 import { label } from "@/label";
 import { lineplot } from "@/lineplot";
@@ -85,6 +86,7 @@ export default class Synnax extends framer.Client {
   readonly logs: log.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
+  readonly imex: imex.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -175,6 +177,7 @@ export default class Synnax extends framer.Client {
     this.logs = new log.Client(this.transport.unary);
     this.tables = new table.Client(this.transport.unary);
     this.groups = new group.Client(this.transport.unary);
+    this.imex = new imex.Client(this.transport.unary);
   }
 
   get key(): string {

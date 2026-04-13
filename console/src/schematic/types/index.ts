@@ -25,6 +25,7 @@ export type SliceState = v6.SliceState;
 export type ToolbarTab = v6.ToolbarTab;
 export type LegendState = v6.LegendState;
 export type Viewport = v6.Viewport;
+export type PendingUpload = v6.PendingUpload;
 export type CopyBuffer = v0.CopyBuffer;
 export type AnyState =
   | v0.State

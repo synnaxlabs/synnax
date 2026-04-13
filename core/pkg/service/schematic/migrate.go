@@ -28,6 +28,8 @@ func MigrateSchematic(_ context.Context, old v54.Schematic) (Schematic, error) {
 		Snapshot: old.Snapshot,
 		Legend:   extractLegend(data),
 		Nodes:    extractNodes(data),
+		Edges:    extractEdges(data),
+		Props:    extractProps(data),
 	}
 	return s, nil
 }
@@ -134,4 +136,45 @@ func mapRecord(m map[string]any, key string) msgpack.EncodedJSON {
 		return nil
 	}
 	return msgpack.EncodedJSON(v)
+}
+
+func extractEdges(data map[string]any) []Edge {
+	rawEdges, ok := data["edges"].([]any)
+	if !ok {
+		return nil
+	}
+	edges := make([]Edge, 0, len(rawEdges))
+	for _, raw := range rawEdges {
+		m, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		e := Edge{Key: mapString(m, "key", "")}
+		if src, ok := m["source"].(map[string]any); ok {
+			e.Source.Node = mapString(src, "node", "")
+			e.Source.Param = mapString(src, "param", "")
+		}
+		if tgt, ok := m["target"].(map[string]any); ok {
+			e.Target.Node = mapString(tgt, "node", "")
+			e.Target.Param = mapString(tgt, "param", "")
+		}
+		edges = append(edges, e)
+	}
+	return edges
+}
+
+func extractProps(data map[string]any) map[string]msgpack.EncodedJSON {
+	rawProps, ok := data["props"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	props := make(map[string]msgpack.EncodedJSON, len(rawProps))
+	for k, v := range rawProps {
+		m, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+		props[k] = msgpack.EncodedJSON(m)
+	}
+	return props
 }
