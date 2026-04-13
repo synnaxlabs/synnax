@@ -96,7 +96,7 @@ TEST(TestSeries, testStringVectorConstruction) {
     const Series s{vals};
     ASSERT_EQ(s.data_type(), STRING_T);
     ASSERT_EQ(s.size(), 2);
-    ASSERT_EQ(s.byte_size(), 12);
+    ASSERT_EQ(s.byte_size(), 18);
     const auto v = s.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -124,7 +124,7 @@ TEST(TestSeries, testStringConstruction) {
     const Series s{val};
     ASSERT_EQ(s.data_type(), STRING_T);
     ASSERT_EQ(s.size(), 1);
-    ASSERT_EQ(s.byte_size(), 6);
+    ASSERT_EQ(s.byte_size(), 9);
     const auto v = s.strings();
     ASSERT_EQ(v[0], val);
 }
@@ -135,7 +135,7 @@ TEST(TestSeries, testJSONStringConstruction) {
     const Series s(raw, JSON_T);
     ASSERT_EQ(s.data_type(), JSON_T);
     ASSERT_EQ(s.size(), 1);
-    ASSERT_EQ(s.byte_size(), 17);
+    ASSERT_EQ(s.byte_size(), 20);
     const auto v = s.strings();
     ASSERT_EQ(v[0], raw);
 }
@@ -930,12 +930,13 @@ TEST(TestSeries, testFillFromString) {
     std::vector<uint8_t> binary_data;
     size_t total_size = 0;
     for (const auto &str: source_strings)
-        total_size += str.size() + 1; // +1 for newline terminator
+        total_size += str.size() + 4;
 
     binary::Writer writer(binary_data, total_size);
     for (const auto &str: source_strings) {
+        uint32_t len = static_cast<uint32_t>(str.size());
+        writer.write(&len, sizeof(len));
         writer.write(str.data(), str.size());
-        writer.uint8('\n');
     }
 
     Series series(STRING_T, total_size);

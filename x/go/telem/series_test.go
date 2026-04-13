@@ -10,8 +10,6 @@
 package telem_test
 
 import (
-	"bytes"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -382,8 +380,8 @@ var _ = Describe("Series", func() {
 				s := MustSucceed(telem.NewJSONSeriesV(data...))
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
-				split := bytes.Split(downsampled.Data, []byte("\n"))
-				Expect(len(split)).To(Equal(3)) // 2 items + empty string after last newline
+				result := telem.UnmarshalSeries[[]byte](downsampled)
+				Expect(result).To(HaveLen(2))
 			})
 		})
 
