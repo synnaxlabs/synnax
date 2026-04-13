@@ -71,6 +71,23 @@ var _ = Describe("Map", func() {
 		It("Should fail for a non-map", func() {
 			Expect(zyn.Map(zyn.String(), zyn.String()).Validate("not a map")).To(HaveOccurred())
 		})
+		It("Should succeed for optional nil", func() {
+			Expect(zyn.Map(zyn.String(), zyn.String()).Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail for required nil", func() {
+			Expect(zyn.Map(zyn.String(), zyn.String()).Validate(nil)).
+				To(MatchError(validate.ErrRequired))
+		})
+		It("Should include key in path when value validation fails", func() {
+			Expect(zyn.Map(zyn.String(), zyn.Uint32()).Validate(
+				map[string]any{"bad": "not a number"},
+			)).To(MatchError(ContainSubstring("bad")))
+		})
+		It("Should include key in path when key validation fails", func() {
+			Expect(zyn.Map(zyn.Uint32(), zyn.String()).Validate(
+				map[string]any{"abc": "val"},
+			)).To(MatchError(ContainSubstring("abc")))
+		})
 	})
 	Describe("Invalid Inputs", func() {
 		Specify("non-map destination", func() {
@@ -98,6 +115,12 @@ var _ = Describe("Map", func() {
 			Expect(zyn.Map(zyn.String(), zyn.Uint32().Coerce()).Parse(
 				map[string]any{"bad": "not a number"}, &dest,
 			)).To(MatchError(ContainSubstring("bad")))
+		})
+		Specify("key parse error includes key in path", func() {
+			var dest map[uint32]string
+			Expect(zyn.Map(zyn.Uint32().Coerce(), zyn.String()).Parse(
+				map[string]any{"abc": "val"}, &dest,
+			)).To(MatchError(ContainSubstring("abc")))
 		})
 	})
 	Describe("Optional Fields", func() {
@@ -165,6 +188,26 @@ var _ = Describe("Map", func() {
 		Specify("non-map value", func() {
 			Expect(zyn.Map(zyn.String(), zyn.String()).Dump("not a map")).Error().
 				To(MatchError(ContainSubstring("expected map")))
+		})
+		Specify("non-nil pointer is dereferenced", func() {
+			m := map[string]string{"a": "1"}
+			result := MustSucceed(zyn.Map(zyn.String(), zyn.String()).Dump(&m))
+			Expect(result).To(Equal(map[string]any{"a": "1"}))
+		})
+		Specify("value dump error includes key in path", func() {
+			Expect(zyn.Map(zyn.String(), zyn.Uint32().Coerce()).Dump(
+				map[string]int{"bad": -1},
+			)).Error().To(MatchError(ContainSubstring("bad")))
+		})
+		Specify("key dump error includes key in path", func() {
+			Expect(zyn.Map(zyn.Number(), zyn.String()).Dump(
+				map[string]string{"abc": "val"},
+			)).Error().To(MatchError(ContainSubstring("abc")))
+		})
+		Specify("dumped key must be a string", func() {
+			Expect(zyn.Map(zyn.Number(), zyn.String()).Dump(
+				map[int]string{1: "val"},
+			)).Error().To(MatchError(ContainSubstring("must serialize to string")))
 		})
 		Specify("round-trip parse then dump", func() {
 			schema := zyn.Map(zyn.String(), zyn.String())

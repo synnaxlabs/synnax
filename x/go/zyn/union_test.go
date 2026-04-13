@@ -38,13 +38,36 @@ var _ = Describe("Union", func() {
 			Expect(zyn.Union(zyn.String(), zyn.String()).Parse("hello", &dest)).To(Succeed())
 			Expect(dest).To(Equal("hello"))
 		})
+		Specify("concrete destination: first variant", func() {
+			var dest string
+			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse("hello", &dest)).To(Succeed())
+			Expect(dest).To(Equal("hello"))
+		})
+		Specify("concrete destination: second variant", func() {
+			var dest float64
+			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse(42.0, &dest)).To(Succeed())
+			Expect(dest).To(Equal(42.0))
+		})
+		Specify("concrete destination: no match", func() {
+			var dest bool
+			Expect(zyn.Union(zyn.String(), zyn.Number()).Parse("hello", &dest)).
+				To(MatchError(ContainSubstring("did not match any of 2 union variants")))
+		})
 	})
 	Describe("Validate", func() {
 		It("Should succeed when data matches a variant", func() {
 			Expect(zyn.Union(zyn.String(), zyn.Number()).Validate("hello")).To(Succeed())
 		})
 		It("Should fail when data matches no variant", func() {
-			Expect(zyn.Union(zyn.Uint32(), zyn.Bool()).Validate([]any{1, 2})).To(HaveOccurred())
+			Expect(zyn.Union(zyn.Uint32(), zyn.Bool()).Validate([]any{1, 2})).
+				To(MatchError(ContainSubstring("did not match any of 2 union variants")))
+		})
+		It("Should succeed when optional union receives nil", func() {
+			Expect(zyn.Union(zyn.String(), zyn.Number()).Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when required union receives nil", func() {
+			Expect(zyn.Union(zyn.String(), zyn.Number()).Validate(nil)).
+				To(MatchError(validate.ErrRequired))
 		})
 	})
 	Describe("No Match", func() {
@@ -107,6 +130,10 @@ var _ = Describe("Union", func() {
 			var s *string
 			Expect(zyn.Union(zyn.String(), zyn.Number()).Optional().Dump(s)).
 				To(BeNil())
+		})
+		Specify("non-nil pointer is dereferenced", func() {
+			s := "hello"
+			Expect(zyn.Union(zyn.String(), zyn.Number()).Dump(&s)).To(Equal("hello"))
 		})
 	})
 	Describe("Shape", func() {

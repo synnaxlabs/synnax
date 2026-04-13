@@ -62,6 +62,16 @@ var _ = Describe("DiscriminatedUnion", func() {
 			Expect(dest.Type).To(Equal("read"))
 			Expect(dest.SampleRate).To(Equal(1000.0))
 		})
+		Specify("camelCase input data", func() {
+			type ReadConfig struct {
+				Type       string
+				SampleRate float64
+			}
+			var dest ReadConfig
+			Expect(schema.Parse(map[string]any{"type": "read", "sampleRate": 1000.0}, &dest)).To(Succeed())
+			Expect(dest.Type).To(Equal("read"))
+			Expect(dest.SampleRate).To(Equal(1000.0))
+		})
 	})
 	Describe("Validate", func() {
 		It("Should succeed for a valid variant", func() {
@@ -73,6 +83,16 @@ var _ = Describe("DiscriminatedUnion", func() {
 		})
 		It("Should fail for non-map data", func() {
 			Expect(schema.Validate("not a map")).To(HaveOccurred())
+		})
+		It("Should succeed for optional nil", func() {
+			Expect(schema.Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail for required nil", func() {
+			Expect(schema.Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
+		It("Should fail when discriminator field is missing", func() {
+			Expect(schema.Validate(map[string]any{"SampleRate": 42.0})).
+				To(MatchError(ContainSubstring("discriminator field")))
 		})
 	})
 	Describe("Invalid Inputs", func() {
@@ -181,6 +201,31 @@ var _ = Describe("DiscriminatedUnion", func() {
 			Expect(schema.Dump(BadConfig{Type: "delete"})).Error().
 				To(MatchError(ContainSubstring("unknown discriminator value")))
 		})
+		Specify("non-nil pointer to struct is dereferenced", func() {
+			type ReadConfig struct {
+				Type       string
+				SampleRate float64
+			}
+			cfg := &ReadConfig{Type: "read", SampleRate: 1000}
+			result := MustSucceed(schema.Dump(cfg))
+			Expect(result).To(Equal(map[string]any{
+				"type":        "read",
+				"sample_rate": 1000.0,
+			}))
+		})
+		Specify("map input with missing discriminator", func() {
+			Expect(schema.Dump(map[string]any{"SampleRate": 1000.0})).Error().
+				To(MatchError(ContainSubstring("discriminator field")))
+		})
+		Specify("map input with unknown discriminator value", func() {
+			Expect(schema.Dump(map[string]any{"Type": "delete"})).Error().
+				To(MatchError(ContainSubstring("unknown discriminator value")))
+		})
+		Specify("struct missing discriminator field", func() {
+			type NoDisc struct{ SampleRate float64 }
+			Expect(schema.Dump(NoDisc{SampleRate: 100})).Error().
+				To(MatchError(ContainSubstring("discriminator field")))
+		})
 		Specify("round-trip parse then dump", func() {
 			type ReadConfig struct {
 				Type       string
@@ -193,6 +238,81 @@ var _ = Describe("DiscriminatedUnion", func() {
 				"type":        "read",
 				"sample_rate": 1000.0,
 			}))
+		})
+	})
+	Describe("Discriminator Case Forms", func() {
+		It("Should match discriminator via snake_case data key", func() {
+			s := zyn.DiscriminatedUnion("Type",
+				zyn.Object(map[string]zyn.Schema{
+					"Type": zyn.Literal("a"),
+					"X":    zyn.Number(),
+				}),
+				zyn.Object(map[string]zyn.Schema{
+					"Type": zyn.Literal("b"),
+					"Y":    zyn.String(),
+				}),
+			)
+			Expect(s.Validate(map[string]any{"type": "a", "X": 1.0})).To(Succeed())
+		})
+		It("Should match discriminator via camelCase data key", func() {
+			s := zyn.DiscriminatedUnion("TaskType",
+				zyn.Object(map[string]zyn.Schema{
+					"TaskType": zyn.Literal("a"),
+					"X":        zyn.Number(),
+				}),
+				zyn.Object(map[string]zyn.Schema{
+					"TaskType": zyn.Literal("b"),
+					"Y":        zyn.String(),
+				}),
+			)
+			Expect(s.Validate(map[string]any{"taskType": "a", "X": 1.0})).To(Succeed())
+		})
+		It("Should match discriminator via raw data key when neither pascal nor snake match", func() {
+			s := zyn.DiscriminatedUnion("TYPE",
+				zyn.Object(map[string]zyn.Schema{
+					"TYPE": zyn.Literal("a"),
+				}),
+				zyn.Object(map[string]zyn.Schema{
+					"TYPE": zyn.Literal("b"),
+				}),
+			)
+			Expect(s.Validate(map[string]any{"TYPE": "a"})).To(Succeed())
+		})
+		It("Should resolve findFieldSchema via snake_case fallback", func() {
+			Expect(func() {
+				zyn.DiscriminatedUnion("type",
+					zyn.Object(map[string]zyn.Schema{
+						"Type": zyn.Literal("a"),
+					}),
+					zyn.Object(map[string]zyn.Schema{
+						"Type": zyn.Literal("b"),
+					}),
+				)
+			}).NotTo(Panic())
+		})
+		It("Should resolve findFieldSchema via camelCase fallback", func() {
+			Expect(func() {
+				zyn.DiscriminatedUnion("taskType",
+					zyn.Object(map[string]zyn.Schema{
+						"TaskType": zyn.Literal("a"),
+					}),
+					zyn.Object(map[string]zyn.Schema{
+						"TaskType": zyn.Literal("b"),
+					}),
+				)
+			}).NotTo(Panic())
+		})
+		It("Should resolve findFieldSchema via PascalCase fallback", func() {
+			Expect(func() {
+				zyn.DiscriminatedUnion("Type",
+					zyn.Object(map[string]zyn.Schema{
+						"type": zyn.Literal("a"),
+					}),
+					zyn.Object(map[string]zyn.Schema{
+						"type": zyn.Literal("b"),
+					}),
+				)
+			}).NotTo(Panic())
 		})
 	})
 	Describe("Snake Case Schema Definition", func() {
@@ -215,6 +335,37 @@ var _ = Describe("DiscriminatedUnion", func() {
 			Expect(snakeSchema.Parse(map[string]any{"task_type": "read", "rate": 500.0}, &dest)).To(Succeed())
 			Expect(dest.TaskType).To(Equal("read"))
 			Expect(dest.Rate).To(Equal(500.0))
+		})
+	})
+	Describe("Camel Case Schema Definition", func() {
+		It("Should work with camelCase field names in schema", func() {
+			camelSchema := zyn.DiscriminatedUnion("taskType",
+				zyn.Object(map[string]zyn.Schema{
+					"taskType": zyn.Literal("read"),
+					"rate":     zyn.Number(),
+				}),
+				zyn.Object(map[string]zyn.Schema{
+					"taskType": zyn.Literal("write"),
+					"target":   zyn.String(),
+				}),
+			)
+			type ReadTask struct {
+				TaskType string
+				Rate     float64
+			}
+			var dest ReadTask
+			Expect(camelSchema.Parse(map[string]any{"taskType": "read", "rate": 500.0}, &dest)).To(Succeed())
+			Expect(dest.TaskType).To(Equal("read"))
+			Expect(dest.Rate).To(Equal(500.0))
+		})
+	})
+	Describe("Camel Case Dump", func() {
+		It("Should dump from camelCase map input", func() {
+			result := MustSucceed(schema.Dump(map[string]any{"type": "read", "sampleRate": 1000.0}))
+			Expect(result).To(Equal(map[string]any{
+				"type":        "read",
+				"sample_rate": 1000.0,
+			}))
 		})
 	})
 	Describe("Nested Objects", func() {

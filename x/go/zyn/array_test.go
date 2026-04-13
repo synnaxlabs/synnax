@@ -54,6 +54,12 @@ var _ = Describe("Array", func() {
 			Expect(schema.Parse(data, &dest)).To(Succeed())
 			Expect(dest).To(HaveLen(0))
 		})
+		Specify("typed non-[]any slice input", func() {
+			schema := zyn.Array(zyn.String())
+			var dest []string
+			Expect(schema.Parse([]string{"a", "b"}, &dest)).To(Succeed())
+			Expect(dest).To(Equal([]string{"a", "b"}))
+		})
 		Specify("nested array of objects", func() {
 			type Item struct {
 				Name string
@@ -76,8 +82,26 @@ var _ = Describe("Array", func() {
 		It("Should succeed for a valid array", func() {
 			Expect(zyn.Array(zyn.String()).Validate([]any{"a", "b"})).To(Succeed())
 		})
+		It("Should succeed for a typed non-[]any slice", func() {
+			Expect(zyn.Array(zyn.String()).Validate([]string{"a", "b"})).To(Succeed())
+		})
 		It("Should fail for a non-array", func() {
 			Expect(zyn.Array(zyn.String()).Validate("not an array")).To(HaveOccurred())
+		})
+		It("Should succeed for optional nil", func() {
+			Expect(zyn.Array(zyn.String()).Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail for required nil", func() {
+			Expect(zyn.Array(zyn.String()).Validate(nil)).
+				To(MatchError(validate.ErrRequired))
+		})
+		It("Should fail when element validation fails", func() {
+			Expect(zyn.Array(zyn.Uint32()).Validate([]any{uint32(1), "bad"})).
+				To(HaveOccurred())
+		})
+		It("Should fail when length constraint is violated", func() {
+			Expect(zyn.Array(zyn.String()).Min(2).Validate([]any{"a"})).
+				To(MatchError(ContainSubstring("less than minimum")))
 		})
 	})
 	Describe("Invalid Inputs", func() {
@@ -191,6 +215,15 @@ var _ = Describe("Array", func() {
 		Specify("max constraint", func() {
 			Expect(zyn.Array(zyn.String()).Max(1).Dump([]string{"a", "b"})).Error().
 				To(MatchError(ContainSubstring("greater than maximum")))
+		})
+		Specify("non-nil pointer is dereferenced", func() {
+			s := []string{"a", "b"}
+			result := MustSucceed(zyn.Array(zyn.String()).Dump(&s))
+			Expect(result).To(Equal([]any{"a", "b"}))
+		})
+		Specify("element dump error includes index", func() {
+			Expect(zyn.Array(zyn.Uint32().Coerce()).Dump([]int{1, -1, 3})).Error().
+				To(MatchError(ContainSubstring("1")))
 		})
 		Specify("round-trip parse then dump", func() {
 			schema := zyn.Array(zyn.String())
