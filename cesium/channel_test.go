@@ -354,7 +354,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 						By("Trying to rekey")
 						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).
-							Error().To(MatchError(ContainSubstring("1 unclosed writers")))
+							To(MatchError(ContainSubstring("1 unclosed writers")))
 
 						By("Closing writer")
 						Expect(w.Close()).To(Succeed())
