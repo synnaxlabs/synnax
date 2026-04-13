@@ -10,7 +10,6 @@
 package cesium_test
 
 import (
-	"context"
 	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,20 +19,12 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpdate, error) {
-	var u cesium.ControlUpdate
-	if err := json.Codec.Decode(ctx, s.Data, &u); err != nil {
-		return cesium.ControlUpdate{}, err
-	}
-	return u, nil
-}
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
@@ -191,7 +182,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))
-						u := MustSucceed(decodeControlUpdate(ctx, r.Frame.SeriesAt(0)))
+						u := MustSucceed(cesium.DecodeControlUpdate(r.Frame.SeriesAt(0)))
 						g.Expect(u.Transfers).To(HaveLen(1))
 						first := u.Transfers[0]
 						g.Expect(first.Occurred()).To(BeTrue())

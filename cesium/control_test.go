@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"math"
 	"runtime"
@@ -215,7 +214,7 @@ var _ = Describe("Control", func() {
 						var res cesium.StreamerResponse
 						Eventually(stOut.Outlet()).Should(Receive(&res))
 						var d cesium.ControlUpdate
-						Expect(json.Unmarshal(res.Frame.SeriesAt(0).Data, &d)).To(Succeed())
+						d = MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
 						Expect(d.Transfers).To(HaveLen(2))
 						Expect(d.Transfers[0].To).ToNot(BeNil())
 						Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer One"))
@@ -226,7 +225,7 @@ var _ = Describe("Control", func() {
 
 						By("Propagating the control transfer")
 						Eventually(stOut.Outlet()).Should(Receive(&res))
-						Expect(json.Unmarshal(res.Frame.SeriesAt(0).Data, &d)).To(Succeed())
+						d = MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
 						Expect(d.Transfers).To(HaveLen(2))
 						Expect(d.Transfers[0].To).ToNot(BeNil())
 						Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
