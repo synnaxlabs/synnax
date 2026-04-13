@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
@@ -72,6 +73,93 @@ var _ = Describe("Writer", func() {
 				Expect(writer.Close()).To(Succeed())
 			})
 		}
+	})
+
+	Describe("Variable Channels", Ordered, func() {
+		var (
+			s     scenario
+			idxCh channel.Channel
+			strCh channel.Channel
+		)
+		BeforeAll(func(ctx SpecContext) {
+			builder := mock.ProvisionCluster(ctx, 1)
+			dist := builder.Nodes[1]
+			idxCh = channel.Channel{
+				Name:     channel.NewRandomName(),
+				IsIndex:  true,
+				DataType: telem.TimeStampT,
+			}
+			Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+			strCh = channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.StringT,
+				LocalIndex: idxCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+			s = scenario{
+				dist:   dist,
+				closer: builder,
+				name:   "Variable",
+				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
+			}
+		})
+		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+		It("Should write and read persisted string data", func(ctx SpecContext) {
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			MustSucceed(w.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12),
+					telem.NewSeriesV("hello", "world", "foo"),
+				},
+			)))
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+				Keys:   []channel.Key{strCh.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[string](iter.Value().SeriesAt(0))).To(Equal([]string{"hello", "world", "foo"}))
+			Expect(iter.Close()).To(Succeed())
+		})
+		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
+			floatCh := channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float64T,
+				LocalIndex: idxCh.LocalKey,
+			}
+			Expect(s.dist.Channel.Create(ctx, &floatCh)).To(Succeed())
+			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 20 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			MustSucceed(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(20, 21, 22),
+					telem.NewSeriesV[float64](1.1, 2.2, 3.3),
+					telem.NewSeriesV("a", "b", "c"),
+				},
+			)))
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+				Keys:   []channel.Key{strCh.Key()},
+				Bounds: (20 * telem.SecondTS).Range(23 * telem.SecondTS),
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[string](iter.Value().SeriesAt(0))).To(Equal([]string{"a", "b", "c"}))
+			Expect(iter.Close()).To(Succeed())
+		})
 	})
 
 	Describe("Open Errors", Ordered, func() {
