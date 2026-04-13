@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	stdjson "encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -158,4 +159,9 @@ func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, 
 	}
 	s.Data = telem.MarshalVariableSample(raw)
 	return s, nil
+}
+
+func DecodeControlUpdate(s telem.Series) (ControlUpdate, error) {
+	var u ControlUpdate
+	return u, stdjson.Unmarshal(s.At(0), &u)
 }
