@@ -220,6 +220,9 @@ public:
         details::check_little_endian();
     }
 
+    Synnax(Synnax &&) = default;
+    Synnax &operator=(Synnax &&) = default;
+
     ~Synnax() {
         if (this->connectivity) this->connectivity->stop();
     }
