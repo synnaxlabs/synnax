@@ -57,4 +57,11 @@ var _ = Describe("Version", func() {
 			Expect(full).NotTo(ContainSubstring("built:"))
 		})
 	})
+
+	Describe("Numeric", func() {
+		It("Should return major*1000 + minor from the embedded version", func() {
+			n := version.Numeric()
+			Expect(n).To(Equal(54))
+		})
+	})
 })

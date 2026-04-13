@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	httpframer "github.com/synnaxlabs/synnax/pkg/api/http/framer"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -191,5 +192,9 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 		ViewCreate:   fhttp.UnaryServer[view.CreateRequest, view.CreateResponse](router, "/api/v1/view/create"),
 		ViewRetrieve: fhttp.UnaryServer[view.RetrieveRequest, view.RetrieveResponse](router, "/api/v1/view/retrieve"),
 		ViewDelete:   fhttp.UnaryServer[view.DeleteRequest, types.Nil](router, "/api/v1/view/delete"),
+
+		// IMPORT/EXPORT
+		ImExImport: fhttp.UnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import"),
+		ImExExport: fhttp.UnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export"),
 	}
 }
