@@ -14,12 +14,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/client";
 import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
@@ -80,10 +75,7 @@ export const clockSkewDetailsSchema = z.object({
 
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
-const addClockSkewStatus = (
-  addStatus: Status.Adder,
-  state: connection.State,
-): void => {
+const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): void => {
   const skew = state.clockSkew;
   const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
   addStatus<typeof clockSkewDetailsSchema>({

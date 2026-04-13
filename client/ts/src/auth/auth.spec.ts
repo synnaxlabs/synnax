@@ -99,5 +99,4 @@ describe("auth", () => {
       expect(err).toBeInstanceOf(InvalidTokenError);
     });
   });
-
 });

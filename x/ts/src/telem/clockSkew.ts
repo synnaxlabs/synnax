@@ -31,9 +31,7 @@ export class ClockSkewCalculator {
     const localEndT = this.now();
     const halfSpan = localEndT.span(this.localStartT).valueOf() / 2n;
     const thisMidpointT = this.localStartT.add(halfSpan);
-    this.lastSkew = new TimeSpan(
-      thisMidpointT.valueOf() - remoteMidpointT.valueOf(),
-    );
+    this.lastSkew = new TimeSpan(thisMidpointT.valueOf() - remoteMidpointT.valueOf());
   }
 
   get skew(): TimeSpan {
