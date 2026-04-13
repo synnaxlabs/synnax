@@ -261,6 +261,106 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 			})
 
+			Describe("Variable Channels", func() {
+				var (
+					varIdxKey  cesium.ChannelKey
+					varDataKey cesium.ChannelKey
+				)
+				BeforeAll(func(ctx SpecContext) {
+					varIdxKey = GenerateChannelKey()
+					varDataKey = GenerateChannelKey()
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: varIdxKey, Name: "var-iter-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: varDataKey, Name: "var-iter-data", Index: varIdxKey, DataType: telem.StringT},
+					)).To(Succeed())
+					Expect(db.Write(ctx, 100*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{varIdxKey, varDataKey},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(100, 101, 102, 103, 104, 105, 106, 107, 108, 109),
+							telem.NewSeriesV("s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"),
+						},
+					))).To(Succeed())
+				})
+				It("Should iterate forward through all data", func() {
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   (100 * telem.SecondTS).Range(110 * telem.SecondTS),
+						Channels: []cesium.ChannelKey{varDataKey},
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+					Expect(i.Value().Get(varDataKey).Series[0].Len()).To(Equal(int64(10)))
+					Expect(i.Close()).To(Succeed())
+				})
+				It("Should iterate backward through all data", func() {
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   (100 * telem.SecondTS).Range(110 * telem.SecondTS),
+						Channels: []cesium.ChannelKey{varDataKey},
+					}))
+					Expect(i.SeekLast()).To(BeTrue())
+					Expect(i.Prev(telem.TimeSpanMax)).To(BeTrue())
+					Expect(i.Value().Get(varDataKey).Series[0].Len()).To(Equal(int64(10)))
+					Expect(i.Close()).To(Succeed())
+				})
+				It("Should read a sub-range of data", func() {
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   (102 * telem.SecondTS).Range(106 * telem.SecondTS),
+						Channels: []cesium.ChannelKey{varDataKey},
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+					Expect(telem.UnmarshalSeries[string](i.Value().Get(varDataKey).Series[0])).To(
+						Equal([]string{"s2", "s3", "s4", "s5"}),
+					)
+					Expect(i.Close()).To(Succeed())
+				})
+				It("Should SeekGE to a specific timestamp", func() {
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   (100 * telem.SecondTS).Range(110 * telem.SecondTS),
+						Channels: []cesium.ChannelKey{varDataKey},
+					}))
+					Expect(i.SeekGE(105 * telem.SecondTS)).To(BeTrue())
+					Expect(i.Next(3 * telem.Second)).To(BeTrue())
+					Expect(telem.UnmarshalSeries[string](i.Value().Get(varDataKey).Series[0])).To(
+						Equal([]string{"s5", "s6", "s7"}),
+					)
+					Expect(i.Close()).To(Succeed())
+				})
+				It("Should iterate alongside fixed channels", func(ctx SpecContext) {
+					var (
+						mixIdx   = GenerateChannelKey()
+						fixedKey = GenerateChannelKey()
+						varKey   = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: mixIdx, Name: "mix-iter-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: fixedKey, Name: "mix-iter-fixed", Index: mixIdx, DataType: telem.Int64T},
+						cesium.Channel{Key: varKey, Name: "mix-iter-var", Index: mixIdx, DataType: telem.StringT},
+					)).To(Succeed())
+					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{mixIdx, fixedKey, varKey},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(200, 201, 202, 203, 204, 205, 206, 207, 208, 209),
+							telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+							telem.NewSeriesV("s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"),
+						},
+					))).To(Succeed())
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   (203 * telem.SecondTS).Range(207 * telem.SecondTS),
+						Channels: []cesium.ChannelKey{varKey, fixedKey},
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+					f := i.Value()
+					Expect(telem.UnmarshalSeries[string](f.Get(varKey).Series[0])).To(
+						Equal([]string{"s3", "s4", "s5", "s6"}),
+					)
+					Expect(telem.UnmarshalSeries[int64](f.Get(fixedKey).Series[0])).To(
+						Equal([]int64{3, 4, 5, 6}),
+					)
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Open", func() {
 				It("Should return an error when attempting to open an iterator on a virtual channel", func(ctx SpecContext) {
 					key := GenerateChannelKey()

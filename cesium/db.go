@@ -128,9 +128,12 @@ func (db *DB) Metrics() Metrics {
 	for _, u := range db.mu.unaryDBs {
 		size += u.Size()
 	}
+	for _, v := range db.mu.variableDBs {
+		size += v.Size()
+	}
 	return Metrics{
 		DiskSize:     size,
-		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.virtualDBs),
+		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.variableDBs) + len(db.mu.virtualDBs),
 	}
 }
 
@@ -162,6 +165,9 @@ func (db *DB) Close() error {
 	defer db.mu.Unlock()
 	for _, u := range db.mu.unaryDBs {
 		err = errors.Join(err, u.Close())
+	}
+	for _, v := range db.mu.variableDBs {
+		err = errors.Join(err, v.Close())
 	}
 	return err
 }

@@ -609,12 +609,30 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			keys := set.FromSlice(fr.KeysSlice())
 			for k, db := range w.internal {
 				if !keys.Contains(k) {
-					return missingChannelError(w.idx.ch, db.Channel, nil)
+					dataChannels := make([]Channel, 0, expectedChannels)
+					for otherK, other := range w.internal {
+						if otherK != k {
+							dataChannels = append(dataChannels, other.Channel)
+						}
+					}
+					for _, other := range w.varInternal {
+						dataChannels = append(dataChannels, other.Channel)
+					}
+					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
 				}
 			}
 			for k, db := range w.varInternal {
 				if !keys.Contains(k) {
-					return missingChannelError(w.idx.ch, db.Channel, nil)
+					dataChannels := make([]Channel, 0, expectedChannels)
+					for _, other := range w.internal {
+						dataChannels = append(dataChannels, other.Channel)
+					}
+					for otherK, other := range w.varInternal {
+						if otherK != k {
+							dataChannels = append(dataChannels, other.Channel)
+						}
+					}
+					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
 				}
 			}
 		}
