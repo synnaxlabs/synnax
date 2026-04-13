@@ -45,40 +45,33 @@ func TestDriver(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
+	dist = DeferClose(mock.NewCluster().Provision(ctx))
 	db = dist.DB
-	searchIdx := MustSucceed(search.Open())
-	labelSvc := MustSucceed(label.OpenService(
-		ctx,
-		label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Search:   searchIdx,
-		}),
-	)
-	statusSvc = MustSucceed(status.OpenService(
-		ctx,
-		status.ServiceConfig{
-			Ontology: dist.Ontology,
-			DB:       dist.DB,
-			Group:    dist.Group,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}),
-	)
-	rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	searchIdx := MustOpen(search.Open())
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Search:   searchIdx,
+	}))
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		Ontology: dist.Ontology,
+		DB:       dist.DB,
+		Group:    dist.Group,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
+		HostProvider: hostProvider,
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
 	channelSvc = channel.Wrap(dist.Channel)
 	framerSvc = dist.Framer
-	taskService = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -87,10 +80,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  dist.Channel,
 		Search:   searchIdx,
 	}))
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
 })
 
 // mockFactory is a test implementation of driver.Factory.

@@ -88,9 +88,12 @@ class TelemetryWriter:
                     else:
                         raise
 
-        except Exception:
+        except Exception as e:
             if self._on_error is not None:
-                traceback.print_exc()
+                try:
+                    self._on_error(e)
+                except Exception:
+                    traceback.print_exc()
             else:
                 raise
 

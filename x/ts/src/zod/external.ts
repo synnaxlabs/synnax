@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/zod/nullToUndefined";
+export * from "@/zod/parse";
 export * from "@/zod/schemas";
 export * from "@/zod/toArray";
 export * from "@/zod/util";

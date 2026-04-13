@@ -30,28 +30,28 @@ import (
 
 var _ = Describe("Migration v0", func() {
 	It("Should read a status whose task key was stored as float64", func(ctx SpecContext) {
-		db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.Open())
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -93,7 +93,7 @@ var _ = Describe("Migration v0", func() {
 		// which reads existing statuses as Status[StatusDetails]. This would
 		// fail without the flex DecodeMsgpack on the Key type because the
 		// task key is stored as a msgpack float64.
-		svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+		MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -110,14 +110,5 @@ var _ = Describe("Migration v0", func() {
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Details.Task).To(Equal(taskKey))
 		Expect(restoredStatus.Details.Running).To(BeTrue())
-
-		Expect(svc.Close()).To(Succeed())
-		Expect(rackSvc.Close()).To(Succeed())
-		Expect(stat.Close()).To(Succeed())
-		Expect(labelSvc.Close()).To(Succeed())
-		Expect(g.Close()).To(Succeed())
-		Expect(searchIdx.Close()).To(Succeed())
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 })

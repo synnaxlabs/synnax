@@ -10,7 +10,6 @@
 package compiler_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,7 +33,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := mock.NewCluster()
-	dist = distB.Provision(context.Background())
+	dist = distB.Provision(ctx)
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,

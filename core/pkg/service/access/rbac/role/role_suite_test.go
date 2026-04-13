@@ -35,39 +35,31 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustSucceed(search.Open())
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-		Search:   searchIdx,
-	}))
-	policySvc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	svc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
 	}))
-})
-
-var _ = AfterSuite(func(ctx SpecContext) {
-	Expect(svc.Close()).To(Succeed())
-	Expect(policySvc.Close()).To(Succeed())
-	Expect(g.Close()).To(Succeed())
-	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
+	policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	svc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+		Search:   searchIdx,
+	}))
 })
 
 func TestRole(t *testing.T) {

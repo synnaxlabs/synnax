@@ -34,37 +34,27 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx = MustSucceed(search.Open())
-	DeferCleanup(func() {
-		Expect(searchIdx.Close()).To(Succeed())
-	})
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx = MustOpen(search.Open())
+	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
 	}))
-	svc = MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+	svc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-})
-
-var _ = AfterSuite(func(ctx SpecContext) {
-	Expect(svc.Close()).To(Succeed())
-	Expect(g.Close()).To(Succeed())
-	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 })
 
 func TestRBAC(t *testing.T) {

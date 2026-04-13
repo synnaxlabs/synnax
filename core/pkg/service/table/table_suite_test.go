@@ -25,61 +25,52 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLog(t *testing.T) {
+func TestTable(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Table Suite")
 }
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	ws      workspace.Workspace
-	userSvc *user.Service
-	svc     *table.Service
-	tx      gorp.Tx
+	db  *gorp.DB
+	ws  workspace.Workspace
+	svc *table.Service
+	tx  gorp.Tx
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustSucceed(search.Open())
-	DeferCleanup(func() {
-		Expect(searchIdx.Close()).To(Succeed())
-	})
-	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-		Search:   searchIdx,
-	}))
-	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-		Search:   searchIdx,
-	}))
-	var author user.User
-	author.Username = "test"
-	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
-	ws.Author = author.Key
-	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(table.OpenService(ctx, table.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-})
-
 var (
-	_ = AfterSuite(func(ctx SpecContext) {
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+	_ = BeforeSuite(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		var (
+			otg       = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx = MustOpen(search.Open())
+			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			workspaceSvc = MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+		)
+		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		author := user.User{Username: "test"}
+		Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
+		ws.Author = author.Key
+		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
 	})
-	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = db.OpenTx() })
+	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 )

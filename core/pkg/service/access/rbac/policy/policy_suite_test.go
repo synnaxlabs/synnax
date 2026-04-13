@@ -33,36 +33,25 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustSucceed(search.Open())
-	DeferCleanup(func() {
-		Expect(searchIdx.Close()).To(Succeed())
-	})
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	svc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
+	svc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	roleSvc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
+	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
 	}))
-})
-
-var _ = AfterSuite(func(ctx SpecContext) {
-	Expect(roleSvc.Close()).To(Succeed())
-	Expect(svc.Close()).To(Succeed())
-	Expect(g.Close()).To(Succeed())
-	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 })
 
 func TestPolicy(t *testing.T) {

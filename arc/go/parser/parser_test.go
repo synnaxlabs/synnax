@@ -934,19 +934,11 @@ func broken() {
 			})
 
 			It("Should handle empty input gracefully", func() {
-				_, err := parser.Parse("")
-				// Empty input should either succeed with empty program or fail gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+				MustSucceed(parser.Parse(""))
 			})
 
 			It("Should handle whitespace-only input", func() {
-				_, err := parser.Parse("   \n\t  \n  ")
-				// Whitespace-only should either succeed or fail gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+				MustSucceed(parser.Parse("   \n\t  \n  "))
 			})
 
 			It("Should report error for unclosed brace", func() {
@@ -956,8 +948,8 @@ func broken() {
 			})
 
 			It("Should report error for missing function body", func() {
-				_, err := parser.Parse(`func test()`)
-				Expect(err).NotTo(BeNil())
+				Expect(parser.Parse(`func test()`)).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 	})
@@ -975,8 +967,8 @@ func broken() {
 			})
 
 			It("Should handle empty expression", func() {
-				_, err := parser.ParseExpression("")
-				Expect(err).To(MatchError(ContainSubstring("mismatched input")))
+				Expect(parser.ParseExpression("")).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 
@@ -987,16 +979,13 @@ func broken() {
 			})
 
 			It("Should return error for invalid statement", func() {
-				_, err := parser.ParseStatement("x := := 5")
-				Expect(err).NotTo(BeNil())
+				Expect(parser.ParseStatement("x := := 5")).
+					Error().To(MatchError(ContainSubstring("extraneous input ':='")))
 			})
 
-			It("Should handle empty statement", func() {
-				_, err := parser.ParseStatement("")
-				// Empty statement should produce an error or handle gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+			It("Should error on an empty statement", func() {
+				Expect(parser.ParseStatement("")).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 
@@ -1007,7 +996,8 @@ func broken() {
 			})
 
 			It("Should return error for invalid block", func() {
-				Expect(parser.ParseBlock("{ x := := 5 }")).Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
+				Expect(parser.ParseBlock("{ x := := 5 }")).
+					Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -1016,7 +1006,8 @@ func broken() {
 			})
 
 			It("Should handle block without braces", func() {
-				Expect(parser.ParseBlock("x := 42")).Error().To(MatchError(ContainSubstring("missing '{'")))
+				Expect(parser.ParseBlock("x := 42")).
+					Error().To(MatchError(ContainSubstring("missing '{'")))
 			})
 		})
 
@@ -1027,8 +1018,8 @@ func broken() {
 			})
 
 			It("Should return error for invalid program", func() {
-				_, err := parser.Parse(`func test() { x := := 5 }`)
-				Expect(err).NotTo(BeNil())
+				Expect(parser.Parse(`func test() { x := := 5 }`)).
+					Error().To(MatchError(ContainSubstring("extraneous input ':='")))
 			})
 
 			It("Should handle program with multiple top-level items", func() {
@@ -1103,11 +1094,13 @@ func demux{
 
 				// First output: high f32
 				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("high"))
-				Expect(outputs[0].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(outputs[0].Type_().
+					PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 
 				// Second output: low f32
 				Expect(outputs[1].IDENTIFIER().GetText()).To(Equal("low"))
-				Expect(outputs[1].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(outputs[1].Type_().
+					PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 			})
 
 			It("Should parse func with three named outputs", func() {
@@ -1122,7 +1115,6 @@ func range_classifier{
 				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
 				returnType := stageDecl.OutputType()
 				multiOutput := returnType.MultiOutputBlock()
-
 				outputs := multiOutput.AllNamedOutput()
 				Expect(outputs).To(HaveLen(3))
 				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("below_range"))

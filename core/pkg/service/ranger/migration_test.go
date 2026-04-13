@@ -10,8 +10,6 @@
 package ranger_test
 
 import (
-	"io"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -33,33 +30,25 @@ var _ = Describe("Migrate", func() {
 		db        *gorp.DB
 		svc       *ranger.Service
 		otg       *ontology.Ontology
-		closer    io.Closer
 		gSvc      *group.Service
 		searchIdx *search.Index
 		lab       *label.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx = MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx = MustOpen(search.Open())
+		gSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		lab = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
 			Search:   searchIdx,
 		}))
-		closer = xio.MultiCloser{db, otg, gSvc, lab}
-	})
-	AfterEach(func() {
-		Expect(closer.Close()).To(Succeed())
 	})
 	It("should migrate subgroups to parent ranges and delete groups", func(ctx SpecContext) {
 		// Open a bare Range table with only the codec transition migration.
@@ -117,7 +106,7 @@ var _ = Describe("Migrate", func() {
 		Expect(tx.Close()).To(Succeed())
 		Expect(bareTable.Close()).To(Succeed())
 
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:             db,
 			Ontology:       otg,
 			Group:          gSvc,
@@ -156,6 +145,5 @@ var _ = Describe("Migrate", func() {
 			childNames = append(childNames, c.Name)
 		}
 		Expect(childNames).To(ConsistOf("Range1", "Range2"))
-		Expect(svc.Close()).To(Succeed())
 	})
 })

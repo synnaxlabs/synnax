@@ -162,7 +162,7 @@ var _ = Describe("Group", Ordered, func() {
 			var groups []group.Group
 			Expect(svc.NewRetrieve().WhereKeys(child1.Key, child2.Key, parent.Key).
 				Entries(&groups).Exec(ctx, nil)).
-				To(HaveOccurredAs(query.ErrNotFound))
+				To(MatchError(query.ErrNotFound))
 			Expect(groups).To(BeEmpty())
 		})
 

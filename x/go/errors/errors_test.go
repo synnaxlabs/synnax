@@ -148,8 +148,7 @@ var _ = Describe("Is", func() {
 
 	Describe("New", func() {
 		It("Should create a new error with the given message", func() {
-			err := errors.New("test error")
-			Expect(err.Error()).To(Equal("test error"))
+			Expect(errors.New("test error")).To(MatchError(Equal("test error")))
 		})
 
 		It("Should create unique errors for different messages", func() {
@@ -161,13 +160,11 @@ var _ = Describe("Is", func() {
 
 	Describe("Newf", func() {
 		It("Should create a new error with formatted message", func() {
-			err := errors.Newf("test %s", "error")
-			Expect(err.Error()).To(Equal("test error"))
+			Expect(errors.Newf("test %s", "error")).To(MatchError(Equal("test error")))
 		})
 
 		It("Should handle multiple format arguments", func() {
-			err := errors.Newf("test %s %d", "error", 123)
-			Expect(err.Error()).To(Equal("test error 123"))
+			Expect(errors.Newf("test %s %d", "error", 123)).To(MatchError(Equal("test error 123")))
 		})
 	})
 
