@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary
+package fixed
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = resource.NewClosedError("unary.iterator")
+var errIteratorClosed = resource.NewClosedError("fixed.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation

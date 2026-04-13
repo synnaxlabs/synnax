@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary
+package fixed
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	return db.wrapError(db.delete(ctx, tr))
 }
 
-// GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
+// GarbageCollect removes unused telemetry data in the fixedDB. It is NOT safe to call
 // concurrently with other GarbageCollect methods.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {

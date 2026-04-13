@@ -11,7 +11,7 @@ package cesium
 
 import (
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -41,7 +41,7 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
 	var (
-		internal    []*unary.Iterator
+		internal    []*fixed.Iterator
 		varInternal []*variable.Iterator
 	)
 	defer func() {
@@ -60,8 +60,8 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 	}()
 	for _, key := range cfg.Channels {
-		if uDB, ok := db.mu.unaryDBs[key]; ok {
-			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
+		if fDB, ok := db.mu.fixedDBs[key]; ok {
+			iter, iterErr := fDB.OpenIterator(fixed.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 			if iterErr != nil {
 				return nil, iterErr
 			}

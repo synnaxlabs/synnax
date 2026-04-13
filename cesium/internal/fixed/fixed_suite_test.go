@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary_test
+package fixed_test
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ var (
 	codec       = json.Codec
 )
 
-func TestUnary(t *testing.T) {
+func TestFixed(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Unary Suite")
+	RunSpecs(t, "Fixed Suite")
 }

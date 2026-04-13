@@ -114,7 +114,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	)
 	db.mu.Lock()
 	// This 'defer' statement does a best-effort removal of all renamed directories to
-	// ensure that all DBs deleted from db.mu.unaryDBs and db.mu.virtualDBs are also
+	// ensure that all DBs deleted from db.mu.fixedDBs and db.mu.virtualDBs are also
 	// deleted on FS.
 	defer func() {
 		db.mu.Unlock()
@@ -127,10 +127,10 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
-		udb, uok := db.mu.unaryDBs[ch]
+		fdb, fok := db.mu.fixedDBs[ch]
 
-		if !uok || udb.Channel().IsIndex {
-			if udb.Channel().IsIndex {
+		if !fok || fdb.Channel().IsIndex {
+			if fdb.Channel().IsIndex {
 				indexChannels = append(indexChannels, ch)
 			}
 			continue
@@ -173,37 +173,37 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return
 }
 
-// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel or
+// removeChannel removes ch from db.mu.fixedDBs or db.mu.virtualDBs. If the channel or
 // if there is an open resource on the specified database.
 func (db *DB) removeChannel(ch ChannelKey) error {
-	uDB, uOk := db.mu.unaryDBs[ch]
-	if uOk {
-		if uDB.Channel().IsIndex {
-			for otherDBKey, otherDB := range db.mu.unaryDBs {
-				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
+	fDB, fOk := db.mu.fixedDBs[ch]
+	if fOk {
+		if fDB.Channel().IsIndex {
+			for otherDBKey, otherDB := range db.mu.fixedDBs {
+				if otherDBKey != ch && otherDB.Channel().Index == fDB.Channel().Key {
 					return errors.Newf(
 						"cannot delete channel %v "+
 							"because it indexes data in channel %v",
-						uDB.Channel(),
+						fDB.Channel(),
 						otherDB.Channel(),
 					)
 				}
 			}
 			for _, otherDB := range db.mu.variableDBs {
-				if otherDB.Channel().Index == uDB.Channel().Key {
+				if otherDB.Channel().Index == fDB.Channel().Key {
 					return errors.Newf(
 						"cannot delete channel %v "+
 							"because it indexes data in channel %v",
-						uDB.Channel(),
+						fDB.Channel(),
 						otherDB.Channel(),
 					)
 				}
 			}
 		}
-		if err := uDB.Close(); err != nil {
+		if err := fDB.Close(); err != nil {
 			return err
 		}
-		delete(db.mu.unaryDBs, ch)
+		delete(db.mu.fixedDBs, ch)
 		return nil
 	}
 	varDB, varOk := db.mu.variableDBs[ch]
@@ -242,9 +242,9 @@ func (db *DB) DeleteTimeRange(
 	)
 
 	for _, ch := range chs {
-		uDB, uOk := db.mu.unaryDBs[ch]
-		if uOk {
-			if uDB.Channel().IsIndex {
+		fDB, fOk := db.mu.fixedDBs[ch]
+		if fOk {
+			if fDB.Channel().IsIndex {
 				indexChannels = append(indexChannels, ch)
 			} else {
 				dataChannels = append(dataChannels, ch)
@@ -262,8 +262,8 @@ func (db *DB) DeleteTimeRange(
 	}
 
 	for _, ch := range dataChannels {
-		if udb, ok := db.mu.unaryDBs[ch]; ok {
-			if err := udb.Delete(ctx, tr); err != nil {
+		if fdb, ok := db.mu.fixedDBs[ch]; ok {
+			if err := fdb.Delete(ctx, tr); err != nil {
 				return err
 			}
 		} else if vardb, ok := db.mu.variableDBs[ch]; ok {
@@ -274,8 +274,8 @@ func (db *DB) DeleteTimeRange(
 	}
 
 	for _, ch := range indexChannels {
-		udb := db.mu.unaryDBs[ch]
-		for otherDBKey, otherDB := range db.mu.unaryDBs {
+		fdb := db.mu.fixedDBs[ch]
+		for otherDBKey, otherDB := range db.mu.fixedDBs {
 			if otherDBKey == ch || otherDB.Channel().Index != ch {
 				continue
 			}
@@ -284,7 +284,7 @@ func (db *DB) DeleteTimeRange(
 				return errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
-					udb.Channel(),
+					fdb.Channel(),
 					otherDB.Channel(),
 					tr,
 				)
@@ -299,13 +299,13 @@ func (db *DB) DeleteTimeRange(
 				return errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
-					udb.Channel(),
+					fdb.Channel(),
 					otherDB.Channel(),
 					tr,
 				)
 			}
 		}
-		if err := udb.Delete(ctx, tr); err != nil {
+		if err := fdb.Delete(ctx, tr); err != nil {
 			return err
 		}
 	}
@@ -322,15 +322,15 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 		sCtx, cancel = signal.WithCancel(ctx)
 	)
 	defer cancel()
-	for _, uDB := range db.mu.unaryDBs {
+	for _, fDB := range db.mu.fixedDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
 			db.mu.RUnlock()
 			return err
 		}
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
-			return uDB.GarbageCollect(_ctx)
-		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
+			return fDB.GarbageCollect(_ctx)
+		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", fDB.Channel()))
 	}
 	for _, varDB := range db.mu.variableDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {

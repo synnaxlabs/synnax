@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
@@ -327,14 +327,14 @@ func (w *streamWriter) close(ctx context.Context) error {
 	return err
 }
 
-type unaryWriterState struct {
-	unary.Writer
+type fixedWriterState struct {
+	fixed.Writer
 	timesWritten int
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
-	internal    map[ChannelKey]*unaryWriterState
+	internal    map[ChannelKey]*fixedWriterState
 	varInternal map[ChannelKey]*variableWriterState
 	idx         struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
@@ -466,8 +466,8 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)+len(w.varInternal)),
 	}
-	for _, unaryWriter := range w.internal {
-		transfer, closeErr := unaryWriter.Close()
+	for _, fixedWriter := range w.internal {
+		transfer, closeErr := fixedWriter.Close()
 		if closeErr != nil {
 			err = errors.Join(err, closeErr)
 		} else if transfer.Occurred() {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary
+package fixed
 
 import (
 	"context"
@@ -29,9 +29,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrVirtual is returned when the caller tried to open a unary database on a virtual
+// ErrVirtual is returned when the caller tried to open a fixed database on a virtual
 // channel.
-var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
+var ErrVirtual = errors.New("cannot open a fixed database on a virtual channel")
 
 // Config is the configuration for opening a DB.
 type Config struct {

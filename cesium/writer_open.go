@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
@@ -201,8 +201,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	makeUnaryConfig := func(
 		i int,
 		domainAlignment uint32,
-	) unary.WriterConfig {
-		return unary.WriterConfig{
+	) fixed.WriterConfig {
+		return fixed.WriterConfig{
 			Subject:                  cfg.ControlSubject,
 			ErrOnUnauthorizedOpen:    cfg.ErrOnUnauthorized,
 			EnableAutoCommit:         cfg.EnableAutoCommit,
@@ -221,13 +221,13 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	//    list of channels).
 	//
 	// For the second pass, we open all indexed writers for particular indexes. This
-	// ensures that we provide a valid domain alignment to all unary writers for a
+	// ensures that we provide a valid domain alignment to all fixed writers for a
 	// particular index group.
 	for i, key := range cfg.Channels {
-		u, isUnary := db.mu.unaryDBs[key]
+		u, isFixed := db.mu.fixedDBs[key]
 		_, isVariable := db.mu.variableDBs[key]
 		v, isVirtual := db.mu.virtualDBs[key]
-		if !isVirtual && !isUnary && !isVariable {
+		if !isVirtual && !isFixed && !isVariable {
 			return nil, channel.NewNotFoundError(key)
 		}
 		if isVariable {
@@ -252,8 +252,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 		} else if u.Channel().IsIndex {
-			var unaryW *unary.Writer
-			unaryW, transfer, err = u.OpenWriter(
+			var fixedW *fixed.Writer
+			fixedW, transfer, err = u.OpenWriter(
 				ctx,
 				// A domain alignment of 0 lets the writer choose the domain alignment,
 				// which is what we want for an index.
@@ -273,8 +273,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 			idxW.writingToIdx = true
-			idxW.domainAlignment = unaryW.DomainIndex()
-			idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
+			idxW.domainAlignment = fixedW.DomainIndex()
+			idxW.internal[key] = &fixedWriterState{Writer: *fixedW}
 			domainWriters[u.Channel().Index] = idxW
 		}
 		if transfer.Occurred() {
@@ -284,8 +284,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 
 	// On the second pass, we open all fixed-density domain-indexed writers.
 	for i, key := range cfg.Channels {
-		u, uOk := db.mu.unaryDBs[key]
-		if !uOk || u.Channel().IsIndex || u.Channel().Index == 0 {
+		u, fOk := db.mu.fixedDBs[key]
+		if !fOk || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
 		}
 		idxW, ok := domainWriters[u.Channel().Index]
@@ -300,7 +300,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			idxW.writingToIdx = false
 			domainWriters[u.Channel().Index] = idxW
 		}
-		unaryW, transfer, err := u.OpenWriter(
+		fixedW, transfer, err := u.OpenWriter(
 			ctx,
 			makeUnaryConfig(i, idxW.domainAlignment),
 		)
@@ -310,7 +310,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
-		idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
+		idxW.internal[key] = &fixedWriterState{Writer: *fixedW}
 	}
 
 	// Third pass: open variable-density channel writers and add them to the
@@ -382,11 +382,11 @@ func (db *DB) openDomainIdxWriter(
 	idxKey ChannelKey,
 	cfg WriterConfig,
 ) (*idxWriter, error) {
-	u, ok := db.mu.unaryDBs[idxKey]
+	u, ok := db.mu.fixedDBs[idxKey]
 	if !ok {
 		return nil, channel.NewNotFoundError(idxKey)
 	}
-	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
+	w := &idxWriter{internal: make(map[ChannelKey]*fixedWriterState)}
 	w.idx.ch = u.Channel()
 	w.idx.Domain = u.Index()
 	w.idx.highWaterMark = cfg.Start

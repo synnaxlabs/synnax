@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary_test
+package fixed_test
 
 import (
 	"math"
@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,9 +25,9 @@ var _ = Describe("Garbage Collection", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				dataDB   *unary.DB
+				dataDB   *fixed.DB
 				dataFS   fs.FS
-				indexDB  *unary.DB
+				indexDB  *fixed.DB
 				indexFS  fs.FS
 				dataKey  channel.Key = 2
 				indexKey channel.Key = 3
@@ -38,7 +38,7 @@ var _ = Describe("Garbage Collection", func() {
 					var fs fs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: channel.Channel{
@@ -53,7 +53,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: channel.Channel{
@@ -84,8 +84,8 @@ var _ = Describe("Garbage Collection", func() {
 							data = append(data, int64(i*10+j))
 							index = append(index, telem.TimeStamp(i*10+j))
 						}
-						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
-						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV(data...))).To(Succeed())
+						Expect(fixed.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
+						Expect(fixed.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV(data...))).To(Succeed())
 					}
 
 					By("Deleting data from the channel")
@@ -123,7 +123,7 @@ var _ = Describe("Garbage Collection", func() {
 					var fs fs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: channel.Channel{
@@ -137,7 +137,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: channel.Channel{
@@ -159,14 +159,14 @@ var _ = Describe("Garbage Collection", func() {
 				})
 
 				Specify("Only some files GC", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
-					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
-					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSeriesSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
+					Expect(fixed.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
+					Expect(fixed.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
+					Expect(fixed.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
+					Expect(fixed.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSeriesSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
 
-					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18)))
-					Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24, 25, 26)))
-					Expect(unary.Write(ctx, dataDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
+					Expect(fixed.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18)))
+					Expect(fixed.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24, 25, 26)))
+					Expect(fixed.Write(ctx, dataDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
 
 					Expect(dataDB.Delete(ctx, (17 * telem.SecondTS).Range(19*telem.SecondTS))).To(Succeed())
 					Expect(dataDB.Delete(ctx, (20 * telem.SecondTS).Range(26*telem.SecondTS))).To(Succeed())
@@ -183,8 +183,8 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(MustSucceed(dataFS.Stat("3.domain")).Size()).To(Equal(int64(64)))
 
 					By("Writing more data")
-					Expect(unary.Write(ctx, dataDB, 50*telem.SecondTS, telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56))).To(Succeed())
-					Expect(unary.Write(ctx, dataDB, 17*telem.SecondTS, telem.NewSeriesV[int64](17, 18))).To(Succeed())
+					Expect(fixed.Write(ctx, dataDB, 50*telem.SecondTS, telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56))).To(Succeed())
+					Expect(fixed.Write(ctx, dataDB, 17*telem.SecondTS, telem.NewSeriesV[int64](17, 18))).To(Succeed())
 
 					By("Asserting that the data is correct")
 					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))

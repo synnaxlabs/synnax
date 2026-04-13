@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary
+package fixed
 
 import (
 	"context"
@@ -76,14 +76,14 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    new(false),
 	}
-	errWriterClosed = resource.NewClosedError("unary.writer")
+	errWriterClosed = resource.NewClosedError("fixed.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
-	v := validate.New("unary.writer_config")
+	v := validate.New("fixed.writer_config")
 	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
 	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	validate.NotNil(v, "persist", c.Persist)
@@ -121,7 +121,7 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
-// controlledWriter is used for exchanging control between multiple unary writers. When
+// controlledWriter is used for exchanging control between multiple fixed writers. When
 // control is transferred, ownership of the domain writer is moved to the new unary
 // writer. Additional state is included to ensure that write positions and channel
 // information are consistent.
@@ -151,9 +151,9 @@ func (w *controlledWriter) storeAlignment(a telem.Alignment) {
 }
 
 type Writer struct {
-	// control stores the gate held by the writer in the controller of the unaryDB.
+	// control stores the gate held by the writer in the controller of the fixedDB.
 	control *control.Gate[*controlledWriter]
-	// idx stores the index of the unaryDB (rate or domain).
+	// idx stores the index of the fixedDB (rate or domain).
 	idx *index.Domain
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.

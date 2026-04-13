@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/variable"
 	xcontrol "github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -28,12 +28,12 @@ var _ = Describe("DB", func() {
 			var (
 				fs      xfs.FS
 				cleanUp func() error
-				indexDB *unary.DB
+				indexDB *fixed.DB
 				dataDB  *variable.DB
 			)
 			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: codec,
 					Channel: channel.Channel{
@@ -100,7 +100,7 @@ var _ = Describe("DB", func() {
 
 			Describe("Write + Read", func() {
 				It("Should write and read string data", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 10*telem.SecondTS,
@@ -124,7 +124,7 @@ var _ = Describe("DB", func() {
 					defer func() { Expect(jsonDB.Close()).To(Succeed()) }()
 					jsonDB.SetIndex(indexDB.Index())
 
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 20*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(20, 21),
 					)).To(Succeed())
 					jsonSeries := MustSucceed(telem.NewJSONSeriesV(
@@ -150,7 +150,7 @@ var _ = Describe("DB", func() {
 					defer func() { Expect(bytesDB.Close()).To(Succeed()) }()
 					bytesDB.SetIndex(indexDB.Index())
 
-					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 30*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(30, 31, 32),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, bytesDB, 30*telem.SecondTS,
@@ -162,7 +162,7 @@ var _ = Describe("DB", func() {
 					Expect(samples).To(Equal([][]byte{{1, 2, 3}, {4, 5}, {6}}))
 				})
 				It("Should write and read empty strings", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 40*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 40*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(40, 41, 42),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 40*telem.SecondTS,
@@ -173,7 +173,7 @@ var _ = Describe("DB", func() {
 					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).To(Equal([]string{"", "nonempty", ""}))
 				})
 				It("Should write and read strings containing newlines", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 50*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(50, 51),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 50*telem.SecondTS,
@@ -212,7 +212,7 @@ var _ = Describe("DB", func() {
 
 			Describe("Writer", func() {
 				It("Should track alignment correctly across writes", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 60*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 60*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(60, 61, 62, 63, 64),
 					)).To(Succeed())
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, variable.WriterConfig{
@@ -251,7 +251,7 @@ var _ = Describe("DB", func() {
 
 			Describe("Iterator", func() {
 				It("Should iterate forward through data", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 100*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 100*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(100, 101, 102, 103, 104),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 100*telem.SecondTS,
@@ -297,14 +297,14 @@ var _ = Describe("DB", func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 				It("Should iterate across multiple domains", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 200*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 200*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(200, 201, 202),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 200*telem.SecondTS,
 						telem.NewSeriesV("x", "y", "z"),
 					)).To(Succeed())
 
-					Expect(unary.Write(ctx, indexDB, 203*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 203*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(203, 204),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 203*telem.SecondTS,
@@ -323,7 +323,7 @@ var _ = Describe("DB", func() {
 
 			Describe("Delete", func() {
 				It("Should delete data in a time range", func(ctx SpecContext) {
-					Expect(unary.Write(ctx, indexDB, 300*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 300*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(300, 301, 302, 303, 304),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, dataDB, 300*telem.SecondTS,
@@ -352,7 +352,7 @@ var _ = Describe("DB", func() {
 					}))
 					deleteDB.SetIndex(indexDB.Index())
 
-					Expect(unary.Write(ctx, indexDB, 400*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 400*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(400, 401, 402),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, deleteDB, 400*telem.SecondTS,
@@ -381,7 +381,7 @@ var _ = Describe("DB", func() {
 					}))
 					gcDB.SetIndex(indexDB.Index())
 
-					Expect(unary.Write(ctx, indexDB, 500*telem.SecondTS,
+					Expect(fixed.Write(ctx, indexDB, 500*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(500, 501, 502, 503, 504),
 					)).To(Succeed())
 					Expect(variable.Write(ctx, gcDB, 500*telem.SecondTS,

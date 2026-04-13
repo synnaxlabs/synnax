@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
@@ -58,7 +58,7 @@ type DB struct {
 	relay  *relay
 	closed *atomic.Bool
 	mu     struct {
-		unaryDBs    map[ChannelKey]unary.DB
+		fixedDBs    map[ChannelKey]fixed.DB
 		variableDBs map[ChannelKey]variable.DB
 		virtualDBs  map[ChannelKey]virtual.DB
 		digests    struct {
@@ -125,7 +125,7 @@ func (db *DB) Metrics() Metrics {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var size telem.Size
-	for _, u := range db.mu.unaryDBs {
+	for _, u := range db.mu.fixedDBs {
 		size += u.Size()
 	}
 	for _, v := range db.mu.variableDBs {
@@ -133,7 +133,7 @@ func (db *DB) Metrics() Metrics {
 	}
 	return Metrics{
 		DiskSize:     size,
-		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.variableDBs) + len(db.mu.virtualDBs),
+		ChannelCount: len(db.mu.fixedDBs) + len(db.mu.variableDBs) + len(db.mu.virtualDBs),
 	}
 }
 
@@ -163,7 +163,7 @@ func (db *DB) Close() error {
 	err = errors.Join(err, db.shutdown.Close())
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, u := range db.mu.unaryDBs {
+	for _, u := range db.mu.fixedDBs {
 		err = errors.Join(err, u.Close())
 	}
 	for _, v := range db.mu.variableDBs {

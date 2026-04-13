@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary
+package fixed
 
 import (
 	"context"
@@ -41,13 +41,13 @@ type DB struct {
 	cfg Config
 }
 
-// ErrDBClosed is returned when an operation is attempted on a closed unary database.
-var ErrDBClosed = resource.NewClosedError("unary.db")
+// ErrDBClosed is returned when an operation is attempted on a closed fixed database.
+var ErrDBClosed = resource.NewClosedError("fixed.db")
 
-// Channel returns the channel for this unary database.
+// Channel returns the channel for this fixed database.
 func (db *DB) Channel() channel.Channel { return db.cfg.Channel }
 
-// Index returns the index for the unary database IF AND ONLY IF the channel is an index
+// Index returns the index for the fixed database IF AND ONLY IF the channel is an index
 // channel. Otherwise, this method will panic.
 func (db *DB) Index() *index.Domain {
 	if !db.cfg.Channel.IsIndex {
@@ -67,12 +67,12 @@ func (db *DB) index() *index.Domain {
 
 func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 
-// LeadingControlState returns the first chronological gate in this unary database.
+// LeadingControlState returns the first chronological gate in this fixed database.
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
-// HasDataFor check whether there is a time range in the unary DB's underlying domain
+// HasDataFor check whether there is a time range in the fixed DB's underlying domain
 // that overlaps with the given time range. Note that this function will return false if
 // there is an open writer that could write into the requested time range
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
@@ -108,7 +108,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame channel.Frame
 // Size returns the total size of all data stored in the database.
 func (db *DB) Size() telem.Size { return db.domain.Size() }
 
-// Close closes the unary database, releasing all resources associated with it. Close
+// Close closes the fixed database, releasing all resources associated with it. Close
 // will return an error if there are any unclosed writers, iterators, or delete
 // operations being executed on the database. Close is idempotent, and will return nil
 // if the database is already closed.

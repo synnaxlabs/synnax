@@ -13,14 +13,14 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
-const AutoSpan = unary.AutoSpan
+const AutoSpan = fixed.AutoSpan
 
 var errIteratorClosed = resource.NewClosedError("cesium.iterator")
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary_test
+package fixed_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -32,17 +32,17 @@ var _ = Describe("DB Metadata Operations", func() {
 			cleanUp    func() error
 			indexDBfs  xfs.FS
 			indexDBKey channel.Key
-			indexDB    *unary.DB
+			indexDB    *fixed.DB
 			dataDBfs   xfs.FS
 			dataDBKey  channel.Key
-			dataDB     *unary.DB
+			dataDB     *fixed.DB
 		)
 		Context("FS: "+fsName, func() {
 			BeforeEach(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
 				indexDBKey = testutil.GenerateChannelKey()
 				indexDBfs = MustSucceed(fs.Sub("index"))
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 					FS:        indexDBfs,
 					MetaCodec: codec,
 					Channel: channel.Channel{
@@ -54,7 +54,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				}))
 				dataDBKey = testutil.GenerateChannelKey()
 				dataDBfs = MustSucceed(fs.Sub("data"))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustSucceed(fixed.Open(ctx, fixed.Config{
 					FS:        dataDBfs,
 					MetaCodec: codec,
 					Channel: channel.Channel{
@@ -144,7 +144,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				})
 
 				It("Should return the correct size after writing data", func(ctx SpecContext) {
-					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, fixed.WriterConfig{
 						Start:   telem.TimeStamp(0),
 						Subject: control.Subject{Key: "size_test"},
 					}))
@@ -157,7 +157,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				})
 
 				It("Should accumulate size across multiple writes", func(ctx SpecContext) {
-					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, fixed.WriterConfig{
 						Start:   telem.TimeStamp(0),
 						Subject: control.Subject{Key: "size_test"},
 					}))
@@ -176,9 +176,9 @@ var _ = Describe("DB Metadata Operations", func() {
 	}
 
 	Describe("Close", func() {
-		var db *unary.DB
+		var db *fixed.DB
 		BeforeEach(func(ctx SpecContext) {
-			db = MustSucceed(unary.Open(ctx, unary.Config{
+			db = MustSucceed(fixed.Open(ctx, fixed.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: json.Codec,
 				Channel: channel.Channel{
@@ -193,22 +193,22 @@ var _ = Describe("DB Metadata Operations", func() {
 		It("Should return an error when methods are called on a closed DB", func(ctx SpecContext) {
 
 			Expect(db.Close()).To(Succeed())
-			Expect(db.RenameChannelInMeta(ctx, "new_name")).To(HaveOccurredAs(unary.ErrDBClosed))
-			Expect(db.SetChannelKeyInMeta(ctx, testutil.GenerateChannelKey())).To(HaveOccurredAs(unary.ErrDBClosed))
-			Expect(db.SetIndexKeyInMeta(ctx, testutil.GenerateChannelKey())).To(HaveOccurredAs(unary.ErrDBClosed))
-			Expect(db.SetChannelKeyInMeta(ctx, testutil.GenerateChannelKey())).To(HaveOccurredAs(unary.ErrDBClosed))
-			Expect(db.Delete(ctx, telem.TimeRange{})).To(HaveOccurredAs(unary.ErrDBClosed))
-			Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(unary.ErrDBClosed))
+			Expect(db.RenameChannelInMeta(ctx, "new_name")).To(HaveOccurredAs(fixed.ErrDBClosed))
+			Expect(db.SetChannelKeyInMeta(ctx, testutil.GenerateChannelKey())).To(HaveOccurredAs(fixed.ErrDBClosed))
+			Expect(db.SetIndexKeyInMeta(ctx, testutil.GenerateChannelKey())).To(HaveOccurredAs(fixed.ErrDBClosed))
+			Expect(db.SetChannelKeyInMeta(ctx, testutil.GenerateChannelKey())).To(HaveOccurredAs(fixed.ErrDBClosed))
+			Expect(db.Delete(ctx, telem.TimeRange{})).To(HaveOccurredAs(fixed.ErrDBClosed))
+			Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(fixed.ErrDBClosed))
 			_, err := db.HasDataFor(ctx, telem.TimeRangeMax)
-			Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
-			_, _, err = db.OpenWriter(ctx, unary.WriterConfig{})
-			Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
-			_, err = db.OpenIterator(unary.IteratorConfig{})
-			Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
+			Expect(err).To(HaveOccurredAs(fixed.ErrDBClosed))
+			_, _, err = db.OpenWriter(ctx, fixed.WriterConfig{})
+			Expect(err).To(HaveOccurredAs(fixed.ErrDBClosed))
+			_, err = db.OpenIterator(fixed.IteratorConfig{})
+			Expect(err).To(HaveOccurredAs(fixed.ErrDBClosed))
 		})
 
 		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
-			db := MustSucceed(unary.Open(ctx, unary.Config{
+			db := MustSucceed(fixed.Open(ctx, fixed.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: json.Codec,
 				Channel: channel.Channel{
@@ -218,7 +218,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					IsIndex:  true,
 				},
 			}))
-			writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+			writer, _ := MustSucceed2(db.OpenWriter(ctx, fixed.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
 			Expect(db.Close()).To(MatchError(resource.ErrOpen))
