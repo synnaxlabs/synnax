@@ -212,9 +212,7 @@ class TestSeries:
 
     def test_list_access_json(self):
         """Should correctly access the series by index"""
-        s = sy.Series(
-            [{"hello": "world"}, {"blue": "dog"}], data_type=sy.DataType.JSON
-        )
+        s = sy.Series([{"hello": "world"}, {"blue": "dog"}], data_type=sy.DataType.JSON)
         assert s[1] == {"blue": "dog"}
 
     def test_list_access_string_negative(self):
@@ -517,9 +515,7 @@ class TestMultiSeries:
         s1 = sy.Series(
             [{"hello": "world"}, {"blue": "dog"}], data_type=sy.DataType.JSON
         )
-        s2 = sy.Series(
-            [{"red": "car"}, {"green": "tree"}], data_type=sy.DataType.JSON
-        )
+        s2 = sy.Series([{"red": "car"}, {"green": "tree"}], data_type=sy.DataType.JSON)
         s = sy.MultiSeries([s1, s2])
         assert list(s) == [
             {"hello": "world"},

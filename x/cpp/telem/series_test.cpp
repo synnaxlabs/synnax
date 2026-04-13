@@ -2233,27 +2233,18 @@ TEST(SeriesBytes, DeepCopyIsIndependent) {
     ASSERT_EQ(copy.alignment.uint64(), original.alignment.uint64());
     const auto *orig_raw = reinterpret_cast<const uint8_t *>(original.data());
     const auto *copy_raw = reinterpret_cast<const uint8_t *>(copy.data());
-    ASSERT_EQ(
-        memcmp(orig_raw, copy_raw, original.byte_size()),
-        0
-    );
+    ASSERT_EQ(memcmp(orig_raw, copy_raw, original.byte_size()), 0);
 }
 
 /// @brief strings() should throw when called on a BYTES series.
 TEST(SeriesBytes, StringsThrowsForBytesType) {
-    const Series s(
-        std::vector<std::string>{std::string("\x01\x02", 2)},
-        BYTES_T
-    );
+    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
     ASSERT_THROW((void) s.strings(), std::runtime_error);
 }
 
 /// @brief at<std::string>() should throw when called on a BYTES series.
 TEST(SeriesBytes, AtStringThrowsForBytesType) {
-    const Series s(
-        std::vector<std::string>{std::string("\x01\x02", 2)},
-        BYTES_T
-    );
+    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
     ASSERT_THROW((void) s.at<std::string>(0), std::runtime_error);
 }
 }
