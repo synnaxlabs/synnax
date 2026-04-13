@@ -77,4 +77,3 @@ func buildOffsetTable(r *domain.Reader, domainSize telem.Size) (*offsetTable, er
 	}
 	return t, nil
 }
-
