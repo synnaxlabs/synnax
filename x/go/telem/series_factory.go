@@ -120,23 +120,27 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 // marshalled into JSON.
 func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
+// variableLengthPrefixSize is the number of bytes used for the uint32 LE length prefix
+// in variable-density series encoding.
+const variableLengthPrefixSize = 4
+
 // MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
 // incrementally rather than using NewSeriesV.
 func MarshalVariableSample(sample []byte) []byte {
-	b := make([]byte, 4+len(sample))
+	b := make([]byte, variableLengthPrefixSize+len(sample))
 	binary.LittleEndian.PutUint32(b, uint32(len(sample)))
-	copy(b[4:], sample)
+	copy(b[variableLengthPrefixSize:], sample)
 	return b
 }
 
 func marshalVariable[T VariableSample](data []T) []byte {
-	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 4 })
+	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize })
 	b := make([]byte, total)
 	offset := 0
 	for _, d := range data {
 		binary.LittleEndian.PutUint32(b[offset:], uint32(len(d)))
-		offset += 4
+		offset += variableLengthPrefixSize
 		copy(b[offset:], d)
 		offset += len(d)
 	}
@@ -195,9 +199,9 @@ func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte,
 func unmarshalVariable[T VariableSample](b []byte) []T {
 	var data []T
 	offset := 0
-	for offset+4 <= len(b) {
+	for offset+variableLengthPrefixSize <= len(b) {
 		length := int(binary.LittleEndian.Uint32(b[offset:]))
-		offset += 4
+		offset += variableLengthPrefixSize
 		if offset+length > len(b) {
 			break
 		}

@@ -11,14 +11,12 @@ package cesium
 
 import (
 	"context"
-	stdjson "encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -156,17 +154,22 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	return telem.UnaryFrame(db.mu.digests.key, d)
 }
 
-func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
+// EncodeControlUpdate encodes a ControlUpdate into a single-sample Series. The content
+// is JSON, but the DataType is set to StringT because the control digest channel is
+// created as a StringT virtual channel in core/pkg/distribution/layer.go. Both locations
+// must be updated together if the type is ever changed to JSONT.
+func EncodeControlUpdate(_ context.Context, u ControlUpdate) (telem.Series, error) {
+	s, err := telem.NewJSONSeriesV(u)
 	s.DataType = telem.StringT
-	raw, err := (json.Codec).Encode(ctx, u)
-	if err != nil {
-		return s, err
-	}
-	s.Data = telem.MarshalVariableSample(raw)
-	return s, nil
+	return s, err
 }
 
+// DecodeControlUpdate decodes a ControlUpdate from a single-sample Series. See
+// EncodeControlUpdate for why the Series has DataType StringT despite containing JSON.
 func DecodeControlUpdate(s telem.Series) (ControlUpdate, error) {
-	var u ControlUpdate
-	return u, stdjson.Unmarshal(s.At(0), &u)
+	updates, err := telem.UnmarshalJSONSeries[ControlUpdate](s)
+	if err != nil || len(updates) == 0 {
+		return ControlUpdate{}, err
+	}
+	return updates[0], nil
 }

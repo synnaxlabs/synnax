@@ -25,14 +25,16 @@
 #include "x/go/telem/pb/frame.pb.h"
 #include "x/go/telem/pb/telem.pb.h"
 
+constexpr size_t VARIABLE_LENGTH_PREFIX_SIZE = sizeof(uint32_t);
+
 static inline uint32_t read_u32_le(const std::byte *ptr) {
     uint32_t v;
-    memcpy(&v, ptr, 4);
+    memcpy(&v, ptr, VARIABLE_LENGTH_PREFIX_SIZE);
     return v;
 }
 
 static inline void write_u32_le(std::byte *ptr, uint32_t v) {
-    memcpy(ptr, &v, 4);
+    memcpy(ptr, &v, VARIABLE_LENGTH_PREFIX_SIZE);
 }
 
 namespace x::telem {
@@ -590,7 +592,7 @@ public:
             throw std::runtime_error("expected data type to be STRING or JSON");
         this->cached_byte_size = 0;
         for (const auto &s: d)
-            this->cached_byte_size += s.size() + 4;
+            this->cached_byte_size += s.size() + VARIABLE_LENGTH_PREFIX_SIZE;
         this->data_ = alloc(this->byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
@@ -609,7 +611,7 @@ public:
     explicit Series(const std::string &data, DataType data_type_ = STRING_T):
         data_type_(std::move(data_type_)),
         cap_(1),
-        cached_byte_size(data.size() + 4),
+        cached_byte_size(data.size() + VARIABLE_LENGTH_PREFIX_SIZE),
         size_(1),
         data_(alloc(this->byte_size())) {
         if (!this->data_type().matches({STRING_T, JSON_T}))
@@ -634,7 +636,7 @@ public:
         data_type_(DataType::infer(v)), cap_(1), size_(1) {
         if (this->data_type().is_variable()) {
             const auto &str = std::get<std::string>(v);
-            cached_byte_size = str.size() + 4;
+            cached_byte_size = str.size() + VARIABLE_LENGTH_PREFIX_SIZE;
             this->data_ = alloc(this->byte_size());
             write_u32_le(this->data_.get(), static_cast<uint32_t>(str.size()));
             memcpy(this->data_.get() + 4, str.data(), str.size());
@@ -655,16 +657,13 @@ public:
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
         this->cached_byte_size = 0;
         for (const auto &value: values)
-            this->cached_byte_size += value.dump().size() + 4;
+            this->cached_byte_size += value.dump().size() + VARIABLE_LENGTH_PREFIX_SIZE;
 
         this->data_ = alloc(this->byte_size());
         size_t offset = 0;
         for (const auto &value: values) {
             const auto str = value.dump();
-            write_u32_le(
-                this->data_.get() + offset,
-                static_cast<uint32_t>(str.size())
-            );
+            write_u32_le(this->data_.get() + offset, static_cast<uint32_t>(str.size()));
             offset += 4;
             memcpy(this->data_.get() + offset, str.data(), str.size());
             offset += str.size();
@@ -686,7 +685,7 @@ private:
         } else {
             const auto *ptr = reinterpret_cast<const std::byte *>(pb.data().data());
             const auto *end = ptr + pb.data().size();
-            while (ptr + 4 <= end) {
+            while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
                 const uint32_t len = read_u32_le(ptr);
                 ptr += 4 + len;
                 ++this->size_;
@@ -890,7 +889,7 @@ public:
                 static_cast<uint32_t>(str_len)
             );
             memcpy(this->data_.get() + this->cached_byte_size + 4, str_data, str_len);
-            this->cached_byte_size += str_len + 4;
+            this->cached_byte_size += str_len + VARIABLE_LENGTH_PREFIX_SIZE;
             this->size_++;
             return 1;
         } else if constexpr (std::is_same_v<T, TimeStamp>) {
@@ -954,7 +953,7 @@ public:
         v.reserve(this->size());
         const auto *ptr = this->data_.get();
         const auto *end = ptr + this->byte_size();
-        while (ptr + 4 <= end) {
+        while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
             const uint32_t len = read_u32_le(ptr);
             ptr += 4;
             v.emplace_back(reinterpret_cast<const char *>(ptr), len);
@@ -1005,7 +1004,7 @@ public:
             const auto *ptr = this->data_.get();
             const auto *end = ptr + this->byte_size();
             size_t j = 0;
-            while (ptr + 4 <= end) {
+            while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
                 const uint32_t len = read_u32_le(ptr);
                 ptr += 4;
                 if (j == static_cast<size_t>(adjusted))
@@ -1661,7 +1660,7 @@ public:
             this->size_ = 0;
             const auto *ptr = this->data_.get();
             const auto *end = ptr + this->byte_size();
-            while (ptr + 4 <= end) {
+            while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
                 const uint32_t len = read_u32_le(ptr);
                 ptr += 4 + len;
                 ++this->size_;

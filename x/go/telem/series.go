@@ -32,9 +32,12 @@ func (s Series) Len() int64 {
 		if s.cachedLength == nil {
 			var cl int64
 			offset := 0
-			for offset+4 <= len(s.Data) {
+			for offset+variableLengthPrefixSize <= len(s.Data) {
 				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
-				offset += 4 + length
+				if offset+variableLengthPrefixSize+length > len(s.Data) {
+					break
+				}
+				offset += variableLengthPrefixSize + length
 				cl++
 			}
 			s.cachedLength = &cl
@@ -52,9 +55,9 @@ func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
 			offset := 0
-			for offset+4 <= len(s.Data) {
+			for offset+variableLengthPrefixSize <= len(s.Data) {
 				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
-				offset += 4
+				offset += variableLengthPrefixSize
 				if offset+length > len(s.Data) {
 					return
 				}
@@ -80,9 +83,12 @@ func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
 		offset := 0
-		for offset+4 <= len(s.Data) {
+		for offset+variableLengthPrefixSize <= len(s.Data) {
 			length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
-			offset += 4
+			offset += variableLengthPrefixSize
+			if offset+length > len(s.Data) {
+				break
+			}
 			if i == 0 {
 				return s.Data[offset : offset+length]
 			}
