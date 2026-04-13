@@ -27,7 +27,7 @@ var _ = Describe("Analyzer", func() {
 		for _, r := range results {
 			count += len(r.Diagnostics)
 		}
-		Expect(count).To(BeNumerically(">=", 5))
+		Expect(count).To(Equal(7))
 	})
 
 	It("Should detect map[T]bool patterns", func() {
@@ -40,7 +40,7 @@ var _ = Describe("Analyzer", func() {
 		for _, r := range results {
 			count += len(r.Diagnostics)
 		}
-		Expect(count).To(BeNumerically(">=", 5))
+		Expect(count).To(Equal(7))
 	})
 
 	It("Should not flag clean maps with non-set value types", func() {
