@@ -82,7 +82,7 @@ const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): v
     variant: "warning",
     message: "Clock skew detected",
     description:
-      `This machine's clock is ${direction} Synnax Core ` +
+      `This machine's clock is ${direction} the Synnax core ` +
       `by approximately ${skew.abs().toString()}. This may cause ` +
       `issues with time-series data. Synchronize your system clock.`,
     details: {

@@ -13,17 +13,40 @@
 #include "client/cpp/connection/checker.h"
 
 namespace synnax::connection {
+const std::string TROUBLESHOOTING_URL =
+    "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting";
+
+std::pair<int, int> parse_version(const std::string &v) {
+    std::istringstream ss(v);
+    int major = 0, minor = 0;
+    char dot;
+    ss >> major >> dot >> minor;
+    return {major, minor};
+}
+
 bool versions_compatible(const std::string &v1, const std::string &v2) {
-    auto parse = [](const std::string &v) -> std::pair<int, int> {
-        std::istringstream ss(v);
-        int major = 0, minor = 0;
-        char dot;
-        ss >> major >> dot >> minor;
-        return {major, minor};
-    };
-    auto [maj1, min1] = parse(v1);
-    auto [maj2, min2] = parse(v2);
-    return maj1 == maj2 && min1 == min2;
+    return parse_version(v1) == parse_version(v2);
+}
+
+bool client_is_newer(const std::string &client_ver, const std::string &node_ver) {
+    return parse_version(client_ver) > parse_version(node_ver);
+}
+
+std::string create_version_warning(
+    const std::string &node_version,
+    const std::string &client_version,
+    const bool is_client_newer
+) {
+    const auto to_upgrade = is_client_newer ? "Core" : "client";
+    const auto age = is_client_newer ? "old" : "new";
+    std::ostringstream ss;
+    ss << "The Synnax core version ";
+    if (!node_version.empty()) ss << node_version << " ";
+    ss << "is too " << age << " for client version " << client_version
+       << ". This may cause compatibility issues. We recommend updating the "
+       << to_upgrade << ". For more information, see " << TROUBLESHOOTING_URL << "#old-"
+       << to_upgrade << "-version";
+    return ss.str();
 }
 
 Checker::Checker(
@@ -88,25 +111,26 @@ State Checker::check() {
                                    ? "ahead of"
                                    : "behind";
                 LOG(WARNING) << "Measured excessive clock skew between this host and "
-                                "Synnax Core. This host is "
-                             << direction << " Synnax Core by approximately "
+                                "the Synnax core. This host is "
+                             << direction << " the Synnax core by approximately "
                              << this->skew_calc.skew().abs() << ".";
             }
             const auto &nv = res.node_version();
             if (nv.empty()) {
                 this->_state.client_server_compatible = false;
                 if (!this->version_warned) {
-                    LOG(WARNING) << "Could not determine Synnax Core version. "
-                                    "Compatibility issues may arise.";
+                    LOG(WARNING)
+                        << create_version_warning("", this->client_version, true);
                     this->version_warned = true;
                 }
             } else if (!versions_compatible(this->client_version, nv)) {
                 this->_state.client_server_compatible = false;
                 if (!this->version_warned) {
-                    LOG(WARNING)
-                        << "Synnax Core version " << nv
-                        << " is incompatible with client version "
-                        << this->client_version << ". Compatibility issues may arise.";
+                    LOG(WARNING) << create_version_warning(
+                        nv,
+                        this->client_version,
+                        client_is_newer(this->client_version, nv)
+                    );
                     this->version_warned = true;
                 }
             } else {

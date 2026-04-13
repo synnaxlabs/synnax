@@ -43,6 +43,6 @@ func (s *Service) Check(
 		ClusterKey:  s.cluster.Key().String(),
 		NodeVersion: version.Get(),
 		NodeKey:     s.cluster.HostKey(),
-		NodeTime:    telem.Now(),
+		NodeTime:    telem.Now() - 5*telem.SecondTS,
 	}, nil
 }

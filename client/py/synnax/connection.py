@@ -47,13 +47,41 @@ class CheckResponse(BaseModel):
     node_time: TimeStamp = TimeStamp(0)
 
 
-def _versions_compatible(v1: str, v2: str) -> bool:
+def _parse_version(v: str) -> tuple[int, int]:
     try:
-        p1 = v1.split(".")
-        p2 = v2.split(".")
-        return p1[0] == p2[0] and p1[1] == p2[1]
+        parts = v.split(".")
+        return int(parts[0]), int(parts[1])
     except (IndexError, ValueError):
-        return False
+        return 0, 0
+
+
+def _versions_compatible(v1: str, v2: str) -> bool:
+    return _parse_version(v1) == _parse_version(v2)
+
+
+def _client_is_newer(client_version: str, node_version: str) -> bool:
+    return _parse_version(client_version) > _parse_version(node_version)
+
+
+_TROUBLESHOOTING_URL = (
+    "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting"
+)
+
+
+def _create_version_warning(
+    node_version: str | None,
+    client_version: str,
+    client_is_newer: bool,
+) -> str:
+    to_upgrade = "Core" if client_is_newer else "client"
+    nv = f"{node_version} " if node_version is not None else ""
+    age = "old" if client_is_newer else "new"
+    return (
+        f"The Synnax core version {nv}is too {age} for client version "
+        f"{client_version}. This may cause compatibility issues. We recommend "
+        f"updating the {to_upgrade}. For more information, see "
+        f"{_TROUBLESHOOTING_URL}#old-{to_upgrade}-version"
+    )
 
 
 class Checker:
@@ -114,7 +142,7 @@ class Checker:
                     )
                     logger.warning(
                         "Measured excessive clock skew between this host and "
-                        "Synnax Core. This host is %s Synnax Core "
+                        "the Synnax core. This host is %s the Synnax core "
                         "by approximately %s.",
                         direction,
                         abs(self._skew_calc.skew),
@@ -124,18 +152,22 @@ class Checker:
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         logger.warning(
-                            "Could not determine Synnax Core version. "
-                            "Compatibility issues may arise."
+                            _create_version_warning(
+                                None, self._client_version, True
+                            )
                         )
                         self._version_warned = True
                 elif not _versions_compatible(self._client_version, node_version):
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         logger.warning(
-                            "Synnax Core version %s is incompatible with "
-                            "client version %s. Compatibility issues may arise.",
-                            node_version,
-                            self._client_version,
+                            _create_version_warning(
+                                node_version,
+                                self._client_version,
+                                _client_is_newer(
+                                    self._client_version, node_version
+                                ),
+                            )
                         )
                         self._version_warned = True
                 else:

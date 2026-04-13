@@ -57,7 +57,7 @@ const createWarning = (
   clientIsNewer: boolean,
 ): string => {
   const toUpgrade = clientIsNewer ? "Core" : "client";
-  return `Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
+  return `The Synnax core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
   This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
   https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade}-version`;
 };
@@ -132,7 +132,7 @@ export class Checker {
           const direction = this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
           console.warn(
             `Measured excessive clock skew between this host and ` +
-              `Synnax Core. This host is ${direction} Synnax Core ` +
+              `the Synnax core. This host is ${direction} the Synnax core ` +
               `by approximately ${this.skewCalc.skew.abs().toString()}.`,
           );
         }
