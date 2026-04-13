@@ -32,47 +32,32 @@ type Retrieve struct {
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
 // construct one from a closure.
-type Filter func(r Retrieve) gorp.Filter[Key, Task]
+//
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the
+// composition helpers (Match / And / Or / Not) can be one-line wrappers
+// around their gorp.*Bound counterparts instead of re-emitting closure
+// plumbing per service.
+type Filter = gorp.BoundFilter[Retrieve, Key, Task]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
-func Match(
-	f func(ctx gorp.Context, r Retrieve, e *Task) (bool, error),
-) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return gorp.Match(func(ctx gorp.Context, e *Task) (bool, error) {
-			return f(ctx, r, e)
-		})
-	}
+func Match(f func(ctx gorp.Context, r Retrieve, e *Task) (bool, error)) Filter {
+	return gorp.MatchBound[Retrieve, Key, Task](f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Task] {
-		inner := make([]gorp.Filter[Key, Task], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.And(inner...)
-	}
+	return gorp.AndBound[Retrieve, Key, Task](fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Task] {
-		inner := make([]gorp.Filter[Key, Task], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.Or(inner...)
-	}
+	return gorp.OrBound[Retrieve, Key, Task](fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return gorp.Not(f(r))
-	}
+	return gorp.NotBound[Retrieve, Key, Task](f)
 }
 
 // Search sets a fuzzy search term that Retrieve will use to filter results.

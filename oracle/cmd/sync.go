@@ -25,10 +25,13 @@ import (
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
+	goapi "github.com/synnaxlabs/oracle/plugin/go/api"
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
+	pyfilter "github.com/synnaxlabs/oracle/plugin/py/filter"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
+	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -178,6 +181,9 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
 	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
 	_ = registry.Register(goquery.New(goquery.DefaultOptions()))
+	_ = registry.Register(goapi.New(goapi.DefaultOptions()))
+	_ = registry.Register(tsfilter.New(tsfilter.DefaultOptions()))
+	_ = registry.Register(pyfilter.New(pyfilter.DefaultOptions()))
 	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
 	return registry
 }

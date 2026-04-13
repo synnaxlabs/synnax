@@ -81,6 +81,7 @@ Rack struct {
     @go migrate
     @retrieve custom
     @search
+    @api output      "core/pkg/api/rack"
     @py name         "Base"
     @cpp methods     "task::Client tasks"
     @cpp includes    "client/cpp/task/task.h"
