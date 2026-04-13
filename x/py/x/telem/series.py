@@ -32,6 +32,8 @@ from x.telem.telem import (
     TimeStamp,
 )
 
+VARIABLE_LENGTH_PREFIX_SIZE = 4
+
 
 class Series(BaseModel):
     """Series is a strongly typed array of telemetry samples backed by an underlying
@@ -70,9 +72,11 @@ class Series(BaseModel):
             count = 0
             offset = 0
             d = self.data
-            while offset + 4 <= len(d):
-                length = int.from_bytes(d[offset : offset + 4], "little")
-                offset += 4 + length
+            while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+                length = int.from_bytes(
+                    d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                )
+                offset += VARIABLE_LENGTH_PREFIX_SIZE + length
                 count += 1
             self.__len_cache = count
         return self.__len_cache
@@ -118,10 +122,16 @@ class Series(BaseModel):
             data_type = data_type or DataType(data)
             if data_type == DataType.JSON:
                 parts = [json.dumps(d).encode("utf-8") for d in data]
-                data_ = b"".join(len(p).to_bytes(4, "little") + p for p in parts)
+                data_ = b"".join(
+                    len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p
+                    for p in parts
+                )
             elif data_type == DataType.STRING:
                 parts = [str(d).encode("utf-8") for d in data]
-                data_ = b"".join(len(p).to_bytes(4, "little") + p for p in parts)
+                data_ = b"".join(
+                    len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p
+                    for p in parts
+                )
             elif data_type == DataType.UUID:
                 uuids = [d for d in data if isinstance(d, uuid.UUID)]
                 data_ = b"".join(d.bytes for d in uuids)
@@ -134,10 +144,14 @@ class Series(BaseModel):
         elif isinstance(data, dict):
             data_type = data_type or DataType.JSON
             encoded = json.dumps(data).encode("utf-8")
-            data_ = len(encoded).to_bytes(4, "little") + encoded
+            data_ = (
+                len(encoded).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + encoded
+            )
         elif isinstance(data, str):
             encoded = data.encode("utf-8")
-            data_ = len(encoded).to_bytes(4, "little") + encoded
+            data_ = (
+                len(encoded).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + encoded
+            )
             data_type = DataType.STRING
         else:
             if data_type is None:
@@ -205,9 +219,11 @@ class Series(BaseModel):
         offset = 0
         d = self.data
         current = 0
-        while offset + 4 <= len(d):
-            length = int.from_bytes(d[offset : offset + 4], "little")
-            offset += 4
+        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            length = int.from_bytes(
+                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+            )
+            offset += VARIABLE_LENGTH_PREFIX_SIZE
             if current == index:
                 return d[offset : offset + length]
             offset += length
@@ -229,9 +245,11 @@ class Series(BaseModel):
     def __iter__variable(self) -> Iterator[bytes]:
         offset = 0
         d = self.data
-        while offset + 4 <= len(d):
-            length = int.from_bytes(d[offset : offset + 4], "little")
-            offset += 4
+        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            length = int.from_bytes(
+                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+            )
+            offset += VARIABLE_LENGTH_PREFIX_SIZE
             yield d[offset : offset + length]
             offset += length
 
