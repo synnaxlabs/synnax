@@ -608,7 +608,7 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * Returns the number of samples in this array.
-   * For variable length data types, this is calculated by counting newlines.
+   * For variable length data types, this is calculated by scanning uint32 length prefixes.
    * @returns The number of samples in the series.
    */
   get length(): number {
