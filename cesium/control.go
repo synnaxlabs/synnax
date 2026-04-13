@@ -149,12 +149,18 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	return telem.UnaryFrame(db.mu.digests.key, d)
 }
 
+// EncodeControlUpdate encodes a ControlUpdate into a single-sample Series. The content
+// is JSON, but the DataType is set to StringT because the control digest channel is
+// created as a StringT virtual channel in core/pkg/distribution/layer.go. Both locations
+// must be updated together if the type is ever changed to JSONT.
 func EncodeControlUpdate(_ context.Context, u ControlUpdate) (telem.Series, error) {
 	s, err := telem.NewJSONSeriesV(u)
 	s.DataType = telem.StringT
 	return s, err
 }
 
+// DecodeControlUpdate decodes a ControlUpdate from a single-sample Series. See
+// EncodeControlUpdate for why the Series has DataType StringT despite containing JSON.
 func DecodeControlUpdate(s telem.Series) (ControlUpdate, error) {
 	updates, err := telem.UnmarshalJSONSeries[ControlUpdate](s)
 	if err != nil || len(updates) == 0 {
