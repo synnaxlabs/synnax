@@ -18,6 +18,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from freighter import UnaryClient
+from freighter.transport import Empty
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -92,7 +93,7 @@ class Checker:
         self._skew_calc.start()
         try:
             res = send_required(
-                self._client, "/connectivity/check", None, CheckResponse
+                self._client, "/connectivity/check", Empty(), CheckResponse
             )
         except Exception as e:
             with self._lock:
