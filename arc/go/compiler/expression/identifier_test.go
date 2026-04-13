@@ -539,5 +539,38 @@ var _ = Describe("Identifier Compilation", func() {
 				OpCall, uint32(0),
 			))
 		})
+
+		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
+			_, exprType := compileWithAnalyzer(
+				ctx,
+				`string.len("hello")`,
+				stl.SymbolResolver,
+			)
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
+			_, exprType := compileWithAnalyzer(
+				ctx,
+				`string.concat("a", "b")`,
+				stl.SymbolResolver,
+			)
+			Expect(exprType).To(Equal(types.String()))
+		})
+
+		It("Should compile math.pow() with type variable resolution", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"x": {Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
+				},
+				stl.SymbolResolver,
+			}
+			_, exprType := compileWithAnalyzer(
+				ctx,
+				"math.pow(x, 2)",
+				resolver,
+			)
+			Expect(exprType).To(Equal(types.F64()))
+		})
 	})
 })

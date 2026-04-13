@@ -985,6 +985,25 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
+	Describe("For Loop Locals", func() {
+		It("Should compile a function with a for loop and loop variable", func(ctx SpecContext) {
+			output := MustSucceed(compile(ctx, `
+			func sumRange() i64 {
+				total i64 := 0
+				for i := range(5) {
+					total = total + i
+				}
+				return total
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			sumRange := mod.ExportedFunction("sumRange")
+			Expect(sumRange).ToNot(BeNil())
+			results := MustSucceed(sumRange.Call(ctx))
+			Expect(results).To(ConsistOf(uint64(10)))
+		})
+	})
+
 	Describe("Literal Type Inference", func() {
 		It("Should compile integer literal with f32 variable", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
