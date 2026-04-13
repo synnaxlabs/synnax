@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { schematic } from "@synnaxlabs/client";
+import { schematic, type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -19,6 +19,8 @@ import {
   Haul,
   Icon,
   Schematic as Base,
+  Status,
+  Synnax,
   Theming,
   usePrevious,
   User,
@@ -34,13 +36,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
+  selectNodeProps,
   selectOptional,
   selectRequired,
   useSelectLegendVisible,
@@ -66,6 +69,7 @@ import {
   setViewport,
   setViewportMode,
   type State,
+  type StoreState,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -74,6 +78,60 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
+
+type SchematicRetriever = {
+  schematics: Pick<SynnaxClient["schematics"], "retrieve">;
+};
+
+export const navigateToLinkedSchematic = async (
+  client: SchematicRetriever,
+  page: string,
+  placeLayout: Layout.Placer,
+): Promise<void> => {
+  const s = await client.schematics.retrieve({ key: page });
+  placeLayout(create({ ...s.data, ...s }));
+};
+
+export interface HandleNodeClickArgs {
+  editable: boolean;
+  client: SchematicRetriever | null;
+  storeState: StoreState;
+  layoutKey: string;
+  nodeId: string;
+  placeLayout: Layout.Placer;
+  handleError: Status.ErrorHandler;
+  dblClick: boolean;
+}
+
+export const handleNodeClickAction = (args: HandleNodeClickArgs): void => {
+  const {
+    editable,
+    client,
+    storeState,
+    layoutKey,
+    nodeId,
+    placeLayout,
+    handleError,
+    dblClick,
+  } = args;
+  if (editable || client == null) return;
+  const props = selectNodeProps(storeState, layoutKey, nodeId);
+  if (
+    props?.key !== "offPageReference" ||
+    typeof props.page !== "string" ||
+    props.page.length === 0
+  )
+    return;
+  const dblClickNav = props.dblClickNav !== false;
+  if (dblClick !== dblClickNav) return;
+  const { page } = props;
+  const label = props.label?.label;
+  const name = label != null && label.length > 0 ? label : "Referenced schematic";
+  handleError(
+    () => navigateToLinkedSchematic(client, page, placeLayout),
+    `Schematic "${name}" not found`,
+  );
+};
 
 interface ControlToggleButtonProps {
   control: Control.Status;
@@ -188,6 +246,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const placeLayout = Layout.usePlacer();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
     (state: RootState) => selectRequired(state, layoutKey),
@@ -311,6 +373,36 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, state.editable, syncDispatch]);
 
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction({
+        editable: state.editable,
+        client,
+        storeState: store.getState(),
+        layoutKey,
+        nodeId: node.id,
+        placeLayout,
+        handleError,
+        dblClick: false,
+      }),
+    [state.editable, client, store, layoutKey, placeLayout, handleError],
+  );
+
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction({
+        editable: state.editable,
+        client,
+        storeState: store.getState(),
+        layoutKey,
+        nodeId: node.id,
+        placeLayout,
+        handleError,
+        dblClick: true,
+      }),
+    [state.editable, client, store, layoutKey, placeLayout, handleError],
+  );
+
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(
     state.legend.position,
   );
@@ -404,6 +496,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
+          onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
           fitViewOnResize={state.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
