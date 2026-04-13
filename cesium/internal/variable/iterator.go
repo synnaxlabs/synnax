@@ -50,6 +50,8 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
+const AutoSpan telem.TimeSpan = -1
+
 var errIteratorClosed = resource.NewClosedError("variable.iterator")
 
 type Iterator struct {
@@ -153,11 +155,14 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
-		return
+		return false
+	}
+	if span == AutoSpan {
+		return i.autoNext(ctx)
 	}
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
-		return
+		return false
 	}
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
@@ -168,6 +173,46 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return i.Valid()
 }
 
+func (i *Iterator) autoNext(ctx context.Context) bool {
+	i.view.Start = i.view.End
+	endApprox, err := i.idx.Stamp(
+		ctx,
+		i.view.Start,
+		i.AutoChunkSize,
+		index.AllowDiscontinuous,
+	)
+	if err != nil {
+		i.err = err
+		return false
+	}
+	if endApprox.Lower.After(i.bounds.End) {
+		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
+	}
+	i.view.End = endApprox.Lower
+	i.reset(i.view.BoundBy(i.bounds))
+	for {
+		if !i.internal.TimeRange().OverlapsWith(i.view) {
+			if !i.internal.Next() {
+				return false
+			}
+			continue
+		}
+		if !i.accumulate(ctx) {
+			if i.err != nil {
+				return false
+			}
+			if !i.internal.Next() {
+				break
+			}
+			continue
+		}
+		if i.satisfied() || !i.internal.Next() {
+			break
+		}
+	}
+	return i.partiallySatisfied()
+}
+
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
@@ -175,11 +220,14 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
-		return
+		return false
+	}
+	if span == AutoSpan {
+		return i.autoPrev(ctx)
 	}
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
-		return
+		return false
 	}
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
@@ -188,6 +236,46 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	for i.internal.Prev() && i.accumulate(ctx) && !i.satisfied() {
 	}
 	return i.Valid()
+}
+
+func (i *Iterator) autoPrev(ctx context.Context) bool {
+	i.view.End = i.view.Start
+	startApprox, err := i.idx.Stamp(
+		ctx,
+		i.view.Start,
+		-i.AutoChunkSize,
+		index.AllowDiscontinuous,
+	)
+	if err != nil {
+		i.err = err
+		return false
+	}
+	if startApprox.Lower.Before(i.bounds.Start) {
+		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
+	}
+	i.view.Start = startApprox.Lower + 1
+	i.reset(i.view.BoundBy(i.bounds))
+	for {
+		if !i.internal.TimeRange().OverlapsWith(i.view) {
+			if !i.internal.Prev() {
+				return false
+			}
+			continue
+		}
+		if !i.accumulate(ctx) {
+			if i.err != nil {
+				return false
+			}
+			if !i.internal.Prev() {
+				break
+			}
+			continue
+		}
+		if i.satisfied() || !i.internal.Prev() {
+			break
+		}
+	}
+	return i.partiallySatisfied()
 }
 
 func (i *Iterator) Len() int64 { return i.frame.Len() }
@@ -308,17 +396,22 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 	return i.idx.Distance(ctx, target, index.MustBeContinuous)
 }
 
-func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateEnd(ctx context.Context) (index.DistanceApproximation, error) {
 	table, tableErr := i.getOrBuildOffsetTable(ctx)
 	if tableErr != nil {
-		return endApprox, tableErr
+		return index.DistanceApproximation{}, tableErr
 	}
+	endApprox := index.DistanceApproximation{}
 	endApprox.Approximation = index.Exactly(table.sampleCount)
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
+		var err error
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
+		if err != nil {
+			return endApprox, err
+		}
 	}
-	return
+	return endApprox, nil
 }
 
 func (i *Iterator) read(
