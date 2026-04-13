@@ -260,9 +260,8 @@ var _ = Describe("PebbleKV", func() {
 			if disableObserver {
 				opts = append(opts, pebblekv.DisableObservation())
 			}
-			db = pebblekv.Wrap(pdb, opts...) // Default: observation enabled
+			db = DeferClose(pebblekv.Wrap(pdb, opts...)) // Default: observation enabled
 			DeferCleanup(func() {
-				Expect(db.Close()).To(Succeed())
 				Expect(os.RemoveAll(path)).To(Succeed())
 			})
 		}

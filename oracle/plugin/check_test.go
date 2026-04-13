@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPlugin(t *testing.T) {
@@ -29,13 +30,10 @@ var _ = Describe("Check Utilities", func() {
 	var tempDir string
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "oracle-check-test")
-		Expect(err).To(BeNil())
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		tempDir = MustSucceed(os.MkdirTemp("", "oracle-check-test"))
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
+		})
 	})
 
 	Describe("FileModTime", func() {
