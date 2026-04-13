@@ -40,8 +40,8 @@ var _ = Describe("Alias", Ordered, func() {
 		tx        gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -64,7 +64,6 @@ var _ = Describe("Alias", Ordered, func() {
 			Search:          dist.Search,
 		}))
 		Expect(dist.Search.Initialize(ctx)).To(Succeed())
-		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
 	})
 	BeforeEach(func() {
 		tx = dist.DB.OpenTx()

@@ -53,7 +53,8 @@ var _ = Describe("Task", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
-		dist = DeferClose(mock.NewCluster()).Provision(ctx)
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,

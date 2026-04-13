@@ -33,13 +33,13 @@ import (
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
-		builder     = mock.NewCluster()
 		dist        mock.Node
 		iteratorSvc *iterator.Service
 		arcSvc      *arc.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = builder.Provision(ctx)
+		builder := DeferClose(mock.NewCluster())
+		dist = DeferClose(builder.Provision(ctx))
 		searchIdx := MustOpen(search.Open())
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
@@ -84,7 +84,6 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Channel:    svcchannel.Wrap(dist.Channel),
 			Arc:        arcSvc,
 		}))
-		DeferCleanup(func() { Expect(builder.Close()).To(Succeed()) })
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
