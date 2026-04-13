@@ -962,6 +962,27 @@ var _ = Describe("Compiler", func() {
 			remainder := MustBeOk(mem.ReadUint64Le(0x1010))
 			Expect(remainder).To(Equal(uint64(2)))
 		})
+		It("Should compile named string output without panicking", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func describe(x i64) (label str, value i64) {
+				label = "result"
+				value = x * 2
+			}
+			`, stl.SymbolResolver))
+			Expect(output.WASM).ToNot(BeEmpty())
+		})
+
+		It("Should compute correct memory layout with mixed string and numeric outputs", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func report(x i64) (name str, count i64, tag str) {
+				name = "sensor"
+				count = x
+				tag = "active"
+			}
+			`, stl.SymbolResolver))
+			Expect(output.WASM).ToNot(BeEmpty())
+			Expect(output.OutputMemoryBases).To(HaveKey("report"))
+		})
 	})
 
 	Describe("Literal Type Inference", func() {

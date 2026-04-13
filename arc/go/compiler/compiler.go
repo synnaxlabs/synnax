@@ -114,7 +114,11 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 						i.Key, oParam.Name,
 					)
 				}
-				size += uint32(oParam.Type.Density())
+				if oParam.Type.Kind == types.KindString {
+					size += 4
+				} else {
+					size += uint32(oParam.Type.Density())
+				}
 			}
 			outputMemoryCounter += size
 		}

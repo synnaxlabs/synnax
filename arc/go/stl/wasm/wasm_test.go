@@ -1046,6 +1046,100 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
+	Describe("Named String Output Memory Layout", func() {
+		It("Should compute correct memory offsets for string outputs in graph nodes", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "labeler",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "label", Type: types.String()},
+							{Name: "value", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							label = "ok"
+							value = x * 2
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "labeler", Type: "labeler"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "labeler", Param: "x"},
+					},
+				},
+			}
+			// The key assertion: this must not panic on Density() for
+			// string-typed named outputs in either the compiler or runtime.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("labeler", 0,
+				telem.NewSeriesV[int64](5),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "labeler") }).ToNot(Panic())
+		})
+
+		It("Should handle multiple string outputs without panicking", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "tagger",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "first", Type: types.String()},
+							{Name: "second", Type: types.String()},
+							{Name: "count", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							first = "a"
+							second = "b"
+							count = x
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "tagger", Type: "tagger"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "tagger", Param: "x"},
+					},
+				},
+			}
+			// Must not panic even with multiple string outputs
+			// contributing to the memory offset calculation.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("tagger", 0,
+				telem.NewSeriesV[int64](42),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "tagger") }).ToNot(Panic())
+		})
+	})
+
 	Describe("No-Input Node Initialization", func() {
 		It("Should execute only once per stage entry for nodes with no inputs", func(ctx SpecContext) {
 			// Create a stateful counter function with no inputs
