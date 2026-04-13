@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -47,6 +48,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 	db := &DB{options: o, closed: &atomic.Bool{}}
 	db.mu.unaryDBs = make(map[channel.Key]unary.DB, len(info))
+	db.mu.variableDBs = make(map[channel.Key]variable.DB, len(info))
 	db.mu.virtualDBs = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {
 		if !i.IsDir() {
@@ -129,6 +131,37 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
+func (db *DB) openVariable(ctx context.Context, ch Channel, fs fs.FS) error {
+	if _, isOpen := db.mu.variableDBs[ch.Key]; isOpen {
+		return nil
+	}
+	v, err := variable.Open(ctx, variable.Config{
+		FS:              fs,
+		MetaCodec:       db.metaCodec,
+		Channel:         ch,
+		Instrumentation: db.Instrumentation,
+		FileSize:        db.fileSize,
+		GCThreshold:     db.gcCfg.Threshold,
+	})
+	if err != nil {
+		return err
+	}
+	if v.Channel().Index != 0 {
+		idxDB, ok := db.mu.unaryDBs[v.Channel().Index]
+		if !ok {
+			if err = db.openVirtualOrUnary(ctx, Channel{Key: v.Channel().Index}); err != nil {
+				return err
+			}
+			if idxDB, ok = db.mu.unaryDBs[v.Channel().Index]; !ok {
+				return validate.PathedError(indexChannelNotFoundError(v.Channel().Index), "index")
+			}
+		}
+		v.SetIndex(idxDB.Index())
+	}
+	db.mu.variableDBs[ch.Key] = *v
+	return nil
+}
+
 func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
@@ -136,12 +169,11 @@ func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	}
 	err = db.openVirtual(ctx, ch, fs)
 	if errors.Is(err, virtual.ErrNotVirtual) {
+		err = db.openVariable(ctx, ch, fs)
+	}
+	if errors.Is(err, variable.ErrNotVariable) {
 		err = db.openUnary(ctx, ch, fs)
 	}
-	// For legacy, rate-based channels (V1), attempting to open a unary DB on them will
-	// return a meta.ErrIgnoreChannel error, which tells us to just ignore and not open
-	// that directory as an actual channel. This is a better alternative to deleting the
-	// channel, as we don't want to risk losing user data.
 	return errors.Skip(err, meta.ErrIgnoreChannel)
 }
 

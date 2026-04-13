@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -57,8 +58,9 @@ type DB struct {
 	relay  *relay
 	closed *atomic.Bool
 	mu     struct {
-		unaryDBs   map[ChannelKey]unary.DB
-		virtualDBs map[ChannelKey]virtual.DB
+		unaryDBs    map[ChannelKey]unary.DB
+		variableDBs map[ChannelKey]variable.DB
+		virtualDBs  map[ChannelKey]virtual.DB
 		digests    struct {
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
