@@ -166,7 +166,7 @@ func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, 
 	return s, nil
 }
 
-func DecodeControlUpdate(s telem.Series) (u ControlUpdate, err error) {
-	err = stdjson.Unmarshal(s.At(0), &u)
-	return
+func DecodeControlUpdate(s telem.Series) (ControlUpdate, error) {
+	var u ControlUpdate
+	return u, stdjson.Unmarshal(s.At(0), &u)
 }
