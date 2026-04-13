@@ -514,6 +514,6 @@ const frame = await client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
 
 </Client.Tabs>
 
-The returned data follows the same conventions as regular reads - a `Series` for single
-channels or a `Frame` for multiple channels. If fewer than `n` samples are available,
-the method returns only the samples that exist.
+The returned data follows the same conventions as regular reads - a `MultiSeries` for
+single channels or a `Frame` for multiple channels. If fewer than `n` samples are
+available, the method returns only the samples that exist.
