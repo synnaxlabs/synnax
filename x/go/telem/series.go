@@ -34,6 +34,9 @@ func (s Series) Len() int64 {
 			offset := 0
 			for offset+4 <= len(s.Data) {
 				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				if offset+4+length > len(s.Data) {
+					break
+				}
 				offset += 4 + length
 				cl++
 			}
@@ -83,6 +86,9 @@ func (s Series) At(i int) []byte {
 		for offset+4 <= len(s.Data) {
 			length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
 			offset += 4
+			if offset+length > len(s.Data) {
+				break
+			}
 			if i == 0 {
 				return s.Data[offset : offset+length]
 			}
