@@ -18,6 +18,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// offsetTable stores byte offsets for each sample in a domain. Offsets are uint32,
+// matching domain.pointer.size. Domains larger than ~4GB are unsupported at the
+// storage layer, so uint32 is sufficient here.
 type offsetTable struct {
 	offsets     []uint32
 	sampleCount int64

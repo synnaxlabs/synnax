@@ -335,11 +335,9 @@ func (i *Iterator) read(
 	if err != nil {
 		return series, err
 	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return series, err
-	}
-	if err = r.Close(); err != nil {
 		return series, err
 	}
 	if n < len(series.Data) {

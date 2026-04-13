@@ -173,8 +173,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return
 }
 
-// removeChannel removes ch from db.mu.fixedDBs or db.mu.virtualDBs. If the channel or
-// if there is an open resource on the specified database.
+// removeChannel removes ch from db.mu.fixedDBs, db.mu.variableDBs, or
+// db.mu.virtualDBs. Returns an error if there is an open resource on the database.
 func (db *DB) removeChannel(ch ChannelKey) error {
 	fDB, fOk := db.mu.fixedDBs[ch]
 	if fOk {
