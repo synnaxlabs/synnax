@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -40,6 +41,12 @@ var _ = Describe("Enum", func() {
 		})
 		It("Should return nil if the value is not a valid enum", func() {
 			Expect(zyn.Enum("a", "b", "c").Validate("d")).To(HaveOccurred())
+		})
+		It("Should succeed when an optional enum receives nil", func() {
+			Expect(zyn.Enum("a", "b", "c").Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required enum receives nil", func() {
+			Expect(zyn.Enum("a", "b", "c").Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
 		})
 	})
 	Describe("DataType Validation", func() {

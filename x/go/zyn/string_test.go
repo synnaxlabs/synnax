@@ -46,6 +46,18 @@ var _ = Describe("String", func() {
 		It("Should return nil if the value is not a valid string", func() {
 			Expect(zyn.String().Validate(struct{}{})).To(HaveOccurred())
 		})
+		It("Should succeed when an optional string receives nil", func() {
+			Expect(zyn.String().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required string receives nil", func() {
+			Expect(zyn.String().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+		})
+		It("Should succeed when an optional UUID string receives nil", func() {
+			Expect(zyn.String().UUID().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required UUID string receives nil", func() {
+			Expect(zyn.String().UUID().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+		})
 	})
 
 	Describe("Invalid Inputs", func() {
