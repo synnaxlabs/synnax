@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.case import ConsoleCase
@@ -205,7 +203,7 @@ class Workspace(ConsoleCase):
         self.console.layout.close_tab("Metrics Table")
 
     def test_export_workspace(self) -> None:
-        """Test exporting a workspace via JS injection to results directory."""
+        """Test exporting a workspace via context menu to a zip download."""
         self.log("Testing export workspace")
 
         # Re-open all imported pages so they exist in Redux state
@@ -238,17 +236,18 @@ class Workspace(ConsoleCase):
         """Test importing a workspace via command palette."""
         self.log("Testing import workspace via command palette")
 
-        export_path = get_results_path("ImportSpace_export.json")
-        with open(export_path, "r") as f:
-            data = json.load(f)
+        # Delete existing woprkspace before importing to avoid duplicates.
+        self.console.workspace.delete("ImportSpace")
+        self._cleanup_workspaces.remove("ImportSpace")
 
-        self.console.workspace.import_workspace("ImportSpace", data)
+        export_dir = get_results_path("ImportSpace")
+        self.console.workspace.import_workspace("ImportSpace", export_dir)
+
         for tab_name in EXPECTED_PAGES:
             tab = self.console.layout.get_tab(tab_name)
             assert tab.is_visible(), f"Imported workspace should have tab '{tab_name}'"
 
         self.console.workspace.delete("ImportSpace")
-        self._cleanup_workspaces.remove("ImportSpace")
 
     def test_clear_workspace_from_selector(self) -> None:
         """Test clearing workspaces from the selector (switching to no workspace)."""

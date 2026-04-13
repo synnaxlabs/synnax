@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import os
 import random
+import zipfile
 from typing import Any, Literal, TypeVar, overload
 
 from playwright.sync_api import Locator
@@ -34,31 +36,6 @@ from framework.utils import get_results_path
 __all__ = ["WorkspaceClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
-
-# SY-3670 — Shared JS snippet that walks the React fiber tree from #root
-# to find the Redux store. Used by import_page and export_workspace as a
-# browser-mode workaround for features that normally rely on Tauri APIs.
-_FIND_REDUX_STORE_JS = """
-const rootEl = document.getElementById('root');
-if (!rootEl) throw new Error('Root element not found');
-const containerKey = Object.keys(rootEl).find(
-    k => k.startsWith('__reactContainer$')
-);
-if (!containerKey) throw new Error('React container not found');
-let store = null;
-const stack = [rootEl[containerKey]];
-while (stack.length > 0) {
-    const fiber = stack.pop();
-    if (!fiber) continue;
-    if (fiber.memoizedProps?.store?.dispatch) {
-        store = fiber.memoizedProps.store;
-        break;
-    }
-    if (fiber.child) stack.push(fiber.child);
-    if (fiber.sibling) stack.push(fiber.sibling);
-}
-if (!store) throw new Error('Redux store not found');
-"""
 
 
 class WorkspaceClient:
@@ -547,7 +524,6 @@ class WorkspaceClient:
         """
         page_item = self._find_page(name)
         self.ctx_menu.open_on(page_item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
@@ -561,173 +537,88 @@ class WorkspaceClient:
             result: dict[str, Any] = json.load(f)
             return result
 
-    def _evaluate_with_redux(self, js_body: str, args: Any = None) -> Any:
-        """Execute JS with the Redux store available as ``store``.
-
-        # SY-3670 — Uses React fiber walking to locate the Redux store
-        # from the React root. This is a browser-mode workaround for
-        # features that normally rely on Tauri APIs.
-
-        Args:
-            js_body: JS code to execute. ``store`` and ``args`` are in scope.
-            args: Optional arguments forwarded to the JS function.
-        """
-        js = "(args) => {" + _FIND_REDUX_STORE_JS + js_body + "}"
-        return self.layout.page.evaluate(js, args)
-
     def import_page(self, json_path: str, name: str) -> None:
-        """Import a page from a JSON file via direct JS injection.
-
-        Since the console uses Tauri's native file dialog for imports
-        (unavailable in browser mode), this method bypasses the dialog
-        by reading the JSON file and dispatching Redux actions directly.
-
-        # SY-3670 will address this issue.
+        """Import a page from a JSON file via the context menu file picker.
 
         Args:
             json_path: Path to the JSON file to import.
             name: Display name for the imported page tab.
         """
-        with open(json_path, "r") as f:
-            data: dict[str, Any] = json.load(f)
+        self.layout.show_resource_toolbar("workspace")
+        workspace_item = self.layout.page.locator(
+            f"div[id^='{self.ITEM_PREFIX}']"
+        ).first
+        workspace_item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.open_on(workspace_item)
 
-        resource_type = data.get("type")
-        if resource_type is None:
-            raise ValueError(f"JSON file missing 'type' field: {json_path}")
+        with self.layout.page.expect_file_chooser() as fc_info:
+            self.ctx_menu.click_option("Import component(s)")
 
-        type_config: dict[str, dict[str, str]] = {
-            "lineplot": {"slice": "line", "icon": "Visualize"},
-            "schematic": {"slice": "schematic", "icon": "Schematic"},
-            "log": {"slice": "log", "icon": "Log"},
-            "table": {"slice": "table", "icon": "Table"},
-        }
+        fc_info.value.set_files(json_path)
 
-        config = type_config.get(resource_type)
-        if config is None:
-            raise ValueError(f"Unsupported resource type: {resource_type}")
+        file_name = os.path.splitext(os.path.basename(json_path))[0]
+        self.layout.get_tab(file_name).wait_for(state="visible", timeout=10000)
+        if name != file_name:
+            self.layout.rename_tab(old_name=file_name, new_name=name)
+        self.layout.close_left_toolbar()
 
-        self._evaluate_with_redux(
-            """
-            const [data, name, sliceName, icon] = args;
-            const key = crypto.randomUUID();
-            store.dispatch({
-                type: sliceName + '/create',
-                payload: { ...data, key }
-            });
-            store.dispatch({
-                type: 'layout/place',
-                payload: {
-                    key, name,
-                    location: 'mosaic',
-                    type: data.type,
-                    icon,
-                    windowKey: 'main',
-                }
-            });
-            """,
-            [data, name, config["slice"], config["icon"]],
-        )
-
-        self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
-
-    def import_workspace(self, name: str, data: dict[str, Any]) -> None:
-        """Import a workspace via command palette with JS injection fallback.
-
-        Triggers "Import a workspace" from the command palette. Since the
-        console uses Tauri's native directory dialog (unavailable in browser
-        mode), the actual import falls back to dispatching Redux actions
-        via JS injection.
-
-        # SY-3670 will address the browser-mode limitation.
+    def import_workspace(self, name: str, export_dir: str) -> None:
+        """Import a workspace by selecting exported files via the directory picker.
 
         Args:
-            name: Name for the imported workspace.
-            data: Export data dict with 'layout' and 'components' keys
-                  (as returned by export_workspace).
+            name: Expected name for the imported workspace (derived from directory name).
+            export_dir: Path to the directory containing the exported workspace files.
         """
-        self.layout.command_palette("Import a workspace")
+        with self.layout.page.expect_file_chooser() as fc_info:
+            self.layout.command_palette("Import a workspace")
 
-        sliceMap: dict[str, str] = {
-            "lineplot": "line",
-            "schematic": "schematic",
-            "log": "log",
-            "table": "table",
-        }
-
-        self._evaluate_with_redux(
-            """
-            const [name, layoutData, components, sliceMap] = args;
-            const wsKey = crypto.randomUUID();
-            store.dispatch({
-                type: 'workspace/setActive',
-                payload: { key: wsKey, name, layout: layoutData },
-            });
-            store.dispatch({
-                type: 'layout/setWorkspace',
-                payload: { slice: layoutData, keepNav: false },
-            });
-            for (const [key, component] of Object.entries(components)) {
-                const sliceName = sliceMap[component.type];
-                if (!sliceName) continue;
-                store.dispatch({
-                    type: sliceName + '/create',
-                    payload: { ...component, key },
-                });
-            }
-            """,
-            [name, data["layout"], data["components"], sliceMap],
-        )
+        fc_info.value.set_files(export_dir)
 
         self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
             state="visible", timeout=10000
         )
 
     def export_workspace(self, name: str) -> dict[str, Any]:
-        """Export a workspace via context menu with JS injection fallback.
-
-        Opens the context menu on the workspace and clicks Export. Since the
-        console uses Tauri's native directory dialog and file system APIs
-        (unavailable in browser mode), the actual data extraction falls back
-        to reading Redux state via JS injection.
-
-        # SY-3670 will address the browser-mode limitation.
+        """Export a workspace via context menu and capture the downloaded zip.
 
         Args:
             name: Name of the workspace to export.
 
         Returns:
             Dict with 'layout' (the layout state) and 'components'
-            (dict of component key -> exported state with type field).
+            (dict of component name -> exported state with type field).
         """
         self.layout.show_resource_toolbar("workspace")
         workspace_item = self.get_item(name)
         workspace_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(workspace_item, "Export")
+        self.ctx_menu.open_on(workspace_item)
+
+        with self.layout.page.expect_download(timeout=15000) as download_info:
+            self.ctx_menu.click_option("Export")
+
+        download = download_info.value
+        zip_path = get_results_path(f"{name}_export.zip")
+        download.save_as(zip_path)
         self.notifications.close_all()
 
-        result: dict[str, Any] = self._evaluate_with_redux("""
-            const state = store.getState();
-            const layoutState = state.layout;
-            const sliceMap = {
-                lineplot: { slice: 'line', collection: 'plots' },
-                schematic: { slice: 'schematic', collection: 'schematics' },
-                log: { slice: 'log', collection: 'logs' },
-                table: { slice: 'table', collection: 'tables' },
-            };
-            const components = {};
-            const layouts = {};
-            for (const [key, layout] of Object.entries(layoutState.layouts)) {
-                if (layout.excludeFromWorkspace || layout.location === 'modal')
-                    continue;
-                layouts[key] = layout;
-                const mapping = sliceMap[layout.type];
-                if (!mapping) continue;
-                const cs = state[mapping.slice]?.[mapping.collection]?.[key];
-                if (cs) components[key] = { ...cs, type: layout.type };
-            }
-            return { layout: { ...layoutState, layouts }, components };
-            """)
+        # Extract the zip to a directory so import_workspace can pass
+        # the directory path to the browser's webkitdirectory file picker.
+        extract_dir = get_results_path(name)
+        os.makedirs(extract_dir, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(extract_dir)
 
+        with open(os.path.join(extract_dir, "LAYOUT.json"), "r") as f:
+            layout_data: dict[str, Any] = json.load(f)
+
+        components: dict[str, Any] = {}
+        for filename in os.listdir(extract_dir):
+            if filename == "LAYOUT.json":
+                continue
+            with open(os.path.join(extract_dir, filename), "r") as f:
+                components[filename.replace(".json", "")] = json.load(f)
+
+        result: dict[str, Any] = {"layout": layout_data, "components": components}
         save_path = get_results_path(f"{name}_export.json")
         with open(save_path, "w") as f:
             json.dump(result, f, indent=2)
