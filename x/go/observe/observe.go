@@ -81,6 +81,8 @@ func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 }
 
 func (b *base[T]) GoNotify(ctx context.Context, v T) {
+	// context.WithoutCancel is used because the goroutine outlives the caller - we
+	// sever the cancellation chain while preserving values such as trace spans.
 	go b.Notify(context.WithoutCancel(ctx), v)
 }
 
