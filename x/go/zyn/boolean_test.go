@@ -85,7 +85,7 @@ var _ = Describe("Bool", func() {
 			Expect(zyn.Bool().Optional().Validate(nil)).To(Succeed())
 		})
 		It("Should fail when a required boolean receives nil", func() {
-			Expect(zyn.Bool().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.Bool().Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
 	})
 

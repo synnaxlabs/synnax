@@ -50,13 +50,13 @@ var _ = Describe("String", func() {
 			Expect(zyn.String().Optional().Validate(nil)).To(Succeed())
 		})
 		It("Should fail when a required string receives nil", func() {
-			Expect(zyn.String().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.String().Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
 		It("Should succeed when an optional UUID string receives nil", func() {
 			Expect(zyn.String().UUID().Optional().Validate(nil)).To(Succeed())
 		})
 		It("Should fail when a required UUID string receives nil", func() {
-			Expect(zyn.String().UUID().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.String().UUID().Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
 	})
 

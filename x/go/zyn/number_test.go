@@ -52,13 +52,13 @@ var _ = Describe("Number", func() {
 			Expect(zyn.Number().Optional().Validate(nil)).To(Succeed())
 		})
 		It("Should fail when a required number receives nil", func() {
-			Expect(zyn.Number().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.Number().Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
 		It("Should succeed when an optional typed number receives nil", func() {
 			Expect(zyn.Number().Float64().Optional().Validate(nil)).To(Succeed())
 		})
 		It("Should fail when a required typed number receives nil", func() {
-			Expect(zyn.Number().Float64().Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.Number().Float64().Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
 		It("Should validate a typed number with the correct type", func() {
 			Expect(zyn.Number().Uint32().Validate(uint32(42))).To(Succeed())

@@ -45,7 +45,7 @@ var _ = Describe("Enum", func() {
 			Expect(zyn.Enum("a", "b", "c").Optional().Validate(nil)).To(Succeed())
 		})
 		It("Should fail when a required enum receives nil", func() {
-			Expect(zyn.Enum("a", "b", "c").Validate(nil)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.Enum("a", "b", "c").Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
 	})
 	Describe("DataType Validation", func() {
