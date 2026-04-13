@@ -127,18 +127,18 @@ func (db *DB) ControlStates() (u ControlUpdate) {
 	if !db.digestsConfigured() {
 		return
 	}
-	u.Transfers = make([]control.Transfer, 0, len(db.mu.fixedDBs)+len(db.mu.variableDBs)+len(db.mu.virtualDBs))
-	for _, d := range db.mu.fixedDBs {
+	u.Transfers = make([]control.Transfer, 0, len(db.mu.dbs.fixed)+len(db.mu.dbs.variable)+len(db.mu.dbs.virtual))
+	for _, d := range db.mu.dbs.fixed {
 		if s := d.LeadingControlState(); s != nil {
 			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}
 	}
-	for _, d := range db.mu.variableDBs {
+	for _, d := range db.mu.dbs.variable {
 		if s := d.LeadingControlState(); s != nil {
 			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}
 	}
-	for _, d := range db.mu.virtualDBs {
+	for _, d := range db.mu.dbs.virtual {
 		if s := d.LeadingControlState(); s != nil {
 			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}

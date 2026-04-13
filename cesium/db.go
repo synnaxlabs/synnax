@@ -58,10 +58,12 @@ type DB struct {
 	relay  *relay
 	closed *atomic.Bool
 	mu     struct {
-		fixedDBs    map[ChannelKey]fixed.DB
-		variableDBs map[ChannelKey]variable.DB
-		virtualDBs  map[ChannelKey]virtual.DB
-		digests     struct {
+		dbs struct {
+			fixed    map[ChannelKey]fixed.DB
+			variable map[ChannelKey]variable.DB
+			virtual  map[ChannelKey]virtual.DB
+		}
+		digests struct {
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
 			outlet   confluence.Outlet[WriterResponse]
@@ -125,15 +127,15 @@ func (db *DB) Metrics() Metrics {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var size telem.Size
-	for _, u := range db.mu.fixedDBs {
+	for _, u := range db.mu.dbs.fixed {
 		size += u.Size()
 	}
-	for _, v := range db.mu.variableDBs {
+	for _, v := range db.mu.dbs.variable {
 		size += v.Size()
 	}
 	return Metrics{
 		DiskSize:     size,
-		ChannelCount: len(db.mu.fixedDBs) + len(db.mu.variableDBs) + len(db.mu.virtualDBs),
+		ChannelCount: len(db.mu.dbs.fixed) + len(db.mu.dbs.variable) + len(db.mu.dbs.virtual),
 	}
 }
 
@@ -163,10 +165,10 @@ func (db *DB) Close() error {
 	err = errors.Join(err, db.shutdown.Close())
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, u := range db.mu.fixedDBs {
+	for _, u := range db.mu.dbs.fixed {
 		err = errors.Join(err, u.Close())
 	}
-	for _, v := range db.mu.variableDBs {
+	for _, v := range db.mu.dbs.variable {
 		err = errors.Join(err, v.Close())
 	}
 	return err

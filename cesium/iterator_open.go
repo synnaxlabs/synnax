@@ -60,7 +60,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 	}()
 	for _, key := range cfg.Channels {
-		if fDB, ok := db.mu.fixedDBs[key]; ok {
+		if fDB, ok := db.mu.dbs.fixed[key]; ok {
 			iter, iterErr := fDB.OpenIterator(fixed.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 			if iterErr != nil {
 				return nil, iterErr
@@ -68,7 +68,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			internal = append(internal, iter)
 			continue
 		}
-		if varDB, ok := db.mu.variableDBs[key]; ok {
+		if varDB, ok := db.mu.dbs.variable[key]; ok {
 			iter, iterErr := varDB.OpenIterator(variable.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 			if iterErr != nil {
 				return nil, iterErr
@@ -76,7 +76,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			varInternal = append(varInternal, iter)
 			continue
 		}
-		if vdb, ok := db.mu.virtualDBs[key]; ok {
+		if vdb, ok := db.mu.dbs.virtual[key]; ok {
 			return nil, errors.Newf(
 				"cannot open iterator on virtual channel %v",
 				vdb.Channel,

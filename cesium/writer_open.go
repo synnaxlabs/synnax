@@ -224,9 +224,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	// ensures that we provide a valid domain alignment to all fixed writers for a
 	// particular index group.
 	for i, key := range cfg.Channels {
-		u, isFixed := db.mu.fixedDBs[key]
-		_, isVariable := db.mu.variableDBs[key]
-		v, isVirtual := db.mu.virtualDBs[key]
+		u, isFixed := db.mu.dbs.fixed[key]
+		_, isVariable := db.mu.dbs.variable[key]
+		v, isVirtual := db.mu.dbs.virtual[key]
 		if !isVirtual && !isFixed && !isVariable {
 			return nil, channel.NewNotFoundError(key)
 		}
@@ -274,7 +274,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			}
 			idxW.writingToIdx = true
 			idxW.domainAlignment = fixedW.DomainIndex()
-			idxW.internal[key] = &fixedWriterState{Writer: *fixedW}
+			if idxW.internal.fixed == nil {
+				idxW.internal.fixed = make(map[ChannelKey]*fixedWriterState)
+			}
+			idxW.internal.fixed[key] = &fixedWriterState{Writer: *fixedW}
 			domainWriters[u.Channel().Index] = idxW
 		}
 		if transfer.Occurred() {
@@ -284,7 +287,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 
 	// On the second pass, we open all fixed-density domain-indexed writers.
 	for i, key := range cfg.Channels {
-		u, fOk := db.mu.fixedDBs[key]
+		u, fOk := db.mu.dbs.fixed[key]
 		if !fOk || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
 		}
@@ -310,13 +313,16 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
-		idxW.internal[key] = &fixedWriterState{Writer: *fixedW}
+		if idxW.internal.fixed == nil {
+			idxW.internal.fixed = make(map[ChannelKey]*fixedWriterState)
+		}
+		idxW.internal.fixed[key] = &fixedWriterState{Writer: *fixedW}
 	}
 
 	// Third pass: open variable-density channel writers and add them to the
 	// appropriate idxWriter group.
 	for i, key := range cfg.Channels {
-		varDB, ok := db.mu.variableDBs[key]
+		varDB, ok := db.mu.dbs.variable[key]
 		if !ok {
 			continue
 		}
@@ -349,10 +355,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
-		if idxW.varInternal == nil {
-			idxW.varInternal = make(map[ChannelKey]*variableWriterState)
+		if idxW.internal.variable == nil {
+			idxW.internal.variable = make(map[ChannelKey]*variableWriterState)
 		}
-		idxW.varInternal[key] = &variableWriterState{Writer: *varW}
+		idxW.internal.variable[key] = &variableWriterState{Writer: *varW}
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
@@ -382,11 +388,11 @@ func (db *DB) openDomainIdxWriter(
 	idxKey ChannelKey,
 	cfg WriterConfig,
 ) (*idxWriter, error) {
-	u, ok := db.mu.fixedDBs[idxKey]
+	u, ok := db.mu.dbs.fixed[idxKey]
 	if !ok {
 		return nil, channel.NewNotFoundError(idxKey)
 	}
-	w := &idxWriter{internal: make(map[ChannelKey]*fixedWriterState)}
+	w := &idxWriter{}
 	w.idx.ch = u.Channel()
 	w.idx.Domain = u.Index()
 	w.idx.highWaterMark = cfg.Start

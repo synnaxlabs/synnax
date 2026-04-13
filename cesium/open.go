@@ -47,9 +47,9 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 	db := &DB{options: o, closed: &atomic.Bool{}}
-	db.mu.fixedDBs = make(map[channel.Key]fixed.DB, len(info))
-	db.mu.variableDBs = make(map[channel.Key]variable.DB, len(info))
-	db.mu.virtualDBs = make(map[channel.Key]virtual.DB, len(info))
+	db.mu.dbs.fixed = make(map[channel.Key]fixed.DB, len(info))
+	db.mu.dbs.variable = make(map[channel.Key]variable.DB, len(info))
+	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
@@ -81,7 +81,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.virtualDBs[ch.Key]; isOpen {
+	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
 		return nil
 	}
 	v, err := virtual.Open(ctx, virtual.Config{
@@ -93,12 +93,12 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	if err != nil {
 		return err
 	}
-	db.mu.virtualDBs[ch.Key] = *v
+	db.mu.dbs.virtual[ch.Key] = *v
 	return nil
 }
 
 func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.fixedDBs[ch.Key]; isOpen {
+	if _, isOpen := db.mu.dbs.fixed[ch.Key]; isOpen {
 		return nil
 	}
 	u, err := fixed.Open(ctx, fixed.Config{
@@ -116,23 +116,23 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	// set the index on the fixed database. Otherwise, we assume the database is
 	// self-indexing.
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
-		idxDB, ok := db.mu.fixedDBs[u.Channel().Index]
+		idxDB, ok := db.mu.dbs.fixed[u.Channel().Index]
 		if !ok {
 			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
 				return err
 			}
-			if idxDB, ok = db.mu.fixedDBs[u.Channel().Index]; !ok {
+			if idxDB, ok = db.mu.dbs.fixed[u.Channel().Index]; !ok {
 				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
 			}
 		}
 		u.SetIndex(idxDB.Index())
 	}
-	db.mu.fixedDBs[ch.Key] = *u
+	db.mu.dbs.fixed[ch.Key] = *u
 	return nil
 }
 
 func (db *DB) openVariable(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.variableDBs[ch.Key]; isOpen {
+	if _, isOpen := db.mu.dbs.variable[ch.Key]; isOpen {
 		return nil
 	}
 	v, err := variable.Open(ctx, variable.Config{
@@ -147,18 +147,18 @@ func (db *DB) openVariable(ctx context.Context, ch Channel, fs fs.FS) error {
 		return err
 	}
 	if v.Channel().Index != 0 {
-		idxDB, ok := db.mu.fixedDBs[v.Channel().Index]
+		idxDB, ok := db.mu.dbs.fixed[v.Channel().Index]
 		if !ok {
 			if err = db.openVirtualOrUnary(ctx, Channel{Key: v.Channel().Index}); err != nil {
 				return err
 			}
-			if idxDB, ok = db.mu.fixedDBs[v.Channel().Index]; !ok {
+			if idxDB, ok = db.mu.dbs.fixed[v.Channel().Index]; !ok {
 				return validate.PathedError(indexChannelNotFoundError(v.Channel().Index), "index")
 			}
 		}
 		v.SetIndex(idxDB.Index())
 	}
-	db.mu.variableDBs[ch.Key] = *v
+	db.mu.dbs.variable[ch.Key] = *v
 	return nil
 }
 
