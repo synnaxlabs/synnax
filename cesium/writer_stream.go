@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -201,6 +202,13 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 				}
 			}
 		}
+		for _, chW := range idx.varInternal {
+			if auth, ok := getAuth(chW.Channel.Key); ok {
+				if t := chW.SetAuthority(auth); t.Occurred() {
+					u.Transfers = append(u.Transfers, t)
+				}
+			}
+		}
 	}
 
 	if len(u.Transfers) > 0 {
@@ -326,9 +334,9 @@ type unaryWriterState struct {
 
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
-	// internal contains writers for each channel
-	internal map[ChannelKey]*unaryWriterState
-	idx      struct {
+	internal    map[ChannelKey]*unaryWriterState
+	varInternal map[ChannelKey]*variableWriterState
+	idx         struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		*index.Domain
 		// Key is the channel key of the index.
@@ -374,38 +382,51 @@ func (w *idxWriter) write(
 		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
-		uWriter, ok := w.internal[key]
 		series := fr.RawSeriesAt(i)
-		if !ok || series.Len() == 0 {
+		if series.Len() == 0 {
 			continue
 		}
-
-		if w.writingToIdx && w.idx.ch.Key == key {
-			if err = w.updateHighWater(series); err != nil {
-				return fr, err
+		if uWriter, ok := w.internal[key]; ok {
+			if w.writingToIdx && w.idx.ch.Key == key {
+				if err = w.updateHighWater(series); err != nil {
+					return fr, err
+				}
 			}
-		}
-
-		alignment, err := uWriter.Write(series)
-		if err != nil {
-			accumulatedErr = err
-			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-				return fr, accumulatedErr
+			alignment, err := uWriter.Write(series)
+			if err != nil {
+				accumulatedErr = err
+				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+					return fr, accumulatedErr
+				}
+				*excludeUnauthorized = append(*excludeUnauthorized, key)
+				continue
 			}
-			*excludeUnauthorized = append(*excludeUnauthorized, key)
-			continue
+			if !incrementedSampleCount {
+				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+				incrementedSampleCount = true
+				w.hasUncommittedData = true
+			}
+			series.Alignment = alignment
+			fr.SetRawSeriesAt(i, series)
+		} else if vWriter, ok := w.varInternal[key]; ok {
+			alignment, err := vWriter.Write(series)
+			if err != nil {
+				accumulatedErr = err
+				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+					return fr, accumulatedErr
+				}
+				*excludeUnauthorized = append(*excludeUnauthorized, key)
+				continue
+			}
+			if !incrementedSampleCount {
+				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+				incrementedSampleCount = true
+				w.hasUncommittedData = true
+			}
+			series.Alignment = alignment
+			fr.SetRawSeriesAt(i, series)
 		}
-		if !incrementedSampleCount {
-			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
-			incrementedSampleCount = true
-			w.hasUncommittedData = true
-		}
-		series.Alignment = alignment
-		fr.SetRawSeriesAt(i, series)
 	}
-	// When write returns ErrUnauthorized, the caller (streamWriter.write) skips
-	// auto-commit via continue, so we must reset hasUncommittedData here to prevent
-	// a stale commit when the writer regains control.
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.hasUncommittedData = false
 	}
@@ -425,6 +446,9 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	for _, chW := range w.internal {
 		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
 	}
+	for _, chW := range w.varInternal {
+		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
+	}
 	if err == nil {
 		w.lastCommitEnd = end.Lower
 	}
@@ -440,10 +464,18 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 func (w *idxWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{
-		Transfers: make([]control.Transfer, 0, len(w.internal)),
+		Transfers: make([]control.Transfer, 0, len(w.internal)+len(w.varInternal)),
 	}
 	for _, unaryWriter := range w.internal {
 		transfer, closeErr := unaryWriter.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if transfer.Occurred() {
+			update.Transfers = append(update.Transfers, transfer)
+		}
+	}
+	for _, varWriter := range w.varInternal {
+		transfer, closeErr := varWriter.Close()
 		if closeErr != nil {
 			err = errors.Join(err, closeErr)
 		} else if transfer.Occurred() {
@@ -529,35 +561,42 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	var (
 		lengthOfFrame        int64 = -1
 		numChannelsWrittenTo       = 0
+		expectedChannels           = len(w.internal) + len(w.varInternal)
 	)
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		s := fr.RawSeriesAt(rawI)
-		uWriter, ok := w.internal[k]
-		if !ok {
+		var ch Channel
+		if uWriter, ok := w.internal[k]; ok {
+			ch = uWriter.Channel
+			if lengthOfFrame == -1 {
+				if s.DataType.Density() == telem.UnknownDensity {
+					return invalidDataTypeError(ch, s.DataType)
+				}
+				lengthOfFrame = s.Len()
+			}
+			if uWriter.timesWritten == w.numWriteCalls {
+				return oneSeriesPerChannelError(ch)
+			}
+			uWriter.timesWritten++
+		} else if vWriter, ok := w.varInternal[k]; ok {
+			ch = vWriter.Channel
+			if lengthOfFrame == -1 {
+				lengthOfFrame = s.Len()
+			}
+			if vWriter.timesWritten == w.numWriteCalls {
+				return oneSeriesPerChannelError(ch)
+			}
+			vWriter.timesWritten++
+		} else {
 			continue
 		}
 
-		if lengthOfFrame == -1 {
-			// Data type of first series must be known since we use it to calculate the
-			// length of series in the frame
-			if s.DataType.Density() == telem.UnknownDensity {
-				return invalidDataTypeError(uWriter.Channel, s.DataType)
-			}
-			lengthOfFrame = s.Len()
-		}
-
-		if uWriter.timesWritten == w.numWriteCalls {
-			return oneSeriesPerChannelError(uWriter.Channel)
-		}
-
 		if s.Len() != lengthOfFrame {
-			return sameLengthForAllSeriesError(uWriter.Channel, lengthOfFrame, s)
+			return sameLengthForAllSeriesError(ch, lengthOfFrame, s)
 		}
-
-		uWriter.timesWritten++
 		numChannelsWrittenTo++
 	}
 
@@ -565,23 +604,21 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		return nil
 	}
 
-	if numChannelsWrittenTo != len(w.internal) {
-		if numChannelsWrittenTo < len(w.internal) {
+	if numChannelsWrittenTo != expectedChannels {
+		if numChannelsWrittenTo < expectedChannels {
 			keys := set.FromSlice(fr.KeysSlice())
 			for k, db := range w.internal {
 				if !keys.Contains(k) {
-					dataChannels := make([]Channel, 0, len(keys))
-					for _, db := range w.internal {
-						if k != db.Channel.Key {
-							dataChannels = append(dataChannels, db.Channel)
-						}
-					}
-					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
+					return missingChannelError(w.idx.ch, db.Channel, nil)
+				}
+			}
+			for k, db := range w.varInternal {
+				if !keys.Contains(k) {
+					return missingChannelError(w.idx.ch, db.Channel, nil)
 				}
 			}
 		}
-		err := incorrectNumberOfSeriesError(len(w.internal), numChannelsWrittenTo)
-		// This is an impossible condition
+		err := incorrectNumberOfSeriesError(expectedChannels, numChannelsWrittenTo)
 		zap.S().DPanic(err.Error())
 		return err
 	}
@@ -605,6 +642,11 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
 	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
+}
+
+type variableWriterState struct {
+	variable.Writer
+	timesWritten int
 }
 
 type virtualWriter struct {

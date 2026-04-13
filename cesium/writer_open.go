@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/variable"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -224,9 +225,13 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	// particular index group.
 	for i, key := range cfg.Channels {
 		u, isUnary := db.mu.unaryDBs[key]
+		_, isVariable := db.mu.variableDBs[key]
 		v, isVirtual := db.mu.virtualDBs[key]
-		if !isVirtual && !isUnary {
+		if !isVirtual && !isUnary && !isVariable {
 			return nil, channel.NewNotFoundError(key)
+		}
+		if isVariable {
+			continue
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -277,10 +282,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}
 
-	// On the second pass, we open all domain-indexed writers that have indexes.
+	// On the second pass, we open all fixed-density domain-indexed writers.
 	for i, key := range cfg.Channels {
 		u, uOk := db.mu.unaryDBs[key]
-		// Ignore virtual, index, and rate-based channels.
 		if !uOk || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
 		}
@@ -307,6 +311,48 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
 		idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
+	}
+
+	// Third pass: open variable-density channel writers and add them to the
+	// appropriate idxWriter group.
+	for i, key := range cfg.Channels {
+		varDB, ok := db.mu.variableDBs[key]
+		if !ok {
+			continue
+		}
+		idxKey := varDB.Channel().Index
+		idxW, ok := domainWriters[idxKey]
+		if !ok {
+			if domainWriters == nil {
+				domainWriters = make(map[ChannelKey]*idxWriter)
+			}
+			idxW, err = db.openDomainIdxWriter(idxKey, cfg)
+			if err != nil {
+				return nil, err
+			}
+			idxW.writingToIdx = false
+			domainWriters[idxKey] = idxW
+		}
+		varW, transfer, varErr := varDB.OpenWriter(ctx, variable.WriterConfig{
+			Subject:                  cfg.ControlSubject,
+			ErrOnUnauthorizedOpen:    cfg.ErrOnUnauthorized,
+			EnableAutoCommit:         cfg.EnableAutoCommit,
+			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
+			Start:                    cfg.Start,
+			Persist:                  new(cfg.Mode.Persist()),
+			Authority:                cfg.authority(i),
+			AlignmentDomainIndex:     idxW.domainAlignment,
+		})
+		if varErr != nil {
+			return nil, varErr
+		}
+		if transfer.Occurred() {
+			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
+		}
+		if idxW.varInternal == nil {
+			idxW.varInternal = make(map[ChannelKey]*variableWriterState)
+		}
+		idxW.varInternal[key] = &variableWriterState{Writer: *varW}
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
