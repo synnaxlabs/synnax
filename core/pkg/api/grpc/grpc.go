@@ -33,6 +33,7 @@ import (
 	statusgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/status"
 	taskgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/task"
 	viewgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/view"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -152,6 +153,10 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.AccessRetrieveRole = fnoop.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]{}
 	a.AccessAssignRole = fnoop.UnaryServer[access.AssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[access.UnassignRoleRequest, types.Nil]{}
+
+	// IMPORT/EXPORT
+	a.ImExImport = fnoop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
+	a.ImExExport = fnoop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
 	// ARC LSP
 	a.ArcLSP = fnoop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
