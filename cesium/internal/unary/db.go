@@ -32,8 +32,8 @@ type DB struct {
 	// domain is the underlying domain database on which writes will be executed.
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
-	// _idx is the index used for resolving timestamp positions on this channel.
-	_idx             *index.Domain
+	// idx is the index used for resolving timestamp positions on this channel.
+	idx             *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -58,14 +58,14 @@ func (db *DB) Index() *index.Domain {
 }
 
 func (db *DB) index() *index.Domain {
-	if db._idx == nil {
+	if db.idx == nil {
 		// inconceivable state
 		panic(fmt.Sprintf("channel <%v> index is not set", db.cfg.Channel))
 	}
-	return db._idx
+	return db.idx
 }
 
-func (db *DB) SetIndex(idx *index.Domain) { db._idx = idx }
+func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *control.State {

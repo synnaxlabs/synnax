@@ -28,7 +28,7 @@ import (
 type DB struct {
 	domain           *domain.DB
 	controller       *control.Controller[*controlledWriter]
-	_idx             *index.Domain
+	idx             *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -48,13 +48,13 @@ func (db *DB) Index() *index.Domain {
 }
 
 func (db *DB) index() *index.Domain {
-	if db._idx == nil {
+	if db.idx == nil {
 		panic(fmt.Sprintf("channel <%v> index is not set", db.cfg.Channel))
 	}
-	return db._idx
+	return db.idx
 }
 
-func (db *DB) SetIndex(idx *index.Domain) { db._idx = idx }
+func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
