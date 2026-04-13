@@ -177,8 +177,7 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Key: data, Name: "var-del-str", Index: idx, DataType: telem.StringT},
 					)).To(Succeed())
 					Expect(db.DeleteChannel(data)).To(Succeed())
-					_, err := db.RetrieveChannel(ctx, data)
-					Expect(err).To(HaveOccurred())
+					Expect(db.RetrieveChannel(ctx, data)).Error().To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 

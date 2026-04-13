@@ -63,7 +63,7 @@ var _ = Describe("DB", func() {
 
 			Describe("Open", func() {
 				It("Should not open a virtual channel as a variable DB", func(ctx SpecContext) {
-					_, err := variable.Open(ctx, variable.Config{
+					Expect(variable.Open(ctx, variable.Config{
 						FS:        MustSucceed(fs.Sub("virtual-reject")),
 						MetaCodec: codec,
 						Channel: channel.Channel{
@@ -72,8 +72,7 @@ var _ = Describe("DB", func() {
 							DataType: telem.StringT,
 							Virtual:  true,
 						},
-					})
-					Expect(err).To(HaveOccurred())
+					})).Error().To(HaveOccurred())
 				})
 				It("Should not open a fixed-density channel as a variable DB", func(ctx SpecContext) {
 					_, err := variable.Open(ctx, variable.Config{
@@ -224,28 +223,23 @@ var _ = Describe("DB", func() {
 					a2 := MustSucceed(w.Write(telem.NewSeriesV("c", "d", "e")))
 					Expect(a2.SampleIndex()).To(Equal(uint32(5)))
 					MustSucceed(w.Commit(ctx))
-					_, err := w.Close()
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(w.Close())
 				})
 				It("Should reject writes with wrong data type", func(ctx SpecContext) {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, variable.WriterConfig{
 						Start:   70 * telem.SecondTS,
 						Subject: xcontrol.Subject{Key: "wrong-type"},
 					}))
-					_, err := w.Write(telem.NewSeriesV[int64](1, 2, 3))
-					Expect(err).To(HaveOccurred())
-					_, err = w.Close()
-					Expect(err).ToNot(HaveOccurred())
+					Expect(w.Write(telem.NewSeriesV[int64](1, 2, 3))).Error().To(HaveOccurred())
+					MustSucceed(w.Close())
 				})
 				It("Should return error when writing to a closed writer", func(ctx SpecContext) {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, variable.WriterConfig{
 						Start:   80 * telem.SecondTS,
 						Subject: xcontrol.Subject{Key: "closed-writer"},
 					}))
-					_, err := w.Close()
-					Expect(err).ToNot(HaveOccurred())
-					_, err = w.Write(telem.NewSeriesV("data"))
-					Expect(err).To(HaveOccurred())
+					MustSucceed(w.Close())
+					Expect(w.Write(telem.NewSeriesV("data"))).Error().To(MatchError(ContainSubstring("closed")))
 				})
 			})
 
