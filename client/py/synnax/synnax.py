@@ -103,6 +103,8 @@ class Synnax(framer.Client):
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
         :param secure: Whether to use TLS when connecting to the Core.
+        :param clock_skew_threshold: The maximum allowable clock skew between this
+            host and Synnax Core before a warning is issued. Defaults to 1 second.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
         self._transport = _configure_transport(

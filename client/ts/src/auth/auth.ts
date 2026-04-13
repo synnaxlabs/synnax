@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  ClockSkewCalculator,
-  type CrudeTimeSpan,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -58,19 +53,11 @@ export class Client {
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private retryCount: number;
-  private readonly skewCalc: ClockSkewCalculator;
-  private readonly clockSkewThreshold: TimeSpan;
 
-  constructor(
-    client: UnaryClient,
-    credentials: InsecureCredentials,
-    clockSkewThreshold: CrudeTimeSpan = TimeSpan.seconds(1),
-  ) {
+  constructor(client: UnaryClient, credentials: InsecureCredentials) {
     this.client = client;
     this.credentials = credentials;
     this.retryCount = 0;
-    this.skewCalc = new ClockSkewCalculator();
-    this.clockSkewThreshold = new TimeSpan(clockSkewThreshold);
   }
 
   get authenticated(): boolean {
@@ -83,10 +70,6 @@ export class Client {
 
   get token(): string | undefined {
     return this.authState.authenticated ? this.authState.token : undefined;
-  }
-
-  get clockSkew(): TimeSpan {
-    return this.skewCalc.skew;
   }
 
   async retrieveUser(): Promise<user.User> {
@@ -117,7 +100,6 @@ export class Client {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
         this.authenticating ??= new Promise((resolve, reject) => {
-          this.skewCalc.start();
           this.client
             .send(
               LOGIN_ENDPOINT,
@@ -128,19 +110,6 @@ export class Client {
             .then(([res, err]) => {
               if (err != null) return resolve(err);
               if (res == null) return resolve(new Error("No response from login"));
-              const nodeTime = res.clusterInfo?.nodeTime;
-              if (nodeTime != null) {
-                this.skewCalc.end(nodeTime);
-                if (this.skewCalc.exceeds(this.clockSkewThreshold)) {
-                  const direction =
-                    this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
-                  console.warn(
-                    `Measured excessive clock skew between this host and ` +
-                      `Synnax Core. This host is ${direction} Synnax Core ` +
-                      `by approximately ${this.skewCalc.skew.abs().toString()}.`,
-                  );
-                }
-              }
               this.authState = {
                 authenticated: true,
                 user: res.user,

@@ -66,7 +66,7 @@ const createWarning = (
 export class Checker {
   static readonly DEFAULT: State = DEFAULT;
   private readonly _state: State;
-  private readonly pollFrequency = TimeSpan.seconds(30);
+  private readonly pollFrequency: TimeSpan;
   private readonly client: UnaryClient;
   private readonly name?: string;
   private interval?: NodeJS.Timeout;
@@ -74,7 +74,6 @@ export class Checker {
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = stateZ;
   private versionWarned = false;
-  private clockSkewWarned = false;
   private readonly skewCalc: ClockSkewCalculator;
   private readonly clockSkewThreshold: TimeSpan;
   private checking = false;
@@ -113,6 +112,7 @@ export class Checker {
    */
   async check(): Promise<State> {
     const prevStatus = this._state.status;
+    const prevSkewExceeded = this._state.clockSkewExceeded;
     const measureSkew = !this.checking;
     this.checking = true;
     try {
@@ -128,14 +128,13 @@ export class Checker {
         this.skewCalc.end(res.nodeTime);
         this._state.clockSkew = this.skewCalc.skew;
         this._state.clockSkewExceeded = this.skewCalc.exceeds(this.clockSkewThreshold);
-        if (this._state.clockSkewExceeded && !this.clockSkewWarned) {
+        if (this._state.clockSkewExceeded) {
           const direction = this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
           console.warn(
             `Measured excessive clock skew between this host and ` +
               `Synnax Core. This host is ${direction} Synnax Core ` +
               `by approximately ${this.skewCalc.skew.abs().toString()}.`,
           );
-          this.clockSkewWarned = true;
         }
       }
       const nodeVersion = res.nodeVersion;
@@ -178,7 +177,10 @@ export class Checker {
     } finally {
       this.checking = false;
     }
-    if (this.onChangeHandlers.length > 0 && prevStatus !== this._state.status)
+    const changed =
+      prevStatus !== this._state.status ||
+      prevSkewExceeded !== this._state.clockSkewExceeded;
+    if (this.onChangeHandlers.length > 0 && changed)
       this.onChangeHandlers.forEach((handler) => handler(this.state));
     return this.state;
   }

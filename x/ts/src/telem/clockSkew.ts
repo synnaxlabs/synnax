@@ -17,8 +17,7 @@ import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
 export class ClockSkewCalculator {
   private readonly now: () => TimeStamp;
   private localStartT: TimeStamp = new TimeStamp(0);
-  private accumulatedSkew: bigint = 0n;
-  private n: number = 0;
+  private lastSkew: TimeSpan = TimeSpan.ZERO;
 
   constructor(now: () => TimeStamp = () => TimeStamp.now()) {
     this.now = now;
@@ -32,14 +31,13 @@ export class ClockSkewCalculator {
     const localEndT = this.now();
     const halfSpan = localEndT.span(this.localStartT).valueOf() / 2n;
     const thisMidpointT = this.localStartT.add(halfSpan);
-    const skew = thisMidpointT.valueOf() - remoteMidpointT.valueOf();
-    this.accumulatedSkew += skew;
-    this.n++;
+    this.lastSkew = new TimeSpan(
+      thisMidpointT.valueOf() - remoteMidpointT.valueOf(),
+    );
   }
 
   get skew(): TimeSpan {
-    if (this.n === 0) return TimeSpan.ZERO;
-    return new TimeSpan(this.accumulatedSkew / BigInt(this.n));
+    return this.lastSkew;
   }
 
   exceeds(threshold: CrudeTimeSpan): boolean {

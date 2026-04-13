@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context, type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { type Context } from "@synnaxlabs/freighter";
+import { URL } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -100,81 +100,4 @@ describe("auth", () => {
     });
   });
 
-  describe("clock skew detection", () => {
-    const MOCK_USER = {
-      key: "00000000-0000-0000-0000-000000000000",
-      username: "synnax",
-    };
-
-    const createMockClient = (nodeTime: TimeStamp): UnaryClient => {
-      const response = {
-        token: "test-token",
-        user: MOCK_USER,
-        clusterInfo: {
-          clusterKey: "test-cluster",
-          nodeVersion: "0.54.0",
-          nodeKey: 1,
-          nodeTime,
-        },
-      };
-      return {
-        send: vi.fn().mockResolvedValue([response, null]) as UnaryClient["send"],
-        use: vi.fn(),
-      };
-    };
-
-    it("should measure clock skew after authentication", async () => {
-      const serverTime = TimeStamp.now();
-      const client = new auth.Client(createMockClient(serverTime), {
-        username: "synnax",
-        password: "seldon",
-      });
-      const mw = client.middleware();
-      await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
-      expect(client.authenticated).toBe(true);
-      expect(client.clockSkew).toBeDefined();
-    });
-
-    it("should warn when skew exceeds threshold", async () => {
-      const farFuture = TimeStamp.now().add(TimeSpan.hours(1));
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const client = new auth.Client(
-        createMockClient(farFuture),
-        { username: "synnax", password: "seldon" },
-        TimeSpan.seconds(1),
-      );
-      const mw = client.middleware();
-      await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("clock skew"));
-      warnSpy.mockRestore();
-    });
-
-    it("should not warn when skew is within threshold", async () => {
-      const serverTime = TimeStamp.now();
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const client = new auth.Client(
-        createMockClient(serverTime),
-        { username: "synnax", password: "seldon" },
-        TimeSpan.seconds(1),
-      );
-      const mw = client.middleware();
-      await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
-      expect(warnSpy).not.toHaveBeenCalled();
-      warnSpy.mockRestore();
-    });
-
-    it("should expose the measured skew via clockSkew getter", async () => {
-      const offset = TimeSpan.seconds(5);
-      const farFuture = TimeStamp.now().add(offset);
-      vi.spyOn(console, "warn").mockImplementation(() => {});
-      const client = new auth.Client(createMockClient(farFuture), {
-        username: "synnax",
-        password: "seldon",
-      });
-      const mw = client.middleware();
-      await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
-      expect(client.clockSkew.valueOf()).not.toBe(0n);
-      vi.restoreAllMocks();
-    });
-  });
 });

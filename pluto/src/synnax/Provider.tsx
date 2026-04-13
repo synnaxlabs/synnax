@@ -19,7 +19,6 @@ import {
   type ReactElement,
   useCallback,
   useMemo,
-  useRef,
 } from "react";
 import z from "zod";
 
@@ -81,6 +80,26 @@ export const clockSkewDetailsSchema = z.object({
 
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
+const addClockSkewStatus = (
+  addStatus: Status.Adder,
+  state: connection.State,
+): void => {
+  const skew = state.clockSkew;
+  const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
+  addStatus<typeof clockSkewDetailsSchema>({
+    variant: "warning",
+    message: "Clock skew detected",
+    description:
+      `This machine's clock is ${direction} Synnax Core ` +
+      `by approximately ${skew.abs().toString()}. This may cause ` +
+      `issues with time-series data. Synchronize your system clock.`,
+    details: {
+      type: CLOCK_SKEW_EXCEEDED,
+      clockSkew: Number(skew.valueOf()),
+    },
+  });
+};
+
 const createErrorDescription = (
   oldServer: boolean,
   clientVersion: string,
@@ -117,7 +136,6 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   });
 
   const addStatus = Status.useAdder();
-  const clockSkewWarned = useRef(false);
 
   const handleChange = useCallback(
     (state: connection.State) => {
@@ -126,27 +144,8 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
-      if (
-        state.status === "connected" &&
-        state.clockSkewExceeded &&
-        !clockSkewWarned.current
-      ) {
-        const skew = state.clockSkew;
-        const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
-        addStatus<typeof clockSkewDetailsSchema>({
-          variant: "warning",
-          message: "Clock skew detected",
-          description:
-            `This machine's clock is ${direction} Synnax Core ` +
-            `by approximately ${skew.abs().toString()}. This may cause ` +
-            `issues with time-series data. Synchronize your system clock.`,
-          details: {
-            type: CLOCK_SKEW_EXCEEDED,
-            clockSkew: Number(skew.valueOf()),
-          },
-        });
-        clockSkewWarned.current = true;
-      }
+      if (state.status === "connected" && state.clockSkewExceeded)
+        addClockSkewStatus(addStatus, state);
       setState((prev) => ({ ...prev, state }));
     },
     [addStatus],
@@ -182,6 +181,9 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         message: connectivity.message ?? connectivity.status.toUpperCase(),
       });
 
+      if (connectivity.status === "connected" && connectivity.clockSkewExceeded)
+        addClockSkewStatus(addStatus, connectivity);
+
       if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
         const oldServer =
           connectivity.nodeVersion == null ||
@@ -204,24 +206,6 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
             clientVersion: connectivity.clientVersion,
           },
         });
-      }
-
-      if (connectivity.status === "connected" && connectivity.clockSkewExceeded) {
-        const skew = connectivity.clockSkew;
-        const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
-        addStatus<typeof clockSkewDetailsSchema>({
-          variant: "warning",
-          message: "Clock skew detected",
-          description:
-            `This machine's clock is ${direction} Synnax Core ` +
-            `by approximately ${skew.abs().toString()}. This may cause ` +
-            `issues with time-series data. Synchronize your system clock.`,
-          details: {
-            type: CLOCK_SKEW_EXCEEDED,
-            clockSkew: Number(skew.valueOf()),
-          },
-        });
-        clockSkewWarned.current = true;
       }
 
       client.connectivity.onChange(handleChange);

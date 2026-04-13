@@ -13,42 +13,46 @@ import { ClockSkewCalculator, TimeSpan, TimeStamp } from "@/telem";
 
 describe("ClockSkewCalculator", () => {
   it("should correctly calculate clock skew from a single measurement", () => {
-    let mockTime = new TimeStamp(0);
+    let mockTime = TimeStamp.seconds(0);
     const calc = new ClockSkewCalculator(() => mockTime);
     calc.start();
-    mockTime = new TimeStamp(10);
-    calc.end(new TimeStamp(3));
-    expect(calc.skew.valueOf()).toBe(2n);
-    expect(calc.exceeds(new TimeSpan(1))).toBe(true);
-    expect(calc.exceeds(new TimeSpan(3))).toBe(false);
+    mockTime = TimeStamp.seconds(10);
+    // Remote midpoint is 3s, local midpoint is 5s, so skew is 2s
+    calc.end(TimeStamp.seconds(3));
+    expect(calc.skew).toEqual(TimeSpan.seconds(2));
+    expect(calc.exceeds(TimeSpan.seconds(1))).toBe(true);
+    expect(calc.exceeds(TimeSpan.seconds(3))).toBe(false);
   });
 
   it("should report zero skew when times match perfectly", () => {
-    let mockTime = new TimeStamp(0);
+    let mockTime = TimeStamp.seconds(0);
     const calc = new ClockSkewCalculator(() => mockTime);
     calc.start();
-    mockTime = new TimeStamp(1000);
-    calc.end(new TimeStamp(500));
-    expect(calc.skew.valueOf()).toBe(0n);
-    expect(calc.exceeds(new TimeSpan(1))).toBe(false);
+    mockTime = TimeStamp.seconds(10);
+    // Remote midpoint matches local midpoint at 5s
+    calc.end(TimeStamp.seconds(5));
+    expect(calc.skew).toEqual(TimeSpan.ZERO);
+    expect(calc.exceeds(TimeSpan.seconds(1))).toBe(false);
   });
 
-  it("should average multiple measurements", () => {
-    let mockTime = new TimeStamp(0);
+  it("should return the most recent measurement", () => {
+    let mockTime = TimeStamp.seconds(0);
     const calc = new ClockSkewCalculator(() => mockTime);
     calc.start();
-    mockTime = new TimeStamp(10);
-    calc.end(new TimeStamp(3));
-    mockTime = new TimeStamp(0);
+    mockTime = TimeStamp.seconds(10);
+    calc.end(TimeStamp.seconds(3));
+    expect(calc.skew).toEqual(TimeSpan.seconds(2));
+    mockTime = TimeStamp.seconds(0);
     calc.start();
-    mockTime = new TimeStamp(10);
-    calc.end(new TimeStamp(7));
-    expect(calc.skew.valueOf()).toBe(0n);
+    mockTime = TimeStamp.seconds(10);
+    // Remote midpoint is 7s, local midpoint is 5s, so skew is -2s
+    calc.end(TimeStamp.seconds(7));
+    expect(calc.skew).toEqual(TimeSpan.seconds(-2));
   });
 
   it("should return zero skew when no measurements taken", () => {
     const calc = new ClockSkewCalculator();
-    expect(calc.skew.valueOf()).toBe(0n);
-    expect(calc.exceeds(new TimeSpan(1))).toBe(false);
+    expect(calc.skew).toEqual(TimeSpan.ZERO);
+    expect(calc.exceeds(TimeSpan.seconds(1))).toBe(false);
   });
 });

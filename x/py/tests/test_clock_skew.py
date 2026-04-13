@@ -20,11 +20,12 @@ class TestClockSkewCalculator:
 
         calc = ClockSkewCalculator(now=now)
         calc.start()
-        mock_time[0] = TimeStamp(10)
-        calc.end(TimeStamp(3))
-        assert int(calc.skew) == 2
-        assert calc.exceeds(TimeSpan(1)) is True
-        assert calc.exceeds(TimeSpan(3)) is False
+        mock_time[0] = TimeStamp(TimeSpan.SECOND * 10)
+        # Remote midpoint is 3s, local midpoint is 5s, so skew is 2s
+        calc.end(TimeStamp(TimeSpan.SECOND * 3))
+        assert calc.skew == TimeSpan.SECOND * 2
+        assert calc.exceeds(TimeSpan.SECOND) is True
+        assert calc.exceeds(TimeSpan.SECOND * 3) is False
 
     def test_zero_skew(self) -> None:
         mock_time = [TimeStamp(0)]
@@ -34,12 +35,13 @@ class TestClockSkewCalculator:
 
         calc = ClockSkewCalculator(now=now)
         calc.start()
-        mock_time[0] = TimeStamp(1000)
-        calc.end(TimeStamp(500))
-        assert int(calc.skew) == 0
-        assert calc.exceeds(TimeSpan(1)) is False
+        mock_time[0] = TimeStamp(TimeSpan.SECOND * 10)
+        # Remote midpoint matches local midpoint at 5s
+        calc.end(TimeStamp(TimeSpan.SECOND * 5))
+        assert calc.skew == TimeSpan(0)
+        assert calc.exceeds(TimeSpan.SECOND) is False
 
-    def test_average_multiple_measurements(self) -> None:
+    def test_returns_most_recent_measurement(self) -> None:
         mock_time = [TimeStamp(0)]
 
         def now() -> TimeStamp:
@@ -47,15 +49,17 @@ class TestClockSkewCalculator:
 
         calc = ClockSkewCalculator(now=now)
         calc.start()
-        mock_time[0] = TimeStamp(10)
-        calc.end(TimeStamp(3))
+        mock_time[0] = TimeStamp(TimeSpan.SECOND * 10)
+        calc.end(TimeStamp(TimeSpan.SECOND * 3))
+        assert calc.skew == TimeSpan.SECOND * 2
         mock_time[0] = TimeStamp(0)
         calc.start()
-        mock_time[0] = TimeStamp(10)
-        calc.end(TimeStamp(7))
-        assert int(calc.skew) == 0
+        mock_time[0] = TimeStamp(TimeSpan.SECOND * 10)
+        # Remote midpoint is 7s, local midpoint is 5s, so skew is -2s
+        calc.end(TimeStamp(TimeSpan.SECOND * 7))
+        assert calc.skew == TimeSpan.SECOND * -2
 
     def test_no_measurements(self) -> None:
         calc = ClockSkewCalculator()
-        assert int(calc.skew) == 0
-        assert calc.exceeds(TimeSpan(1)) is False
+        assert calc.skew == TimeSpan(0)
+        assert calc.exceeds(TimeSpan.SECOND) is False

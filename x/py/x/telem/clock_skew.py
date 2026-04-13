@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from x.telem.telem import TimeSpan, TimeStamp
+from x.telem.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 
 
 class ClockSkewCalculator:
@@ -22,8 +22,7 @@ class ClockSkewCalculator:
     def __init__(self, now: Callable[[], TimeStamp] | None = None) -> None:
         self._now = now or TimeStamp.now
         self._local_start_t = TimeStamp(0)
-        self._accumulated_skew = 0
-        self._n = 0
+        self._last_skew = TimeSpan(0)
 
     def start(self) -> None:
         self._local_start_t = self._now()
@@ -34,14 +33,11 @@ class ClockSkewCalculator:
         end = int(local_end_t)
         local_mid = start + (end - start) // 2
         skew = local_mid - int(remote_midpoint_t)
-        self._accumulated_skew += skew
-        self._n += 1
+        self._last_skew = TimeSpan(skew)
 
     @property
     def skew(self) -> TimeSpan:
-        if self._n == 0:
-            return TimeSpan(0)
-        return TimeSpan(self._accumulated_skew // self._n)
+        return self._last_skew
 
-    def exceeds(self, threshold: TimeSpan) -> bool:
-        return abs(self.skew) > abs(threshold)
+    def exceeds(self, threshold: CrudeTimeSpan) -> bool:
+        return abs(self.skew) > abs(TimeSpan(threshold))
