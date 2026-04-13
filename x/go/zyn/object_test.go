@@ -368,6 +368,19 @@ var _ = Describe("Object", func() {
 					"score": 95.5,
 				}))
 			})
+			Specify("valid map with camel case keys", func() {
+				schema := zyn.Object(map[string]zyn.Schema{
+					"FirstName": zyn.String(),
+					"LastName":  zyn.String(),
+					"Age":       zyn.Number(),
+				})
+				data := map[string]any{"firstName": "John", "lastName": "Doe", "age": 42}
+				Expect(schema.Dump(data)).To(Equal(map[string]any{
+					"first_name": "John",
+					"last_name":  "Doe",
+					"age":        int64(42),
+				}))
+			})
 			Specify("valid map with mixed case keys", func() {
 				schema := zyn.Object(map[string]zyn.Schema{
 					"Name":  zyn.String(),
@@ -504,6 +517,32 @@ var _ = Describe("Object", func() {
 			Expect(dest.Age).To(Equal(42))
 			Expect(dest.Score).To(Equal(95.5))
 		})
+		Specify("parses from camel case", func() {
+			type TestStruct struct {
+				FirstName string
+				LastName  string
+				Age       int
+				Score     float64
+			}
+			schema := zyn.Object(map[string]zyn.Schema{
+				"FirstName": zyn.String(),
+				"LastName":  zyn.String(),
+				"Age":       zyn.Number(),
+				"Score":     zyn.Number(),
+			})
+			data := map[string]any{
+				"firstName": "John",
+				"lastName":  "Doe",
+				"age":       42,
+				"score":     95.5,
+			}
+			var dest TestStruct
+			Expect(schema.Parse(data, &dest)).To(Succeed())
+			Expect(dest.FirstName).To(Equal("John"))
+			Expect(dest.LastName).To(Equal("Doe"))
+			Expect(dest.Age).To(Equal(42))
+			Expect(dest.Score).To(Equal(95.5))
+		})
 		Specify("parses from mixed case", func() {
 			type TestStruct struct {
 				FirstName string
@@ -529,6 +568,39 @@ var _ = Describe("Object", func() {
 			Expect(dest.LastName).To(Equal("Doe"))
 			Expect(dest.Age).To(Equal(42))
 			Expect(dest.Score).To(Equal(95.5))
+		})
+		Specify("nested object camel case conversion", func() {
+			type Address struct {
+				StreetName string
+				CityName   string
+			}
+			type Person struct {
+				FirstName string
+				LastName  string
+				Address   Address
+			}
+			schema := zyn.Object(map[string]zyn.Schema{
+				"FirstName": zyn.String(),
+				"LastName":  zyn.String(),
+				"Address": zyn.Object(map[string]zyn.Schema{
+					"StreetName": zyn.String(),
+					"CityName":   zyn.String(),
+				}),
+			})
+			data := map[string]any{
+				"firstName": "John",
+				"lastName":  "Doe",
+				"address": map[string]any{
+					"streetName": "123 Main St",
+					"cityName":   "Boston",
+				},
+			}
+			var dest Person
+			Expect(schema.Parse(data, &dest)).To(Succeed())
+			Expect(dest.FirstName).To(Equal("John"))
+			Expect(dest.LastName).To(Equal("Doe"))
+			Expect(dest.Address.StreetName).To(Equal("123 Main St"))
+			Expect(dest.Address.CityName).To(Equal("Boston"))
 		})
 		Specify("nested object case conversion", func() {
 			type Address struct {
@@ -594,6 +666,34 @@ var _ = Describe("Object", func() {
 				"score":      95.5,
 			}))
 			// Test parsing back
+			var dest TestStruct
+			Expect(schema.Parse(result, &dest)).To(Succeed())
+			Expect(dest.FirstName).To(Equal("John"))
+			Expect(dest.LastName).To(Equal("Doe"))
+			Expect(dest.Age).To(Equal(42))
+			Expect(dest.Score).To(Equal(95.5))
+		})
+		Specify("accepts camel case keys in schema", func() {
+			type TestStruct struct {
+				FirstName string
+				LastName  string
+				Age       int
+				Score     float64
+			}
+			schema := zyn.Object(map[string]zyn.Schema{
+				"firstName": zyn.String(),
+				"lastName":  zyn.String(),
+				"age":       zyn.Number(),
+				"score":     zyn.Number(),
+			})
+			data := TestStruct{FirstName: "John", LastName: "Doe", Age: 42, Score: 95.5}
+			result := MustSucceed(schema.Dump(data))
+			Expect(result).To(Equal(map[string]any{
+				"first_name": "John",
+				"last_name":  "Doe",
+				"age":        int64(42),
+				"score":      95.5,
+			}))
 			var dest TestStruct
 			Expect(schema.Parse(result, &dest)).To(Succeed())
 			Expect(dest.FirstName).To(Equal("John"))

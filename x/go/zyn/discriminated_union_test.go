@@ -62,6 +62,16 @@ var _ = Describe("DiscriminatedUnion", func() {
 			Expect(dest.Type).To(Equal("read"))
 			Expect(dest.SampleRate).To(Equal(1000.0))
 		})
+		Specify("camelCase input data", func() {
+			type ReadConfig struct {
+				Type       string
+				SampleRate float64
+			}
+			var dest ReadConfig
+			Expect(schema.Parse(map[string]any{"type": "read", "sampleRate": 1000.0}, &dest)).To(Succeed())
+			Expect(dest.Type).To(Equal("read"))
+			Expect(dest.SampleRate).To(Equal(1000.0))
+		})
 	})
 	Describe("Validate", func() {
 		It("Should succeed for a valid variant", func() {
@@ -244,6 +254,19 @@ var _ = Describe("DiscriminatedUnion", func() {
 			)
 			Expect(s.Validate(map[string]any{"type": "a", "X": 1.0})).To(Succeed())
 		})
+		It("Should match discriminator via camelCase data key", func() {
+			s := zyn.DiscriminatedUnion("TaskType",
+				zyn.Object(map[string]zyn.Schema{
+					"TaskType": zyn.Literal("a"),
+					"X":        zyn.Number(),
+				}),
+				zyn.Object(map[string]zyn.Schema{
+					"TaskType": zyn.Literal("b"),
+					"Y":        zyn.String(),
+				}),
+			)
+			Expect(s.Validate(map[string]any{"taskType": "a", "X": 1.0})).To(Succeed())
+		})
 		It("Should match discriminator via raw data key when neither pascal nor snake match", func() {
 			s := zyn.DiscriminatedUnion("TYPE",
 				zyn.Object(map[string]zyn.Schema{
@@ -263,6 +286,18 @@ var _ = Describe("DiscriminatedUnion", func() {
 					}),
 					zyn.Object(map[string]zyn.Schema{
 						"Type": zyn.Literal("b"),
+					}),
+				)
+			}).NotTo(Panic())
+		})
+		It("Should resolve findFieldSchema via camelCase fallback", func() {
+			Expect(func() {
+				zyn.DiscriminatedUnion("taskType",
+					zyn.Object(map[string]zyn.Schema{
+						"TaskType": zyn.Literal("a"),
+					}),
+					zyn.Object(map[string]zyn.Schema{
+						"TaskType": zyn.Literal("b"),
 					}),
 				)
 			}).NotTo(Panic())
@@ -300,6 +335,37 @@ var _ = Describe("DiscriminatedUnion", func() {
 			Expect(snakeSchema.Parse(map[string]any{"task_type": "read", "rate": 500.0}, &dest)).To(Succeed())
 			Expect(dest.TaskType).To(Equal("read"))
 			Expect(dest.Rate).To(Equal(500.0))
+		})
+	})
+	Describe("Camel Case Schema Definition", func() {
+		It("Should work with camelCase field names in schema", func() {
+			camelSchema := zyn.DiscriminatedUnion("taskType",
+				zyn.Object(map[string]zyn.Schema{
+					"taskType": zyn.Literal("read"),
+					"rate":     zyn.Number(),
+				}),
+				zyn.Object(map[string]zyn.Schema{
+					"taskType": zyn.Literal("write"),
+					"target":   zyn.String(),
+				}),
+			)
+			type ReadTask struct {
+				TaskType string
+				Rate     float64
+			}
+			var dest ReadTask
+			Expect(camelSchema.Parse(map[string]any{"taskType": "read", "rate": 500.0}, &dest)).To(Succeed())
+			Expect(dest.TaskType).To(Equal("read"))
+			Expect(dest.Rate).To(Equal(500.0))
+		})
+	})
+	Describe("Camel Case Dump", func() {
+		It("Should dump from camelCase map input", func() {
+			result := MustSucceed(schema.Dump(map[string]any{"type": "read", "sampleRate": 1000.0}))
+			Expect(result).To(Equal(map[string]any{
+				"type":        "read",
+				"sample_rate": 1000.0,
+			}))
 		})
 	})
 	Describe("Nested Objects", func() {

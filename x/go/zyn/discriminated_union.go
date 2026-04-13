@@ -30,6 +30,7 @@ type DiscriminatedUnionZ struct {
 	discriminator       string
 	discriminatorSnake  string
 	discriminatorPascal string
+	discriminatorCamel  string
 	variants            map[string]ObjectZ
 }
 
@@ -73,6 +74,9 @@ func (d DiscriminatedUnionZ) getDiscriminatorFromMap(
 	if v, ok := data[d.discriminatorPascal]; ok {
 		return fmt.Sprintf("%v", v), nil
 	}
+	if v, ok := data[d.discriminatorCamel]; ok {
+		return fmt.Sprintf("%v", v), nil
+	}
 	if v, ok := data[d.discriminatorSnake]; ok {
 		return fmt.Sprintf("%v", v), nil
 	}
@@ -87,6 +91,7 @@ func (d DiscriminatedUnionZ) getDiscriminatorFromStruct(
 ) (string, error) {
 	field := val.FieldByNameFunc(func(s string) bool {
 		return s == d.discriminatorPascal ||
+			s == d.discriminatorCamel ||
 			s == d.discriminatorSnake ||
 			s == d.discriminator
 	})
@@ -221,13 +226,17 @@ func (d DiscriminatedUnionZ) Validate(data any) error {
 }
 
 // findFieldSchema looks up a field in an ObjectZ by trying the given name directly,
-// then its snake_case and PascalCase variants.
+// then its snake_case, camelCase, and PascalCase variants.
 func findFieldSchema(obj ObjectZ, name string) (Schema, bool) {
 	if s, ok := obj.fields[name]; ok {
 		return s, true
 	}
 	snake := lo.SnakeCase(name)
 	if s, ok := obj.fields[snake]; ok {
+		return s, true
+	}
+	camel := lo.CamelCase(name)
+	if s, ok := obj.fields[camel]; ok {
 		return s, true
 	}
 	pascal := lo.PascalCase(name)
@@ -281,6 +290,7 @@ func DiscriminatedUnion(discriminator string, schemas ...ObjectZ) DiscriminatedU
 		discriminator:       discriminator,
 		discriminatorSnake:  lo.SnakeCase(discriminator),
 		discriminatorPascal: lo.PascalCase(discriminator),
+		discriminatorCamel:  lo.CamelCase(discriminator),
 		variants:            variants,
 	}
 	d.wrapper = d
