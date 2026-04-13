@@ -12,54 +12,112 @@ package imex
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"maps"
+	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Envelope is the standard format for importing and exporting a single resource.
-// Type is the most specific type identifier (e.g., "log", "modbus_read"). Version
-// is the data schema version (may be empty for old exports). Data contains the full
-// serialized resource including key, name, and all fields.
+// Envelope is the portable format for a single importable/exportable resource.
+// All fields are flat at the JSON level. The wire format looks like:
+//
+//	{"version":54,"type":"log","key":"...","name":"...","channels":[...]}
+//
+// Version, Type, Key, and Name are promoted to typed fields for convenient
+// access (routing, identity, file naming). Data is the complete flat map
+// including key and name. The promoted fields are copies, not extractions.
+// Handlers receive Data with all fields intact for zyn schema parsing.
 type Envelope struct {
-	Version string         `json:"version" msgpack:"version"`
-	Type    string         `json:"type" msgpack:"type"`
-	Data    map[string]any `json:"data" msgpack:"data"`
+	Version int
+	Type    string
+	Key     string
+	Name    string
+	Data    map[string]any
 }
 
-// ParseEnvelope converts raw JSON bytes into an Envelope. It detects the format
-// automatically: if the JSON contains a nested "data" object, it's the new envelope
-// format. Otherwise it's the old console flat format, and the entire JSON becomes
-// the Data field.
-func ParseEnvelope(raw []byte) (Envelope, error) {
-	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return Envelope{}, err
+// MarshalJSON flattens Data into the top-level JSON object and overwrites
+// version and type with the promoted field values (since the export version
+// is stamped by the service, not carried in Data).
+func (e Envelope) MarshalJSON() ([]byte, error) {
+	m := make(map[string]any, len(e.Data)+2)
+	maps.Copy(m, e.Data)
+	m["version"] = e.Version
+	if e.Type != "" {
+		m["type"] = e.Type
 	}
-	return ParseEnvelopeFromMap(m), nil
+	return json.Marshal(m)
 }
 
-// ParseEnvelopeFromMap converts a raw map into an Envelope, detecting the format.
-func ParseEnvelopeFromMap(m map[string]any) Envelope {
-	if data, ok := m["data"].(map[string]any); ok {
-		env := Envelope{Data: data}
-		if v, ok := m["version"].(string); ok {
-			env.Version = v
+// envelopeMeta holds the promoted fields for standard json unmarshaling.
+// Version is raw because it can be either a number or a semver string.
+type envelopeMeta struct {
+	Version json.RawMessage `json:"version"`
+	Type    string          `json:"type"`
+	Key     string          `json:"key"`
+	Name    string          `json:"name"`
+}
+
+// UnmarshalJSON reads a flat JSON object. Promoted fields are extracted via
+// standard json struct tags. Data receives the complete map with all fields
+// intact. The version field accepts both numeric values (new format) and
+// semver strings (old Console format), converting the latter via
+// legacyToNumeric.
+func (e *Envelope) UnmarshalJSON(b []byte) error {
+	var meta envelopeMeta
+	if err := json.Unmarshal(b, &meta); err != nil {
+		return err
+	}
+	e.Type = meta.Type
+	e.Key = meta.Key
+	e.Name = meta.Name
+	if len(meta.Version) > 0 {
+		v, err := parseVersionRaw(meta.Version)
+		if err != nil {
+			return err
 		}
-		if t, ok := m["type"].(string); ok {
-			env.Type = t
-		}
-		return env
+		e.Version = v
 	}
-	env := Envelope{Data: m}
-	if v, ok := m["version"].(string); ok {
-		env.Version = v
+	return json.Unmarshal(b, &e.Data)
+}
+
+// parseVersionRaw parses a JSON-encoded version value that can be either a
+// number or a semver string.
+func parseVersionRaw(raw json.RawMessage) (int, error) {
+	var n float64
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return int(n), nil
 	}
-	if t, ok := m["type"].(string); ok {
-		env.Type = t
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return legacyToNumeric(s)
 	}
-	return env
+	return 0, fmt.Errorf("version must be a number or semver string, got %s", string(raw))
+}
+
+// legacyToNumeric converts a semver string like "1.0.0" to a numeric version
+// using the formula major*5 + minor*2 + patch.
+func legacyToNumeric(s string) (int, error) {
+	parts := strings.Split(s, ".")
+	if len(parts) != 3 {
+		return 0, fmt.Errorf("invalid semver %q: expected major.minor.patch", s)
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, errors.Wrapf(err, "invalid semver major %q", parts[0])
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, errors.Wrapf(err, "invalid semver minor %q", parts[1])
+	}
+	patch, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, errors.Wrapf(err, "invalid semver patch %q", parts[2])
+	}
+	return major*5 + minor*2 + patch, nil
 }
 
 // Importer can import a resource from an Envelope.

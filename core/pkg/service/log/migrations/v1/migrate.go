@@ -32,6 +32,6 @@ func Migrate(old v0.Data) (Data, error) {
 		RemoteCreated:        old.RemoteCreated,
 		TimestampPrecision:   0,
 		ShowChannelNames:     true,
-		ShowReceiptTimestamp:  true,
+		ShowReceiptTimestamp: true,
 	}, nil
 }

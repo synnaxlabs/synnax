@@ -39,8 +39,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	ImportRequest struct {
-		Parent    ontology.ID          `json:"parent" msgpack:"parent"`
-		Resources []svcimex.Envelope   `json:"resources" msgpack:"resources"`
+		Parent    ontology.ID        `json:"parent" msgpack:"parent"`
+		Resources []svcimex.Envelope `json:"resources" msgpack:"resources"`
 	}
 	ImportResponse struct{}
 )

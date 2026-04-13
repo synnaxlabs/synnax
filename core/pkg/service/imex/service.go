@@ -21,17 +21,21 @@ import (
 // ImporterExporter under one or more type strings during layer initialization.
 // Type strings are the most specific type identifier (e.g., "log", "modbus_read").
 type Service struct {
-	db        *gorp.DB
-	importers map[string]Importer
-	exporters map[string]Exporter
+	db            *gorp.DB
+	exportVersion int
+	importers     map[string]Importer
+	exporters     map[string]Exporter
 }
 
-// NewService creates a new import/export registry service.
-func NewService(db *gorp.DB) *Service {
+// NewService creates a new import/export registry service. The exportVersion is
+// stamped on every exported envelope and is derived from the core version using
+// the formula major*1000 + minor.
+func NewService(db *gorp.DB, exportVersion int) *Service {
 	return &Service{
-		db:        db,
-		importers: make(map[string]Importer),
-		exporters: make(map[string]Exporter),
+		db:            db,
+		exportVersion: exportVersion,
+		importers:     make(map[string]Importer),
+		exporters:     make(map[string]Exporter),
 	}
 }
 
@@ -39,6 +43,16 @@ func NewService(db *gorp.DB) *Service {
 func (s *Service) Register(typeStr string, ie ImporterExporter) {
 	s.importers[typeStr] = ie
 	s.exporters[typeStr] = ie
+}
+
+// RegisterImporter adds an Importer for the given type string.
+func (s *Service) RegisterImporter(typeStr string, i Importer) {
+	s.importers[typeStr] = i
+}
+
+// RegisterExporter adds an Exporter for the given type string.
+func (s *Service) RegisterExporter(typeStr string, e Exporter) {
+	s.exporters[typeStr] = e
 }
 
 // Import validates and persists the given envelopes within a single transaction.
@@ -64,21 +78,16 @@ func (s *Service) Import(
 	})
 }
 
-// Export serializes the requested resources as envelopes. Each resource is
-// identified by its type string and key.
-type ExportRequest struct {
-	Type string `json:"type" msgpack:"type"`
-	Key  string `json:"key" msgpack:"key"`
-}
-
+// Export serializes the requested resources as envelopes. The service stamps
+// its exportVersion on every envelope.
 func (s *Service) Export(
 	ctx context.Context,
-	resources []ExportRequest,
+	resources []ontology.ID,
 ) ([]Envelope, error) {
 	var result []Envelope
 	err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, r := range resources {
-			exp, ok := s.exporters[r.Type]
+			exp, ok := s.exporters[string(r.Type)]
 			if !ok {
 				return errors.Newf(
 					"no exporter registered for type %q",
@@ -89,6 +98,7 @@ func (s *Service) Export(
 			if err != nil {
 				return err
 			}
+			env.Version = s.exportVersion
 			result = append(result, env)
 		}
 		return nil

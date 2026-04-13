@@ -32,11 +32,11 @@ func TestImEx(t *testing.T) {
 }
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	ws      workspace.Workspace
-	svc     *imex.Service
-	logSvc  *log.Service
+	db     *gorp.DB
+	otg    *ontology.Ontology
+	ws     workspace.Workspace
+	svc    *imex.Service
+	logSvc *log.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -73,8 +73,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	svc = imex.NewService(db)
-	svc.Register(ontology.ResourceTypeLog, logSvc.ImportExporter())
+	svc = imex.NewService(db, 54)
+	svc.Register(string(ontology.ResourceTypeLog), logSvc)
 })
 
 var _ = AfterSuite(func(ctx SpecContext) {

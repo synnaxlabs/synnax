@@ -11,7 +11,7 @@ package v0
 
 import "github.com/synnaxlabs/x/zyn"
 
-const Version = "0.0.0"
+const Version = 0
 
 // Data is the frozen type for log data at version 0.0.0. Channels are stored as
 // bare integer keys.

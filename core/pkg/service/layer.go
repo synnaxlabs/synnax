@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -44,6 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -411,8 +411,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	l.ImEx = imex.NewService(cfg.Distribution.DB)
-	l.ImEx.Register("log", l.Log.ImportExporter())
+	l.ImEx = imex.NewService(cfg.Distribution.DB, version.Numeric())
+	l.ImEx.Register("log", l.Log)
 
 	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{

@@ -11,7 +11,7 @@ package v1
 
 import "github.com/synnaxlabs/x/zyn"
 
-const Version = "1.0.0"
+const Version = 5
 
 // ChannelEntry is a channel reference with display configuration.
 type ChannelEntry struct {
@@ -44,11 +44,11 @@ var channelEntrySchema = zyn.Object(map[string]zyn.Schema{
 
 // Schema validates the full log resource at version 1.0.0.
 var Schema = zyn.Object(map[string]zyn.Schema{
-	"key":                  zyn.String().Optional(),
-	"name":                 zyn.String().Optional(),
-	"channels":             zyn.Array(channelEntrySchema),
-	"remote_created":       zyn.Bool(),
-	"timestamp_precision":  zyn.Number(),
-	"show_channel_names":   zyn.Bool(),
+	"key":                    zyn.String().Optional(),
+	"name":                   zyn.String().Optional(),
+	"channels":               zyn.Array(channelEntrySchema),
+	"remote_created":         zyn.Bool(),
+	"timestamp_precision":    zyn.Number(),
+	"show_channel_names":     zyn.Bool(),
 	"show_receipt_timestamp": zyn.Bool(),
 })

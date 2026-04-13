@@ -21,24 +21,17 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type importExporter struct{ svc *Service }
-
-// ImportExporter returns an imex.ImporterExporter for the log service.
-func (s *Service) ImportExporter() imex.ImporterExporter {
-	return &importExporter{svc: s}
-}
-
-func (ie *importExporter) Import(
+func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	parent ontology.ID,
 	env imex.Envelope,
 ) error {
-	migrated, err := ie.migrateData(env.Version, env.Data)
+	migrated, err := s.migrateData(env.Version, env.Data)
 	if err != nil {
 		return err
 	}
-	key, err := uuid.Parse(migrated.Key)
+	key, err := uuid.Parse(env.Key)
 	if err != nil {
 		key = uuid.New()
 	}
@@ -46,7 +39,7 @@ func (ie *importExporter) Import(
 	if err != nil {
 		return err
 	}
-	name := migrated.Name
+	name := env.Name
 	if name == "" {
 		name = "Imported Log"
 	}
@@ -54,48 +47,34 @@ func (ie *importExporter) Import(
 	if err != nil {
 		return err
 	}
-	l := Log{Key: key, Name: name, Data: dumped.(map[string]any)}
-	return ie.svc.NewWriter(tx).Create(ctx, wsKey, &l)
+	dumpedMap, ok := dumped.(map[string]any)
+	if !ok {
+		return errors.New("unexpected dump result type")
+	}
+	l := Log{Key: key, Name: name, Data: dumpedMap}
+	return s.NewWriter(tx).Create(ctx, wsKey, &l)
 }
 
-func (ie *importExporter) migrateData(version string, data map[string]any) (v1.Data, error) {
-	if version == "" {
-		version = ie.detectVersion(data)
-	}
-	switch version {
-	case v1.Version:
+func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
+	switch {
+	case version >= v1.Version:
 		var d v1.Data
 		if err := v1.Schema.Parse(data, &d); err != nil {
 			return v1.Data{}, err
 		}
 		return d, nil
-	case v0.Version:
+	case version >= v0.Version:
 		var d v0.Data
 		if err := v0.Schema.Parse(data, &d); err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d)
 	default:
-		return v1.Data{}, errors.Newf("unknown log data version %q", version)
+		return v1.Data{}, errors.Newf("unknown log data version %d", version)
 	}
 }
 
-func (ie *importExporter) detectVersion(data map[string]any) string {
-	if channels, ok := data["channels"].([]any); ok && len(channels) > 0 {
-		if _, ok := channels[0].(map[string]any); ok {
-			return v1.Version
-		}
-	}
-	if _, ok := data["timestamp_precision"]; ok {
-		return v1.Version
-	}
-	if _, ok := data["timestampPrecision"]; ok {
-		return v1.Version
-	}
-	return v0.Version
-}
-
-func (ie *importExporter) Export(
+func (s *Service) Export(
 	ctx context.Context,
 	tx gorp.Tx,
 	key string,
@@ -105,7 +84,7 @@ func (ie *importExporter) Export(
 		return imex.Envelope{}, err
 	}
 	var l Log
-	if err := ie.svc.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
 		return imex.Envelope{}, err
 	}
 	data := l.Data
@@ -115,8 +94,9 @@ func (ie *importExporter) Export(
 	data["key"] = l.Key.String()
 	data["name"] = l.Name
 	return imex.Envelope{
-		Version: v1.Version,
-		Type:    string(ontology.ResourceTypeLog),
-		Data:    data,
+		Type: string(ontology.ResourceTypeLog),
+		Key:  l.Key.String(),
+		Name: l.Name,
+		Data: data,
 	}, nil
 }
