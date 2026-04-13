@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import synnax as sy
+import x.telem as sy
 
 
 @pytest.mark.telem
@@ -212,7 +212,9 @@ class TestSeries:
 
     def test_list_access_json(self):
         """Should correctly access the series by index"""
-        s = sy.Series([{"hello": "world"}, {"blue": "dog"}], data_type=sy.DataType.JSON)
+        s = sy.Series(
+            [{"hello": "world"}, {"blue": "dog"}], data_type=sy.DataType.JSON
+        )
         assert s[1] == {"blue": "dog"}
 
     def test_list_access_string_negative(self):
@@ -225,20 +227,19 @@ class TestSeries:
         s = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.INT8)
         bounds = s.alignment_bounds
         assert bounds.lower == 0
-        assert bounds.upper == 5  # alignment(0) + length(5)
+        assert bounds.upper == 5
 
     def test_alignment_bounds_with_alignment(self):
         """Should correctly calculate alignment_bounds with custom alignment"""
         s = sy.Series(
             [1, 2, 3],
             data_type=sy.DataType.INT8,
-            alignment=sy.Alignment(2, 10),  # Start at domain 2, sample 10
+            alignment=sy.Alignment(2, 10),
         )
         bounds = s.alignment_bounds
-        # alignment = (2 << 32) | 10
         expected_start = (2 << 32) | 10
         assert bounds.lower == float(expected_start)
-        assert bounds.upper == float(expected_start + 3)  # + length
+        assert bounds.upper == float(expected_start + 3)
 
     def test_alignment_preserved_from_series(self):
         """Should preserve alignment when constructing from another sy.Series"""
@@ -249,6 +250,165 @@ class TestSeries:
         )
         s2 = sy.Series(s1)
         assert s2.alignment == s1.alignment
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestVariableLengthSeries:
+    """Tests for variable-length series encoding (STRING, JSON)."""
+
+    def test_string_multiple_values(self):
+        """Should correctly round-trip multiple string values"""
+        values = ["hello", "world", "foo"]
+        s = sy.Series(values)
+        assert len(s) == 3
+        assert s[0] == "hello"
+        assert s[1] == "world"
+        assert s[2] == "foo"
+        assert list(s) == values
+
+    def test_string_empty_strings(self):
+        """Should correctly handle empty strings"""
+        values = ["", "", ""]
+        s = sy.Series(values)
+        assert len(s) == 3
+        assert s[0] == ""
+        assert s[1] == ""
+        assert list(s) == values
+
+    def test_string_mixed_empty_and_nonempty(self):
+        """Should handle a mix of empty and non-empty strings"""
+        values = ["hello", "", "world", ""]
+        s = sy.Series(values)
+        assert len(s) == 4
+        assert s[0] == "hello"
+        assert s[1] == ""
+        assert s[2] == "world"
+        assert s[3] == ""
+        assert list(s) == values
+
+    def test_string_single_value(self):
+        """Should handle a single string in a list"""
+        s = sy.Series(["only"])
+        assert len(s) == 1
+        assert s[0] == "only"
+
+    def test_string_from_scalar(self):
+        """Should construct from a bare string value"""
+        s = sy.Series("hello")
+        assert len(s) == 1
+        assert s[0] == "hello"
+        assert s.data_type == sy.DataType.STRING
+
+    def test_string_multibyte_utf8(self):
+        """Should correctly handle multi-byte UTF-8 characters"""
+        values = ["cafe\u0301", "\u00e9", "\U0001f600"]
+        s = sy.Series(values)
+        assert len(s) == 3
+        assert s[0] == "cafe\u0301"
+        assert s[1] == "\u00e9"
+        assert s[2] == "\U0001f600"
+        assert list(s) == values
+
+    def test_string_negative_index(self):
+        """Should support negative indexing"""
+        s = sy.Series(["a", "b", "c"])
+        assert s[-1] == "c"
+        assert s[-2] == "b"
+        assert s[-3] == "a"
+
+    def test_string_index_out_of_bounds(self):
+        """Should raise IndexError for out-of-bounds access"""
+        s = sy.Series(["a", "b"])
+        with pytest.raises(IndexError):
+            s[2]
+
+    def test_string_empty_series(self):
+        """Should handle an empty string series"""
+        s = sy.Series([], data_type=sy.DataType.STRING)
+        assert len(s) == 0
+        assert list(s) == []
+
+    def test_string_large_value(self):
+        """Should handle a string longer than 255 bytes"""
+        big = "x" * 1000
+        s = sy.Series([big, "small"])
+        assert len(s) == 2
+        assert s[0] == big
+        assert s[1] == "small"
+
+    def test_json_multiple_values(self):
+        """Should correctly round-trip multiple JSON values"""
+        values = [{"a": 1}, {"b": [2, 3]}, {"c": {"nested": True}}]
+        s = sy.Series(values)
+        assert len(s) == 3
+        assert s[0] == {"a": 1}
+        assert s[1] == {"b": [2, 3]}
+        assert s[2] == {"c": {"nested": True}}
+        assert list(s) == values
+
+    def test_json_from_scalar_dict(self):
+        """Should construct from a bare dict value"""
+        s = sy.Series({"key": "val"})
+        assert len(s) == 1
+        assert s[0] == {"key": "val"}
+        assert s.data_type == sy.DataType.JSON
+
+    def test_json_empty_objects(self):
+        """Should handle empty JSON objects"""
+        values = [{}, {}, {}]
+        s = sy.Series(values)
+        assert len(s) == 3
+        assert list(s) == values
+
+    def test_json_negative_index(self):
+        """Should support negative indexing for JSON series"""
+        s = sy.Series([{"a": 1}, {"b": 2}, {"c": 3}])
+        assert s[-1] == {"c": 3}
+
+    def test_json_empty_series(self):
+        """Should handle an empty JSON series"""
+        s = sy.Series([], data_type=sy.DataType.JSON)
+        assert len(s) == 0
+        assert list(s) == []
+
+    def test_json_index_out_of_bounds(self):
+        """Should raise IndexError for out-of-bounds access"""
+        s = sy.Series([{"a": 1}])
+        with pytest.raises(IndexError):
+            s[1]
+
+    def test_string_len_cached(self):
+        """Should cache the length computation for variable-length series"""
+        s = sy.Series(["a", "b", "c"])
+        assert len(s) == 3
+        assert len(s) == 3
+
+    def test_string_iteration_order(self):
+        """Should iterate in insertion order"""
+        values = ["first", "second", "third", "fourth"]
+        s = sy.Series(values)
+        assert [v for v in s] == values
+
+    def test_json_iteration_order(self):
+        """Should iterate JSON values in insertion order"""
+        values = [{"i": 0}, {"i": 1}, {"i": 2}]
+        s = sy.Series(values)
+        assert [v for v in s] == values
+
+    def test_string_size_bytes(self):
+        """Should report the correct raw byte size including prefixes"""
+        s = sy.Series(["ab", "c"])
+        # "ab" = 4-byte prefix + 2 bytes, "c" = 4-byte prefix + 1 byte = 11
+        assert s.size == 11
+
+    def test_json_size_bytes(self):
+        """Should report the correct raw byte size including prefixes"""
+        s = sy.Series([{"a": 1}])
+        import json
+
+        encoded = json.dumps({"a": 1}).encode("utf-8")
+        assert s.size == 4 + len(encoded)
 
 
 @pytest.mark.telem
@@ -357,7 +517,9 @@ class TestMultiSeries:
         s1 = sy.Series(
             [{"hello": "world"}, {"blue": "dog"}], data_type=sy.DataType.JSON
         )
-        s2 = sy.Series([{"red": "car"}, {"green": "tree"}], data_type=sy.DataType.JSON)
+        s2 = sy.Series(
+            [{"red": "car"}, {"green": "tree"}], data_type=sy.DataType.JSON
+        )
         s = sy.MultiSeries([s1, s2])
         assert list(s) == [
             {"hello": "world"},
@@ -396,9 +558,7 @@ class TestMultiSeries:
         )
         ms = sy.MultiSeries([s1, s2])
         bounds = ms.alignment_bounds
-        # Lower should be from first series
         assert bounds.lower == s1.alignment_bounds.lower
-        # Upper should be from last series
         assert bounds.upper == s2.alignment_bounds.upper
 
     def test_alignment_bounds_empty_multiseries(self):
@@ -428,7 +588,6 @@ class TestMultiSeries:
         ms = sy.MultiSeries([s])
         arr1 = ms.__array__(copy=False)
         arr2 = ms.__array__(copy=False)
-        # With copy=False on single series, both should share the same buffer
         assert np.shares_memory(arr1, arr2)
 
     def test_single_series_copy_true(self):
@@ -437,5 +596,4 @@ class TestMultiSeries:
         ms = sy.MultiSeries([s])
         arr1 = ms.__array__(copy=True)
         arr2 = ms.__array__(copy=True)
-        # With copy=True, they should not share memory
         assert not np.shares_memory(arr1, arr2)
