@@ -142,7 +142,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			writer, _ := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
-			Expect(db.Close()).To(HaveOccurredAs(resource.ErrOpen))
+			Expect(db.Close()).To(MatchError(resource.ErrOpen))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())
 		})

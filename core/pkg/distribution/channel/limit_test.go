@@ -70,9 +70,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channel.Create(ctx, &overLimitCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
 	It("Should allow creating channels after deleting some to stay under the limit", func(ctx SpecContext) {
@@ -96,9 +95,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channel.Create(ctx, &overLimitCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Delete one channel
 		writer := dist.Channel.NewWriter(nil)
@@ -120,9 +118,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "AnotherOverLimit",
 			Leaseholder: 1,
 		}
-		err = dist.Channel.Create(ctx, &anotherCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &anotherCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
 	It("Should allow retrieving channels even at the limit", func(ctx SpecContext) {
@@ -146,9 +143,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channel.Create(ctx, &overLimitCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Retrieve all channels - this should work fine even at the limit
 		var retrievedChannels []channel.Channel

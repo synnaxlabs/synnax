@@ -23,8 +23,8 @@ import (
 
 var _ = Describe("Open", func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				fs      fs.FS
 				cleanUp func() error
@@ -50,10 +50,12 @@ var _ = Describe("Open", func() {
 					s := MustSucceed(fs.Sub("sub"))
 					MustSucceed(s.Sub("1"))
 
-					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
-					Expect(db).To(BeNil())
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("required"))
+					Expect(cesium.Open(
+						ctx,
+						"",
+						cesium.WithFS(s),
+						cesium.WithInstrumentation(PanicLogger()),
+					)).Error().To(MatchError(ContainSubstring("required")))
 				})
 
 				It("Should not error when db gets created with proper numeric folders", func(ctx SpecContext) {

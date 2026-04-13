@@ -10,7 +10,6 @@
 package compiler_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,19 +32,16 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	distB := mock.NewCluster()
-	dist = distB.Provision(context.Background())
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	distB := DeferClose(mock.NewCluster())
+	dist = DeferClose(distB.Provision(ctx))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-	})
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
@@ -53,10 +49,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(statusSvc.Close()).To(Succeed())
-	})
-	rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
@@ -64,10 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(rackService.Close()).To(Succeed())
-	})
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -75,10 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:   statusSvc,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(taskSvc.Close()).To(Succeed())
-	})
-	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
@@ -86,10 +73,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Task:     taskSvc,
 		Search:   dist.Search,
 	}))
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
 })
 
 var _ = Describe("Compile", func() {
