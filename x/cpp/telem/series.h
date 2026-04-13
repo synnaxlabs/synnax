@@ -661,10 +661,7 @@ public:
         size_t offset = 0;
         for (const auto &value: values) {
             const auto str = value.dump();
-            write_u32_le(
-                this->data_.get() + offset,
-                static_cast<uint32_t>(str.size())
-            );
+            write_u32_le(this->data_.get() + offset, static_cast<uint32_t>(str.size()));
             offset += 4;
             memcpy(this->data_.get() + offset, str.data(), str.size());
             offset += str.size();

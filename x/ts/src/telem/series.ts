@@ -359,7 +359,10 @@ export class Series<T extends TelemValue = TelemValue>
       if (this.dataType.equals(DataType.STRING)) {
         this.cachedLength = data_.length;
         const encoded = (data_ as string[]).map((s) => new TextEncoder().encode(s));
-        const totalBytes = encoded.reduce((acc, e) => acc + UINT32_SIZE + e.byteLength, 0);
+        const totalBytes = encoded.reduce(
+          (acc, e) => acc + UINT32_SIZE + e.byteLength,
+          0,
+        );
         const buf = new ArrayBuffer(totalBytes);
         const view = new DataView(buf);
         const bytes = new Uint8Array(buf);
@@ -376,7 +379,10 @@ export class Series<T extends TelemValue = TelemValue>
         const encoded = data_.map((d) =>
           new TextEncoder().encode(binary.JSON_CODEC.encodeString(d)),
         );
-        const totalBytes = encoded.reduce((acc, e) => acc + UINT32_SIZE + e.byteLength, 0);
+        const totalBytes = encoded.reduce(
+          (acc, e) => acc + UINT32_SIZE + e.byteLength,
+          0,
+        );
         const buf = new ArrayBuffer(totalBytes);
         const view = new DataView(buf);
         const bytes = new Uint8Array(buf);
@@ -1152,7 +1158,8 @@ class StringSeriesIterator implements Iterator<string> {
 
   next(): IteratorResult<string> {
     const byteLen = this.series.byteLength.valueOf();
-    if (this.byteOffset + UINT32_SIZE > byteLen) return { done: true, value: undefined };
+    if (this.byteOffset + UINT32_SIZE > byteLen)
+      return { done: true, value: undefined };
     const len = this.view.getUint32(this.byteOffset, true);
     this.byteOffset += UINT32_SIZE;
     const s = this.decoder.decode(

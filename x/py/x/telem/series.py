@@ -118,14 +118,10 @@ class Series(BaseModel):
             data_type = data_type or DataType(data)
             if data_type == DataType.JSON:
                 parts = [json.dumps(d).encode("utf-8") for d in data]
-                data_ = b"".join(
-                    len(p).to_bytes(4, "little") + p for p in parts
-                )
+                data_ = b"".join(len(p).to_bytes(4, "little") + p for p in parts)
             elif data_type == DataType.STRING:
                 parts = [str(d).encode("utf-8") for d in data]
-                data_ = b"".join(
-                    len(p).to_bytes(4, "little") + p for p in parts
-                )
+                data_ = b"".join(len(p).to_bytes(4, "little") + p for p in parts)
             elif data_type == DataType.UUID:
                 uuids = [d for d in data if isinstance(d, uuid.UUID)]
                 data_ = b"".join(d.bytes for d in uuids)

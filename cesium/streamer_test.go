@@ -25,7 +25,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
 		ShouldNotLeakRoutinesJustBeforeEach()
