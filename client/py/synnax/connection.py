@@ -152,9 +152,7 @@ class Checker:
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         logger.warning(
-                            _create_version_warning(
-                                None, self._client_version, True
-                            )
+                            _create_version_warning(None, self._client_version, True)
                         )
                         self._version_warned = True
                 elif not _versions_compatible(self._client_version, node_version):
@@ -164,9 +162,7 @@ class Checker:
                             _create_version_warning(
                                 node_version,
                                 self._client_version,
-                                _client_is_newer(
-                                    self._client_version, node_version
-                                ),
+                                _client_is_newer(self._client_version, node_version),
                             )
                         )
                         self._version_warned = True
