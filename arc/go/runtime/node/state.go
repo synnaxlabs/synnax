@@ -10,8 +10,6 @@
 package node
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
@@ -82,13 +80,6 @@ func (s *ProgramState) Node(key string) *State {
 			inputs[i] = ir.Edge{
 				Source: syntheticSource,
 				Target: ir.Handle{Node: key, Param: p.Name},
-			}
-			if dt := types.ToTelem(p.Type); dt == telem.UnknownT {
-				panic(fmt.Sprintf(
-					"arc/runtime: unbound input has unsupported type "+
-						"(node=%q type=%q param=%q kind=%v elem=%v)",
-					key, n.Type, p.Name, p.Type.Kind, p.Type.Elem,
-				))
 			}
 			data := telem.NewSeriesFromAny(p.Value, types.ToTelem(p.Type))
 			time := telem.NewSeriesV[telem.TimeStamp](0)
