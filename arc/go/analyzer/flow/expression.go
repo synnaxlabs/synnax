@@ -45,13 +45,9 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	}
 
 	// Complex expressions become synthetic functions that need compilation.
-	// The input param exists so that upstream trigger edges have a declared
-	// target, keeping the IR consistent for type resolution. The compiled
-	// WASM reads from channel state directly and ignores this param.
-	t.Inputs = append(t.Inputs, types.Param{
-		Name: ir.DefaultInputParam,
-		Type: types.Variable("trigger", nil),
-	})
+	// The function takes no inputs — its body reads from channel state directly
+	// via host calls, and activation is handled by stratum membership rather
+	// than an input edge.
 	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind: symbol.KindFunction,
 		Type: t,

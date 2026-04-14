@@ -182,16 +182,16 @@ func stratifySequenceWithFlowSteps(
 	allEntryNodes set.Set[string],
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {
-	// Collect all flow step nodes + entry nodes for this sequence.
+	// Collect flow step data nodes for stratification. Entry nodes are
+	// deliberately excluded: step 0's entry lives in the parent (global)
+	// strata, and entries for steps > 0 must not be placed in stratum 0
+	// (which always executes) — otherwise they would fire on every tick of
+	// the active sequence and prematurely transition to a later step. They
+	// are appended in their own stratum after the data nodes so they only
+	// execute when an upstream conditional edge marks them as changed.
 	seqNodeSet := make(set.Set[string])
 	var seqNodes []ir.Node
 	for _, step := range seq.Steps {
-		// Add entry node for every step.
-		ek := entryKey(seq.Key, step.Key)
-		if node, ok := nodeByKey[ek]; ok {
-			seqNodes = append(seqNodes, node)
-			seqNodeSet.Add(ek)
-		}
 		if step.Flow != nil {
 			for _, nodeKey := range step.Flow.Nodes {
 				if node, ok := nodeByKey[nodeKey]; ok {
@@ -227,6 +227,23 @@ func stratifySequenceWithFlowSteps(
 				seqStrata[0] = append(seqStrata[0], bk)
 			}
 		}
+	}
+
+	// Append a trailing stratum containing entry nodes for steps > 0. These
+	// only execute when explicitly marked changed by an upstream conditional
+	// edge from the prior step's transition.
+	var entryStratum []string
+	for i, step := range seq.Steps {
+		if i == 0 {
+			continue
+		}
+		ek := entryKey(seq.Key, step.Key)
+		if _, ok := nodeByKey[ek]; ok {
+			entryStratum = append(entryStratum, ek)
+		}
+	}
+	if len(entryStratum) > 0 {
+		seqStrata = append(seqStrata, entryStratum)
 	}
 
 	seq.Strata = seqStrata

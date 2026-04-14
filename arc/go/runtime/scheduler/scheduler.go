@@ -290,6 +290,14 @@ func (s *Scheduler) execStrata(strata ir.Strata, activeSeq *sequenceState) {
 				continue
 			}
 
+			// Stage step boundaries in a sequence's strata are markers used for
+			// ordering and dependency tracking only. Their step is activated and
+			// executed via execSequenceStep, not through the parent's strata
+			// walk. Skip them here.
+			if _, isNode := s.nodes[key]; !isNode {
+				continue
+			}
+
 			if activeSeq != nil && activeSeq.flowDataNodes.Contains(key) {
 				if activeSeq.flowNodeOwner[key] != activeSeq.activeStepIdx {
 					continue

@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
@@ -64,19 +63,7 @@ func ResolveNodeTypes(
 			nodes[idx].Outputs[j].Type = cs.ApplySubstitutions(p.Type)
 		}
 		for j, p := range n.Inputs {
-			resolved := cs.ApplySubstitutions(p.Type)
-			// Inputs that remain unresolved after unification have no upstream
-			// edge constraining them (e.g., a synthetic expression node's
-			// trigger input on a top-level expression-to-channel flow). Default
-			// the placeholder to u8 so runtime default-value allocation has a
-			// concrete type to build from.
-			if resolved.Kind == types.KindVariable {
-				resolved = types.U8()
-				if nodes[idx].Inputs[j].Value == nil {
-					nodes[idx].Inputs[j].Value = uint8(0)
-				}
-			}
-			nodes[idx].Inputs[j].Type = resolved
+			nodes[idx].Inputs[j].Type = cs.ApplySubstitutions(p.Type)
 		}
 		for j, p := range n.Config {
 			nodes[idx].Config[j].Type = cs.ApplySubstitutions(p.Type)
