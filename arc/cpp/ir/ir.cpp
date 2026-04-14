@@ -52,16 +52,12 @@ std::string Stage::to_string_with_prefix(const std::string &prefix) const {
     ss << "]";
     bool has_strata = !this->strata.empty();
     bool has_sequences = !this->sequences.empty();
-    if (has_strata) {
-        ss << "\n" << this->strata.to_string_with_prefix(prefix);
-    }
+    if (has_strata) { ss << "\n" << this->strata.to_string_with_prefix(prefix); }
     if (has_sequences) {
         for (size_t i = 0; i < this->sequences.size(); ++i) {
             bool last = (i == this->sequences.size() - 1) && !has_strata;
             ss << "\n" << prefix << tree_prefix(last);
-            ss << this->sequences[i].to_string_with_prefix(
-                prefix + tree_indent(last)
-            );
+            ss << this->sequences[i].to_string_with_prefix(prefix + tree_indent(last));
         }
     }
     return ss.str();
@@ -110,12 +106,9 @@ std::string Step::to_string() const {
 }
 
 std::string Step::to_string_with_prefix(const std::string &prefix) const {
-    if (this->flow)
-        return this->flow->to_string();
-    if (this->stage)
-        return this->stage->to_string_with_prefix(prefix);
-    if (this->sequence)
-        return this->sequence->to_string_with_prefix(prefix);
+    if (this->flow) return this->flow->to_string();
+    if (this->stage) return this->stage->to_string_with_prefix(prefix);
+    if (this->sequence) return this->sequence->to_string_with_prefix(prefix);
     return this->key;
 }
 

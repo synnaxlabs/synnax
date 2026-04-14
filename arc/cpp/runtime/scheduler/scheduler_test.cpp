@@ -2159,22 +2159,26 @@ ir::IR build_flow_seq(
         if (i > 0) entry_stratum.push_back(entry_key);
         if (i + 1 < step_keys.size()) {
             const auto next_entry = "entry_" + seq_key + "_" + step_keys[i + 1];
-            ir.edges.push_back(ir::Edge{
-                .source = {node_key, "output"},
-                .target = {next_entry, "activate"},
-                .kind = ir::EdgeKind::Conditional,
-            });
+            ir.edges.push_back(
+                ir::Edge{
+                    .source = {node_key, "output"},
+                    .target = {next_entry, "activate"},
+                    .kind = ir::EdgeKind::Conditional,
+                }
+            );
         }
     }
     const auto trigger_key = "trigger_" + seq_key;
     const auto first_entry = "entry_" + seq_key + "_" + step_keys[0];
     t.mock(trigger_key);
     ir.nodes.push_back(ir::Node{.key = trigger_key});
-    ir.edges.push_back(ir::Edge{
-        .source = {trigger_key, "activate"},
-        .target = {first_entry, "input"},
-        .kind = ir::EdgeKind::Conditional,
-    });
+    ir.edges.push_back(
+        ir::Edge{
+            .source = {trigger_key, "activate"},
+            .target = {first_entry, "input"},
+            .kind = ir::EdgeKind::Conditional,
+        }
+    );
     ir.root.strata.push_back({trigger_key});
     ir.root.strata.push_back({first_entry});
     seq.strata.push_back(data_stratum);
@@ -2237,12 +2241,10 @@ TEST_F(SchedulerTest, testFlowStepCascadeThreeTruthy) {
 
 /// @brief it should cascade five consecutive truthy writes on the same tick
 TEST_F(SchedulerTest, testFlowStepCascadeFiveTruthy) {
-    auto ir = build_flow_seq(
-        *this, "seq", {"s0", "s1", "s2", "s3", "s4"}
-    );
+    auto ir = build_flow_seq(*this, "seq", {"s0", "s1", "s2", "s3", "s4"});
     mocks_["trigger_seq"]->mark_on_next("activate");
     mocks_["trigger_seq"]->param_truthy["activate"] = true;
-    for (const auto &sk : {"s0", "s1", "s2", "s3", "s4"}) {
+    for (const auto &sk: {"s0", "s1", "s2", "s3", "s4"}) {
         mocks_["entry_seq_" + std::string(sk)]->activate_on_next();
         mocks_["node_" + std::string(sk)]->mark_on_next("output");
         mocks_["node_" + std::string(sk)]->param_truthy["output"] = true;
@@ -2251,7 +2253,7 @@ TEST_F(SchedulerTest, testFlowStepCascadeFiveTruthy) {
     const auto scheduler = build(std::move(ir));
     scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
 
-    for (const auto &sk : {"s0", "s1", "s2", "s3", "s4"})
+    for (const auto &sk: {"s0", "s1", "s2", "s3", "s4"})
         ASSERT_EQ(mocks_["node_" + std::string(sk)]->next_called, 1);
 }
 
@@ -2449,9 +2451,14 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     entry_vent.activate_on_next();
 
     ir::IR ir;
-    for (const auto &k : {"trigger", "entry_main_press", "entry_main_write",
-                           "entry_main_vent", "press_node", "write_node",
-                           "vent_node"})
+    for (const auto &k:
+         {"trigger",
+          "entry_main_press",
+          "entry_main_write",
+          "entry_main_vent",
+          "press_node",
+          "write_node",
+          "vent_node"})
         ir.nodes.push_back({.key = k});
     ir.edges.push_back({
         .source = {"trigger", "activate"},
@@ -2575,6 +2582,138 @@ TEST_F(SchedulerTest, testNestedSequenceInStage) {
 
     ASSERT_EQ(stage_node.next_called, 1);
     ASSERT_EQ(inner_node.next_called, 1);
+}
+
+/// @brief Regression: when a sub-sequence boundary is processed in the parent
+/// stage's strata, the parent's changed_flags must survive across the
+/// recursive execute_strata call. Otherwise, downstream nodes in a later
+/// stratum that were marked changed by an earlier stratum's node would be
+/// silently skipped.
+TEST_F(SchedulerTest, testParentChangedSurvivesBoundaryRecursion) {
+    auto &trigger = mock("trigger");
+    auto &entry_outer = mock("entry_outer_stage_a");
+    auto &source = mock("source");
+    auto &downstream = mock("downstream");
+    auto &inner_node = mock("inner_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_outer.activate_on_next();
+    source.mark_on_next("output");
+    source.param_truthy["output"] = true;
+
+    ir::IR ir;
+    ir.nodes.push_back({.key = "trigger"});
+    ir.nodes.push_back({.key = "entry_outer_stage_a"});
+    ir.nodes.push_back({.key = "source"});
+    ir.nodes.push_back({.key = "downstream"});
+    ir.nodes.push_back({.key = "inner_node"});
+
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_outer_stage_a", "input"},
+        .kind = ir::EdgeKind::Conditional,
+    });
+    // Continuous edge from source.output to downstream.input. The source
+    // executes in stratum 0 alongside the boundary; downstream is in
+    // stratum 1.
+    ir.edges.push_back({
+        .source = {"source", "output"},
+        .target = {"downstream", "input"},
+        .kind = ir::EdgeKind::Continuous,
+    });
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_outer_stage_a"});
+
+    ir::Sequence inner_seq;
+    inner_seq.key = "inner";
+    ir::Step inner_flow;
+    inner_flow.key = "s0";
+    inner_flow.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    inner_flow.flow->nodes = {"inner_node"};
+    inner_seq.steps.push_back(std::move(inner_flow));
+    inner_seq.strata.push_back({"inner_node"});
+
+    ir::Stage stage;
+    stage.key = "stage_a";
+    stage.nodes = {"source", "downstream"};
+    stage.strata.push_back({"source", "boundary_inner"});
+    stage.strata.push_back({"downstream"});
+    stage.sequences.push_back(std::move(inner_seq));
+
+    ir::Sequence outer_seq;
+    outer_seq.key = "outer";
+    ir::Step stage_step;
+    stage_step.key = "stage_a";
+    stage_step.stage = x::mem::indirect<ir::Stage>(std::move(stage));
+    outer_seq.steps.push_back(std::move(stage_step));
+    ir.root.sequences.push_back(std::move(outer_seq));
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(source.next_called, 1);
+    ASSERT_EQ(inner_node.next_called, 1);
+    ASSERT_EQ(downstream.next_called, 1)
+        << "downstream should fire in stratum 1 because source marked it "
+           "changed in stratum 0; the boundary recursion must not wipe the "
+           "parent's changed flags";
+}
+
+/// @brief Regression: stage-step boundary keys appearing in a parent
+/// sequence's strata are markers used for ordering only — they have no
+/// registered Node and no boundary-state entry. The scheduler must skip them
+/// rather than dereference a missing node and crash.
+TEST_F(SchedulerTest, testSkipsUnregisteredStageStepBoundary) {
+    auto &trigger = mock("trigger");
+    auto &entry_main_step_0 = mock("entry_main_step_0");
+    auto &flow_node = mock("flow_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_main_step_0.activate_on_next();
+
+    ir::IR ir;
+    ir.nodes.push_back({.key = "trigger"});
+    ir.nodes.push_back({.key = "entry_main_step_0"});
+    ir.nodes.push_back({.key = "flow_node"});
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_main_step_0", "input"},
+        .kind = ir::EdgeKind::Conditional,
+    });
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_main_step_0"});
+
+    // Sequence "main" with two steps:
+    //   step 0: flow [flow_node]
+    //   step 1: stage (no nodes; appears as boundary_step_1 in seq.strata)
+    // The stage step's boundary is intentionally NOT registered (only
+    // sub-sequences inside stages are registered as boundaries by the
+    // scheduler). The scheduler must skip the unregistered key.
+    ir::Sequence main_seq;
+    main_seq.key = "main";
+
+    ir::Step flow_step;
+    flow_step.key = "step_0";
+    flow_step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow_step.flow->nodes = {"flow_node"};
+    main_seq.steps.push_back(std::move(flow_step));
+
+    ir::Stage stage;
+    stage.key = "step_1";
+    ir::Step stage_step;
+    stage_step.key = "step_1";
+    stage_step.stage = x::mem::indirect<ir::Stage>(std::move(stage));
+    main_seq.steps.push_back(std::move(stage_step));
+
+    main_seq.strata.push_back({"flow_node", "boundary_step_1"});
+    ir.root.sequences.push_back(std::move(main_seq));
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(flow_node.next_called, 1);
 }
 
 /// @brief it should cascade through three consecutive flow steps in one tick

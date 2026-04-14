@@ -91,7 +91,8 @@ Program::from_proto(const ::arc::program::pb::Program &pb) {
                 {wrapper.values().begin(), wrapper.values().end()}
             );
         if (auto err = x::pb::from_proto_repeated<::arc::ir::Sequence>(
-                cpp.root.sequences, pb.sequences()
+                cpp.root.sequences,
+                pb.sequences()
             ))
             return {{}, err};
     }

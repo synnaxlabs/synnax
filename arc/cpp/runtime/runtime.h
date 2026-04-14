@@ -266,6 +266,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         var_st,
         error_handler
     );
+    LOG(INFO) << "arc::runtime::load State constructed";
 
     auto time_module = std::make_shared<stl::time::Module>();
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
@@ -289,8 +290,11 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         .modules = stl_modules,
         .strings = str_st,
     };
+    LOG(INFO) << "arc::runtime::load opening wasm module wasm_bytes="
+              << cfg.program.wasm.size();
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
+    LOG(INFO) << "arc::runtime::load wasm opened";
 
     std::vector<std::shared_ptr<node::Factory>> factories;
     factories.push_back(std::make_shared<wasm::Factory>(mod));
@@ -302,7 +306,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     const ir::IR prog = static_cast<ir::IR>(cfg.program);
+    LOG(INFO) << "arc::runtime::load creating nodes count=" << cfg.program.nodes.size();
     for (const auto &mod_node: cfg.program.nodes) {
+        LOG(INFO) << "arc::runtime::load node key=" << mod_node.key
+                  << " type=" << mod_node.type;
         auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
         auto [node, err] = fact.create(
@@ -311,15 +318,18 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
+    LOG(INFO) << "arc::runtime::load all nodes created";
     const auto base_interval = time_module->base_interval();
     const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
     const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
+    LOG(INFO) << "arc::runtime::load constructing Scheduler";
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
         tolerance,
         error_handler
     );
+    LOG(INFO) << "arc::runtime::load Scheduler constructed";
     auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {
         std::make_shared<Runtime>(

@@ -68,26 +68,20 @@ inline x::json::json Flow::to_json() const {
 inline Step Step::parse(x::json::Parser parser) {
     Step s;
     s.key = parser.field<std::string>("key");
-    if (parser.has("flow"))
-        s.flow = x::mem::indirect<Flow>(parser.field<Flow>("flow"));
+    if (parser.has("flow")) s.flow = x::mem::indirect<Flow>(parser.field<Flow>("flow"));
     if (parser.has("stage"))
         s.stage = x::mem::indirect<Stage>(parser.field<Stage>("stage"));
     if (parser.has("sequence"))
-        s.sequence = x::mem::indirect<Sequence>(
-            parser.field<Sequence>("sequence")
-        );
+        s.sequence = x::mem::indirect<Sequence>(parser.field<Sequence>("sequence"));
     return s;
 }
 
 inline x::json::json Step::to_json() const {
     x::json::json j;
     j["key"] = this->key;
-    if (this->flow)
-        j["flow"] = this->flow->to_json();
-    if (this->stage)
-        j["stage"] = this->stage->to_json();
-    if (this->sequence)
-        j["sequence"] = this->sequence->to_json();
+    if (this->flow) j["flow"] = this->flow->to_json();
+    if (this->stage) j["stage"] = this->stage->to_json();
+    if (this->sequence) j["sequence"] = this->sequence->to_json();
     return j;
 }
 

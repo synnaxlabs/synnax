@@ -398,7 +398,8 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
                 {wrapper.values().begin(), wrapper.values().end()}
             );
         if (auto err = x::pb::from_proto_repeated<Sequence>(
-                cpp.root.sequences, pb.sequences()
+                cpp.root.sequences,
+                pb.sequences()
             ))
             return {{}, err};
     }
