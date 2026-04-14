@@ -12,8 +12,13 @@ import { Page as P } from "@/components/nav/Page";
     if (tree != null) {
         const saved = sessionStorage.getItem(SCROLL_KEY);
         if (saved != null) tree.scrollTop = parseFloat(saved);
+        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
         tree.addEventListener("scroll", () => {
-            sessionStorage.setItem(SCROLL_KEY, String(tree.scrollTop));
+            if (scrollTimer != null) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(
+                () => sessionStorage.setItem(SCROLL_KEY, String(tree.scrollTop)),
+                100,
+            );
         });
     }
 </script>
