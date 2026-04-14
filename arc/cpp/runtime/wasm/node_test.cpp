@@ -92,15 +92,57 @@ std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
     };
 }
 
-/// @brief compiles an Arc program, calls the named function, and returns the first
-/// output value.
+/// @brief compiles a single Arc function definition, calls it, and returns the first
+/// output value. Parses the function name and return type from the definition to create
+/// the necessary flow and channel automatically.
 template<typename T>
 T call_func(
     const synnax::Synnax &client,
-    const std::string &func_name,
-    const std::string &source,
+    const std::string &func_def,
     const std::vector<x::telem::SampleValue> &params = {}
 ) {
+    static const std::unordered_map<std::string, x::telem::DataType> arc_types = {
+        {"i8", x::telem::INT8_T},
+        {"i16", x::telem::INT16_T},
+        {"i32", x::telem::INT32_T},
+        {"i64", x::telem::INT64_T},
+        {"u8", x::telem::UINT8_T},
+        {"u16", x::telem::UINT16_T},
+        {"u32", x::telem::UINT32_T},
+        {"u64", x::telem::UINT64_T},
+        {"f32", x::telem::FLOAT32_T},
+        {"f64", x::telem::FLOAT64_T},
+    };
+
+    // Parse function name: first word after "func "
+    auto func_pos = func_def.find("func ");
+    if (func_pos == std::string::npos)
+        throw std::runtime_error("call_func: no 'func ' in definition");
+    auto name_start = func_pos + 5;
+    auto name_end = func_def.find_first_of("( ", name_start);
+    auto func_name = func_def.substr(name_start, name_end - name_start);
+
+    // Parse return type: last type token before '{'
+    auto brace = func_def.find('{');
+    if (brace == std::string::npos)
+        throw std::runtime_error("call_func: no '{' in definition");
+    auto pre = func_def.substr(0, brace);
+    auto pos = pre.find_last_not_of(" \t\n");
+    auto start = pre.find_last_of(" \t\n()", pos);
+    auto ret_type = pre.substr(start + 1, pos - start);
+    auto it = arc_types.find(ret_type);
+    auto dt = it != arc_types.end() ? it->second : x::telem::INT64_T;
+
+    // Create virtual output channel and build source
+    auto ch = synnax::channel::Channel{
+        .name = random_name("out"),
+        .data_type = dt,
+        .is_virtual = true,
+    };
+    if (const auto err = client.channels.create(ch))
+        throw std::runtime_error("Failed to create channel: " + err.message());
+    auto source = func_def + "\n" + func_name + "{} -> " + ch.name;
+
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
@@ -123,49 +165,6 @@ T call_func(
     if (results.empty() || !results[0].changed)
         throw std::runtime_error("No output produced");
     return std::get<T>(results[0].value);
-}
-
-/// @brief creates a stub Arc source that includes the function in a flow so it gets
-/// @brief creates a stub Arc source so a function gets compiled to WASM.
-/// Parses the return type from the function definition to create a matching virtual
-/// channel.
-std::string stub_source(
-    const synnax::Synnax &client,
-    const std::string &func_def,
-    const std::string &func_name
-) {
-    static const std::unordered_map<std::string, x::telem::DataType> arc_types = {
-        {"i8", x::telem::INT8_T},
-        {"i16", x::telem::INT16_T},
-        {"i32", x::telem::INT32_T},
-        {"i64", x::telem::INT64_T},
-        {"u8", x::telem::UINT8_T},
-        {"u16", x::telem::UINT16_T},
-        {"u32", x::telem::UINT32_T},
-        {"u64", x::telem::UINT64_T},
-        {"f32", x::telem::FLOAT32_T},
-        {"f64", x::telem::FLOAT64_T},
-    };
-    // Extract return type: last type token before the opening '{' of the body
-    auto brace = func_def.find('{');
-    if (brace == std::string::npos)
-        throw std::runtime_error("stub_source: no '{' in func_def");
-    auto pre = func_def.substr(0, brace);
-    // Find the last word token before '{'
-    auto pos = pre.find_last_not_of(" \t\n");
-    auto start = pre.find_last_of(" \t\n()", pos);
-    auto ret_type = pre.substr(start + 1, pos - start);
-    auto it = arc_types.find(ret_type);
-    auto dt = it != arc_types.end() ? it->second : x::telem::INT64_T;
-
-    auto ch = synnax::channel::Channel{
-        .name = random_name("out"),
-        .data_type = dt,
-        .is_virtual = true,
-    };
-    if (const auto err = client.channels.create(ch))
-        throw std::runtime_error("Failed to create channel: " + err.message());
-    return func_def + "\n" + func_name + "{} -> " + ch.name;
 }
 
 /// @brief Factory::handles returns true for functions in the module.
@@ -1936,96 +1935,48 @@ func concat_len(a str, b str) i64 {
 /// @brief string.len() with literal via qualified syntax.
 TEST(QualifiedCallTest, StringLenLiteral) {
     const auto client = new_test_client();
-    const auto v = call_func<int64_t>(
-        client,
-        "str_len",
-        stub_source(
-            client,
-            R"arc(
-func str_len() i64 { return string.len("hello") })arc",
-            "str_len"
-        )
-    );
+    const auto v = call_func<int64_t>(client, R"arc(
+func str_len() i64 { return string.len("hello") })arc");
     EXPECT_EQ(v, 5);
 }
 
 /// @brief string.concat() with literals via qualified syntax.
 TEST(QualifiedCallTest, StringConcatLiteral) {
     const auto client = new_test_client();
-    const auto v = call_func<int64_t>(
-        client,
-        "concat_len",
-        stub_source(
-            client,
-            R"arc(
-func concat_len() i64 { return string.len(string.concat("ab", "cd")) })arc",
-            "concat_len"
-        )
-    );
+    const auto v = call_func<int64_t>(client, R"arc(
+func concat_len() i64 { return string.len(string.concat("ab", "cd")) })arc");
     EXPECT_EQ(v, 4);
 }
 
 /// @brief string.equal() returns 1 for identical strings.
 TEST(QualifiedCallTest, StringEqualTrue) {
     const auto client = new_test_client();
-    const auto v = call_func<int32_t>(
-        client,
-        "str_eq",
-        stub_source(
-            client,
-            R"arc(
-func str_eq() i32 { return string.equal("abc", "abc") })arc",
-            "str_eq"
-        )
-    );
+    const auto v = call_func<int32_t>(client, R"arc(
+func str_eq() i32 { return string.equal("abc", "abc") })arc");
     EXPECT_EQ(v, 1);
 }
 
 /// @brief string.equal() returns 0 for different strings.
 TEST(QualifiedCallTest, StringEqualFalse) {
     const auto client = new_test_client();
-    const auto v = call_func<int32_t>(
-        client,
-        "str_neq",
-        stub_source(
-            client,
-            R"arc(
-func str_neq() i32 { return string.equal("abc", "def") })arc",
-            "str_neq"
-        )
-    );
+    const auto v = call_func<int32_t>(client, R"arc(
+func str_neq() i32 { return string.equal("abc", "def") })arc");
     EXPECT_EQ(v, 0);
 }
 
 /// @brief math.pow(const, const) with i64 literals.
 TEST(QualifiedCallTest, MathPowConstConstI64) {
     const auto client = new_test_client();
-    const auto v = call_func<int64_t>(
-        client,
-        "pow_ii",
-        stub_source(
-            client,
-            R"arc(
-func pow_ii() i64 { return math.pow(2, 10) })arc",
-            "pow_ii"
-        )
-    );
+    const auto v = call_func<int64_t>(client, R"arc(
+func pow_ii() i64 { return math.pow(2, 10) })arc");
     EXPECT_EQ(v, 1024);
 }
 
 /// @brief math.pow(const, const) with f64 literals.
 TEST(QualifiedCallTest, MathPowConstConstF64) {
     const auto client = new_test_client();
-    const auto v = call_func<double>(
-        client,
-        "pow_ff",
-        stub_source(
-            client,
-            R"arc(
-func pow_ff() f64 { return math.pow(2.0, 3.0) })arc",
-            "pow_ff"
-        )
-    );
+    const auto v = call_func<double>(client, R"arc(
+func pow_ff() f64 { return math.pow(2.0, 3.0) })arc");
     EXPECT_DOUBLE_EQ(v, 8.0);
 }
 
@@ -2034,12 +1985,7 @@ TEST(QualifiedCallTest, MathPowChanConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        "squared",
-        stub_source(
-            client,
-            R"arc(func squared(x f64) f64 { return math.pow(x, 2) })arc",
-            "squared"
-        ),
+        R"arc(func squared(x f64) f64 { return math.pow(x, 2) })arc",
         {3.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
@@ -2050,12 +1996,7 @@ TEST(QualifiedCallTest, MathPowChanConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        "cubed",
-        stub_source(
-            client,
-            R"arc(func cubed(x i64) i64 { return math.pow(x, 3) })arc",
-            "cubed"
-        ),
+        R"arc(func cubed(x i64) i64 { return math.pow(x, 3) })arc",
         {static_cast<int64_t>(5)}
     );
     EXPECT_EQ(v, 125);
@@ -2066,12 +2007,7 @@ TEST(QualifiedCallTest, MathPowConstChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        "base3",
-        stub_source(
-            client,
-            R"arc(func base3(exp f64) f64 { return math.pow(3.0, exp) })arc",
-            "base3"
-        ),
+        R"arc(func base3(exp f64) f64 { return math.pow(3.0, exp) })arc",
         {2.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
@@ -2082,12 +2018,7 @@ TEST(QualifiedCallTest, MathPowConstChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        "base2",
-        stub_source(
-            client,
-            R"arc(func base2(exp i64) i64 { return math.pow(2, exp) })arc",
-            "base2"
-        ),
+        R"arc(func base2(exp i64) i64 { return math.pow(2, exp) })arc",
         {static_cast<int64_t>(4)}
     );
     EXPECT_EQ(v, 16);
@@ -2098,12 +2029,7 @@ TEST(QualifiedCallTest, MathPowChanChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        "pow_ff",
-        stub_source(
-            client,
-            R"arc(func pow_ff(base f64, exp f64) f64 { return math.pow(base, exp) })arc",
-            "pow_ff"
-        ),
+        R"arc(func pow_ff(base f64, exp f64) f64 { return math.pow(base, exp) })arc",
         {4.0, 0.5}
     );
     EXPECT_DOUBLE_EQ(v, 2.0);
@@ -2114,12 +2040,7 @@ TEST(QualifiedCallTest, MathPowChanChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        "pow_ii",
-        stub_source(
-            client,
-            R"arc(func pow_ii(base i64, exp i64) i64 { return math.pow(base, exp) })arc",
-            "pow_ii"
-        ),
+        R"arc(func pow_ii(base i64, exp i64) i64 { return math.pow(base, exp) })arc",
         {static_cast<int64_t>(2), static_cast<int64_t>(10)}
     );
     EXPECT_EQ(v, 1024);
@@ -2128,268 +2049,151 @@ TEST(QualifiedCallTest, MathPowChanChanI64) {
 /// @brief for i := range(5) sums 0..4.
 TEST(ForLoopTest, Range1Arg) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range1",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range1() i64 { sum i64 := 0
  for i := range(5) { sum = sum + i }
- return sum })arc",
-            "range1"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 10);
 }
 
 /// @brief for i := range(5, 10) sums 5..9.
 TEST(ForLoopTest, Range2Arg) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range2",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range2() i64 { sum i64 := 0
  for i := range(5, 10) { sum = sum + i }
- return sum })arc",
-            "range2"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 35);
 }
 
 /// @brief for i := range(0, 10, 2) sums even numbers.
 TEST(ForLoopTest, Range3ArgWithStep) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range3",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range3() i64 { sum i64 := 0
  for i := range(0, 10, 2) { sum = sum + i }
- return sum })arc",
-            "range3"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 20);
 }
 
 /// @brief range(0) produces zero iterations.
 TEST(ForLoopTest, EmptyRange) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_empty",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_empty() i64 { sum i64 := 99
  for i := range(0) { sum = sum + i }
- return sum })arc",
-            "range_empty"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 99);
 }
 
 /// @brief range(10, 5) with no step produces zero iterations.
 TEST(ForLoopTest, ReversedBounds) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_rev",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_rev() i64 { sum i64 := 99
  for i := range(10, 5) { sum = sum + i }
- return sum })arc",
-            "range_rev"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 99);
 }
 
 /// @brief range(0, 10, 3) steps by 3.
 TEST(ForLoopTest, StepOf3) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_step3",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_step3() i64 { sum i64 := 0
  for i := range(0, 10, 3) { sum = sum + i }
- return sum })arc",
-            "range_step3"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 18);
 }
 
 /// @brief range(0, 5, 10) step exceeds range, zero iterations.
 TEST(ForLoopTest, StepLargerThanRange) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_big_step",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_big_step() i64 { sum i64 := 0
  for i := range(0, 5, 10) { sum = sum + i }
- return sum })arc",
-            "range_big_step"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 0);
 }
 
 /// @brief range(10, 0, -2) descends by 2.
 TEST(ForLoopTest, NegativeStep) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_neg_step",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_neg_step() i64 { sum i64 := 0
  for i := range(10, 0, -2) { sum = sum + i }
- return sum })arc",
-            "range_neg_step"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 30);
 }
 
 /// @brief range(10, 0, -1) descends by 1.
 TEST(ForLoopTest, NegativeStepOf1) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_neg1",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_neg1() i64 { sum i64 := 0
  for i := range(10, 0, -1) { sum = sum + i }
- return sum })arc",
-            "range_neg1"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 55);
 }
 
 /// @brief range(0, 10, -1) negative step with ascending bounds, zero iterations.
 TEST(ForLoopTest, NegativeStepEmpty) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_neg_empty",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_neg_empty() i64 { sum i64 := 99
  for i := range(0, 10, -1) { sum = sum + i }
- return sum })arc",
-            "range_neg_empty"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 99);
 }
 
 /// @brief range(-5, 5) crosses zero.
 TEST(ForLoopTest, NegativeStartPositiveEnd) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_neg_start",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_neg_start() i64 { sum i64 := 0
  for i := range(-5, 5) { sum = sum + i }
- return sum })arc",
-            "range_neg_start"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, -5);
 }
 
 /// @brief range(-5, -1) both bounds negative.
 TEST(ForLoopTest, BothBoundsNegative) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_neg_both",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_neg_both() i64 { sum i64 := 0
  for i := range(-5, -1) { sum = sum + i }
- return sum })arc",
-            "range_neg_both"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, -14);
 }
 
 /// @brief range(3, -3, -1) descends across zero.
 TEST(ForLoopTest, PositiveToNegativeDescending) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_pos_to_neg",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_pos_to_neg() i64 { sum i64 := 0
  for i := range(3, -3, -1) { sum = sum + i }
- return sum })arc",
-            "range_pos_to_neg"
-        )
-    );
+ return sum })arc");
     EXPECT_EQ(v, 3);
 }
 
 /// @brief range with mixed i32 start and i64 end.
 TEST(ForLoopTest, MixedI32I64Range) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_mixed",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_mixed() i64 {
     lo i32 := 1
     hi i64 := 5
     sum i64 := 0
     for i := range(lo, hi) { sum = sum + i }
     return sum
-})arc",
-            "range_mixed"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 10);
 }
 
 /// @brief range with mixed i32/i64 bounds and i32 step.
 TEST(ForLoopTest, MixedI32I64RangeWithStep) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "range_3arg_mixed",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func range_3arg_mixed() i64 {
     lo i32 := 0
     hi i64 := 10
@@ -2397,171 +2201,107 @@ func range_3arg_mixed() i64 {
     sum i64 := 0
     for i := range(lo, hi, s) { sum = sum + i }
     return sum
-})arc",
-            "range_3arg_mixed"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 18);
 }
 
 /// @brief for x := data sums series elements.
 TEST(ForLoopTest, SeriesSumSingleIdent) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "series_sum",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func series_sum() i32 {
     data series i32 := [1, 2, 3, 4, 5]
     sum i32 := 0
     for x := data { sum = sum + x }
     return sum
-})arc",
-            "series_sum"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 15);
 }
 
 /// @brief for i, x := data computes weighted sum with index.
 TEST(ForLoopTest, SeriesWeightedSumTwoIdent) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "series_weighted",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func series_weighted() i32 {
     data series i32 := [10, 20, 30]
     sum i32 := 0
     for i, x := data { sum = sum + x * (i + 1) }
     return sum
-})arc",
-            "series_weighted"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 140);
 }
 
 /// @brief iterating an empty series produces zero iterations.
 TEST(ForLoopTest, EmptySeriesZeroIterations) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "series_empty",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func series_empty() i32 {
     data series i32 := []
     sum i32 := 99
     for x := data { sum = sum + x }
     return sum
-})arc",
-            "series_empty"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 99);
 }
 
 /// @brief break exits series iteration when threshold exceeded.
 TEST(ForLoopTest, BreakOnThreshold) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "break_thresh",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func break_thresh() i32 {
     data series i32 := [1, 2, 3, 100, 5]
     sum i32 := 0
     for x := data { if x > 50 { break }
  sum = sum + x }
     return sum
-})arc",
-            "break_thresh"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 6);
 }
 
 /// @brief continue skips odd indices in range loop.
 TEST(ForLoopTest, ContinueSkipOddIndices) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "cont_skip",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func cont_skip() i32 {
     sum i32 := 0
     for i := range(i32(6)) { if i % 2 != 0 { continue }
  sum = sum + i }
     return sum
-})arc",
-            "cont_skip"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 6);
 }
 
 /// @brief continue skips negative elements in series iteration.
 TEST(ForLoopTest, ContinueSkipSeriesElements) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "cont_series",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func cont_series() i32 {
     data series i32 := [10, -1, 20, -1, 30]
     sum i32 := 0
     for x := data { if x < 0 { continue }
  sum = sum + x }
     return sum
-})arc",
-            "cont_series"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 60);
 }
 
 /// @brief continue in nested loop only affects inner loop.
 TEST(ForLoopTest, ContinueInnerLoopOnly) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "cont_nested",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func cont_nested() i64 {
     sum i64 := 0
     for i := range(3) { for j := range(4) { if j == 2 { continue }
  sum = sum + 1 } }
     return sum
-})arc",
-            "cont_nested"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 9);
 }
 
 /// @brief break in nested loop only exits inner loop.
 TEST(ForLoopTest, BreakInnerLoopOnly) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "break_inner_only",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func break_inner_only() i64 {
     sum i64 := 0
     for i := range(3) {
@@ -2570,293 +2310,181 @@ func break_inner_only() i64 {
         sum = sum + 100
     }
     return sum
-})arc",
-            "break_inner_only"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 306);
 }
 
 /// @brief conditional for loop counts down while n > 0.
 TEST(ForLoopTest, WhileStyleCountdown) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "while_count",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func while_count() i32 {
     n i32 := 5
     sum i32 := 0
     for n > 0 { sum = sum + n
  n = n - 1 }
     return sum
-})arc",
-            "while_count"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 15);
 }
 
 /// @brief infinite for loop exits via break.
 TEST(ForLoopTest, InfiniteLoopWithBreak) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "inf_break",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func inf_break() i32 {
     val i32 := 1
     for { val = val * 2
  if val > 100 { break } }
     return val
-})arc",
-            "inf_break"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 128);
 }
 
 /// @brief nested range loops compute 3x4 matrix iteration count.
 TEST(ForLoopTest, NestedMatrixCount) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "nested_count",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func nested_count() i64 {
     count i64 := 0
     for i := range(3) { for j := range(4) { count = count + 1 } }
     return count
-})arc",
-            "nested_count"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 12);
 }
 
 /// @brief inner break with outer loop running all iterations.
 TEST(ForLoopTest, InnerBreakOuterRunsFully) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "inner_break",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func inner_break() i64 {
     count i64 := 0
     for i := range(3) { for j := range(4) { if j > 1 { break }
  count = count + 1 } }
     return count
-})arc",
-            "inner_break"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 6);
 }
 
 /// @brief 3-deep nested range loops compute 2x3x4 count.
 TEST(ForLoopTest, ThreeDeepNested) {
     const auto c = new_test_client();
-    const auto v = call_func<int64_t>(
-        c,
-        "nested_3deep",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int64_t>(c, R"arc(
 func nested_3deep() i64 {
     count i64 := 0
     for i := range(2) { for j := range(3) { for k := range(4) { count = count + 1 } } }
     return count
-})arc",
-            "nested_3deep"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 24);
 }
 
 /// @brief range loop nested inside series iteration.
 TEST(ForLoopTest, RangeNestedInsideSeriesIteration) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "series_range_nested",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func series_range_nested() i32 {
     data series i32 := [10, 20, 30]
     sum i32 := 0
     for x := data { for j := range(i32(x / 10)) { sum = sum + 1 } }
     return sum
-})arc",
-            "series_range_nested"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 6);
 }
 
 /// @brief range with mixed i16 start and i32 end.
 TEST(ForLoopTest, MixedI16I32Range) {
     const auto c = new_test_client();
-    const auto v = call_func<int32_t>(
-        c,
-        "range_i16_i32",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int32_t>(c, R"arc(
 func range_i16_i32() i32 {
     lo i16 := 0
     hi i32 := 4
     sum i32 := 0
     for i := range(lo, hi) { sum = sum + i }
     return sum
-})arc",
-            "range_i16_i32"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 6);
 }
 
 /// @brief range with mixed u8 start and u32 end.
 TEST(ForLoopTest, MixedU8U32Range) {
     const auto c = new_test_client();
-    const auto v = call_func<uint32_t>(
-        c,
-        "range_u8_u32",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<uint32_t>(c, R"arc(
 func range_u8_u32() u32 {
     lo u8 := 1
     hi u32 := 4
     sum u32 := 0
     for i := range(lo, hi) { sum = sum + i }
     return sum
-})arc",
-            "range_u8_u32"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 6);
 }
 
 /// @brief range with u8 bounds.
 TEST(ForLoopTest, U8RangeBounds) {
     const auto c = new_test_client();
-    const auto v = call_func<uint8_t>(
-        c,
-        "range_u8_only",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<uint8_t>(c, R"arc(
 func range_u8_only() u8 {
     sum u8 := 0
     for i := range(u8(5)) { sum = sum + i }
     return sum
-})arc",
-            "range_u8_only"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 10);
 }
 
 /// @brief range with i8 bounds.
 TEST(ForLoopTest, I8RangeBounds) {
     const auto c = new_test_client();
-    const auto v = call_func<int8_t>(
-        c,
-        "range_i8_only",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int8_t>(c, R"arc(
 func range_i8_only() i8 {
     sum i8 := 0
     for i := range(i8(1), i8(5)) { sum = sum + i }
     return sum
-})arc",
-            "range_i8_only"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 10);
 }
 
 /// @brief range with u16 bounds.
 TEST(ForLoopTest, U16RangeBounds) {
     const auto c = new_test_client();
-    const auto v = call_func<uint16_t>(
-        c,
-        "range_u16_only",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<uint16_t>(c, R"arc(
 func range_u16_only() u16 {
     sum u16 := 0
     for i := range(u16(10)) { sum = sum + i }
     return sum
-})arc",
-            "range_u16_only"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 45);
 }
 
 /// @brief range with i16 bounds.
 TEST(ForLoopTest, I16RangeBounds) {
     const auto c = new_test_client();
-    const auto v = call_func<int16_t>(
-        c,
-        "range_i16_only",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int16_t>(c, R"arc(
 func range_i16_only() i16 {
     sum i16 := 0
     for i := range(i16(1), i16(6)) { sum = sum + i }
     return sum
-})arc",
-            "range_i16_only"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 15);
 }
 
 /// @brief range with mixed i8 start and i16 end.
 TEST(ForLoopTest, MixedI8I16Range) {
     const auto c = new_test_client();
-    const auto v = call_func<int16_t>(
-        c,
-        "range_i8_i16",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<int16_t>(c, R"arc(
 func range_i8_i16() i16 {
     lo i8 := 0
     hi i16 := 5
     sum i16 := 0
     for i := range(lo, hi) { sum = sum + i }
     return sum
-})arc",
-            "range_i8_i16"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 10);
 }
 
 /// @brief range with mixed u8/u16 bounds and u8 step.
 TEST(ForLoopTest, MixedU8U16RangeWithStep) {
     const auto c = new_test_client();
-    const auto v = call_func<uint16_t>(
-        c,
-        "range_u8_u16_step",
-        stub_source(
-            c,
-            R"arc(
+    const auto v = call_func<uint16_t>(c, R"arc(
 func range_u8_u16_step() u16 {
     lo u8 := 0
     hi u16 := 10
@@ -2864,10 +2492,7 @@ func range_u8_u16_step() u16 {
     sum u16 := 0
     for i := range(lo, hi, s) { sum = sum + i }
     return sum
-})arc",
-            "range_u8_u16_step"
-        )
-    );
+})arc");
     EXPECT_EQ(v, 20);
 }
 
