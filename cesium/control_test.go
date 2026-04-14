@@ -32,6 +32,61 @@ import (
 )
 
 var _ = Describe("Control", func() {
+	Describe("EncodeControlUpdate / DecodeControlUpdate", func() {
+		It("Should round-trip a control update with transfers", func() {
+			original := cesium.ControlUpdate{
+				Transfers: []control.Transfer{
+					{
+						From: &control.State{
+							Subject:   xcontrol.Subject{Key: "writer-1", Name: "Writer One"},
+							Resource:  1,
+							Authority: xcontrol.Authority(100),
+						},
+						To: &control.State{
+							Subject:   xcontrol.Subject{Key: "writer-2", Name: "Writer Two"},
+							Resource:  1,
+							Authority: xcontrol.Authority(200),
+						},
+					},
+				},
+			}
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
+			Expect(encoded.DataType).To(Equal(telem.StringT))
+			Expect(encoded.Len()).To(Equal(int64(1)))
+			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
+			Expect(decoded.Transfers).To(HaveLen(1))
+			Expect(decoded.Transfers[0].From.Subject.Name).To(Equal("Writer One"))
+			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
+			Expect(decoded.Transfers[0].To.Authority).To(Equal(xcontrol.Authority(200)))
+		})
+
+		It("Should round-trip a control update with an acquire (nil From)", func() {
+			original := cesium.ControlUpdate{
+				Transfers: []control.Transfer{
+					{
+						To: &control.State{
+							Subject:   xcontrol.Subject{Key: "w1", Name: "Writer"},
+							Resource:  5,
+							Authority: xcontrol.Authority(50),
+						},
+					},
+				},
+			}
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
+			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
+			Expect(decoded.Transfers).To(HaveLen(1))
+			Expect(decoded.Transfers[0].From).To(BeNil())
+			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer"))
+		})
+
+		It("Should round-trip an empty control update", func() {
+			original := cesium.ControlUpdate{Transfers: []control.Transfer{}}
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
+			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
+			Expect(decoded.Transfers).To(BeEmpty())
+		})
+	})
+
 	for fsName, makeFS := range fileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var (

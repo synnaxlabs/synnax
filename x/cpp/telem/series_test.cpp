@@ -2131,4 +2131,120 @@ TEST(SeriesDetachBuffer, RepeatedPublishCycles) {
         ASSERT_EQ(published[cycle].at<float>(0), static_cast<float>(cycle));
     }
 }
+
+/// @brief it should correctly construct a BYTES series from a vector of byte blobs
+/// represented as strings, and report the correct size and byte_size.
+TEST(SeriesBytes, VectorConstruction) {
+    const std::vector<std::string> blobs = {
+        std::string("\x01\x02\x03", 3),
+        std::string("\xDE\xAD\xBE\xEF", 4),
+    };
+    const Series s(blobs, BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.byte_size(), 15);
+}
+
+/// @brief it should correctly construct a BYTES series from an empty vector.
+TEST(SeriesBytes, EmptyVectorConstruction) {
+    const Series s(std::vector<std::string>{}, BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_TRUE(s.empty());
+}
+
+/// @brief it should correctly construct a single-element BYTES series.
+TEST(SeriesBytes, SingleElementConstruction) {
+    const std::vector<std::string> blobs = {std::string("\xAB\xCD", 2)};
+    const Series s(blobs, BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.byte_size(), 6);
+}
+
+/// @brief raw data pointer should reflect the length-prefixed binary layout.
+TEST(SeriesBytes, RawDataLayout) {
+    const std::string blob("\x01\x02\x03", 3);
+    const Series s(std::vector<std::string>{blob}, BYTES_T);
+    const auto *raw = reinterpret_cast<const uint8_t *>(s.data());
+    ASSERT_EQ(raw[0], 3);
+    ASSERT_EQ(raw[1], 0);
+    ASSERT_EQ(raw[2], 0);
+    ASSERT_EQ(raw[3], 0);
+    ASSERT_EQ(raw[4], 0x01);
+    ASSERT_EQ(raw[5], 0x02);
+    ASSERT_EQ(raw[6], 0x03);
+}
+
+/// @brief clear should reset size and byte_size to zero.
+TEST(SeriesBytes, ClearResetsSize) {
+    auto s = Series(
+        std::vector<std::string>{std::string("\x01\x02", 2), std::string("\x03", 1)},
+        BYTES_T
+    );
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_GT(s.byte_size(), 0);
+    s.clear();
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(s.byte_size(), 0);
+}
+
+/// @brief pre-allocated BYTES series should have zero size but non-zero byte_cap.
+TEST(SeriesBytes, AllocationVariable) {
+    const Series s(BYTES_T, 32);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_EQ(s.byte_cap(), 32);
+}
+
+/// @brief shallow copy of a BYTES series should share the underlying buffer.
+TEST(SeriesBytes, ShallowCopySharesBuffer) {
+    auto original = Series(
+        std::vector<std::string>{std::string("\xAA\xBB", 2), std::string("\xCC", 1)},
+        BYTES_T
+    );
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.data_type(), BYTES_T);
+    ASSERT_EQ(copy.byte_size(), original.byte_size());
+}
+
+/// @brief deep copy of a BYTES series should produce an independent buffer with
+/// identical content.
+TEST(SeriesBytes, DeepCopyIsIndependent) {
+    auto original = Series(
+        std::vector<std::string>{
+            std::string("\x01\x02\x03", 3),
+            std::string("\x04\x05", 2),
+        },
+        BYTES_T
+    );
+    original.alignment = Alignment(2, 7);
+    const Series copy = original.deep_copy();
+    ASSERT_NE(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.data_type(), BYTES_T);
+    ASSERT_EQ(copy.byte_size(), original.byte_size());
+    ASSERT_EQ(copy.cap(), original.cap());
+    ASSERT_EQ(copy.alignment.uint64(), original.alignment.uint64());
+    const auto *orig_raw = reinterpret_cast<const uint8_t *>(original.data());
+    const auto *copy_raw = reinterpret_cast<const uint8_t *>(copy.data());
+    ASSERT_EQ(memcmp(orig_raw, copy_raw, original.byte_size()), 0);
+}
+
+/// @brief strings() should throw when called on a BYTES series.
+TEST(SeriesBytes, StringsThrowsForBytesType) {
+    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
+    ASSERT_THROW((void) s.strings(), std::runtime_error);
+}
+
+/// @brief at<std::string>() should throw when called on a BYTES series.
+TEST(SeriesBytes, AtStringThrowsForBytesType) {
+    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
+    ASSERT_THROW((void) s.at<std::string>(0), std::runtime_error);
+}
 }

@@ -689,6 +689,54 @@ describe("Series", () => {
         { a: 3, b: "carrot" },
       ]);
     });
+
+    it("should handle a single JSON value", () => {
+      const s = new Series([{ key: "val" }]);
+      expect(s.length).toEqual(1);
+      expect(s.at(0)).toEqual({ key: "val" });
+    });
+
+    it("should handle empty JSON objects", () => {
+      const s = new Series([{}, {}, {}]);
+      expect(s.length).toEqual(3);
+      expect(s.at(0)).toEqual({});
+      expect(s.at(2)).toEqual({});
+    });
+
+    it("should support negative indexing", () => {
+      const s = new Series([{ a: 1 }, { a: 2 }, { a: 3 }]);
+      expect(s.at(-1)).toEqual({ a: 3 });
+      expect(s.at(-2)).toEqual({ a: 2 });
+    });
+
+    it("should handle an empty JSON series", () => {
+      const s = new Series({ data: new ArrayBuffer(0), dataType: DataType.JSON });
+      expect(s.length).toEqual(0);
+      expect(Array.from(s)).toEqual([]);
+    });
+  });
+
+  describe("bytes series", () => {
+    it("should handle an empty bytes series", () => {
+      const s = new Series({ data: new ArrayBuffer(0), dataType: DataType.BYTES });
+      expect(s.length).toEqual(0);
+      expect(Array.from(s)).toEqual([]);
+    });
+
+    it("should correctly compute the length of a bytes series from a length-prefixed buffer", () => {
+      const payload1 = new Uint8Array([1, 2, 3]);
+      const payload2 = new Uint8Array([4, 5]);
+      const totalBytes = 4 + payload1.byteLength + 4 + payload2.byteLength;
+      const buf = new ArrayBuffer(totalBytes);
+      const view = new DataView(buf);
+      const bytes = new Uint8Array(buf);
+      view.setUint32(0, payload1.byteLength, true);
+      bytes.set(payload1, 4);
+      view.setUint32(4 + payload1.byteLength, payload2.byteLength, true);
+      bytes.set(payload2, 4 + payload1.byteLength + 4);
+      const s = new Series({ data: buf, dataType: DataType.BYTES });
+      expect(s.length).toEqual(2);
+    });
   });
 
   describe("binarySearch", () => {

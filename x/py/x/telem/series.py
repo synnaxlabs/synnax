@@ -305,9 +305,11 @@ CrudeSeries: TypeAlias = (
     | pd.Series
     | np.ndarray
     | list[float]
+    | list[int]
     | list[str]
     | list[dict[str, Any]]
     | list[uuid.UUID]
+    | list[TimeStamp]
     | np.number
     | str
     | uuid.UUID

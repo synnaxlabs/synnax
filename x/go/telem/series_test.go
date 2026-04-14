@@ -36,6 +36,14 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV("bob", "alice", "charlie")
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
+		It("Should correctly return the number of samples in a bytes series", func() {
+			s := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
+			Expect(s.Len()).To(Equal(int64(2)))
+		})
+		It("Should correctly return the number of samples in a JSON series", func() {
+			s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}, map[string]any{"b": 2.0}))
+			Expect(s.Len()).To(Equal(int64(2)))
+		})
 	})
 
 	Describe("At", func() {
@@ -64,6 +72,26 @@ var _ = Describe("Series", func() {
 				Expect(s.At(0)).To(Equal([]byte("a")))
 				Expect(s.At(1)).To(Equal([]byte("b")))
 				Expect(s.At(2)).To(Equal([]byte("c")))
+			})
+
+			It("Should return the value at the given index for bytes series", func() {
+				s := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5}, []byte{6})
+				Expect(s.At(0)).To(Equal([]byte{1, 2}))
+				Expect(s.At(1)).To(Equal([]byte{3, 4, 5}))
+				Expect(s.At(2)).To(Equal([]byte{6}))
+			})
+
+			It("Should return the value at the given index for JSON series", func() {
+				s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}, map[string]any{"b": 2.0}))
+				Expect(string(s.At(0))).To(Equal(`{"a":1}`))
+				Expect(string(s.At(1))).To(Equal(`{"b":2}`))
+			})
+
+			It("Should support negative indexing for variable density series", func() {
+				s := telem.NewSeriesV("a", "b", "c")
+				Expect(s.At(-1)).To(Equal([]byte("c")))
+				Expect(s.At(-2)).To(Equal([]byte("b")))
+				Expect(s.At(-3)).To(Equal([]byte("a")))
 			})
 
 			It("Should panic when the index is out of bounds", func() {
@@ -382,6 +410,13 @@ var _ = Describe("Series", func() {
 				Expect(downsampled.Len()).To(Equal(int64(2)))
 				result := telem.UnmarshalSeries[[]byte](downsampled)
 				Expect(result).To(HaveLen(2))
+			})
+
+			It("Should correctly down sample a bytes series", func() {
+				original := telem.NewSeriesV([]byte{1}, []byte{2}, []byte{3}, []byte{4})
+				downsampled := original.Downsample(2)
+				Expect(downsampled.Len()).To(Equal(int64(2)))
+				Expect(telem.UnmarshalSeries[[]byte](downsampled)).To(Equal([][]byte{{1}, {3}}))
 			})
 		})
 
@@ -787,6 +822,27 @@ var _ = Describe("Series", func() {
 			})
 			Expect(count).To(Equal(0))
 		})
+
+		It("iterates bytes series correctly", func() {
+			s := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
+			values := make([][]byte, 0, 2)
+			for sample := range s.Samples() {
+				v := make([]byte, len(sample))
+				copy(v, sample)
+				values = append(values, v)
+			}
+			Expect(values).To(Equal([][]byte{{1, 2}, {3, 4, 5}}))
+		})
+
+		It("iterates JSON series correctly", func() {
+			s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}))
+			values := make([]string, 0, 1)
+			for sample := range s.Samples() {
+				values = append(values, string(sample))
+			}
+			Expect(values).To(HaveLen(1))
+			Expect(values[0]).To(Equal(`{"a":1}`))
+		})
 	})
 
 	Describe("CopyValue", func() {
@@ -905,6 +961,23 @@ var _ = Describe("Series", func() {
 			Expect(copied.TimeRange.Start).To(Equal(telem.TimeStamp(1000)))
 			Expect(copied.TimeRange.End).To(Equal(telem.TimeStamp(2000)))
 			Expect(copied.Alignment).To(Equal(telem.NewAlignment(5, 10)))
+		})
+
+		It("Should work with JSON series", func() {
+			original := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}))
+			copied := original.DeepCopy()
+			Expect(copied.DataType).To(Equal(telem.JSONT))
+			Expect(copied.Len()).To(Equal(int64(1)))
+			Expect(string(copied.At(0))).To(Equal(`{"a":1}`))
+		})
+
+		It("Should work with bytes series", func() {
+			original := telem.NewSeriesV([]byte{1, 2, 3}, []byte{4, 5})
+			copied := original.DeepCopy()
+			Expect(copied.DataType).To(Equal(telem.BytesT))
+			Expect(copied.Len()).To(Equal(int64(2)))
+			Expect(copied.At(0)).To(Equal([]byte{1, 2, 3}))
+			Expect(copied.At(1)).To(Equal([]byte{4, 5}))
 		})
 	})
 })
