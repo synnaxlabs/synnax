@@ -48,7 +48,7 @@ var completions = []completionInfo{
 	{
 		Label:    parser.LiteralI8,
 		Detail:   "Signed 8-bit integer",
-		Doc:      "Range: -128 to 172",
+		Doc:      "Range: -128 to 127",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: categoryType,
 	},
