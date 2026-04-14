@@ -177,9 +177,9 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	}
 	if *w.cfg.Persist {
 		baseOffset := uint32(dw.Len())
-		w.scanOffsets(series.Data, baseOffset)
 		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.sampleCount(dw.Writer)))
 		dw.storeAlignment(a)
+		w.scanOffsets(series.Data, baseOffset)
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))

@@ -219,9 +219,9 @@ var _ = Describe("DB", func() {
 						Subject: xcontrol.Subject{Key: "alignment-test"},
 					}))
 					a1 := MustSucceed(w.Write(telem.NewSeriesV("a", "b")))
-					Expect(a1.SampleIndex()).To(Equal(uint32(2)))
+					Expect(a1.SampleIndex()).To(Equal(uint32(0)))
 					a2 := MustSucceed(w.Write(telem.NewSeriesV("c", "d", "e")))
-					Expect(a2.SampleIndex()).To(Equal(uint32(5)))
+					Expect(a2.SampleIndex()).To(Equal(uint32(2)))
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 				})

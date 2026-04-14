@@ -396,6 +396,33 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(telem.UnmarshalSeries[string](f.Get(data).Series[0])).To(Equal([]string{"p1", "p2", "p3"}))
 						Expect(subDB.Close()).To(Succeed())
 					})
+					Specify("Commit without index in writer frame", func(ctx SpecContext) {
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "no-idx-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: data, Name: "no-idx-var", Index: idx, DataType: telem.StringT},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 60*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{telem.NewSeriesSecondsTSV(60, 61, 62, 63)},
+						))).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{data},
+							Start:    60 * telem.SecondTS,
+						}))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{data},
+							[]telem.Series{telem.NewSeriesV("x", "y")},
+						)))
+						end := MustSucceed(w.Commit())
+						Expect(end).To(Equal(61*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, (60 * telem.SecondTS).Range(62*telem.SecondTS), data))
+						Expect(telem.UnmarshalSeries[string](f.Get(data).Series[0])).To(Equal([]string{"x", "y"}))
+					})
 				})
 
 				Describe("Auto-commit", func() {

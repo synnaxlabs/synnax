@@ -468,7 +468,7 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal.fixed)+len(w.internal.variable)),
 	}
-	for _, fixedWriter := range w.internal.fixed{
+	for _, fixedWriter := range w.internal.fixed {
 		transfer, closeErr := fixedWriter.Close()
 		if closeErr != nil {
 			err = errors.Join(err, closeErr)
