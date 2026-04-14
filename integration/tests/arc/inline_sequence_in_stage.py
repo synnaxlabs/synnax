@@ -24,6 +24,7 @@ sequence main {
     stage exit {
         0 -> iss_ox_cmd,
         1 -> iss_vent_cmd,
+        iss_pressure > 100 => fire,
     }
 }
 
@@ -33,12 +34,20 @@ iss_start_cmd => main
 
 class InlineSequenceInStage(ArcConsoleCase):
     """A stage body containing an inline anonymous ``sequence {}`` that runs
-    alongside the stage's reactive flows.
+    alongside the stage's reactive flows, and resets when the parent stage
+    is re-entered.
 
-    The fire stage activates an inline sub-sequence that writes
-    ``iss_ox_cmd = 1`` while a parallel reactive transition watches
-    ``iss_pressure < 15``. When pressure drops, the stage transitions to
-    the exit stage which writes ``iss_ox_cmd = 0`` and ``iss_vent_cmd = 1``.
+    Phase 1 - inline sub-sequence runs alongside reactive exit:
+      The fire stage activates an inline sub-sequence that writes
+      ``iss_ox_cmd = 1`` while a parallel reactive transition watches
+      ``iss_pressure < 15``. When pressure drops, the stage transitions to
+      exit which writes ``iss_ox_cmd = 0`` and ``iss_vent_cmd = 1``.
+
+    Phase 2 - sub-sequence resets when fire is re-entered:
+      Drive ``iss_pressure`` above 100 to fire the exit -> fire backward
+      transition. The fire stage activates again, which must re-trigger
+      its inline sub-sequence from step 0. We observe by ``iss_ox_cmd``
+      flipping back to 1.
     """
 
     arc_source = ARC_INLINE_SEQUENCE_IN_STAGE_SOURCE
@@ -76,3 +85,17 @@ class InlineSequenceInStage(ArcConsoleCase):
             "iss_vent_cmd", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
         )
         self.log("Sequence transitioned to exit stage")
+
+        self.log(
+            "Driving iss_pressure=150 (above exit -> fire backward jump "
+            "threshold)"
+        )
+        self.writer.write("iss_pressure", 150.0)
+        self.log(
+            "Waiting for iss_ox_cmd=1 (fire re-entered, inline sub-sequence "
+            "reset and re-fired its first write)..."
+        )
+        self.wait_for_eq(
+            "iss_ox_cmd", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
+        )
+        self.log("Sub-sequence reset on parent stage re-entry")
