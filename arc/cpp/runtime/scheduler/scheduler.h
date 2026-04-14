@@ -11,9 +11,9 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "glog/logging.h"
@@ -46,7 +46,6 @@ class Scheduler {
         std::vector<StepState> steps;
         size_t active_step_idx = NO_INDEX;
         std::unordered_map<std::string, size_t> flow_node_owner;
-        std::unordered_set<std::string> flow_data_nodes;
     };
 
     struct TransitionTarget {
@@ -78,59 +77,53 @@ class Scheduler {
         SequenceState state;
         state.ir = &seq;
         state.steps.resize(seq.steps.size());
-        bool has_flow_steps = false;
-        for (size_t i = 0; i < seq.steps.size(); i++) {
+        for (size_t i = 0; i < seq.steps.size(); ++i) {
+            const auto &step_ir = seq.steps[i];
             auto &ss = state.steps[i];
-            ss.ir = &seq.steps[i];
-            if (seq.steps[i].stage) {
-                for (const auto &sub_seq: seq.steps[i].stage->sequences)
+            ss.ir = &step_ir;
+            if (step_ir.stage)
+                for (const auto &sub_seq: step_ir.stage->sequences)
                     ss.sub_seqs.push_back(build_sequence_state(sub_seq));
-            }
-            if (seq.steps[i].sequence) {
+            if (step_ir.sequence)
                 ss.sub_seq = std::make_unique<SequenceState>(
-                    build_sequence_state(*seq.steps[i].sequence)
+                    build_sequence_state(*step_ir.sequence)
                 );
-            }
-            if (seq.steps[i].flow) has_flow_steps = true;
         }
-        if (has_flow_steps) {
-            for (size_t i = 0; i < seq.steps.size(); i++) {
-                if (!seq.steps[i].flow) continue;
-                for (const auto &nk: seq.steps[i].flow->nodes) {
+        const bool has_flow_steps = std::ranges::any_of(
+            seq.steps,
+            [](const auto &s) { return s.flow.has_value(); }
+        );
+        if (has_flow_steps)
+            for (size_t i = 0; i < seq.steps.size(); ++i) {
+                const auto &step_ir = seq.steps[i];
+                if (!step_ir.flow) continue;
+                for (const auto &nk: step_ir.flow->nodes)
                     state.flow_node_owner[nk] = i;
-                    state.flow_data_nodes.insert(nk);
-                }
             }
-        }
         return state;
     }
 
     void register_transitions(SequenceState &seq) {
-        for (size_t i = 0; i < seq.steps.size(); i++) {
+        for (size_t i = 0; i < seq.steps.size(); ++i) {
             auto &step = seq.steps[i];
-            const auto ek = "entry_" + seq.ir->key + "_" + step.ir->key;
-            this->transitions[ek] = TransitionTarget{&seq, i};
-            if (step.ir->stage) {
+            this->transitions["entry_" + seq.ir->key + "_" + step.ir->key] =
+                TransitionTarget{&seq, i};
+            if (step.ir->stage)
                 for (auto &sub: step.sub_seqs)
                     this->register_transitions(sub);
-            }
             if (step.sub_seq) this->register_transitions(*step.sub_seq);
         }
     }
 
     void register_boundaries(SequenceState &seq) {
-        for (size_t i = 0; i < seq.steps.size(); i++) {
-            auto &step = seq.steps[i];
-            if (step.ir->stage) {
-                for (size_t j = 0; j < step.sub_seqs.size(); j++) {
-                    const auto bk = "boundary_" + step.sub_seqs[j].ir->key;
-                    this->boundaries[bk] = &step.sub_seqs[j];
-                    this->register_boundaries(step.sub_seqs[j]);
+        for (auto &step: seq.steps) {
+            if (step.ir->stage)
+                for (auto &sub: step.sub_seqs) {
+                    this->boundaries["boundary_" + sub.ir->key] = &sub;
+                    this->register_boundaries(sub);
                 }
-            }
             if (step.ir->sequence) {
-                const auto bk = "boundary_" + step.ir->key;
-                this->boundaries[bk] = step.sub_seq.get();
+                this->boundaries["boundary_" + step.ir->key] = step.sub_seq.get();
                 this->register_boundaries(*step.sub_seq);
             }
         }
@@ -197,14 +190,14 @@ public:
     Scheduler &operator=(const Scheduler &) = delete;
 
     void reset() {
-        std::fill(this->changed_flags.begin(), this->changed_flags.end(), 0);
-        std::fill(this->self_changed_flags.begin(), this->self_changed_flags.end(), 0);
+        std::ranges::fill(this->changed_flags, 0);
+        std::ranges::fill(this->self_changed_flags, 0);
         this->curr_node_ptr = nullptr;
         this->curr_seq = nullptr;
         this->transitioned = false;
         for (auto &seq: this->sequences)
             this->reset_sequence_state(seq);
-        for (auto &[key, node_state]: this->nodes)
+        for (const auto &node_state: this->nodes | std::views::values)
             node_state.node->reset();
     }
 
@@ -230,14 +223,14 @@ private:
     Node &curr_node() { return this->nodes[*this->curr_node_ptr]; }
 
     void execute_strata(const ir::Strata &strata, SequenceState *active_seq) {
-        std::fill(this->changed_flags.begin(), this->changed_flags.end(), 0);
+        std::ranges::fill(this->changed_flags, 0);
         this->transitioned = false;
         const bool in_context = this->curr_seq != nullptr;
         bool first_stratum = true;
         for (const auto &stratum: strata) {
             for (const auto &key: stratum) {
-                auto bit = this->boundaries.find(key);
-                if (bit != this->boundaries.end()) {
+                if (const auto bit = this->boundaries.find(key);
+                    bit != this->boundaries.end()) {
                     if (bit->second->active_step_idx != NO_INDEX) {
                         // Preserve the parent's changed/transitioned state
                         // across the recursive sub-context execution.
@@ -246,7 +239,7 @@ private:
                         // this stratum would be lost.
                         auto saved_changed = this->changed_flags;
                         const bool saved_transitioned = this->transitioned;
-                        this->exec_sequence_step(bit->second);
+                        this->exec_sequence_step(*bit->second);
                         this->changed_flags = std::move(saved_changed);
                         this->transitioned = saved_transitioned;
                     }
@@ -257,22 +250,15 @@ private:
                 // used for ordering and dependency tracking only. Their step
                 // is activated and executed via exec_sequence_step, not
                 // through the parent's strata walk. Skip them here.
-                if (this->node_index.find(key) == this->node_index.end()) continue;
-
-                if (active_seq != nullptr && active_seq->flow_data_nodes.count(key)) {
-                    auto it = active_seq->flow_node_owner.find(key);
-                    if (it != active_seq->flow_node_owner.end() &&
-                        it->second != active_seq->active_step_idx)
-                        continue;
-                }
+                if (!this->node_index.contains(key)) continue;
 
                 bool is_active_flow_node = false;
-                if (active_seq != nullptr && active_seq->flow_data_nodes.count(key)) {
-                    auto it = active_seq->flow_node_owner.find(key);
-                    if (it != active_seq->flow_node_owner.end() &&
-                        it->second == active_seq->active_step_idx)
+                if (active_seq != nullptr)
+                    if (const auto it = active_seq->flow_node_owner.find(key);
+                        it != active_seq->flow_node_owner.end()) {
+                        if (it->second != active_seq->active_step_idx) continue;
                         is_active_flow_node = true;
-                }
+                    }
 
                 const auto idx = this->node_index[key];
                 const bool was_self_changed = this->self_changed_flags[idx] != 0;
@@ -294,32 +280,31 @@ private:
             for (auto &seq: this->sequences) {
                 if (seq.active_step_idx == NO_INDEX) continue;
                 const auto prev = seq.active_step_idx;
-                this->exec_sequence_step(&seq);
+                this->exec_sequence_step(seq);
                 if (seq.active_step_idx != prev) stable = false;
             }
             if (stable) break;
         }
     }
 
-    void exec_sequence_step(SequenceState *seq) {
-        if (seq->active_step_idx >= seq->steps.size()) return;
-        auto &step = seq->steps[seq->active_step_idx];
+    void exec_sequence_step(SequenceState &seq) {
+        if (seq.active_step_idx >= seq.steps.size()) return;
+        const auto &step = seq.steps[seq.active_step_idx];
         auto *prev_seq = this->curr_seq;
-        this->curr_seq = seq;
+        this->curr_seq = &seq;
 
-        if (step.ir->stage) {
+        if (step.ir->stage)
             this->execute_strata(step.ir->stage->strata, nullptr);
-        } else if (step.ir->flow) {
-            this->execute_strata(seq->ir->strata, seq);
-        } else if (step.ir->sequence && step.sub_seq) {
-            if (step.sub_seq->active_step_idx != NO_INDEX)
-                this->exec_sequence_step(step.sub_seq.get());
-        }
+        else if (step.ir->flow)
+            this->execute_strata(seq.ir->strata, &seq);
+        else if (step.ir->sequence && step.sub_seq &&
+                 step.sub_seq->active_step_idx != NO_INDEX)
+            this->exec_sequence_step(*step.sub_seq);
 
         this->curr_seq = prev_seq;
     }
 
-    void report_error(const x::errors::Error &e) {
+    void report_error(const x::errors::Error &e) const {
         LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
         this->error_handler(e);
     }
@@ -343,56 +328,55 @@ private:
     /// already has an active step, this is a no-op to prevent re-entering a
     /// sequence that has already been started.
     void transition_step() {
-        auto it = this->transitions.find(*this->curr_node_ptr);
+        const auto it = this->transitions.find(*this->curr_node_ptr);
         if (it == this->transitions.end()) return;
         auto &[target_seq, target_step_idx] = it->second;
         if (this->curr_seq == nullptr && target_seq->active_step_idx != NO_INDEX)
             return;
 
-        if (target_seq->active_step_idx != NO_INDEX) this->deactivate_step(target_seq);
+        if (target_seq->active_step_idx != NO_INDEX) this->deactivate_step(*target_seq);
 
-        this->activate_step(target_seq, target_step_idx);
+        this->activate_step(*target_seq, target_step_idx);
         this->transitioned = true;
     }
 
-    void activate_step(SequenceState *seq, size_t step_idx) {
-        seq->active_step_idx = step_idx;
-        auto &step = seq->steps[step_idx];
+    void activate_step(SequenceState &seq, const size_t step_idx) {
+        seq.active_step_idx = step_idx;
+        auto &step = seq.steps[step_idx];
 
         if (step.ir->stage) {
             this->reset_strata(step.ir->stage->strata);
             for (auto &sub: step.sub_seqs)
-                this->enter_sequence(&sub);
-        } else if (step.ir->flow) {
+                this->enter_sequence(sub);
+        } else if (step.ir->flow)
             for (const auto &nk: step.ir->flow->nodes) {
                 this->self_changed_flags[this->node_index[nk]] = 0;
-                auto nit = this->nodes.find(nk);
-                if (nit != this->nodes.end()) nit->second.node->reset();
+                if (const auto it = this->nodes.find(nk); it != this->nodes.end())
+                    it->second.node->reset();
             }
-        } else if (step.ir->sequence && step.sub_seq) {
-            this->enter_sequence(step.sub_seq.get());
-        }
+        else if (step.ir->sequence && step.sub_seq)
+            this->enter_sequence(*step.sub_seq);
     }
 
-    void deactivate_step(SequenceState *seq) {
-        auto &step = seq->steps[seq->active_step_idx];
+    void deactivate_step(SequenceState &seq) {
+        const auto &step = seq.steps[seq.active_step_idx];
         if (step.ir->stage)
             this->clear_self_changed(step.ir->stage->strata);
         else if (step.ir->flow)
             for (const auto &nk: step.ir->flow->nodes)
                 this->self_changed_flags[this->node_index[nk]] = 0;
-        seq->active_step_idx = NO_INDEX;
+        seq.active_step_idx = NO_INDEX;
     }
 
-    void enter_sequence(SequenceState *seq) {
-        if (seq->steps.empty()) return;
+    void enter_sequence(SequenceState &seq) {
+        if (seq.steps.empty()) return;
         this->activate_step(seq, 0);
     }
 
     void reset_strata(const ir::Strata &strata) {
         for (const auto &stratum: strata)
             for (const auto &key: stratum) {
-                if (this->boundaries.count(key)) continue;
+                if (this->boundaries.contains(key)) continue;
                 this->self_changed_flags[this->node_index[key]] = 0;
                 this->nodes[key].node->reset();
             }
@@ -401,7 +385,7 @@ private:
     void clear_self_changed(const ir::Strata &strata) {
         for (const auto &stratum: strata)
             for (const auto &key: stratum) {
-                if (this->boundaries.count(key)) continue;
+                if (this->boundaries.contains(key)) continue;
                 this->self_changed_flags[this->node_index[key]] = 0;
             }
     }
