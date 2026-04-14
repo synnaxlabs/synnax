@@ -5,3 +5,15 @@ import { Page as P } from "@/components/nav/Page";
 <nav class="page-nav" transition:persist>
     <P client:load />
 </nav>
+
+<script>
+    const SCROLL_KEY = "page-nav-scroll";
+    const tree = document.querySelector(".reference-tree");
+    if (tree != null) {
+        const saved = sessionStorage.getItem(SCROLL_KEY);
+        if (saved != null) tree.scrollTop = parseFloat(saved);
+        tree.addEventListener("scroll", () => {
+            sessionStorage.setItem(SCROLL_KEY, String(tree.scrollTop));
+        });
+    }
+</script>
