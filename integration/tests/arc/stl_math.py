@@ -146,33 +146,35 @@ class StlMath(ArcConsoleCase):
                 retrieve_if_name_exists=True,
             )
 
-        for c in FLOW_CASES:
-            create_virtual_channel(self.client, c.in_ch, c.in_dtype)
+        for fc in FLOW_CASES:
+            assert fc.in_ch is not None and fc.in_dtype is not None
+            create_virtual_channel(self.client, fc.in_ch, fc.in_dtype)
             idx = self.client.channels.create(
-                name=f"{c.out_ch}_time",
+                name=f"{fc.out_ch}_time",
                 is_index=True,
                 data_type=sy.DataType.TIMESTAMP,
                 retrieve_if_name_exists=True,
             )
             self.client.channels.create(
-                name=c.out_ch,
+                name=fc.out_ch,
                 data_type=sy.DataType.FLOAT64,
                 index=idx.key,
                 retrieve_if_name_exists=True,
             )
 
-        for c in XX_CASES:
-            create_virtual_channel(self.client, c.base_ch, c.base_dtype)
-            create_virtual_channel(self.client, c.exp_ch, c.exp_dtype)
-            create_virtual_channel(self.client, c.out_ch, sy.DataType.FLOAT64)
+        for xxc in XX_CASES:
+            create_virtual_channel(self.client, xxc.base_ch, xxc.base_dtype)
+            create_virtual_channel(self.client, xxc.exp_ch, xxc.exp_dtype)
+            create_virtual_channel(self.client, xxc.out_ch, sy.DataType.FLOAT64)
 
-        all_ch = ["pow_cc_trigger"]
-        for c in CC_CASES:
-            all_ch.append(c.out_ch)
-        for c in FLOW_CASES:
-            all_ch.extend([c.in_ch, c.out_ch])
-        for c in XX_CASES:
-            all_ch.extend([c.base_ch, c.exp_ch, c.out_ch])
+        all_ch: list[str] = ["pow_cc_trigger"]
+        for cc in CC_CASES:
+            all_ch.append(cc.out_ch)
+        for fc in FLOW_CASES:
+            assert fc.in_ch is not None
+            all_ch.extend([fc.in_ch, fc.out_ch])
+        for xxc in XX_CASES:
+            all_ch.extend([xxc.base_ch, xxc.exp_ch, xxc.out_ch])
         self.subscribe_channels = all_ch
         super().setup()
 
@@ -186,6 +188,7 @@ class StlMath(ArcConsoleCase):
     def _verify_chan_const(self) -> None:
         self.log("=== pow(chan, const) ===")
         for c in XC_CASES:
+            assert c.in_ch is not None
             self.log(f"[{c.label}] Writing {c.write_val} to {c.in_ch}")
             self.writer.write(c.in_ch, c.write_val)
             self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
@@ -194,6 +197,7 @@ class StlMath(ArcConsoleCase):
     def _verify_const_chan(self) -> None:
         self.log("=== pow(const, chan) ===")
         for c in CX_CASES:
+            assert c.in_ch is not None
             self.log(f"[{c.label}] Writing {c.write_val} to {c.in_ch}")
             self.writer.write(c.in_ch, c.write_val)
             self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
