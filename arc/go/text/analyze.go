@@ -773,13 +773,20 @@ func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
 ) (ir.Sequence, []ir.Node, []ir.Edge, bool) {
-	seqName := ctx.AST.IDENTIFIER().GetText()
+	seqName := ""
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		seqName = id.GetText()
+	}
 	seq := ir.Sequence{Key: seqName}
 
-	seqScope, err := ctx.Scope.Resolve(ctx, seqName)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return ir.Sequence{}, nil, nil, false
+	seqScope := ctx.Scope
+	if seqName != "" {
+		resolved, err := ctx.Scope.Resolve(ctx, seqName)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return ir.Sequence{}, nil, nil, false
+		}
+		seqScope = resolved
 	}
 
 	// Pre-scan items to compute step keys and next-step keys.
@@ -995,6 +1002,7 @@ func analyzeStage(
 			for _, n := range itemNodes {
 				stg.Nodes = append(stg.Nodes, n.Key)
 			}
+			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
 			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
@@ -1003,6 +1011,20 @@ func analyzeStage(
 			}
 			nodes = append(nodes, node)
 			stg.Nodes = append(stg.Nodes, node.Key)
+			continue
+		}
+		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
+			subSeq, subNodes, subEdges, ok := analyzeSequence(
+				acontext.Child(ctx, nestedSeqDecl),
+				kg,
+			)
+			if !ok {
+				return ir.Stage{}, nil, nil, false
+			}
+			nodes = append(nodes, subNodes...)
+			edges = append(edges, subEdges...)
+			stg.Sequences = append(stg.Sequences, subSeq)
+			continue
 		}
 	}
 
