@@ -40,4 +40,4 @@ class ClockSkewCalculator:
         return self._last_skew
 
     def exceeds(self, threshold: CrudeTimeSpan) -> bool:
-        return abs(self.skew) > abs(TimeSpan(threshold))
+        return abs(self.skew) > TimeSpan(threshold)

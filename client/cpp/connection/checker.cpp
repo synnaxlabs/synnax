@@ -38,14 +38,15 @@ std::string create_version_warning(
     const bool is_client_newer
 ) {
     const auto to_upgrade = is_client_newer ? "Core" : "client";
+    const auto slug = is_client_newer ? "core" : "client";
     const auto age = is_client_newer ? "old" : "new";
     std::ostringstream ss;
-    ss << "The Synnax core version ";
+    ss << "The Synnax Core version ";
     if (!node_version.empty()) ss << node_version << " ";
     ss << "is too " << age << " for client version " << client_version
        << ". This may cause compatibility issues. We recommend updating the "
        << to_upgrade << ". For more information, see " << TROUBLESHOOTING_URL << "#old-"
-       << to_upgrade << "-version";
+       << slug << "-version";
     return ss.str();
 }
 
@@ -60,7 +61,7 @@ Checker::Checker(
     poll_freq(poll_freq),
     client_version(std::move(client_version)),
     name(std::move(name)),
-    clock_skew_threshold(clock_skew_threshold) {
+    clock_skew_threshold(clock_skew_threshold.abs()) {
     this->_state.client_version = this->client_version;
     this->running = true;
     this->check();
@@ -111,8 +112,8 @@ State Checker::check() {
                                    ? "ahead of"
                                    : "behind";
                 LOG(WARNING) << "Measured excessive clock skew between this host and "
-                                "the Synnax core. This host is "
-                             << direction << " the Synnax core by approximately "
+                                "the Synnax Core. This host is "
+                             << direction << " the Synnax Core by approximately "
                              << this->skew_calc.skew().abs() << ".";
             }
             const auto &nv = res.node_version();

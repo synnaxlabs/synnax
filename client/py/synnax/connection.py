@@ -77,10 +77,10 @@ def _create_version_warning(
     nv = f"{node_version} " if node_version is not None else ""
     age = "old" if client_is_newer else "new"
     return (
-        f"The Synnax core version {nv}is too {age} for client version "
+        f"The Synnax Core version {nv}is too {age} for client version "
         f"{client_version}. This may cause compatibility issues. We recommend "
         f"updating the {to_upgrade}. For more information, see "
-        f"{_TROUBLESHOOTING_URL}#old-{to_upgrade}-version"
+        f"{_TROUBLESHOOTING_URL}#old-{to_upgrade.lower()}-version"
     )
 
 
@@ -99,7 +99,7 @@ class Checker:
         self._poll_freq = TimeSpan(poll_freq)
         self._client_version = client_version
         self._name = name
-        self._clock_skew_threshold = TimeSpan(clock_skew_threshold)
+        self._clock_skew_threshold = TimeSpan(abs(TimeSpan(clock_skew_threshold)))
         self._skew_calc = ClockSkewCalculator()
         self._state = State(client_version=client_version)
         self._lock = threading.Lock()
@@ -112,6 +112,7 @@ class Checker:
 
     def stop(self) -> None:
         self._stop_event.set()
+        self._thread.join()
 
     def check(self) -> State:
         with self._lock:
@@ -142,7 +143,7 @@ class Checker:
                     )
                     logger.warning(
                         "Measured excessive clock skew between this host and "
-                        "the Synnax core. This host is %s the Synnax core "
+                        "the Synnax Core. This host is %s the Synnax Core "
                         "by approximately %s.",
                         direction,
                         abs(self._skew_calc.skew),
