@@ -288,6 +288,22 @@ class TestTimeSpan:
         """Should correctly subtract two time spans"""
         assert sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND == sy.TimeSpan(0)
 
+    def test_abs_positive(self) -> None:
+        """Should return the same value for positive spans"""
+        assert abs(sy.TimeSpan(1000)) == sy.TimeSpan(1000)
+
+    def test_abs_negative(self) -> None:
+        """Should return the absolute value for negative spans"""
+        assert abs(sy.TimeSpan(-500)) == sy.TimeSpan(500)
+
+    def test_abs_zero(self) -> None:
+        """Should return zero for zero span"""
+        assert abs(sy.TimeSpan(0)) == sy.TimeSpan(0)
+
+    def test_abs_returns_timespan(self) -> None:
+        """Should return a TimeSpan instance"""
+        assert isinstance(abs(sy.TimeSpan(-1000)), sy.TimeSpan)
+
     def test_gt(self) -> None:
         """Should correctly compare two time spans"""
         assert sy.TimeSpan.MICROSECOND > sy.TimeSpan.NANOSECOND

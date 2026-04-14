@@ -2,24 +2,24 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "auth",
-    srcs = [],
-    hdrs = ["auth.h"],
+    name = "connection",
+    srcs = ["checker.cpp"],
+    hdrs = ["checker.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//core/pkg/api/grpc:api_grpc",
-        "//freighter/cpp/grpc",
+        "//freighter/cpp:freighter",
         "//x/cpp/telem",
-        "//x/cpp/uuid",
-        "@grpc//:grpc++",
+        "@glog",
+        "@protobuf//:protobuf",
     ],
 )
 
 cc_test(
-    name = "auth_test",
-    srcs = ["auth_test.cpp"],
+    name = "connection_test",
+    srcs = ["checker_test.cpp"],
     deps = [
-        "//client/cpp/auth",
+        ":connection",
         "//freighter/cpp/mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",
