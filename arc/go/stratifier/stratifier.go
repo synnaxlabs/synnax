@@ -278,8 +278,8 @@ func stratifySubgraph(
 func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 	var (
 		graph    = make(map[string][]string)
-		visited  = make(map[string]bool)
-		recStack = make(map[string]bool)
+		visited  = make(set.Set[string])
+		recStack = make(set.Set[string])
 		path     []string
 		dfs      func(node string) bool
 	)
@@ -288,16 +288,16 @@ func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 		graph[edge.Source.Node] = append(graph[edge.Source.Node], edge.Target.Node)
 	}
 	dfs = func(node string) bool {
-		visited[node] = true
-		recStack[node] = true
+		visited.Add(node)
+		recStack.Add(node)
 		path = append(path, node)
 
 		for _, neighbor := range graph[node] {
-			if !visited[neighbor] {
+			if !visited.Contains(neighbor) {
 				if dfs(neighbor) {
 					return true
 				}
-			} else if recStack[neighbor] {
+			} else if recStack.Contains(neighbor) {
 				// Found cycle - extract it from path
 				cycleStart := -1
 				for i, n := range path {
@@ -313,13 +313,13 @@ func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 			}
 		}
 
-		recStack[node] = false
+		recStack.Remove(node)
 		path = path[:len(path)-1]
 		return false
 	}
 
 	for _, node := range nodes {
-		if !visited[node.Key] {
+		if !visited.Contains(node.Key) {
 			if dfs(node.Key) {
 				return path
 			}

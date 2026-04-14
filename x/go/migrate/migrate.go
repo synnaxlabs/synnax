@@ -76,7 +76,7 @@ func Migrate(ctx context.Context, cfg Config) (set.Set[string], error) {
 	}
 	cfg.L.Info(
 		"running migrations",
-		zap.Strings("already_applied", cfg.Applied.ToSlice()),
+		zap.Strings("already_applied", cfg.Applied.Slice()),
 		zap.Strings("pending", order),
 	)
 	for _, key := range order {
@@ -98,7 +98,7 @@ type addedDeps struct {
 
 func (a *addedDeps) Dependencies() set.Set[string] {
 	deps := a.Migration.Dependencies().Copy()
-	deps.Add(a.addedDeps.ToSlice()...)
+	deps.Add(a.addedDeps.Slice()...)
 	return deps
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
@@ -278,11 +279,11 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 		return
 	}
 
-	configParams := make(map[string]bool)
+	configParams := make(set.Set[string])
 	if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
 		for _, configVal := range namedVals.AllNamedConfigValue() {
 			key := configVal.IDENTIFIER().GetText()
-			configParams[key] = true
+			configParams.Add(key)
 			expectedType, exists := fnType.Config.Get(key)
 			if !exists {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -321,7 +322,7 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 		}
 		for i, expr := range exprs {
 			param := fnType.Config[i]
-			configParams[param.Name] = true
+			configParams.Add(param.Name)
 			childCtx := context.Child(ctx, expr)
 			expression.Analyze(childCtx)
 			exprType := atypes.InferFromExpression(childCtx)
@@ -337,7 +338,7 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 	}
 
 	for _, param := range fnType.Config {
-		if !configParams[param.Name] && param.Value == nil {
+		if !configParams.Contains(param.Name) && param.Value == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				configNode,
 				"missing required config parameter '%s' for func '%s'",

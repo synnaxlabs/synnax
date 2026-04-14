@@ -135,7 +135,7 @@ var _ = Describe("Bool", func() {
 		})
 
 		Specify("map destination", func() {
-			var dest map[string]bool
+			var dest map[string]string
 			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 

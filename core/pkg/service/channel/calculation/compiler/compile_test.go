@@ -92,8 +92,8 @@ var _ = Describe("Compile", func() {
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.ToSlice()).To(ContainElement(base.Key()))
-		Expect(mod.StateConfig.Writes.ToSlice()).To(ContainElement(calc.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
+		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
 	It("Should compile expression with operations", func(ctx SpecContext) {
@@ -113,7 +113,7 @@ var _ = Describe("Compile", func() {
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.ToSlice()).To(ContainElement(base.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
 	})
 
 	It("Should compile with multiple dependencies", func(ctx SpecContext) {
@@ -134,8 +134,8 @@ var _ = Describe("Compile", func() {
 			Channel:        calc,
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
-		Expect(mod.StateConfig.Reads.ToSlice()).To(ContainElements(channel.KeysFromChannels(channels)))
-		Expect(mod.StateConfig.Writes.ToSlice()).To(ContainElement(calc.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
+		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
@@ -155,7 +155,7 @@ var _ = Describe("Compile", func() {
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.ToSlice()).To(ContainElement(base.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
 	})
 
 	It("Should fail with invalid expression", func(ctx SpecContext) {
