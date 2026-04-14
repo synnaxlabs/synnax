@@ -48,9 +48,67 @@ func compileBlock(bCtx SpecContext, source string) []byte {
 }
 
 var _ = Describe("Statement Compiler", func() {
-	// NOTE: Output assignment tests (ir.KindOutput) are not included here because they
-	// require a fully configured multi-output context (Outputs, OutputMemoryBase).
-	// Output assignment compilation is tested via integration tests in the main compiler suite.
+	Describe("Named Output Assignment", func() {
+		compileWithOutputs := func(bCtx SpecContext, source string, outputs types.Params, memBase uint32) []byte {
+			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+			aCtx := acontext.CreateRoot(bCtx, block, stl.SymbolResolver)
+			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			for _, o := range outputs {
+				MustSucceed(fnScope.Add(aCtx, symbol.Symbol{
+					Name: o.Name,
+					Kind: symbol.KindOutput,
+					Type: o.Type,
+				}))
+			}
+			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
+			aCtx.Scope = fn
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx.Outputs = outputs
+			ctx.OutputMemoryBase = memBase
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			return ctx.Writer.Bytes()
+		}
+
+		It("Should compile string output assignment with i32 store", func(bCtx SpecContext) {
+			outputs := types.Params{
+				{Name: "label", Type: types.String()},
+			}
+			bytecode := compileWithOutputs(bCtx, `label = "hello"`, outputs, 0x100)
+			Expect(len(bytecode)).To(BeNumerically(">", 0))
+		})
+
+		It("Should compute correct offset when a preceding output is a string", func(bCtx SpecContext) {
+			outputs := types.Params{
+				{Name: "label", Type: types.String()},
+				{Name: "value", Type: types.I64()},
+			}
+			bytecode := compileWithOutputs(bCtx, `
+				label = "ok"
+				value = 42
+			`, outputs, 0x100)
+			Expect(len(bytecode)).To(BeNumerically(">", 0))
+		})
+
+		It("Should compute correct offset with mixed string and numeric outputs", func(bCtx SpecContext) {
+			outputs := types.Params{
+				{Name: "first", Type: types.String()},
+				{Name: "second", Type: types.String()},
+				{Name: "count", Type: types.I64()},
+			}
+			bytecode := compileWithOutputs(bCtx, `
+				first = "a"
+				second = "b"
+				count = 10
+			`, outputs, 0x200)
+			Expect(len(bytecode)).To(BeNumerically(">", 0))
+		})
+	})
 
 	DescribeTable("Single Statement Bytecode Values", func(bCtx SpecContext, source string, instructions ...any) {
 		Expect(compile(bCtx, source)).To(MatchOpcodes(instructions...))

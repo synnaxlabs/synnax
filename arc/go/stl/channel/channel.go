@@ -48,6 +48,7 @@ var userSymbols = symbol.MapResolver{
 var hostSymbols = symbol.MapResolver{
 	"read": {
 		Name:     "read",
+		Kind:     symbol.KindFunction,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "ch", Type: types.I32()}},
@@ -56,6 +57,7 @@ var hostSymbols = symbol.MapResolver{
 	},
 	"write": {
 		Name:     "write",
+		Kind:     symbol.KindFunction,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "ch", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},

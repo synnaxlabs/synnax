@@ -141,9 +141,29 @@ TEST(TimeModuleTest, CreatesIntervalNode) {
     ASSERT_NE(node, nullptr);
 }
 
+/// @brief Test that module creates an Interval node from qualified time.interval type.
+TEST(TimeModuleTest, CreatesIntervalNodeQualified) {
+    TestSetup setup("time.interval", "period", x::telem::SECOND.nanoseconds());
+    Module factory;
+    const auto node = ASSERT_NIL_P(factory.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+    ));
+    ASSERT_NE(node, nullptr);
+}
+
 /// @brief Test that module creates a Wait node from valid configuration.
 TEST(TimeModuleTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    Module factory;
+    const auto node = ASSERT_NIL_P(factory.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+    ));
+    ASSERT_NE(node, nullptr);
+}
+
+/// @brief Test that module creates a Wait node from qualified time.wait type.
+TEST(TimeModuleTest, CreatesWaitNodeQualified) {
+    TestSetup setup("time.wait", "duration", x::telem::SECOND.nanoseconds());
     Module factory;
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())

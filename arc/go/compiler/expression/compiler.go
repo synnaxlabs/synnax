@@ -133,8 +133,8 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 	primary := ctx.AST.PrimaryExpression()
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
-	if len(funcCalls) > 0 && primary.IDENTIFIER() != nil {
-		funcName := primary.IDENTIFIER().GetText()
+	funcName := parser.PrimaryName(primary)
+	if len(funcCalls) > 0 && funcName != "" {
 		if funcName != "true" && funcName != "false" {
 			// len() and now() are language-level builtins that require compiler
 			// dispatch rather than normal function resolution:
@@ -195,13 +195,33 @@ func compileFunctionCallExpr(
 		)
 	}
 
+	concreteInputs := make(types.Params, len(funcType.Inputs))
+	copy(concreteInputs, funcType.Inputs)
+
+	// Track resolved type variables as arguments are compiled so that
+	// later arguments sharing the same variable get a concrete hint
+	// (e.g. pow(channel_f32, 2) resolves T=f32 on the first arg,
+	// then compiles the literal 2 as f32 instead of defaulting to i64).
+	varMap := make(map[string]types.Type)
+
 	for i, arg := range args {
 		paramType := funcType.Inputs[i].Type
-		argType, err := Compile(context.Child(ctx, arg).WithHint(paramType))
+		hint := paramType
+		if paramType.Kind == types.KindVariable {
+			if resolved, ok := varMap[paramType.Name]; ok {
+				hint = resolved
+			}
+		}
+		argType, err := Compile(context.Child(ctx, arg).WithHint(hint))
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "argument %d", i)
 		}
-		if !types.Equal(argType, paramType) {
+		concreteInputs[i].Type = argType
+		if paramType.Kind == types.KindVariable && argType.Kind != types.KindNumericConstant &&
+			argType.Kind != types.KindIntegerConstant && argType.Kind != types.KindFloatConstant {
+			varMap[paramType.Name] = argType
+		}
+		if !types.Equal(argType, paramType) && paramType.Kind != types.KindVariable {
 			if err := EmitCast(ctx, argType, paramType); err != nil {
 				return types.Type{}, err
 			}
@@ -214,9 +234,22 @@ func compileFunctionCallExpr(
 			return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
 		}
 	}
+	concreteOutputs := make(types.Params, len(funcType.Outputs))
+	copy(concreteOutputs, funcType.Outputs)
+	for i, out := range concreteOutputs {
+		if out.Type.Kind == types.KindVariable {
+			if resolved, ok := varMap[out.Type.Name]; ok {
+				concreteOutputs[i].Type = resolved
+			}
+		}
+	}
 
-	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, funcName, funcType)
-	defaultOutput, hasDefault := funcType.Outputs.Get(ir.DefaultOutputParam)
+	concreteType := types.Function(types.FunctionProperties{
+		Inputs:  concreteInputs,
+		Outputs: concreteOutputs,
+	})
+	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, funcName, concreteType)
+	defaultOutput, hasDefault := concreteOutputs.Get(ir.DefaultOutputParam)
 	if hasDefault {
 		return defaultOutput.Type, nil
 	}
@@ -285,6 +318,9 @@ func compileIndexOrSlice(
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
+	}
+	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
+		return compileIdentifier(ctx, parser.QualifiedName(qid))
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()

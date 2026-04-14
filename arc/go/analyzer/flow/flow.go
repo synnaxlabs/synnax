@@ -25,7 +25,7 @@ import (
 )
 
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	funcType := resolveFunc(ctx, name)
 	if funcType == nil {
 		return
@@ -75,7 +75,7 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 }
 
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	funcType := resolveFunc(ctx, name)
 	if funcType == nil {
 		return
@@ -152,7 +152,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 	} else if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
-		prevFuncName := prevFuncNode.IDENTIFIER().GetText()
+		prevFuncName := parser.FunctionName(prevFuncNode)
 		prevFuncType := resolveFunc(ctx, prevFuncName)
 		if prevFuncType == nil {
 			return
@@ -419,7 +419,7 @@ func analyzeOutputRoutingTable(
 		return
 	}
 
-	fnName := PrevFunc.IDENTIFIER().GetText()
+	fnName := parser.FunctionName(PrevFunc)
 	fnType := resolveFunc(ctx, fnName)
 	if fnType == nil {
 		return
@@ -443,7 +443,7 @@ func analyzeOutputRoutingTable(
 	for _, node := range nodesAfter {
 		if fn := node.Function(); fn != nil {
 			nextFunc = fn
-			nextFuncName := nextFunc.IDENTIFIER().GetText()
+			nextFuncName := parser.FunctionName(nextFunc)
 			nextFuncScope, err := ctx.Scope.Resolve(ctx, nextFuncName)
 			if err == nil && nextFuncScope.Kind == symbol.KindFunction {
 				nextFuncType = nextFuncScope.Type
@@ -483,7 +483,7 @@ func analyzeOutputRoutingTable(
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					entry,
 					"func '%s' does not have parameter '%s'",
-					nextFunc.IDENTIFIER().GetText(),
+					parser.FunctionName(nextFunc),
 					targetParamName,
 				))
 				continue
@@ -525,7 +525,7 @@ func analyzeInputRoutingTable(
 		return
 	}
 
-	fnName := nextFunc.IDENTIFIER().GetText()
+	fnName := parser.FunctionName(nextFunc)
 	fnType := resolveFunc(ctx, fnName)
 	if fnType == nil {
 		return
@@ -579,7 +579,7 @@ func analyzeRoutingTargetWithParam(
 	targetParam *string,
 ) {
 	if fn := ctx.AST.Function(); fn != nil {
-		fnName := fn.IDENTIFIER().GetText()
+		fnName := parser.FunctionName(fn)
 		fnType := resolveFunc(ctx, fnName)
 		if fnType == nil {
 			return

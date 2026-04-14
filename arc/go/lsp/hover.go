@@ -67,7 +67,15 @@ func (s *Server) Hover(
 	contents := s.getHoverContents(word)
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
-		contents = s.getUserSymbolHover(scopeAtCursor, word, displayContent)
+		qualifiedWord := lsp.GetQualifiedWordAtPosition(
+			displayContent,
+			params.Position,
+		)
+		contents = s.getUserSymbolHover(
+			scopeAtCursor,
+			qualifiedWord,
+			displayContent,
+		)
 	}
 
 	if contents == "" {
