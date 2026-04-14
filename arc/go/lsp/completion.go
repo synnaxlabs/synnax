@@ -455,7 +455,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
+	if completionCtx != ContextTypeAnnotation {
 		modulePrefix := ""
 		if dotIdx := strings.LastIndex(prefix, "."); dotIdx >= 0 {
 			modulePrefix = prefix[:dotIdx+1]
