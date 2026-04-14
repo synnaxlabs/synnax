@@ -88,8 +88,8 @@ class InlineStageInSequence(ArcConsoleCase):
             "lost the race to pressure < 15)..."
         )
         sy.sleep(1.0)
-        emergency_value = self.get_value("inline_stage_emergency_cmd")
-        if emergency_value is not None and emergency_value != 0:
+        emergency_value = self.read_tlm("inline_stage_emergency_cmd", default=0)
+        if emergency_value != 0:
             self.fail(
                 f"emergency_cmd={emergency_value}, but the pressure < 15 "
                 f"exit should have won the race against wait{{30s}}"
