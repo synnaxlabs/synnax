@@ -792,11 +792,11 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const typeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`export interface Type {`))
+			Expect(content).To(ContainSubstring(`export const typeZ: z.ZodType<Type> = z.object({`))
 			Expect(content).To(ContainSubstring(`kind: kindZ`))
-			Expect(content).To(ContainSubstring(`get elem():`))
+			Expect(content).To(ContainSubstring(`get elem() {`))
 			Expect(content).To(ContainSubstring(`return typeZ.optional()`))
-			Expect(content).To(ContainSubstring(`export interface Type extends z.infer<typeof typeZ> {}`))
 		})
 
 		It("Should generate getter for array self-referencing struct", func(ctx SpecContext) {
@@ -819,10 +819,38 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const nodeZ = z.object({`))
-			Expect(content).To(ContainSubstring(`get children():`))
-			// Optional arrays use zod.nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`export interface Node {`))
+			Expect(content).To(ContainSubstring(`export const nodeZ: z.ZodType<Node> = z.object({`))
+			Expect(content).To(ContainSubstring(`get children() {`))
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(nodeZ.array())`))
+		})
+
+		It("Should emit Zod v4 recursive pattern for mutually recursive structs", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				A struct {
+					b B?
+				}
+
+				B struct {
+					a A?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "cycle", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{Resolutions: table}
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export interface A {`))
+			Expect(content).To(ContainSubstring(`export interface B {`))
+			Expect(content).To(ContainSubstring(`export const aZ: z.ZodType<A> = z.object({`))
+			Expect(content).To(ContainSubstring(`export const bZ: z.ZodType<B> = z.object({`))
+			Expect(content).NotTo(ContainSubstring(`extends z.infer<typeof aZ>`))
+			Expect(content).NotTo(ContainSubstring(`extends z.infer<typeof bZ>`))
 		})
 
 		It("Should generate getter for struct with multiple recursive fields", func(ctx SpecContext) {
@@ -846,10 +874,11 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const mosaicNodeZ = z.object({`))
-			Expect(content).To(ContainSubstring(`get first():`))
+			Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
+			Expect(content).To(ContainSubstring(`export const mosaicNodeZ: z.ZodType<MosaicNode> = z.object({`))
+			Expect(content).To(ContainSubstring(`get first() {`))
 			Expect(content).To(ContainSubstring(`return mosaicNodeZ.optional()`))
-			Expect(content).To(ContainSubstring(`get last():`))
+			Expect(content).To(ContainSubstring(`get last() {`))
 		})
 
 		It("Should generate getter for generic recursive struct with single param", func(ctx SpecContext) {

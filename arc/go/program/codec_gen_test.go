@@ -180,25 +180,33 @@ var _ = Describe("Codec", func() {
 							Kind:   ir.EdgeKind(0),
 						},
 					},
+					Authorities: ir.Authorities{
+						Default:  func() *uint8 { v := uint8(102); return &v }(),
+						Channels: map[uint32]uint8{103: 103},
+					},
 					Root: ir.Stage{
-						Strata: [][]string{{"test_100"}},
+						Key:    "test_104",
+						Nodes:  []string{"test_105"},
+						Strata: [][]string{{"test_106"}},
 						Sequences: []ir.Sequence{
 							{
-								Key: "test_102",
+								Key: "test_108",
 								Steps: []ir.Step{
-									{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+									{
+										Key:      "test_110",
+										Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+										Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+										Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+									},
 								},
+								Strata: [][]string{{"test_114"}},
 							},
 						},
 					},
-					Authorities: ir.Authorities{
-						Default:  func() *uint8 { v := uint8(109); return &v }(),
-						Channels: map[uint32]uint8{110: 110},
-					},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{110, 111, 112},
-					OutputMemoryBases: map[string]uint32{"test_111": 112},
+					WASM:              []byte{115, 116, 117},
+					OutputMemoryBases: map[string]uint32{"test_116": 117},
 				},
 			}),
 			Entry("zero values", program.Program{
@@ -206,8 +214,13 @@ var _ = Describe("Codec", func() {
 					Functions:   nil,
 					Nodes:       nil,
 					Edges:       nil,
-					Root:        ir.Stage{Strata: nil, Sequences: nil},
 					Authorities: ir.Authorities{Default: nil, Channels: nil},
+					Root: ir.Stage{
+						Key:       "",
+						Nodes:     nil,
+						Strata:    nil,
+						Sequences: nil,
+					},
 				},
 				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 			}),
@@ -216,13 +229,21 @@ var _ = Describe("Codec", func() {
 					Functions: []ir.Function{},
 					Nodes:     []ir.Node{},
 					Edges:     []ir.Edge{},
-					Root:      ir.Stage{Strata: [][]string{}, Sequences: []ir.Sequence{}},
 					Authorities: ir.Authorities{
-						Default:  func() *uint8 { v := uint8(8); return &v }(),
+						Default:  func() *uint8 { v := uint8(6); return &v }(),
 						Channels: map[uint32]uint8{},
 					},
+					Root: ir.Stage{
+						Key:       "test_8",
+						Nodes:     []string{},
+						Strata:    [][]string{},
+						Sequences: []ir.Sequence{},
+					},
 				},
-				Output: compiler.Output{WASM: []byte{9, 10, 11}, OutputMemoryBases: map[string]uint32{}},
+				Output: compiler.Output{
+					WASM:              []byte{12, 13, 14},
+					OutputMemoryBases: map[string]uint32{},
+				},
 			}),
 		)
 	})
@@ -372,25 +393,33 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 					Kind:   ir.EdgeKind(0),
 				},
 			},
+			Authorities: ir.Authorities{
+				Default:  func() *uint8 { v := uint8(102); return &v }(),
+				Channels: map[uint32]uint8{103: 103},
+			},
 			Root: ir.Stage{
-				Strata: [][]string{{"test_100"}},
+				Key:    "test_104",
+				Nodes:  []string{"test_105"},
+				Strata: [][]string{{"test_106"}},
 				Sequences: []ir.Sequence{
 					{
-						Key: "test_102",
+						Key: "test_108",
 						Steps: []ir.Step{
-							{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+							{
+								Key:      "test_110",
+								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+							},
 						},
+						Strata: [][]string{{"test_114"}},
 					},
 				},
 			},
-			Authorities: ir.Authorities{
-				Default:  func() *uint8 { v := uint8(109); return &v }(),
-				Channels: map[uint32]uint8{110: 110},
-			},
 		},
 		Output: compiler.Output{
-			WASM:              []byte{110, 111, 112},
-			OutputMemoryBases: map[string]uint32{"test_111": 112},
+			WASM:              []byte{115, 116, 117},
+			OutputMemoryBases: map[string]uint32{"test_116": 117},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -553,25 +582,33 @@ func FuzzDecodeProgram(f *testing.F) {
 						Kind:   ir.EdgeKind(0),
 					},
 				},
+				Authorities: ir.Authorities{
+					Default:  func() *uint8 { v := uint8(102); return &v }(),
+					Channels: map[uint32]uint8{103: 103},
+				},
 				Root: ir.Stage{
-					Strata: [][]string{{"test_100"}},
+					Key:    "test_104",
+					Nodes:  []string{"test_105"},
+					Strata: [][]string{{"test_106"}},
 					Sequences: []ir.Sequence{
 						{
-							Key: "test_102",
+							Key: "test_108",
 							Steps: []ir.Step{
-								{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+								{
+									Key:      "test_110",
+									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+								},
 							},
+							Strata: [][]string{{"test_114"}},
 						},
 					},
 				},
-				Authorities: ir.Authorities{
-					Default:  func() *uint8 { v := uint8(109); return &v }(),
-					Channels: map[uint32]uint8{110: 110},
-				},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{110, 111, 112},
-				OutputMemoryBases: map[string]uint32{"test_111": 112},
+				WASM:              []byte{115, 116, 117},
+				OutputMemoryBases: map[string]uint32{"test_116": 117},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -586,8 +623,13 @@ func FuzzDecodeProgram(f *testing.F) {
 				Functions:   nil,
 				Nodes:       nil,
 				Edges:       nil,
-				Root:        ir.Stage{Strata: nil, Sequences: nil},
 				Authorities: ir.Authorities{Default: nil, Channels: nil},
+				Root: ir.Stage{
+					Key:       "",
+					Nodes:     nil,
+					Strata:    nil,
+					Sequences: nil,
+				},
 			},
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 		}
@@ -603,13 +645,21 @@ func FuzzDecodeProgram(f *testing.F) {
 				Functions: []ir.Function{},
 				Nodes:     []ir.Node{},
 				Edges:     []ir.Edge{},
-				Root:      ir.Stage{Strata: [][]string{}, Sequences: []ir.Sequence{}},
 				Authorities: ir.Authorities{
-					Default:  func() *uint8 { v := uint8(8); return &v }(),
+					Default:  func() *uint8 { v := uint8(6); return &v }(),
 					Channels: map[uint32]uint8{},
 				},
+				Root: ir.Stage{
+					Key:       "test_8",
+					Nodes:     []string{},
+					Strata:    [][]string{},
+					Sequences: []ir.Sequence{},
+				},
 			},
-			Output: compiler.Output{WASM: []byte{9, 10, 11}, OutputMemoryBases: map[string]uint32{}},
+			Output: compiler.Output{
+				WASM:              []byte{12, 13, 14},
+				OutputMemoryBases: map[string]uint32{},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

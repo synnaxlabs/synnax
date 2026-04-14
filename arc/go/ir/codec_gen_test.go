@@ -84,6 +84,22 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Flow", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original ir.Flow) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded ir.Flow
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", ir.Flow{Nodes: []string{"test_1"}}),
+			Entry("zero values", ir.Flow{Nodes: nil}),
+			Entry("empty collections", ir.Flow{Nodes: []string{}}),
+		)
+	})
 	Describe("Function", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original ir.Function) {
@@ -511,37 +527,55 @@ var _ = Describe("Codec", func() {
 						Kind:   ir.EdgeKind(0),
 					},
 				},
+				Authorities: ir.Authorities{
+					Default:  func() *uint8 { v := uint8(102); return &v }(),
+					Channels: map[uint32]uint8{103: 103},
+				},
 				Root: ir.Stage{
-					Strata: [][]string{{"test_100"}},
+					Key:    "test_104",
+					Nodes:  []string{"test_105"},
+					Strata: [][]string{{"test_106"}},
 					Sequences: []ir.Sequence{
 						{
-							Key: "test_102",
+							Key: "test_108",
 							Steps: []ir.Step{
-								{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+								{
+									Key:      "test_110",
+									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+								},
 							},
+							Strata: [][]string{{"test_114"}},
 						},
 					},
-				},
-				Authorities: ir.Authorities{
-					Default:  func() *uint8 { v := uint8(109); return &v }(),
-					Channels: map[uint32]uint8{110: 110},
 				},
 			}),
 			Entry("zero values", ir.IR{
 				Functions:   nil,
 				Nodes:       nil,
 				Edges:       nil,
-				Root:        ir.Stage{Strata: nil, Sequences: nil},
 				Authorities: ir.Authorities{Default: nil, Channels: nil},
+				Root: ir.Stage{
+					Key:       "",
+					Nodes:     nil,
+					Strata:    nil,
+					Sequences: nil,
+				},
 			}),
 			Entry("empty collections", ir.IR{
 				Functions: []ir.Function{},
 				Nodes:     []ir.Node{},
 				Edges:     []ir.Edge{},
-				Root:      ir.Stage{Strata: [][]string{}, Sequences: []ir.Sequence{}},
 				Authorities: ir.Authorities{
-					Default:  func() *uint8 { v := uint8(8); return &v }(),
+					Default:  func() *uint8 { v := uint8(6); return &v }(),
 					Channels: map[uint32]uint8{},
+				},
+				Root: ir.Stage{
+					Key:       "test_8",
+					Nodes:     []string{},
+					Strata:    [][]string{},
+					Sequences: []ir.Sequence{},
 				},
 			}),
 		)
@@ -819,11 +853,53 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", ir.Sequence{
 				Key: "test_1",
 				Steps: []ir.Step{
-					{Key: "test_3", Stage: &ir.Stage{Key: "test_3", Nodes: []string{"test_4"}, Strata: [][]string{{"test_5"}}}},
+					{
+						Key:  "test_3",
+						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_5"}}; return &v }(),
+						Stage: func() *ir.Stage {
+							v := ir.Stage{
+								Key:    "test_7",
+								Nodes:  []string{"test_8"},
+								Strata: [][]string{{"test_9"}},
+								Sequences: []ir.Sequence{
+									{
+										Key:    "test_11",
+										Steps:  []ir.Step{{}},
+										Strata: [][]string{{"test_13"}},
+									},
+								},
+							}
+							return &v
+						}(),
+						Sequence: func() *ir.Sequence {
+							v := ir.Sequence{
+								Key: "test_15",
+								Steps: []ir.Step{
+									{
+										Key:      "test_17",
+										Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+										Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+										Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+									},
+								},
+								Strata: [][]string{{"test_21"}},
+							}
+							return &v
+						}(),
+					},
 				},
+				Strata: [][]string{{"test_22"}},
 			}),
-			Entry("zero values", ir.Sequence{Key: "", Steps: nil}),
-			Entry("empty collections", ir.Sequence{Key: "test_1", Steps: []ir.Step{}}),
+			Entry("zero values", ir.Sequence{
+				Key:    "",
+				Steps:  nil,
+				Strata: nil,
+			}),
+			Entry("empty collections", ir.Sequence{
+				Key:    "test_1",
+				Steps:  []ir.Step{},
+				Strata: [][]string{},
+			}),
 		)
 	})
 	Describe("Stage", func() {
@@ -837,13 +913,127 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", ir.Stage{Key: "test_1", Nodes: []string{"test_2"}, Strata: [][]string{{"test_3"}}}),
-			Entry("zero values", ir.Stage{
-				Key:    "",
-				Nodes:  nil,
-				Strata: nil,
+			Entry("fully populated", ir.Stage{
+				Key:    "test_1",
+				Nodes:  []string{"test_2"},
+				Strata: [][]string{{"test_3"}},
+				Sequences: []ir.Sequence{
+					{
+						Key: "test_5",
+						Steps: []ir.Step{
+							{
+								Key:  "test_7",
+								Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_9"}}; return &v }(),
+								Stage: func() *ir.Stage {
+									v := ir.Stage{
+										Key:       "test_11",
+										Nodes:     []string{"test_12"},
+										Strata:    [][]string{{"test_13"}},
+										Sequences: []ir.Sequence{{}},
+									}
+									return &v
+								}(),
+								Sequence: func() *ir.Sequence {
+									v := ir.Sequence{
+										Key:    "test_16",
+										Steps:  []ir.Step{{}},
+										Strata: [][]string{{"test_18"}},
+									}
+									return &v
+								}(),
+							},
+						},
+						Strata: [][]string{{"test_19"}},
+					},
+				},
 			}),
-			Entry("empty collections", ir.Stage{Key: "test_1", Nodes: []string{}, Strata: [][]string{}}),
+			Entry("zero values", ir.Stage{
+				Key:       "",
+				Nodes:     nil,
+				Strata:    nil,
+				Sequences: nil,
+			}),
+			Entry("empty collections", ir.Stage{
+				Key:       "test_1",
+				Nodes:     []string{},
+				Strata:    [][]string{},
+				Sequences: []ir.Sequence{},
+			}),
+		)
+	})
+	Describe("Step", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original ir.Step) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded ir.Step
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", ir.Step{
+				Key:  "test_1",
+				Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_3"}}; return &v }(),
+				Stage: func() *ir.Stage {
+					v := ir.Stage{
+						Key:    "test_5",
+						Nodes:  []string{"test_6"},
+						Strata: [][]string{{"test_7"}},
+						Sequences: []ir.Sequence{
+							{
+								Key: "test_9",
+								Steps: []ir.Step{
+									{
+										Key:      "test_11",
+										Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+										Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+										Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+									},
+								},
+								Strata: [][]string{{"test_15"}},
+							},
+						},
+					}
+					return &v
+				}(),
+				Sequence: func() *ir.Sequence {
+					v := ir.Sequence{
+						Key: "test_17",
+						Steps: []ir.Step{
+							{
+								Key:  "test_19",
+								Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_21"}}; return &v }(),
+								Stage: func() *ir.Stage {
+									v := ir.Stage{
+										Key:       "test_23",
+										Nodes:     []string{"test_24"},
+										Strata:    [][]string{{"test_25"}},
+										Sequences: []ir.Sequence{{}},
+									}
+									return &v
+								}(),
+								Sequence: func() *ir.Sequence {
+									v := ir.Sequence{
+										Key:    "test_28",
+										Steps:  []ir.Step{{}},
+										Strata: [][]string{{"test_30"}},
+									}
+									return &v
+								}(),
+							},
+						},
+						Strata: [][]string{{"test_31"}},
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", ir.Step{
+				Key:      "",
+				Flow:     nil,
+				Stage:    nil,
+				Sequence: nil,
+			}),
 		)
 	})
 })
@@ -899,6 +1089,23 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ir.Edge
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeFlow(b *testing.B) {
+	f := ir.Flow{Nodes: []string{"test_1"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := f.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded ir.Flow
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1312,20 +1519,28 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 				Kind:   ir.EdgeKind(0),
 			},
 		},
+		Authorities: ir.Authorities{
+			Default:  func() *uint8 { v := uint8(102); return &v }(),
+			Channels: map[uint32]uint8{103: 103},
+		},
 		Root: ir.Stage{
-			Strata: [][]string{{"test_100"}},
+			Key:    "test_104",
+			Nodes:  []string{"test_105"},
+			Strata: [][]string{{"test_106"}},
 			Sequences: []ir.Sequence{
 				{
-					Key: "test_102",
+					Key: "test_108",
 					Steps: []ir.Step{
-						{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+						{
+							Key:      "test_110",
+							Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+							Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+							Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+						},
 					},
+					Strata: [][]string{{"test_114"}},
 				},
 			},
-		},
-		Authorities: ir.Authorities{
-			Default:  func() *uint8 { v := uint8(109); return &v }(),
-			Channels: map[uint32]uint8{110: 110},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -1593,8 +1808,42 @@ func BenchmarkEncodeDecodeSequence(b *testing.B) {
 	s := ir.Sequence{
 		Key: "test_1",
 		Steps: []ir.Step{
-			{Key: "test_3", Stage: &ir.Stage{Key: "test_3", Nodes: []string{"test_4"}, Strata: [][]string{{"test_5"}}}},
+			{
+				Key:  "test_3",
+				Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_5"}}; return &v }(),
+				Stage: func() *ir.Stage {
+					v := ir.Stage{
+						Key:    "test_7",
+						Nodes:  []string{"test_8"},
+						Strata: [][]string{{"test_9"}},
+						Sequences: []ir.Sequence{
+							{
+								Key:    "test_11",
+								Steps:  []ir.Step{{}},
+								Strata: [][]string{{"test_13"}},
+							},
+						},
+					}
+					return &v
+				}(),
+				Sequence: func() *ir.Sequence {
+					v := ir.Sequence{
+						Key: "test_15",
+						Steps: []ir.Step{
+							{
+								Key:      "test_17",
+								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+							},
+						},
+						Strata: [][]string{{"test_21"}},
+					}
+					return &v
+				}(),
+			},
 		},
+		Strata: [][]string{{"test_22"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1612,7 +1861,40 @@ func BenchmarkEncodeDecodeSequence(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStage(b *testing.B) {
-	s := ir.Stage{Key: "test_1", Nodes: []string{"test_2"}, Strata: [][]string{{"test_3"}}}
+	s := ir.Stage{
+		Key:    "test_1",
+		Nodes:  []string{"test_2"},
+		Strata: [][]string{{"test_3"}},
+		Sequences: []ir.Sequence{
+			{
+				Key: "test_5",
+				Steps: []ir.Step{
+					{
+						Key:  "test_7",
+						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_9"}}; return &v }(),
+						Stage: func() *ir.Stage {
+							v := ir.Stage{
+								Key:       "test_11",
+								Nodes:     []string{"test_12"},
+								Strata:    [][]string{{"test_13"}},
+								Sequences: []ir.Sequence{{}},
+							}
+							return &v
+						}(),
+						Sequence: func() *ir.Sequence {
+							v := ir.Sequence{
+								Key:    "test_16",
+								Steps:  []ir.Step{{}},
+								Strata: [][]string{{"test_18"}},
+							}
+							return &v
+						}(),
+					},
+				},
+				Strata: [][]string{{"test_19"}},
+			},
+		},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -1621,6 +1903,78 @@ func BenchmarkEncodeDecodeStage(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ir.Stage
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStep(b *testing.B) {
+	s := ir.Step{
+		Key:  "test_1",
+		Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_3"}}; return &v }(),
+		Stage: func() *ir.Stage {
+			v := ir.Stage{
+				Key:    "test_5",
+				Nodes:  []string{"test_6"},
+				Strata: [][]string{{"test_7"}},
+				Sequences: []ir.Sequence{
+					{
+						Key: "test_9",
+						Steps: []ir.Step{
+							{
+								Key:      "test_11",
+								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+							},
+						},
+						Strata: [][]string{{"test_15"}},
+					},
+				},
+			}
+			return &v
+		}(),
+		Sequence: func() *ir.Sequence {
+			v := ir.Sequence{
+				Key: "test_17",
+				Steps: []ir.Step{
+					{
+						Key:  "test_19",
+						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_21"}}; return &v }(),
+						Stage: func() *ir.Stage {
+							v := ir.Stage{
+								Key:       "test_23",
+								Nodes:     []string{"test_24"},
+								Strata:    [][]string{{"test_25"}},
+								Sequences: []ir.Sequence{{}},
+							}
+							return &v
+						}(),
+						Sequence: func() *ir.Sequence {
+							v := ir.Sequence{
+								Key:    "test_28",
+								Steps:  []ir.Step{{}},
+								Strata: [][]string{{"test_30"}},
+							}
+							return &v
+						}(),
+					},
+				},
+				Strata: [][]string{{"test_31"}},
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := s.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded ir.Step
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1765,6 +2119,57 @@ func FuzzDecodeEdge(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded ir.Edge
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeFlow(f *testing.F) {
+	{
+		seed := ir.Flow{Nodes: []string{"test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := ir.Flow{Nodes: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := ir.Flow{Nodes: []string{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded ir.Flow
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded ir.Flow
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -2260,20 +2665,28 @@ func FuzzDecodeIR(f *testing.F) {
 					Kind:   ir.EdgeKind(0),
 				},
 			},
+			Authorities: ir.Authorities{
+				Default:  func() *uint8 { v := uint8(102); return &v }(),
+				Channels: map[uint32]uint8{103: 103},
+			},
 			Root: ir.Stage{
-				Strata: [][]string{{"test_100"}},
+				Key:    "test_104",
+				Nodes:  []string{"test_105"},
+				Strata: [][]string{{"test_106"}},
 				Sequences: []ir.Sequence{
 					{
-						Key: "test_102",
+						Key: "test_108",
 						Steps: []ir.Step{
-							{Key: "test_104", Stage: &ir.Stage{Key: "test_104", Nodes: []string{"test_105"}, Strata: [][]string{{"test_106"}}}},
+							{
+								Key:      "test_110",
+								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+							},
 						},
+						Strata: [][]string{{"test_114"}},
 					},
 				},
-			},
-			Authorities: ir.Authorities{
-				Default:  func() *uint8 { v := uint8(109); return &v }(),
-				Channels: map[uint32]uint8{110: 110},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -2287,8 +2700,13 @@ func FuzzDecodeIR(f *testing.F) {
 			Functions:   nil,
 			Nodes:       nil,
 			Edges:       nil,
-			Root:        ir.Stage{Strata: nil, Sequences: nil},
 			Authorities: ir.Authorities{Default: nil, Channels: nil},
+			Root: ir.Stage{
+				Key:       "",
+				Nodes:     nil,
+				Strata:    nil,
+				Sequences: nil,
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2301,10 +2719,15 @@ func FuzzDecodeIR(f *testing.F) {
 			Functions: []ir.Function{},
 			Nodes:     []ir.Node{},
 			Edges:     []ir.Edge{},
-			Root:      ir.Stage{Strata: [][]string{}, Sequences: []ir.Sequence{}},
 			Authorities: ir.Authorities{
-				Default:  func() *uint8 { v := uint8(8); return &v }(),
+				Default:  func() *uint8 { v := uint8(6); return &v }(),
 				Channels: map[uint32]uint8{},
+			},
+			Root: ir.Stage{
+				Key:       "test_8",
+				Nodes:     []string{},
+				Strata:    [][]string{},
+				Sequences: []ir.Sequence{},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -2638,8 +3061,42 @@ func FuzzDecodeSequence(f *testing.F) {
 		seed := ir.Sequence{
 			Key: "test_1",
 			Steps: []ir.Step{
-				{Key: "test_3", Stage: &ir.Stage{Key: "test_3", Nodes: []string{"test_4"}, Strata: [][]string{{"test_5"}}}},
+				{
+					Key:  "test_3",
+					Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_5"}}; return &v }(),
+					Stage: func() *ir.Stage {
+						v := ir.Stage{
+							Key:    "test_7",
+							Nodes:  []string{"test_8"},
+							Strata: [][]string{{"test_9"}},
+							Sequences: []ir.Sequence{
+								{
+									Key:    "test_11",
+									Steps:  []ir.Step{{}},
+									Strata: [][]string{{"test_13"}},
+								},
+							},
+						}
+						return &v
+					}(),
+					Sequence: func() *ir.Sequence {
+						v := ir.Sequence{
+							Key: "test_15",
+							Steps: []ir.Step{
+								{
+									Key:      "test_17",
+									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+								},
+							},
+							Strata: [][]string{{"test_21"}},
+						}
+						return &v
+					}(),
+				},
 			},
+			Strata: [][]string{{"test_22"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2648,7 +3105,11 @@ func FuzzDecodeSequence(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Sequence{Key: "", Steps: nil}
+		seed := ir.Sequence{
+			Key:    "",
+			Steps:  nil,
+			Strata: nil,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2656,7 +3117,11 @@ func FuzzDecodeSequence(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Sequence{Key: "test_1", Steps: []ir.Step{}}
+		seed := ir.Sequence{
+			Key:    "test_1",
+			Steps:  []ir.Step{},
+			Strata: [][]string{},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2691,7 +3156,40 @@ func FuzzDecodeSequence(f *testing.F) {
 
 func FuzzDecodeStage(f *testing.F) {
 	{
-		seed := ir.Stage{Key: "test_1", Nodes: []string{"test_2"}, Strata: [][]string{{"test_3"}}}
+		seed := ir.Stage{
+			Key:    "test_1",
+			Nodes:  []string{"test_2"},
+			Strata: [][]string{{"test_3"}},
+			Sequences: []ir.Sequence{
+				{
+					Key: "test_5",
+					Steps: []ir.Step{
+						{
+							Key:  "test_7",
+							Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_9"}}; return &v }(),
+							Stage: func() *ir.Stage {
+								v := ir.Stage{
+									Key:       "test_11",
+									Nodes:     []string{"test_12"},
+									Strata:    [][]string{{"test_13"}},
+									Sequences: []ir.Sequence{{}},
+								}
+								return &v
+							}(),
+							Sequence: func() *ir.Sequence {
+								v := ir.Sequence{
+									Key:    "test_16",
+									Steps:  []ir.Step{{}},
+									Strata: [][]string{{"test_18"}},
+								}
+								return &v
+							}(),
+						},
+					},
+					Strata: [][]string{{"test_19"}},
+				},
+			},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2700,9 +3198,10 @@ func FuzzDecodeStage(f *testing.F) {
 	}
 	{
 		seed := ir.Stage{
-			Key:    "",
-			Nodes:  nil,
-			Strata: nil,
+			Key:       "",
+			Nodes:     nil,
+			Strata:    nil,
+			Sequences: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2711,7 +3210,12 @@ func FuzzDecodeStage(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Stage{Key: "test_1", Nodes: []string{}, Strata: [][]string{}}
+		seed := ir.Stage{
+			Key:       "test_1",
+			Nodes:     []string{},
+			Strata:    [][]string{},
+			Sequences: []ir.Sequence{},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2730,6 +3234,109 @@ func FuzzDecodeStage(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded ir.Stage
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
+			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStep(f *testing.F) {
+	{
+		seed := ir.Step{
+			Key:  "test_1",
+			Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_3"}}; return &v }(),
+			Stage: func() *ir.Stage {
+				v := ir.Stage{
+					Key:    "test_5",
+					Nodes:  []string{"test_6"},
+					Strata: [][]string{{"test_7"}},
+					Sequences: []ir.Sequence{
+						{
+							Key: "test_9",
+							Steps: []ir.Step{
+								{
+									Key:      "test_11",
+									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
+									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
+									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+								},
+							},
+							Strata: [][]string{{"test_15"}},
+						},
+					},
+				}
+				return &v
+			}(),
+			Sequence: func() *ir.Sequence {
+				v := ir.Sequence{
+					Key: "test_17",
+					Steps: []ir.Step{
+						{
+							Key:  "test_19",
+							Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_21"}}; return &v }(),
+							Stage: func() *ir.Stage {
+								v := ir.Stage{
+									Key:       "test_23",
+									Nodes:     []string{"test_24"},
+									Strata:    [][]string{{"test_25"}},
+									Sequences: []ir.Sequence{{}},
+								}
+								return &v
+							}(),
+							Sequence: func() *ir.Sequence {
+								v := ir.Sequence{
+									Key:    "test_28",
+									Steps:  []ir.Step{{}},
+									Strata: [][]string{{"test_30"}},
+								}
+								return &v
+							}(),
+						},
+					},
+					Strata: [][]string{{"test_31"}},
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := ir.Step{
+			Key:      "",
+			Flow:     nil,
+			Stage:    nil,
+			Sequence: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded ir.Step
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded ir.Step
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

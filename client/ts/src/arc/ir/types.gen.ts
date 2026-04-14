@@ -30,6 +30,13 @@ export const handleZ = z.object({
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
+/** Flow is a leaf step in a sequence containing a single dataflow chain. */
+export const flowZ = z.object({
+  /** nodes contains node keys belonging to this flow step. */
+  nodes: array.nullishToEmpty(z.string()),
+});
+export interface Flow extends z.infer<typeof flowZ> {}
+
 /** Body is raw function body source code with optional parsed AST. */
 export const bodyZ = z.object({
   /** raw is the raw source code text. */
@@ -113,36 +120,68 @@ export const functionsZ = array.nullishToEmpty(functionZ);
 export type Functions = z.infer<typeof functionsZ>;
 
 /**
- * Stage is a stage in a sequence state machine, containing active nodes and their
- * execution stratification.
+ * Stage is a parallel execution context containing reactive flows that execute
+ * concurrently. May also contain inline sub-sequences.
  */
-export const stageZ = z.object({
+export interface Stage {
+  key: string;
+  nodes: string[];
+  strata: Strata;
+  sequences: Sequences;
+}
+export const stageZ: z.ZodType<Stage> = z.object({
   /** key is the stage identifier. */
   key: z.string(),
   /** nodes contains node keys active in this stage. */
   nodes: array.nullishToEmpty(z.string()),
   /** strata contains execution stratification for nodes in this stage. */
   strata: strataZ,
+  /** sequences contains inline sub-sequences nested within this stage. */
+  get sequences() {
+    return sequencesZ;
+  },
 });
-export interface Stage extends z.infer<typeof stageZ> {}
 
 /**
- * Sequence is a state machine defining ordered stages of execution, where entry point
- * is always the first stage.
+ * Step is a tagged union representing a single child of a sequence. Exactly one
+ * of flow, stage, or sequence is set.
  */
-export const sequenceZ = z.object({
+export interface Step {
+  key: string;
+  flow?: Flow;
+  stage?: Stage;
+  sequence?: Sequence;
+}
+export const stepZ: z.ZodType<Step> = z.object({
+  /** key is the name for jump targets. Empty for anonymous steps. */
+  key: z.string(),
+  /** flow is set when this step is a leaf containing a single dataflow chain. */
+  flow: flowZ.optional(),
+  /** stage is set when this step is a parallel execution context. */
+  stage: stageZ.optional(),
+  /** sequence is set when this step is a nested sequential context. */
+  get sequence() {
+    return sequenceZ.optional();
+  },
+});
+
+/**
+ * Sequence is a sequential execution context defining an ordered list of steps,
+ * where each step is a flow, a stage, or a nested sequence.
+ */
+export interface Sequence {
+  key: string;
+  steps: Step[];
+  strata: Strata;
+}
+export const sequenceZ: z.ZodType<Sequence> = z.object({
   /** key is the sequence identifier. */
   key: z.string(),
-  /** stages contains ordered stages in this sequence. */
-  stages: array.nullishToEmpty(stageZ),
+  /** steps contains ordered steps in this sequence. */
+  steps: array.nullishToEmpty(stepZ),
+  /** strata contains execution stratification for flow step nodes in this sequence. */
+  strata: strataZ,
 });
-export interface Sequence extends z.infer<typeof sequenceZ> {}
-
-export const stagesZ = array.nullishToEmpty(stageZ);
-export type Stages = z.infer<typeof stagesZ>;
-
-export const sequencesZ = array.nullishToEmpty(sequenceZ);
-export type Sequences = z.infer<typeof sequencesZ>;
 
 /**
  * IR is the intermediate representation of an Arc program as a dataflow graph
@@ -156,11 +195,21 @@ export const irZ = z.object({
   nodes: nodesZ.optional(),
   /** edges contains dataflow connections. */
   edges: edgesZ.optional(),
-  /** strata contains execution stratification layers. */
-  strata: strataZ.optional(),
-  /** sequences contains state machine definitions. */
-  sequences: sequencesZ.optional(),
   /** authorities contains the static authority declarations for this program. */
   authorities: authoritiesZ.optional(),
+  /**
+   * root is the top-level execution context. Its strata field holds global
+   * stratification; its sequences field holds top-level sequences.
+   */
+  root: stageZ,
 });
 export interface IR extends z.infer<typeof irZ> {}
+
+export const stagesZ = array.nullishToEmpty(stageZ);
+export type Stages = z.infer<typeof stagesZ>;
+
+export const stepsZ = array.nullishToEmpty(stepZ);
+export type Steps = z.infer<typeof stepsZ>;
+
+export const sequencesZ = array.nullishToEmpty(sequenceZ);
+export type Sequences = z.infer<typeof sequencesZ>;

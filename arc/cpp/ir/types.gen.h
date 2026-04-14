@@ -29,14 +29,14 @@
 namespace arc::ir {
 
 struct Handle;
+struct Flow;
 struct Body;
 struct Node;
 struct Authorities;
 struct Function;
 struct Edge;
-struct Flow;
-struct Step;
 struct Stage;
+struct Step;
 struct Sequence;
 struct IR;
 
@@ -65,6 +65,22 @@ struct Handle {
     from_proto(const ::arc::ir::pb::Handle &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Handle &h);
+};
+
+/// @brief Flow is a leaf step in a sequence containing a single dataflow chain.
+struct Flow {
+    /// @brief nodes contains node keys belonging to this flow step.
+    std::vector<std::string> nodes;
+
+    static Flow parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Flow;
+    [[nodiscard]] std::pair<::arc::ir::pb::Flow, x::errors::Error> to_proto() const;
+    static std::pair<Flow, x::errors::Error> from_proto(const ::arc::ir::pb::Flow &pb);
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
+    friend std::ostream &operator<<(std::ostream &os, const Flow &f);
 };
 
 /// @brief Body is raw function body source code with optional parsed AST.
@@ -277,90 +293,6 @@ struct Edge {
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
 };
 
-/// @brief Flow is a leaf step in a sequence containing a single dataflow chain.
-/// Flow steps do not own strata. Their nodes live in the parent Sequence.strata.
-struct Flow {
-    /// @brief nodes contains node keys belonging to this flow step.
-    std::vector<std::string> nodes;
-
-    static Flow parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Flow;
-    [[nodiscard]] std::pair<::arc::ir::pb::Flow, x::errors::Error> to_proto() const;
-    static std::pair<Flow, x::errors::Error> from_proto(const ::arc::ir::pb::Flow &pb);
-    [[nodiscard]] std::string to_string() const;
-};
-
-/// @brief Step is a tagged union representing a single child of a sequence.
-/// Exactly one of flow, stage, or sequence is non-null.
-struct Step {
-    /// @brief key is the name for jump targets, empty for anonymous steps.
-    std::string key;
-    /// @brief flow is non-null when this step is a leaf (single dataflow chain).
-    x::mem::indirect<Flow> flow;
-    /// @brief stage is non-null when this step is a parallel execution context.
-    x::mem::indirect<Stage> stage;
-    /// @brief sequence is non-null when this step is a nested sequential context.
-    x::mem::indirect<Sequence> sequence;
-
-    static Step parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Step;
-    [[nodiscard]] std::pair<::arc::ir::pb::Step, x::errors::Error> to_proto() const;
-    static std::pair<Step, x::errors::Error> from_proto(const ::arc::ir::pb::Step &pb);
-    [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-};
-
-/// @brief Sequence is a sequential execution context defining ordered steps.
-/// Entry point is always the first step.
-struct Sequence {
-    /// @brief key is the sequence identifier (empty if anonymous).
-    std::string key;
-    /// @brief steps contains ordered steps in this sequence.
-    std::vector<Step> steps;
-    /// @brief strata contains execution stratification for flow step nodes and
-    /// execution context boundaries for stage/sequence steps.
-    Strata strata;
-
-    static Sequence parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Sequence;
-    [[nodiscard]] std::pair<::arc::ir::pb::Sequence, x::errors::Error> to_proto() const;
-    static std::pair<Sequence, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Sequence &pb);
-    [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Sequence &s);
-};
-
-/// @brief Stage is a parallel execution context containing reactive flows that execute
-/// concurrently. May also contain inline sub-sequences.
-struct Stage {
-    /// @brief key is the stage identifier (empty if anonymous).
-    std::string key;
-    /// @brief nodes contains node keys active in this stage.
-    std::vector<std::string> nodes;
-    /// @brief strata contains execution stratification for nodes in this stage.
-    Strata strata;
-    /// @brief sequences contains inline sub-sequences within this stage.
-    std::vector<Sequence> sequences;
-
-    static Stage parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Stage;
-    [[nodiscard]] std::pair<::arc::ir::pb::Stage, x::errors::Error> to_proto() const;
-    static std::pair<Stage, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Stage &pb);
-    [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Stage &s);
-};
-
 struct Functions : private std::vector<Function> {
     using Base = std::vector<Function>;
 
@@ -517,9 +449,11 @@ struct Stages : private std::vector<Stage> {
 struct Steps : private std::vector<Step> {
     using Base = std::vector<Step>;
 
+    // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
     Steps() = default;
 
+    // Container interface
     using Base::begin;
     using Base::capacity;
     using Base::cbegin;
@@ -614,6 +548,76 @@ struct Sequences : private std::vector<Sequence> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Stage is a parallel execution context containing reactive flows that execute
+/// concurrently. May also contain inline sub-sequences.
+struct Stage {
+    /// @brief key is the stage identifier.
+    std::string key;
+    /// @brief nodes contains node keys active in this stage.
+    std::vector<std::string> nodes;
+    /// @brief strata contains execution stratification for nodes in this stage.
+    Strata strata;
+    /// @brief sequences contains inline sub-sequences nested within this stage.
+    Sequences sequences;
+
+    static Stage parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Stage;
+    [[nodiscard]] std::pair<::arc::ir::pb::Stage, x::errors::Error> to_proto() const;
+    static std::pair<Stage, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Stage &pb);
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
+    friend std::ostream &operator<<(std::ostream &os, const Stage &s);
+};
+
+/// @brief Step is a tagged union representing a single child of a sequence. Exactly one
+/// of flow, stage, or sequence is set.
+struct Step {
+    /// @brief key is the name for jump targets. Empty for anonymous steps.
+    std::string key;
+    /// @brief flow is set when this step is a leaf containing a single dataflow chain.
+    std::optional<Flow> flow;
+    /// @brief stage is set when this step is a parallel execution context.
+    x::mem::indirect<Stage> stage;
+    /// @brief sequence is set when this step is a nested sequential context.
+    x::mem::indirect<Sequence> sequence;
+
+    static Step parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Step;
+    [[nodiscard]] std::pair<::arc::ir::pb::Step, x::errors::Error> to_proto() const;
+    static std::pair<Step, x::errors::Error> from_proto(const ::arc::ir::pb::Step &pb);
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
+    friend std::ostream &operator<<(std::ostream &os, const Step &s);
+};
+
+/// @brief Sequence is a sequential execution context defining an ordered list of steps,
+/// where each step is a flow, a stage, or a nested sequence.
+struct Sequence {
+    /// @brief key is the sequence identifier.
+    std::string key;
+    /// @brief steps contains ordered steps in this sequence.
+    std::vector<Step> steps;
+    /// @brief strata contains execution stratification for flow step nodes in this
+    /// sequence.
+    Strata strata;
+
+    static Sequence parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Sequence;
+    [[nodiscard]] std::pair<::arc::ir::pb::Sequence, x::errors::Error> to_proto() const;
+    static std::pair<Sequence, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Sequence &pb);
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
+    friend std::ostream &operator<<(std::ostream &os, const Sequence &s);
+};
+
 /// @brief IR is the intermediate representation of an Arc program as a dataflow graph
 /// with stratified execution, bridging semantic analysis and WebAssembly compilation.
 struct IR {
@@ -623,12 +627,11 @@ struct IR {
     Nodes nodes;
     /// @brief edges contains dataflow connections.
     Edges edges;
-    /// @brief root is the top-level execution context for the program. Its strata
-    /// field holds global stratification, its sequences field holds top-level
-    /// sequences, and its nodes field lists top-level flow node keys.
-    Stage root;
     /// @brief authorities contains the static authority declarations for this program.
     Authorities authorities;
+    /// @brief root is the top-level execution context. Its strata field holds global
+    /// stratification; its sequences field holds top-level sequences.
+    Stage root;
 
     static IR parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

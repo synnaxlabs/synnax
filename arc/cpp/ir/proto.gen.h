@@ -121,17 +121,17 @@ Stage::from_proto(const ::arc::ir::pb::Stage &pb) {
 inline std::pair<::arc::ir::pb::Step, x::errors::Error> Step::to_proto() const {
     ::arc::ir::pb::Step pb;
     pb.set_key(this->key);
-    if (this->flow) {
+    if (this->flow.has_value()) {
         auto [v, err] = this->flow->to_proto();
         if (err) return {{}, err};
         *pb.mutable_flow() = v;
     }
-    if (this->stage) {
+    if (this->stage.has_value()) {
         auto [v, err] = this->stage->to_proto();
         if (err) return {{}, err};
         *pb.mutable_stage() = v;
     }
-    if (this->sequence) {
+    if (this->sequence.has_value()) {
         auto [v, err] = this->sequence->to_proto();
         if (err) return {{}, err};
         *pb.mutable_sequence() = v;
@@ -146,17 +146,17 @@ Step::from_proto(const ::arc::ir::pb::Step &pb) {
     if (pb.has_flow()) {
         auto [v, err] = Flow::from_proto(pb.flow());
         if (err) return {{}, err};
-        cpp.flow = x::mem::indirect<Flow>(std::move(v));
+        cpp.flow = v;
     }
     if (pb.has_stage()) {
         auto [v, err] = Stage::from_proto(pb.stage());
         if (err) return {{}, err};
-        cpp.stage = x::mem::indirect<Stage>(std::move(v));
+        cpp.stage = v;
     }
     if (pb.has_sequence()) {
         auto [v, err] = Sequence::from_proto(pb.sequence());
         if (err) return {{}, err};
-        cpp.sequence = x::mem::indirect<Sequence>(std::move(v));
+        cpp.sequence = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -181,14 +181,11 @@ inline std::pair<Sequence, x::errors::Error>
 Sequence::from_proto(const ::arc::ir::pb::Sequence &pb) {
     Sequence cpp;
     cpp.key = pb.key();
-    for (const auto &item: pb.steps()) {
-        auto [v, err] = Step::from_proto(item);
-        if (err) return {{}, err};
-        cpp.steps.push_back(std::move(v));
-    }
+    if (auto err = x::pb::from_proto_repeated<Step>(cpp.steps, pb.steps()))
+        return {{}, err};
     for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    return {std::move(cpp), x::errors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::arc::ir::pb::Body, x::errors::Error> Body::to_proto() const {
@@ -358,24 +355,14 @@ inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
         *pb.add_edges() = v;
     }
     {
-        auto [v, err] = this->root.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_root() = v;
-    }
-    for (const auto &item: this->root.strata) {
-        auto *wrapper = pb.add_strata();
-        for (const auto &v: item)
-            wrapper->add_values(v);
-    }
-    for (const auto &item: this->root.sequences) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_sequences() = v;
-    }
-    {
         auto [v, err] = this->authorities.to_proto();
         if (err) return {{}, err};
         *pb.mutable_authorities() = v;
+    }
+    {
+        auto [v, err] = this->root.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_root() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -388,25 +375,15 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Edge>(cpp.edges, pb.edges()))
         return {{}, err};
-    if (pb.has_root()) {
-        auto [v, err] = Stage::from_proto(pb.root());
-        if (err) return {{}, err};
-        cpp.root = v;
-    } else {
-        for (const auto &wrapper: pb.strata())
-            cpp.root.strata.push_back(
-                {wrapper.values().begin(), wrapper.values().end()}
-            );
-        if (auto err = x::pb::from_proto_repeated<Sequence>(
-                cpp.root.sequences,
-                pb.sequences()
-            ))
-            return {{}, err};
-    }
     {
         auto [v, err] = Authorities::from_proto(pb.authorities());
         if (err) return {{}, err};
         cpp.authorities = v;
+    }
+    {
+        auto [v, err] = Stage::from_proto(pb.root());
+        if (err) return {{}, err};
+        cpp.root = v;
     }
     return {cpp, x::errors::NIL};
 }

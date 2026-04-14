@@ -285,16 +285,11 @@ func (p *Plugin) processStruct(
 	return serializer, nil
 }
 
-func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
-	if t.Name == parent.QualifiedName {
-		return true
-	}
-	for _, arg := range t.TypeArgs {
-		if isSelfReference(arg, parent) {
-			return true
-		}
-	}
-	return false
+// isSelfReference reports whether t directly or transitively references parent.
+// Stays consistent with the cpp types plugin's decision on hard-optional
+// fields by sharing resolution.RefersTo.
+func isSelfReference(t resolution.TypeRef, parent resolution.Type, table *resolution.Table) bool {
+	return resolution.RefersTo(t, parent.QualifiedName, table)
 }
 
 func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templateData) (resolution.TypeRef, bool) {
@@ -338,7 +333,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 		typeParamName = field.Type.TypeParam.Name
 	}
 
-	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent)
+	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent, data.table)
 
 	parseExpr := p.parseExprForField(field, parent, cppType, data, isSelfRef)
 	toJSONExpr := p.toJSONExprForField(field, parent, data, isSelfRef)

@@ -203,50 +203,6 @@ func (x *Edge) GetKind() EdgeKind {
 	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
-type StratumWrapper struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StratumWrapper) Reset() {
-	*x = StratumWrapper{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StratumWrapper) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StratumWrapper) ProtoMessage() {}
-
-func (x *StratumWrapper) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StratumWrapper.ProtoReflect.Descriptor instead.
-func (*StratumWrapper) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *StratumWrapper) GetValues() []string {
-	if x != nil {
-		return x.Values
-	}
-	return nil
-}
-
 // Flow is a leaf step in a sequence containing a single dataflow chain.
 type Flow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -258,7 +214,7 @@ type Flow struct {
 
 func (x *Flow) Reset() {
 	*x = Flow{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -270,7 +226,7 @@ func (x *Flow) String() string {
 func (*Flow) ProtoMessage() {}
 
 func (x *Flow) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -283,12 +239,56 @@ func (x *Flow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Flow.ProtoReflect.Descriptor instead.
 func (*Flow) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Flow) GetNodes() []string {
 	if x != nil {
 		return x.Nodes
+	}
+	return nil
+}
+
+type StratumWrapper struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StratumWrapper) Reset() {
+	*x = StratumWrapper{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StratumWrapper) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StratumWrapper) ProtoMessage() {}
+
+func (x *StratumWrapper) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StratumWrapper.ProtoReflect.Descriptor instead.
+func (*StratumWrapper) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StratumWrapper) GetValues() []string {
+	if x != nil {
+		return x.Values
 	}
 	return nil
 }
@@ -303,7 +303,7 @@ type Stage struct {
 	Nodes []string `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// strata contains execution stratification for nodes in this stage.
 	Strata []*StratumWrapper `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
-	// sequences contains inline sub-sequences within this stage.
+	// sequences contains inline sub-sequences nested within this stage.
 	Sequences     []*Sequence `protobuf:"bytes,4,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -367,17 +367,18 @@ func (x *Stage) GetSequences() []*Sequence {
 	return nil
 }
 
-// Step is a tagged union representing a single child of a sequence.
+// Step is a tagged union representing a single child of a sequence. Exactly one of
+// flow, stage, or sequence is set.
 type Step struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the name for jump targets, empty for anonymous steps.
+	// key is the name for jump targets. Empty for anonymous steps.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// flow is set when this step is a leaf (single dataflow chain).
-	Flow *Flow `protobuf:"bytes,2,opt,name=flow,proto3" json:"flow,omitempty"`
+	// flow is set when this step is a leaf containing a single dataflow chain.
+	Flow *Flow `protobuf:"bytes,2,opt,name=flow,proto3,oneof" json:"flow,omitempty"`
 	// stage is set when this step is a parallel execution context.
-	Stage *Stage `protobuf:"bytes,3,opt,name=stage,proto3" json:"stage,omitempty"`
+	Stage *Stage `protobuf:"bytes,3,opt,name=stage,proto3,oneof" json:"stage,omitempty"`
 	// sequence is set when this step is a nested sequential context.
-	Sequence      *Sequence `protobuf:"bytes,4,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	Sequence      *Sequence `protobuf:"bytes,4,opt,name=sequence,proto3,oneof" json:"sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -440,14 +441,15 @@ func (x *Step) GetSequence() *Sequence {
 	return nil
 }
 
-// Sequence is a sequential execution context defining ordered steps.
+// Sequence is a sequential execution context defining an ordered list of steps, where
+// each step is a flow, a stage, or a nested sequence.
 type Sequence struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the sequence identifier.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// steps contains ordered steps in this sequence.
 	Steps []*Step `protobuf:"bytes,2,rep,name=steps,proto3" json:"steps,omitempty"`
-	// strata contains execution stratification for flow step nodes.
+	// strata contains execution stratification for flow step nodes in this sequence.
 	Strata        []*StratumWrapper `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -799,15 +801,11 @@ type IR struct {
 	Nodes []*Node `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains dataflow connections.
 	Edges []*Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	// strata is deprecated. Use root.strata instead.
-	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
-	// sequences is deprecated. Use root.sequences instead.
-	Sequences []*Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	// authorities contains the static authority declarations for this program.
-	Authorities *Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
+	Authorities *Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	// root is the top-level execution context. Its strata field holds global
-	// stratification, its sequences field holds top-level sequences.
-	Root          *Stage `protobuf:"bytes,7,opt,name=root,proto3" json:"root,omitempty"`
+	// stratification; its sequences field holds top-level sequences.
+	Root          *Stage `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -863,20 +861,6 @@ func (x *IR) GetEdges() []*Edge {
 	return nil
 }
 
-func (x *IR) GetStrata() []*StratumWrapper {
-	if x != nil {
-		return x.Strata
-	}
-	return nil
-}
-
-func (x *IR) GetSequences() []*Sequence {
-	if x != nil {
-		return x.Sequences
-	}
-	return nil
-}
-
 func (x *IR) GetAuthorities() *Authorities {
 	if x != nil {
 		return x.Authorities
@@ -902,21 +886,24 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04Edge\x12)\n" +
 	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"(\n" +
-	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x1c\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x1c\n" +
 	"\x04Flow\x12\x14\n" +
-	"\x05nodes\x18\x01 \x03(\tR\x05nodes\"\x95\x01\n" +
+	"\x05nodes\x18\x01 \x03(\tR\x05nodes\"(\n" +
+	"\x0eStratumWrapper\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x95\x01\n" +
 	"\x05Stage\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05nodes\x18\x02 \x03(\tR\x05nodes\x121\n" +
 	"\x06strata\x18\x03 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x04 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\"\x96\x01\n" +
+	"\tsequences\x18\x04 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\"\xc5\x01\n" +
 	"\x04Step\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12#\n" +
-	"\x04flow\x18\x02 \x01(\v2\x0f.arc.ir.pb.FlowR\x04flow\x12&\n" +
-	"\x05stage\x18\x03 \x01(\v2\x10.arc.ir.pb.StageR\x05stage\x12/\n" +
-	"\bsequence\x18\x04 \x01(\v2\x13.arc.ir.pb.SequenceR\bsequence\"v\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
+	"\x04flow\x18\x02 \x01(\v2\x0f.arc.ir.pb.FlowH\x00R\x04flow\x88\x01\x01\x12+\n" +
+	"\x05stage\x18\x03 \x01(\v2\x10.arc.ir.pb.StageH\x01R\x05stage\x88\x01\x01\x124\n" +
+	"\bsequence\x18\x04 \x01(\v2\x13.arc.ir.pb.SequenceH\x02R\bsequence\x88\x01\x01B\a\n" +
+	"\x05_flowB\b\n" +
+	"\x06_stageB\v\n" +
+	"\t_sequence\"v\n" +
 	"\bSequence\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12%\n" +
 	"\x05steps\x18\x02 \x03(\v2\x0f.arc.ir.pb.StepR\x05steps\x121\n" +
@@ -944,15 +931,13 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_default\"\xcb\x02\n" +
+	"\b_default\"\xe5\x01\n" +
 	"\x02IR\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
-	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x121\n" +
-	"\x06strata\x18\x04 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
-	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\a \x01(\v2\x10.arc.ir.pb.StageR\x04root*Z\n" +
+	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
+	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.StageR\x04root*Z\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +
@@ -977,8 +962,8 @@ var file_arc_go_ir_pb_ir_proto_goTypes = []any{
 	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
 	(*Handle)(nil),         // 1: arc.ir.pb.Handle
 	(*Edge)(nil),           // 2: arc.ir.pb.Edge
-	(*StratumWrapper)(nil), // 3: arc.ir.pb.StratumWrapper
-	(*Flow)(nil),           // 4: arc.ir.pb.Flow
+	(*Flow)(nil),           // 3: arc.ir.pb.Flow
+	(*StratumWrapper)(nil), // 4: arc.ir.pb.StratumWrapper
 	(*Stage)(nil),          // 5: arc.ir.pb.Stage
 	(*Step)(nil),           // 6: arc.ir.pb.Step
 	(*Sequence)(nil),       // 7: arc.ir.pb.Sequence
@@ -995,13 +980,13 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	1,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
 	1,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
 	0,  // 2: arc.ir.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
-	3,  // 3: arc.ir.pb.Stage.strata:type_name -> arc.ir.pb.StratumWrapper
+	4,  // 3: arc.ir.pb.Stage.strata:type_name -> arc.ir.pb.StratumWrapper
 	7,  // 4: arc.ir.pb.Stage.sequences:type_name -> arc.ir.pb.Sequence
-	4,  // 5: arc.ir.pb.Step.flow:type_name -> arc.ir.pb.Flow
+	3,  // 5: arc.ir.pb.Step.flow:type_name -> arc.ir.pb.Flow
 	5,  // 6: arc.ir.pb.Step.stage:type_name -> arc.ir.pb.Stage
 	7,  // 7: arc.ir.pb.Step.sequence:type_name -> arc.ir.pb.Sequence
 	6,  // 8: arc.ir.pb.Sequence.steps:type_name -> arc.ir.pb.Step
-	3,  // 9: arc.ir.pb.Sequence.strata:type_name -> arc.ir.pb.StratumWrapper
+	4,  // 9: arc.ir.pb.Sequence.strata:type_name -> arc.ir.pb.StratumWrapper
 	8,  // 10: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
 	14, // 11: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
 	14, // 12: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
@@ -1015,15 +1000,13 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	9,  // 20: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
 	10, // 21: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
 	2,  // 22: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	3,  // 23: arc.ir.pb.IR.strata:type_name -> arc.ir.pb.StratumWrapper
-	7,  // 24: arc.ir.pb.IR.sequences:type_name -> arc.ir.pb.Sequence
-	11, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	5,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Stage
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	11, // 23: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	5,  // 24: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Stage
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -1031,6 +1014,7 @@ func file_arc_go_ir_pb_ir_proto_init() {
 	if File_arc_go_ir_pb_ir_proto != nil {
 		return
 	}
+	file_arc_go_ir_pb_ir_proto_msgTypes[5].OneofWrappers = []any{}
 	file_arc_go_ir_pb_ir_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

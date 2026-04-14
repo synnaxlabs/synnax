@@ -20,6 +20,9 @@ import (
 // Edges is a collection of dataflow edges in an Arc graph.
 type Edges []Edge
 
+// Stages is a collection of stages in an Arc sequence.
+type Stages []Stage
+
 // Steps is a collection of steps in an Arc sequence.
 type Steps []Step
 
@@ -71,7 +74,6 @@ type Edge struct {
 }
 
 // Flow is a leaf step in a sequence containing a single dataflow chain.
-// Flow steps do not own strata. Their nodes live in the parent Sequence.Strata.
 type Flow struct {
 	// Nodes contains node keys belonging to this flow step.
 	Nodes []string `json:"nodes" msgpack:"nodes"`
@@ -80,39 +82,38 @@ type Flow struct {
 // Stage is a parallel execution context containing reactive flows that execute
 // concurrently. May also contain inline sub-sequences.
 type Stage struct {
-	// Key is the stage identifier (empty if anonymous).
+	// Key is the stage identifier.
 	Key string `json:"key" msgpack:"key"`
 	// Nodes contains node keys active in this stage.
 	Nodes []string `json:"nodes" msgpack:"nodes"`
 	// Strata contains execution stratification for nodes in this stage.
 	Strata Strata `json:"strata" msgpack:"strata"`
-	// Sequences contains inline sub-sequences within this stage.
-	Sequences Sequences `json:"sequences,omitempty" msgpack:"sequences,omitempty"`
+	// Sequences contains inline sub-sequences nested within this stage.
+	Sequences Sequences `json:"sequences" msgpack:"sequences"`
 }
 
-// Step is a tagged union representing a single child of a sequence.
-// Exactly one of Flow, Stage, or Sequence is non-nil.
+// Step is a tagged union representing a single child of a sequence. Exactly one of
+// flow, stage, or sequence is set.
 type Step struct {
-	// Key is the name for jump targets, empty for anonymous steps.
+	// Key is the name for jump targets. Empty for anonymous steps.
 	Key string `json:"key" msgpack:"key"`
-	// Flow is non-nil when this step is a leaf (single dataflow chain).
+	// Flow is set when this step is a leaf containing a single dataflow chain.
 	Flow *Flow `json:"flow,omitempty" msgpack:"flow,omitempty"`
-	// Stage is non-nil when this step is a parallel execution context.
+	// Stage is set when this step is a parallel execution context.
 	Stage *Stage `json:"stage,omitempty" msgpack:"stage,omitempty"`
-	// Sequence is non-nil when this step is a nested sequential context.
+	// Sequence is set when this step is a nested sequential context.
 	Sequence *Sequence `json:"sequence,omitempty" msgpack:"sequence,omitempty"`
 }
 
-// Sequence is a sequential execution context defining ordered steps.
-// Entry point is always the first step.
+// Sequence is a sequential execution context defining an ordered list of steps, where
+// each step is a flow, a stage, or a nested sequence.
 type Sequence struct {
-	// Key is the sequence identifier (empty if anonymous).
+	// Key is the sequence identifier.
 	Key string `json:"key" msgpack:"key"`
 	// Steps contains ordered steps in this sequence.
 	Steps []Step `json:"steps" msgpack:"steps"`
-	// Strata contains execution stratification for flow step nodes and
-	// execution context boundaries for stage/sequence steps.
-	Strata Strata `json:"strata,omitempty" msgpack:"strata,omitempty"`
+	// Strata contains execution stratification for flow step nodes in this sequence.
+	Strata Strata `json:"strata" msgpack:"strata"`
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -173,13 +174,11 @@ type IR struct {
 	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 	// Edges contains dataflow connections.
 	Edges Edges `json:"edges" msgpack:"edges"`
-	// Root is the top-level execution context for the program. Its Strata field
-	// holds global stratification, its Sequences field holds top-level sequences
-	// (including top-level stages wrapped as single-step sequences), and its
-	// Nodes field lists top-level flow node keys.
-	Root Stage `json:"root" msgpack:"root"`
 	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
-	Symbols     *symbol.Scope                          `json:"-"`
-	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Authorities Authorities `json:"authorities" msgpack:"authorities"`
+	// Root is the top-level execution context. Its strata field holds global
+	// stratification; its sequences field holds top-level sequences.
+	Root    Stage                                  `json:"root" msgpack:"root"`
+	Symbols *symbol.Scope                          `json:"-"`
+	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

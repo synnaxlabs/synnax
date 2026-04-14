@@ -2152,7 +2152,7 @@ ir::IR build_flow_seq(
         ir.nodes.push_back(ir::Node{.key = entry_key});
         ir::Step step;
         step.key = sk;
-        step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+        step.flow = ir::Flow{};
         step.flow->nodes.push_back(node_key);
         seq.steps.push_back(std::move(step));
         data_stratum.push_back(node_key);
@@ -2358,7 +2358,7 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
     seq.steps.push_back(std::move(stage_step));
     ir::Step flow_step;
     flow_step.key = "flow_b";
-    flow_step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow_step.flow = ir::Flow{};
     flow_step.flow->nodes = {"flow_node"};
     seq.steps.push_back(std::move(flow_step));
     seq.strata.push_back({"flow_node"});
@@ -2409,7 +2409,7 @@ TEST_F(SchedulerTest, testFlowToStageTransition) {
     seq.key = "main";
     ir::Step f_step;
     f_step.key = "flow_a";
-    f_step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    f_step.flow = ir::Flow{};
     f_step.flow->nodes = {"flow_node"};
     seq.steps.push_back(std::move(f_step));
     ir::Step s_step;
@@ -2490,7 +2490,7 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     seq.steps.push_back(std::move(press));
     ir::Step write;
     write.key = "write";
-    write.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    write.flow = ir::Flow{};
     write.flow->nodes = {"write_node"};
     seq.steps.push_back(std::move(write));
     ir::Step vent;
@@ -2557,7 +2557,7 @@ TEST_F(SchedulerTest, testNestedSequenceInStage) {
     inner_seq.key = "inner";
     ir::Step inner_flow;
     inner_flow.key = "s0";
-    inner_flow.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    inner_flow.flow = ir::Flow{};
     inner_flow.flow->nodes = {"inner_node"};
     inner_seq.steps.push_back(std::move(inner_flow));
     inner_seq.strata.push_back({"inner_node"});
@@ -2629,7 +2629,7 @@ TEST_F(SchedulerTest, testParentChangedSurvivesBoundaryRecursion) {
     inner_seq.key = "inner";
     ir::Step inner_flow;
     inner_flow.key = "s0";
-    inner_flow.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    inner_flow.flow = ir::Flow{};
     inner_flow.flow->nodes = {"inner_node"};
     inner_seq.steps.push_back(std::move(inner_flow));
     inner_seq.strata.push_back({"inner_node"});
@@ -2696,7 +2696,7 @@ TEST_F(SchedulerTest, testSkipsUnregisteredStageStepBoundary) {
 
     ir::Step flow_step;
     flow_step.key = "step_0";
-    flow_step.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow_step.flow = ir::Flow{};
     flow_step.flow->nodes = {"flow_node"};
     main_seq.steps.push_back(std::move(flow_step));
 
@@ -2797,7 +2797,7 @@ TEST_F(SchedulerTest, testInlineStageInSequenceWithContent) {
 
     ir::Step flow0;
     flow0.key = "step_0";
-    flow0.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow0.flow = ir::Flow{};
     flow0.flow->nodes = {"const_0", "write_0"};
     main_seq.steps.push_back(std::move(flow0));
 
@@ -2818,7 +2818,7 @@ TEST_F(SchedulerTest, testInlineStageInSequenceWithContent) {
 
     ir::Step flow2;
     flow2.key = "step_2";
-    flow2.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow2.flow = ir::Flow{};
     flow2.flow->nodes = {"const_1", "write_1"};
     main_seq.steps.push_back(std::move(flow2));
 

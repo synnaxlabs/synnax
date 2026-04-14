@@ -65,32 +65,12 @@ inline x::json::json Flow::to_json() const {
     return j;
 }
 
-inline Step Step::parse(x::json::Parser parser) {
-    Step s;
-    s.key = parser.field<std::string>("key");
-    if (parser.has("flow")) s.flow = x::mem::indirect<Flow>(parser.field<Flow>("flow"));
-    if (parser.has("stage"))
-        s.stage = x::mem::indirect<Stage>(parser.field<Stage>("stage"));
-    if (parser.has("sequence"))
-        s.sequence = x::mem::indirect<Sequence>(parser.field<Sequence>("sequence"));
-    return s;
-}
-
-inline x::json::json Step::to_json() const {
-    x::json::json j;
-    j["key"] = this->key;
-    if (this->flow) j["flow"] = this->flow->to_json();
-    if (this->stage) j["stage"] = this->stage->to_json();
-    if (this->sequence) j["sequence"] = this->sequence->to_json();
-    return j;
-}
-
 inline Stage Stage::parse(x::json::Parser parser) {
     return Stage{
         .key = parser.field<std::string>("key"),
         .nodes = parser.field<std::vector<std::string>>("nodes"),
         .strata = parser.field<Strata>("strata"),
-        .sequences = parser.field<std::vector<Sequence>>("sequences"),
+        .sequences = parser.field<Sequences>("sequences"),
     };
 }
 
@@ -99,27 +79,41 @@ inline x::json::json Stage::to_json() const {
     j["key"] = this->key;
     j["nodes"] = this->nodes;
     j["strata"] = this->strata.to_json();
-    j["sequences"] = x::json::to_array(this->sequences);
+    j["sequences"] = this->sequences.to_json();
+    return j;
+}
+
+inline Step Step::parse(x::json::Parser parser) {
+    return Step{
+        .key = parser.field<std::string>("key"),
+        .flow = parser.field<std::optional<Flow>>("flow"),
+        .stage = parser.field<x::mem::indirect<Stage>>("stage"),
+        .sequence = parser.field<x::mem::indirect<Sequence>>("sequence"),
+    };
+}
+
+inline x::json::json Step::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    if (this->flow.has_value()) j["flow"] = this->flow->to_json();
+    if (this->stage.has_value()) j["stage"] = this->stage->to_json();
+    if (this->sequence.has_value()) j["sequence"] = this->sequence->to_json();
     return j;
 }
 
 inline Sequence Sequence::parse(x::json::Parser parser) {
-    Sequence seq;
-    seq.key = parser.field<std::string>("key");
-    seq.strata = parser.field<Strata>("strata");
-    for (auto &item: parser.field<std::vector<Step>>("steps"))
-        seq.steps.push_back(std::move(item));
-    return seq;
+    return Sequence{
+        .key = parser.field<std::string>("key"),
+        .steps = parser.field<std::vector<Step>>("steps"),
+        .strata = parser.field<Strata>("strata"),
+    };
 }
 
 inline x::json::json Sequence::to_json() const {
     x::json::json j;
     j["key"] = this->key;
+    j["steps"] = x::json::to_array(this->steps);
     j["strata"] = this->strata.to_json();
-    x::json::json arr = x::json::json::array();
-    for (const auto &item: this->steps)
-        arr.push_back(item.to_json());
-    j["steps"] = arr;
     return j;
 }
 
@@ -200,8 +194,8 @@ inline IR IR::parse(x::json::Parser parser) {
         .functions = parser.field<Functions>("functions"),
         .nodes = parser.field<Nodes>("nodes"),
         .edges = parser.field<Edges>("edges"),
-        .root = parser.field<Stage>("root"),
         .authorities = parser.field<Authorities>("authorities"),
+        .root = parser.field<Stage>("root"),
     };
 }
 
@@ -210,8 +204,8 @@ inline x::json::json IR::to_json() const {
     j["functions"] = this->functions.to_json();
     j["nodes"] = this->nodes.to_json();
     j["edges"] = this->edges.to_json();
-    j["root"] = this->root.to_json();
     j["authorities"] = this->authorities.to_json();
+    j["root"] = this->root.to_json();
     return j;
 }
 
@@ -254,8 +248,9 @@ inline Steps Steps::parse(x::json::Parser parser) {
 
 inline x::json::json Steps::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto &item: *this)
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
+    }
     return j;
 }
 

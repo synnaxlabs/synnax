@@ -200,13 +200,13 @@ func StageFromPB(pb *Stage) (ir.Stage, error) {
 		return r, nil
 	}
 	var err error
-	r.Key = pb.Key
-	r.Nodes = pb.Nodes
-	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	r.Sequences, err = SequencesFromPB(pb.Sequences)
 	if err != nil {
 		return ir.Stage{}, err
 	}
+	r.Key = pb.Key
+	r.Nodes = pb.Nodes
+	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	return r, nil
 }
 
@@ -242,25 +242,25 @@ func StepToPB(r ir.Step) (*Step, error) {
 		Key: r.Key,
 	}
 	if r.Flow != nil {
-		flowVal, err := FlowToPB(*r.Flow)
+		var err error
+		pb.Flow, err = FlowToPB(*r.Flow)
 		if err != nil {
 			return nil, err
 		}
-		pb.Flow = flowVal
 	}
 	if r.Stage != nil {
-		stageVal, err := StageToPB(*r.Stage)
+		var err error
+		pb.Stage, err = StageToPB(*r.Stage)
 		if err != nil {
 			return nil, err
 		}
-		pb.Stage = stageVal
 	}
 	if r.Sequence != nil {
-		seqVal, err := SequenceToPB(*r.Sequence)
+		var err error
+		pb.Sequence, err = SequenceToPB(*r.Sequence)
 		if err != nil {
 			return nil, err
 		}
-		pb.Sequence = seqVal
 	}
 	return pb, nil
 }
@@ -273,25 +273,25 @@ func StepFromPB(pb *Step) (ir.Step, error) {
 	}
 	r.Key = pb.Key
 	if pb.Flow != nil {
-		flowVal, err := FlowFromPB(pb.Flow)
+		val, err := FlowFromPB(pb.Flow)
 		if err != nil {
 			return ir.Step{}, err
 		}
-		r.Flow = &flowVal
+		r.Flow = &val
 	}
 	if pb.Stage != nil {
-		stageVal, err := StageFromPB(pb.Stage)
+		val, err := StageFromPB(pb.Stage)
 		if err != nil {
 			return ir.Step{}, err
 		}
-		r.Stage = &stageVal
+		r.Stage = &val
 	}
 	if pb.Sequence != nil {
-		seqVal, err := SequenceFromPB(pb.Sequence)
+		val, err := SequenceFromPB(pb.Sequence)
 		if err != nil {
 			return ir.Step{}, err
 		}
-		r.Sequence = &seqVal
+		r.Sequence = &val
 	}
 	return r, nil
 }
@@ -330,8 +330,8 @@ func SequenceToPB(r ir.Sequence) (*Sequence, error) {
 	}
 	pb := &Sequence{
 		Key:    r.Key,
-		Steps:  stepsVal,
 		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Steps:  stepsVal,
 	}
 	return pb, nil
 }
@@ -670,10 +670,6 @@ func IRToPB(r ir.IR) (*IR, error) {
 	if err != nil {
 		return nil, err
 	}
-	sequencesVal, err := SequencesToPB(r.Root.Sequences)
-	if err != nil {
-		return nil, err
-	}
 	authoritiesVal, err := AuthoritiesToPB(r.Authorities)
 	if err != nil {
 		return nil, err
@@ -683,11 +679,9 @@ func IRToPB(r ir.IR) (*IR, error) {
 		return nil, err
 	}
 	pb := &IR{
-		Strata:      lo.Map(r.Root.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 		Functions:   functionsVal,
 		Nodes:       nodesVal,
 		Edges:       edgesVal,
-		Sequences:   sequencesVal,
 		Authorities: authoritiesVal,
 		Root:        rootVal,
 	}
@@ -717,17 +711,9 @@ func IRFromPB(pb *IR) (ir.IR, error) {
 	if err != nil {
 		return ir.IR{}, err
 	}
-	if pb.Root != nil {
-		r.Root, err = StageFromPB(pb.Root)
-		if err != nil {
-			return ir.IR{}, err
-		}
-	} else {
-		r.Root.Sequences, err = SequencesFromPB(pb.Sequences)
-		if err != nil {
-			return ir.IR{}, err
-		}
-		r.Root.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	r.Root, err = StageFromPB(pb.Root)
+	if err != nil {
+		return ir.IR{}, err
 	}
 	return r, nil
 }

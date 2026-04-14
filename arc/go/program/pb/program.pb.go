@@ -33,50 +33,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type StratumWrapper struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StratumWrapper) Reset() {
-	*x = StratumWrapper{}
-	mi := &file_arc_go_program_pb_program_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StratumWrapper) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StratumWrapper) ProtoMessage() {}
-
-func (x *StratumWrapper) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_program_pb_program_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StratumWrapper.ProtoReflect.Descriptor instead.
-func (*StratumWrapper) Descriptor() ([]byte, []int) {
-	return file_arc_go_program_pb_program_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StratumWrapper) GetValues() []string {
-	if x != nil {
-		return x.Values
-	}
-	return nil
-}
-
 // Program is a compiled Arc program combining the intermediate representation with
 // WebAssembly bytecode, ready for execution.
 type Program struct {
@@ -87,26 +43,23 @@ type Program struct {
 	Nodes []*pb.Node `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains dataflow connections.
 	Edges []*pb.Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	// strata is deprecated. Use root.strata instead.
-	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
-	// sequences is deprecated. Use root.sequences instead.
-	Sequences []*pb.Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	// authorities contains the static authority declarations for this program.
-	Authorities *pb.Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
+	Authorities *pb.Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
+	// root is the top-level execution context. Its strata field holds global
+	// stratification; its sequences field holds top-level sequences.
+	Root *pb.Stage `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	// wasm is compiled WebAssembly bytecode for sandboxed execution.
-	Wasm []byte `protobuf:"bytes,7,opt,name=wasm,proto3" json:"wasm,omitempty"`
+	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
 	// output_memory_bases contains memory base addresses for multi-output functions,
 	// mapping function keys to their base addresses.
-	OutputMemoryBases map[string]uint32 `protobuf:"bytes,8,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	// root is the top-level execution context.
-	Root          *pb.Stage `protobuf:"bytes,9,opt,name=root,proto3" json:"root,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	OutputMemoryBases map[string]uint32 `protobuf:"bytes,7,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Program) Reset() {
 	*x = Program{}
-	mi := &file_arc_go_program_pb_program_proto_msgTypes[1]
+	mi := &file_arc_go_program_pb_program_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -118,7 +71,7 @@ func (x *Program) String() string {
 func (*Program) ProtoMessage() {}
 
 func (x *Program) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_program_pb_program_proto_msgTypes[1]
+	mi := &file_arc_go_program_pb_program_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -131,7 +84,7 @@ func (x *Program) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Program.ProtoReflect.Descriptor instead.
 func (*Program) Descriptor() ([]byte, []int) {
-	return file_arc_go_program_pb_program_proto_rawDescGZIP(), []int{1}
+	return file_arc_go_program_pb_program_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Program) GetFunctions() []*pb.Function {
@@ -155,23 +108,16 @@ func (x *Program) GetEdges() []*pb.Edge {
 	return nil
 }
 
-func (x *Program) GetStrata() []*StratumWrapper {
-	if x != nil {
-		return x.Strata
-	}
-	return nil
-}
-
-func (x *Program) GetSequences() []*pb.Sequence {
-	if x != nil {
-		return x.Sequences
-	}
-	return nil
-}
-
 func (x *Program) GetAuthorities() *pb.Authorities {
 	if x != nil {
 		return x.Authorities
+	}
+	return nil
+}
+
+func (x *Program) GetRoot() *pb.Stage {
+	if x != nil {
+		return x.Root
 	}
 	return nil
 }
@@ -190,30 +136,19 @@ func (x *Program) GetOutputMemoryBases() map[string]uint32 {
 	return nil
 }
 
-func (x *Program) GetRoot() *pb.Stage {
-	if x != nil {
-		return x.Root
-	}
-	return nil
-}
-
 var File_arc_go_program_pb_program_proto protoreflect.FileDescriptor
 
 const file_arc_go_program_pb_program_proto_rawDesc = "" +
 	"\n" +
-	"\x1farc/go/program/pb/program.proto\x12\x0earc.program.pb\x1a\x15arc/go/ir/pb/ir.proto\"(\n" +
-	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x8f\x04\n" +
+	"\x1farc/go/program/pb/program.proto\x12\x0earc.program.pb\x1a\x15arc/go/ir/pb/ir.proto\"\xa4\x03\n" +
 	"\aProgram\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
-	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x126\n" +
-	"\x06strata\x18\x04 \x03(\v2\x1e.arc.program.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
-	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12\x12\n" +
-	"\x04wasm\x18\a \x01(\fR\x04wasm\x12^\n" +
-	"\x13output_memory_bases\x18\b \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x12$\n" +
-	"\x04root\x18\t \x01(\v2\x10.arc.ir.pb.StageR\x04root\x1aD\n" +
+	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
+	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.StageR\x04root\x12\x12\n" +
+	"\x04wasm\x18\x06 \x01(\fR\x04wasm\x12^\n" +
+	"\x13output_memory_bases\x18\a \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
 	"\x16OutputMemoryBasesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\xa2\x01\n" +
@@ -231,32 +166,28 @@ func file_arc_go_program_pb_program_proto_rawDescGZIP() []byte {
 	return file_arc_go_program_pb_program_proto_rawDescData
 }
 
-var file_arc_go_program_pb_program_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_arc_go_program_pb_program_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_arc_go_program_pb_program_proto_goTypes = []any{
-	(*StratumWrapper)(nil), // 0: arc.program.pb.StratumWrapper
-	(*Program)(nil),        // 1: arc.program.pb.Program
-	nil,                    // 2: arc.program.pb.Program.OutputMemoryBasesEntry
-	(*pb.Function)(nil),    // 3: arc.ir.pb.Function
-	(*pb.Node)(nil),        // 4: arc.ir.pb.Node
-	(*pb.Edge)(nil),        // 5: arc.ir.pb.Edge
-	(*pb.Sequence)(nil),    // 6: arc.ir.pb.Sequence
-	(*pb.Authorities)(nil), // 7: arc.ir.pb.Authorities
-	(*pb.Stage)(nil),       // 8: arc.ir.pb.Stage
+	(*Program)(nil),        // 0: arc.program.pb.Program
+	nil,                    // 1: arc.program.pb.Program.OutputMemoryBasesEntry
+	(*pb.Function)(nil),    // 2: arc.ir.pb.Function
+	(*pb.Node)(nil),        // 3: arc.ir.pb.Node
+	(*pb.Edge)(nil),        // 4: arc.ir.pb.Edge
+	(*pb.Authorities)(nil), // 5: arc.ir.pb.Authorities
+	(*pb.Stage)(nil),       // 6: arc.ir.pb.Stage
 }
 var file_arc_go_program_pb_program_proto_depIdxs = []int32{
-	3, // 0: arc.program.pb.Program.functions:type_name -> arc.ir.pb.Function
-	4, // 1: arc.program.pb.Program.nodes:type_name -> arc.ir.pb.Node
-	5, // 2: arc.program.pb.Program.edges:type_name -> arc.ir.pb.Edge
-	0, // 3: arc.program.pb.Program.strata:type_name -> arc.program.pb.StratumWrapper
-	6, // 4: arc.program.pb.Program.sequences:type_name -> arc.ir.pb.Sequence
-	7, // 5: arc.program.pb.Program.authorities:type_name -> arc.ir.pb.Authorities
-	2, // 6: arc.program.pb.Program.output_memory_bases:type_name -> arc.program.pb.Program.OutputMemoryBasesEntry
-	8, // 7: arc.program.pb.Program.root:type_name -> arc.ir.pb.Stage
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	2, // 0: arc.program.pb.Program.functions:type_name -> arc.ir.pb.Function
+	3, // 1: arc.program.pb.Program.nodes:type_name -> arc.ir.pb.Node
+	4, // 2: arc.program.pb.Program.edges:type_name -> arc.ir.pb.Edge
+	5, // 3: arc.program.pb.Program.authorities:type_name -> arc.ir.pb.Authorities
+	6, // 4: arc.program.pb.Program.root:type_name -> arc.ir.pb.Stage
+	1, // 5: arc.program.pb.Program.output_memory_bases:type_name -> arc.program.pb.Program.OutputMemoryBasesEntry
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_program_pb_program_proto_init() }
@@ -270,7 +201,7 @@ func file_arc_go_program_pb_program_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_program_pb_program_proto_rawDesc), len(file_arc_go_program_pb_program_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

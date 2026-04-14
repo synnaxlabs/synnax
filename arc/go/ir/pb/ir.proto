@@ -33,14 +33,14 @@ message Edge {
   // kind defines execution semantics for this connection.
   EdgeKind kind = 3;
 }
-message StratumWrapper {
-  repeated string values = 1;
-}
 
 // Flow is a leaf step in a sequence containing a single dataflow chain.
 message Flow {
   // nodes contains node keys belonging to this flow step.
   repeated string nodes = 1;
+}
+message StratumWrapper {
+  repeated string values = 1;
 }
 
 // Stage is a parallel execution context containing reactive flows that execute
@@ -52,29 +52,31 @@ message Stage {
   repeated string nodes = 2;
   // strata contains execution stratification for nodes in this stage.
   repeated StratumWrapper strata = 3;
-  // sequences contains inline sub-sequences within this stage.
+  // sequences contains inline sub-sequences nested within this stage.
   repeated Sequence sequences = 4;
 }
 
-// Step is a tagged union representing a single child of a sequence.
+// Step is a tagged union representing a single child of a sequence. Exactly one of
+// flow, stage, or sequence is set.
 message Step {
-  // key is the name for jump targets, empty for anonymous steps.
+  // key is the name for jump targets. Empty for anonymous steps.
   string key = 1;
-  // flow is set when this step is a leaf (single dataflow chain).
-  Flow flow = 2;
+  // flow is set when this step is a leaf containing a single dataflow chain.
+  optional Flow flow = 2;
   // stage is set when this step is a parallel execution context.
-  Stage stage = 3;
+  optional Stage stage = 3;
   // sequence is set when this step is a nested sequential context.
-  Sequence sequence = 4;
+  optional Sequence sequence = 4;
 }
 
-// Sequence is a sequential execution context defining ordered steps.
+// Sequence is a sequential execution context defining an ordered list of steps, where
+// each step is a flow, a stage, or a nested sequence.
 message Sequence {
   // key is the sequence identifier.
   string key = 1;
   // steps contains ordered steps in this sequence.
   repeated Step steps = 2;
-  // strata contains execution stratification for flow step nodes.
+  // strata contains execution stratification for flow step nodes in this sequence.
   repeated StratumWrapper strata = 3;
 }
 
@@ -135,13 +137,9 @@ message IR {
   repeated Node nodes = 2;
   // edges contains dataflow connections.
   repeated Edge edges = 3;
-  // strata is deprecated. Use root.strata instead.
-  repeated StratumWrapper strata = 4;
-  // sequences is deprecated. Use root.sequences instead.
-  repeated Sequence sequences = 5;
   // authorities contains the static authority declarations for this program.
-  Authorities authorities = 6;
+  Authorities authorities = 4;
   // root is the top-level execution context. Its strata field holds global
-  // stratification, its sequences field holds top-level sequences.
-  Stage root = 7;
+  // stratification; its sequences field holds top-level sequences.
+  Stage root = 5;
 }

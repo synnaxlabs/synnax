@@ -280,7 +280,7 @@ TEST(IRTest, testFlowToString) {
 TEST(IRTest, testStepToStringFlow) {
     Step step;
     step.key = "f1";
-    step.flow = x::mem::indirect<Flow>(Flow{.nodes = {"x", "y"}});
+    step.flow = Flow{.nodes = {"x", "y"}};
     ASSERT_EQ(step.to_string(), "(flow): [x, y]");
 }
 

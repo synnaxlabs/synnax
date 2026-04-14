@@ -773,7 +773,7 @@ func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table)
 
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	isSelfRef := isSelfReference(field.Type, entry)
+	isSelfRef := isSelfReference(field.Type, entry, data.table)
 	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
 	if field.IsHardOptional {
@@ -821,16 +821,12 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	}
 }
 
-func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
-	if t.Name == parent.QualifiedName {
-		return true
-	}
-	for _, arg := range t.TypeArgs {
-		if isSelfReference(arg, parent) {
-			return true
-		}
-	}
-	return false
+// isSelfReference reports whether t directly or transitively references parent.
+// Drives the choice between std::optional<T> (no cycle, T is complete at the
+// field's instantiation site) and x::mem::indirect<T> (cycle present, T may
+// be incomplete and must be heap-indirected).
+func isSelfReference(t resolution.TypeRef, parent resolution.Type, table *resolution.Table) bool {
+	return resolution.RefersTo(t, parent.QualifiedName, table)
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {

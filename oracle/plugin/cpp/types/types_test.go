@@ -992,6 +992,55 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`std::optional<Node>`))
 		})
 
+		It("Should use indirect for mutually recursive optional fields", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/types"
+
+				A struct {
+					b B??
+				}
+				B struct {
+					a A??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{Resolutions: table}
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`x::mem::indirect<B> b;`))
+			Expect(content).To(ContainSubstring(`x::mem::indirect<A> a;`))
+			Expect(content).NotTo(ContainSubstring(`std::optional<A>`))
+			Expect(content).NotTo(ContainSubstring(`std::optional<B>`))
+		})
+
+		It("Should use indirect for cycles through array wrappers", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Node struct {
+					children Node[]
+					parent Parent??
+				}
+				Parent struct {
+					nodes Node[]
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{Resolutions: table}
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`x::mem::indirect<Parent> parent;`))
+			Expect(content).NotTo(ContainSubstring(`std::optional<Parent>`))
+		})
+
 		It("Should use optional for non-self-referential optional fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"

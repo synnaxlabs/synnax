@@ -30,9 +30,9 @@ separate hierarchy.
 - **Write Cascading** - The behavior where consecutive write steps in a sequence all
   execute on the same tick, advancing instantly until the sequence hits a gate, stage,
   sequence, or its end.
-- **Strata Tree** - The unified hierarchy of execution strata. Each execution context has
-  its own strata containing directly-owned nodes and execution context boundaries for
-  child contexts.
+- **Strata Tree** - The unified hierarchy of execution strata. Each execution context
+  has its own strata containing directly-owned nodes and execution context boundaries
+  for child contexts.
 
 # 2 - Motivation
 
@@ -74,10 +74,10 @@ Analysis of every Arc program in the codebase reveals:
 ## 2.2 - The Root Problem
 
 Arc's execution model is reactive: all flows within a stage execute in parallel on each
-tick. There is no concept of "this line runs before that line" within a stage. A constant
-like `1 -> valve_cmd` executes exactly once (it is a constant node), but `1 -> valve_cmd`
-and `0 -> valve_cmd` in the same stage would both execute on the first cycle, with the
-final value being nondeterministic.
+tick. There is no concept of "this line runs before that line" within a stage. A
+constant like `1 -> valve_cmd` executes exactly once (it is a constant node), but
+`1 -> valve_cmd` and `0 -> valve_cmd` in the same stage would both execute on the first
+cycle, with the final value being nondeterministic.
 
 Stages are the unit of sequencing. The language makes reactive dataflow easy but
 imperative sequencing verbose.
@@ -321,11 +321,11 @@ Flattens semantically. An anonymous inner stage is equivalent to its items being
 
 ## 4.4 - Transition Semantics
 
-| Context | `=> next` | `=> name` |
-|---------|-----------|-----------|
-| Flow in a `stage` child of a `sequence` | Advances the parent `sequence` | Jumps to named block in nearest enclosing `sequence` |
+| Context                                      | `=> next`                      | `=> name`                                            |
+| -------------------------------------------- | ------------------------------ | ---------------------------------------------------- |
+| Flow in a `stage` child of a `sequence`      | Advances the parent `sequence` | Jumps to named block in nearest enclosing `sequence` |
 | Flow in an inline `stage {}` in a `sequence` | Advances the parent `sequence` | Jumps to named block in nearest enclosing `sequence` |
-| Flow in a `stage` inside a `stage` | Flattens; same as parent stage | N/A |
+| Flow in a `stage` inside a `stage`           | Flattens; same as parent stage | N/A                                                  |
 
 `=> next` always means "advance to the next step in the nearest enclosing sequence."
 
@@ -470,6 +470,7 @@ Every valid current Arc program remains valid. No existing syntax is changed or 
 ### Syntax Compatibility
 
 The grammar changes are purely additive:
+
 - `IDENTIFIER` becomes optional on `sequence` and `stage`, but all existing programs
   provide identifiers. No ambiguity since `IDENTIFIER LBRACE` is unambiguous.
 - `sequenceItem` adds `flowStatement`, `singleInvocation`, and `sequenceDeclaration` as
@@ -487,7 +488,6 @@ The grammar changes are purely additive:
   find the target. Same result.
 - All stage entry, reset, transition, and convergence behaviors are preserved. A
   traditional sequence compiles to a `Sequence` with all `StepKindStage` steps.
-
 
 # 7 - Runtime Scheduler
 
@@ -562,6 +562,7 @@ type stepState struct {
 ```
 
 The step kind is determined by which field is non-nil on `ir.Step`:
+
 - `step.ir.Flow != nil`: flow step. No sub-state.
 - `step.ir.Stage != nil`: stage step. `subSeqs` tracks inline sub-sequences within the
   stage.
@@ -630,8 +631,8 @@ When a step becomes active:
 
 1. Its directly-owned nodes are reset.
 2. Its `firedOneShots` set is cleared.
-3. If nested sequence: `activeStepIdx` set to 0, step 0's nodes reset. Other steps
-   reset when reached.
+3. If nested sequence: `activeStepIdx` set to 0, step 0's nodes reset. Other steps reset
+   when reached.
 4. If stage with sub-sequences: each sub-sequence enters step 0.
 
 ## 7.7 - Deadlines
@@ -682,8 +683,8 @@ implicit from which field is populated.
   and the entry node for advancing. Flow steps do not have their own strata. Their nodes
   live in the parent sequence's `Strata`.
 - **Stage**: Parallel reactive flows. Contains its own nodes and strata. May also
-  contain inline sub-sequences (`Sequences` field) that run alongside the reactive
-  flows as execution context boundaries in the stage's strata.
+  contain inline sub-sequences (`Sequences` field) that run alongside the reactive flows
+  as execution context boundaries in the stage's strata.
 - **Sequence**: Sequential execution. Contains ordered steps and a `Strata` field that
   holds all flow step nodes plus execution context boundaries for stage/sequence steps.
   The `activeStepIdx` at runtime determines which flow nodes are active. Stage and
@@ -694,9 +695,9 @@ A traditional `sequence main { stage a { ... } stage b { ... } }` compiles to a
 contains only the execution context boundaries for those two stages.
 
 A stageless `sequence main { 1 -> v, wait{2s}, 0 -> v }` compiles to a `Sequence` with
-three flow steps. The sequence's `Strata` contains all the flow nodes (write nodes,
-wait node, entry nodes) in topological order. The scheduler uses `activeStepIdx` to
-determine which flow nodes to execute.
+three flow steps. The sequence's `Strata` contains all the flow nodes (write nodes, wait
+node, entry nodes) in topological order. The scheduler uses `activeStepIdx` to determine
+which flow nodes to execute.
 
 # 9 - Analyzer Changes
 
@@ -726,10 +727,10 @@ restriction is relaxed.
 
 The second analyzer pass walks sequence bodies and classifies each item into a step:
 
-1. `flowStatement` or `singleInvocation`: produces `ir.Step{Flow: &ir.Flow{...}}`.
-   The compiler auto-wires the flow's truthy output to an entry node for the next step
-   via a one-shot edge. This is the same pattern as today's `condition => next` in a
-   stage, but generated automatically.
+1. `flowStatement` or `singleInvocation`: produces `ir.Step{Flow: &ir.Flow{...}}`. The
+   compiler auto-wires the flow's truthy output to an entry node for the next step via a
+   one-shot edge. This is the same pattern as today's `condition => next` in a stage,
+   but generated automatically.
 2. `stageDeclaration`: produces `ir.Step{Stage: &ir.Stage{...}}`. Analyzed recursively
    for sub-sequences in the stage body.
 3. `sequenceDeclaration`: produces `ir.Step{Sequence: &ir.Sequence{...}}`. Analyzed
@@ -753,9 +754,8 @@ type keyGenerator struct {
 }
 ```
 
-Push a frame when entering a sequence, pop when leaving. The `entry()` method and
-`next` token resolution use the top frame. This generalizes cleanly to arbitrary nesting
-depth.
+Push a frame when entering a sequence, pop when leaving. The `entry()` method and `next`
+token resolution use the top frame. This generalizes cleanly to arbitrary nesting depth.
 
 ## 9.3 - Flow Steps and `=>` in Sequences
 
@@ -839,8 +839,8 @@ the new model.
 
 ### Implementation order:
 
-1. **IR types**: Replace `Stage` with `Flow`/`Stage`/`Sequence`/`Step` tagged union.
-   Add `Strata` to `Sequence`. Update msgpack codecs.
+1. **IR types**: Replace `Stage` with `Flow`/`Stage`/`Sequence`/`Step` tagged union. Add
+   `Strata` to `Sequence`. Update msgpack codecs.
 2. **Parser/Grammar**: Add `SequenceItem` alternatives, optional identifiers.
 3. **Analyzer**: Handle mixed sequence bodies, nested scoping, step classification.
 4. **Stratifier**: Compute strata tree with execution context boundaries.

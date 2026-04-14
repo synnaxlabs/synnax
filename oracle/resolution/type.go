@@ -142,6 +142,51 @@ func (r TypeRef) MustResolve(table *Table) Type {
 	return table.MustGet(r.Name)
 }
 
+// RefersTo reports whether ref directly or transitively references a type
+// identified by targetQualifiedName. The search follows type arguments, struct
+// field types, alias targets, and distinct bases, so mutual-recursion cycles
+// (A → B → A) are detected, not just direct self-reference (A → A). A visited
+// set prevents infinite loops on non-target cycles.
+//
+// This is the shared primitive behind the analyzer's IsRecursive detection
+// and the C++ plugin's decision between std::optional<T> and
+// x::mem::indirect<T> for hard-optional fields.
+func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
+	return refersTo(ref, targetQualifiedName, table, map[string]bool{})
+}
+
+func refersTo(ref TypeRef, targetQN string, table *Table, visited map[string]bool) bool {
+	if ref.Name == targetQN {
+		return true
+	}
+	for _, arg := range ref.TypeArgs {
+		if refersTo(arg, targetQN, table, visited) {
+			return true
+		}
+	}
+	if visited[ref.Name] {
+		return false
+	}
+	visited[ref.Name] = true
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return false
+	}
+	switch form := resolved.Form.(type) {
+	case StructForm:
+		for _, f := range form.Fields {
+			if refersTo(f.Type, targetQN, table, visited) {
+				return true
+			}
+		}
+	case AliasForm:
+		return refersTo(form.Target, targetQN, table, visited)
+	case DistinctForm:
+		return refersTo(form.Base, targetQN, table, visited)
+	}
+	return false
+}
+
 type TypeParam struct {
 	Constraint *TypeRef
 	Default    *TypeRef
