@@ -938,8 +938,8 @@ var _ = Describe("Stratification", func() {
 					{
 						Key: "main",
 						Steps: []ir.Step{
-							{Key: "first", Stage: &ir.Stage{Key: "first", Nodes: []string{"first_node"}}},
-							{Key: "second", Stage: &ir.Stage{Key: "second", Nodes: []string{"second_node"}}},
+							{Key: "first", Stage: &ir.Stage{Key: "first", Strata: ir.Strata{{"first_node"}}}},
+							{Key: "second", Stage: &ir.Stage{Key: "second", Strata: ir.Strata{{"second_node"}}}},
 						},
 					},
 				}
@@ -976,7 +976,7 @@ var _ = Describe("Stratification", func() {
 					{
 						Key: "main",
 						Steps: []ir.Step{
-							{Key: "first", Stage: &ir.Stage{Key: "first", Nodes: []string{"stage_source", "stage_process"}}},
+							{Key: "first", Stage: &ir.Stage{Key: "first", Strata: ir.Strata{{"stage_source", "stage_process"}}}},
 						},
 					},
 				}
@@ -1028,8 +1028,8 @@ var _ = Describe("Stratification", func() {
 					{
 						Key: "main",
 						Steps: []ir.Step{
-							{Key: "on", Stage: &ir.Stage{Key: "on", Nodes: []string{"interval", "check", "noop", "write_cmd"}}},
-							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
+							{Key: "on", Stage: &ir.Stage{Key: "on", Strata: ir.Strata{{"interval", "check", "noop", "write_cmd"}}}},
+							{Key: "off", Stage: &ir.Stage{Key: "off"}},
 						},
 					},
 				}
@@ -1105,13 +1105,13 @@ var _ = Describe("Stratification", func() {
 						Steps: []ir.Step{
 							{Key: "on", Stage: &ir.Stage{
 								Key: "on",
-								Nodes: []string{
+								Strata: ir.Strata{{
 									"interval", "check_off", "noop_a", "write_a",
 									"check_pause", "noop_b", "write_b",
-								},
+								}},
 							}},
-							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
-							{Key: "pause", Stage: &ir.Stage{Key: "pause", Nodes: nil}},
+							{Key: "off", Stage: &ir.Stage{Key: "off"}},
+							{Key: "pause", Stage: &ir.Stage{Key: "pause"}},
 						},
 					},
 				}
@@ -1156,9 +1156,9 @@ var _ = Describe("Stratification", func() {
 					{
 						Key: "main",
 						Steps: []ir.Step{
-							{Key: "on", Stage: &ir.Stage{Key: "on", Nodes: []string{"interval", "check"}}},
-							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
-							{Key: "pause", Stage: &ir.Stage{Key: "pause", Nodes: nil}},
+							{Key: "on", Stage: &ir.Stage{Key: "on", Strata: ir.Strata{{"interval", "check"}}}},
+							{Key: "off", Stage: &ir.Stage{Key: "off"}},
+							{Key: "pause", Stage: &ir.Stage{Key: "pause"}},
 						},
 					},
 				}
@@ -1216,11 +1216,11 @@ var _ = Describe("Stratification", func() {
 						Key: "main",
 						Steps: []ir.Step{
 							{Key: "on", Stage: &ir.Stage{
-								Key:   "on",
-								Nodes: []string{"interval", "check_a", "check_b", "and_node"},
+								Key:    "on",
+								Strata: ir.Strata{{"interval", "check_a", "check_b", "and_node"}},
 							}},
-							{Key: "off", Stage: &ir.Stage{Key: "off", Nodes: nil}},
-							{Key: "pause", Stage: &ir.Stage{Key: "pause", Nodes: nil}},
+							{Key: "off", Stage: &ir.Stage{Key: "off"}},
+							{Key: "pause", Stage: &ir.Stage{Key: "pause"}},
 						},
 					},
 				}
@@ -1283,8 +1283,8 @@ var _ = Describe("Stratification", func() {
 					{
 						Key: "seq",
 						Steps: []ir.Step{
-							{Key: "s1", Stage: &ir.Stage{Key: "s1", Nodes: []string{"s1_const", "s1_proc"}}},
-							{Key: "s2", Stage: &ir.Stage{Key: "s2", Nodes: []string{"s2_const", "s2_proc1", "s2_proc2"}}},
+							{Key: "s1", Stage: &ir.Stage{Key: "s1", Strata: ir.Strata{{"s1_const", "s1_proc"}}}},
+							{Key: "s2", Stage: &ir.Stage{Key: "s2", Strata: ir.Strata{{"s2_const", "s2_proc1", "s2_proc2"}}}},
 						},
 					},
 				}
@@ -1506,8 +1506,8 @@ var _ = Describe("Stratification", func() {
 						Steps: []ir.Step{
 							{Key: "flow_a", Flow: &ir.Flow{Nodes: []string{"write_a"}}},
 							{Key: "stg_b", Stage: &ir.Stage{
-								Key:   "stg_b",
-								Nodes: []string{"stage_node"},
+								Key:    "stg_b",
+								Strata: ir.Strata{{"stage_node"}},
 							}},
 						},
 					},
@@ -1586,13 +1586,13 @@ var _ = Describe("Stratification", func() {
 						Key: "seq",
 						Steps: []ir.Step{
 							{Key: "press", Stage: &ir.Stage{
-								Key:   "press",
-								Nodes: []string{"press_node"},
+								Key:    "press",
+								Strata: ir.Strata{{"press_node"}},
 							}},
 							{Key: "write", Flow: &ir.Flow{Nodes: []string{"write_node"}}},
 							{Key: "vent", Stage: &ir.Stage{
-								Key:   "vent",
-								Nodes: []string{"vent_node"},
+								Key:    "vent",
+								Strata: ir.Strata{{"vent_node"}},
 							}},
 						},
 					},

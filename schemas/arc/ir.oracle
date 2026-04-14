@@ -66,9 +66,6 @@ Stage struct {
     key       string      {
         @doc value "is the stage identifier."
     }
-    nodes     string[]    {
-        @doc value "contains node keys active in this stage."
-    }
     strata    Strata      {
         @doc value "contains execution stratification for nodes in this stage."
     }

@@ -553,8 +553,6 @@ struct Sequences : private std::vector<Sequence> {
 struct Stage {
     /// @brief key is the stage identifier.
     std::string key;
-    /// @brief nodes contains node keys active in this stage.
-    std::vector<std::string> nodes;
     /// @brief strata contains execution stratification for nodes in this stage.
     Strata strata;
     /// @brief sequences contains inline sub-sequences nested within this stage.

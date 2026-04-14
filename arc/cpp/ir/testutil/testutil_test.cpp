@@ -11,8 +11,8 @@
 
 #include "arc/cpp/ir/testutil/testutil.h"
 
-/// @brief sequence() should collect nodes from strata into stage nodes list
-TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
+/// @brief sequence() should carry strata through to the stage step
+TEST(BuilderTest, SequenceCarriesStrataThrough) {
     auto ir = arc::ir::testutil::Builder()
                   .sequence("main", {{"stage_a", {{"A", "B"}, {"C"}}}})
                   .build();
@@ -25,11 +25,12 @@ TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
     ASSERT_NE(step.stage, nullptr);
     ASSERT_EQ(step.key, "stage_a");
     ASSERT_EQ(step.stage->key, "stage_a");
-    ASSERT_EQ(step.stage->nodes.size(), 3);
-    EXPECT_EQ(step.stage->nodes[0], "A");
-    EXPECT_EQ(step.stage->nodes[1], "B");
-    EXPECT_EQ(step.stage->nodes[2], "C");
     ASSERT_EQ(step.stage->strata.size(), 2);
+    ASSERT_EQ(step.stage->strata[0].size(), 2);
+    EXPECT_EQ(step.stage->strata[0][0], "A");
+    EXPECT_EQ(step.stage->strata[0][1], "B");
+    ASSERT_EQ(step.stage->strata[1].size(), 1);
+    EXPECT_EQ(step.stage->strata[1][0], "C");
 }
 
 /// @brief sequence() should handle multiple stages
@@ -39,16 +40,16 @@ TEST(BuilderTest, SequenceHandlesMultipleStages) {
                   .build();
 
     ASSERT_EQ(ir.root.sequences[0].steps.size(), 2);
-    ASSERT_EQ(ir.root.sequences[0].steps[0].stage->nodes.size(), 1);
-    EXPECT_EQ(ir.root.sequences[0].steps[0].stage->nodes[0], "X");
-    ASSERT_EQ(ir.root.sequences[0].steps[1].stage->nodes.size(), 2);
+    ASSERT_EQ(ir.root.sequences[0].steps[0].stage->strata.size(), 1);
+    EXPECT_EQ(ir.root.sequences[0].steps[0].stage->strata[0][0], "X");
+    ASSERT_EQ(ir.root.sequences[0].steps[1].stage->strata.size(), 2);
 }
 
 /// @brief sequence() should handle empty strata
 TEST(BuilderTest, SequenceHandlesEmptyStrata) {
     auto ir = arc::ir::testutil::Builder().sequence("empty", {{"stage", {}}}).build();
 
-    ASSERT_EQ(ir.root.sequences[0].steps[0].stage->nodes.size(), 0);
+    ASSERT_EQ(ir.root.sequences[0].steps[0].stage->strata.size(), 0);
 }
 
 /// @brief edge() should create continuous edges

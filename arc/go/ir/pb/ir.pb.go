@@ -299,12 +299,10 @@ type Stage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the stage identifier.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// nodes contains node keys active in this stage.
-	Nodes []string `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// strata contains execution stratification for nodes in this stage.
-	Strata []*StratumWrapper `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
+	Strata []*StratumWrapper `protobuf:"bytes,2,rep,name=strata,proto3" json:"strata,omitempty"`
 	// sequences contains inline sub-sequences nested within this stage.
-	Sequences     []*Sequence `protobuf:"bytes,4,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	Sequences     []*Sequence `protobuf:"bytes,3,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -344,13 +342,6 @@ func (x *Stage) GetKey() string {
 		return x.Key
 	}
 	return ""
-}
-
-func (x *Stage) GetNodes() []string {
-	if x != nil {
-		return x.Nodes
-	}
-	return nil
 }
 
 func (x *Stage) GetStrata() []*StratumWrapper {
@@ -890,12 +881,11 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04Flow\x12\x14\n" +
 	"\x05nodes\x18\x01 \x03(\tR\x05nodes\"(\n" +
 	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x95\x01\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x7f\n" +
 	"\x05Stage\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05nodes\x18\x02 \x03(\tR\x05nodes\x121\n" +
-	"\x06strata\x18\x03 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x04 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\"\xc5\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
+	"\x06strata\x18\x02 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
+	"\tsequences\x18\x03 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\"\xc5\x01\n" +
 	"\x04Step\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
 	"\x04flow\x18\x02 \x01(\v2\x0f.arc.ir.pb.FlowH\x00R\x04flow\x88\x01\x01\x12+\n" +

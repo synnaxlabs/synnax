@@ -76,10 +76,11 @@ func (s Step) IsStage() bool { return s.Stage != nil }
 // IsSequence returns true if this step is a sequence (sequential) step.
 func (s Step) IsSequence() bool { return s.Sequence != nil }
 
-// StageNodes returns the node keys for a stage step, or nil for other kinds.
+// StageNodes returns the node keys for a stage step in stratum order, or nil
+// for other kinds.
 func (s Step) StageNodes() []string {
 	if s.Stage != nil {
-		return s.Stage.Nodes
+		return s.Stage.Strata.Flatten()
 	}
 	return nil
 }
@@ -106,7 +107,7 @@ func (s Step) stringWithPrefix(prefix string) string {
 			s.displayKey(), strings.Join(s.Flow.Nodes, ", ")))
 	case s.Stage != nil:
 		lo.Must(fmt.Fprintf(&b, "%s (stage): [%s]\n",
-			s.displayKey(), strings.Join(s.Stage.Nodes, ", ")))
+			s.displayKey(), strings.Join(s.Stage.Strata.Flatten(), ", ")))
 		if len(s.Stage.Strata) > 0 {
 			b.WriteString(s.Stage.Strata.stringWithPrefix(prefix))
 		}
@@ -133,7 +134,7 @@ func (s Stage) String() string {
 // stringWithPrefix returns the string representation with tree formatting.
 func (s Stage) stringWithPrefix(prefix string) string {
 	var b strings.Builder
-	lo.Must(fmt.Fprintf(&b, "%s: [%s]", s.Key, strings.Join(s.Nodes, ", ")))
+	lo.Must(fmt.Fprintf(&b, "%s: [%s]", s.Key, strings.Join(s.Strata.Flatten(), ", ")))
 	if len(s.Strata) > 0 {
 		lo.Must(fmt.Fprintf(&b, "\n%s", s.Strata.stringWithPrefix(prefix)))
 	}

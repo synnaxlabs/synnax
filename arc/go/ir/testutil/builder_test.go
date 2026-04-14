@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("IRBuilder", func() {
 	Describe("Sequence", func() {
-		It("Should collect nodes from strata into stage nodes list", func() {
+		It("Should carry strata through to the stage step", func() {
 			prog := testutil.NewIRBuilder().
 				Sequence("main", []testutil.StageSpec{
 					{Key: "stage_a", Strata: ir.Strata{{"A", "B"}, {"C"}}},
@@ -32,7 +32,6 @@ var _ = Describe("IRBuilder", func() {
 			step := prog.Root.Sequences[0].Steps[0]
 			Expect(step.Key).To(Equal("stage_a"))
 			Expect(step.Stage).ToNot(BeNil())
-			Expect(step.Stage.Nodes).To(ConsistOf("A", "B", "C"))
 			Expect(step.Stage.Strata).To(Equal(ir.Strata{{"A", "B"}, {"C"}}))
 		})
 
@@ -45,8 +44,8 @@ var _ = Describe("IRBuilder", func() {
 				Build()
 
 			Expect(prog.Root.Sequences[0].Steps).To(HaveLen(2))
-			Expect(prog.Root.Sequences[0].Steps[0].Stage.Nodes).To(Equal([]string{"X"}))
-			Expect(prog.Root.Sequences[0].Steps[1].Stage.Nodes).To(ConsistOf("Y", "Z"))
+			Expect(prog.Root.Sequences[0].Steps[0].Stage.Strata).To(Equal(ir.Strata{{"X"}}))
+			Expect(prog.Root.Sequences[0].Steps[1].Stage.Strata).To(Equal(ir.Strata{{"Y"}, {"Z"}}))
 		})
 
 		It("Should handle empty strata", func() {
@@ -56,7 +55,7 @@ var _ = Describe("IRBuilder", func() {
 				}).
 				Build()
 
-			Expect(prog.Root.Sequences[0].Steps[0].Stage.Nodes).To(BeNil())
+			Expect(prog.Root.Sequences[0].Steps[0].Stage.Strata).To(BeNil())
 		})
 	})
 

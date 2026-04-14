@@ -125,15 +125,12 @@ export type Functions = z.infer<typeof functionsZ>;
  */
 export interface Stage {
   key: string;
-  nodes: string[];
   strata: Strata;
   sequences: Sequences;
 }
 export const stageZ: z.ZodType<Stage> = z.object({
   /** key is the stage identifier. */
   key: z.string(),
-  /** nodes contains node keys active in this stage. */
-  nodes: array.nullishToEmpty(z.string()),
   /** strata contains execution stratification for nodes in this stage. */
   strata: strataZ,
   /** sequences contains inline sub-sequences nested within this stage. */

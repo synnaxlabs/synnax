@@ -22,21 +22,20 @@ var _ = Describe("Stage", func() {
 	Describe("String", func() {
 		It("Should format stage with nodes", func() {
 			stage := ir.Stage{
-				Key:   "pressurization",
-				Nodes: []string{"timer_1", "controller_1"},
+				Key:    "pressurization",
+				Strata: ir.Strata{{"timer_1", "controller_1"}},
 			}
-			Expect(stage.String()).To(Equal("pressurization: [timer_1, controller_1]"))
+			Expect(stage.String()).To(HavePrefix("pressurization: [timer_1, controller_1]"))
 		})
 
 		It("Should format stage with empty nodes", func() {
-			stage := ir.Stage{Key: "terminal", Nodes: nil}
+			stage := ir.Stage{Key: "terminal"}
 			Expect(stage.String()).To(Equal("terminal: []"))
 		})
 
 		It("Should format stage with strata", func() {
 			stage := ir.Stage{
 				Key:    "main",
-				Nodes:  []string{"a", "b"},
 				Strata: ir.Strata{{"a"}, {"b"}},
 			}
 			str := stage.String()
@@ -47,54 +46,50 @@ var _ = Describe("Stage", func() {
 	})
 
 	Describe("JSON Serialization", func() {
-		It("Should marshal and unmarshal stage with nodes", func() {
+		It("Should marshal and unmarshal stage with strata", func() {
 			stage := ir.Stage{
-				Key:   "pressurization",
-				Nodes: []string{"timer_1", "controller_1", "condition_1"},
+				Key:    "pressurization",
+				Strata: ir.Strata{{"timer_1", "controller_1", "condition_1"}},
 			}
 			data := MustSucceed(json.Marshal(stage))
 
 			var restored ir.Stage
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 			Expect(restored.Key).To(Equal("pressurization"))
-			Expect(restored.Nodes).To(Equal([]string{"timer_1", "controller_1", "condition_1"}))
+			Expect(restored.Strata.Flatten()).To(Equal([]string{"timer_1", "controller_1", "condition_1"}))
 		})
 
-		It("Should handle empty nodes list", func() {
+		It("Should handle empty strata", func() {
 			stage := ir.Stage{Key: "terminal"}
 			data := MustSucceed(json.Marshal(stage))
 
 			var restored ir.Stage
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 			Expect(restored.Key).To(Equal("terminal"))
-			Expect(restored.Nodes).To(BeNil())
+			Expect(restored.Strata).To(BeNil())
 		})
 
-		It("Should marshal nodes as null when nil, not empty array", func() {
-			stage := ir.Stage{Key: "empty"}
-			data := MustSucceed(json.Marshal(stage))
-			Expect(string(data)).To(ContainSubstring(`"nodes":null`))
-		})
-
-		It("Should preserve order of nodes", func() {
+		It("Should preserve stratum order", func() {
 			stage := ir.Stage{
-				Key:   "ordered",
-				Nodes: []string{"first", "second", "third", "fourth"},
+				Key:    "ordered",
+				Strata: ir.Strata{{"first", "second"}, {"third", "fourth"}},
 			}
 			data := MustSucceed(json.Marshal(stage))
 
 			var restored ir.Stage
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
-			Expect(restored.Nodes[0]).To(Equal("first"))
-			Expect(restored.Nodes[1]).To(Equal("second"))
-			Expect(restored.Nodes[2]).To(Equal("third"))
-			Expect(restored.Nodes[3]).To(Equal("fourth"))
+			flat := restored.Strata.Flatten()
+			Expect(flat).To(Equal([]string{"first", "second", "third", "fourth"}))
 		})
 	})
 })
 
 func stageStep(key string, nodes []string) ir.Step {
-	return ir.Step{Key: key, Stage: &ir.Stage{Key: key, Nodes: nodes}}
+	stage := &ir.Stage{Key: key}
+	if nodes != nil {
+		stage.Strata = ir.Strata{nodes}
+	}
+	return ir.Step{Key: key, Stage: stage}
 }
 
 var _ = Describe("Sequence", func() {

@@ -2352,7 +2352,6 @@ TEST_F(SchedulerTest, testStageToFlowTransition) {
     stage_step.key = "stage_a";
     stage_step.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     stage_step.stage->key = "stage_a";
-    stage_step.stage->nodes = {"stage_node"};
     stage_step.stage->strata.push_back({"stage_node"});
     stage_step.stage->strata.push_back({"entry_main_flow_b"});
     seq.steps.push_back(std::move(stage_step));
@@ -2416,7 +2415,6 @@ TEST_F(SchedulerTest, testFlowToStageTransition) {
     s_step.key = "stage_b";
     s_step.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     s_step.stage->key = "stage_b";
-    s_step.stage->nodes = {"stage_node"};
     s_step.stage->strata.push_back({"stage_node"});
     seq.steps.push_back(std::move(s_step));
     seq.strata.push_back({"flow_node"});
@@ -2484,7 +2482,6 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     press.key = "press";
     press.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     press.stage->key = "press";
-    press.stage->nodes = {"press_node"};
     press.stage->strata.push_back({"press_node"});
     press.stage->strata.push_back({"entry_main_write"});
     seq.steps.push_back(std::move(press));
@@ -2497,7 +2494,6 @@ TEST_F(SchedulerTest, testMixedStageFlowStagePattern) {
     vent.key = "vent";
     vent.stage = x::mem::indirect<ir::Stage>(ir::Stage{});
     vent.stage->key = "vent";
-    vent.stage->nodes = {"vent_node"};
     vent.stage->strata.push_back({"vent_node"});
     seq.steps.push_back(std::move(vent));
     seq.strata.push_back({"write_node"});
@@ -2564,7 +2560,6 @@ TEST_F(SchedulerTest, testNestedSequenceInStage) {
 
     ir::Stage stage;
     stage.key = "stage_a";
-    stage.nodes = {"stage_node"};
     stage.strata.push_back({"stage_node"});
     stage.strata.push_back({"boundary_inner"});
     stage.sequences.push_back(std::move(inner_seq));
@@ -2636,7 +2631,6 @@ TEST_F(SchedulerTest, testParentChangedSurvivesBoundaryRecursion) {
 
     ir::Stage stage;
     stage.key = "stage_a";
-    stage.nodes = {"source", "downstream"};
     stage.strata.push_back({"source", "boundary_inner"});
     stage.strata.push_back({"downstream"});
     stage.sequences.push_back(std::move(inner_seq));
@@ -2803,7 +2797,6 @@ TEST_F(SchedulerTest, testInlineStageInSequenceWithContent) {
 
     ir::Stage stage;
     stage.key = "step_1";
-    stage.nodes = {"on_pressure", "expr_cond"};
     stage.strata.push_back({"on_pressure"});
     stage.strata.push_back({"expr_cond"});
     // Mirror production: the next-step entry is wired to expression_X.output

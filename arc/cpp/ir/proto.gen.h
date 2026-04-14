@@ -90,8 +90,6 @@ Flow::from_proto(const ::arc::ir::pb::Flow &pb) {
 inline std::pair<::arc::ir::pb::Stage, x::errors::Error> Stage::to_proto() const {
     ::arc::ir::pb::Stage pb;
     pb.set_key(this->key);
-    for (const auto &item: this->nodes)
-        pb.add_nodes(item);
     for (const auto &item: this->strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
@@ -109,8 +107,6 @@ inline std::pair<Stage, x::errors::Error>
 Stage::from_proto(const ::arc::ir::pb::Stage &pb) {
     Stage cpp;
     cpp.key = pb.key();
-    for (const auto &item: pb.nodes())
-        cpp.nodes.push_back(item);
     for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences()))

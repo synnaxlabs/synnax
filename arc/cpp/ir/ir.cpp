@@ -45,9 +45,13 @@ std::string Stage::to_string() const {
 std::string Stage::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << this->key << ": [";
-    for (size_t i = 0; i < this->nodes.size(); ++i) {
-        if (i > 0) ss << ", ";
-        ss << this->nodes[i];
+    bool first = true;
+    for (const auto &stratum: this->strata) {
+        for (const auto &node_key: stratum) {
+            if (!first) ss << ", ";
+            ss << node_key;
+            first = false;
+        }
     }
     ss << "]";
     bool has_strata = !this->strata.empty();
@@ -277,8 +281,7 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     bool has_functions = !this->functions.empty();
     bool has_nodes = !this->nodes.empty();
     bool has_edges = !this->edges.empty();
-    bool has_root = !this->root.strata.empty() || !this->root.sequences.empty() ||
-                    !this->root.nodes.empty();
+    bool has_root = !this->root.strata.empty() || !this->root.sequences.empty();
 
     if (has_functions) {
         bool last = !has_nodes && !has_edges && !has_root;

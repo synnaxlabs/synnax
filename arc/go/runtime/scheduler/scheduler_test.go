@@ -2340,7 +2340,7 @@ var _ = Describe("Scheduler", func() {
 						Key: "main",
 						Steps: ir.Steps{
 							{Key: "stage_a", Stage: &ir.Stage{
-								Key: "stage_a", Nodes: []string{"stage_node"},
+								Key:    "stage_a",
 								Strata: ir.Strata{{"stage_node"}, {"entry_main_flow_b"}},
 							}},
 							{Key: "flow_b", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
@@ -2391,7 +2391,7 @@ var _ = Describe("Scheduler", func() {
 						Steps: ir.Steps{
 							{Key: "flow_a", Flow: &ir.Flow{Nodes: []string{"flow_node"}}},
 							{Key: "stage_b", Stage: &ir.Stage{
-								Key: "stage_b", Nodes: []string{"stage_node"},
+								Key:    "stage_b",
 								Strata: ir.Strata{{"stage_node"}},
 							}},
 						},
@@ -2443,15 +2443,15 @@ var _ = Describe("Scheduler", func() {
 						Key: "seq",
 						Steps: ir.Steps{
 							{Key: "a", Stage: &ir.Stage{
-								Key: "a", Nodes: []string{"node_a"},
+								Key:    "a",
 								Strata: ir.Strata{{"node_a"}, {"entry_seq_c"}},
 							}},
 							{Key: "b", Stage: &ir.Stage{
-								Key: "b", Nodes: []string{"node_b"},
+								Key:    "b",
 								Strata: ir.Strata{{"node_b"}},
 							}},
 							{Key: "c", Stage: &ir.Stage{
-								Key: "c", Nodes: []string{"node_c"},
+								Key:    "c",
 								Strata: ir.Strata{{"node_c"}},
 							}},
 						},
@@ -2504,11 +2504,11 @@ var _ = Describe("Scheduler", func() {
 						Key: "seq",
 						Steps: ir.Steps{
 							{Key: "a", Stage: &ir.Stage{
-								Key: "a", Nodes: []string{"node_a"},
+								Key:    "a",
 								Strata: ir.Strata{{"node_a"}, {"entry_seq_b"}},
 							}},
 							{Key: "b", Stage: &ir.Stage{
-								Key: "b", Nodes: []string{"node_b"},
+								Key:    "b",
 								Strata: ir.Strata{{"node_b"}, {"entry_seq_a"}},
 							}},
 						},
@@ -2574,12 +2574,12 @@ var _ = Describe("Scheduler", func() {
 						Key: "main",
 						Steps: ir.Steps{
 							{Key: "press", Stage: &ir.Stage{
-								Key: "press", Nodes: []string{"press_node"},
+								Key:    "press",
 								Strata: ir.Strata{{"press_node"}, {"entry_main_write"}},
 							}},
 							{Key: "write", Flow: &ir.Flow{Nodes: []string{"write_node"}}},
 							{Key: "vent", Stage: &ir.Stage{
-								Key: "vent", Nodes: []string{"vent_node"},
+								Key:    "vent",
 								Strata: ir.Strata{{"vent_node"}},
 							}},
 						},

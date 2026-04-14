@@ -209,16 +209,15 @@ TEST(IRTest, testEdgeToStringConditional) {
 TEST(IRTest, testStageToString) {
     Stage stage;
     stage.key = "stage_1";
-    stage.nodes = {"node_a", "node_b"};
+    stage.strata.push_back({"node_a", "node_b"});
     const auto str = stage.to_string();
-    ASSERT_EQ(str, "stage_1: [node_a, node_b]");
+    ASSERT_NE(str.find("stage_1: [node_a, node_b]"), std::string::npos);
 }
 
 /// @brief it should format a Stage with strata
 TEST(IRTest, testStageToStringWithStrata) {
     Stage stage;
     stage.key = "run";
-    stage.nodes = {"a", "b"};
     stage.strata.push_back({"a"});
     stage.strata.push_back({"b"});
     const auto str = stage.to_string();
@@ -227,7 +226,7 @@ TEST(IRTest, testStageToStringWithStrata) {
     ASSERT_NE(str.find("[1]: b"), std::string::npos);
 }
 
-/// @brief it should format a Stage with empty nodes
+/// @brief it should format a Stage with empty strata
 TEST(IRTest, testStageToStringEmptyNodes) {
     Stage stage;
     stage.key = "terminal";
@@ -251,10 +250,10 @@ TEST(IRTest, testSequenceToString) {
     seq.key = "seq_1";
     Stage s0;
     s0.key = "init";
-    s0.nodes = {"a"};
+    s0.strata.push_back({"a"});
     Stage s1;
     s1.key = "run";
-    s1.nodes = {"b", "c"};
+    s1.strata.push_back({"b", "c"});
     Step step0;
     step0.key = "init";
     step0.stage = x::mem::indirect<Stage>(std::move(s0));
@@ -288,7 +287,7 @@ TEST(IRTest, testStepToStringFlow) {
 TEST(IRTest, testStepToStringStage) {
     Step step;
     step.key = "s1";
-    step.stage = x::mem::indirect<Stage>(Stage{.key = "run", .nodes = {"a"}});
+    step.stage = x::mem::indirect<Stage>(Stage{.key = "run", .strata = {{"a"}}});
     ASSERT_NE(step.to_string().find("run: [a]"), std::string::npos);
 }
 
@@ -451,7 +450,7 @@ TEST(IRTest, testIRToString) {
     seq.key = "main";
     Stage s;
     s.key = "run";
-    s.nodes = {"add_1"};
+    s.strata.push_back({"add_1"});
     Step step;
     step.key = "run";
     step.stage = x::mem::indirect<Stage>(std::move(s));

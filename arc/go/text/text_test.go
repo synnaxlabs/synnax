@@ -1734,7 +1734,7 @@ var _ = Describe("Text", func() {
 			Expect(setupNode.Inputs).To(BeEmpty())
 
 			seq := MustBeOk(inter.Root.Sequences.Find("main"))
-			Expect(seq.Steps[0].Stage.Nodes).To(ContainElement(setupNode.Key))
+			Expect(seq.Steps[0].StageNodes()).To(ContainElement(setupNode.Key))
 		})
 
 		It("Should compile standalone expression to IR node", func(ctx SpecContext) {
@@ -1758,7 +1758,7 @@ var _ = Describe("Text", func() {
 			Expect(exprNode.Outputs[0].Type.Kind).To(Equal(types.KindI64))
 
 			seq := MustBeOk(inter.Root.Sequences.Find("main"))
-			Expect(seq.Steps[0].Stage.Nodes).To(ContainElement(exprNode.Key))
+			Expect(seq.Steps[0].StageNodes()).To(ContainElement(exprNode.Key))
 		})
 
 		It("Should reject void functions mid-chain in flow statements", func(ctx SpecContext) {

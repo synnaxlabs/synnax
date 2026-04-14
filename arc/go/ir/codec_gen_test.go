@@ -533,20 +533,19 @@ var _ = Describe("Codec", func() {
 				},
 				Root: ir.Stage{
 					Key:    "test_104",
-					Nodes:  []string{"test_105"},
-					Strata: [][]string{{"test_106"}},
+					Strata: [][]string{{"test_105"}},
 					Sequences: []ir.Sequence{
 						{
-							Key: "test_108",
+							Key: "test_107",
 							Steps: []ir.Step{
 								{
-									Key:      "test_110",
+									Key:      "test_109",
 									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 								},
 							},
-							Strata: [][]string{{"test_114"}},
+							Strata: [][]string{{"test_113"}},
 						},
 					},
 				},
@@ -558,7 +557,6 @@ var _ = Describe("Codec", func() {
 				Authorities: ir.Authorities{Default: nil, Channels: nil},
 				Root: ir.Stage{
 					Key:       "",
-					Nodes:     nil,
 					Strata:    nil,
 					Sequences: nil,
 				},
@@ -573,7 +571,6 @@ var _ = Describe("Codec", func() {
 				},
 				Root: ir.Stage{
 					Key:       "test_8",
-					Nodes:     []string{},
 					Strata:    [][]string{},
 					Sequences: []ir.Sequence{},
 				},
@@ -859,13 +856,12 @@ var _ = Describe("Codec", func() {
 						Stage: func() *ir.Stage {
 							v := ir.Stage{
 								Key:    "test_7",
-								Nodes:  []string{"test_8"},
-								Strata: [][]string{{"test_9"}},
+								Strata: [][]string{{"test_8"}},
 								Sequences: []ir.Sequence{
 									{
-										Key:    "test_11",
+										Key:    "test_10",
 										Steps:  []ir.Step{{}},
-										Strata: [][]string{{"test_13"}},
+										Strata: [][]string{{"test_12"}},
 									},
 								},
 							}
@@ -873,22 +869,22 @@ var _ = Describe("Codec", func() {
 						}(),
 						Sequence: func() *ir.Sequence {
 							v := ir.Sequence{
-								Key: "test_15",
+								Key: "test_14",
 								Steps: []ir.Step{
 									{
-										Key:      "test_17",
+										Key:      "test_16",
 										Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 										Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 										Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 									},
 								},
-								Strata: [][]string{{"test_21"}},
+								Strata: [][]string{{"test_20"}},
 							}
 							return &v
 						}(),
 					},
 				},
-				Strata: [][]string{{"test_22"}},
+				Strata: [][]string{{"test_21"}},
 			}),
 			Entry("zero values", ir.Sequence{
 				Key:    "",
@@ -915,47 +911,43 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", ir.Stage{
 				Key:    "test_1",
-				Nodes:  []string{"test_2"},
-				Strata: [][]string{{"test_3"}},
+				Strata: [][]string{{"test_2"}},
 				Sequences: []ir.Sequence{
 					{
-						Key: "test_5",
+						Key: "test_4",
 						Steps: []ir.Step{
 							{
-								Key:  "test_7",
-								Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_9"}}; return &v }(),
+								Key:  "test_6",
+								Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_8"}}; return &v }(),
 								Stage: func() *ir.Stage {
 									v := ir.Stage{
-										Key:       "test_11",
-										Nodes:     []string{"test_12"},
-										Strata:    [][]string{{"test_13"}},
+										Key:       "test_10",
+										Strata:    [][]string{{"test_11"}},
 										Sequences: []ir.Sequence{{}},
 									}
 									return &v
 								}(),
 								Sequence: func() *ir.Sequence {
 									v := ir.Sequence{
-										Key:    "test_16",
+										Key:    "test_14",
 										Steps:  []ir.Step{{}},
-										Strata: [][]string{{"test_18"}},
+										Strata: [][]string{{"test_16"}},
 									}
 									return &v
 								}(),
 							},
 						},
-						Strata: [][]string{{"test_19"}},
+						Strata: [][]string{{"test_17"}},
 					},
 				},
 			}),
 			Entry("zero values", ir.Stage{
 				Key:       "",
-				Nodes:     nil,
 				Strata:    nil,
 				Sequences: nil,
 			}),
 			Entry("empty collections", ir.Stage{
 				Key:       "test_1",
-				Nodes:     []string{},
 				Strata:    [][]string{},
 				Sequences: []ir.Sequence{},
 			}),
@@ -978,20 +970,19 @@ var _ = Describe("Codec", func() {
 				Stage: func() *ir.Stage {
 					v := ir.Stage{
 						Key:    "test_5",
-						Nodes:  []string{"test_6"},
-						Strata: [][]string{{"test_7"}},
+						Strata: [][]string{{"test_6"}},
 						Sequences: []ir.Sequence{
 							{
-								Key: "test_9",
+								Key: "test_8",
 								Steps: []ir.Step{
 									{
-										Key:      "test_11",
+										Key:      "test_10",
 										Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 										Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 										Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 									},
 								},
-								Strata: [][]string{{"test_15"}},
+								Strata: [][]string{{"test_14"}},
 							},
 						},
 					}
@@ -999,31 +990,30 @@ var _ = Describe("Codec", func() {
 				}(),
 				Sequence: func() *ir.Sequence {
 					v := ir.Sequence{
-						Key: "test_17",
+						Key: "test_16",
 						Steps: []ir.Step{
 							{
-								Key:  "test_19",
-								Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_21"}}; return &v }(),
+								Key:  "test_18",
+								Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_20"}}; return &v }(),
 								Stage: func() *ir.Stage {
 									v := ir.Stage{
-										Key:       "test_23",
-										Nodes:     []string{"test_24"},
-										Strata:    [][]string{{"test_25"}},
+										Key:       "test_22",
+										Strata:    [][]string{{"test_23"}},
 										Sequences: []ir.Sequence{{}},
 									}
 									return &v
 								}(),
 								Sequence: func() *ir.Sequence {
 									v := ir.Sequence{
-										Key:    "test_28",
+										Key:    "test_26",
 										Steps:  []ir.Step{{}},
-										Strata: [][]string{{"test_30"}},
+										Strata: [][]string{{"test_28"}},
 									}
 									return &v
 								}(),
 							},
 						},
-						Strata: [][]string{{"test_31"}},
+						Strata: [][]string{{"test_29"}},
 					}
 					return &v
 				}(),
@@ -1525,20 +1515,19 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 		},
 		Root: ir.Stage{
 			Key:    "test_104",
-			Nodes:  []string{"test_105"},
-			Strata: [][]string{{"test_106"}},
+			Strata: [][]string{{"test_105"}},
 			Sequences: []ir.Sequence{
 				{
-					Key: "test_108",
+					Key: "test_107",
 					Steps: []ir.Step{
 						{
-							Key:      "test_110",
+							Key:      "test_109",
 							Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 							Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 							Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 						},
 					},
-					Strata: [][]string{{"test_114"}},
+					Strata: [][]string{{"test_113"}},
 				},
 			},
 		},
@@ -1814,13 +1803,12 @@ func BenchmarkEncodeDecodeSequence(b *testing.B) {
 				Stage: func() *ir.Stage {
 					v := ir.Stage{
 						Key:    "test_7",
-						Nodes:  []string{"test_8"},
-						Strata: [][]string{{"test_9"}},
+						Strata: [][]string{{"test_8"}},
 						Sequences: []ir.Sequence{
 							{
-								Key:    "test_11",
+								Key:    "test_10",
 								Steps:  []ir.Step{{}},
-								Strata: [][]string{{"test_13"}},
+								Strata: [][]string{{"test_12"}},
 							},
 						},
 					}
@@ -1828,22 +1816,22 @@ func BenchmarkEncodeDecodeSequence(b *testing.B) {
 				}(),
 				Sequence: func() *ir.Sequence {
 					v := ir.Sequence{
-						Key: "test_15",
+						Key: "test_14",
 						Steps: []ir.Step{
 							{
-								Key:      "test_17",
+								Key:      "test_16",
 								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 							},
 						},
-						Strata: [][]string{{"test_21"}},
+						Strata: [][]string{{"test_20"}},
 					}
 					return &v
 				}(),
 			},
 		},
-		Strata: [][]string{{"test_22"}},
+		Strata: [][]string{{"test_21"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1863,35 +1851,33 @@ func BenchmarkEncodeDecodeSequence(b *testing.B) {
 func BenchmarkEncodeDecodeStage(b *testing.B) {
 	s := ir.Stage{
 		Key:    "test_1",
-		Nodes:  []string{"test_2"},
-		Strata: [][]string{{"test_3"}},
+		Strata: [][]string{{"test_2"}},
 		Sequences: []ir.Sequence{
 			{
-				Key: "test_5",
+				Key: "test_4",
 				Steps: []ir.Step{
 					{
-						Key:  "test_7",
-						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_9"}}; return &v }(),
+						Key:  "test_6",
+						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_8"}}; return &v }(),
 						Stage: func() *ir.Stage {
 							v := ir.Stage{
-								Key:       "test_11",
-								Nodes:     []string{"test_12"},
-								Strata:    [][]string{{"test_13"}},
+								Key:       "test_10",
+								Strata:    [][]string{{"test_11"}},
 								Sequences: []ir.Sequence{{}},
 							}
 							return &v
 						}(),
 						Sequence: func() *ir.Sequence {
 							v := ir.Sequence{
-								Key:    "test_16",
+								Key:    "test_14",
 								Steps:  []ir.Step{{}},
-								Strata: [][]string{{"test_18"}},
+								Strata: [][]string{{"test_16"}},
 							}
 							return &v
 						}(),
 					},
 				},
-				Strata: [][]string{{"test_19"}},
+				Strata: [][]string{{"test_17"}},
 			},
 		},
 	}
@@ -1917,20 +1903,19 @@ func BenchmarkEncodeDecodeStep(b *testing.B) {
 		Stage: func() *ir.Stage {
 			v := ir.Stage{
 				Key:    "test_5",
-				Nodes:  []string{"test_6"},
-				Strata: [][]string{{"test_7"}},
+				Strata: [][]string{{"test_6"}},
 				Sequences: []ir.Sequence{
 					{
-						Key: "test_9",
+						Key: "test_8",
 						Steps: []ir.Step{
 							{
-								Key:      "test_11",
+								Key:      "test_10",
 								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 							},
 						},
-						Strata: [][]string{{"test_15"}},
+						Strata: [][]string{{"test_14"}},
 					},
 				},
 			}
@@ -1938,31 +1923,30 @@ func BenchmarkEncodeDecodeStep(b *testing.B) {
 		}(),
 		Sequence: func() *ir.Sequence {
 			v := ir.Sequence{
-				Key: "test_17",
+				Key: "test_16",
 				Steps: []ir.Step{
 					{
-						Key:  "test_19",
-						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_21"}}; return &v }(),
+						Key:  "test_18",
+						Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_20"}}; return &v }(),
 						Stage: func() *ir.Stage {
 							v := ir.Stage{
-								Key:       "test_23",
-								Nodes:     []string{"test_24"},
-								Strata:    [][]string{{"test_25"}},
+								Key:       "test_22",
+								Strata:    [][]string{{"test_23"}},
 								Sequences: []ir.Sequence{{}},
 							}
 							return &v
 						}(),
 						Sequence: func() *ir.Sequence {
 							v := ir.Sequence{
-								Key:    "test_28",
+								Key:    "test_26",
 								Steps:  []ir.Step{{}},
-								Strata: [][]string{{"test_30"}},
+								Strata: [][]string{{"test_28"}},
 							}
 							return &v
 						}(),
 					},
 				},
-				Strata: [][]string{{"test_31"}},
+				Strata: [][]string{{"test_29"}},
 			}
 			return &v
 		}(),
@@ -2671,20 +2655,19 @@ func FuzzDecodeIR(f *testing.F) {
 			},
 			Root: ir.Stage{
 				Key:    "test_104",
-				Nodes:  []string{"test_105"},
-				Strata: [][]string{{"test_106"}},
+				Strata: [][]string{{"test_105"}},
 				Sequences: []ir.Sequence{
 					{
-						Key: "test_108",
+						Key: "test_107",
 						Steps: []ir.Step{
 							{
-								Key:      "test_110",
+								Key:      "test_109",
 								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 							},
 						},
-						Strata: [][]string{{"test_114"}},
+						Strata: [][]string{{"test_113"}},
 					},
 				},
 			},
@@ -2703,7 +2686,6 @@ func FuzzDecodeIR(f *testing.F) {
 			Authorities: ir.Authorities{Default: nil, Channels: nil},
 			Root: ir.Stage{
 				Key:       "",
-				Nodes:     nil,
 				Strata:    nil,
 				Sequences: nil,
 			},
@@ -2725,7 +2707,6 @@ func FuzzDecodeIR(f *testing.F) {
 			},
 			Root: ir.Stage{
 				Key:       "test_8",
-				Nodes:     []string{},
 				Strata:    [][]string{},
 				Sequences: []ir.Sequence{},
 			},
@@ -3067,13 +3048,12 @@ func FuzzDecodeSequence(f *testing.F) {
 					Stage: func() *ir.Stage {
 						v := ir.Stage{
 							Key:    "test_7",
-							Nodes:  []string{"test_8"},
-							Strata: [][]string{{"test_9"}},
+							Strata: [][]string{{"test_8"}},
 							Sequences: []ir.Sequence{
 								{
-									Key:    "test_11",
+									Key:    "test_10",
 									Steps:  []ir.Step{{}},
-									Strata: [][]string{{"test_13"}},
+									Strata: [][]string{{"test_12"}},
 								},
 							},
 						}
@@ -3081,22 +3061,22 @@ func FuzzDecodeSequence(f *testing.F) {
 					}(),
 					Sequence: func() *ir.Sequence {
 						v := ir.Sequence{
-							Key: "test_15",
+							Key: "test_14",
 							Steps: []ir.Step{
 								{
-									Key:      "test_17",
+									Key:      "test_16",
 									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 								},
 							},
-							Strata: [][]string{{"test_21"}},
+							Strata: [][]string{{"test_20"}},
 						}
 						return &v
 					}(),
 				},
 			},
-			Strata: [][]string{{"test_22"}},
+			Strata: [][]string{{"test_21"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3158,35 +3138,33 @@ func FuzzDecodeStage(f *testing.F) {
 	{
 		seed := ir.Stage{
 			Key:    "test_1",
-			Nodes:  []string{"test_2"},
-			Strata: [][]string{{"test_3"}},
+			Strata: [][]string{{"test_2"}},
 			Sequences: []ir.Sequence{
 				{
-					Key: "test_5",
+					Key: "test_4",
 					Steps: []ir.Step{
 						{
-							Key:  "test_7",
-							Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_9"}}; return &v }(),
+							Key:  "test_6",
+							Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_8"}}; return &v }(),
 							Stage: func() *ir.Stage {
 								v := ir.Stage{
-									Key:       "test_11",
-									Nodes:     []string{"test_12"},
-									Strata:    [][]string{{"test_13"}},
+									Key:       "test_10",
+									Strata:    [][]string{{"test_11"}},
 									Sequences: []ir.Sequence{{}},
 								}
 								return &v
 							}(),
 							Sequence: func() *ir.Sequence {
 								v := ir.Sequence{
-									Key:    "test_16",
+									Key:    "test_14",
 									Steps:  []ir.Step{{}},
-									Strata: [][]string{{"test_18"}},
+									Strata: [][]string{{"test_16"}},
 								}
 								return &v
 							}(),
 						},
 					},
-					Strata: [][]string{{"test_19"}},
+					Strata: [][]string{{"test_17"}},
 				},
 			},
 		}
@@ -3199,7 +3177,6 @@ func FuzzDecodeStage(f *testing.F) {
 	{
 		seed := ir.Stage{
 			Key:       "",
-			Nodes:     nil,
 			Strata:    nil,
 			Sequences: nil,
 		}
@@ -3212,7 +3189,6 @@ func FuzzDecodeStage(f *testing.F) {
 	{
 		seed := ir.Stage{
 			Key:       "test_1",
-			Nodes:     []string{},
 			Strata:    [][]string{},
 			Sequences: []ir.Sequence{},
 		}
@@ -3256,20 +3232,19 @@ func FuzzDecodeStep(f *testing.F) {
 			Stage: func() *ir.Stage {
 				v := ir.Stage{
 					Key:    "test_5",
-					Nodes:  []string{"test_6"},
-					Strata: [][]string{{"test_7"}},
+					Strata: [][]string{{"test_6"}},
 					Sequences: []ir.Sequence{
 						{
-							Key: "test_9",
+							Key: "test_8",
 							Steps: []ir.Step{
 								{
-									Key:      "test_11",
+									Key:      "test_10",
 									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
 									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
 									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
 								},
 							},
-							Strata: [][]string{{"test_15"}},
+							Strata: [][]string{{"test_14"}},
 						},
 					},
 				}
@@ -3277,31 +3252,30 @@ func FuzzDecodeStep(f *testing.F) {
 			}(),
 			Sequence: func() *ir.Sequence {
 				v := ir.Sequence{
-					Key: "test_17",
+					Key: "test_16",
 					Steps: []ir.Step{
 						{
-							Key:  "test_19",
-							Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_21"}}; return &v }(),
+							Key:  "test_18",
+							Flow: func() *ir.Flow { v := ir.Flow{Nodes: []string{"test_20"}}; return &v }(),
 							Stage: func() *ir.Stage {
 								v := ir.Stage{
-									Key:       "test_23",
-									Nodes:     []string{"test_24"},
-									Strata:    [][]string{{"test_25"}},
+									Key:       "test_22",
+									Strata:    [][]string{{"test_23"}},
 									Sequences: []ir.Sequence{{}},
 								}
 								return &v
 							}(),
 							Sequence: func() *ir.Sequence {
 								v := ir.Sequence{
-									Key:    "test_28",
+									Key:    "test_26",
 									Steps:  []ir.Step{{}},
-									Strata: [][]string{{"test_30"}},
+									Strata: [][]string{{"test_28"}},
 								}
 								return &v
 							}(),
 						},
 					},
-					Strata: [][]string{{"test_31"}},
+					Strata: [][]string{{"test_29"}},
 				}
 				return &v
 			}(),

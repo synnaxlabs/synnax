@@ -84,8 +84,6 @@ type Flow struct {
 type Stage struct {
 	// Key is the stage identifier.
 	Key string `json:"key" msgpack:"key"`
-	// Nodes contains node keys active in this stage.
-	Nodes []string `json:"nodes" msgpack:"nodes"`
 	// Strata contains execution stratification for nodes in this stage.
 	Strata Strata `json:"strata" msgpack:"strata"`
 	// Sequences contains inline sub-sequences nested within this stage.

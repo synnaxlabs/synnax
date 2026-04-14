@@ -587,13 +587,6 @@ func (s *Sequence) DecodeOrc(r *orc.Reader) error {
 
 func (s Stage) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Key)
-	w.Bool(s.Nodes != nil)
-	if s.Nodes != nil {
-		w.Uint32(uint32(len(s.Nodes)))
-		for i := range s.Nodes {
-			w.String(s.Nodes[i])
-		}
-	}
 	w.Bool(s.Strata != nil)
 	if s.Strata != nil {
 		w.Uint32(uint32(len(s.Strata)))
@@ -623,24 +616,6 @@ func (s *Stage) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Nodes = make([]string, n)
-			for i := range s.Nodes {
-				if s.Nodes[i], err = r.String(); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	{
 		present, err := r.Bool()

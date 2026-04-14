@@ -37,6 +37,18 @@ func (s Strata) NodeCount() int {
 	return count
 }
 
+// Flatten returns all node keys across all strata in stratum order.
+func (s Strata) Flatten() []string {
+	if len(s) == 0 {
+		return nil
+	}
+	out := make([]string, 0, s.NodeCount())
+	for _, nodes := range s {
+		out = append(out, nodes...)
+	}
+	return out
+}
+
 // String returns the string representation of the strata.
 func (s Strata) String() string {
 	return s.stringWithPrefix("")

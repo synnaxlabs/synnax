@@ -68,4 +68,27 @@ var _ = Describe("Strata", func() {
 			Expect(single.NodeCount()).To(Equal(3))
 		})
 	})
+
+	Describe("Flatten", func() {
+		It("Should return all node keys in stratum order", func() {
+			Expect(strata.Flatten()).To(Equal([]string{
+				"node1", "node2", "node3", "node4", "node5", "node6",
+			}))
+		})
+
+		It("Should return nil for empty strata", func() {
+			Expect(ir.Strata{}.Flatten()).To(BeNil())
+			Expect(ir.Strata(nil).Flatten()).To(BeNil())
+		})
+
+		It("Should handle a single stratum", func() {
+			single := ir.Strata{{"a", "b", "c"}}
+			Expect(single.Flatten()).To(Equal([]string{"a", "b", "c"}))
+		})
+
+		It("Should handle strata with empty strata mixed in", func() {
+			mixed := ir.Strata{{"a"}, {}, {"b", "c"}}
+			Expect(mixed.Flatten()).To(Equal([]string{"a", "b", "c"}))
+		})
+	})
 })

@@ -75,14 +75,13 @@ var _ = Describe("DecodeMsgpack", func() {
 		It("Should round-trip encode and decode", func() {
 			original := ir.Stage{
 				Key:    "stage1",
-				Nodes:  []string{"n1", "n2"},
 				Strata: ir.Strata{{"n1"}, {"n2"}},
 			}
 			data := MustSucceed(msgpack.Marshal(original))
 			var decoded ir.Stage
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("stage1"))
-			Expect(decoded.Nodes).To(Equal([]string{"n1", "n2"}))
+			Expect(decoded.Strata).To(Equal(ir.Strata{{"n1"}, {"n2"}}))
 		})
 	})
 
@@ -91,7 +90,7 @@ var _ = Describe("DecodeMsgpack", func() {
 			original := ir.Sequence{
 				Key: "seq1",
 				Steps: []ir.Step{
-					{Key: "s1", Stage: &ir.Stage{Key: "s1", Nodes: []string{"n1"}}},
+					{Key: "s1", Stage: &ir.Stage{Key: "s1", Strata: ir.Strata{{"n1"}}}},
 				},
 			}
 			data := MustSucceed(msgpack.Marshal(original))

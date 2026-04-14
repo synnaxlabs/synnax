@@ -68,7 +68,6 @@ inline x::json::json Flow::to_json() const {
 inline Stage Stage::parse(x::json::Parser parser) {
     return Stage{
         .key = parser.field<std::string>("key"),
-        .nodes = parser.field<std::vector<std::string>>("nodes"),
         .strata = parser.field<Strata>("strata"),
         .sequences = parser.field<Sequences>("sequences"),
     };
@@ -77,7 +76,6 @@ inline Stage Stage::parse(x::json::Parser parser) {
 inline x::json::json Stage::to_json() const {
     x::json::json j;
     j["key"] = this->key;
-    j["nodes"] = this->nodes;
     j["strata"] = this->strata.to_json();
     j["sequences"] = this->sequences.to_json();
     return j;

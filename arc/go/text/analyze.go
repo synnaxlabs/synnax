@@ -997,9 +997,10 @@ func analyzeStage(
 		stageName = id.GetText()
 	}
 	var (
-		stg   = ir.Stage{Key: stageName}
-		nodes []ir.Node
-		edges []ir.Edge
+		stg       = ir.Stage{Key: stageName}
+		nodes     []ir.Node
+		edges     []ir.Edge
+		stageKeys []string
 	)
 
 	entryNode := ir.Node{
@@ -1025,7 +1026,7 @@ func analyzeStage(
 			edges = append(edges, itemEdges...)
 
 			for _, n := range itemNodes {
-				stg.Nodes = append(stg.Nodes, n.Key)
+				stageKeys = append(stageKeys, n.Key)
 			}
 			continue
 		}
@@ -1035,7 +1036,7 @@ func analyzeStage(
 				return ir.Stage{}, nil, nil, false
 			}
 			nodes = append(nodes, node)
-			stg.Nodes = append(stg.Nodes, node.Key)
+			stageKeys = append(stageKeys, node.Key)
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
@@ -1059,6 +1060,9 @@ func analyzeStage(
 		}
 	}
 
+	if len(stageKeys) > 0 {
+		stg.Strata = ir.Strata{stageKeys}
+	}
 	return stg, nodes, edges, true
 }
 

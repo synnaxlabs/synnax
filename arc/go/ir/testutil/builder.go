@@ -87,12 +87,10 @@ func (b *IRBuilder) Strata(s [][]string) *IRBuilder {
 func (b *IRBuilder) Sequence(key string, stages []StageSpec) *IRBuilder {
 	seq := ir.Sequence{Key: key}
 	for _, spec := range stages {
-		nodes := collectNodes(spec.Strata)
 		seq.Steps = append(seq.Steps, ir.Step{
 			Key: spec.Key,
 			Stage: &ir.Stage{
 				Key:    spec.Key,
-				Nodes:  nodes,
 				Strata: spec.Strata,
 			},
 		})
@@ -104,13 +102,4 @@ func (b *IRBuilder) Sequence(key string, stages []StageSpec) *IRBuilder {
 // Build returns the constructed IR.
 func (b *IRBuilder) Build() ir.IR {
 	return b.prog
-}
-
-// collectNodes extracts all node keys from strata.
-func collectNodes(strata ir.Strata) []string {
-	var nodes []string
-	for _, stratum := range strata {
-		nodes = append(nodes, stratum...)
-	}
-	return nodes
 }

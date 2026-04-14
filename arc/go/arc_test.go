@@ -132,7 +132,7 @@ var _ = Describe("Arc", func() {
 		Expect(seq.Entry().Key).To(Equal("init"))
 
 		initStage := MustBeOk(seq.FindStep("init"))
-		Expect(initStage.Stage.Nodes).To(HaveLen(2))
+		Expect(initStage.StageNodes()).To(HaveLen(2))
 
 		Expect(mod.Nodes).To(HaveLen(3))
 		entryNode := findNodeByType(mod.Nodes, "stage_entry")
@@ -200,10 +200,10 @@ sequence main {
 		Expect(seq.Steps).To(HaveLen(2))
 
 		pressStage := MustBeOk(seq.FindStep("press"))
-		Expect(pressStage.Stage.Nodes).ToNot(BeEmpty())
+		Expect(pressStage.StageNodes()).ToNot(BeEmpty())
 
 		stopStage := MustBeOk(seq.FindStep("stop"))
-		Expect(stopStage.Stage.Nodes).ToNot(BeEmpty())
+		Expect(stopStage.StageNodes()).ToNot(BeEmpty())
 
 		nextStage := MustBeOk(seq.NextStep("press"))
 		Expect(nextStage.Key).To(Equal("stop"))
@@ -501,7 +501,7 @@ stage abort {
 			Expect(seq.Steps).To(HaveLen(1))
 			Expect(seq.Steps[0].IsStage()).To(BeTrue())
 			Expect(seq.Steps[0].Key).To(Equal("abort"))
-			Expect(seq.Steps[0].Stage.Nodes).ToNot(BeEmpty())
+			Expect(seq.Steps[0].StageNodes()).ToNot(BeEmpty())
 		})
 
 		It("Should allow => name from a sequence stage to a top-level stage", func(ctx SpecContext) {
@@ -640,7 +640,7 @@ stage abort {
 			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("abort"))
 			Expect(rSeq.Steps).To(HaveLen(1))
 			Expect(rSeq.Steps[0].IsStage()).To(BeTrue())
-			Expect(rSeq.Steps[0].Stage.Nodes).ToNot(BeEmpty())
+			Expect(rSeq.Steps[0].StageNodes()).ToNot(BeEmpty())
 		})
 	})
 })

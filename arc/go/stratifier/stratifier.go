@@ -117,7 +117,7 @@ func collectOwnedNodes(seq ir.Sequence, owned *set.Set[string], entryNodes *set.
 		entryNodes.Add(entryKey(seq.Key, step.Key))
 		switch {
 		case step.Stage != nil:
-			for _, nodeKey := range step.Stage.Nodes {
+			for _, nodeKey := range step.Stage.Strata.Flatten() {
 				owned.Add(nodeKey)
 			}
 			for _, subSeq := range step.Stage.Sequences {
@@ -260,13 +260,14 @@ func stratifyStage(
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {
 	stage := step.Stage
+	stageNodeKeys := stage.Strata.Flatten()
 
 	stageNodeSet := make(set.Set[string])
-	for _, nodeKey := range stage.Nodes {
+	for _, nodeKey := range stageNodeKeys {
 		stageNodeSet.Add(nodeKey)
 	}
 
-	orderedStageKeys := append([]string(nil), stage.Nodes...)
+	orderedStageKeys := append([]string(nil), stageNodeKeys...)
 	orderedStageSet := make(set.Set[string])
 	for _, key := range orderedStageKeys {
 		orderedStageSet.Add(key)

@@ -48,12 +48,10 @@ message StratumWrapper {
 message Stage {
   // key is the stage identifier.
   string key = 1;
-  // nodes contains node keys active in this stage.
-  repeated string nodes = 2;
   // strata contains execution stratification for nodes in this stage.
-  repeated StratumWrapper strata = 3;
+  repeated StratumWrapper strata = 2;
   // sequences contains inline sub-sequences nested within this stage.
-  repeated Sequence sequences = 4;
+  repeated Sequence sequences = 3;
 }
 
 // Step is a tagged union representing a single child of a sequence. Exactly one of

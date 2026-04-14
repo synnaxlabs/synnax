@@ -103,9 +103,6 @@ public:
             Stage stage;
             stage.key = stage_key;
             stage.strata.assign(stage_strata.begin(), stage_strata.end());
-            for (const auto &stratum: stage.strata)
-                for (const auto &node_key: stratum)
-                    stage.nodes.push_back(node_key);
             Step step;
             step.key = stage_key;
             step.stage = x::mem::indirect<Stage>(std::move(stage));

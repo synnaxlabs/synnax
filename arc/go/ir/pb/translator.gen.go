@@ -186,7 +186,6 @@ func StageToPB(r ir.Stage) (*Stage, error) {
 	}
 	pb := &Stage{
 		Key:       r.Key,
-		Nodes:     r.Nodes,
 		Strata:    lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 		Sequences: sequencesVal,
 	}
@@ -205,7 +204,6 @@ func StageFromPB(pb *Stage) (ir.Stage, error) {
 		return ir.Stage{}, err
 	}
 	r.Key = pb.Key
-	r.Nodes = pb.Nodes
 	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	return r, nil
 }
