@@ -69,17 +69,19 @@ class StagelessWorkflow(ArcConsoleCase):
         self.set_manual_timeout(60)
 
     def verify_sequence_execution(self) -> None:
-        self.log("Waiting for first cascade (sw_a, sw_b, sw_c all = 1)...")
-        self.wait_for_eq(
-            "sw_a", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
+        self.log("Waiting for first cascade (sw_a = 1)...")
+        self.wait_for_eq("sw_a", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.log(
+            "sw_a=1 observed; verifying sw_b and sw_c cascaded on same cycle "
+            "(all three writes must be visible within 100ms of sw_a)..."
         )
         self.wait_for_eq(
-            "sw_b", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
+            "sw_b", 1, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
         )
         self.wait_for_eq(
-            "sw_c", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
+            "sw_c", 1, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
         )
-        self.log("First cascade observed")
+        self.log("First cascade observed on a single tick")
 
         self.log(
             "Driving sw_pressure=10 (below gate threshold) and waiting for "
@@ -87,24 +89,30 @@ class StagelessWorkflow(ArcConsoleCase):
         )
         self.writer.write("sw_pressure", 10.0)
         sy.sleep(1.5)
-        a_value = self.read_tlm("sw_a", default=1)
+        a_value = self.read_tlm("sw_a")
+        if a_value is None:
+            self.fail(
+                "sw_a has no buffered value; cannot verify gate held. "
+                "Streamer did not deliver any reading after trigger."
+            )
+            return
         if a_value != 1:
             self.fail(
                 f"sw_a={a_value} after wait elapsed but expression gate "
                 "should still be blocking; sequence should not have advanced"
             )
+            return
         self.log("Sequence correctly held at expression gate")
 
         self.log("Driving sw_pressure=75 (above gate threshold)")
         self.writer.write("sw_pressure", 75.0)
-        self.log("Waiting for second cascade (sw_a, sw_b, sw_c all = 0)...")
+        self.log("Waiting for second cascade (sw_a = 0)...")
+        self.wait_for_eq("sw_a", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.log("sw_a=0 observed; verifying sw_b and sw_c cascaded on same cycle...")
         self.wait_for_eq(
-            "sw_a", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
+            "sw_b", 0, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
         )
         self.wait_for_eq(
-            "sw_b", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
+            "sw_c", 0, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
         )
-        self.wait_for_eq(
-            "sw_c", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
-        )
-        self.log("Second cascade fired after gate opened")
+        self.log("Second cascade fired on a single tick after gate opened")

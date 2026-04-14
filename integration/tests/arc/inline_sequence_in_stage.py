@@ -87,8 +87,7 @@ class InlineSequenceInStage(ArcConsoleCase):
         self.log("Sequence transitioned to exit stage")
 
         self.log(
-            "Driving iss_pressure=150 (above exit -> fire backward jump "
-            "threshold)"
+            "Driving iss_pressure=150 (above exit -> fire backward jump threshold)"
         )
         self.writer.write("iss_pressure", 150.0)
         self.log(
@@ -99,3 +98,27 @@ class InlineSequenceInStage(ArcConsoleCase):
             "iss_ox_cmd", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
         )
         self.log("Sub-sequence reset on parent stage re-entry")
+
+        self.log(
+            "Verifying exit's iss_vent_cmd=1 write does not re-apply after "
+            "fire re-entry (exit stage must fully deactivate)..."
+        )
+        sy.sleep(1.0)
+        self.writer.write("iss_vent_cmd", 0)
+        sy.sleep(1.0)
+        vent_value = self.read_tlm("iss_vent_cmd")
+        if vent_value is None:
+            self.fail(
+                "iss_vent_cmd has no buffered value; cannot verify exit "
+                "stage deactivated."
+            )
+            return
+        if vent_value != 0:
+            self.fail(
+                f"iss_vent_cmd={vent_value} after manual reset to 0 while "
+                "in fire stage. The exit stage's write is still applying, "
+                "which means the stage did not fully deactivate on the "
+                "backward transition."
+            )
+            return
+        self.log("Exit stage's writes correctly stopped applying after re-entry")
