@@ -402,7 +402,7 @@ func (s *Scheduler) transitionStep() {
 	s.transitioned = true
 }
 
-// activateStep activates a step, resetting its nodes per RFC 7.6.
+// activateStep activates a step, resetting its nodes on entry.
 func (s *Scheduler) activateStep(seq *sequenceState, stepIdx int) {
 	seq.activeStepIdx = stepIdx
 	step := &seq.steps[stepIdx]

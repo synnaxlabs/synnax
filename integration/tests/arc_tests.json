@@ -44,6 +44,34 @@
         {
           "case": "arc/stage_routing",
           "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/stageless_sequence",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/expression_gate",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/inline_stage_in_sequence",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/write_cascading",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/anonymous_stages",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/inline_sequence_in_stage",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/backward_jump",
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     },

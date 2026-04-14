@@ -119,6 +119,8 @@ std::string Sequence::to_string() const {
 std::string Sequence::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << this->key;
+    if (!this->strata.empty())
+        ss << "\n" << this->strata.to_string_with_prefix(prefix);
     for (size_t i = 0; i < this->steps.size(); ++i) {
         bool last = (i == this->steps.size() - 1);
         ss << "\n" << prefix << tree_prefix(last);

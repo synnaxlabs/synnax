@@ -2716,6 +2716,126 @@ TEST_F(SchedulerTest, testSkipsUnregisteredStageStepBoundary) {
     ASSERT_EQ(flow_node.next_called, 1);
 }
 
+/// @brief Regression mirroring the integration test "Inline stage in
+/// sequence" with the IR shape the Go compiler actually produces:
+///   - flow steps have multiple data nodes (constant + write)
+///   - the inline stage has its own data nodes (on-channel + expression)
+///     with an internal multi-stratum layout
+///   - stage's expression auto-wires to the next step's entry via a
+///     conditional edge
+///   - parent sequence's strata co-mingle the data nodes from BOTH flow
+///     steps with the stage step's boundary key in stratum 0
+TEST_F(SchedulerTest, testInlineStageInSequenceWithContent) {
+    auto &trigger = mock("trigger");
+    auto &entry_main_step_0 = mock("entry_main_step_0");
+    mock("entry_main_step_1");
+    mock("entry_main_step_2");
+    auto &const_0 = mock("const_0");
+    auto &write_0 = mock("write_0");
+    mock("const_1");
+    mock("write_1");
+    auto &on_pressure = mock("on_pressure");
+    mock("expr_cond");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_main_step_0.activate_on_next();
+    const_0.mark_on_next("output");
+    const_0.param_truthy["output"] = true;
+    write_0.mark_on_next("output");
+    write_0.param_truthy["output"] = true;
+    on_pressure.mark_on_next("output");
+    on_pressure.param_truthy["output"] = true;
+
+    ir::IR ir;
+    ir.nodes.push_back({.key = "trigger"});
+    ir.nodes.push_back({.key = "entry_main_step_0"});
+    ir.nodes.push_back({.key = "entry_main_step_1"});
+    ir.nodes.push_back({.key = "entry_main_step_2"});
+    ir.nodes.push_back({.key = "const_0"});
+    ir.nodes.push_back({.key = "write_0"});
+    ir.nodes.push_back({.key = "const_1"});
+    ir.nodes.push_back({.key = "write_1"});
+    ir.nodes.push_back({.key = "on_pressure"});
+    ir.nodes.push_back({.key = "expr_cond"});
+
+    ir.edges.push_back({
+        .source = {"trigger", "activate"},
+        .target = {"entry_main_step_0", "input"},
+        .kind = ir::EdgeKind::Conditional,
+    });
+    ir.edges.push_back({
+        .source = {"const_0", "output"},
+        .target = {"write_0", "input"},
+        .kind = ir::EdgeKind::Continuous,
+    });
+    ir.edges.push_back({
+        .source = {"const_1", "output"},
+        .target = {"write_1", "input"},
+        .kind = ir::EdgeKind::Continuous,
+    });
+    ir.edges.push_back({
+        .source = {"write_0", "output"},
+        .target = {"entry_main_step_1", "activate"},
+        .kind = ir::EdgeKind::Conditional,
+    });
+    ir.edges.push_back({
+        .source = {"on_pressure", "output"},
+        .target = {"expr_cond", "input"},
+        .kind = ir::EdgeKind::Continuous,
+    });
+    ir.edges.push_back({
+        .source = {"expr_cond", "output"},
+        .target = {"entry_main_step_2", "activate"},
+        .kind = ir::EdgeKind::Conditional,
+    });
+    ir.root.strata.push_back({"trigger"});
+    ir.root.strata.push_back({"entry_main_step_0"});
+
+    ir::Sequence main_seq;
+    main_seq.key = "main";
+
+    ir::Step flow0;
+    flow0.key = "step_0";
+    flow0.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow0.flow->nodes = {"const_0", "write_0"};
+    main_seq.steps.push_back(std::move(flow0));
+
+    ir::Stage stage;
+    stage.key = "step_1";
+    stage.nodes = {"on_pressure", "expr_cond"};
+    stage.strata.push_back({"on_pressure"});
+    stage.strata.push_back({"expr_cond"});
+    // Mirror production: the next-step entry is wired to expression_X.output
+    // and ends up in the stage's strata (allowing => next to fire from
+    // within the stage). This is the exact shape produced by the Go
+    // stratifier's stratifyStage function.
+    stage.strata.push_back({"entry_main_step_2"});
+    ir::Step stage_step;
+    stage_step.key = "step_1";
+    stage_step.stage = x::mem::indirect<ir::Stage>(std::move(stage));
+    main_seq.steps.push_back(std::move(stage_step));
+
+    ir::Step flow2;
+    flow2.key = "step_2";
+    flow2.flow = x::mem::indirect<ir::Flow>(ir::Flow{});
+    flow2.flow->nodes = {"const_1", "write_1"};
+    main_seq.steps.push_back(std::move(flow2));
+
+    main_seq.strata.push_back({"const_0", "const_1", "boundary_step_1"});
+    main_seq.strata.push_back({"write_0", "write_1"});
+    main_seq.strata.push_back({"entry_main_step_1", "entry_main_step_2"});
+    ir.root.sequences.push_back(std::move(main_seq));
+
+    const auto scheduler = build(std::move(ir));
+    ASSERT_NO_FATAL_FAILURE(
+        scheduler->next(x::telem::MICROSECOND, node::RunReason::TimerTick)
+    );
+
+    ASSERT_EQ(const_0.next_called, 1);
+    ASSERT_EQ(write_0.next_called, 1);
+}
+
 /// @brief it should cascade through three consecutive flow steps in one tick
 TEST_F(SchedulerTest, testThreeStepFlowCascade) {
     auto ir = build_flow_seq(*this, "seq", {"s0", "s1", "s2"});
