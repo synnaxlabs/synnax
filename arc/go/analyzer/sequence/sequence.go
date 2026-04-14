@@ -33,15 +33,16 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 }
 
 // collectSequenceDecl recursively registers a sequence and its children.
+// Anonymous inline sequences (no IDENTIFIER) get a synthetic name from
+// AutoName so the scope is still addressable via GetChildByParserRule.
 func collectSequenceDecl(
 	ctx context.Context[parser.ISequenceDeclarationContext],
 	parentScope *symbol.Scope,
 ) {
-	id := ctx.AST.IDENTIFIER()
-	if id == nil {
-		return
+	name := ""
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		name = id.GetText()
 	}
-	name := id.GetText()
 	seqScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
@@ -51,6 +52,9 @@ func collectSequenceDecl(
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
+	}
+	if name == "" {
+		seqScope.AutoName("seq_")
 	}
 	for _, item := range ctx.AST.AllSequenceItem() {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
@@ -63,15 +67,15 @@ func collectSequenceDecl(
 }
 
 // collectStageDecl registers a stage and any nested sequences within it.
+// Anonymous stages get a synthetic name so they remain addressable.
 func collectStageDecl(
 	ctx context.Context[parser.IStageDeclarationContext],
 	seqScope *symbol.Scope,
 ) {
-	id := ctx.AST.IDENTIFIER()
-	if id == nil {
-		return
+	stageName := ""
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		stageName = id.GetText()
 	}
-	stageName := id.GetText()
 	stageScope, err := seqScope.Add(ctx, symbol.Symbol{
 		Name: stageName,
 		Kind: symbol.KindStage,
@@ -81,6 +85,9 @@ func collectStageDecl(
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
+	}
+	if stageName == "" {
+		stageScope.AutoName("stage_")
 	}
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {
@@ -95,13 +102,18 @@ func collectStageDecl(
 
 // Analyze performs semantic analysis on a sequence declaration.
 // This is called during the second pass after all declarations have been collected.
+// For anonymous inline sequences, the scope is resolved by parser rule rather
+// than by name.
 func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
-	id := ctx.AST.IDENTIFIER()
-	if id == nil {
-		return
+	var (
+		seqScope *symbol.Scope
+		err      error
+	)
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		seqScope, err = ctx.Scope.Resolve(ctx, id.GetText())
+	} else {
+		seqScope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
 	}
-	name := id.GetText()
-	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
@@ -153,6 +165,13 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 	if stageBody == nil {
 		return
 	}
+	// Resolve the stage's own scope so nested sequences see their registered
+	// child scope. Top-level stages register at the root scope, so fall back
+	// to ctx.Scope when no child match is found.
+	stageScope := ctx.Scope
+	if scope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+		stageScope = scope
+	}
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			flow.Analyze(context.Child(ctx, flowStmt))
@@ -161,7 +180,7 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 			analyzeSingleInvocation(context.Child(ctx, single))
 		}
 		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			Analyze(context.Child(ctx, nestedSeq))
+			Analyze(context.Child(ctx, nestedSeq).WithScope(stageScope))
 		}
 	}
 }

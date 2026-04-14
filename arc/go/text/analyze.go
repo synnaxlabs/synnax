@@ -175,22 +175,31 @@ func analyzeSequenceRef(
 	seqSym *symbol.Scope,
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	firstStage, err := seqSym.FirstChildOfKind(symbol.KindStage)
-	if err == nil {
-		return newStageTransition(seqSym.Name, firstStage.Name, kg), true
-	}
 	// For top-level stages (AST is IStageDeclarationContext), the step key
 	// matches the sequence/stage name.
 	if _, ok := seqSym.AST.(parser.IStageDeclarationContext); ok {
 		return newStageTransition(seqSym.Name, seqSym.Name, kg), true
 	}
-	// For stageless sequences, the first step uses a generated key.
+	// For sequences, target the entry node of the first step. The step key
+	// matches the named stage/sequence identifier when present, otherwise
+	// the synthetic "step_N" key used by the text builder's prescan.
 	seqDecl, ok := seqSym.AST.(parser.ISequenceDeclarationContext)
 	if !ok || len(seqDecl.AllSequenceItem()) == 0 {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no steps", seqSym.Name))
 		return nodeResult{}, false
 	}
-	return newStageTransition(seqSym.Name, "step_0", kg), true
+	firstItem := seqDecl.AllSequenceItem()[0]
+	stepKey := "step_0"
+	if stageDecl := firstItem.StageDeclaration(); stageDecl != nil {
+		if id := stageDecl.IDENTIFIER(); id != nil {
+			stepKey = id.GetText()
+		}
+	} else if nestedSeq := firstItem.SequenceDeclaration(); nestedSeq != nil {
+		if id := nestedSeq.IDENTIFIER(); id != nil {
+			stepKey = id.GetText()
+		}
+	}
+	return newStageTransition(seqSym.Name, stepKey, kg), true
 }
 
 func analyzeStageRef(stageSym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
@@ -773,21 +782,24 @@ func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
 ) (ir.Sequence, []ir.Node, []ir.Edge, bool) {
-	seqName := ""
+	var seqScope *symbol.Scope
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		seqName = id.GetText()
-	}
-	seq := ir.Sequence{Key: seqName}
-
-	seqScope := ctx.Scope
-	if seqName != "" {
-		resolved, err := ctx.Scope.Resolve(ctx, seqName)
+		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return ir.Sequence{}, nil, nil, false
+		}
+		seqScope = resolved
+	} else {
+		resolved, err := ctx.Scope.GetChildByParserRule(ctx.AST)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return ir.Sequence{}, nil, nil, false
 		}
 		seqScope = resolved
 	}
+	seqName := seqScope.Name
+	seq := ir.Sequence{Key: seqName}
 
 	// Pre-scan items to compute step keys and next-step keys.
 	items := ctx.AST.AllSequenceItem()
@@ -1014,10 +1026,16 @@ func analyzeStage(
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-			subSeq, subNodes, subEdges, ok := analyzeSequence(
-				acontext.Child(ctx, nestedSeqDecl),
-				kg,
-			)
+			// The inline sequence is registered as a child of this stage's
+			// scope, not the parent sequence's scope. Look up the stage's own
+			// scope so analyzeSequence can resolve the nested seq via parser
+			// rule. Top-level stages don't have their own scope entry; in
+			// that case keep ctx.Scope.
+			seqCtx := acontext.Child(ctx, nestedSeqDecl)
+			if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+				seqCtx = seqCtx.WithScope(stageScope)
+			}
+			subSeq, subNodes, subEdges, ok := analyzeSequence(seqCtx, kg)
 			if !ok {
 				return ir.Stage{}, nil, nil, false
 			}

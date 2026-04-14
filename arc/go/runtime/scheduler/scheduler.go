@@ -285,7 +285,16 @@ func (s *Scheduler) execStrata(strata ir.Strata, activeSeq *sequenceState) {
 		for _, key := range stratum {
 			if subSeq, ok := s.boundaries[key]; ok {
 				if subSeq.activeStepIdx != -1 {
+					// Preserve the parent's changed/transitioned state across
+					// the recursive sub-context execution. execStrata clears
+					// changed on entry; without saving, propagations from
+					// earlier nodes in this stratum would be lost.
+					savedChanged := s.changed
+					savedTransitioned := s.transitioned
+					s.changed = make(set.Set[string])
 					s.execSequenceStep(subSeq)
+					s.changed = savedChanged
+					s.transitioned = savedTransitioned
 				}
 				continue
 			}

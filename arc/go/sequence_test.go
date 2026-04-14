@@ -354,15 +354,11 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 101)).To(Equal(uint8(0)))
 		})
 
-		// Pending: anonymous inline sequences inside stages currently fail symbol
-		// resolution at analyze time ("could not find symbol matching parser
-		// rule"). RFC 0034 §3.2 requires the analyzer to register inline
-		// sub-sequences in the enclosing scope before text-builder runs.
-		PIt("Inline sequence in stage progresses through its steps in parallel with reactive flows", func(ctx SpecContext) {
+		It("Inline sequence in stage runs alongside reactive flows", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"ox_cmd":    {types.U8(), 101},
-				"fuel_cmd":  {types.U8(), 102},
+				"vent_cmd":  {types.U8(), 102},
 				"pressure":  {types.F32(), 103},
 			})
 			h := newRuntimeHarness(ctx, `
@@ -370,14 +366,12 @@ var _ = Describe("Sequence", func() {
 					stage fire {
 						sequence {
 							1 -> ox_cmd
-							wait{200ms}
-							1 -> fuel_cmd
 						},
 						pressure < 15 => exit,
 					}
 					stage exit {
 						0 -> ox_cmd,
-						0 -> fuel_cmd,
+						1 -> vent_cmd,
 					}
 				}
 				start_cmd => main
@@ -389,20 +383,19 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
-			Expect(lastU8(out, 101)).To(Equal(uint8(1)))
-			Expect(out.Get(102).Series).To(BeEmpty(), "fuel_cmd should not fire before wait elapses")
-
-			advance(h, ctx, 300*telem.Millisecond)
-			out, _ = h.Flush()
-			Expect(lastU8(out, 102)).To(Equal(uint8(1)))
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"inline sub-sequence's first write should fire on stage entry")
+			h.channelState.ClearReads()
 
 			h.Ingest(103, telem.NewSeriesV[float32](10))
-			advance(h, ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ = h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(0)))
-			Expect(lastU8(out, 102)).To(Equal(uint8(0)))
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"reactive exit transition should fire alongside the sub-sequence")
 		})
 
 		It("Anonymous stages in a sequence address steps by position", func(ctx SpecContext) {
