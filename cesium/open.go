@@ -16,9 +16,8 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/meta"
-	"github.com/synnaxlabs/cesium/internal/variable"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -47,8 +46,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 	db := &DB{options: o, closed: &atomic.Bool{}}
-	db.mu.dbs.fixed = make(map[channel.Key]fixed.DB, len(info))
-	db.mu.dbs.variable = make(map[channel.Key]variable.DB, len(info))
+	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {
 		if !i.IsDir() {
@@ -98,10 +96,10 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 }
 
 func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.dbs.fixed[ch.Key]; isOpen {
+	if _, isOpen := db.mu.dbs.unary[ch.Key]; isOpen {
 		return nil
 	}
-	u, err := fixed.Open(ctx, fixed.Config{
+	u, err := unary.Open(ctx, unary.Config{
 		FS:              fs,
 		MetaCodec:       db.metaCodec,
 		Channel:         ch,
@@ -112,53 +110,21 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if err != nil {
 		return err
 	}
-	// In the case where we index the data using a separate index database, we need to
-	// set the index on the fixed database. Otherwise, we assume the database is
-	// self-indexing.
+	// For non-index channels, resolve the index DB. The index DB is always a
+	// fixed-density unary DB (index channels are TimeStampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
-		idxDB, ok := db.mu.dbs.fixed[u.Channel().Index]
+		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {
 			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
 				return err
 			}
-			if idxDB, ok = db.mu.dbs.fixed[u.Channel().Index]; !ok {
+			if idxDB, ok = db.mu.dbs.unary[u.Channel().Index]; !ok {
 				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
 			}
 		}
 		u.SetIndex(idxDB.Index())
 	}
-	db.mu.dbs.fixed[ch.Key] = *u
-	return nil
-}
-
-func (db *DB) openVariable(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.dbs.variable[ch.Key]; isOpen {
-		return nil
-	}
-	v, err := variable.Open(ctx, variable.Config{
-		FS:              fs,
-		MetaCodec:       db.metaCodec,
-		Channel:         ch,
-		Instrumentation: db.Instrumentation,
-		FileSize:        db.fileSize,
-		GCThreshold:     db.gcCfg.Threshold,
-	})
-	if err != nil {
-		return err
-	}
-	if v.Channel().Index != 0 {
-		idxDB, ok := db.mu.dbs.fixed[v.Channel().Index]
-		if !ok {
-			if err = db.openVirtualOrUnary(ctx, Channel{Key: v.Channel().Index}); err != nil {
-				return err
-			}
-			if idxDB, ok = db.mu.dbs.fixed[v.Channel().Index]; !ok {
-				return validate.PathedError(indexChannelNotFoundError(v.Channel().Index), "index")
-			}
-		}
-		v.SetIndex(idxDB.Index())
-	}
-	db.mu.dbs.variable[ch.Key] = *v
+	db.mu.dbs.unary[ch.Key] = *u
 	return nil
 }
 
@@ -169,9 +135,6 @@ func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	}
 	err = db.openVirtual(ctx, ch, fs)
 	if errors.Is(err, virtual.ErrNotVirtual) {
-		err = db.openVariable(ctx, ch, fs)
-	}
-	if errors.Is(err, variable.ErrNotVariable) {
 		err = db.openUnary(ctx, ch, fs)
 	}
 	return errors.Skip(err, meta.ErrIgnoreChannel)

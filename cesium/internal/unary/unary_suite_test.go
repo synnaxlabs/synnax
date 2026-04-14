@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package variable_test
+package unary_test
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ var (
 	codec       = json.Codec
 )
 
-func TestVariable(t *testing.T) {
+func TestUnary(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Variable Suite")
+	RunSpecs(t, "Unary Suite")
 }

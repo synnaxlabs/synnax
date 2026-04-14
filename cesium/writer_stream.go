@@ -14,9 +14,8 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/fixed"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/variable"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -195,14 +194,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 
 	for _, idx := range w.internal {
-		for _, chW := range idx.internal.fixed {
-			if auth, ok := getAuth(chW.Channel.Key); ok {
-				if t := chW.SetAuthority(auth); t.Occurred() {
-					u.Transfers = append(u.Transfers, t)
-				}
-			}
-		}
-		for _, chW := range idx.internal.variable {
+		for _, chW := range idx.internal {
 			if auth, ok := getAuth(chW.Channel.Key); ok {
 				if t := chW.SetAuthority(auth); t.Occurred() {
 					u.Transfers = append(u.Transfers, t)
@@ -327,18 +319,15 @@ func (w *streamWriter) close(ctx context.Context) error {
 	return err
 }
 
-type fixedWriterState struct {
-	fixed.Writer
+type unaryWriterState struct {
+	unary.Writer
 	timesWritten int
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
-	internal struct {
-		fixed    map[ChannelKey]*fixedWriterState
-		variable map[ChannelKey]*variableWriterState
-	}
-	idx struct {
+	internal map[ChannelKey]*unaryWriterState
+	idx      struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		*index.Domain
 		// Key is the channel key of the index.
@@ -388,46 +377,31 @@ func (w *idxWriter) write(
 		if series.Len() == 0 {
 			continue
 		}
-		if uWriter, ok := w.internal.fixed[key]; ok {
-			if w.writingToIdx && w.idx.ch.Key == key {
-				if err = w.updateHighWater(series); err != nil {
-					return fr, err
-				}
-			}
-			alignment, err := uWriter.Write(series)
-			if err != nil {
-				accumulatedErr = err
-				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-					return fr, accumulatedErr
-				}
-				*excludeUnauthorized = append(*excludeUnauthorized, key)
-				continue
-			}
-			if !incrementedSampleCount {
-				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
-				incrementedSampleCount = true
-				w.hasUncommittedData = true
-			}
-			series.Alignment = alignment
-			fr.SetRawSeriesAt(i, series)
-		} else if vWriter, ok := w.internal.variable[key]; ok {
-			alignment, err := vWriter.Write(series)
-			if err != nil {
-				accumulatedErr = err
-				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-					return fr, accumulatedErr
-				}
-				*excludeUnauthorized = append(*excludeUnauthorized, key)
-				continue
-			}
-			if !incrementedSampleCount {
-				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
-				incrementedSampleCount = true
-				w.hasUncommittedData = true
-			}
-			series.Alignment = alignment
-			fr.SetRawSeriesAt(i, series)
+		uWriter, ok := w.internal[key]
+		if !ok {
+			continue
 		}
+		if w.writingToIdx && w.idx.ch.Key == key {
+			if err = w.updateHighWater(series); err != nil {
+				return fr, err
+			}
+		}
+		alignment, err := uWriter.Write(series)
+		if err != nil {
+			accumulatedErr = err
+			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+				return fr, accumulatedErr
+			}
+			*excludeUnauthorized = append(*excludeUnauthorized, key)
+			continue
+		}
+		if !incrementedSampleCount {
+			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			incrementedSampleCount = true
+			w.hasUncommittedData = true
+		}
+		series.Alignment = alignment
+		fr.SetRawSeriesAt(i, series)
 	}
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.hasUncommittedData = false
@@ -445,10 +419,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	for _, chW := range w.internal.fixed {
-		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
-	}
-	for _, chW := range w.internal.variable {
+	for _, chW := range w.internal {
 		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
 	}
 	if err == nil {
@@ -466,18 +437,10 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 func (w *idxWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{
-		Transfers: make([]control.Transfer, 0, len(w.internal.fixed)+len(w.internal.variable)),
+		Transfers: make([]control.Transfer, 0, len(w.internal)),
 	}
-	for _, fixedWriter := range w.internal.fixed {
-		transfer, closeErr := fixedWriter.Close()
-		if closeErr != nil {
-			err = errors.Join(err, closeErr)
-		} else if transfer.Occurred() {
-			update.Transfers = append(update.Transfers, transfer)
-		}
-	}
-	for _, varWriter := range w.internal.variable {
-		transfer, closeErr := varWriter.Close()
+	for _, uWriter := range w.internal {
+		transfer, closeErr := uWriter.Close()
 		if closeErr != nil {
 			err = errors.Join(err, closeErr)
 		} else if transfer.Occurred() {
@@ -563,38 +526,28 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	var (
 		lengthOfFrame        int64 = -1
 		numChannelsWrittenTo       = 0
-		expectedChannels           = len(w.internal.fixed) + len(w.internal.variable)
+		expectedChannels           = len(w.internal)
 	)
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		s := fr.RawSeriesAt(rawI)
-		var ch Channel
-		if uWriter, ok := w.internal.fixed[k]; ok {
-			ch = uWriter.Channel
-			if lengthOfFrame == -1 {
-				if s.DataType.Density() == telem.UnknownDensity {
-					return invalidDataTypeError(ch, s.DataType)
-				}
-				lengthOfFrame = s.Len()
-			}
-			if uWriter.timesWritten == w.numWriteCalls {
-				return oneSeriesPerChannelError(ch)
-			}
-			uWriter.timesWritten++
-		} else if vWriter, ok := w.internal.variable[k]; ok {
-			ch = vWriter.Channel
-			if lengthOfFrame == -1 {
-				lengthOfFrame = s.Len()
-			}
-			if vWriter.timesWritten == w.numWriteCalls {
-				return oneSeriesPerChannelError(ch)
-			}
-			vWriter.timesWritten++
-		} else {
+		uWriter, ok := w.internal[k]
+		if !ok {
 			continue
 		}
+		ch := uWriter.Channel
+		if lengthOfFrame == -1 {
+			if !ch.DataType.IsVariable() && s.DataType.Density() == telem.UnknownDensity {
+				return invalidDataTypeError(ch, s.DataType)
+			}
+			lengthOfFrame = s.Len()
+		}
+		if uWriter.timesWritten == w.numWriteCalls {
+			return oneSeriesPerChannelError(ch)
+		}
+		uWriter.timesWritten++
 
 		if s.Len() != lengthOfFrame {
 			return sameLengthForAllSeriesError(ch, lengthOfFrame, s)
@@ -609,27 +562,10 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	if numChannelsWrittenTo != expectedChannels {
 		if numChannelsWrittenTo < expectedChannels {
 			keys := set.FromSlice(fr.KeysSlice())
-			for k, db := range w.internal.fixed {
+			for k, db := range w.internal {
 				if !keys.Contains(k) {
 					dataChannels := make([]Channel, 0, expectedChannels)
-					for otherK, other := range w.internal.fixed {
-						if otherK != k {
-							dataChannels = append(dataChannels, other.Channel)
-						}
-					}
-					for _, other := range w.internal.variable {
-						dataChannels = append(dataChannels, other.Channel)
-					}
-					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
-				}
-			}
-			for k, db := range w.internal.variable {
-				if !keys.Contains(k) {
-					dataChannels := make([]Channel, 0, expectedChannels)
-					for _, other := range w.internal.fixed {
-						dataChannels = append(dataChannels, other.Channel)
-					}
-					for otherK, other := range w.internal.variable {
+					for otherK, other := range w.internal {
 						if otherK != k {
 							dataChannels = append(dataChannels, other.Channel)
 						}
@@ -662,11 +598,6 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
 	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
-}
-
-type variableWriterState struct {
-	variable.Writer
-	timesWritten int
 }
 
 type virtualWriter struct {

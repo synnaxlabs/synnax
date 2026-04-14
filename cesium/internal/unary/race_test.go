@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fixed_test
+package unary_test
 
 import (
 	"sync"
@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/fixed"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,15 +29,15 @@ var _ = Describe("Unary racing", func() {
 				fs                fs.FS
 				cleanUp           func() error
 				indexKey, dataKey channel.Key
-				indexDB           *fixed.DB
-				dataDB            *fixed.DB
+				indexDB           *unary.DB
+				dataDB            *unary.DB
 			)
 			BeforeEach(func(ctx SpecContext) {
 				indexKey = GenerateChannelKey()
 				dataKey = GenerateChannelKey()
 				fs, cleanUp = makeFS()
 				indexFS, dataFS := MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
-				indexDB = MustSucceed(fixed.Open(ctx, fixed.Config{
+				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: channel.Channel{
@@ -49,7 +49,7 @@ var _ = Describe("Unary racing", func() {
 					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(fixed.Open(ctx, fixed.Config{
+				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataFS,
 					MetaCodec: codec,
 					Channel: channel.Channel{
@@ -72,8 +72,8 @@ var _ = Describe("Unary racing", func() {
 
 			Describe("Multiple deletes", func() {
 				Specify("Overlapping regions – index", func(ctx SpecContext) {
-					Expect(fixed.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
-					Expect(fixed.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
+					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
 
 					var wg sync.WaitGroup
 					wg.Add(4)

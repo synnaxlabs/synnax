@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fixed
+package unary
 
 import (
 	"context"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -29,13 +30,34 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	return db.wrapError(db.delete(ctx, tr))
 }
 
-// GarbageCollect removes unused telemetry data in the fixedDB. It is NOT safe to call
+// GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
 // concurrently with other GarbageCollect methods.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	return db.wrapError(db.domain.GarbageCollect(ctx))
+	if err := db.domain.GarbageCollect(ctx); err != nil {
+		return db.wrapError(err)
+	}
+	db.resolver.invalidate()
+	return nil
+}
+
+// resolveByteOffset opens a short-lived domain iterator at domainStart and asks
+// the resolver for the byte offset of the given sample index. Used by the
+// delete path, where calculateStart/EndOffset are invoked as closures without
+// access to an existing iterator.
+func (db *DB) resolveByteOffset(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	sampleOffset int64,
+) (telem.Size, error) {
+	iter := db.domain.OpenIterator(domain.IterRange(domainStart.SpanRange(telem.TimeSpanMax)))
+	defer func() { _ = iter.Close() }()
+	if !iter.SeekGE(ctx, domainStart) {
+		return 0, errors.Newf("cannot find domain starting at %s", domainStart)
+	}
+	return db.resolver.byteOffset(ctx, iter, sampleOffset)
 }
 
 func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (release func(), err error) {
@@ -60,7 +82,11 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 	defer release()
-	return db.domain.Delete(ctx, tr, db.calculateStartOffset, db.calculateEndOffset)
+	if err := db.domain.Delete(ctx, tr, db.calculateStartOffset, db.calculateEndOffset); err != nil {
+		return err
+	}
+	db.resolver.invalidate()
+	return nil
 }
 
 // calculateStartOffset calculates the distance from a domain's start to the given time
@@ -115,7 +141,6 @@ func (db *DB) calculateStartOffset(
 	var (
 		sampleOffset int64
 		approxStamp  index.TimeStampApproximation
-		density      = db.cfg.Channel.DataType.Density()
 	)
 
 	approxDist, _, err := db.index().Distance(
@@ -135,7 +160,8 @@ func (db *DB) calculateStartOffset(
 			// We stamp to sampleOffset - 1 here since if we are approximating the start
 			// sampleOffset, we want to stamp the last written sample.
 			if sampleOffset == 0 {
-				return density.Size(sampleOffset), ts, nil
+				byteOff, err := db.resolveByteOffset(ctx, domainStart, sampleOffset)
+				return byteOff, ts, err
 			}
 			approxStamp, err = db.index().Stamp(
 				ctx,
@@ -174,7 +200,8 @@ func (db *DB) calculateStartOffset(
 			ts = approxStamp.Upper + 1
 		}
 	}
-	return density.Size(sampleOffset), ts, nil
+	byteOff, err := db.resolveByteOffset(ctx, domainStart, sampleOffset)
+	return byteOff, ts, err
 }
 
 // calculateEndOffset calculates the distance from a domain's start to the given time
@@ -192,7 +219,6 @@ func (db *DB) calculateEndOffset(
 	var (
 		sampleOffset int64
 		approxStamp  index.TimeStampApproximation
-		density      = db.cfg.Channel.DataType.Density()
 	)
 
 	approxDist, _, err := db.index().Distance(
@@ -247,5 +273,6 @@ func (db *DB) calculateEndOffset(
 			ts = approxStamp.Lower
 		}
 	}
-	return density.Size(sampleOffset), ts, nil
+	byteOff, err := db.resolveByteOffset(ctx, domainStart, sampleOffset)
+	return byteOff, ts, err
 }

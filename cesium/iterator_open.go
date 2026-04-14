@@ -11,8 +11,7 @@ package cesium
 
 import (
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/fixed"
-	"github.com/synnaxlabs/cesium/internal/variable"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -40,10 +39,7 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
-	var (
-		internal    []*fixed.Iterator
-		varInternal []*variable.Iterator
-	)
+	var internal []*unary.Iterator
 	defer func() {
 		if err == nil {
 			return
@@ -53,27 +49,17 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 				err = errors.Combine(err, iter.Close())
 			}
 		}
-		for _, iter := range varInternal {
-			if iter != nil {
-				err = errors.Combine(err, iter.Close())
-			}
-		}
 	}()
 	for _, key := range cfg.Channels {
-		if fDB, ok := db.mu.dbs.fixed[key]; ok {
-			iter, iterErr := fDB.OpenIterator(fixed.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
+		if uDB, ok := db.mu.dbs.unary[key]; ok {
+			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{
+				Bounds:        cfg.Bounds,
+				AutoChunkSize: cfg.AutoChunkSize,
+			})
 			if iterErr != nil {
 				return nil, iterErr
 			}
 			internal = append(internal, iter)
-			continue
-		}
-		if varDB, ok := db.mu.dbs.variable[key]; ok {
-			iter, iterErr := varDB.OpenIterator(variable.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
-			if iterErr != nil {
-				return nil, iterErr
-			}
-			varInternal = append(varInternal, iter)
 			continue
 		}
 		if vdb, ok := db.mu.dbs.virtual[key]; ok {
@@ -84,5 +70,5 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 		return nil, channel.NewNotFoundError(key)
 	}
-	return &streamIterator{internal: internal, varInternal: varInternal}, nil
+	return &streamIterator{internal: internal}, nil
 }
