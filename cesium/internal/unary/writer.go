@@ -157,7 +157,7 @@ type Writer struct {
 	idx *index.Domain
 	// tracker holds per-writer offset state (sample count and, for variable-length
 	// channels, the incremental offset table built as bytes are appended).
-	tracker offsetTracker
+	tracker *offsetTracker
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error

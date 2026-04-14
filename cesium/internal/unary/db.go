@@ -37,9 +37,9 @@ type DB struct {
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
-	// resolver handles sample-to-byte offset translation. Fixed-density channels use
-	// densityResolver; variable-length channels use cacheResolver.
-	resolver offsetResolver
+	// resolver handles sample-to-byte offset translation. Fixed-density channels
+	// carry a zero cache; variable-length channels carry a per-domain offset cache.
+	resolver *offsetResolver
 	// Config contains validated configuration parameters for the DB.
 	cfg Config
 }

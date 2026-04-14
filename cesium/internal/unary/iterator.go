@@ -61,7 +61,7 @@ type Iterator struct {
 	err      error
 	internal *domain.Iterator
 	idx      *index.Domain
-	resolver offsetResolver
+	resolver *offsetResolver
 	Channel  channel.Channel
 	frame    channel.Frame
 	IteratorConfig

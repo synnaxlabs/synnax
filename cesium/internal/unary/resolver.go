@@ -12,139 +12,136 @@ package unary
 import (
 	"context"
 	"encoding/binary"
+	"io"
+	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// offsetTracker is per-writer state that tracks sample counts and byte offsets
-// as samples are appended to a single domain writer. Writer holds one tracker
-// for its lifetime; iterators and deletes do not use trackers.
-//
-// Fixed-density channels derive their count directly from dw.Len(), so their
-// tracker is effectively stateless. Variable-length channels maintain an
-// incremental offset table populated by record so that count can answer in
-// O(1) without rescanning the raw byte stream.
-type offsetTracker interface {
-	// count returns the number of samples written to dw so far.
-	count(dw *domain.Writer) int64
-	// record is called immediately after data is appended to the domain writer.
-	// baseByteOffset is dw.Len() prior to the append. Stateless trackers may
-	// ignore the hook.
-	record(data []byte, baseByteOffset uint32)
+// offsetTable stores byte offsets for each sample in a single variable-length
+// domain. Offsets are uint32, matching domain.pointer.size; domains larger than
+// ~4GB are unsupported at the storage layer.
+type offsetTable struct {
+	offsets     []uint32
+	sampleCount int64
 }
 
-// offsetResolver is DB-wide state that resolves sample-to-byte offsets in
-// completed (read-path) domains. It is shared by Iterator and the Delete code
-// path; it is not used on the write hot path. Use newTracker to obtain a
-// per-writer offsetTracker from the same resolver instance.
-type offsetResolver interface {
-	// byteOffset returns the byte offset of the given sample index within the
-	// domain that iter is currently positioned at. If sampleIdx is greater than
-	// or equal to the domain's total sample count, the returned offset is the
-	// end-of-domain offset (telem.Size(iter.Size())).
-	byteOffset(
-		ctx context.Context,
-		iter *domain.Iterator,
-		sampleIdx int64,
-	) (telem.Size, error)
-	// domainSampleCount returns the sample count of the domain that iter is
-	// currently positioned at. Called by Iterator.approximateEnd when the view
-	// spans the whole domain.
-	domainSampleCount(ctx context.Context, iter *domain.Iterator) (int64, error)
-	// invalidate drops any cached per-domain state. Called after Delete and
-	// GarbageCollect mutate the underlying domain files.
-	invalidate()
-	// newTracker returns a fresh offsetTracker for a new writer session.
-	newTracker() offsetTracker
+func (t *offsetTable) byteOffsetAt(sampleIdx int64) telem.Size {
+	return telem.Size(t.offsets[sampleIdx])
 }
 
-// newResolver returns the resolver appropriate for the given data type:
-// densityResolver for fixed-density types, cacheResolver for variable-length
-// types.
-func newResolver(dt telem.DataType) offsetResolver {
+// offsetCache memoizes per-domain offset tables for variable-length channels.
+type offsetCache struct {
+	mu     sync.RWMutex
+	tables map[uint32]*offsetTable
+}
+
+func newOffsetCache() *offsetCache {
+	return &offsetCache{tables: make(map[uint32]*offsetTable)}
+}
+
+func (c *offsetCache) get(domainIdx uint32) (*offsetTable, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	t, ok := c.tables[domainIdx]
+	return t, ok
+}
+
+func (c *offsetCache) set(domainIdx uint32, t *offsetTable) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tables[domainIdx] = t
+}
+
+func (c *offsetCache) invalidateAll() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tables = make(map[uint32]*offsetTable)
+}
+
+func buildOffsetTable(r *domain.Reader, domainSize telem.Size) (*offsetTable, error) {
+	t := &offsetTable{}
+	buf := make([]byte, 4)
+	var pos int64
+	for pos+4 <= int64(domainSize) {
+		t.offsets = append(t.offsets, uint32(pos))
+		n, err := r.ReadAt(buf, pos)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if n < 4 {
+			break
+		}
+		length := int64(binary.LittleEndian.Uint32(buf))
+		pos += 4 + length
+		t.sampleCount++
+	}
+	return t, nil
+}
+
+// offsetResolver translates sample indices to byte offsets within domain files.
+// Fixed-density channels have a zero cache and rely on density arithmetic;
+// variable-length channels carry a per-domain offset cache that is built on
+// first access by scanning the length-prefixed records.
+type offsetResolver struct {
+	density telem.Density
+	cache   *offsetCache // nil for fixed-density channels
+}
+
+func newOffsetResolver(dt telem.DataType) *offsetResolver {
 	if dt.IsVariable() {
-		return &cacheResolver{cache: newOffsetCache()}
+		return &offsetResolver{cache: newOffsetCache()}
 	}
-	return densityResolver{density: dt.Density()}
+	return &offsetResolver{density: dt.Density()}
 }
 
-// densityResolver implements offsetResolver for fixed-density channels using
-// direct density arithmetic. It carries no state; invalidate is a no-op and
-// newTracker hands back a matching stateless tracker.
-type densityResolver struct{ density telem.Density }
-
-func (r densityResolver) byteOffset(
-	_ context.Context,
-	iter *domain.Iterator,
-	sampleIdx int64,
-) (telem.Size, error) {
-	total := r.density.SampleCount(telem.Size(iter.Size()))
-	if sampleIdx >= total {
-		return telem.Size(iter.Size()), nil
-	}
-	return r.density.Size(sampleIdx), nil
-}
-
-func (r densityResolver) domainSampleCount(
-	_ context.Context,
-	iter *domain.Iterator,
-) (int64, error) {
-	return r.density.SampleCount(telem.Size(iter.Size())), nil
-}
-
-func (densityResolver) invalidate() {}
-
-func (r densityResolver) newTracker() offsetTracker { return densityTracker{density: r.density} }
-
-// densityTracker is the offsetTracker counterpart to densityResolver.
-type densityTracker struct{ density telem.Density }
-
-func (t densityTracker) count(dw *domain.Writer) int64 {
-	return t.density.SampleCount(telem.Size(dw.Len()))
-}
-
-func (densityTracker) record([]byte, uint32) {}
-
-// cacheResolver implements offsetResolver for variable-length channels. It
-// maintains a per-domain offset table cache: on first access for a given
-// domain, the reader scans the file to build the table; subsequent accesses
-// hit the cache. Tables are dropped wholesale after Delete or GarbageCollect.
-type cacheResolver struct{ cache *offsetCache }
-
-func (r *cacheResolver) byteOffset(
+// byteOffset returns the byte offset of sampleIdx within iter's current domain.
+// If sampleIdx is past the domain's total sample count, returns the end-of-domain
+// byte offset.
+func (r *offsetResolver) byteOffset(
 	ctx context.Context,
 	iter *domain.Iterator,
 	sampleIdx int64,
 ) (telem.Size, error) {
-	table, err := r.tableFor(ctx, iter)
+	if r.cache == nil {
+		total := r.density.SampleCount(telem.Size(iter.Size()))
+		if sampleIdx >= total {
+			return telem.Size(iter.Size()), nil
+		}
+		return r.density.Size(sampleIdx), nil
+	}
+	t, err := r.tableFor(ctx, iter)
 	if err != nil {
 		return 0, err
 	}
-	if sampleIdx >= table.sampleCount {
+	if sampleIdx >= t.sampleCount {
 		return telem.Size(iter.Size()), nil
 	}
-	return table.byteOffsetAt(sampleIdx), nil
+	return t.byteOffsetAt(sampleIdx), nil
 }
 
-func (r *cacheResolver) domainSampleCount(
+func (r *offsetResolver) domainSampleCount(
 	ctx context.Context,
 	iter *domain.Iterator,
 ) (int64, error) {
-	table, err := r.tableFor(ctx, iter)
+	if r.cache == nil {
+		return r.density.SampleCount(telem.Size(iter.Size())), nil
+	}
+	t, err := r.tableFor(ctx, iter)
 	if err != nil {
 		return 0, err
 	}
-	return table.sampleCount, nil
+	return t.sampleCount, nil
 }
 
-func (r *cacheResolver) invalidate() { r.cache.invalidateAll() }
+func (r *offsetResolver) invalidate() {
+	if r.cache != nil {
+		r.cache.invalidateAll()
+	}
+}
 
-func (r *cacheResolver) newTracker() offsetTracker { return &cacheTracker{} }
-
-// tableFor returns the offset table for the domain iter is currently at,
-// building and caching it on first access.
-func (r *cacheResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
+func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
 	domainIdx := iter.Position()
 	if t, ok := r.cache.get(domainIdx); ok {
 		return t, nil
@@ -162,17 +159,36 @@ func (r *cacheResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*o
 	return t, nil
 }
 
-// cacheTracker is the offsetTracker counterpart to cacheResolver. It mirrors
-// the per-writer offset table from the variable writer: scan each appended
-// byte slice for its length-prefixed records, track cumulative sample count.
-type cacheTracker struct {
+// newTracker returns a per-writer offsetTracker bound to this resolver's
+// density or cache mode. Fixed-density trackers are stateless; cache-backed
+// trackers accumulate sample counts and offsets as writes are recorded.
+func (r *offsetResolver) newTracker() *offsetTracker {
+	if r.cache == nil {
+		return &offsetTracker{density: r.density}
+	}
+	return &offsetTracker{}
+}
+
+// offsetTracker tracks sample counts (and, for variable-length channels, byte
+// offsets) during a single writer session. The zero value is a variable-length
+// tracker; setting density makes it a stateless fixed-density tracker.
+type offsetTracker struct {
+	density     telem.Density
 	offsets     []uint32
 	sampleCount int64
 }
 
-func (t *cacheTracker) count(*domain.Writer) int64 { return t.sampleCount }
+func (t *offsetTracker) count(dw *domain.Writer) int64 {
+	if t.density != 0 {
+		return t.density.SampleCount(telem.Size(dw.Len()))
+	}
+	return t.sampleCount
+}
 
-func (t *cacheTracker) record(data []byte, baseByteOffset uint32) {
+func (t *offsetTracker) record(data []byte, baseByteOffset uint32) {
+	if t.density != 0 {
+		return
+	}
 	offset := 0
 	for offset+4 <= len(data) {
 		t.offsets = append(t.offsets, baseByteOffset+uint32(offset))
