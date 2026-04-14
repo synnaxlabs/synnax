@@ -21,8 +21,11 @@ import (
 
 // offsetTable stores byte offsets for each sample in a single variable-length
 // domain. Offsets are uint32, matching domain.pointer.size; domains larger than
-// ~4GB are unsupported at the storage layer.
+// ~4GB are unsupported at the storage layer. domainSize is the byte length of
+// the domain at the time the table was built, used to invalidate the cache when
+// a subsequent write appends more data to the same domain index.
 type offsetTable struct {
+	domainSize  telem.Size
 	offsets     []uint32
 	sampleCount int64
 }
@@ -143,7 +146,12 @@ func (r *offsetResolver) invalidate() {
 
 func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
 	domainIdx := iter.Position()
-	if t, ok := r.cache.get(domainIdx); ok {
+	size := telem.Size(iter.Size())
+	// A domain index is stable across an entire writer session, so a table
+	// cached after commit N will have a stale sampleCount if the writer
+	// appends more data in commit N+1 against the same domain index. Gate the
+	// cache hit on the domain size matching what the table was built from.
+	if t, ok := r.cache.get(domainIdx); ok && t.domainSize == size {
 		return t, nil
 	}
 	rd, err := iter.OpenReader(ctx)
@@ -151,10 +159,11 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*
 		return nil, err
 	}
 	defer func() { _ = rd.Close() }()
-	t, err := buildOffsetTable(rd, iter.Size())
+	t, err := buildOffsetTable(rd, size)
 	if err != nil {
 		return nil, err
 	}
+	t.domainSize = size
 	r.cache.set(domainIdx, t)
 	return t, nil
 }

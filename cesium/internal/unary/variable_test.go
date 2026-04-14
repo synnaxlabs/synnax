@@ -147,6 +147,70 @@ var _ = Describe("Variable-length channel", func() {
 				})
 			})
 
+			Describe("Offset cache", func() {
+				It("Should rebuild the cached offset table after the domain grows", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("cache-refresh"))
+					idx2 := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "idx2",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(idx2.Close()).To(Succeed()) }()
+					data2 := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("data")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "data2",
+							DataType: telem.StringT,
+							Index:    idx2.Channel().Key,
+						},
+					}))
+					defer func() { Expect(data2.Close()).To(Succeed()) }()
+					data2.SetIndex(idx2.Index())
+
+					// Seed the index across both commits so both resolve against
+					// the same domain.
+					Expect(unary.Write(ctx, idx2, 600*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(600, 601, 602, 603, 604),
+					)).To(Succeed())
+
+					iw, _ := MustSucceed2(data2.OpenWriter(ctx, unary.WriterConfig{
+						Start:   600 * telem.SecondTS,
+						Subject: xcontrol.Subject{Key: "cache-refresh"},
+					}))
+					MustSucceed(iw.Write(telem.NewSeriesV("a", "b", "c")))
+					MustSucceed(iw.Commit(ctx))
+
+					// First read populates the cache for this domain with
+					// sampleCount = 3, domainSize = bytes of "a","b","c".
+					first := MustSucceed(data2.Read(ctx, (600 * telem.SecondTS).Range(603*telem.SecondTS)))
+					Expect(telem.UnmarshalSeries[string](first.SeriesAt(0))).
+						To(Equal([]string{"a", "b", "c"}))
+
+					// Append two more samples against the same domain and commit.
+					MustSucceed(iw.Write(telem.NewSeriesV("d", "e")))
+					MustSucceed(iw.Commit(ctx))
+					MustSucceed(iw.Close())
+
+					// Sub-range read of the first four samples. The iterator view
+					// ends inside the domain, so approximateEnd resolves endSample
+					// from the index (= 4) and then calls byteOffset(4) on the
+					// cached table. Without the size-based invalidation the
+					// cache still reports sampleCount = 3, so 4 >= sampleCount
+					// makes byteOffset return iter.Size() (end of the whole
+					// domain) and the read spills into the fifth sample.
+					sub := MustSucceed(data2.Read(ctx, (600 * telem.SecondTS).Range(604*telem.SecondTS)))
+					Expect(telem.UnmarshalSeries[string](sub.SeriesAt(0))).
+						To(Equal([]string{"a", "b", "c", "d"}))
+				})
+			})
+
 			Describe("Writer", func() {
 				It("Should track alignment correctly across writes", func(ctx SpecContext) {
 					Expect(unary.Write(ctx, indexDB, 60*telem.SecondTS,
