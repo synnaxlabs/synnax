@@ -419,6 +419,25 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 5*5))
 		})
+
+		It("Should classify loop variables in for-range blocks", func(ctx SpecContext) {
+			uri := generateBlockURI("semantic-for-loop")
+			content := "for i := range(10) {\nx := i\n}"
+			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+				TextDocument: protocol.TextDocumentItem{
+					URI:        uri,
+					LanguageID: "arc",
+					Version:    1,
+					Text:       content,
+				},
+			})).To(Succeed())
+
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+		})
 	})
 
 	Describe("Multi-statement Completion", func() {

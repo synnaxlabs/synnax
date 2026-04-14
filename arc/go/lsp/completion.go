@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -315,6 +316,42 @@ var completions = []completionInfo{
 		InsertFormat: protocol.InsertTextFormatSnippet,
 		Category:     categoryFunctionKeyword,
 	},
+	{
+		Label:        parser.LiteralFOR,
+		Detail:       "for loop",
+		Doc:          "Loop statement",
+		Insert:       "for ${1:i} := range(${2:n}) {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunctionKeyword,
+	},
+	{
+		Label:        parser.LiteralBREAK,
+		Detail:       "break statement",
+		Doc:          "Exits the enclosing for loop",
+		Insert:       "break",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunctionKeyword,
+	},
+	{
+		Label:        parser.LiteralCONTINUE,
+		Detail:       "continue statement",
+		Doc:          "Skips to the next iteration of the enclosing for loop",
+		Insert:       "continue",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunctionKeyword,
+	},
+	{
+		Label:        "range",
+		Detail:       "range(end) or range(start, end) or range(start, end, step)",
+		Doc:          "Generates a numeric range for iteration",
+		Insert:       "range($0)",
+		Kind:         protocol.CompletionItemKindFunction,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryFunction | categoryValue,
+	},
 }
 
 func (s *Server) Completion(
@@ -480,13 +517,10 @@ func (s *Server) getAuthorityEntryCompletions(
 	pos protocol.Position,
 ) []protocol.CompletionItem {
 	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
-	existingSet := make(map[string]bool, len(existing))
-	for _, name := range existing {
-		existingSet[name] = true
-	}
+	existingSet := set.New(existing...)
 	var items []protocol.CompletionItem
 	appendChanCompletions := func(name string, t types.Type) {
-		if t.Kind != types.KindChan || existingSet[name] {
+		if t.Kind != types.KindChan || existingSet.Contains(name) {
 			return
 		}
 		items = append(items, protocol.CompletionItem{
@@ -542,13 +576,13 @@ func (s *Server) collectSymbols(
 	prefix string,
 	filter func(types.Type) bool,
 ) []protocol.CompletionItem {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var items []protocol.CompletionItem
 	addItem := func(name string, t types.Type) {
-		if seen[name] || !filter(t) {
+		if seen.Contains(name) || !filter(t) {
 			return
 		}
-		seen[name] = true
+		seen.Add(name)
 		items = append(items, protocol.CompletionItem{
 			Label:  name,
 			Kind:   protocol.CompletionItemKindVariable,
@@ -584,13 +618,10 @@ func (s *Server) getConfigParamCompletions(
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	existingSet := make(map[string]bool)
-	for _, param := range configInfo.existingParams {
-		existingSet[param] = true
-	}
+	existingSet := set.New(configInfo.existingParams...)
 	var items []protocol.CompletionItem
 	for _, param := range fnType.Config {
-		if existingSet[param.Name] || !strings.HasPrefix(param.Name, prefix) {
+		if existingSet.Contains(param.Name) || !strings.HasPrefix(param.Name, prefix) {
 			continue
 		}
 		items = append(items, protocol.CompletionItem{

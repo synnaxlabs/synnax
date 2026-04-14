@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // generateAutoCopy generates a migrate_auto.gen.go file for the given types.
@@ -33,7 +34,7 @@ func generateAutoCopy(
 	c := &collector{
 		pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
 		diff: diff, oldTable: oldTable, newTable: newTable,
-		imports: make(map[string]importEntry), generated: make(map[string]bool),
+		imports: make(map[string]importEntry), generated: make(set.Set[string]),
 	}
 	data := c.collect(types)
 	if len(data.Funcs) == 0 {
@@ -178,7 +179,7 @@ type collector struct {
 	diff                      map[string]TypeDiff
 	oldTable, newTable        *resolution.Table
 	imports                   map[string]importEntry
-	generated                 map[string]bool
+	generated                 set.Set[string]
 	pending                   []resolution.Type
 	funcs                     []funcData
 }
@@ -207,10 +208,10 @@ func (c *collector) collect(types []resolution.Type) fileData {
 }
 
 func (c *collector) ensureFunc(typ resolution.Type) {
-	if c.generated[typ.QualifiedName] {
+	if c.generated.Contains(typ.QualifiedName) {
 		return
 	}
-	c.generated[typ.QualifiedName] = true
+	c.generated.Add(typ.QualifiedName)
 	switch form := typ.Form.(type) {
 	case resolution.StructForm:
 		c.funcs = append(c.funcs, c.structFunc(typ, form))
@@ -443,7 +444,7 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		isLocal = !ok || td.Kind == TypeUnchanged
 	}
 	if isLocal {
-		if !c.generated[typ.QualifiedName] {
+		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
 		return "AutoMigrate" + goName

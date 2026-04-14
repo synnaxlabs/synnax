@@ -145,7 +145,7 @@ var _ = Describe("Control", func() {
 					return testResource{value: 11}, errors.Wrapf(validate.ErrValidation, "could not great gate")
 				}
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
+				Expect(err).To(MatchError(validate.ErrValidation))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})
@@ -156,7 +156,7 @@ var _ = Describe("Control", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(g).ToNot(BeNil())
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
+				Expect(err).To(MatchError(validate.ErrValidation))
 				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
@@ -198,7 +198,7 @@ var _ = Describe("Control", func() {
 					Expect(t.Occurred()).To(BeFalse())
 					MustSucceed(g1.Authorize())
 					Expect(g2.Authorize()).Error().
-						To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+						To(MatchError(xcontrol.ErrUnauthorized))
 				})
 
 				It("Should fail when there is another gate in the region", func() {
@@ -249,7 +249,7 @@ var _ = Describe("Control", func() {
 					g2, t, err := c.OpenGate(cfg2)
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(g2).To(BeNil())
-					Expect(err).To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+					Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
 				})
 			})
 		})
@@ -288,7 +288,7 @@ var _ = Describe("Control", func() {
 					Expect(e.value).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())
 					v, err := g.Authorize()
-					Expect(err).To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+					Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
 					Expect(v.value).To(Equal(0))
 				})
 
@@ -330,7 +330,7 @@ var _ = Describe("Control", func() {
 							g2, t2 := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t2.Occurred()).To(BeFalse())
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 						})
 					})
 
@@ -350,7 +350,7 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 						})
 					})
 
@@ -372,7 +372,7 @@ var _ = Describe("Control", func() {
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 
 							Expect(g1.Authorize()).Error().
-								To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+								To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 						})
 					})
@@ -394,7 +394,7 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							t = g2.SetAuthority(xcontrol.AuthorityAbsolute)
 							Expect(t.Occurred()).To(BeTrue())
@@ -402,7 +402,7 @@ var _ = Describe("Control", func() {
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 
 							MustSucceed(g2.Authorize())
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 						})
 					})
 
@@ -419,10 +419,10 @@ var _ = Describe("Control", func() {
 							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeFalse())
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							t = g1.SetAuthority(xcontrol.AuthorityAbsolute - 1)
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g1.Authorize())
 						})
 					})
@@ -442,14 +442,14 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeTrue())
 
 							Expect(g1.Authorize()).Error().
-								To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+								To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 							t = g2.SetAuthority(xcontrol.AuthorityAbsolute - 1)
 							Expect(t.Occurred()).To(BeTrue())
 							Expect(t.From.Subject.Key).To(Equal("g2"))
 							Expect(t.To.Subject.Key).To(Equal("g1"))
 							Expect(g2.Authorize()).Error().
-								To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+								To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g1.Authorize())
 						})
 					})
@@ -470,7 +470,7 @@ var _ = Describe("Control", func() {
 
 							MustSucceed(g1.Authorize())
 							Expect(g2.Authorize()).Error().
-								To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+								To(MatchError(xcontrol.ErrUnauthorized))
 
 							t = g1.SetAuthority(xcontrol.AuthorityAbsolute - 2)
 							Expect(t.Occurred()).To(BeTrue())
@@ -478,7 +478,7 @@ var _ = Describe("Control", func() {
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 
 							Expect(g1.Authorize()).Error().
-								To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+								To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 						})
 					})
@@ -500,14 +500,14 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
 							Expect(t.IsTransfer()).To(BeTrue())
 							Expect(v.value).To(Equal(1))
 							Expect(g1.Authorize()).Error().
-								To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+								To(MatchError(xcontrol.ErrUnauthorized))
 						})
 
 					})
@@ -527,7 +527,7 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
@@ -551,14 +551,14 @@ var _ = Describe("Control", func() {
 							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeTrue())
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeFalse())
 							Expect(v.value).To(Equal(0))
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 						})
 					})
@@ -578,7 +578,7 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							t = g2.SetAuthority(xcontrol.AuthorityAbsolute)
 							Expect(t.Occurred()).To(BeTrue())
@@ -588,7 +588,7 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 							Expect(v.value).To(Equal(0))
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 						})
 
@@ -608,7 +608,7 @@ var _ = Describe("Control", func() {
 							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeTrue())
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 
 							v, t := g1.Release()
@@ -648,7 +648,7 @@ var _ = Describe("Control", func() {
 						Expect(t.From.Subject.Key).To(Equal("g1"))
 						Expect(t.To.Subject.Key).To(Equal("g2"))
 
-						Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+						Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 						MustSucceed(g2.Authorize())
 
 						cfg3, _ := baseConfig(1)
@@ -660,8 +660,8 @@ var _ = Describe("Control", func() {
 						Expect(t.From.Subject.Key).To(Equal("g2"))
 						Expect(t.To.Subject.Key).To(Equal("g3"))
 
-						Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
-						Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+						Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+						Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 						MustSucceed(g3.Authorize())
 					})
 				})
@@ -686,7 +686,7 @@ var _ = Describe("Control", func() {
 						Expect(t.Occurred()).To(BeFalse())
 
 						MustSucceed(g1.Authorize())
-						Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+						Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 						cfg3, _ := baseConfig(1)
 						cfg3.Subject.Key = "g3"
@@ -695,8 +695,8 @@ var _ = Describe("Control", func() {
 						Expect(t.Occurred()).To(BeFalse())
 
 						MustSucceed(g1.Authorize())
-						Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
-						Expect(g3.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+						Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+						Expect(g3.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 					})
 				})
 
@@ -722,8 +722,8 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
-							Expect(g3.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							Expect(g3.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
@@ -732,9 +732,9 @@ var _ = Describe("Control", func() {
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 							Expect(v.value).To(Equal(1))
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
-							Expect(g3.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g3.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 						})
 					})
 
@@ -759,8 +759,8 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
-							Expect(g3.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							Expect(g3.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
@@ -769,8 +769,8 @@ var _ = Describe("Control", func() {
 							Expect(t.To.Subject.Key).To(Equal("g3"))
 							Expect(v.value).To(Equal(1))
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g3.Authorize())
 						})
 
@@ -797,8 +797,8 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeFalse())
 
 							MustSucceed(g1.Authorize())
-							Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
-							Expect(g3.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							Expect(g3.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
@@ -807,7 +807,7 @@ var _ = Describe("Control", func() {
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 							Expect(v.value).To(Equal(1))
 
-							Expect(g1.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							Expect(g1.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 							MustSucceed(g2.Authorize())
 						})
 					})
@@ -863,9 +863,9 @@ var _ = Describe("Control", func() {
 
 						MustSucceed(arc.Authorize())
 						Expect(sch1.Authorize()).Error().
-							To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							To(MatchError(xcontrol.ErrUnauthorized))
 						Expect(sch2.Authorize()).Error().
-							To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+							To(MatchError(xcontrol.ErrUnauthorized))
 					}
 				})
 			})
@@ -919,7 +919,7 @@ var _ = Describe("Control", func() {
 			Expect(t.Occurred()).To(BeFalse())
 
 			MustSucceed(g1.Authorize())
-			Expect(g2.Authorize()).Error().To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+			Expect(g2.Authorize()).Error().To(MatchError(xcontrol.ErrUnauthorized))
 		})
 
 		It("Should authorize gates with equal authority", func() {

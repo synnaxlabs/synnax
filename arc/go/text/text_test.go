@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -1052,10 +1053,10 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				outputSet := make(map[ir.Handle]bool)
+				outputSet := make(set.Set[ir.Handle])
 				for _, n := range inter.Nodes {
 					for _, p := range n.Outputs {
-						outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+						outputSet.Add(ir.Handle{Node: n.Key, Param: p.Name})
 					}
 				}
 				for _, edge := range inter.Edges {

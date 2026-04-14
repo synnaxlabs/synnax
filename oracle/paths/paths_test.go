@@ -53,14 +53,13 @@ var _ = Describe("Paths", func() {
 		})
 
 		It("Should reject paths that escape the repository", func() {
-			_, err := paths.Normalize("../../../etc/passwd", repoRoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("escapes"))
+			Expect(paths.Normalize("../../../etc/passwd", repoRoot)).
+				Error().To(MatchError(ContainSubstring("escapes")))
 		})
 
 		It("Should reject empty paths", func() {
-			_, err := paths.Normalize("", repoRoot)
-			Expect(err).To(HaveOccurred())
+			Expect(paths.Normalize("", repoRoot)).
+				Error().To(MatchError(ContainSubstring("path cannot be empty")))
 		})
 	})
 
@@ -83,25 +82,23 @@ var _ = Describe("Paths", func() {
 		})
 
 		It("Should reject path traversal attempts", func() {
-			err := paths.ValidateOutput("../../../etc/passwd", repoRoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("path traversal"))
+			Expect(paths.ValidateOutput("../../../etc/passwd", repoRoot)).Error().
+				To(MatchError(ContainSubstring("path traversal")))
 		})
 
 		It("Should reject paths containing ..", func() {
-			err := paths.ValidateOutput("client/../../../etc", repoRoot)
-			Expect(err).To(HaveOccurred())
+			Expect(paths.ValidateOutput("client/../../../etc", repoRoot)).Error().
+				To(MatchError(ContainSubstring("output path \"client/../../../etc\" contains path traversal")))
 		})
 
 		It("Should reject absolute paths", func() {
-			err := paths.ValidateOutput("/etc/passwd", repoRoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("repo-relative"))
+			Expect(paths.ValidateOutput("/etc/passwd", repoRoot)).Error().
+				To(MatchError(ContainSubstring("repo-relative")))
 		})
 
 		It("Should reject empty paths", func() {
-			err := paths.ValidateOutput("", repoRoot)
-			Expect(err).To(HaveOccurred())
+			Expect(paths.ValidateOutput("", repoRoot)).
+				Error().To(MatchError(ContainSubstring("output path cannot be empty")))
 		})
 	})
 

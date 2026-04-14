@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/encoding/json"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -27,3 +28,5 @@ func TestVirtual(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Virtual Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -191,8 +191,14 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
+	grpcClientPool := configureClientGRPC(securityProvider, *cfg.insecure)
+	// Register the pool first so it closes LAST: every transport that
+	// references it must finish shutting down before its connections are
+	// torn down.
+	if !ok(nil, grpcClientPool) {
+		return ctx.Err()
+	}
 	var (
-		grpcClientPool         = configureClientGRPC(securityProvider, *cfg.insecure)
 		aspenTransport         = aspentransport.New(grpcClientPool)
 		frameTransport         = framertransport.New(grpcClientPool)
 		channelTransport       = channeltransport.New(grpcClientPool)

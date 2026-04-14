@@ -616,6 +616,95 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(ifStmt.ElseClause()).NotTo(BeNil())
 			})
 		})
+
+		Context("For Loops", func() {
+			It("Should parse for with range(1 arg)", func() {
+				stmt := mustParseStatement(`for i := range(10) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				Expect(forStmt.FOR()).NotTo(BeNil())
+
+				clause := forStmt.ForClause()
+				Expect(clause).NotTo(BeNil())
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(clause.AllIDENTIFIER()[0].GetText()).To(Equal("i"))
+				Expect(clause.DECLARE()).NotTo(BeNil())
+				Expect(clause.Expression()).NotTo(BeNil())
+				Expect(forStmt.Block()).NotTo(BeNil())
+			})
+
+			It("Should parse for with range(2 args)", func() {
+				stmt := mustParseStatement(`for i := range(5, 10) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(clause.DECLARE()).NotTo(BeNil())
+			})
+
+			It("Should parse for with range(3 args)", func() {
+				stmt := mustParseStatement(`for i := range(0, 10, 2) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+			})
+
+			It("Should parse for with two identifiers (series iteration)", func() {
+				stmt := mustParseStatement(`for i, x := data { y := x }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(clause.AllIDENTIFIER()[0].GetText()).To(Equal("i"))
+				Expect(clause.AllIDENTIFIER()[1].GetText()).To(Equal("x"))
+				Expect(clause.COMMA()).NotTo(BeNil())
+				Expect(clause.DECLARE()).NotTo(BeNil())
+			})
+
+			It("Should parse conditional (while-style) for loop", func() {
+				stmt := mustParseStatement(`for running { x := 1 }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.Expression()).NotTo(BeNil())
+				Expect(clause.DECLARE()).To(BeNil())
+			})
+
+			It("Should parse infinite for loop", func() {
+				stmt := mustParseStatement(`for { x := 1 }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.Expression()).To(BeNil())
+				Expect(clause.DECLARE()).To(BeNil())
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(0))
+			})
+
+			It("Should parse break statement", func() {
+				stmt := mustParseStatement(`break`)
+				Expect(stmt.BreakStatement()).NotTo(BeNil())
+				Expect(stmt.BreakStatement().BREAK()).NotTo(BeNil())
+			})
+
+			It("Should parse continue statement", func() {
+				stmt := mustParseStatement(`continue`)
+				Expect(stmt.ContinueStatement()).NotTo(BeNil())
+				Expect(stmt.ContinueStatement().CONTINUE()).NotTo(BeNil())
+			})
+
+			It("Should parse nested for loops", func() {
+				stmt := mustParseStatement(`for i := range(3) {
+					for j := range(5) {
+						x := i + j
+					}
+				}`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				block := forStmt.Block()
+				Expect(block.AllStatement()).To(HaveLen(1))
+				innerFor := block.Statement(0).ForStatement()
+				Expect(innerFor).NotTo(BeNil())
+			})
+		})
 	})
 
 	Describe("Comprehensive Tests", func() {
@@ -845,19 +934,11 @@ func broken() {
 			})
 
 			It("Should handle empty input gracefully", func() {
-				_, err := parser.Parse("")
-				// Empty input should either succeed with empty program or fail gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+				MustSucceed(parser.Parse(""))
 			})
 
 			It("Should handle whitespace-only input", func() {
-				_, err := parser.Parse("   \n\t  \n  ")
-				// Whitespace-only should either succeed or fail gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+				MustSucceed(parser.Parse("   \n\t  \n  "))
 			})
 
 			It("Should report error for unclosed brace", func() {
@@ -867,8 +948,8 @@ func broken() {
 			})
 
 			It("Should report error for missing function body", func() {
-				_, err := parser.Parse(`func test()`)
-				Expect(err).NotTo(BeNil())
+				Expect(parser.Parse(`func test()`)).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 	})
@@ -886,8 +967,8 @@ func broken() {
 			})
 
 			It("Should handle empty expression", func() {
-				_, err := parser.ParseExpression("")
-				Expect(err).To(MatchError(ContainSubstring("mismatched input")))
+				Expect(parser.ParseExpression("")).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 
@@ -898,16 +979,13 @@ func broken() {
 			})
 
 			It("Should return error for invalid statement", func() {
-				_, err := parser.ParseStatement("x := := 5")
-				Expect(err).NotTo(BeNil())
+				Expect(parser.ParseStatement("x := := 5")).
+					Error().To(MatchError(ContainSubstring("extraneous input ':='")))
 			})
 
-			It("Should handle empty statement", func() {
-				_, err := parser.ParseStatement("")
-				// Empty statement should produce an error or handle gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+			It("Should error on an empty statement", func() {
+				Expect(parser.ParseStatement("")).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 
@@ -918,7 +996,8 @@ func broken() {
 			})
 
 			It("Should return error for invalid block", func() {
-				Expect(parser.ParseBlock("{ x := := 5 }")).Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
+				Expect(parser.ParseBlock("{ x := := 5 }")).
+					Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -927,7 +1006,8 @@ func broken() {
 			})
 
 			It("Should handle block without braces", func() {
-				Expect(parser.ParseBlock("x := 42")).Error().To(MatchError(ContainSubstring("missing '{'")))
+				Expect(parser.ParseBlock("x := 42")).
+					Error().To(MatchError(ContainSubstring("missing '{'")))
 			})
 		})
 
@@ -938,8 +1018,8 @@ func broken() {
 			})
 
 			It("Should return error for invalid program", func() {
-				_, err := parser.Parse(`func test() { x := := 5 }`)
-				Expect(err).NotTo(BeNil())
+				Expect(parser.Parse(`func test() { x := := 5 }`)).
+					Error().To(MatchError(ContainSubstring("extraneous input ':='")))
 			})
 
 			It("Should handle program with multiple top-level items", func() {
@@ -1014,11 +1094,13 @@ func demux{
 
 				// First output: high f32
 				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("high"))
-				Expect(outputs[0].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(outputs[0].Type_().
+					PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 
 				// Second output: low f32
 				Expect(outputs[1].IDENTIFIER().GetText()).To(Equal("low"))
-				Expect(outputs[1].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(outputs[1].Type_().
+					PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 			})
 
 			It("Should parse func with three named outputs", func() {
@@ -1033,7 +1115,6 @@ func range_classifier{
 				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
 				returnType := stageDecl.OutputType()
 				multiOutput := returnType.MultiOutputBlock()
-
 				outputs := multiOutput.AllNamedOutput()
 				Expect(outputs).To(HaveLen(3))
 				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("below_range"))

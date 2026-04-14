@@ -80,6 +80,28 @@ var _ = Describe("WASM Helper", func() {
 		})
 	})
 
+	Describe("Block and loop instructions", func() {
+		It("Should encode block with empty block type", func() {
+			bytes := WASM(wasm.OpBlock, wasm.BlockTypeEmpty)
+			Expect(bytes).ToNot(BeEmpty())
+		})
+
+		It("Should encode loop with empty block type", func() {
+			bytes := WASM(wasm.OpLoop, wasm.BlockTypeEmpty)
+			Expect(bytes).ToNot(BeEmpty())
+		})
+
+		It("Should encode br", func() {
+			bytes := WASM(wasm.OpBr, uint32(1))
+			Expect(bytes).To(MatchOpcodes(wasm.OpBr, uint32(1)))
+		})
+
+		It("Should encode br_if", func() {
+			bytes := WASM(wasm.OpBrIf, uint32(0))
+			Expect(bytes).To(MatchOpcodes(wasm.OpBrIf, uint32(0)))
+		})
+	})
+
 	Describe("Simple opcodes", func() {
 		It("Should encode opcodes without operands", func() {
 			bytes := WASM(wasm.OpI32Add)

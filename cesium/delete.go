@@ -78,7 +78,7 @@ func keyToDirName(ch ChannelKey) string {
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	// Rename the file first, so we can avoid hogging the mutex while deleting the
 	// directory, which may take a longer time. Rename the file to have a random suffix
@@ -106,7 +106,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 // to be atomic: it is possible some channels in chs are deleted and some are not.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	var (
 		indexChannels       = make([]ChannelKey, 0, len(chs))

@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
@@ -55,7 +54,7 @@ var _ = Describe("Write", func() {
 					Subject:               control.Subject{Key: "bar"},
 					ErrOnUnauthorizedOpen: new(true),
 				})
-				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
+				Expect(err).To(MatchError(control.ErrUnauthorized))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(w2).To(BeNil())
 				t = MustSucceed(w1.Close())
@@ -79,8 +78,8 @@ var _ = Describe("Write", func() {
 					Subject:   control.Subject{Key: "bar"},
 				}))
 				Expect(t.Occurred()).To(BeFalse())
-				_, err := w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
+				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
+					Error().To(MatchError(control.ErrUnauthorized))
 				MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 				t = MustSucceed(w1.Close())
 				Expect(t.Occurred()).To(BeTrue())
@@ -95,8 +94,8 @@ var _ = Describe("Write", func() {
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
-				_, err := w.Write(telem.NewSeriesV[uint8](1, 2, 3))
-				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
+				Expect(w.Write(telem.NewSeriesV[uint8](1, 2, 3))).
+					Error().To(MatchError(validate.ErrValidation))
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 			})
@@ -126,8 +125,8 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
-				_, err := w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(resource.NewClosedError("virtual.writer")))
+				Expect(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
+					Error().To(MatchError(virtual.ErrWriterClosed))
 			})
 
 		})
@@ -147,11 +146,10 @@ var _ = Describe("Write", func() {
 					Authority: control.AuthorityAbsolute - 3,
 					Subject:   control.Subject{Key: "bar"},
 				}))
-
 				Expect(t.Occurred()).To(BeFalse())
 
-				_, err := w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
+				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
+					Error().To(MatchError(control.ErrUnauthorized))
 				t = w2.SetAuthority(control.AuthorityAbsolute - 1)
 				Expect(t.Occurred()).To(BeTrue())
 
