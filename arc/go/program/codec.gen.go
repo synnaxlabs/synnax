@@ -17,38 +17,32 @@ import (
 )
 
 func (p Program) EncodeOrc(w *orc.Writer) error {
+	w.Bool(p.Functions != nil)
 	if p.Functions != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(p.Functions)))
-		for j := range p.Functions {
-			if err := p.Functions[j].EncodeOrc(w); err != nil {
+		for i := range p.Functions {
+			if err := p.Functions[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
+	w.Bool(p.Nodes != nil)
 	if p.Nodes != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(p.Nodes)))
-		for j := range p.Nodes {
-			if err := p.Nodes[j].EncodeOrc(w); err != nil {
+		for i := range p.Nodes {
+			if err := p.Nodes[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
+	w.Bool(p.Edges != nil)
 	if p.Edges != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(p.Edges)))
-		for j := range p.Edges {
-			if err := p.Edges[j].EncodeOrc(w); err != nil {
+		for i := range p.Edges {
+			if err := p.Edges[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	if err := p.Authorities.EncodeOrc(w); err != nil {
 		return err
@@ -84,8 +78,8 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Functions = make([]ir.Function, n)
-			for j := range p.Functions {
-				if err = p.Functions[j].DecodeOrc(r); err != nil {
+			for i := range p.Functions {
+				if err = p.Functions[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -102,8 +96,8 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Nodes = make([]ir.Node, n)
-			for j := range p.Nodes {
-				if err = p.Nodes[j].DecodeOrc(r); err != nil {
+			for i := range p.Nodes {
+				if err = p.Nodes[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -120,8 +114,8 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Edges = make([]ir.Edge, n)
-			for j := range p.Edges {
-				if err = p.Edges[j].DecodeOrc(r); err != nil {
+			for i := range p.Edges {
+				if err = p.Edges[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}

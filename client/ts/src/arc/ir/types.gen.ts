@@ -54,13 +54,13 @@ export const nodeZ = z.object({
   /** type is the function type being instantiated. */
   type: z.string(),
   /** config contains configuration parameter values. */
-  config: types.paramsZ.optional(),
+  config: types.paramsZ,
   /** inputs contains input parameter type signatures. */
-  inputs: types.paramsZ.optional(),
+  inputs: types.paramsZ,
   /** outputs contains output parameter type signatures. */
-  outputs: types.paramsZ.optional(),
+  outputs: types.paramsZ,
   /** channels contains channel read/write mappings. */
-  channels: types.channelsZ.optional(),
+  channels: types.channelsZ,
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
@@ -69,7 +69,7 @@ export const authoritiesZ = z.object({
   /** default is the default authority for all write channels not explicitly listed. */
   default: zod.uint8.optional(),
   /** channels maps channel keys to their specific authority values. */
-  channels: z.record(z.uint32(), zod.uint8).optional(),
+  channels: z.record(z.uint32(), zod.uint8),
 });
 export interface Authorities extends z.infer<typeof authoritiesZ> {}
 
@@ -83,7 +83,7 @@ export const edgeZ = z.object({
   /** target is the target node parameter consuming data. */
   target: handleZ,
   /** kind defines execution semantics for this connection. */
-  kind: edgeKindZ.optional(),
+  kind: edgeKindZ,
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
 
@@ -97,13 +97,13 @@ export const functionZ = z.object({
   /** body is raw source code for user-defined functions. */
   body: bodyZ.optional(),
   /** config contains configuration parameter definitions. */
-  config: types.paramsZ.optional(),
+  config: types.paramsZ,
   /** inputs contains input parameter definitions. */
-  inputs: types.paramsZ.optional(),
+  inputs: types.paramsZ,
   /** outputs contains output parameter definitions. */
-  outputs: types.paramsZ.optional(),
+  outputs: types.paramsZ,
   /** channels contains channel read/write declarations. */
-  channels: types.channelsZ.optional(),
+  channels: types.channelsZ,
 });
 export interface Function extends z.infer<typeof functionZ> {}
 
@@ -187,13 +187,13 @@ export const sequenceZ: z.ZodType<Sequence> = z.object({
  */
 export const irZ = z.object({
   /** functions contains function template definitions. */
-  functions: functionsZ.optional(),
+  functions: functionsZ,
   /** nodes contains node instantiations. */
-  nodes: nodesZ.optional(),
+  nodes: nodesZ,
   /** edges contains dataflow connections. */
-  edges: edgesZ.optional(),
+  edges: edgesZ,
   /** authorities contains the static authority declarations for this program. */
-  authorities: authoritiesZ.optional(),
+  authorities: authoritiesZ,
   /**
    * root is the top-level execution context. Its strata field holds global
    * stratification; its sequences field holds top-level sequences.
