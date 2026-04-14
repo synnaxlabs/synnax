@@ -2138,7 +2138,7 @@ var _ = Describe("Scheduler", func() {
 			n := mock("node_s0")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entry.ActivateOnNext()
 
 			s := build(prog)
@@ -2158,10 +2158,10 @@ var _ = Describe("Scheduler", func() {
 			w1 := mock("node_s1")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["entry_seq_s0"].ActivateOnNext()
 			w0.MarkOnNext("output")
-			w0.ParamTruthy["output"] = true
+			w0.ParamTruthy.Add("output")
 			mocks["entry_seq_s1"].ActivateOnNext()
 
 			s := build(prog)
@@ -2183,13 +2183,13 @@ var _ = Describe("Scheduler", func() {
 			w2 := mock("node_s2")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["entry_seq_s0"].ActivateOnNext()
 			w0.MarkOnNext("output")
-			w0.ParamTruthy["output"] = true
+			w0.ParamTruthy.Add("output")
 			mocks["entry_seq_s1"].ActivateOnNext()
 			w1.MarkOnNext("output")
-			w1.ParamTruthy["output"] = true
+			w1.ParamTruthy.Add("output")
 			mocks["entry_seq_s2"].ActivateOnNext()
 
 			s := build(prog)
@@ -2206,7 +2206,7 @@ var _ = Describe("Scheduler", func() {
 
 			trigger := mock("trigger_seq")
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 
 			ws := make([]*MockNode, len(keys))
 			for i, k := range keys {
@@ -2215,7 +2215,7 @@ var _ = Describe("Scheduler", func() {
 				mocks[entryKey].ActivateOnNext()
 				ws[i] = mock("node_" + k)
 				ws[i].MarkOnNext("output")
-				ws[i].ParamTruthy["output"] = true
+				ws[i].ParamTruthy.Add("output")
 			}
 
 			s := build(prog)
@@ -2236,10 +2236,10 @@ var _ = Describe("Scheduler", func() {
 			after := mock("node_s1")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["entry_seq_s0"].ActivateOnNext()
 			gate.MarkOnNext("output")
-			gate.ParamTruthy["output"] = false
+			gate.ParamTruthy.Remove("output")
 			mocks["entry_seq_s1"].ActivateOnNext()
 
 			s := build(prog)
@@ -2256,7 +2256,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(after.NextCalled).To(Equal(0))
 
 			// Tick 3: gate becomes truthy. Advances to s1.
-			gate.ParamTruthy["output"] = true
+			gate.ParamTruthy.Add("output")
 			s.MarkNodeChanged("node_s0")
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
 			Expect(after.NextCalled).To(Equal(1))
@@ -2274,11 +2274,11 @@ var _ = Describe("Scheduler", func() {
 			w2 := mock("node_s2")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["entry_seq_s0"].ActivateOnNext()
 			// s0 is falsy (gate). s1 and s2 should never execute.
 			w0.MarkOnNext("output")
-			w0.ParamTruthy["output"] = false
+			w0.ParamTruthy.Remove("output")
 			mocks["entry_seq_s1"].ActivateOnNext()
 			mocks["entry_seq_s2"].ActivateOnNext()
 
@@ -2298,7 +2298,7 @@ var _ = Describe("Scheduler", func() {
 			n := mock("node_s0")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["entry_seq_s0"].ActivateOnNext()
 
 			s := build(prog)
@@ -2315,10 +2315,10 @@ var _ = Describe("Scheduler", func() {
 			flowNode := mock("flow_node")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryStage.ActivateOnNext()
 			stageNode.MarkOnNext("output")
-			stageNode.ParamTruthy["output"] = true
+			stageNode.ParamTruthy.Add("output")
 			entryFlow.ActivateOnNext()
 
 			prog := ir.IR{
@@ -2365,10 +2365,10 @@ var _ = Describe("Scheduler", func() {
 			stageNode := mock("stage_node")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryFlow.ActivateOnNext()
 			flowNode.MarkOnNext("output")
-			flowNode.ParamTruthy["output"] = true
+			flowNode.ParamTruthy.Add("output")
 			entryStage.ActivateOnNext()
 
 			prog := ir.IR{
@@ -2417,11 +2417,11 @@ var _ = Describe("Scheduler", func() {
 			nodeC := mock("node_c")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			// Stage A: nodeA triggers entryC (skip B)
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 			entryC.ActivateOnNext()
 
 			prog := ir.IR{
@@ -2475,11 +2475,11 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("node_b")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryA.ActivateOnNext()
 			// First tick: A transitions to B
 			nodeA.MarkOnNext("output")
-			nodeA.ParamTruthy["output"] = true
+			nodeA.ParamTruthy.Add("output")
 			entryB.ActivateOnNext()
 
 			prog := ir.IR{
@@ -2524,7 +2524,7 @@ var _ = Describe("Scheduler", func() {
 
 			// Now make B jump back to A
 			nodeB.MarkOnNext("output")
-			nodeB.ParamTruthy["output"] = true
+			nodeB.ParamTruthy.Add("output")
 			s.MarkNodeChanged("node_b")
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 
@@ -2542,13 +2542,13 @@ var _ = Describe("Scheduler", func() {
 			ventNode := mock("vent_node")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			entryPress.ActivateOnNext()
 			pressNode.MarkOnNext("output")
-			pressNode.ParamTruthy["output"] = true
+			pressNode.ParamTruthy.Add("output")
 			entryWrite.ActivateOnNext()
 			writeNode.MarkOnNext("output")
-			writeNode.ParamTruthy["output"] = true
+			writeNode.ParamTruthy.Add("output")
 			entryVent.ActivateOnNext()
 
 			prog := ir.IR{
@@ -2604,7 +2604,7 @@ var _ = Describe("Scheduler", func() {
 			waitNode := mock("node_s0")
 
 			trigger.MarkOnNext("activate")
-			trigger.ParamTruthy["activate"] = true
+			trigger.ParamTruthy.Add("activate")
 			mocks["entry_seq_s0"].ActivateOnNext()
 			waitNode.OnNext = func(ctx node.Context) {
 				ctx.SetDeadline(5 * telem.Second)
