@@ -208,6 +208,35 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	return postfix.PrimaryExpression()
 }
 
+// QualifiedName returns the dot-joined name from a qualified identifier
+// (e.g., "math.pow").
+func QualifiedName(qid IQualifiedIdentifierContext) string {
+	ids := qid.AllIDENTIFIER()
+	return ids[0].GetText() + "." + ids[1].GetText()
+}
+
+// FunctionName extracts the name from a function context, handling both
+// qualified (math.pow{}) and bare (set_authority{}) forms.
+func FunctionName(fn IFunctionContext) string {
+	if qid := fn.QualifiedIdentifier(); qid != nil {
+		return QualifiedName(qid)
+	}
+	return fn.IDENTIFIER().GetText()
+}
+
+// PrimaryName extracts the name from a primary expression context, handling
+// both qualified (math.pow) and bare (x) identifier forms. Returns empty
+// string if the primary expression is not an identifier.
+func PrimaryName(primary IPrimaryExpressionContext) string {
+	if qid := primary.QualifiedIdentifier(); qid != nil {
+		return QualifiedName(qid)
+	}
+	if id := primary.IDENTIFIER(); id != nil {
+		return id.GetText()
+	}
+	return ""
+}
+
 // GetExpressionText extracts the source text of an expression from the token stream.
 func GetExpressionText(expr IExpressionContext) string {
 	if expr == nil {

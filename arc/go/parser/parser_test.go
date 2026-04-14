@@ -1549,6 +1549,89 @@ sequence main {
 			})
 		})
 	})
+
+	Describe("Qualified Identifiers", func() {
+		It("Should parse a qualified identifier in an expression", func() {
+			expr := mustParseExpression("math.pow")
+			primary := parser.GetPrimaryExpression(expr)
+			Expect(primary).ToNot(BeNil())
+			qid := primary.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			ids := qid.AllIDENTIFIER()
+			Expect(ids).To(HaveLen(2))
+			Expect(ids[0].GetText()).To(Equal("math"))
+			Expect(ids[1].GetText()).To(Equal("pow"))
+		})
+
+		It("Should parse a qualified function call", func() {
+			expr := mustParseExpression("math.pow(2.0, 3.0)")
+			postfix := getPostfixExpression(expr)
+			Expect(postfix).ToNot(BeNil())
+			primary := postfix.PrimaryExpression()
+			qid := primary.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			Expect(parser.QualifiedName(qid)).To(Equal("math.pow"))
+			funcCalls := postfix.AllFunctionCallSuffix()
+			Expect(funcCalls).To(HaveLen(1))
+			args := funcCalls[0].ArgumentList().AllExpression()
+			Expect(args).To(HaveLen(2))
+		})
+
+		It("Should not confuse float literals with qualified identifiers", func() {
+			expr := mustParseExpression("1.5")
+			primary := parser.GetPrimaryExpression(expr)
+			Expect(primary).ToNot(BeNil())
+			Expect(primary.QualifiedIdentifier()).To(BeNil())
+			Expect(primary.Literal()).ToNot(BeNil())
+			Expect(primary.Literal().NumericLiteral()).ToNot(BeNil())
+		})
+
+		It("Should parse a bare identifier without a dot", func() {
+			expr := mustParseExpression("foo")
+			primary := parser.GetPrimaryExpression(expr)
+			Expect(primary).ToNot(BeNil())
+			Expect(primary.QualifiedIdentifier()).To(BeNil())
+			Expect(primary.IDENTIFIER()).ToNot(BeNil())
+			Expect(primary.IDENTIFIER().GetText()).To(Equal("foo"))
+		})
+
+		It("Should parse qualified identifier in flow function", func() {
+			prog := mustParseProgram("sensor -> error.panic{msg=\"fail\"}")
+			items := prog.AllTopLevelItem()
+			Expect(items).To(HaveLen(1))
+			flow := items[0].FlowStatement()
+			Expect(flow).ToNot(BeNil())
+			nodes := flow.AllFlowNode()
+			fn := nodes[1].Function()
+			Expect(fn).ToNot(BeNil())
+			qid := fn.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			Expect(parser.FunctionName(fn)).To(Equal("error.panic"))
+		})
+
+		It("Should use PrimaryName for qualified identifiers", func() {
+			expr := mustParseExpression("time.now()")
+			postfix := getPostfixExpression(expr)
+			primary := postfix.PrimaryExpression()
+			Expect(parser.PrimaryName(primary)).To(Equal("time.now"))
+		})
+
+		It("Should use PrimaryName for bare identifiers", func() {
+			expr := mustParseExpression("now()")
+			postfix := getPostfixExpression(expr)
+			primary := postfix.PrimaryExpression()
+			Expect(parser.PrimaryName(primary)).To(Equal("now"))
+		})
+
+		It("Should use FunctionName for bare function", func() {
+			prog := mustParseProgram("sensor -> set_point{value=50}")
+			flow := prog.AllTopLevelItem()[0].FlowStatement()
+			fn := flow.AllFlowNode()[1].Function()
+			Expect(fn).ToNot(BeNil())
+			Expect(fn.QualifiedIdentifier()).To(BeNil())
+			Expect(parser.FunctionName(fn)).To(Equal("set_point"))
+		})
+	})
 })
 
 func mustParseProgram(code string) parser.IProgramContext {

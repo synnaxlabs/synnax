@@ -37,14 +37,14 @@ import (
 func compile(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
-	Expect(diag.Ok()).To(BeTrue())
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
 
 func compileWithHostImports(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
-	Expect(diag.Ok()).To(BeTrue())
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(stl.SymbolResolver))
 }
 
@@ -961,6 +961,46 @@ var _ = Describe("Compiler", func() {
 			Expect(quotient).To(Equal(uint64(3)))
 			remainder := MustBeOk(mem.ReadUint64Le(0x1010))
 			Expect(remainder).To(Equal(uint64(2)))
+		})
+		It("Should compile named string output without panicking", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func describe(x i64) (label str, value i64) {
+				label = "result"
+				value = x * 2
+			}
+			`, stl.SymbolResolver))
+			Expect(output.WASM).ToNot(BeEmpty())
+		})
+
+		It("Should compute correct memory layout with mixed string and numeric outputs", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func report(x i64) (name str, count i64, tag str) {
+				name = "sensor"
+				count = x
+				tag = "active"
+			}
+			`, stl.SymbolResolver))
+			Expect(output.WASM).ToNot(BeEmpty())
+			Expect(output.OutputMemoryBases).To(HaveKey("report"))
+		})
+	})
+
+	Describe("For Loop Locals", func() {
+		It("Should compile a function with a for loop and loop variable", func(ctx SpecContext) {
+			output := MustSucceed(compile(ctx, `
+			func sumRange() i64 {
+				total i64 := 0
+				for i := range(5) {
+					total = total + i
+				}
+				return total
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			sumRange := mod.ExportedFunction("sumRange")
+			Expect(sumRange).ToNot(BeNil())
+			results := MustSucceed(sumRange.Call(ctx))
+			Expect(results).To(ConsistOf(uint64(10)))
 		})
 	})
 
@@ -3690,5 +3730,113 @@ var _ = Describe("Compiler", func() {
 				MustSucceed(r.Instantiate(ctx, output.WASM))
 			})
 		}
+	})
+
+	Describe("Qualified Module Calls", func() {
+		BeforeEach(func(ctx SpecContext) {
+			bindDefaultModules(ctx, r)
+		})
+
+		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return time.now()
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(results[0]).To(BeNumerically(">", 0))
+		})
+
+		It("Should resolve type variables consistently across arguments", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func square(val f32) f32 {
+				return math.pow(val, 2)
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			square := mod.ExportedFunction("square")
+			Expect(square).ToNot(BeNil())
+
+			results := MustSucceed(square.Call(ctx, uint64(math.Float32bits(3.0))))
+			Expect(math.Float32frombits(uint32(results[0]))).To(BeNumerically("~", 9.0, 0.001))
+		})
+
+		It("Should execute math.pow with literal arguments", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return math.pow(2, 3)
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(results[0]).To(Equal(uint64(8)))
+		})
+
+		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return string.len("hello")
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
+		})
+
+		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				return string.len(string.concat("ab", "cd"))
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
+		})
+
+		It("Should resolve output type variable from input types", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() f64 {
+				return math.pow(2.5, 2.0)
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(math.Float64frombits(results[0])).To(BeNumerically("~", 6.25, 0.001))
+		})
+
+		It("Should use qualified and bare now() interchangeably", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func compute() i64 {
+				a := time.now()
+				b := now()
+				if a > b {
+					return a
+				}
+				return b
+			}
+			`, stl.SymbolResolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			results := MustSucceed(compute.Call(ctx))
+			Expect(results[0]).To(BeNumerically(">", 0))
+		})
 	})
 })

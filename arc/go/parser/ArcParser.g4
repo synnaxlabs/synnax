@@ -161,7 +161,12 @@ identifier
     ;
 
 function
-    : IDENTIFIER configValues
+    : qualifiedIdentifier configValues
+    | IDENTIFIER configValues
+    ;
+
+qualifiedIdentifier
+    : IDENTIFIER DOT IDENTIFIER
     ;
 
 configValues
@@ -374,6 +379,7 @@ functionCallSuffix
 
 primaryExpression
     : literal
+    | qualifiedIdentifier
     | IDENTIFIER
     | LPAREN expression RPAREN
     | typeCast

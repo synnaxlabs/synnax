@@ -361,6 +361,31 @@ trigger -> counter{} -> output_b
 		}
 	})
 
+	It("Should return a compile error when () is used instead of {} in a flow", func(ctx SpecContext) {
+		resolver := symbol.CompoundResolver{
+			stl.SymbolResolver,
+			symbol.MapResolver{
+				"some_ch": arc.Symbol{
+					Name: "some_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   1,
+				},
+			},
+		}
+		t := arc.Text{Raw: `
+some_ch -> check()
+
+func check() {
+    a := 1
+}
+`}
+		_, err := arc.CompileText(ctx, t, arc.WithResolver(resolver))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("functions in flow statements use {} not ()"))
+		Expect(err.Error()).To(ContainSubstring("did you mean: check{}?"))
+	})
+
 	Describe("Stageless Sequences", func() {
 		It("Should compile a stageless sequence with two writes", func(ctx SpecContext) {
 			mod := compile(ctx, `

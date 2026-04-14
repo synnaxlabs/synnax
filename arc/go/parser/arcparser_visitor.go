@@ -97,6 +97,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#function.
 	VisitFunction(ctx *FunctionContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#qualifiedIdentifier.
+	VisitQualifiedIdentifier(ctx *QualifiedIdentifierContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#configValues.
 	VisitConfigValues(ctx *ConfigValuesContext) interface{}
 

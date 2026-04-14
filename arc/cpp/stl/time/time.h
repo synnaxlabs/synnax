@@ -180,12 +180,18 @@ public:
     [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
 
     bool handles(const std::string &node_type) const override {
-        return node_type == "interval" || node_type == "wait";
+        return node_type == "interval" || node_type == "time.interval" ||
+               node_type == "wait" || node_type == "time.wait";
     }
 
+    /// The qualified prefix ("time.interval", "time.wait") is needed because the
+    /// compiler emits the module-qualified name as the IR node type when users write
+    /// time.interval{} or time.wait{}. Stripping the prefix in the compiler would be
+    /// cleaner but risks breaking WASM host function resolution — this is safer and
+    /// inexpensive since time is the only STL module with a node factory.
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
-        if (cfg.node.type == "interval") {
+        if (cfg.node.type == "interval" || cfg.node.type == "time.interval") {
             auto [node_cfg, err] = IntervalConfig::create(cfg.node.config);
             if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.interval);
@@ -194,7 +200,7 @@ public:
                 x::errors::NIL
             };
         }
-        if (cfg.node.type == "wait") {
+        if (cfg.node.type == "wait" || cfg.node.type == "time.wait") {
             auto [node_cfg, err] = WaitConfig::create(cfg.node.config);
             if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.duration);
