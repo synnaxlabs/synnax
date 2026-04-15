@@ -29,63 +29,61 @@ const makeStatus = (
 });
 
 describe("tooltipMessage", () => {
-  describe("icon", () => {
-    it("should return a circle icon when the user has control", () => {
-      const { chipIcon } = tooltipMessage(makeStatus("success"));
-      expect(chipIcon).toBe(Icon.Circle);
-    });
-
-    it("should return a circle icon when the user has absolute control", () => {
-      const { chipIcon } = tooltipMessage(
-        makeStatus("success", { authority: control.ABSOLUTE_AUTHORITY }),
-      );
-      expect(chipIcon).toBe(Icon.Circle);
-    });
-
-    it("should return a square icon when someone else has control", () => {
-      const { chipIcon } = tooltipMessage(makeStatus("error"));
-      expect(chipIcon).toBe(Icon.Square);
-    });
-
-    it("should return a circle icon when the channel is uncontrolled", () => {
-      const { chipIcon } = tooltipMessage(makeStatus("disabled", { valid: true }));
-      expect(chipIcon).toBe(Icon.Circle);
-    });
-
-    it("should return a circle icon when no channel is connected", () => {
-      const { chipIcon } = tooltipMessage(makeStatus("disabled", { valid: false }));
-      expect(chipIcon).toBe(Icon.Circle);
+  it("should return controlled style when the user has control", () => {
+    const result = tooltipMessage(makeStatus("success"));
+    expect(result).toEqual({
+      message: "You're in control. Release schematic to release control.",
+      chipColor: "var(--pluto-primary-z)",
+      chipIcon: Icon.Circle,
     });
   });
 
-  describe("color", () => {
-    it("should return the error color when someone else has control", () => {
-      const { chipColor } = tooltipMessage(makeStatus("error"));
-      expect(chipColor).toBe("var(--pluto-error-z)");
-    });
-
-    it("should return the primary color when the user has control", () => {
-      const { chipColor } = tooltipMessage(makeStatus("success"));
-      expect(chipColor).toBe("var(--pluto-primary-z)");
-    });
-
-    it("should return the secondary color for absolute control", () => {
-      const { chipColor } = tooltipMessage(
-        makeStatus("success", { authority: control.ABSOLUTE_AUTHORITY }),
-      );
-      expect(chipColor).toBe("var(--pluto-secondary-z)");
+  it("should return absolute control style with background", () => {
+    const result = tooltipMessage(
+      makeStatus("success", { authority: control.ABSOLUTE_AUTHORITY }),
+    );
+    expect(result).toEqual({
+      message: "You have absolute control. Click to release.",
+      chipColor: "var(--pluto-secondary-z)",
+      chipIcon: Icon.Circle,
+      buttonStyle: { background: "var(--pluto-secondary-z-30)" },
     });
   });
 
-  describe("disabled", () => {
-    it("should be disabled when no channel is connected", () => {
-      const { disabled } = tooltipMessage(makeStatus("disabled", { valid: false }));
-      expect(disabled).toBe(true);
+  it("should return error style with square icon when someone else has control", () => {
+    const result = tooltipMessage(makeStatus("error"));
+    expect(result).toEqual({
+      message: "Not controlled by you. Click to take absolute control.",
+      chipColor: "var(--pluto-error-z)",
+      chipIcon: Icon.Square,
     });
+  });
 
-    it("should not be disabled when the channel is uncontrolled", () => {
-      const { disabled } = tooltipMessage(makeStatus("disabled", { valid: true }));
-      expect(disabled).toBeUndefined();
+  it("should return uncontrolled style when the channel is uncontrolled", () => {
+    const result = tooltipMessage(makeStatus("disabled", { valid: true }));
+    expect(result).toEqual({
+      message: "Uncontrolled. Click to take control.",
+      chipColor: "var(--pluto-gray-l12)",
+      chipIcon: Icon.Circle,
+    });
+  });
+
+  it("should return disabled style when no channel is connected", () => {
+    const result = tooltipMessage(makeStatus("disabled", { valid: false }));
+    expect(result).toEqual({
+      message: "No channel connected. This element cannot be controlled.",
+      chipColor: "var(--pluto-gray-l7)",
+      chipIcon: Icon.Circle,
+      disabled: true,
+    });
+  });
+
+  it("should return error style for an unexpected variant", () => {
+    const result = tooltipMessage(makeStatus("info" as status.Variant));
+    expect(result).toEqual({
+      message: "Unexpected status.",
+      chipColor: "var(--pluto-error-z)",
+      chipIcon: Icon.Square,
     });
   });
 });
