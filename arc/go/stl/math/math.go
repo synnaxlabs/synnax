@@ -19,11 +19,11 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 	"github.com/synnaxlabs/x/zyn"
-	xmath "github.com/synnaxlabs/x/math"
 )
 
 const (

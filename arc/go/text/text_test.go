@@ -384,7 +384,7 @@ var _ = Describe("Text", func() {
 				Expect(nowNode).ToNot(BeNil())
 				Expect(nowNode.Config).To(HaveLen(1))
 				Expect(nowNode.Config[0].Name).To(Equal("offset"))
-				threeHoursNanos := int64(3 * 60 * 60) * int64(telem.Second)
+				threeHoursNanos := int64(3*60*60) * int64(telem.Second)
 				Expect(nowNode.Config[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 
@@ -2483,7 +2483,7 @@ var _ = Describe("Text", func() {
 			resolver := symbol.CompoundResolver{
 				symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
-					"ts_out":  {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
+					"ts_out": {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
 				},
 				stl.SymbolResolver,
 			}
