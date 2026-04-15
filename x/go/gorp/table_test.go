@@ -123,7 +123,7 @@ var _ = Describe("Table", func() {
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entry](testDB)
 			Expect(w.Set(ctx, entry{ID: 1, Data: "no_migration"})).To(Succeed())
-			MustSucceed(gorp.OpenTable[int32, entry](ctx, gorp.TableConfig[entry]{
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
 				DB: testDB,
 			}))
 			r := gorp.WrapReader[int32, entry](testDB)
@@ -143,10 +143,10 @@ var _ = Describe("Table", func() {
 				DB:         testDB,
 				Migrations: []migrate.Migration{migration},
 			}
-			MustSucceed(gorp.OpenTable[int32, entry](ctx, cfg))
+			MustSucceed(gorp.OpenTable(ctx, cfg))
 			w := gorp.WrapWriter[int32, entry](testDB)
 			Expect(w.Set(ctx, entry{ID: 5, Data: "post_migration"})).To(Succeed())
-			MustSucceed(gorp.OpenTable[int32, entry](ctx, cfg))
+			MustSucceed(gorp.OpenTable(ctx, cfg))
 			r := gorp.WrapReader[int32, entry](testDB)
 			Expect(MustSucceed(r.Get(ctx, 5)).Data).To(Equal("post_migration"))
 		})
@@ -182,7 +182,7 @@ var _ = Describe("Table", func() {
 				},
 			)
 
-			MustSucceed(gorp.OpenTable[int32, entry](ctx, gorp.TableConfig[entry]{
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
 				DB:         testDB,
 				Migrations: []migrate.Migration{userMigration},
 			}))

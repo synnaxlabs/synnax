@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -123,8 +124,8 @@ var _ = Describe("User", Ordered, func() {
 		})
 		It("Should return an error if the user does not exist", func(ctx SpecContext) {
 			var u user.User
-			err := svc.NewRetrieve().Where(user.MatchUsernames("test5")).Entry(&u).Exec(ctx, nil)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.NewRetrieve().Where(user.MatchUsernames("test5")).Entry(&u).Exec(ctx, nil)).
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("UsernameExists", func() {
