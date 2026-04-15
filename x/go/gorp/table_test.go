@@ -292,11 +292,8 @@ var _ = Describe("Table", func() {
 			table *gorp.Table[int32, entry]
 		)
 		BeforeEach(func(ctx SpecContext) {
-			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
-				DB: db,
-			}))
+			table = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
 		})
-		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 		Describe("NewCreate + NewRetrieve", func() {
 			It("Should create and retrieve an entry using the custom codec", func(ctx SpecContext) {

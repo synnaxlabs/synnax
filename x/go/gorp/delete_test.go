@@ -13,15 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Delete", func() {
 	var tx gorp.Tx
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should delete an entry by key in the db", func(ctx SpecContext) {

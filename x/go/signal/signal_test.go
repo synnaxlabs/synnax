@@ -24,13 +24,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func immediatelyReturnError(ctx context.Context) error {
-	return errors.New("routine failed")
+var errRoutineFailed = errors.New("routine failed")
+
+func immediatelyReturnError(context.Context) error {
+	return errRoutineFailed
 }
 
-func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
+func immediatelyPanic(context.Context) error { panic("routine panicked") }
 
-func immediatelyReturnNil(ctx context.Context) error { return nil }
+func immediatelyReturnNil(context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
 	Describe("Coordination", func() {
@@ -40,7 +42,7 @@ var _ = Describe("Signal", func() {
 				ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
 				ctx.Go(immediatelyReturnError, signal.CancelOnFail())
 				cancel()
-				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
+				Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
@@ -79,7 +81,7 @@ var _ = Describe("Signal", func() {
 				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(2)))
 				cancel()
 				v <- 3
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 
@@ -104,15 +106,18 @@ var _ = Describe("Signal", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				var c atomic.Int32Counter
+				var (
+					c   atomic.Int32Counter
+					err = errors.New("routine failed")
+				)
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
 					c.Add(1)
-					return errors.New("routine failed")
+					return err
 				})
 				v <- 1
 				v <- 2
 				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(1)))
-				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
+				Expect(ctx.Wait()).To(MatchError(err))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 
@@ -129,7 +134,7 @@ var _ = Describe("Signal", func() {
 				})
 				Eventually(func() int32 { return c.Value() }).Should(BeNumerically(">", int32(3)))
 				cancel()
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
@@ -215,7 +220,7 @@ var _ = Describe("Signal", func() {
 			v := make(chan int)
 			cancel()
 			val, err := signal.RecvUnderContext(ctx, v)
-			Expect(err).To(HaveOccurredAs(context.Canceled))
+			Expect(err).To(MatchError(context.Canceled))
 			Expect(val).To(Equal(0))
 		})
 
@@ -268,16 +273,14 @@ var _ = Describe("Signal", func() {
 		It("Should wrap an error panic with routine key", func() {
 			ctx, _ := signal.Isolated()
 			originalErr := errors.New("original panic error")
-
 			ctx.Go(func(ctx context.Context) error {
 				panic(originalErr)
 			}, signal.RecoverWithErrOnPanic(), signal.WithKey("test-routine"))
-
-			err := ctx.Wait()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("routine test-routine recovered"))
-			Expect(err.Error()).To(ContainSubstring("original panic error"))
-			Expect(errors.Is(err, originalErr)).To(BeTrue())
+			Expect(ctx.Wait()).To(SatisfyAll(
+				MatchError(originalErr),
+				MatchError(ContainSubstring("routine test-routine recovered")),
+				MatchError(ContainSubstring("original panic error")),
+			))
 		})
 
 		It("Should try to restart when instructed to", func() {
@@ -331,7 +334,7 @@ var _ = Describe("Signal", func() {
 
 			wg.Go(func() {
 				defer GinkgoRecover()
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				close(done)
 			})
 

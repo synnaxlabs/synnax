@@ -34,28 +34,21 @@ var _ = Describe("User", Ordered, func() {
 		w     user.Writer
 	)
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+		svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
 		w = svc.NewWriter(nil)
-	})
-	AfterAll(func(ctx SpecContext) {
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
 		It("Should create a new user", func(ctx SpecContext) {
@@ -204,20 +197,15 @@ var _ = Describe("User", Ordered, func() {
 
 var _ = Describe("ProvisionRootUser", func() {
 	It("Should create the root user when Auth and credentials are provided", func(ctx SpecContext) {
-		testDB := gorp.Wrap(memkv.New())
-		defer func() { Expect(testDB.Close()).To(Succeed()) }()
-		testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		defer func() { Expect(testOtg.Close()).To(Succeed()) }()
-		testSearch := MustSucceed(search.Open())
-		defer func() { Expect(testSearch.Close()).To(Succeed()) }()
-		testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		testDB := DeferClose(gorp.Wrap(memkv.New()))
+		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
+		testSearch := MustOpen(search.Open())
+		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: testDB, Ontology: testOtg, Search: testSearch,
 		}))
-		defer func() { Expect(testGroup.Close()).To(Succeed()) }()
-		authKV := MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: testDB}))
-		defer func() { Expect(authKV.Close()).To(Succeed()) }()
+		authKV := MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: testDB}))
 
-		svc := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+		svc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:              testDB,
 			Ontology:        testOtg,
 			Group:           testGroup,
@@ -225,7 +213,6 @@ var _ = Describe("ProvisionRootUser", func() {
 			Auth:            authKV,
 			RootCredentials: auth.InsecureCredentials{Username: "synnax", Password: "seldon"},
 		}))
-		defer func() { Expect(svc.Close()).To(Succeed()) }()
 
 		var rootUser user.User
 		Expect(svc.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
@@ -234,18 +221,13 @@ var _ = Describe("ProvisionRootUser", func() {
 	})
 
 	It("Should be idempotent across multiple opens", func(ctx SpecContext) {
-		testDB := gorp.Wrap(memkv.New())
-		defer func() { Expect(testDB.Close()).To(Succeed()) }()
-		testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		defer func() { Expect(testOtg.Close()).To(Succeed()) }()
-		testSearch := MustSucceed(search.Open())
-		defer func() { Expect(testSearch.Close()).To(Succeed()) }()
-		testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		testDB := DeferClose(gorp.Wrap(memkv.New()))
+		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
+		testSearch := MustOpen(search.Open())
+		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: testDB, Ontology: testOtg, Search: testSearch,
 		}))
-		defer func() { Expect(testGroup.Close()).To(Succeed()) }()
-		authKV := MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: testDB}))
-		defer func() { Expect(authKV.Close()).To(Succeed()) }()
+		authKV := MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: testDB}))
 
 		creds := auth.InsecureCredentials{Username: "synnax", Password: "seldon"}
 		svc1 := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
@@ -258,11 +240,10 @@ var _ = Describe("ProvisionRootUser", func() {
 		firstKey := rootUser.Key
 		Expect(svc1.Close()).To(Succeed())
 
-		svc2 := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+		svc2 := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB: testDB, Ontology: testOtg, Group: testGroup, Search: testSearch,
 			Auth: authKV, RootCredentials: creds,
 		}))
-		defer func() { Expect(svc2.Close()).To(Succeed()) }()
 
 		var rootUser2 user.User
 		Expect(svc2.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser2).Exec(ctx, nil)).To(Succeed())
@@ -270,21 +251,16 @@ var _ = Describe("ProvisionRootUser", func() {
 	})
 
 	It("Should not create a root user when Auth is nil", func(ctx SpecContext) {
-		testDB := gorp.Wrap(memkv.New())
-		defer func() { Expect(testDB.Close()).To(Succeed()) }()
-		testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		defer func() { Expect(testOtg.Close()).To(Succeed()) }()
-		testSearch := MustSucceed(search.Open())
-		defer func() { Expect(testSearch.Close()).To(Succeed()) }()
-		testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		testDB := DeferClose(gorp.Wrap(memkv.New()))
+		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
+		testSearch := MustOpen(search.Open())
+		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: testDB, Ontology: testOtg, Search: testSearch,
 		}))
-		defer func() { Expect(testGroup.Close()).To(Succeed()) }()
 
-		svc := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+		svc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB: testDB, Ontology: testOtg, Group: testGroup, Search: testSearch,
 		}))
-		defer func() { Expect(svc.Close()).To(Succeed()) }()
 
 		exists := MustSucceed(svc.UsernameExists(ctx, "synnax"))
 		Expect(exists).To(BeFalse())

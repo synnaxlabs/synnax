@@ -91,7 +91,7 @@ var _ = Describe("Receiver", func() {
 			outputStream := confluence.NewStream[int](1)
 			receiver.OutTo(outputStream)
 			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 			Eventually(outputStream.Outlet()).Should(BeClosed())
 		})
 		It("Should not treat TransformReceiver ErrStreamClosed as a routine failure", func(ctx SpecContext) {
@@ -105,7 +105,7 @@ var _ = Describe("Receiver", func() {
 			outputStream := confluence.NewStream[int](1)
 			receiver.OutTo(outputStream)
 			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 			Eventually(outputStream.Outlet()).Should(BeClosed())
 		})
 	})

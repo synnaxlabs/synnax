@@ -120,6 +120,10 @@ func (v *BaseArcParserVisitor) VisitFunction(ctx *FunctionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitQualifiedIdentifier(ctx *QualifiedIdentifierContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitConfigValues(ctx *ConfigValuesContext) interface{} {
 	return v.VisitChildren(ctx)
 }

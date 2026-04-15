@@ -219,7 +219,7 @@ x::errors::Error Master::receive() {
 
     if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
         this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
-        VLOG(2) << "[ethercat.igh] incomplete WC: output="
+        VLOG(1) << "[ethercat.igh] incomplete WC: output="
                 << this->output_domain_state.working_counter
                 << ", input=" << this->input_domain_state.working_counter;
 
@@ -446,7 +446,7 @@ void Master::configure_slave_pdos(
         LOG(WARNING) << "[ethercat.igh] failed to configure PDOs for slave "
                      << slave.position;
     } else {
-        VLOG(2) << "[ethercat.igh] configured " << output_pdos.size()
+        VLOG(1) << "[ethercat.igh] configured " << output_pdos.size()
                 << " output PDOs and " << input_pdos.size() << " input PDOs for slave "
                 << slave.position;
     }

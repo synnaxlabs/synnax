@@ -222,7 +222,7 @@ var _ = Describe("Control", func() {
 
 						By("Force closing the first writer through context cancellation")
 						cancel1()
-						Expect(ctx1.Wait()).To(HaveOccurredAs(context.Canceled))
+						Expect(ctx1.Wait()).To(MatchError(context.Canceled))
 
 						By("Propagating the control transfer")
 						Eventually(stOut.Outlet()).Should(Receive(&res))

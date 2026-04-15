@@ -18,7 +18,11 @@ export type Version = typeof VERSION;
 
 export const clusterZ = synnaxParamsZ
   .extend({ name: z.string().min(1, { message: "Name is required" }) })
-  .omit({ connectivityPollFrequency: true, retry: true });
+  .omit({
+    connectivityPollFrequency: true,
+    retry: true,
+    clockSkewThreshold: true,
+  });
 export type Cluster = z.infer<typeof clusterZ> & { key: string };
 
 export type SliceState = Omit<v1.SliceState, "version" | "clusters"> & {

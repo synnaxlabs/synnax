@@ -418,6 +418,9 @@ class TimeSpan(int):
     def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:  # type: ignore[misc]
         return self.__mul__(rhs)
 
+    def __abs__(self) -> TimeSpan:
+        return TimeSpan(super().__abs__())
+
     # overrides below widen int's parameter type to accept CrudeTimeSpan
     def __gt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__gt__(TimeSpan(rhs))

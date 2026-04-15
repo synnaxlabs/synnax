@@ -14,6 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/set"
 )
 
 type braceContext int
@@ -50,7 +51,7 @@ type printer struct {
 	parenContextStack      []parenContext
 	inlineConfigValues     bool
 	inlineConfigBlock      bool
-	multilineParens        map[int]bool // tracks which paren depth levels are multiline
+	multilineParens        set.Set[int] // tracks which paren depth levels are multiline
 	allComments            []antlr.Token
 	pendingTrailingComment string
 	pendingBreak           bool
@@ -66,7 +67,7 @@ func newPrinter() *printer {
 	return &printer{
 		atLineStart:     true,
 		indentCache:     cache,
-		multilineParens: make(map[int]bool),
+		multilineParens: make(set.Set[int]),
 	}
 }
 
@@ -174,7 +175,7 @@ func (p *printer) shouldAddTrailingComma(tok antlr.Token, idx int, tokens []antl
 
 	if nextType == parser.ArcLexerRPAREN {
 		depth := len(p.parenContextStack)
-		if p.multilineParens[depth] && len(p.parenContextStack) > 0 {
+		if p.multilineParens.Contains(depth) && len(p.parenContextStack) > 0 {
 			ctx := p.parenContextStack[len(p.parenContextStack)-1]
 			if ctx == parenContextInputList || ctx == parenContextMultiOutput {
 				return true
@@ -549,7 +550,7 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 	// Authority paren blocks are always multiline
 	if ctx == parenContextAuthority {
 		depth := len(p.parenContextStack)
-		p.multilineParens[depth] = true
+		p.multilineParens.Add(depth)
 		p.emitChar("(")
 		if !p.isEmptyParenList(idx, tokens) {
 			p.writeNewline()
@@ -563,7 +564,7 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 	if ctx == parenContextInputList || ctx == parenContextMultiOutput {
 		depth := len(p.parenContextStack)
 		if p.shouldMultilineParenList(idx, tokens) {
-			p.multilineParens[depth] = true
+			p.multilineParens.Add(depth)
 			p.emitChar("(")
 			if !p.isEmptyParenList(idx, tokens) {
 				p.writeNewline()
@@ -583,8 +584,8 @@ func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 	p.popParenContext()
 	depth := len(p.parenContextStack) + 1
 
-	if p.multilineParens[depth] {
-		delete(p.multilineParens, depth)
+	if p.multilineParens.Contains(depth) {
+		p.multilineParens.Remove(depth)
 		isEmptyList := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLPAREN
 		if !isEmptyList {
 			p.flushPendingTrailingComment()
@@ -1008,7 +1009,7 @@ func (p *printer) shouldBreakAfterComma() bool {
 		return false
 	}
 	// Break after comma in multiline paren lists
-	if p.multilineParens[len(p.parenContextStack)] {
+	if p.multilineParens.Contains(len(p.parenContextStack)) {
 		return true
 	}
 	return p.delimiterStack[len(p.delimiterStack)-1] == parser.ArcLexerLBRACE

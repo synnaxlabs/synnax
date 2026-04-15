@@ -31,7 +31,7 @@ type ControlUpdate struct {
 // database. If the channel is not found, it is created.
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey, name string) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()

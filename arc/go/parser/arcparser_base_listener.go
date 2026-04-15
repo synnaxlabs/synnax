@@ -185,6 +185,12 @@ func (s *BaseArcParserListener) EnterFunction(ctx *FunctionContext) {}
 // ExitFunction is called when production function is exited.
 func (s *BaseArcParserListener) ExitFunction(ctx *FunctionContext) {}
 
+// EnterQualifiedIdentifier is called when production qualifiedIdentifier is entered.
+func (s *BaseArcParserListener) EnterQualifiedIdentifier(ctx *QualifiedIdentifierContext) {}
+
+// ExitQualifiedIdentifier is called when production qualifiedIdentifier is exited.
+func (s *BaseArcParserListener) ExitQualifiedIdentifier(ctx *QualifiedIdentifierContext) {}
+
 // EnterConfigValues is called when production configValues is entered.
 func (s *BaseArcParserListener) EnterConfigValues(ctx *ConfigValuesContext) {}
 

@@ -40,6 +40,14 @@ func Open(
 	defer func() {
 		err = cleanup(err)
 	}()
+	// Register the owned grpc client pool first so it closes LAST. The
+	// transport (added below) and any cluster goroutines that hold it must
+	// stop using the pool before pool.Close runs.
+	if o.transport.ownedPool != nil {
+		if !ok(nil, o.transport.ownedPool) {
+			return nil, ctx.Err()
+		}
+	}
 	if o.kv.Engine == nil {
 		if o.kv.Engine, err = openKV(o); !ok(err, o.kv.Engine) {
 			return nil, err

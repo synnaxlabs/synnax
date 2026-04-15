@@ -100,6 +100,32 @@ func GetWordAtPosition(content string, pos protocol.Position) string {
 	return line[start:end]
 }
 
+func isQualifiedWordChar(c byte) bool {
+	return IsWordChar(c) || c == '.'
+}
+
+// GetQualifiedWordAtPosition extracts the word at the given position,
+// treating dots as word characters so that qualified names like "math.pow"
+// are returned as a single word.
+func GetQualifiedWordAtPosition(
+	content string,
+	pos protocol.Position,
+) string {
+	line, ok := GetLine(content, pos.Line)
+	if !ok || int(pos.Character) >= len(line) {
+		return ""
+	}
+	start := int(pos.Character)
+	end := int(pos.Character)
+	for start > 0 && isQualifiedWordChar(line[start-1]) {
+		start--
+	}
+	for end < len(line) && isQualifiedWordChar(line[end]) {
+		end++
+	}
+	return line[start:end]
+}
+
 // GetWordRangeAtPosition returns the range of the word at the given position,
 // or nil if there is no word at that position.
 func GetWordRangeAtPosition(

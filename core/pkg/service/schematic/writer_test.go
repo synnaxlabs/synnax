@@ -16,7 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -70,7 +69,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "test2", true, &cpy)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, cpy.Key, map[string]any{"key": "data2"})).To(HaveOccurredAs(validate.ErrValidation))
+			Expect(svc.NewWriter(tx).SetData(ctx, cpy.Key, map[string]any{"key": "data2"})).To(MatchError(validate.ErrValidation))
 		})
 	})
 })

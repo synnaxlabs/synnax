@@ -946,6 +946,414 @@ var _ = Describe("WASM", func() {
 				return len(a + b)
 			}`, stl.SymbolResolver, int32(11)),
 		)
+
+		DescribeTable("qualified string.len() calls",
+			expectOutput[int32],
+			Entry("simple string", "qlen_str", types.I64(), `{
+				return string.len("hello")
+			}`, stl.SymbolResolver, int32(5)),
+			Entry("empty string", "qlen_empty", types.I64(), `{
+				return string.len("")
+			}`, stl.SymbolResolver, int32(0)),
+			Entry("string variable", "qlen_var", types.I64(), `{
+				s str := "world"
+				return string.len(s)
+			}`, stl.SymbolResolver, int32(5)),
+		)
+
+		DescribeTable("qualified string.concat() calls",
+			expectOutput[int32],
+			Entry("two literals", "qconcat_lit", types.I64(), `{
+				return len(string.concat("ab", "cd"))
+			}`, stl.SymbolResolver, int32(4)),
+			Entry("variables", "qconcat_var", types.I64(), `{
+				a str := "hello"
+				b str := " world"
+				return string.len(string.concat(a, b))
+			}`, stl.SymbolResolver, int32(11)),
+		)
+
+		DescribeTable("qualified string.equal() calls",
+			expectOutput[int32],
+			Entry("equal strings", "qeq_true", types.I32(), `{
+				return string.equal("abc", "abc")
+			}`, stl.SymbolResolver, int32(1)),
+			Entry("unequal strings", "qeq_false", types.I32(), `{
+				return string.equal("abc", "def")
+			}`, stl.SymbolResolver, int32(0)),
+		)
+	})
+
+	Describe("Qualified math.pow()", func() {
+		DescribeTable("const, const (i64)",
+			expectOutput[int32],
+			Entry("i64 literals", "pow_ii", types.I64(), `{
+				return math.pow(2, 10)
+			}`, stl.SymbolResolver, int32(1024)),
+		)
+
+		DescribeTable("const, const (f64)",
+			expectOutput[float64],
+			Entry("f64 literals", "pow_ff64", types.F64(), `{
+				return math.pow(2.0, 3.0)
+			}`, stl.SymbolResolver, float64(8.0)),
+			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
+				return math.pow(9.0, 0.5)
+			}`, stl.SymbolResolver, float64(3.0)),
+		)
+
+		It("chan, const (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_ci", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 5), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](3), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "pow_ci")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_ci", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 27, 125}))
+		})
+
+		It("chan, const (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cf", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](2.0, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](2.0), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "pow_cf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cf", 0)
+			Expect(telem.UnmarshalSeries[float64](result)).To(Equal([]float64{4.0, 9.0, 16.0}))
+		})
+
+		It("const, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_ic", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](1, 2, 3, 4), telem.NewSeriesSecondsTSV(1, 2, 3, 4))
+
+			changed := h.Execute(ctx, "pow_ic")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_ic", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{2, 4, 8, 16}))
+		})
+
+		It("const, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_fc", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](3.0), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](1.0, 2.0, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+
+			changed := h.Execute(ctx, "pow_fc")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_fc", 0)
+			Expect(telem.UnmarshalSeries[float64](result)).To(Equal([]float64{3.0, 9.0, 27.0}))
+		})
+
+		It("chan, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cc_i", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 10), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](3, 2, 4), telem.NewSeriesSecondsTSV(1, 2, 3))
+
+			changed := h.Execute(ctx, "pow_cc_i")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cc_i", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 9, 10000}))
+		})
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cc_f", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](4.0, 27.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](0.5, 1.0/3.0), telem.NewSeriesSecondsTSV(1, 2))
+
+			changed := h.Execute(ctx, "pow_cc_f")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cc_f", 0)
+			values := telem.UnmarshalSeries[float64](result)
+			Expect(values[0]).To(BeNumerically("~", 2.0, 1e-9))
+			Expect(values[1]).To(BeNumerically("~", 3.0, 1e-9))
+		})
+	})
+
+	Describe("String Function Type Safety", func() {
+		DescribeTable("Should reject non-string arguments to string functions",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+			},
+			Entry("string.len with integer", `
+				func bad() i64 { return string.len(123) }
+			`),
+			Entry("string.concat with integer", `
+				func bad() str { return string.concat(1, 2) }
+			`),
+			Entry("string.equal with integer", `
+				func bad() i32 { return string.equal(1, 2) }
+			`),
+		)
+	})
+
+	Describe("String Channel Input", func() {
+		It("Should convert string channel data to handles for function parameters", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "str_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "str_len", Type: "str_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "str_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "str_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("str_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+
+		It("Should convert string channel data to handles for qualified string.len()", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "qstr_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return string.len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "qstr_len", Type: "qstr_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "qstr_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("qstr_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+
+		It("Should convert string channel data to handles for qualified string.concat()", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "qstr_concat",
+						Inputs: types.Params{
+							{Name: "a", Type: types.String()},
+							{Name: "b", Type: types.String()},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return string.len(string.concat(a, b)) }`},
+					},
+					{
+						Key:     "src_a",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+					{
+						Key:     "src_b",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "src_a", Type: "src_a"},
+					{Key: "src_b", Type: "src_b"},
+					{Key: "qstr_concat", Type: "qstr_concat"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "src_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_concat", Param: "a"},
+					},
+					{
+						Source: ir.Handle{Node: "src_b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_concat", Param: "b"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("src_a", 0,
+				telem.NewSeriesV[string]("hello"),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.SetInput("src_b", 0,
+				telem.NewSeriesV[string](" world"),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			changed := h.Execute(ctx, "qstr_concat")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("qstr_concat", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{11}))
+		})
+	})
+
+	Describe("Named String Output Memory Layout", func() {
+		It("Should compute correct memory offsets for string outputs in graph nodes", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "labeler",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "label", Type: types.String()},
+							{Name: "value", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							label = "ok"
+							value = x * 2
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "labeler", Type: "labeler"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "labeler", Param: "x"},
+					},
+				},
+			}
+			// The key assertion: this must not panic on Density() for
+			// string-typed named outputs in either the compiler or runtime.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("labeler", 0,
+				telem.NewSeriesV[int64](5),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "labeler") }).ToNot(Panic())
+		})
+
+		It("Should handle multiple string outputs without panicking", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "tagger",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "first", Type: types.String()},
+							{Name: "second", Type: types.String()},
+							{Name: "count", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							first = "a"
+							second = "b"
+							count = x
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "tagger", Type: "tagger"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "tagger", Param: "x"},
+					},
+				},
+			}
+			// Must not panic even with multiple string outputs
+			// contributing to the memory offset calculation.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("tagger", 0,
+				telem.NewSeriesV[int64](42),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "tagger") }).ToNot(Panic())
+		})
 	})
 
 	Describe("No-Input Node Initialization", func() {
