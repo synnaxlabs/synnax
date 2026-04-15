@@ -29,6 +29,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"pow": {
 			Name: "pow",
 			Kind: symbol.KindFunction,
+			Exec: symbol.ExecWASM,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},

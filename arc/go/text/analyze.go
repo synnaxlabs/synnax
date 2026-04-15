@@ -260,6 +260,14 @@ func analyzeFunctionNode(
 			alt,
 		))
 	}
+	if sym.Exec == symbol.ExecWASM {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"function '%s' is only available in func blocks, not in flow statements",
+			name,
+		))
+		return nodeResult{}, false
+	}
 	if sym.Type.Kind != types.KindFunction {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
@@ -645,11 +653,15 @@ func extractConfigValues(
 			return nil, false
 		}
 
+		negated := parser.IsNegatedLiteral(expr)
 		literalCtx := parser.GetLiteral(expr)
 		parsedValue, err := literal.Parse(literalCtx, paramType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 			return nil, false
+		}
+		if negated {
+			parsedValue.Value = literal.Negate(parsedValue.Value)
 		}
 		return parsedValue.Value, true
 	}

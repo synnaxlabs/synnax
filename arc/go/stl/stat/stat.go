@@ -51,6 +51,7 @@ func createBaseSymbol(name string) symbol.Symbol {
 	return symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{
 				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
@@ -74,6 +75,7 @@ var (
 	derivativeSymbol = symbol.Symbol{
 		Name: derivativeSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},

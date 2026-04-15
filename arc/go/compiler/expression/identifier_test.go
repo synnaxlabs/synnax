@@ -536,6 +536,7 @@ var _ = Describe("Identifier Compilation", func() {
 			)
 			Expect(exprType).To(Equal(types.TimeStamp()))
 			Expect(bytecode).To(MatchOpcodes(
+				OpI64Const, int64(0),
 				OpCall, uint32(0),
 			))
 		})

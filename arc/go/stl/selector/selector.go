@@ -27,6 +27,7 @@ var (
 	symbolSelect   = symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.U8()},

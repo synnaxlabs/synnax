@@ -37,6 +37,7 @@ var (
 	entryNodeSymbol = symbol.Symbol{
 		Name: EntryNodeName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: EntryNodeInputs,
 		}),

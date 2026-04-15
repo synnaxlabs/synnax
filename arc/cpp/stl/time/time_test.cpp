@@ -1092,4 +1092,219 @@ TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(reported_deadline, x::telem::SECOND * 11);
 }
+
+/// @brief Helper to build IR for Now.
+struct NowTestSetup {
+    ir::IR ir;
+    runtime::state::State state;
+
+    explicit NowTestSetup(const int64_t offset_ns = 0):
+        ir(build_ir(offset_ns)),
+        state(
+            runtime::state::Config{.ir = ir, .channels = {}},
+            runtime::errors::noop_handler
+        ) {}
+
+    runtime::state::Node make_node() { return ASSERT_NIL_P(state.node("now_node")); }
+
+private:
+    static ir::IR build_ir(const int64_t offset_ns) {
+        arc::types::Param output_param;
+        output_param.name = "output";
+        output_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
+
+        ir::Node ir_node;
+        ir_node.key = "now_node";
+        ir_node.type = "now";
+        ir_node.outputs.push_back(output_param);
+
+        if (offset_ns != 0) {
+            arc::types::Param cfg_param;
+            cfg_param.name = "offset";
+            cfg_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
+            cfg_param.value = offset_ns;
+            ir_node.config.push_back(cfg_param);
+        }
+
+        ir::Function fn;
+        fn.key = "test";
+
+        ir::IR ir;
+        ir.nodes.push_back(ir_node);
+        ir.functions.push_back(fn);
+        return ir;
+    }
+};
+
+TEST(NowConfigTest, DefaultOffsetIsZero) {
+    types::Params params;
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(params));
+    EXPECT_EQ(cfg.offset, x::telem::TimeSpan(0));
+}
+
+TEST(NowConfigTest, ParsesOffsetFromParams) {
+    types::Param offset_param;
+    offset_param.name = "offset";
+    offset_param.type = types::Type{.kind = types::Kind::I64};
+    offset_param.value = x::telem::SECOND.nanoseconds();
+    types::Params params;
+    params.push_back(offset_param);
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(params));
+    EXPECT_EQ(cfg.offset, x::telem::SECOND);
+}
+
+/// @brief Now node outputs a valid wall-clock timestamp.
+TEST(NowTest, OutputsWallClockTimestamp) {
+    NowTestSetup setup;
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+
+    const auto before = x::telem::TimeStamp::now().nanoseconds();
+    auto ctx = make_context(x::telem::SECOND * 5);
+    bool changed = false;
+    ctx.mark_changed = [&](const std::string &param) {
+        EXPECT_EQ(param, ir::default_output_param);
+        changed = true;
+    };
+    ASSERT_NIL(node.next(ctx));
+    const auto after = x::telem::TimeStamp::now().nanoseconds();
+
+    EXPECT_TRUE(changed);
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    const auto ts = output->at<int64_t>(0);
+    EXPECT_GE(ts, before);
+    EXPECT_LE(ts, after);
+}
+
+/// @brief Now node fires on any RunReason (not just TimerTick).
+TEST(NowTest, FiresOnChannelInput) {
+    NowTestSetup setup;
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+
+    bool changed = false;
+    auto ctx = make_context(
+        x::telem::TimeSpan(0),
+        x::telem::TimeSpan(0),
+        runtime::node::RunReason::ChannelInput
+    );
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_TRUE(changed);
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Now node output and output_time contain the same timestamp.
+TEST(NowTest, OutputAndOutputTimeMatch) {
+    NowTestSetup setup;
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+
+    auto ctx = make_context(x::telem::SECOND);
+    ASSERT_NIL(node.next(ctx));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    const auto &output_time = checker.output_time(0);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(output_time->size(), 1);
+    EXPECT_EQ(output->at<int64_t>(0), output_time->at<int64_t>(0));
+}
+
+/// @brief Now node works correctly after reset.
+TEST(NowTest, WorksAfterReset) {
+    NowTestSetup setup;
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    node.reset();
+
+    bool changed = false;
+    auto ctx2 = make_context(x::telem::SECOND);
+    ctx2.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_TRUE(changed);
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Now node is_output_truthy returns false for unknown param.
+TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
+    NowTestSetup setup;
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
+}
+
+/// @brief Now node with positive offset adds to wall-clock timestamp.
+TEST(NowTest, PositiveOffsetAddsToTimestamp) {
+    NowTestSetup setup(x::telem::SECOND.nanoseconds());
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+
+    const auto before = x::telem::TimeStamp::now().nanoseconds() +
+                        x::telem::SECOND.nanoseconds();
+    auto ctx = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx));
+    const auto after = x::telem::TimeStamp::now().nanoseconds() +
+                       x::telem::SECOND.nanoseconds();
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    const auto ts = output->at<int64_t>(0);
+    EXPECT_GE(ts, before);
+    EXPECT_LE(ts, after);
+}
+
+/// @brief Now node with negative offset subtracts from wall-clock timestamp.
+TEST(NowTest, NegativeOffsetSubtractsFromTimestamp) {
+    NowTestSetup setup(-x::telem::SECOND.nanoseconds());
+    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
+    time::Now node(cfg, setup.make_node());
+
+    const auto before = x::telem::TimeStamp::now().nanoseconds() -
+                        x::telem::SECOND.nanoseconds();
+    auto ctx = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx));
+    const auto after = x::telem::TimeStamp::now().nanoseconds() -
+                       x::telem::SECOND.nanoseconds();
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    const auto ts = output->at<int64_t>(0);
+    EXPECT_GE(ts, before);
+    EXPECT_LE(ts, after);
+}
+
+/// @brief Module creates Now node from factory with offset config.
+TEST(TimeModuleTest, CreatesNowNodeWithOffset) {
+    NowTestSetup setup(x::telem::SECOND.nanoseconds());
+    Module factory;
+    const auto node = ASSERT_NIL_P(factory.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+    ));
+    ASSERT_NE(node, nullptr);
+}
+
+/// @brief Now node does not affect base_interval.
+TEST(TimeModuleTest, NowDoesNotAffectBaseInterval) {
+    NowTestSetup setup;
+    Module factory;
+    ASSERT_NIL_P(factory.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+    ));
+    EXPECT_EQ(factory.base_interval(), UNSET_BASE_INTERVAL);
+}
 }

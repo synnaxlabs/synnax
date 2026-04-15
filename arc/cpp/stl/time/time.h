@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <numeric>
 
@@ -171,6 +172,53 @@ public:
     }
 };
 
+struct NowConfig {
+    x::telem::TimeSpan offset = x::telem::TimeSpan(0);
+
+    static std::pair<NowConfig, x::errors::Error> create(const types::Params &params) {
+        NowConfig cfg;
+        auto it = std::find_if(params.begin(), params.end(), [](const types::Param &p) {
+            return p.name == "offset";
+        });
+        if (it != params.end()) {
+            auto sv = types::to_sample_value(it->value, it->type);
+            if (sv.has_value())
+                cfg.offset = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
+        }
+        return {cfg, x::errors::NIL};
+    }
+};
+
+/// @brief Outputs the current wall-clock timestamp (plus optional offset) when
+/// triggered.
+class Now : public runtime::node::Node {
+    runtime::state::Node state;
+    NowConfig cfg;
+
+public:
+    explicit Now(const NowConfig &cfg, runtime::state::Node &&state):
+        state(std::move(state)), cfg(cfg) {}
+
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        const auto ts = x::telem::TimeStamp::now().nanoseconds() +
+                        this->cfg.offset.nanoseconds();
+        const auto &o = this->state.output(0);
+        const auto &o_time = this->state.output_time(0);
+        o->resize(1);
+        o_time->resize(1);
+        o->set(0, ts);
+        o_time->set(0, ts);
+        ctx.mark_changed(ir::default_output_param);
+        return x::errors::NIL;
+    }
+
+    void reset() override {}
+
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
+        return state.is_output_truthy(param_name);
+    }
+};
+
 class Module : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
 
@@ -180,7 +228,7 @@ public:
     [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
 
     bool handles(const std::string &node_type) const override {
-        return node_type == "interval" || node_type == "wait";
+        return node_type == "interval" || node_type == "wait" || node_type == "now";
     }
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
@@ -203,6 +251,14 @@ public:
                 x::errors::NIL
             };
         }
+        if (cfg.node.type == "now") {
+            auto [node_cfg, err] = NowConfig::create(cfg.node.config);
+            if (err) return {nullptr, err};
+            return {
+                std::make_unique<Now>(node_cfg, std::move(cfg.state)),
+                x::errors::NIL
+            };
+        }
         return {nullptr, x::errors::NOT_FOUND};
     }
 
@@ -211,7 +267,9 @@ public:
             .func_wrap(
                 "time",
                 "now",
-                []() -> int64_t { return x::telem::TimeStamp::now().nanoseconds(); }
+                [](int64_t offset) -> int64_t {
+                    return x::telem::TimeStamp::now().nanoseconds() + offset;
+                }
             )
             .unwrap();
     }

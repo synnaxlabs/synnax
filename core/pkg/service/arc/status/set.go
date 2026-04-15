@@ -32,6 +32,7 @@ var (
 	symbolSet  = symbol.Symbol{
 		Name: "set_status",
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{
 				{Name: "status_key", Type: types.String()},

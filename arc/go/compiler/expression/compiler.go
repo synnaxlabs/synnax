@@ -146,12 +146,18 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 			if funcName == "len" {
 				return compileBuiltinLen(ctx, funcCalls[0])
 			}
-			if funcName == "now" {
-				return compileBuiltinNow(ctx)
+			if funcName == "now" || funcName == "time.now" {
+				return compileBuiltinNow(ctx, funcCalls[0])
 			}
 
 			scope, err := ctx.Scope.Resolve(ctx, funcName)
 			if err == nil && scope.Kind == symbol.KindFunction {
+				if scope.Exec == symbol.ExecFlow {
+					return types.Type{}, errors.Newf(
+						"function '%s' is only available in flow statements, not in func blocks",
+						funcName,
+					)
+				}
 				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
 			}
 		}
@@ -438,7 +444,24 @@ func compileBuiltinLen(
 	}
 }
 
-func compileBuiltinNow(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
+func compileBuiltinNow(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	funcCall parser.IFunctionCallSuffixContext,
+) (types.Type, error) {
+	var args []parser.IExpressionContext
+	if argList := funcCall.ArgumentList(); argList != nil {
+		args = argList.AllExpression()
+	}
+	if len(args) > 1 {
+		return types.Type{}, errors.Newf("now() accepts 0 or 1 arguments, got %d", len(args))
+	}
+	if len(args) == 1 {
+		if _, err := Compile(context.Child(ctx, args[0])); err != nil {
+			return types.Type{}, errors.Wrap(err, "argument 1 of now")
+		}
+	} else {
+		ctx.Writer.WriteI64Const(0)
+	}
 	ctx.Resolver.EmitNow(ctx.Writer, ctx.WriterID)
 	return types.TimeStamp(), nil
 }

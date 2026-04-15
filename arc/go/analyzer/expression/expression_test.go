@@ -1130,7 +1130,8 @@ var _ = Describe("Expressions", func() {
 			Entry("string literal", `"hello" -> out`, true),
 			Entry("identifier (parsed as flowNode)", `x -> out`, false),
 			Entry("binary expression", `1 + 2 -> out`, false),
-			Entry("unary expression", `-1 -> out`, false),
+			Entry("negated literal", `-1 -> out`, true),
+			Entry("logical not expression", `not 1 -> out`, false),
 			Entry("parenthesized expression", `(42) -> out`, false),
 			Entry("comparison expression", `1 > 0 -> out`, false),
 			Entry("logical expression", `1 and 0 -> out`, false),
@@ -1176,7 +1177,7 @@ var _ = Describe("Expressions", func() {
 			Entry("float literal", `3.14 -> out`, "3.14"),
 			Entry("string literal", `"hello" -> out`, `"hello"`),
 			Entry("binary expression", `1 + 2 -> out`, ""),
-			Entry("unary expression", `-1 -> out`, ""),
+			Entry("negated literal", `-1 -> out`, "1"),
 			Entry("non-literal expression", `x + y -> out`, ""),
 		)
 	})

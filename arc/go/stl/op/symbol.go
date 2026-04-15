@@ -20,6 +20,7 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 	return symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
@@ -49,6 +50,7 @@ func createUnaryOpSymbol(name string, inputType types.Type, outputs types.Params
 	return symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: inputType}},
 			Outputs: outputs,

@@ -46,6 +46,7 @@ var (
 		bareSymbolName: {
 			Name: bareSymbolName,
 			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
 			Type: symbolProps,
 		},
 	}
@@ -55,6 +56,7 @@ var (
 			qualifiedMemberName: {
 				Name: qualifiedMemberName,
 				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
 				Type: symbolProps,
 			},
 		},

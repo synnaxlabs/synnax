@@ -1533,6 +1533,82 @@ var _ = Describe("WASM", func() {
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(25.0))
 		})
+
+		It("Should handle negative i64 config parameter", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "offset_func",
+						Config:  types.Params{{Name: "offset", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "value", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return value + offset }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "offset_func", Type: "offset_func", Config: map[string]any{"offset": int64(-50)}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "offset_func", Param: "value"}},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+
+			h.SetInput("input_source", 0, telem.NewSeriesV[int64](100), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "offset_func")
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+
+			output := h.Output("offset_func", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(50)))
+		})
+
+		It("Should handle negative f64 config parameter", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "scale_neg",
+						Config:  types.Params{{Name: "factor", Type: types.F64()}},
+						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return value * factor }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return 1.0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "scale_neg", Type: "scale_neg", Config: map[string]any{"factor": -3.0}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_neg", Param: "value"}},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+
+			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "scale_neg")
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+
+			output := h.Output("scale_neg", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(-30.0))
+		})
 	})
 
 	Describe("Imperative Channel Writes", func() {

@@ -30,6 +30,7 @@ const (
 	nowSymbolName       = "now"
 	periodConfigParam   = "period"
 	durationConfigParam = "duration"
+	offsetConfigParam   = "offset"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -43,6 +44,7 @@ var baseSymbolResolver = symbol.MapResolver{
 	intervalSymbolName: {
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
@@ -51,6 +53,7 @@ var baseSymbolResolver = symbol.MapResolver{
 	waitSymbolName: {
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
@@ -59,7 +62,9 @@ var baseSymbolResolver = symbol.MapResolver{
 	nowSymbolName: {
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
+			Config:  types.Params{{Name: offsetConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpan(0)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
 	},
@@ -79,8 +84,8 @@ func NewModule(
 	}
 	builder := rat.NewHostModuleBuilder("time")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context) uint64 {
-			return uint64(telem.Now())
+		WithFunc(func(_ context.Context, offset uint64) uint64 {
+			return uint64(telem.Now()) + offset
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -127,6 +132,17 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			startTime: -1,
 			fired:     false,
 		}, nil
+
+	case nowSymbolName:
+		var offset telem.TimeSpan
+		if offsetParam, ok := cfg.Node.Config.Get(offsetConfigParam); ok {
+			parsed, err := parseTime(offsetParam.Value, offsetParam.Name)
+			if err != nil {
+				return nil, err
+			}
+			offset = parsed
+		}
+		return &Now{State: cfg.State, offset: offset}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -252,3 +268,24 @@ func (w *Wait) Reset() {
 	w.startTime = -1
 	w.fired = false
 }
+
+// Now outputs the current wall-clock timestamp (plus an optional offset) when triggered.
+type Now struct {
+	*node.State
+	offset telem.TimeSpan
+}
+
+func (n *Now) Init(_ node.Context) {}
+
+func (n *Now) Next(ctx node.Context) {
+	ts := telem.Now() + telem.TimeStamp(n.offset)
+	output := n.Output(0)
+	outputTime := n.OutputTime(0)
+	output.Resize(1)
+	outputTime.Resize(1)
+	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
+	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
+	ctx.MarkChanged(ir.DefaultOutputParam)
+}
+
+func (n *Now) Reset() { n.State.Reset() }

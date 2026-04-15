@@ -16,11 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -315,6 +317,75 @@ var _ = Describe("Text", func() {
 					Expect(cfg.Type).To(Equal(types.I64()))
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
 				}
+			})
+
+			It("Should handle negated integer config value", func(ctx SpecContext) {
+				source := `
+				func processor{
+					threshold i64
+				} () i64 {
+					return threshold
+				}
+
+				func print{} () {
+				}
+
+				processor{threshold=-100} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "processor_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("threshold"))
+				Expect(node.Config[0].Value).To(Equal(int64(-100)))
+			})
+
+			It("Should handle negated float config value", func(ctx SpecContext) {
+				source := `
+				func scaler{
+					factor f64
+				} () f64 {
+					return factor
+				}
+
+				func print{} () {
+				}
+
+				scaler{factor=-2.5} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "scaler_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("factor"))
+				Expect(node.Config[0].Value).To(Equal(-2.5))
+			})
+
+			It("Should handle negated time unit config value", func(ctx SpecContext) {
+				source := `
+				time_trigger -> time.now{offset=-3h} -> ts_out
+				`
+				resolver := symbol.CompoundResolver{
+					symbol.MapResolver{
+						"time_trigger": {Name: "time_trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+						"ts_out":       {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
+					},
+					stl.SymbolResolver,
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				nowNode := findNodeByType(inter.Nodes, "time.now")
+				Expect(nowNode).ToNot(BeNil())
+				Expect(nowNode.Config).To(HaveLen(1))
+				Expect(nowNode.Config[0].Name).To(Equal("offset"))
+				threeHoursNanos := int64(3 * 60 * 60) * int64(telem.Second)
+				Expect(nowNode.Config[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 
 			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {
@@ -2110,6 +2181,113 @@ var _ = Describe("Text", func() {
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("ExecContext", func() {
+		It("Should reject a WASM-only function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			func print{} () {
+			}
+
+			sensor -> math.pow{} -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("only available in func blocks"))
+		})
+
+		It("Should allow a flow function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+			}
+			source := `
+			func print{} () {
+			}
+
+			sensor -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should allow an ExecBoth user function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+			}
+			source := `
+			func handler{} () {
+			}
+
+			sensor -> handler{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should allow a flow-only STL function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			func print{} () {
+			}
+
+			interval{100ms} -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should allow an ExecBoth STL function (time.now) in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+					"ts_out":  {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			interval{100ms} -> time.now{} -> ts_out
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should reject a flow-only function called in a func body at compile time", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			func test() {
+				interval()
+			}
+
+			sensor -> test{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			_, err := text.Compile(ctx, ir)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("only available in flow statements"))
 		})
 	})
 })

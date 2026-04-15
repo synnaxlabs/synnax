@@ -112,7 +112,7 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
+			Expect(hover.Contents.Value).To(ContainSubstring("authority.set{}"))
 		})
 
 		It("should provide hover for 'authority.set' function", func(ctx SpecContext) {
