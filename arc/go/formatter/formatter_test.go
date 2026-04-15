@@ -383,6 +383,12 @@ var _ = Describe("Formatter", func() {
 		Entry("config values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
 		Entry("function declaration config block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("nested config values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
+		Entry("anonymous config value inline", "wait{1s}", "wait{1s}\n"),
+		Entry("multiple anonymous config values inline", "wait{1s,3}", "wait{1s, 3}\n"),
+		Entry("anonymous config values in flow statements", "sensor -> filter{10} -> output", "sensor -> filter{10} -> output\n"),
+		Entry("multiline anonymous config values inlined when short enough",
+			"wait{\n    1s\n}",
+			"wait{1s}\n"),
 	)
 
 	DescribeTable("Config Block Formatting",
