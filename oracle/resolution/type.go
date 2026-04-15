@@ -152,10 +152,10 @@ func (r TypeRef) MustResolve(table *Table) Type {
 // and the C++ plugin's decision between std::optional<T> and
 // x::mem::indirect<T> for hard-optional fields.
 func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
-	return refersTo(ref, targetQualifiedName, table, map[string]bool{})
+	return refersTo(ref, targetQualifiedName, table, set.New[string]())
 }
 
-func refersTo(ref TypeRef, targetQN string, table *Table, visited map[string]bool) bool {
+func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string]) bool {
 	if ref.Name == targetQN {
 		return true
 	}
@@ -164,10 +164,10 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited map[string]boo
 			return true
 		}
 	}
-	if visited[ref.Name] {
+	if visited.Contains(ref.Name) {
 		return false
 	}
-	visited[ref.Name] = true
+	visited.Add(ref.Name)
 	resolved, ok := table.Get(ref.Name)
 	if !ok {
 		return false
