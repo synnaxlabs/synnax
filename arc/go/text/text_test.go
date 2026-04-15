@@ -564,6 +564,55 @@ var _ = Describe("Text", func() {
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
+			It("Should emit deprecation warning for bare avg", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> avg{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("math.avg"))
+			})
+
+			It("Should not emit deprecation warning for qualified math.avg", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> math.avg{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare derivative", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> derivative{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("math.derivative"))
+			})
+
 			It("Should resolve channel name for write operations and add to Channels.Write", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output_channel": {Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10055},

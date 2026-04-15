@@ -38,7 +38,6 @@
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/stable/stable.h"
 #include "arc/cpp/stl/stage/stage.h"
-#include "arc/cpp/stl/stat/stat.h"
 #include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
 #include "arc/cpp/stl/time/time.h"
@@ -281,7 +280,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::authority::Module>(state),
         std::make_shared<stl::stable::Module>(),
         std::make_shared<stl::selector::Module>(),
-        std::make_shared<stl::stat::Module>(),
+        std::make_shared<stl::math::FlowModule>(),
     };
 
     wasm::ModuleConfig module_cfg{

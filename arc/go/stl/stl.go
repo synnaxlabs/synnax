@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stage"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -41,7 +40,6 @@ var SymbolResolver = symbol.CompoundResolver{
 	series.SymbolResolver,
 	stable.SymbolResolver,
 	stage.SymbolResolver,
-	stat.SymbolResolver,
 	stateful.SymbolResolver,
 	strings.SymbolResolver,
 	time.SymbolResolver,

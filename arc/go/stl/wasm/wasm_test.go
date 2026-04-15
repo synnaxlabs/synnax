@@ -26,7 +26,6 @@ import (
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
@@ -108,7 +107,7 @@ func newHarness(
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	_, _ = series.NewModule(ctx, seriesState, wasmRT)
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	_, _ = stlmath.NewModule(ctx, wasmRT)
+	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
 	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
@@ -125,7 +124,7 @@ func newHarness(
 			NodeKeySetter: statefulMod,
 		},
 		channelMod,
-		&stat.Module{},
+		mathMod,
 	}
 	return &testHarness{
 		graph:        g,
@@ -200,7 +199,7 @@ func newTextHarness(
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	_, _ = series.NewModule(ctx, seriesState, wasmRT)
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	_, _ = stlmath.NewModule(ctx, wasmRT)
+	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
 	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
@@ -217,7 +216,7 @@ func newTextHarness(
 			NodeKeySetter: statefulMod,
 		},
 		channelMod,
-		&stat.Module{},
+		mathMod,
 	}
 	return &testHarness{
 		prog:         prog,

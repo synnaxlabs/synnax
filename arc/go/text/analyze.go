@@ -33,6 +33,10 @@ import (
 // When the analyzer encounters one of these names, it emits a deprecation warning.
 var deprecatedBareFunctions = map[string]string{
 	"set_authority": "authority.set",
+	"avg":           "math.avg",
+	"min":           "math.min",
+	"max":           "math.max",
+	"derivative":    "math.derivative",
 }
 
 type keyGenerator struct {

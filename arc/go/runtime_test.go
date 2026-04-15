@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stage"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -76,7 +75,7 @@ func newRuntimeHarness(
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	MustSucceed(series.NewModule(ctx, seriesState, wasmRT))
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	MustSucceed(stlmath.NewModule(ctx, wasmRT))
+	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 
 	factory := node.CompoundFactory{
@@ -89,7 +88,7 @@ func newRuntimeHarness(
 		stage.NewModule(),
 		stable.NewModule(),
 		control.NewModule(controlState),
-		&stat.Module{},
+		mathMod,
 	}
 
 	h := &runtimeHarness{

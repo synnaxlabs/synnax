@@ -131,6 +131,37 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 
+		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
+			content := "sensor -> math.avg{} -> output"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 16},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### math.avg"))
+			Expect(hover.Contents.Value).To(ContainSubstring("running average"))
+		})
+
+		It("should provide hover for 'math.pow' function", func(ctx SpecContext) {
+			content := "result := math.pow(2, 3)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 16},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### math.pow"))
+		})
+
 		It("should provide hover for 'now' function", func(ctx SpecContext) {
 			content := "time := now()"
 			OpenArcDocument(server, ctx, uri, content)
