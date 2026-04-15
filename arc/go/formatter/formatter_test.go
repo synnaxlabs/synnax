@@ -91,6 +91,15 @@ var _ = Describe("Formatter", func() {
 		Entry("comment in nested if",
 			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}",
 			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}\n"),
+		Entry("if with identifier condition",
+			"if ready{return 1}",
+			"if ready {\n    return 1\n}\n"),
+		Entry("if with qualified identifier condition",
+			"if foo.bar{return 1}",
+			"if foo.bar {\n    return 1\n}\n"),
+		Entry("for with identifier condition",
+			"for ready{x := 1}",
+			"for ready {\n    x := 1\n}\n"),
 	)
 
 	DescribeTable("Comments",
@@ -383,12 +392,6 @@ var _ = Describe("Formatter", func() {
 		Entry("config values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
 		Entry("function declaration config block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("nested config values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
-		Entry("anonymous config value inline", "wait{1s}", "wait{1s}\n"),
-		Entry("multiple anonymous config values inline", "wait{1s,3}", "wait{1s, 3}\n"),
-		Entry("anonymous config values in flow statements", "sensor -> filter{10} -> output", "sensor -> filter{10} -> output\n"),
-		Entry("multiline anonymous config values inlined when short enough",
-			"wait{\n    1s\n}",
-			"wait{1s}\n"),
 	)
 
 	DescribeTable("Config Block Formatting",

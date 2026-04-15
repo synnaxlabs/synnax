@@ -321,20 +321,76 @@ func (p *printer) isConfigValuesBlock(idx int, tokens []antlr.Token) bool {
 	if idx < 1 {
 		return false
 	}
-	prevTok := tokens[idx-1]
-	if prevTok.GetTokenType() != parser.ArcLexerIDENTIFIER {
+	if tokens[idx-1].GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return false
 	}
-	if idx >= 2 {
-		prevPrevTok := tokens[idx-2]
-		prevPrevType := prevPrevTok.GetTokenType()
-		if prevPrevType == parser.ArcLexerFUNC ||
-			prevPrevType == parser.ArcLexerSTAGE ||
-			prevPrevType == parser.ArcLexerSEQUENCE {
+	// Walk back through the preceding expression to find the enclosing
+	// statement context. If the brace closes a control-flow condition
+	// (if/for/else) or a declaration header (func/stage/sequence), it
+	// opens a block body, not a call-site config values block.
+	parenDepth, bracketDepth := 0, 0
+	for i := idx - 1; i >= 0; i-- {
+		t := tokens[i].GetTokenType()
+		switch t {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+			continue
+		case parser.ArcLexerLPAREN:
+			if parenDepth == 0 {
+				return true
+			}
+			parenDepth--
+			continue
+		case parser.ArcLexerRBRACKET:
+			bracketDepth++
+			continue
+		case parser.ArcLexerLBRACKET:
+			if bracketDepth == 0 {
+				return true
+			}
+			bracketDepth--
+			continue
+		}
+		if parenDepth != 0 || bracketDepth != 0 {
+			continue
+		}
+		switch t {
+		case parser.ArcLexerIF, parser.ArcLexerFOR, parser.ArcLexerELSE,
+			parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
 			return false
+		case parser.ArcLexerLBRACE, parser.ArcLexerRBRACE,
+			parser.ArcLexerCOMMA, parser.ArcLexerCOLON,
+			parser.ArcLexerARROW, parser.ArcLexerTRANSITION,
+			parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE,
+			parser.ArcLexerASSIGN, parser.ArcLexerRETURN:
+			return true
 		}
 	}
-	return true
+	if p.isEmptyBlock(idx, tokens) {
+		return true
+	}
+	return p.hasAssignInBraceBlock(idx, tokens)
+}
+
+func (p *printer) hasAssignInBraceBlock(idx int, tokens []antlr.Token) bool {
+	braceDepth := 1
+	for i := idx + 1; i < len(tokens); i++ {
+		tokType := tokens[i].GetTokenType()
+		switch tokType {
+		case parser.ArcLexerLBRACE:
+			braceDepth++
+		case parser.ArcLexerRBRACE:
+			braceDepth--
+			if braceDepth == 0 {
+				return false
+			}
+		case parser.ArcLexerASSIGN:
+			if braceDepth == 1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
@@ -919,7 +975,8 @@ func (p *printer) isUnaryMinus(tokType int) bool {
 func (p *printer) isKeyword(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
-		parser.ArcLexerRETURN, parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
+		parser.ArcLexerFOR, parser.ArcLexerRETURN,
+		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
 		return true
 	}
