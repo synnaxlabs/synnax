@@ -26,6 +26,71 @@ import (
 
 func arcCode(content string) doc.Block { return doc.Code("arc", content) }
 
+func compoundAssignDoc(sym, verb, op string) string {
+	return doc.New(
+		doc.TitleWithKind(sym, "Operator"),
+		doc.Paragraph(verb+" and assigns."),
+		doc.Divider(),
+		arcCode(fmt.Sprintf("x %s 5  // equivalent to: x = x %s 5", sym, op)),
+	).Render()
+}
+
+func intTypeDoc(name, desc, rng string) string {
+	return doc.New(
+		doc.TitleWithKind(name, "Type"),
+		doc.Paragraph(desc),
+		doc.Detail("Range", rng, false),
+	).Render()
+}
+
+func binaryMathFlowDoc(name, desc string) string {
+	return doc.New(
+		doc.TitleWithKind(name, "Function"),
+		doc.Paragraph(desc),
+		doc.Divider(),
+		arcCode(fmt.Sprintf(
+			"sensor_a -> %s{} -> output\nsensor_b -> %s{}.rhs",
+			name, name,
+		)),
+	).Render()
+}
+
+func runningStatDoc(name, stat string) string {
+	return doc.New(
+		doc.TitleWithKind(name, "Function"),
+		doc.Paragraph(fmt.Sprintf(
+			"Tracks the running %s of input values.", stat,
+		)),
+		doc.Divider(),
+		arcCode(fmt.Sprintf("sensor -> %s{} -> output", name)),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		arcCode(fmt.Sprintf(
+			"sensor -> %s{count=100} -> output\nsensor -> %s{duration=5s} -> output",
+			name, name,
+		)),
+	).Render()
+}
+
+func simpleFuncDoc(name, desc, example string) string {
+	return doc.New(
+		doc.TitleWithKind(name, "Function"),
+		doc.Paragraph(desc),
+		doc.Divider(),
+		arcCode(example),
+	).Render()
+}
+
+func deprecatedDoc(old, replacement, example string) string {
+	return doc.New(
+		doc.TitleWithKind(old, "Function (deprecated)"),
+		doc.Paragraph(fmt.Sprintf("Use %s instead.", replacement)),
+		doc.Divider(),
+		arcCode(example),
+	).Render()
+}
+
 func (s *Server) Hover(
 	_ context.Context,
 	params *protocol.HoverParams,
@@ -136,36 +201,11 @@ var operatorDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Sends the left-hand value to the channel on the right."),
 	).Render(),
-	parser.LiteralPLUSASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralPLUSASSIGN, "Operator"),
-		doc.Paragraph("Adds and assigns."),
-		doc.Divider(),
-		arcCode("x += 5  // equivalent to: x = x + 5"),
-	).Render(),
-	parser.LiteralMINUSASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralMINUSASSIGN, "Operator"),
-		doc.Paragraph("Subtracts and assigns."),
-		doc.Divider(),
-		arcCode("x -= 5  // equivalent to: x = x - 5"),
-	).Render(),
-	parser.LiteralSTARASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralSTARASSIGN, "Operator"),
-		doc.Paragraph("Multiplies and assigns."),
-		doc.Divider(),
-		arcCode("x *= 2  // equivalent to: x = x * 2"),
-	).Render(),
-	parser.LiteralSLASHASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralSLASHASSIGN, "Operator"),
-		doc.Paragraph("Divides and assigns."),
-		doc.Divider(),
-		arcCode("x /= 2  // equivalent to: x = x / 2"),
-	).Render(),
-	parser.LiteralPERCENTASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralPERCENTASSIGN, "Operator"),
-		doc.Paragraph("Computes modulo and assigns."),
-		doc.Divider(),
-		arcCode("x %= 3  // equivalent to: x = x % 3"),
-	).Render(),
+	parser.LiteralPLUSASSIGN:    compoundAssignDoc(parser.LiteralPLUSASSIGN, "Adds", "+"),
+	parser.LiteralMINUSASSIGN:   compoundAssignDoc(parser.LiteralMINUSASSIGN, "Subtracts", "-"),
+	parser.LiteralSTARASSIGN:    compoundAssignDoc(parser.LiteralSTARASSIGN, "Multiplies", "*"),
+	parser.LiteralSLASHASSIGN:   compoundAssignDoc(parser.LiteralSLASHASSIGN, "Divides", "/"),
+	parser.LiteralPERCENTASSIGN: compoundAssignDoc(parser.LiteralPERCENTASSIGN, "Computes modulo", "%"),
 	parser.LiteralEQ: doc.New(
 		doc.TitleWithKind(parser.LiteralEQ, "Operator"),
 		doc.Paragraph("Tests equality between two values."),
@@ -234,46 +274,14 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		arcCode("stage first {\n    next second\n}"),
 	).Render(),
-	parser.LiteralI8: doc.New(
-		doc.TitleWithKind(parser.LiteralI8, "Type"),
-		doc.Paragraph("Signed 8-bit integer."),
-		doc.Detail("Range", "-128 to 127", false),
-	).Render(),
-	parser.LiteralI16: doc.New(
-		doc.TitleWithKind(parser.LiteralI16, "Type"),
-		doc.Paragraph("Signed 16-bit integer."),
-		doc.Detail("Range", "-32768 to 32767", false),
-	).Render(),
-	parser.LiteralI32: doc.New(
-		doc.TitleWithKind(parser.LiteralI32, "Type"),
-		doc.Paragraph("Signed 32-bit integer."),
-		doc.Detail("Range", "-2147483648 to 2147483647", false),
-	).Render(),
-	parser.LiteralI64: doc.New(
-		doc.TitleWithKind(parser.LiteralI64, "Type"),
-		doc.Paragraph("Signed 64-bit integer."),
-		doc.Detail("Range", "-9223372036854775808 to 9223372036854775807", false),
-	).Render(),
-	parser.LiteralU8: doc.New(
-		doc.TitleWithKind(parser.LiteralU8, "Type"),
-		doc.Paragraph("Unsigned 8-bit integer."),
-		doc.Detail("Range", "0 to 255", false),
-	).Render(),
-	parser.LiteralU16: doc.New(
-		doc.TitleWithKind(parser.LiteralU16, "Type"),
-		doc.Paragraph("Unsigned 16-bit integer."),
-		doc.Detail("Range", "0 to 65535", false),
-	).Render(),
-	parser.LiteralU32: doc.New(
-		doc.TitleWithKind(parser.LiteralU32, "Type"),
-		doc.Paragraph("Unsigned 32-bit integer."),
-		doc.Detail("Range", "0 to 4294967295", false),
-	).Render(),
-	parser.LiteralU64: doc.New(
-		doc.TitleWithKind(parser.LiteralU64, "Type"),
-		doc.Paragraph("Unsigned 64-bit integer."),
-		doc.Detail("Range", "0 to 18446744073709551615", false),
-	).Render(),
+	parser.LiteralI8:  intTypeDoc(parser.LiteralI8, "Signed 8-bit integer.", "-128 to 127"),
+	parser.LiteralI16: intTypeDoc(parser.LiteralI16, "Signed 16-bit integer.", "-32768 to 32767"),
+	parser.LiteralI32: intTypeDoc(parser.LiteralI32, "Signed 32-bit integer.", "-2147483648 to 2147483647"),
+	parser.LiteralI64: intTypeDoc(parser.LiteralI64, "Signed 64-bit integer.", "-9223372036854775808 to 9223372036854775807"),
+	parser.LiteralU8:  intTypeDoc(parser.LiteralU8, "Unsigned 8-bit integer.", "0 to 255"),
+	parser.LiteralU16: intTypeDoc(parser.LiteralU16, "Unsigned 16-bit integer.", "0 to 65535"),
+	parser.LiteralU32: intTypeDoc(parser.LiteralU32, "Unsigned 32-bit integer.", "0 to 4294967295"),
+	parser.LiteralU64: intTypeDoc(parser.LiteralU64, "Unsigned 64-bit integer.", "0 to 18446744073709551615"),
 	parser.LiteralF32: doc.New(
 		doc.TitleWithKind(parser.LiteralF32, "Type"),
 		doc.Paragraph("32-bit floating point number (single precision)."),
@@ -318,18 +326,7 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Must appear before all function, flow, and sequence declarations."),
 	).Render(),
-	"set_authority": doc.New(
-		doc.TitleWithKind("set_authority", "Function (deprecated)"),
-		doc.Paragraph("Use authority.set{} instead."),
-		doc.Divider(),
-		arcCode("authority.set{value=255}"),
-		doc.Divider(),
-		doc.Paragraph("Set authority for a specific channel:"),
-		doc.Divider(),
-		arcCode("authority.set{value=255, channel=valve_cmd}"),
-		doc.Divider(),
-		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
-	).Render(),
+	"set_authority": deprecatedDoc("set_authority", "authority.set{}", "authority.set{value=255}"),
 	"authority.set": doc.New(
 		doc.TitleWithKind("authority.set", "Function"),
 		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
@@ -342,12 +339,7 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
 	).Render(),
-	"set_status": doc.New(
-		doc.TitleWithKind("set_status", "Function (deprecated)"),
-		doc.Paragraph("Use status.set{} instead."),
-		doc.Divider(),
-		arcCode("sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
-	).Render(),
+	"set_status": deprecatedDoc("set_status", "status.set{}", "sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
 	"status.set": doc.New(
 		doc.TitleWithKind("status.set", "Function"),
 		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
@@ -370,74 +362,22 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		arcCode("sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
 	).Render(),
-	"math.min": doc.New(
-		doc.TitleWithKind("math.min", "Function"),
-		doc.Paragraph("Tracks the running minimum of input values."),
-		doc.Divider(),
-		arcCode("sensor -> math.min{} -> output"),
-		doc.Divider(),
-		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
-		doc.Divider(),
-		arcCode("sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
-	).Render(),
-	"math.max": doc.New(
-		doc.TitleWithKind("math.max", "Function"),
-		doc.Paragraph("Tracks the running maximum of input values."),
-		doc.Divider(),
-		arcCode("sensor -> math.max{} -> output"),
-		doc.Divider(),
-		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
-		doc.Divider(),
-		arcCode("sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
-	).Render(),
-	"math.derivative": doc.New(
-		doc.TitleWithKind("math.derivative", "Function"),
-		doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
-		doc.Divider(),
-		arcCode("sensor -> math.derivative{} -> rate_output"),
-	).Render(),
-	"math.pow": doc.New(
-		doc.TitleWithKind("math.pow", "Function"),
-		doc.Paragraph("Raises a base to an exponent. Available in func blocks only (WASM)."),
-		doc.Divider(),
-		arcCode("result := math.pow(base, exp)"),
-	).Render(),
-	"selector.select": doc.New(
-		doc.TitleWithKind("selector.select", "Function"),
-		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
-		doc.Divider(),
-		arcCode("flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
-	).Render(),
-	"stable.stable_for": doc.New(
-		doc.TitleWithKind("stable.stable_for", "Function"),
-		doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
-		doc.Divider(),
-		arcCode("sensor -> stable.stable_for{duration=5s} -> output"),
-	).Render(),
-	"series.len": doc.New(
-		doc.TitleWithKind("series.len", "Function"),
-		doc.Paragraph("Returns the length of a series as i64."),
-		doc.Divider(),
-		arcCode("length := series.len(data)"),
-	).Render(),
-	"string.len": doc.New(
-		doc.TitleWithKind("string.len", "Function"),
-		doc.Paragraph("Returns the length of a string as i64."),
-		doc.Divider(),
-		arcCode("length := string.len(name)"),
-	).Render(),
-	"len": doc.New(
-		doc.TitleWithKind("len", "Function"),
-		doc.Paragraph("Returns the length of a series or string as i64. Dispatches to series.len() or string.len() based on argument type."),
-		doc.Divider(),
-		arcCode("length := len(data)"),
-	).Render(),
-	"now": doc.New(
-		doc.TitleWithKind("now", "Function"),
-		doc.Paragraph("Returns the current timestamp."),
-		doc.Divider(),
-		arcCode("time := now()"),
-	).Render(),
+	"math.min":          runningStatDoc("math.min", "minimum"),
+	"math.max":          runningStatDoc("math.max", "maximum"),
+	"math.derivative":   simpleFuncDoc("math.derivative", "Computes the rate of change (derivative) of input values. Output is always f64.", "sensor -> math.derivative{} -> rate_output"),
+	"math.pow":          simpleFuncDoc("math.pow", "Raises a base to an exponent. Available in func blocks only (WASM).", "result := math.pow(base, exp)"),
+	"math.add":          binaryMathFlowDoc("math.add", "Adds two numeric inputs element-wise."),
+	"math.subtract":     binaryMathFlowDoc("math.subtract", "Subtracts the right input from the left input element-wise."),
+	"math.multiply":     binaryMathFlowDoc("math.multiply", "Multiplies two numeric inputs element-wise."),
+	"math.divide":       binaryMathFlowDoc("math.divide", "Divides the left input by the right input element-wise."),
+	"math.mod":          binaryMathFlowDoc("math.mod", "Computes the remainder of dividing the left input by the right input element-wise."),
+	"math.neg":          simpleFuncDoc("math.neg", "Negates numeric input values element-wise.", "sensor -> math.neg{} -> output"),
+	"selector.select":   simpleFuncDoc("selector.select", "Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.", "flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	"stable.stable_for": simpleFuncDoc("stable.stable_for", "Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.", "sensor -> stable.stable_for{duration=5s} -> output"),
+	"series.len":        simpleFuncDoc("series.len", "Returns the length of a series as i64.", "length := series.len(data)"),
+	"string.len":        simpleFuncDoc("string.len", "Returns the length of a string as i64.", "length := string.len(name)"),
+	"len":               simpleFuncDoc("len", "Returns the length of a series or string as i64. Dispatches to series.len() or string.len() based on argument type.", "length := len(data)"),
+	"now":               simpleFuncDoc("now", "Returns the current timestamp.", "time := now()"),
 }
 
 func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {

@@ -50,6 +50,12 @@ public:
         bind_int<int16_t>(linker, "i16");
         bind_int<int32_t>(linker, "i32");
         bind_int<int64_t>(linker, "i64");
+        bind_signed_unary<int8_t>(linker, "i8");
+        bind_signed_unary<int16_t>(linker, "i16");
+        bind_signed_unary<int32_t>(linker, "i32");
+        bind_signed_unary<int64_t>(linker, "i64");
+        bind_float_unary<float>(linker, "f32");
+        bind_float_unary<double>(linker, "f64");
     }
 
 private:
@@ -60,9 +66,56 @@ private:
             .func_wrap(
                 "math",
                 "pow_" + suffix,
-                [](W base, W exp) -> W {
+                [](W a, W b) -> W {
                     return static_cast<W>(
-                        std::pow(static_cast<T>(base), static_cast<T>(exp))
+                        std::pow(static_cast<T>(a), static_cast<T>(b))
+                    );
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "add_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) + static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "subtract_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) - static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "multiply_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) * static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "divide_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) / static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "mod_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(
+                        std::fmod(static_cast<double>(a), static_cast<double>(b))
                     );
                 }
             )
@@ -76,11 +129,80 @@ private:
             .func_wrap(
                 "math",
                 "pow_" + suffix,
-                [](W base, W exp) -> W {
+                [](W a, W b) -> W {
                     return static_cast<W>(
-                        int_pow(static_cast<T>(base), static_cast<T>(exp))
+                        int_pow(static_cast<T>(a), static_cast<T>(b))
                     );
                 }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "add_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) + static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "subtract_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) - static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "multiply_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) * static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "divide_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) / static_cast<T>(b));
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "math",
+                "mod_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(static_cast<T>(a) % static_cast<T>(b));
+                }
+            )
+            .unwrap();
+    }
+
+    template<typename T>
+    static void bind_signed_unary(wasmtime::Linker &linker, const std::string &suffix) {
+        using W = typename WasmType<T>::type;
+        linker
+            .func_wrap(
+                "math",
+                "neg_" + suffix,
+                [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
+            )
+            .unwrap();
+    }
+
+    template<typename T>
+    static void bind_float_unary(wasmtime::Linker &linker, const std::string &suffix) {
+        using W = typename WasmType<T>::type;
+        linker
+            .func_wrap(
+                "math",
+                "neg_" + suffix,
+                [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
             )
             .unwrap();
     }
@@ -425,11 +547,196 @@ private:
     }
 };
 
+/// @brief ArithmeticBinary applies a binary arithmetic operation (add, subtract,
+/// multiply, divide, mod) element-wise to two input series.
+class ArithmeticBinary : public runtime::node::Node {
+public:
+    enum class Op { Add, Subtract, Multiply, Divide, Mod };
+
+private:
+    runtime::state::Node state;
+    types::Kind kind;
+    Op op;
+
+public:
+    ArithmeticBinary(runtime::state::Node &&state, types::Kind kind, Op op):
+        state(std::move(state)), kind(kind), op(op) {}
+
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        if (!this->state.refresh_inputs()) return x::errors::NIL;
+        const auto &lhs = this->state.input(0);
+        const auto &rhs = this->state.input(1);
+        switch (this->kind) {
+            case types::Kind::F64:
+                this->compute<double>(lhs, rhs);
+                break;
+            case types::Kind::F32:
+                this->compute<float>(lhs, rhs);
+                break;
+            case types::Kind::I64:
+                this->compute<int64_t>(lhs, rhs);
+                break;
+            case types::Kind::I32:
+                this->compute<int32_t>(lhs, rhs);
+                break;
+            case types::Kind::I16:
+                this->compute<int16_t>(lhs, rhs);
+                break;
+            case types::Kind::I8:
+                this->compute<int8_t>(lhs, rhs);
+                break;
+            case types::Kind::U64:
+                this->compute<uint64_t>(lhs, rhs);
+                break;
+            case types::Kind::U32:
+                this->compute<uint32_t>(lhs, rhs);
+                break;
+            case types::Kind::U16:
+                this->compute<uint16_t>(lhs, rhs);
+                break;
+            case types::Kind::U8:
+                this->compute<uint8_t>(lhs, rhs);
+                break;
+            default:
+                break;
+        }
+        auto &output = this->state.output(0);
+        auto &output_time = this->state.output_time(0);
+        output_time = this->state.input_time(0);
+        auto alignment = lhs->alignment + rhs->alignment;
+        auto time_range = lhs->time_range;
+        if (rhs->time_range.start != 0 &&
+            (time_range.start == 0 || rhs->time_range.start < time_range.start))
+            time_range.start = rhs->time_range.start;
+        if (rhs->time_range.end > time_range.end) time_range.end = rhs->time_range.end;
+        output->alignment = alignment;
+        output->time_range = time_range;
+        output_time->alignment = alignment;
+        output_time->time_range = time_range;
+        ctx.mark_changed(ir::default_output_param);
+        return x::errors::NIL;
+    }
+
+    void reset() override {}
+
+    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
+        return false;
+    }
+
+private:
+    template<typename T>
+    void compute(const runtime::state::Series &lhs, const runtime::state::Series &rhs) {
+        const auto n = std::max(lhs->size(), rhs->size());
+        auto &output = this->state.output(0);
+        output->resize(n);
+        for (size_t i = 0; i < n; i++) {
+            auto a = lhs->at<T>(static_cast<int>(std::min(i, lhs->size() - 1)));
+            auto b = rhs->at<T>(static_cast<int>(std::min(i, rhs->size() - 1)));
+            T result;
+            switch (this->op) {
+                case Op::Add:
+                    result = a + b;
+                    break;
+                case Op::Subtract:
+                    result = a - b;
+                    break;
+                case Op::Multiply:
+                    result = a * b;
+                    break;
+                case Op::Divide:
+                    result = a / b;
+                    break;
+                case Op::Mod:
+                    result = mod_impl(a, b);
+                    break;
+            }
+            output->set(static_cast<int>(i), result);
+        }
+    }
+
+    template<typename T>
+    static T mod_impl(T a, T b) {
+        if constexpr (std::is_floating_point_v<T>)
+            return static_cast<T>(
+                std::fmod(static_cast<double>(a), static_cast<double>(b))
+            );
+        else
+            return a % b;
+    }
+};
+
+/// @brief ArithmeticUnary applies a unary arithmetic operation (neg)
+/// element-wise to an input series.
+class ArithmeticUnary : public runtime::node::Node {
+    runtime::state::Node state;
+    types::Kind kind;
+
+public:
+    ArithmeticUnary(runtime::state::Node &&state, types::Kind kind):
+        state(std::move(state)), kind(kind) {}
+
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        if (!this->state.refresh_inputs()) return x::errors::NIL;
+        const auto &input = this->state.input(0);
+        switch (this->kind) {
+            case types::Kind::F64:
+                this->compute<double>(input);
+                break;
+            case types::Kind::F32:
+                this->compute<float>(input);
+                break;
+            case types::Kind::I64:
+                this->compute<int64_t>(input);
+                break;
+            case types::Kind::I32:
+                this->compute<int32_t>(input);
+                break;
+            case types::Kind::I16:
+                this->compute<int16_t>(input);
+                break;
+            case types::Kind::I8:
+                this->compute<int8_t>(input);
+                break;
+            default:
+                break;
+        }
+        auto &output = this->state.output(0);
+        auto &output_time = this->state.output_time(0);
+        output_time = this->state.input_time(0);
+        output->alignment = input->alignment;
+        output->time_range = input->time_range;
+        output_time->alignment = input->alignment;
+        output_time->time_range = input->time_range;
+        ctx.mark_changed(ir::default_output_param);
+        return x::errors::NIL;
+    }
+
+    void reset() override {}
+
+    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
+        return false;
+    }
+
+private:
+    template<typename T>
+    void compute(const runtime::state::Series &input) {
+        const auto n = input->size();
+        auto &output = this->state.output(0);
+        output->resize(n);
+        for (size_t i = 0; i < n; i++)
+            output->set(static_cast<int>(i), -input->at<T>(i));
+    }
+};
+
 class FlowModule : public stl::Module {
 public:
+    [[nodiscard]] std::string module_name() const override { return "math"; }
+
     bool handles(const std::string &node_type) const override {
         return node_type == "avg" || node_type == "min" || node_type == "max" ||
-               node_type == "derivative";
+               node_type == "derivative" || node_type == "add" ||
+               node_type == "subtract" || node_type == "multiply" ||
+               node_type == "divide" || node_type == "mod" || node_type == "neg";
     }
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
@@ -442,6 +749,29 @@ public:
         if (cfg.node.type == "derivative")
             return {
                 std::make_unique<Derivative>(std::move(cfg.state), kind),
+                x::errors::NIL
+            };
+
+        if (cfg.node.type == "neg")
+            return {
+                std::make_unique<ArithmeticUnary>(std::move(cfg.state), kind),
+                x::errors::NIL
+            };
+
+        static const std::unordered_map<std::string, ArithmeticBinary::Op> arith_ops = {
+            {"add", ArithmeticBinary::Op::Add},
+            {"subtract", ArithmeticBinary::Op::Subtract},
+            {"multiply", ArithmeticBinary::Op::Multiply},
+            {"divide", ArithmeticBinary::Op::Divide},
+            {"mod", ArithmeticBinary::Op::Mod},
+        };
+        if (auto it = arith_ops.find(cfg.node.type); it != arith_ops.end())
+            return {
+                std::make_unique<ArithmeticBinary>(
+                    std::move(cfg.state),
+                    kind,
+                    it->second
+                ),
                 x::errors::NIL
             };
 

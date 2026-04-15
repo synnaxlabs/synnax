@@ -1124,6 +1124,212 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
+	Describe("Qualified math.add()", func() {
+		DescribeTable("const, const",
+			expectOutput[int64],
+			Entry("i64 literals", "add_ii", types.I64(), `{
+				return math.add(3, 7)
+			}`, stl.SymbolResolver, int64(10)),
+		)
+
+		DescribeTable("const, const (f64)",
+			expectOutput[float64],
+			Entry("f64 literals", "add_ff", types.F64(), `{
+				return math.add(1.5, 2.5)
+			}`, stl.SymbolResolver, float64(4.0)),
+		)
+
+		It("chan, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("add_cc", "a_src", "b_src", types.I64(), types.I64(),
+				`{ return math.add(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("a_src", 0, telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("b_src", 0, telem.NewSeriesV[int64](1, 2, 3), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "add_cc")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("add_cc", 0))).To(Equal([]int64{11, 22, 33}))
+		})
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("add_ccf", "a_src", "b_src", types.F64(), types.F64(),
+				`{ return math.add(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("a_src", 0, telem.NewSeriesV[float64](1.5, 2.5), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("b_src", 0, telem.NewSeriesV[float64](10.0, 20.0), telem.NewSeriesSecondsTSV(1, 2))
+			changed := h.Execute(ctx, "add_ccf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[float64](h.Output("add_ccf", 0))).To(Equal([]float64{11.5, 22.5}))
+		})
+	})
+
+	Describe("Qualified math.subtract()", func() {
+		DescribeTable("const, const",
+			expectOutput[int64],
+			Entry("i64 literals", "sub_ii", types.I64(), `{
+				return math.subtract(10, 3)
+			}`, stl.SymbolResolver, int64(7)),
+		)
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("sub_ccf", "a_src", "b_src", types.F64(), types.F64(),
+				`{ return math.subtract(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("a_src", 0, telem.NewSeriesV[float64](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("b_src", 0, telem.NewSeriesV[float64](3.0, 5.0, 7.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "sub_ccf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[float64](h.Output("sub_ccf", 0))).To(Equal([]float64{7.0, 15.0, 23.0}))
+		})
+	})
+
+	Describe("Qualified math.multiply()", func() {
+		DescribeTable("const, const",
+			expectOutput[int64],
+			Entry("i64 literals", "mul_ii", types.I64(), `{
+				return math.multiply(4, 5)
+			}`, stl.SymbolResolver, int64(20)),
+		)
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("mul_ccf", "a_src", "b_src", types.F64(), types.F64(),
+				`{ return math.multiply(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("a_src", 0, telem.NewSeriesV[float64](2.5, 3.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("b_src", 0, telem.NewSeriesV[float64](4.0, 5.0), telem.NewSeriesSecondsTSV(1, 2))
+			changed := h.Execute(ctx, "mul_ccf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[float64](h.Output("mul_ccf", 0))).To(Equal([]float64{10.0, 15.0}))
+		})
+	})
+
+	Describe("Qualified math.divide()", func() {
+		DescribeTable("const, const",
+			expectOutput[int64],
+			Entry("i64 literals", "div_ii", types.I64(), `{
+				return math.divide(20, 4)
+			}`, stl.SymbolResolver, int64(5)),
+		)
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("div_ccf", "a_src", "b_src", types.F64(), types.F64(),
+				`{ return math.divide(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("a_src", 0, telem.NewSeriesV[float64](10.0, 21.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("b_src", 0, telem.NewSeriesV[float64](4.0, 7.0), telem.NewSeriesSecondsTSV(1, 2))
+			changed := h.Execute(ctx, "div_ccf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[float64](h.Output("div_ccf", 0))).To(Equal([]float64{2.5, 3.0}))
+		})
+	})
+
+	Describe("Qualified math.mod()", func() {
+		DescribeTable("const, const",
+			expectOutput[int64],
+			Entry("i64 literals", "mod_ii", types.I64(), `{
+				return math.mod(10, 3)
+			}`, stl.SymbolResolver, int64(1)),
+		)
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("mod_ccf", "a_src", "b_src", types.F64(), types.F64(),
+				`{ return math.mod(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("a_src", 0, telem.NewSeriesV[float64](10.5, 20.5), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("b_src", 0, telem.NewSeriesV[float64](3.0, 6.0), telem.NewSeriesSecondsTSV(1, 2))
+			changed := h.Execute(ctx, "mod_ccf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			values := telem.UnmarshalSeries[float64](h.Output("mod_ccf", 0))
+			Expect(values[0]).To(BeNumerically("~", 1.5, 1e-9))
+			Expect(values[1]).To(BeNumerically("~", 2.5, 1e-9))
+		})
+	})
+
+	Describe("Qualified math.neg()", func() {
+		DescribeTable("const",
+			expectOutput[int64],
+			Entry("i64 literal", "neg_i", types.I64(), `{
+				return math.neg(5)
+			}`, stl.SymbolResolver, int64(-5)),
+		)
+
+		DescribeTable("const (f64)",
+			expectOutput[float64],
+			Entry("f64 literal", "neg_f", types.F64(), `{
+				return math.neg(3.5)
+			}`, stl.SymbolResolver, float64(-3.5)),
+		)
+
+		It("chan (i64)", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "neg_c",
+						Inputs:  types.Params{{Name: "val", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
+					},
+					{
+						Key:     "val_src",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "val_src", Type: "val_src"},
+					{Key: "neg_c", Type: "neg_c"},
+				},
+				Edges: []graph.Edge{{
+					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "neg_c", Param: "val"},
+				}},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("val_src", 0, telem.NewSeriesV[int64](10, -20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "neg_c")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("neg_c", 0))).To(Equal([]int64{-10, 20, -30}))
+		})
+
+		It("chan (f64)", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "neg_cf",
+						Inputs:  types.Params{{Name: "val", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
+					},
+					{
+						Key:     "val_src",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return 1.0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "val_src", Type: "val_src"},
+					{Key: "neg_cf", Type: "neg_cf"},
+				},
+				Edges: []graph.Edge{{
+					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "neg_cf", Param: "val"},
+				}},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("val_src", 0, telem.NewSeriesV[float64](1.5, -2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "neg_cf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[float64](h.Output("neg_cf", 0))).To(Equal([]float64{-1.5, 2.5, -3.5}))
+		})
+	})
+
 	Describe("String Function Type Safety", func() {
 		DescribeTable("Should reject non-string arguments to string functions",
 			func(ctx SpecContext, source string) {

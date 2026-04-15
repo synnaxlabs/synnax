@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_MATH_SOURCE = """
@@ -41,6 +41,26 @@ func pow_xx_f64(base f64) { pow_xx_f64_out = math.pow(base, pow_xx_f64_exp) }
 func pow_xx_i64(base i64) { pow_xx_i64_out = math.pow(base, pow_xx_i64_exp) }
 pow_xx_f64_in -> pow_xx_f64{}
 pow_xx_i64_in -> pow_xx_i64{}
+
+// ─────────────────────── arithmetic operators (WASM) ────────────────
+
+func do_add(a f64) { op_add_out = math.add(a, op_add_b) }
+op_add_a -> do_add{}
+
+func do_sub(a f64) { op_sub_out = math.subtract(a, op_sub_b) }
+op_sub_a -> do_sub{}
+
+func do_mul(a f64) { op_mul_out = math.multiply(a, op_mul_b) }
+op_mul_a -> do_mul{}
+
+func do_div(a f64) { op_div_out = math.divide(a, op_div_b) }
+op_div_a -> do_div{}
+
+func do_mod(a f64) { op_mod_out = math.mod(a, op_mod_b) }
+op_mod_a -> do_mod{}
+
+func do_neg(a f64) { op_neg_out = math.neg(a) }
+op_neg_a -> do_neg{}
 
 // ─────────────────────── math.avg / math.min / math.max ─────────────
 
@@ -148,6 +168,26 @@ XX_CASES = [
 
 FLOW_CASES: list[PowCase] = list(XC_CASES) + list(CX_CASES)
 
+
+@dataclass
+class BinaryOpCase:
+    label: str
+    a_ch: str
+    b_ch: str
+    out_ch: str
+    a_val: float
+    b_val: float
+    expected: float
+
+
+OP_BINARY_CASES = [
+    BinaryOpCase("add", "op_add_a", "op_add_b", "op_add_out", 10.0, 3.0, 13.0),
+    BinaryOpCase("sub", "op_sub_a", "op_sub_b", "op_sub_out", 10.0, 3.0, 7.0),
+    BinaryOpCase("mul", "op_mul_a", "op_mul_b", "op_mul_out", 4.0, 5.0, 20.0),
+    BinaryOpCase("div", "op_div_a", "op_div_b", "op_div_out", 20.0, 4.0, 5.0),
+    BinaryOpCase("mod", "op_mod_a", "op_mod_b", "op_mod_out", 10.0, 3.0, 1.0),
+]
+
 STAT_VIRTUAL_INPUTS = [
     "stat_in",
     "stat_count_in",
@@ -191,6 +231,7 @@ class StlMath(ArcConsoleCase):
 
     def setup(self) -> None:
         self._setup_pow_channels()
+        self._setup_op_channels()
         self._setup_stat_channels()
         super().setup()
 
@@ -198,34 +239,12 @@ class StlMath(ArcConsoleCase):
         create_virtual_channel(self.client, "pow_cc_trigger", sy.DataType.FLOAT64)
 
         for c in CC_CASES:
-            idx = self.client.channels.create(
-                name=f"{c.out_ch}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=c.out_ch,
-                data_type=sy.DataType.FLOAT64,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, c.out_ch, sy.DataType.FLOAT64)
 
         for fc in FLOW_CASES:
             assert fc.in_ch is not None and fc.in_dtype is not None
             create_virtual_channel(self.client, fc.in_ch, fc.in_dtype)
-            idx = self.client.channels.create(
-                name=f"{fc.out_ch}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=fc.out_ch,
-                data_type=sy.DataType.FLOAT64,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, fc.out_ch, sy.DataType.FLOAT64)
 
         for xxc in XX_CASES:
             create_virtual_channel(self.client, xxc.base_ch, xxc.base_dtype)
@@ -242,22 +261,22 @@ class StlMath(ArcConsoleCase):
             all_ch.extend([xxc.base_ch, xxc.exp_ch, xxc.out_ch])
         self.subscribe_channels = all_ch
 
+    def _setup_op_channels(self) -> None:
+        for c in OP_BINARY_CASES:
+            create_virtual_channel(self.client, c.a_ch, sy.DataType.FLOAT64)
+            create_virtual_channel(self.client, c.b_ch, sy.DataType.FLOAT64)
+            create_virtual_channel(self.client, c.out_ch, sy.DataType.FLOAT64)
+        create_virtual_channel(self.client, "op_neg_a", sy.DataType.FLOAT64)
+        create_virtual_channel(self.client, "op_neg_out", sy.DataType.FLOAT64)
+        for c in OP_BINARY_CASES:
+            self.subscribe_channels += [c.a_ch, c.b_ch, c.out_ch]
+        self.subscribe_channels += ["op_neg_a", "op_neg_out"]
+
     def _setup_stat_channels(self) -> None:
         for name in STAT_VIRTUAL_INPUTS:
             create_virtual_channel(self.client, name, sy.DataType.FLOAT64)
         for name in STAT_INDEXED_OUTPUTS:
-            idx = self.client.channels.create(
-                name=f"{name}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=name,
-                data_type=sy.DataType.FLOAT64,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, name, sy.DataType.FLOAT64)
         self.subscribe_channels += STAT_VIRTUAL_INPUTS + STAT_INDEXED_OUTPUTS
 
     def _write_many(self, channel: str, values: list[float]) -> None:
@@ -280,6 +299,7 @@ class StlMath(ArcConsoleCase):
         self._verify_pow_chan_const()
         self._verify_pow_const_chan()
         self._verify_pow_chan_chan()
+        self._verify_arithmetic_ops()
         self._verify_stat_basic()
         self._verify_stat_count_window()
         self._verify_stat_count_window_negative()
@@ -324,6 +344,21 @@ class StlMath(ArcConsoleCase):
             self.writer.write(c.base_ch, c.base_val)
             self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
             self.wait_for_eq(c.out_ch, c.expected, is_virtual=True)
+
+    def _verify_arithmetic_ops(self) -> None:
+        self.log("=== arithmetic operators ===")
+        for c in OP_BINARY_CASES:
+            self.log(f"[{c.label}] Writing b={c.b_val} to {c.b_ch}")
+            self.writer.write(c.b_ch, c.b_val)
+            self.log(f"[{c.label}] Writing a={c.a_val} to {c.a_ch}")
+            self.writer.write(c.a_ch, c.a_val)
+            self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
+            self.wait_for_eq(c.out_ch, c.expected, is_virtual=True)
+
+        self.log("[neg] Writing 7.0 to op_neg_a")
+        self.writer.write("op_neg_a", 7.0)
+        self.log("[neg] Expecting op_neg_out == -7.0")
+        self.wait_for_eq("op_neg_out", -7.0, is_virtual=True)
 
     def _verify_stat_basic(self) -> None:
         self.log("Basic stats: [10, 20, 30]")

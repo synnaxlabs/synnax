@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_TIME_SOURCE = """
@@ -138,18 +138,7 @@ class StlTime(ArcConsoleCase):
         create_virtual_channel(self.client, "start_wait_cmd", sy.DataType.UINT8)
         create_virtual_channel(self.client, "start_wait_mod_cmd", sy.DataType.UINT8)
         for name in ("toggle_cmd", "toggle_cmd_mod"):
-            idx = self.client.channels.create(
-                name=f"{name}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=name,
-                data_type=sy.DataType.UINT8,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, name, sy.DataType.UINT8)
         super().setup()
 
     def _test_now(self) -> None:

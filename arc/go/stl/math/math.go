@@ -34,6 +34,12 @@ const (
 	minSymbolName        = "min"
 	maxSymbolName        = "max"
 	derivativeSymbolName = "derivative"
+	addSymbolName        = "add"
+	subSymbolName        = "subtract"
+	mulSymbolName        = "multiply"
+	divSymbolName        = "divide"
+	modSymbolName        = "mod"
+	negSymbolName        = "neg"
 )
 
 var numConstraint = types.NumericConstraint()
@@ -105,14 +111,26 @@ var deprecatedBareResolver = symbol.MapResolver{
 	minSymbolName:        minSymbol,
 	maxSymbolName:        maxSymbol,
 	derivativeSymbolName: derivativeSymbol,
+	addSymbolName:        addSymbol,
+	subSymbolName:        subSymbol,
+	mulSymbolName:        mulSymbol,
+	divSymbolName:        divSymbol,
+	modSymbolName:        modSymbol,
+	negSymbolName:        negSymbol,
 }
 
 var moduleMembers = symbol.MapResolver{
-	"pow":               powSymbol,
+	"pow":                powSymbol,
 	avgSymbolName:        avgSymbol,
 	minSymbolName:        minSymbol,
 	maxSymbolName:        maxSymbol,
 	derivativeSymbolName: derivativeSymbol,
+	addSymbolName:        addSymbol,
+	subSymbolName:        subSymbol,
+	mulSymbolName:        mulSymbol,
+	divSymbolName:        divSymbol,
+	modSymbolName:        modSymbol,
+	negSymbolName:        negSymbol,
 }
 
 var SymbolResolver = symbol.CompoundResolver{
@@ -149,6 +167,69 @@ func NewModule(
 		WithFunc(func(_ context.Context, base float64, exp float64) float64 {
 			return math.Pow(base, exp)
 		}).Export("pow_f64")
+
+	builder = bindI32Binary[uint8](builder, "add", "u8", func(a, b uint8) uint8 { return a + b })
+	builder = bindI32Binary[uint16](builder, "add", "u16", func(a, b uint16) uint16 { return a + b })
+	builder = bindI32Binary[uint32](builder, "add", "u32", func(a, b uint32) uint32 { return a + b })
+	builder = bindI32Binary[int8](builder, "add", "i8", func(a, b int8) int8 { return a + b })
+	builder = bindI32Binary[int16](builder, "add", "i16", func(a, b int16) int16 { return a + b })
+	builder = bindI32Binary[int32](builder, "add", "i32", func(a, b int32) int32 { return a + b })
+	builder = bindI64Binary[uint64](builder, "add", "u64", func(a, b uint64) uint64 { return a + b })
+	builder = bindI64Binary[int64](builder, "add", "i64", func(a, b int64) int64 { return a + b })
+	builder = bindF32Binary(builder, "add", func(a, b float32) float32 { return a + b })
+	builder = bindF64Binary(builder, "add", func(a, b float64) float64 { return a + b })
+
+	builder = bindI32Binary[uint8](builder, "subtract", "u8", func(a, b uint8) uint8 { return a - b })
+	builder = bindI32Binary[uint16](builder, "subtract", "u16", func(a, b uint16) uint16 { return a - b })
+	builder = bindI32Binary[uint32](builder, "subtract", "u32", func(a, b uint32) uint32 { return a - b })
+	builder = bindI32Binary[int8](builder, "subtract", "i8", func(a, b int8) int8 { return a - b })
+	builder = bindI32Binary[int16](builder, "subtract", "i16", func(a, b int16) int16 { return a - b })
+	builder = bindI32Binary[int32](builder, "subtract", "i32", func(a, b int32) int32 { return a - b })
+	builder = bindI64Binary[uint64](builder, "subtract", "u64", func(a, b uint64) uint64 { return a - b })
+	builder = bindI64Binary[int64](builder, "subtract", "i64", func(a, b int64) int64 { return a - b })
+	builder = bindF32Binary(builder, "subtract", func(a, b float32) float32 { return a - b })
+	builder = bindF64Binary(builder, "subtract", func(a, b float64) float64 { return a - b })
+
+	builder = bindI32Binary[uint8](builder, "multiply", "u8", func(a, b uint8) uint8 { return a * b })
+	builder = bindI32Binary[uint16](builder, "multiply", "u16", func(a, b uint16) uint16 { return a * b })
+	builder = bindI32Binary[uint32](builder, "multiply", "u32", func(a, b uint32) uint32 { return a * b })
+	builder = bindI32Binary[int8](builder, "multiply", "i8", func(a, b int8) int8 { return a * b })
+	builder = bindI32Binary[int16](builder, "multiply", "i16", func(a, b int16) int16 { return a * b })
+	builder = bindI32Binary[int32](builder, "multiply", "i32", func(a, b int32) int32 { return a * b })
+	builder = bindI64Binary[uint64](builder, "multiply", "u64", func(a, b uint64) uint64 { return a * b })
+	builder = bindI64Binary[int64](builder, "multiply", "i64", func(a, b int64) int64 { return a * b })
+	builder = bindF32Binary(builder, "multiply", func(a, b float32) float32 { return a * b })
+	builder = bindF64Binary(builder, "multiply", func(a, b float64) float64 { return a * b })
+
+	builder = bindI32Binary[uint8](builder, "divide", "u8", func(a, b uint8) uint8 { return a / b })
+	builder = bindI32Binary[uint16](builder, "divide", "u16", func(a, b uint16) uint16 { return a / b })
+	builder = bindI32Binary[uint32](builder, "divide", "u32", func(a, b uint32) uint32 { return a / b })
+	builder = bindI32Binary[int8](builder, "divide", "i8", func(a, b int8) int8 { return a / b })
+	builder = bindI32Binary[int16](builder, "divide", "i16", func(a, b int16) int16 { return a / b })
+	builder = bindI32Binary[int32](builder, "divide", "i32", func(a, b int32) int32 { return a / b })
+	builder = bindI64Binary[uint64](builder, "divide", "u64", func(a, b uint64) uint64 { return a / b })
+	builder = bindI64Binary[int64](builder, "divide", "i64", func(a, b int64) int64 { return a / b })
+	builder = bindF32Binary(builder, "divide", func(a, b float32) float32 { return a / b })
+	builder = bindF64Binary(builder, "divide", func(a, b float64) float64 { return a / b })
+
+	builder = bindI32Binary[uint8](builder, "mod", "u8", func(a, b uint8) uint8 { return a % b })
+	builder = bindI32Binary[uint16](builder, "mod", "u16", func(a, b uint16) uint16 { return a % b })
+	builder = bindI32Binary[uint32](builder, "mod", "u32", func(a, b uint32) uint32 { return a % b })
+	builder = bindI32Binary[int8](builder, "mod", "i8", func(a, b int8) int8 { return a % b })
+	builder = bindI32Binary[int16](builder, "mod", "i16", func(a, b int16) int16 { return a % b })
+	builder = bindI32Binary[int32](builder, "mod", "i32", func(a, b int32) int32 { return a % b })
+	builder = bindI64Binary[uint64](builder, "mod", "u64", func(a, b uint64) uint64 { return a % b })
+	builder = bindI64Binary[int64](builder, "mod", "i64", func(a, b int64) int64 { return a % b })
+	builder = bindF32Binary(builder, "mod", func(a, b float32) float32 { return float32(math.Mod(float64(a), float64(b))) })
+	builder = bindF64Binary(builder, "mod", func(a, b float64) float64 { return math.Mod(a, b) })
+
+	builder = bindI32Unary[int8](builder, "neg", "i8", func(a int8) int8 { return -a })
+	builder = bindI32Unary[int16](builder, "neg", "i16", func(a int16) int16 { return -a })
+	builder = bindI32Unary[int32](builder, "neg", "i32", func(a int32) int32 { return -a })
+	builder = bindI64Unary[int64](builder, "neg", "i64", func(a int64) int64 { return -a })
+	builder = bindF32Unary(builder, "neg", func(a float32) float32 { return -a })
+	builder = bindF64Unary(builder, "neg", func(a float64) float64 { return -a })
+
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -158,6 +239,18 @@ func NewModule(
 func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
+	}
+	if cat, ok := arithmeticOps[nodeCfg.Node.Type]; ok {
+		return &arithmeticBinary{
+			State: nodeCfg.State,
+			op:    cat[nodeCfg.State.Input(0).DataType],
+		}, nil
+	}
+	if cat, ok := arithmeticUnaryOps[nodeCfg.Node.Type]; ok {
+		return &arithmeticUnary{
+			State: nodeCfg.State,
+			op:    cat[nodeCfg.State.Input(0).DataType],
+		}, nil
 	}
 	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
@@ -393,6 +486,173 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
+func createArithmeticSymbol(name string) symbol.Symbol {
+	constraint := types.NumericConstraint()
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecBoth,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
+				{Name: ir.RHSInputParam, Type: types.Variable("T", &constraint)},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+			},
+		}),
+	}
+}
+
+func createNegateSymbol(name string) symbol.Symbol {
+	constraint := types.NumericConstraint()
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecBoth,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+			},
+		}),
+	}
+}
+
+var (
+	addSymbol = createArithmeticSymbol(addSymbolName)
+	subSymbol = createArithmeticSymbol(subSymbolName)
+	mulSymbol = createArithmeticSymbol(mulSymbolName)
+	divSymbol = createArithmeticSymbol(divSymbolName)
+	modSymbol = createArithmeticSymbol(modSymbolName)
+	negSymbol = createNegateSymbol(negSymbolName)
+)
+
+var (
+	arithmeticOps = map[string]map[telem.DataType]op.Binary{
+		addSymbolName: {
+			telem.Float64T: op.AddF64,
+			telem.Float32T: op.AddF32,
+			telem.Int64T:   op.AddI64,
+			telem.Int32T:   op.AddI32,
+			telem.Int16T:   op.AddI16,
+			telem.Int8T:    op.AddI8,
+			telem.Uint64T:  op.AddU64,
+			telem.Uint32T:  op.AddU32,
+			telem.Uint16T:  op.AddU16,
+			telem.Uint8T:   op.AddU8,
+		},
+		subSymbolName: {
+			telem.Float64T: op.SubtractF64,
+			telem.Float32T: op.SubtractF32,
+			telem.Int64T:   op.SubtractI64,
+			telem.Int32T:   op.SubtractI32,
+			telem.Int16T:   op.SubtractI16,
+			telem.Int8T:    op.SubtractI8,
+			telem.Uint64T:  op.SubtractU64,
+			telem.Uint32T:  op.SubtractU32,
+			telem.Uint16T:  op.SubtractU16,
+			telem.Uint8T:   op.SubtractU8,
+		},
+		mulSymbolName: {
+			telem.Float64T: op.MultiplyF64,
+			telem.Float32T: op.MultiplyF32,
+			telem.Int64T:   op.MultiplyI64,
+			telem.Int32T:   op.MultiplyI32,
+			telem.Int16T:   op.MultiplyI16,
+			telem.Int8T:    op.MultiplyI8,
+			telem.Uint64T:  op.MultiplyU64,
+			telem.Uint32T:  op.MultiplyU32,
+			telem.Uint16T:  op.MultiplyU16,
+			telem.Uint8T:   op.MultiplyU8,
+		},
+		divSymbolName: {
+			telem.Float64T: op.DivideF64,
+			telem.Float32T: op.DivideF32,
+			telem.Int64T:   op.DivideI64,
+			telem.Int32T:   op.DivideI32,
+			telem.Int16T:   op.DivideI16,
+			telem.Int8T:    op.DivideI8,
+			telem.Uint64T:  op.DivideU64,
+			telem.Uint32T:  op.DivideU32,
+			telem.Uint16T:  op.DivideU16,
+			telem.Uint8T:   op.DivideU8,
+		},
+		modSymbolName: {
+			telem.Float64T: op.ModuloF64,
+			telem.Float32T: op.ModuloF32,
+			telem.Int64T:   op.ModuloI64,
+			telem.Int32T:   op.ModuloI32,
+			telem.Int16T:   op.ModuloI16,
+			telem.Int8T:    op.ModuloI8,
+			telem.Uint64T:  op.ModuloU64,
+			telem.Uint32T:  op.ModuloU32,
+			telem.Uint16T:  op.ModuloU16,
+			telem.Uint8T:   op.ModuloU8,
+		},
+	}
+	arithmeticUnaryOps = map[string]map[telem.DataType]op.Unary{
+		negSymbolName: {
+			telem.Float64T: op.NegateF64,
+			telem.Float32T: op.NegateF32,
+			telem.Int64T:   op.NegateI64,
+			telem.Int32T:   op.NegateI32,
+			telem.Int16T:   op.NegateI16,
+			telem.Int8T:    op.NegateI8,
+		},
+	}
+)
+
+type arithmeticBinary struct {
+	*node.State
+	op op.Binary
+}
+
+func (n *arithmeticBinary) Next(ctx node.Context) {
+	if !n.RefreshInputs() {
+		return
+	}
+	lhs, rhs := n.Input(0), n.Input(1)
+	n.op(lhs, rhs, n.Output(0))
+	*n.OutputTime(0) = n.InputTime(0)
+	alignment := lhs.Alignment + rhs.Alignment
+	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
+	if !rhs.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
+		timeRange.Start = rhs.TimeRange.Start
+	}
+	if rhs.TimeRange.End > timeRange.End {
+		timeRange.End = rhs.TimeRange.End
+	}
+	n.Output(0).Alignment = alignment
+	n.Output(0).TimeRange = timeRange
+	n.OutputTime(0).Alignment = alignment
+	n.OutputTime(0).TimeRange = timeRange
+	ctx.MarkChanged(ir.DefaultOutputParam)
+}
+
+type arithmeticUnary struct {
+	*node.State
+	op op.Unary
+}
+
+var _ node.Node = (*arithmeticUnary)(nil)
+
+func (n *arithmeticUnary) Next(ctx node.Context) {
+	if !n.RefreshInputs() {
+		return
+	}
+	input := n.Input(0)
+	n.op(input, n.Output(0))
+	*n.OutputTime(0) = n.InputTime(0)
+	n.Output(0).Alignment = input.Alignment
+	n.Output(0).TimeRange = input.TimeRange
+	n.OutputTime(0).Alignment = input.Alignment
+	n.OutputTime(0).TimeRange = input.TimeRange
+	ctx.MarkChanged(ir.DefaultOutputParam)
+}
+
 type i32Powable interface {
 	uint8 | uint16 | uint32 | int8 | int16 | int32
 }
@@ -420,4 +680,60 @@ func bindI64Pow[T i64Powable](builder wazero.HostModuleBuilder, suffix string) w
 		WithFunc(func(_ context.Context, base uint64, exp uint64) uint64 {
 			return uint64(xmath.IntPow(T(base), int(exp)))
 		}).Export("pow_" + suffix)
+}
+
+func bindI32Binary[T i32Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T, T) T) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a uint32, b uint32) uint32 {
+			return uint32(fn(T(a), T(b)))
+		}).Export(name + "_" + suffix)
+}
+
+func bindI64Binary[T i64Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T, T) T) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a uint64, b uint64) uint64 {
+			return uint64(fn(T(a), T(b)))
+		}).Export(name + "_" + suffix)
+}
+
+func bindF32Binary(builder wazero.HostModuleBuilder, name string, fn func(float32, float32) float32) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a float32, b float32) float32 {
+			return fn(a, b)
+		}).Export(name + "_f32")
+}
+
+func bindF64Binary(builder wazero.HostModuleBuilder, name string, fn func(float64, float64) float64) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a float64, b float64) float64 {
+			return fn(a, b)
+		}).Export(name + "_f64")
+}
+
+func bindI32Unary[T i32Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T) T) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a uint32) uint32 {
+			return uint32(fn(T(a)))
+		}).Export(name + "_" + suffix)
+}
+
+func bindI64Unary[T i64Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T) T) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a uint64) uint64 {
+			return uint64(fn(T(a)))
+		}).Export(name + "_" + suffix)
+}
+
+func bindF32Unary(builder wazero.HostModuleBuilder, name string, fn func(float32) float32) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a float32) float32 {
+			return fn(a)
+		}).Export(name + "_f32")
+}
+
+func bindF64Unary(builder wazero.HostModuleBuilder, name string, fn func(float64) float64) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a float64) float64 {
+			return fn(a)
+		}).Export(name + "_f64")
 }

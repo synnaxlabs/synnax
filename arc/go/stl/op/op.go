@@ -41,10 +41,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if ok {
 		return &binary{State: cfg.State, op: opFn}, nil
 	}
-	unCat, ok := typedUnaryOps[cfg.Node.Type]
-	if ok {
-		return &unary{State: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
-	}
 	unOpFn, ok := unaryOps[cfg.Node.Type]
 	if ok {
 		return &unary{State: cfg.State, op: unOpFn}, nil

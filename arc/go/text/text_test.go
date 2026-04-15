@@ -660,6 +660,38 @@ var _ = Describe("Text", func() {
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
+			It("Should emit deprecation warning for bare neg", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> neg{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("math.neg"))
+			})
+
+			It("Should not emit deprecation warning for qualified math.neg", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> math.neg{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
 			It("Should emit deprecation warning for bare set_status", func(ctx SpecContext) {
 				statusResolver := symbol.CompoundResolver{
 					symbol.MapResolver{

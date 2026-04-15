@@ -162,6 +162,38 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("#### math.pow"))
 		})
 
+		It("should provide hover for 'math.add' function", func(ctx SpecContext) {
+			content := "sensor_a -> math.add{} -> output\nsensor_b -> math.add{}.rhs"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 16},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### math.add"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Adds two numeric"))
+		})
+
+		It("should provide hover for 'math.neg' function", func(ctx SpecContext) {
+			content := "sensor -> math.neg{} -> output"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 16},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### math.neg"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Negates numeric"))
+		})
+
 		It("should provide hover for 'selector.select' function", func(ctx SpecContext) {
 			content := "flag -> selector.select{} -> output"
 			OpenArcDocument(server, ctx, uri, content)

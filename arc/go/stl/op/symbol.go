@@ -38,7 +38,7 @@ func createComparisonSymbol(name string) symbol.Symbol {
 	)
 }
 
-func createArithmeticSymbol(name string) symbol.Symbol {
+func createLogicalSymbol(name string) symbol.Symbol {
 	constraint := types.NumericConstraint()
 	return createBinaryOpSymbol(
 		name,
@@ -66,15 +66,6 @@ func createNotSymbol(name string) symbol.Symbol {
 	)
 }
 
-func createNegateSymbol(name string) symbol.Symbol {
-	constraint := types.NumericConstraint()
-	return createUnaryOpSymbol(
-		name,
-		types.Variable("T", &constraint),
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
-	)
-}
-
 const (
 	geSymbolName  = "ge"
 	gtSymbolName  = "gt"
@@ -84,13 +75,7 @@ const (
 	neSymbolName  = "ne"
 	andSymbolName = "and"
 	orSymbolName  = "or"
-	addSymbolName = "add"
-	subSymbolName = "subtract"
-	mulSymbolName = "multiply"
-	divSymbolName = "divide"
-	modSymbolName = "mod"
 	notSymbolName = "not"
-	negSymbolName = "neg"
 )
 
 var SymbolResolver = symbol.MapResolver{
@@ -100,13 +85,7 @@ var SymbolResolver = symbol.MapResolver{
 	ltSymbolName:  createComparisonSymbol(ltSymbolName),
 	eqSymbolName:  createComparisonSymbol(eqSymbolName),
 	neSymbolName:  createComparisonSymbol(neSymbolName),
-	andSymbolName: createArithmeticSymbol(andSymbolName),
-	orSymbolName:  createArithmeticSymbol(orSymbolName),
-	addSymbolName: createArithmeticSymbol(addSymbolName),
-	subSymbolName: createArithmeticSymbol(subSymbolName),
-	mulSymbolName: createArithmeticSymbol(mulSymbolName),
-	divSymbolName: createArithmeticSymbol(divSymbolName),
-	modSymbolName: createArithmeticSymbol(modSymbolName),
+	andSymbolName: createLogicalSymbol(andSymbolName),
+	orSymbolName:  createLogicalSymbol(orSymbolName),
 	notSymbolName: createNotSymbol(notSymbolName),
-	negSymbolName: createNegateSymbol(negSymbolName),
 }
