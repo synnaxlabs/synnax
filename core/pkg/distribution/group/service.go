@@ -106,7 +106,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.cfg.DB, s.table)
+	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
 }
 
 func (s *Service) Close() error {

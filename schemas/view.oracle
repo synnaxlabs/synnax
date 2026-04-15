@@ -44,7 +44,7 @@ View struct {
         types.
     """
     @ontology type   "view"
-    @retrieve custom
+    @retrieve
     @search
 }
 
