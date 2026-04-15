@@ -298,7 +298,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// would advance the iterator to (10 * telem.SecondTS).SpanRange(2 * telem.Second),
 						// returning the same 2 values again.
 						//
-						// This spec asserts that this behavior is unary.
+						// This spec asserts that this behavior is fixed.
 						Specify("Partial Domain 3 - Regression", func(ctx SpecContext) {
 							Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 6*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10))).To(Succeed())
