@@ -58,6 +58,8 @@ public:
     explicit Module(std::shared_ptr<runtime::state::State> state):
         state(std::move(state)) {}
 
+    [[nodiscard]] std::string module_name() const override { return "authority"; }
+
     bool handles(const std::string &node_type) const override {
         return node_type == "set_authority" || node_type == "set";
     }

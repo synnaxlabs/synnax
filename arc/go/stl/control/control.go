@@ -70,6 +70,8 @@ type Module struct {
 
 func NewModule(ab *ProgramState) *Module { return &Module{auth: ab} }
 
+func (m *Module) ModuleName() string { return moduleName }
+
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
 	return SymbolResolver.Resolve(ctx, name)
 }

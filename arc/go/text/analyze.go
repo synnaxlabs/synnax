@@ -39,6 +39,7 @@ var deprecatedBareFunctions = map[string]string{
 	"derivative":    "math.derivative",
 	"select":        "selector.select",
 	"stable_for":    "stable.stable_for",
+	"set_status":    "status.set",
 }
 
 type keyGenerator struct {

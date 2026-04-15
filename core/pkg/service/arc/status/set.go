@@ -27,25 +27,47 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	bareSymbolName      = "set_status"
+	qualifiedMemberName = "set"
+	moduleName          = "status"
+)
+
+// Two separate resolvers are needed because the bare name ("set_status")
+// differs from the qualified member name ("set"). The bare form will be
+// deprecated and removed once users migrate to status.set{}.
 var (
-	symbolName = "set_status"
-	symbolSet  = symbol.Symbol{
-		Name: "set_status",
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "status_key", Type: types.String()},
-				{Name: "variant", Type: types.String()},
-				{Name: "message", Type: types.String()},
-				{Name: "name", Type: types.String(), Value: ""},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
-			},
-		}),
+	symbolProps = types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "status_key", Type: types.String()},
+			{Name: "variant", Type: types.String()},
+			{Name: "message", Type: types.String()},
+			{Name: "name", Type: types.String(), Value: ""},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8()},
+		},
+	})
+	bareResolver = symbol.MapResolver{
+		bareSymbolName: {
+			Name: bareSymbolName,
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: symbolProps,
+		},
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
+	moduleResolver = &symbol.ModuleResolver{
+		Name: moduleName,
+		Members: symbol.MapResolver{
+			qualifiedMemberName: {
+				Name: qualifiedMemberName,
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: symbolProps,
+			},
+		},
+	}
+	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
 type Module struct {
@@ -106,8 +128,10 @@ type nodeConfig struct {
 	Variant   string `json:"variant"`
 }
 
+func (s *statusFactory) ModuleName() string { return moduleName }
+
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig

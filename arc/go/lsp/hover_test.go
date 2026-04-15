@@ -226,6 +226,22 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("length of a string"))
 		})
 
+		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
+			content := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 17},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### status.set"))
+			Expect(hover.Contents.Value).To(ContainSubstring("status notification"))
+		})
+
 		It("should provide hover for 'now' function", func(ctx SpecContext) {
 			content := "time := now()"
 			OpenArcDocument(server, ctx, uri, content)

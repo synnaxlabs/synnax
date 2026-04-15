@@ -1229,5 +1229,93 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Nodes).To(HaveLen(2))
 		})
+		It("Should analyze status.set with qualified name", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "ss",
+						Type: "status.set",
+						Config: map[string]any{
+							"status_key": "ox_alarm",
+							"variant":    "error",
+							"message":    "Overpressure",
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "ss", Param: ir.DefaultOutputParam},
+					},
+				},
+			}
+			statusResolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"set_status": {
+						Name: "set_status",
+						Kind: symbol.KindFunction,
+						Exec: symbol.ExecFlow,
+						Type: types.Function(types.FunctionProperties{
+							Config: types.Params{
+								{Name: "status_key", Type: types.String()},
+								{Name: "variant", Type: types.String()},
+								{Name: "message", Type: types.String()},
+							},
+							Inputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+						}),
+					},
+				},
+				&symbol.ModuleResolver{
+					Name: "status",
+					Members: symbol.MapResolver{
+						"set": {
+							Name: "set",
+							Kind: symbol.KindFunction,
+							Exec: symbol.ExecFlow,
+							Type: types.Function(types.FunctionProperties{
+								Config: types.Params{
+									{Name: "status_key", Type: types.String()},
+									{Name: "variant", Type: types.String()},
+									{Name: "message", Type: types.String()},
+								},
+								Inputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U8()},
+								},
+							}),
+						},
+					},
+				},
+				symbol.MapResolver{
+					"100": symbol.Symbol{
+						Name: "sensor",
+						Type: types.Chan(types.U8()),
+						Kind: symbol.KindChannel,
+						ID:   100,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, statusResolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
 	})
 })

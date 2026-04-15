@@ -660,6 +660,88 @@ var _ = Describe("Text", func() {
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
+			It("Should emit deprecation warning for bare set_status", func(ctx SpecContext) {
+				statusResolver := symbol.CompoundResolver{
+					symbol.MapResolver{
+						"set_status": {
+							Name: "set_status",
+							Kind: symbol.KindFunction,
+							Exec: symbol.ExecFlow,
+							Type: types.Function(types.FunctionProperties{
+								Config: types.Params{
+									{Name: "status_key", Type: types.String()},
+									{Name: "variant", Type: types.String()},
+									{Name: "message", Type: types.String()},
+								},
+								Inputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U8()},
+								},
+							}),
+						},
+					},
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					},
+				}
+				source := `sensor -> set_status{status_key="alarm", variant="error", message="Bad"}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, statusResolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("status.set"))
+			})
+
+			It("Should not emit deprecation warning for qualified status.set", func(ctx SpecContext) {
+				statusResolver := symbol.CompoundResolver{
+					symbol.MapResolver{
+						"set_status": {
+							Name: "set_status",
+							Kind: symbol.KindFunction,
+							Exec: symbol.ExecFlow,
+							Type: types.Function(types.FunctionProperties{
+								Config: types.Params{
+									{Name: "status_key", Type: types.String()},
+									{Name: "variant", Type: types.String()},
+									{Name: "message", Type: types.String()},
+								},
+								Inputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U8()},
+								},
+							}),
+						},
+					},
+					&symbol.ModuleResolver{
+						Name: "status",
+						Members: symbol.MapResolver{
+							"set": {
+								Name: "set",
+								Kind: symbol.KindFunction,
+								Exec: symbol.ExecFlow,
+								Type: types.Function(types.FunctionProperties{
+									Config: types.Params{
+										{Name: "status_key", Type: types.String()},
+										{Name: "variant", Type: types.String()},
+										{Name: "message", Type: types.String()},
+									},
+									Inputs: types.Params{
+										{Name: ir.DefaultOutputParam, Type: types.U8()},
+									},
+								}),
+							},
+						},
+					},
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					},
+				}
+				source := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, statusResolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
 			It("Should emit deprecation warning for bare derivative", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
 					stl.SymbolResolver,
