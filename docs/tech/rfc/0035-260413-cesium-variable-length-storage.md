@@ -7,20 +7,18 @@ Progress <br /> **Start Date**: 2026-04-13 <br /> **Authors**: Emiliano Bonilla 
 
 # 0 - Summary
 
-Cesium gains a third per-channel database variant, `fixed` (renamed from `unary`), for
-persisting variable-density data types (`StringT`, `JSONT`, `BytesT`). Previously these
-types could only exist as virtual (non-persisted) channels.
+Cesium's `unary` package gains support for persisting variable-density data types
+(`StringT`, `JSONT`, `BytesT`). Previously these types could only exist as virtual
+(non-persisted) channels. Fixed-density and variable-length channels share the same
+package, the same `domain.DB` backend, and the same writer/iterator/delete paths. The
+only difference is how sample indices translate to byte offsets: fixed-density channels
+compute the offset arithmetically from a constant density, variable-length channels look
+it up in an in-memory offset table built from length prefixes.
 
 The on-disk format is uint32-length-prefixed samples stored in a single `domain.DB`.
 There is no offset table, trailer, or auxiliary file on disk. An in-memory offset cache
-provides O(1) sample-to-byte-offset translation, built for free during writes and
+provides O(1) sample-to-byte-offset translation, populated for free during writes and
 rebuilt by scanning length prefixes on cold reads after process restart.
-
-The `variable` package is a sibling of `fixed`, sharing the same external dependencies
-(`domain.DB`, `index.Domain`, `control.Controller`) but implementing its own writer,
-iterator, and delete logic. Variable channels sit inside the same `idxWriter` group as
-fixed channels that share an index, participating in the same commit and control
-transfer lifecycle.
 
 The `telem.Series` encoding for variable types was changed from newline-delimited to
 uint32-length-prefixed across all four languages (Go, Python, TypeScript, C++). The
@@ -29,28 +27,29 @@ previous encoding was broken for samples containing literal newlines.
 # 1 - Vocabulary
 
 - **Fixed-density channel** - A channel whose samples all have the same byte size (e.g.,
-  Float64T at 8 bytes per sample). Stored in `cesium/internal/fixed/`.
-- **Variable-density channel** - A channel whose samples have varying byte sizes
-  (StringT, JSONT, BytesT). Stored in `cesium/internal/variable/`.
+  `Float64T` at 8 bytes per sample).
+- **Variable-length channel** - A channel whose samples have varying byte sizes
+  (`StringT`, `JSONT`, `BytesT`).
 - **Virtual channel** - A channel that does not persist data to disk. Stored in
   `cesium/internal/virtual/`.
 - **Length prefix** - A 4-byte little-endian uint32 preceding each sample in a
-  variable-density series, encoding the sample's byte length.
-- **Offset cache** - An in-memory `[]uint32` array per domain mapping sample index to
-  byte offset within the domain.
+  variable-length series, encoding the sample's byte length.
+- **Offset table** - An in-memory `[]uint32` mapping sample index to byte offset within
+  a single domain.
+- **Offset cache** - A per-channel `map[uint32]*offsetTable` keyed by domain index.
 - **Domain** - A contiguous time-bounded region of data within a `domain.DB`. The
   fundamental unit of storage in Cesium.
 
 # 2 - Motivation
 
-## 2.0 - Variable-Density Channels Cannot Be Persisted
+## 2.0 - Variable-Length Channels Cannot Be Persisted
 
 Cesium rejects variable-density data types for persisted channels. The validation gate
 in `channel.go` returns "persisted channels cannot have variable density data types."
 This forces all string, JSON, and bytes channels to be virtual, meaning their data is
 transient and lost when the server restarts.
 
-Use cases that require persisted variable-density data include event logs, configuration
+Use cases that require persisted variable-length data include event logs, configuration
 snapshots, audit trails, annotations, and any metadata that naturally varies in size.
 Today these must be stored outside Synnax or lost on restart.
 
@@ -66,17 +65,20 @@ it a data corruption vector.
 
 ## 3.0 - Variant Taxonomy
 
-| Variant    | Package     | Persists | Data Types         | Index Required |
-| ---------- | ----------- | -------- | ------------------ | -------------- |
-| `fixed`    | `fixed/`    | Yes      | Fixed-density only | Yes            |
-| `variable` | `variable/` | Yes      | Variable-density   | Yes            |
-| `virtual`  | `virtual/`  | No       | Any                | No             |
+Cesium has two per-channel database variants:
 
-Variant selection happens in `cesium/open.go`: try virtual, then variable, then fixed.
+| Variant   | Package    | Persists | Data Types    | Index Required |
+| --------- | ---------- | -------- | ------------- | -------------- |
+| `unary`   | `unary/`   | Yes      | Any non-event | Yes            |
+| `virtual` | `virtual/` | No       | Any           | No             |
+
+Variant selection happens in `cesium/open.go`. Each channel opens as either virtual or
+unary based on its `Virtual` flag. Within the unary package, the channel's data type
+determines whether the writer and iterator treat it as fixed-density or variable-length.
 
 ## 3.1 - Series Encoding
 
-All variable-density data uses uint32-length-prefixed encoding:
+All variable-length data uses uint32-length-prefixed encoding:
 
 ```
 [uint32 len_0][sample_0 bytes][uint32 len_1][sample_1 bytes]...
@@ -93,78 +95,94 @@ is needed between in-memory and persisted format.
 
 ## 3.2 - On-Disk Format
 
-Variable channels store data in a single `domain.DB`. Each domain is a contiguous region
-of uint32-length-prefixed samples. There is no trailer, offset table, or metadata on
-disk. The domain layer sees an opaque byte blob.
+Variable-length channels store data in a single `domain.DB`. Each domain is a contiguous
+region of uint32-length-prefixed samples. There is no trailer, offset table, or metadata
+on disk. The domain layer sees an opaque byte blob.
 
-## 3.3 - In-Memory Offset Cache
+## 3.3 - Offset Resolver
 
-The `variable.DB` maintains a per-domain offset cache: `map[uint32]*offsetTable` where
-each `offsetTable` is a `[]uint32` array mapping sample index to byte offset.
+`offsetResolver` is the single type that translates sample indices to byte offsets. It
+has two modes, selected at construction time from the channel's data type:
 
-The offset cache replaces the arithmetic (`sample_index * density`) that fixed-density
-channels use for converting between sample indices and byte offsets.
+```go
+type offsetResolver struct {
+    density telem.Density
+    cache   *offsetCache // nil for fixed-density channels
+}
 
-**During writes:** The writer scans each sample's length prefix as it writes, recording
-byte offsets in a growing slice. Zero extra I/O.
+func newOffsetResolver(dt telem.DataType) *offsetResolver {
+    if dt.IsVariable() {
+        return &offsetResolver{cache: newOffsetCache()}
+    }
+    return &offsetResolver{density: dt.Density()}
+}
+```
 
-**On writer close:** The writer's offset table is stored in the DB's cache.
+Fixed-density channels carry a non-zero density and a nil cache. Their `byteOffset` is
+`density.Size(sampleIdx)`. Variable-length channels carry a non-nil cache and rely on
+per-domain offset tables.
 
-**On cold read:** The cache is empty. The first read of a domain scans length prefixes
-sequentially to build the offset table. All subsequent reads use the cached table. For
-event-rate data (10-100 events/sec), this scan takes under 10ms per domain.
+The cache is a `map[uint32]*offsetTable` keyed by domain index. Each `offsetTable` holds
+the `[]uint32` offsets for one domain along with the domain size the table was built
+from. The cache hit is gated on the domain size matching the table's recorded size,
+which catches the case where the writer appends more data to the same domain index
+between commits.
 
-**On delete:** Cached entries for affected domains are invalidated. Split domains
-rebuild their offset tables lazily on next read.
+**During writes.** A per-writer `offsetTracker` records each sample's byte offset as
+data is appended. On close, the tracker's results are flushed into the cache. Zero extra
+I/O.
 
-**On GC:** The entire cache is invalidated since domain indices may shift during file
-compaction.
+**On cold read.** The cache is empty. The first read of a domain opens a reader and
+calls `buildOffsetTable`, which scans length prefixes sequentially. For event-rate data
+(10-100 events/sec) this takes under 10ms per domain. All subsequent reads within the
+process lifetime are served from the cache.
+
+**On delete or GC.** The resolver's `invalidate` method drops all cached tables. Next
+read rebuilds them. Deletes could in principle invalidate only the affected domains, but
+full invalidation is simpler and cold-read cost is low.
 
 ## 3.4 - Index Interaction
 
 `index.Domain` resolves timestamps to sample indices. It returns `DistanceApproximation`
 with `Lower`/`Upper` as `int64` sample counts. The conversion from sample index to byte
-offset is the single point where fixed and variable diverge:
-
-- Fixed: `byteOffset = sampleIndex * density`
-- Variable: `byteOffset = offsetCache[sampleIndex]`
-
-The index package itself is unchanged.
+offset is the single point where the two modes diverge, and it is isolated behind
+`offsetResolver.byteOffset`. The index package itself is unchanged.
 
 ## 3.5 - Writer Grouping
 
-Variable channels sit inside `idxWriter.varInternal` alongside fixed channels in
-`idxWriter.internal`. One `idxWriter` per index group. The idxWriter handles write,
-validate, commit, and close for both fixed and variable writers.
+All non-virtual writers sit inside `idxWriter.internal`, a single
+`map[ChannelKey]*unaryWriterState`. One `idxWriter` per index group. There is no split
+between fixed-density and variable-length writers at this layer; the `unary.Writer`
+already handles the distinction internally through its `offsetTracker`.
 
-Validation enforces equal sample counts across all channels in the group (both fixed and
-variable). The density check is skipped for variable channels since their density is
-`UnknownDensity`.
+Validation enforces equal sample counts across all channels in the group. The density
+equality check is skipped when either side is variable-length, since variable-length
+series report `UnknownDensity`.
 
-## 3.6 - Package Structure and Code Sharing
+## 3.6 - Unified Package Structure
 
-The `variable` package is a sibling of `fixed`, not a wrapper. Both compose the same
-external dependencies but implement their own writer, iterator, and delete logic. This
-is deliberate: the density-dependent methods are the heart of each package and work
-fundamentally differently.
+The initial design sketched `unary/` and a sibling `variable/` package. The shipped
+implementation collapses both into a single `unary/` package with polymorphism pushed
+down into `offsetResolver` and `offsetTracker`. The reason is that the two variants
+share almost everything: the writer contract, the iterator state machine, the control
+gate, the commit and close paths, the delete path. The only behaviors that actually
+differ are:
 
-Methods that are density-dependent and reimplemented in `variable`:
+| Concern                    | Fixed-density             | Variable-length            |
+| -------------------------- | ------------------------- | -------------------------- |
+| Sample count from bytes    | `density.SampleCount(n)`  | Offset table sample count  |
+| Sample index to byte range | `density.Size(sampleIdx)` | `offsetTable.byteOffsetAt` |
+| Per-write bookkeeping      | Increment counter         | Record offset per sample   |
 
-| Method                     | Fixed                        | Variable                    |
-| -------------------------- | ---------------------------- | --------------------------- |
-| `Writer.len()`             | `density.SampleCount(bytes)` | In-memory offset table      |
-| `Iterator.sliceDomain()`   | `density.Size(sampleIdx)`    | `offsetCache[sampleIdx]`    |
-| `Iterator.autoNext/Prev()` | Density-based chunk sizing   | Offset-cache chunk sizing   |
-| `calculateStartOffset()`   | `density.Size(sampleOffset)` | `offsetCache[sampleOffset]` |
-
-Methods that are structurally duplicated (~130 lines of scaffolding): `Open`, `Config`,
-`Close`, meta operations, `HasDataFor`, `Size`.
+Isolating those three behaviors inside `offsetResolver` / `offsetTracker` removes the
+~130 lines of duplicated scaffolding the sibling-package design would have required, and
+keeps the iterator and delete paths single-implementation.
 
 # 4 - Alternatives Considered
 
 ## 4.0 - Parallel Offset Domain.DB
 
-Two `domain.DB` instances per variable channel: one for data, one for uint32 byte
+Two `domain.DB` instances per variable-length channel: one for data, one for uint32 byte
 offsets. Rejected because `domain.Writer` autonomously switches files when the file size
 threshold is reached. The two DBs hit this threshold at different times, creating
 misaligned domain boundaries. The coordination logic to force-sync file switches adds
@@ -184,8 +202,9 @@ containing a literal newline corrupts Series operations.
 
 ## 4.3 - Null Byte Delimiter
 
-Use `\0` instead of `\n`. Works for StringT and JSONT (UTF-8 never contains null bytes)
-but fails for BytesT (arbitrary binary). Would require two encodings instead of one.
+Use `\0` instead of `\n`. Works for `StringT` and `JSONT` (UTF-8 never contains null
+bytes) but fails for `BytesT` (arbitrary binary). Would require two encodings instead of
+one.
 
 ## 4.4 - Varint Length Prefix
 
@@ -193,24 +212,35 @@ Use variable-length integers instead of fixed uint32. Saves 2-3 bytes per sample
 Rejected because the savings are marginal for realistic sample sizes and uint32 is
 simpler: fixed-width headers, predictable offsets, single-instruction decode.
 
+## 4.5 - Sibling `variable/` Package
+
+The sibling-package design kept fixed and variable code in separate packages to make the
+density-dependent methods textually distinct. Rejected after the initial implementation
+showed ~130 lines of structural duplication (`Open`, `Config`, `Close`, meta operations,
+`HasDataFor`, `Size`) and parallel iterator state machines that had to evolve together
+anyway. Collapsing into `unary` with a polymorphic `offsetResolver` preserved the
+behavioral split at the one point that matters and removed the rest of the duplication.
+
 # 5 - Implementation
 
-## 5.0 - Phase 1: Series Encoding (Complete)
+## 5.0 - Phase 1: Series Encoding
 
-Switched variable-density encoding from newline-delimited to uint32-length-prefixed in
+Switched variable-length encoding from newline-delimited to uint32-length-prefixed in
 `x/go/telem/`, `x/py/x/telem/`, `x/ts/src/telem/`, `x/cpp/telem/`. Updated all
 signals/CDC producers, control digest encoding, and client codec layers. Added
-`MarshalVariableSample()` utility. PR #2217.
+`MarshalVariableSample()` utility.
 
-## 5.1 - Phase 2: Variable DB Package (Complete)
+## 5.1 - Phase 2: Sibling `variable/` Package
 
-Added `cesium/internal/variable/` with DB, Writer, Iterator, Delete, and offset cache.
-Wired into all cesium top-level files: `db.go`, `open.go`, `channel.go`, `delete.go`,
-`control.go`, `iterator_open.go`, `iterator_stream.go`, `writer_open.go`,
-`writer_stream.go`. Removed the validation gate. 48 internal tests, 26 integration tests
-woven into existing test files. PR #2219.
+Added `cesium/internal/variable/` with its own DB, Writer, Iterator, Delete, and offset
+cache. Wired into all cesium top-level files: `db.go`, `open.go`, `channel.go`,
+`delete.go`, `control.go`, `iterator_open.go`, `iterator_stream.go`, `writer_open.go`,
+`writer_stream.go`. Removed the persisted-variable validation gate.
 
-## 5.2 - Phase 3: Rename (Complete)
+## 5.2 - Phase 3: Package Unification
 
-Renamed `unary/` to `fixed/` across the cesium codebase. Mechanical find-replace with no
-behavioral changes.
+Collapsed the `variable/` package into `unary/`. The two variants now share one package,
+one writer, one iterator, and one delete path. Density-dependent logic is isolated in
+`offsetResolver` (per-DB) and `offsetTracker` (per-writer), both in
+`cesium/internal/unary/resolver.go`. The sibling package and its parallel
+implementations were removed.
