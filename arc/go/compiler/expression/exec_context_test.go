@@ -17,6 +17,7 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -72,5 +73,58 @@ var _ = Describe("ExecContext", func() {
 		}))
 		_, exprType := compileWithCtx(ctx, "dual(5)")
 		Expect(exprType).To(Equal(types.I64()))
+	})
+})
+
+var _ = Describe("SignedNumericConstraint Promotion", func() {
+	It("Should promote u8 to i16 for math.neg", func(bCtx SpecContext) {
+		resolver := symbol.CompoundResolver{
+			symbol.MapResolver{
+				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U8(), ID: 0},
+			},
+			stl.SymbolResolver,
+		}
+		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
+		Expect(exprType).To(Equal(types.I16()))
+	})
+	It("Should promote u16 to i32 for math.neg", func(bCtx SpecContext) {
+		resolver := symbol.CompoundResolver{
+			symbol.MapResolver{
+				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U16(), ID: 0},
+			},
+			stl.SymbolResolver,
+		}
+		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
+		Expect(exprType).To(Equal(types.I32()))
+	})
+	It("Should promote u32 to i64 for math.neg", func(bCtx SpecContext) {
+		resolver := symbol.CompoundResolver{
+			symbol.MapResolver{
+				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U32(), ID: 0},
+			},
+			stl.SymbolResolver,
+		}
+		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
+		Expect(exprType).To(Equal(types.I64()))
+	})
+	It("Should promote u64 to f64 for math.neg", func(bCtx SpecContext) {
+		resolver := symbol.CompoundResolver{
+			symbol.MapResolver{
+				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U64(), ID: 0},
+			},
+			stl.SymbolResolver,
+		}
+		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
+		Expect(exprType).To(Equal(types.F64()))
+	})
+	It("Should not promote signed types for math.neg", func(bCtx SpecContext) {
+		resolver := symbol.CompoundResolver{
+			symbol.MapResolver{
+				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.I32(), ID: 0},
+			},
+			stl.SymbolResolver,
+		}
+		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
+		Expect(exprType).To(Equal(types.I32()))
 	})
 })

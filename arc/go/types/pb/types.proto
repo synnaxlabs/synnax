@@ -31,7 +31,7 @@ enum Kind {
   KIND_FUNCTION = 21;
   KIND_SEQUENCE = 22;
   KIND_STAGE = 23;
-  KIND_SIGNED_NUMERIC_CONSTANT = 24;  
+  KIND_SIGNED_NUMERIC_CONSTANT = 24;
 }
 
 // ChanDirection indicates read/write direction for channel-typed config parameters.
