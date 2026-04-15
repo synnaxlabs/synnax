@@ -696,6 +696,44 @@ var _ = Describe("Arithmetic", func() {
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
 		})
+		It("Should not panic on integer divide by zero", func(ctx SpecContext) {
+			g := makeBinaryGraph("divide", types.I64())
+			analyzed, diagnostics := graph.Analyze(ctx, g, stlmath.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := node.New(analyzed)
+			*s.Node("lhs").Output(0) = telem.NewSeriesV[int64](10, 20, 30)
+			*s.Node("lhs").OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			*s.Node("rhs").Output(0) = telem.NewSeriesV[int64](5, 0, 3)
+			*s.Node("rhs").OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			m := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(m.Create(ctx, node.Config{
+				Node:  ir.Node{Type: "divide"},
+				State: s.Node("math"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](2, 0, 10)))
+		})
+		It("Should not panic on integer mod by zero", func(ctx SpecContext) {
+			g := makeBinaryGraph("mod", types.I32())
+			analyzed, diagnostics := graph.Analyze(ctx, g, stlmath.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := node.New(analyzed)
+			*s.Node("lhs").Output(0) = telem.NewSeriesV[int32](10, 20, 30)
+			*s.Node("lhs").OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			*s.Node("rhs").Output(0) = telem.NewSeriesV[int32](3, 0, 5)
+			*s.Node("rhs").OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			m := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(m.Create(ctx, node.Config{
+				Node:  ir.Node{Type: "mod"},
+				State: s.Node("math"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](1, 0, 0)))
+		})
 	})
 	Describe("Alignment Propagation", func() {
 		It("Should sum alignments from both inputs for binary ops", func(ctx SpecContext) {

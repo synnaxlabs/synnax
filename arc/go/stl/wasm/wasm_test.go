@@ -1458,6 +1458,29 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
+	Describe("Integer Division By Zero", func() {
+		It("Should return 0 for divide by zero", func(ctx SpecContext) {
+			g := binaryOpGraph("div", "lhs", "rhs", types.I64(), types.I64(), `{ return math.divide(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("lhs", 0, telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("rhs", 0, telem.NewSeriesV[int64](5, 0, 3), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "div")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("div", 0))).To(Equal([]int64{2, 0, 10}))
+		})
+		It("Should return 0 for mod by zero", func(ctx SpecContext) {
+			g := binaryOpGraph("mod", "lhs", "rhs", types.I32(), types.I32(), `{ return math.mod(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("lhs", 0, telem.NewSeriesV[int32](10, 20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("rhs", 0, telem.NewSeriesV[int32](3, 0, 7), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "mod")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int32](h.Output("mod", 0))).To(Equal([]int32{1, 0, 2}))
+		})
+	})
+
 	Describe("String Function Type Safety", func() {
 		DescribeTable("Should reject non-string arguments to string functions",
 			func(ctx SpecContext, source string) {

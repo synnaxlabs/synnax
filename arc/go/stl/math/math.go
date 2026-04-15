@@ -201,25 +201,25 @@ func NewModule(
 	builder = bindF32Binary(builder, "multiply", func(a, b float32) float32 { return a * b })
 	builder = bindF64Binary(builder, "multiply", func(a, b float64) float64 { return a * b })
 
-	builder = bindI32Binary[uint8](builder, "divide", "u8", func(a, b uint8) uint8 { return a / b })
-	builder = bindI32Binary[uint16](builder, "divide", "u16", func(a, b uint16) uint16 { return a / b })
-	builder = bindI32Binary[uint32](builder, "divide", "u32", func(a, b uint32) uint32 { return a / b })
-	builder = bindI32Binary[int8](builder, "divide", "i8", func(a, b int8) int8 { return a / b })
-	builder = bindI32Binary[int16](builder, "divide", "i16", func(a, b int16) int16 { return a / b })
-	builder = bindI32Binary[int32](builder, "divide", "i32", func(a, b int32) int32 { return a / b })
-	builder = bindI64Binary[uint64](builder, "divide", "u64", func(a, b uint64) uint64 { return a / b })
-	builder = bindI64Binary[int64](builder, "divide", "i64", func(a, b int64) int64 { return a / b })
+	builder = bindI32Binary[uint8](builder, "divide", "u8", safeDiv[uint8])
+	builder = bindI32Binary[uint16](builder, "divide", "u16", safeDiv[uint16])
+	builder = bindI32Binary[uint32](builder, "divide", "u32", safeDiv[uint32])
+	builder = bindI32Binary[int8](builder, "divide", "i8", safeDiv[int8])
+	builder = bindI32Binary[int16](builder, "divide", "i16", safeDiv[int16])
+	builder = bindI32Binary[int32](builder, "divide", "i32", safeDiv[int32])
+	builder = bindI64Binary[uint64](builder, "divide", "u64", safeDiv[uint64])
+	builder = bindI64Binary[int64](builder, "divide", "i64", safeDiv[int64])
 	builder = bindF32Binary(builder, "divide", func(a, b float32) float32 { return a / b })
 	builder = bindF64Binary(builder, "divide", func(a, b float64) float64 { return a / b })
 
-	builder = bindI32Binary[uint8](builder, "mod", "u8", func(a, b uint8) uint8 { return a % b })
-	builder = bindI32Binary[uint16](builder, "mod", "u16", func(a, b uint16) uint16 { return a % b })
-	builder = bindI32Binary[uint32](builder, "mod", "u32", func(a, b uint32) uint32 { return a % b })
-	builder = bindI32Binary[int8](builder, "mod", "i8", func(a, b int8) int8 { return a % b })
-	builder = bindI32Binary[int16](builder, "mod", "i16", func(a, b int16) int16 { return a % b })
-	builder = bindI32Binary[int32](builder, "mod", "i32", func(a, b int32) int32 { return a % b })
-	builder = bindI64Binary[uint64](builder, "mod", "u64", func(a, b uint64) uint64 { return a % b })
-	builder = bindI64Binary[int64](builder, "mod", "i64", func(a, b int64) int64 { return a % b })
+	builder = bindI32Binary[uint8](builder, "mod", "u8", safeMod[uint8])
+	builder = bindI32Binary[uint16](builder, "mod", "u16", safeMod[uint16])
+	builder = bindI32Binary[uint32](builder, "mod", "u32", safeMod[uint32])
+	builder = bindI32Binary[int8](builder, "mod", "i8", safeMod[int8])
+	builder = bindI32Binary[int16](builder, "mod", "i16", safeMod[int16])
+	builder = bindI32Binary[int32](builder, "mod", "i32", safeMod[int32])
+	builder = bindI64Binary[uint64](builder, "mod", "u64", safeMod[uint64])
+	builder = bindI64Binary[int64](builder, "mod", "i64", safeMod[int64])
 	builder = bindF32Binary(builder, "mod", func(a, b float32) float32 { return float32(math.Mod(float64(a), float64(b))) })
 	builder = bindF64Binary(builder, "mod", func(a, b float64) float64 { return math.Mod(a, b) })
 
@@ -655,6 +655,24 @@ func (n *arithmeticUnary) Next(ctx node.Context) {
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
+}
+
+type integer interface {
+	uint8 | uint16 | uint32 | uint64 | int8 | int16 | int32 | int64
+}
+
+func safeDiv[T integer](a, b T) T {
+	if b == 0 {
+		return 0
+	}
+	return a / b
+}
+
+func safeMod[T integer](a, b T) T {
+	if b == 0 {
+		return 0
+	}
+	return a % b
 }
 
 type i32Powable interface {
