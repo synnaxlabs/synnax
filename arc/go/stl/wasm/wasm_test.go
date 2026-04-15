@@ -161,7 +161,7 @@ func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node 
 func (h *testHarness) Execute(ctx context.Context, nodeKey string) set.Set[string] {
 	n := h.CreateNode(ctx, nodeKey)
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 	return changed
 }
 
@@ -396,15 +396,15 @@ var _ = Describe("WASM", func() {
 			n := h.CreateNode(ctx, "counter")
 
 			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(2)))
 
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
 		})
 
@@ -440,7 +440,7 @@ var _ = Describe("WASM", func() {
 
 			n1 := h.CreateNode(ctx, "c1")
 			n2 := h.CreateNode(ctx, "c2")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n1.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(1)))
@@ -482,7 +482,7 @@ var _ = Describe("WASM", func() {
 
 			n1 := h.CreateNode(ctx, "counter_a")
 			n2 := h.CreateNode(ctx, "counter_b")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			// First execution of counter_a should return 1
 			n1.Next(nCtx)
@@ -686,11 +686,11 @@ var _ = Describe("WASM", func() {
 			changed := make(set.Set[string])
 
 			// First call
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
 
 			// Second call - state persists
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
 		})
 	})
@@ -1371,13 +1371,13 @@ var _ = Describe("WASM", func() {
 
 			// First call - should execute and return 1
 			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(1)))
 
 			// Second call - should NOT execute again (initialized flag)
 			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			// No output should be marked as changed since we didn't execute
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 
@@ -1386,7 +1386,7 @@ var _ = Describe("WASM", func() {
 
 			// Third call - should execute again after reset
 			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			// Counter persists so it should be 2 now
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
@@ -1403,7 +1403,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
 
 			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(3)))
 
@@ -1412,7 +1412,7 @@ var _ = Describe("WASM", func() {
 
 			// Nodes with incoming edges should execute every time they have new input
 			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
 		})
@@ -1451,7 +1451,7 @@ var _ = Describe("WASM", func() {
 
 			n := h.CreateNode(ctx, "add_config")
 			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 
 			output := h.Output("add_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1489,7 +1489,7 @@ var _ = Describe("WASM", func() {
 
 			n := h.CreateNode(ctx, "multi_config")
 			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 
 			output := h.Output("multi_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1527,7 +1527,7 @@ var _ = Describe("WASM", func() {
 
 			n := h.CreateNode(ctx, "scale_config")
 			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 
 			output := h.Output("scale_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1695,7 +1695,7 @@ var _ = Describe("WASM", func() {
 
 				for i := range 3 {
 					n.Reset()
-					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+					n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
@@ -1971,7 +1971,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "void_with_state")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Reset()
 			n.Next(nCtx)
@@ -1998,7 +1998,7 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -2020,7 +2020,7 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -2044,7 +2044,7 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expr_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
@@ -3637,7 +3637,7 @@ input_ch -> count_local{} -> sink_ch
 				defer h.Close(ctx)
 
 				n := h.CreateNode(ctx, "loop_state")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 				n.Next(nCtx)
 				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))

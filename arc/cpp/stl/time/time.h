@@ -95,11 +95,15 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override { last_fired = -1 * cfg.interval; }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
+    }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
         return state.is_output_truthy(param_name);
@@ -157,13 +161,17 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override {
         start_time = x::telem::TimeSpan(-1);
         fired = false;
+    }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {

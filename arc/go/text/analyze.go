@@ -1237,12 +1237,32 @@ func analyzeTopLevelStage(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	id := ctx.AST.IDENTIFIER()
-	if id == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "top-level stage must have a name"))
+	// Resolve the symbol scope registered by collectTopLevelStage so that
+	// anonymous top-level stages pick up the auto-generated name (e.g.,
+	// "stage_0") and the resulting ir.Scope has a non-empty, unique Key —
+	// otherwise anonymous stages would collide at the root member level.
+	var stageSym *symbol.Scope
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return ir.Scope{}, nil, nil, false
+		}
+		stageSym = resolved
+	} else {
+		resolved, err := ctx.Scope.GetChildByParserRule(ctx.AST)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return ir.Scope{}, nil, nil, false
+		}
+		stageSym = resolved
+	}
+	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
+	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	return analyzeStage(ctx, kg, shell)
+	scope.Key = stageSym.Name
+	return scope, nodes, edges, true
 }
 
 func analyzeStage(

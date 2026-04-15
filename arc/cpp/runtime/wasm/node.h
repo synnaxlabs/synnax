@@ -140,13 +140,21 @@ public:
             const auto off = this->offsets[j];
             this->state.output(j)->resize(off);
             this->state.output_time(j)->resize(off);
-            if (off > 0) ctx.mark_changed(this->ir.outputs[j].name);
+            if (off > 0) ctx.mark_changed(j);
         }
 
         return x::errors::NIL;
     }
 
     void reset() override { this->initialized = false; }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        std::vector<std::string> names;
+        names.reserve(this->ir.outputs.size());
+        for (const auto &o: this->ir.outputs)
+            names.push_back(o.name);
+        return names;
+    }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
         return state.is_output_truthy(param_name);

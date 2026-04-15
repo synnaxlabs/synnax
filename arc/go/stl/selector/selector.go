@@ -106,9 +106,11 @@ func (s *selectNode) Next(ctx node.Context) {
 		}
 	}
 	if trueData.Len() > 0 {
-		ctx.MarkChanged(trueParamName)
+		ctx.MarkChanged(0)
 	}
 	if falseData.Len() > 0 {
-		ctx.MarkChanged(falseParamName)
+		ctx.MarkChanged(1)
 	}
 }
+
+func (s *selectNode) Outputs() []string { return []string{trueParamName, falseParamName} }

@@ -90,6 +90,7 @@ type setAuthority struct {
 }
 
 func (s *setAuthority) Reset()                     { s.initialized = false }
+func (s *setAuthority) Outputs() []string          { return nil }
 func (s *setAuthority) IsOutputTruthy(string) bool { return false }
 
 func (s *setAuthority) Next(node.Context) {

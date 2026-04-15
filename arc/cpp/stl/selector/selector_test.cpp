@@ -24,7 +24,7 @@ runtime::node::Context make_context() {
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
         .reason = runtime::node::RunReason::ChannelInput,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -140,7 +140,7 @@ TEST(SelectTest, HandlesNoInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -155,7 +155,7 @@ TEST(SelectTest, AllTrueInput) {
 
     std::set<std::string> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_TRUE(changed_params.contains("true"));
@@ -179,7 +179,7 @@ TEST(SelectTest, AllFalseInput) {
 
     std::set<std::string> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_FALSE(changed_params.contains("true"));
@@ -203,7 +203,7 @@ TEST(SelectTest, MixedInput) {
 
     std::set<std::string> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_TRUE(changed_params.contains("true"));
@@ -264,7 +264,7 @@ TEST(SelectTest, SingleTrueValue) {
 
     std::set<std::string> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_TRUE(changed_params.contains("true"));
@@ -286,7 +286,7 @@ TEST(SelectTest, SingleFalseValue) {
 
     std::set<std::string> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_FALSE(changed_params.contains("true"));

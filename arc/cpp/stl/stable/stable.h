@@ -100,7 +100,7 @@ public:
                 *o = x::telem::Series(current_value);
                 *o_time = x::telem::Series(current_time.nanoseconds());
                 this->last_sent = current_value;
-                ctx.mark_changed(ir::default_output_param);
+                ctx.mark_changed(0);
             }
         }
         return x::errors::NIL;
@@ -110,6 +110,10 @@ public:
         this->value = std::nullopt;
         this->last_sent = std::nullopt;
         this->last_changed = x::telem::TimeStamp(0);
+    }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {

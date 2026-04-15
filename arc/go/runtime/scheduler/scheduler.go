@@ -18,23 +18,59 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// node pairs a runtime node instance with its outgoing edges, cached for
-// fast propagation during markChanged.
+// outEdge is the pre-resolved form of an ir.Edge cached on the source
+// node. targetIdx is the index into the scheduler's dense node table;
+// conditional records whether the edge only fires when the source output
+// is truthy.
+type outEdge struct {
+	targetIdx   int
+	conditional bool
+}
+
+// outputResolved is the per-output propagation table built once at
+// construction and indexed by the node-local output ordinal. Avoids all
+// string hashing on the hot path — MarkChanged does pure array access.
+type outputResolved struct {
+	// param is the output name, retained so the scheduler can call
+	// node.IsOutputTruthy(param) — which still uses the string-keyed
+	// interface.
+	param string
+	// edges is the pre-resolved set of outgoing dataflow edges.
+	edges []outEdge
+	// markHandleIdx is the index into the scheduler's markedFlags slice,
+	// or -1 when no sequential-scope transition consumes this output.
+	markHandleIdx int
+	// activates is the set of scopes whose activation handle is this
+	// output; polled after every truthy MarkChanged call.
+	activates []*scopeState
+}
+
+// node pairs a runtime node instance with its pre-resolved per-output
+// propagation tables, keyed by the node's local output ordinal. idx is
+// the node's position in the scheduler's dense changed/self-changed
+// flag slices.
 type node struct {
 	rnode.Node
-	outgoing map[string][]ir.Edge
-	key      string
+	outputs []outputResolved
+	// outputByParam maps output name to ordinal. Used by construction
+	// paths that resolve edges / transitions / activations; not read on
+	// the hot path.
+	outputByParam map[string]int
+	key           string
+	idx           int
 }
 
 // memberState holds runtime state for one member of a scope. Exactly one of
 // nodeKey or scope is populated, mirroring the IR's Member tagged union.
+// nodeIdx is the dense flag-slice index for a NodeRef member; it is -1
+// for scope members.
 type memberState struct {
 	key     string
 	nodeKey string
+	nodeIdx int
 	scope   *scopeState
 }
 
@@ -59,6 +95,10 @@ type scopeState struct {
 	// the currently-active member — or entirely outside the scope —
 	// should be evaluated each cycle.
 	transitionOwner []int
+	// transitionOnIdx[i] is the scheduler-wide markedFlags index for
+	// transition i's `on` handle, pre-resolved at construction so the
+	// hot-path evaluation is a single array load.
+	transitionOnIdx []int
 }
 
 // Scheduler orchestrates the execution of nodes in a compiled Arc program.
@@ -66,30 +106,40 @@ type scopeState struct {
 type Scheduler struct {
 	nodeCtx      rnode.Context
 	errorHandler ErrorHandler
-	changed      set.Set[string]
-	selfChanged  set.Set[string]
-	// markedThisCycle holds the set of (nodeKey, param) pairs for which
-	// MarkChanged was called and the output is truthy during the current
-	// cycle. Keyed by "nodeKey\x00param". Sequential transitions fire on
-	// a fresh mark rather than on stale cached truthiness, mirroring the
-	// conditional-edge firing semantic of the pre-Scope scheduler. Marks
-	// are consumed when a transition fires and cleared at end of cycle.
-	markedThisCycle set.Set[string]
-	nodes           map[string]node
-	currNodeKey     string
+	// changedFlags and selfChangedFlags are dense per-node uint8 slices
+	// indexed by node.idx. A non-zero entry in changedFlags means the node
+	// has a pending upstream change for the current cycle; a non-zero
+	// entry in selfChangedFlags means the node requested re-execution on
+	// the next cycle via MarkSelfChanged.
+	changedFlags     []uint8
+	selfChangedFlags []uint8
+	// nodeIndex maps node key to the dense index used by changedFlags,
+	// selfChangedFlags, and the outEdge.targetIdx field. Populated once
+	// at construction; used only at API boundaries where a caller still
+	// supplies a string key.
+	nodeIndex map[string]int
+	// markedFlags holds one flag per (node, param) pair that sources a
+	// sequential-scope transition, indexed by the dense handle IDs
+	// assigned at construction. A non-zero entry means MarkChanged was
+	// called with a truthy output during the current cycle. Sequential
+	// transitions fire on a fresh mark rather than on stale cached
+	// truthiness, mirroring the conditional-edge firing semantic of the
+	// pre-Scope scheduler. Marks are consumed when a transition fires
+	// and cleared at end of cycle.
+	markedFlags []uint8
+	// nextHandleIdx is the next index to assign to a freshly-discovered
+	// transition-source handle during construction. After construction
+	// this is the length of markedFlags.
+	nextHandleIdx int
+	nodes         map[string]*node
+	// currNode points at the node currently executing, cached so
+	// MarkChanged / MarkSelfChanged callbacks skip the per-call map
+	// lookup. nil between cycles.
+	currNode *node
 	// root mirrors prog.Root; always a parallel, always-live scope.
-	root *scopeState
-	// activationsBySource indexes scopes whose activation handle is sourced
-	// by the keyed node. After each node's execution, the scheduler polls
-	// the listed scopes to see whether their activation condition has become
-	// truthy and if so activates them.
-	activationsBySource map[string][]*scopeState
-	// maxConvergenceIter bounds the per-scope transition loop. A sequential
-	// scope may cascade through its own transitions within a single
-	// scheduler cycle up to this many times before the cycle completes.
-	maxConvergenceIter int
-	tolerance          telem.TimeSpan
-	nextDeadline       telem.TimeSpan
+	root         *scopeState
+	tolerance    telem.TimeSpan
+	nextDeadline telem.TimeSpan
 }
 
 // ErrorHandler receives errors raised by node execution.
@@ -110,27 +160,55 @@ func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err e
 // nodes may fire relative to their deadline.
 func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
-		nodes:               make(map[string]node, len(prog.Nodes)),
-		changed:             make(set.Set[string], len(prog.Nodes)),
-		selfChanged:         make(set.Set[string]),
-		markedThisCycle:     make(set.Set[string]),
-		activationsBySource: make(map[string][]*scopeState),
-		tolerance:           tolerance,
+		nodes:            make(map[string]*node, len(prog.Nodes)),
+		nodeIndex:        make(map[string]int, len(prog.Nodes)),
+		changedFlags:     make([]uint8, len(prog.Nodes)),
+		selfChangedFlags: make([]uint8, len(prog.Nodes)),
+		tolerance:        tolerance,
 	}
 
-	for _, n := range prog.Nodes {
-		outgoing := make(map[string][]ir.Edge)
-		for _, edge := range prog.Edges {
-			if edge.Source.Node == n.Key {
-				outgoing[edge.Source.Param] = append(outgoing[edge.Source.Param], edge)
+	for i, n := range prog.Nodes {
+		s.nodeIndex[n.Key] = i
+		impl := nodes[n.Key]
+		rn := &node{key: n.Key, idx: i, Node: impl, outputByParam: map[string]int{}}
+		// Pre-seed outputs in the node's declared order. Node impls
+		// hardcode integer ordinals that match positions in this list;
+		// the scheduler's edge / transition / activation wiring below
+		// uses getOrCreateOutput, which finds these pre-seeded entries
+		// by name.
+		if impl != nil {
+			for _, name := range impl.Outputs() {
+				rn.outputByParam[name] = len(rn.outputs)
+				rn.outputs = append(rn.outputs, outputResolved{
+					param:         name,
+					markHandleIdx: -1,
+				})
 			}
 		}
-		s.nodes[n.Key] = node{key: n.Key, outgoing: outgoing, Node: nodes[n.Key]}
+		s.nodes[n.Key] = rn
+	}
+	for _, edge := range prog.Edges {
+		src, ok := s.nodes[edge.Source.Node]
+		if !ok {
+			continue
+		}
+		tgt, ok := s.nodeIndex[edge.Target.Node]
+		if !ok {
+			continue
+		}
+		oidx := s.getOrCreateOutput(src, edge.Source.Param)
+		src.outputs[oidx].edges = append(
+			src.outputs[oidx].edges,
+			outEdge{targetIdx: tgt, conditional: edge.Kind == ir.EdgeKindConditional},
+		)
 	}
 
 	// Build the scope state tree rooted at prog.Root. buildScopeState
-	// captures activation sources and totals the transition-count budget.
+	// captures activation sources and assigns a dense index to every
+	// (node, param) pair that sources a sequential-scope transition.
+	// markedFlags is sized after the walk to match the final count.
 	s.root = s.buildScopeState(&prog.Root)
+	s.markedFlags = make([]uint8, s.nextHandleIdx)
 	// The root scope is parallel+always-live; seed it active so its phases
 	// execute every cycle. Activating it also resets direct members and
 	// cascades into any gated children (there won't be any at the root
@@ -158,10 +236,13 @@ func (s *Scheduler) buildScopeState(scope *ir.Scope) *scopeState {
 		activeMember: -1,
 	}
 	appendMember := func(m ir.Member) {
-		ms := memberState{key: m.Key}
+		ms := memberState{key: m.Key, nodeIdx: -1}
 		switch {
 		case m.NodeRef != nil:
 			ms.nodeKey = m.NodeRef.Key
+			if idx, ok := s.nodeIndex[m.NodeRef.Key]; ok {
+				ms.nodeIdx = idx
+			}
 		case m.Scope != nil:
 			ms.scope = s.buildScopeState(m.Scope)
 		}
@@ -185,19 +266,52 @@ func (s *Scheduler) buildScopeState(scope *ir.Scope) *scopeState {
 	}
 	// Register activation lookup for gated scopes with an explicit
 	// activation handle (typically top-level scopes targeted by a
-	// cross-scope reference in source).
+	// cross-scope reference in source). Stored on the source node's
+	// per-output table so markChanged needs zero scheduler-wide lookups.
 	if scope.Liveness == ir.LivenessGated && scope.Activation != nil {
-		s.activationsBySource[scope.Activation.Node] = append(
-			s.activationsBySource[scope.Activation.Node], state,
-		)
+		if src, ok := s.nodes[scope.Activation.Node]; ok {
+			oidx := s.getOrCreateOutput(src, scope.Activation.Param)
+			src.outputs[oidx].activates = append(src.outputs[oidx].activates, state)
+		}
 	}
-	// Each sequential scope contributes one potential transition per cycle
-	// to the convergence budget. Parallel scopes don't have transitions.
 	if scope.Mode == ir.ScopeModeSequential {
-		s.maxConvergenceIter += len(scope.Members) + 1
 		state.transitionOwner = computeTransitionOwners(state, scope.Transitions)
+		state.transitionOnIdx = make([]int, len(scope.Transitions))
+		for i, t := range scope.Transitions {
+			state.transitionOnIdx[i] = s.registerTransitionHandle(t.On.Node, t.On.Param)
+		}
 	}
 	return state
+}
+
+// getOrCreateOutput returns the node-local output index for the given
+// param, allocating a fresh entry in n.outputs if the param is not yet
+// known. Used by construction paths that wire edges, transition sources,
+// and activation sources onto the owning node.
+func (s *Scheduler) getOrCreateOutput(n *node, param string) int {
+	if idx, ok := n.outputByParam[param]; ok {
+		return idx
+	}
+	idx := len(n.outputs)
+	n.outputs = append(n.outputs, outputResolved{param: param, markHandleIdx: -1})
+	n.outputByParam[param] = idx
+	return idx
+}
+
+// registerTransitionHandle assigns a dense markedFlags index to the
+// node-local output entry and returns it. Idempotent — reused by multiple
+// transitions returns the same index. Returns -1 if the node is unknown.
+func (s *Scheduler) registerTransitionHandle(nodeKey, param string) int {
+	n, ok := s.nodes[nodeKey]
+	if !ok {
+		return -1
+	}
+	oidx := s.getOrCreateOutput(n, param)
+	if n.outputs[oidx].markHandleIdx == -1 {
+		n.outputs[oidx].markHandleIdx = s.nextHandleIdx
+		s.nextHandleIdx++
+	}
+	return n.outputs[oidx].markHandleIdx
 }
 
 // computeTransitionOwners maps each transition to the index of the member
@@ -254,7 +368,9 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 // the next cycle. Typically invoked from outside the scheduler when an
 // external input (e.g., a newly-received channel frame) becomes available.
 func (s *Scheduler) MarkNodeChanged(nodeKey string) {
-	s.changed.Add(nodeKey)
+	if idx, ok := s.nodeIndex[nodeKey]; ok {
+		s.changedFlags[idx] = 1
+	}
 }
 
 // NextDeadline returns the earliest deadline reported by any node during
@@ -274,13 +390,8 @@ func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rno
 
 	s.walk(s.root)
 
-	clear(s.changed)
-	clear(s.markedThisCycle)
-}
-
-// markKey encodes a (node, param) pair for markedThisCycle lookups.
-func markKey(nodeKey, param string) string {
-	return nodeKey + "\x00" + param
+	clear(s.changedFlags)
+	clear(s.markedFlags)
 }
 
 // walk executes one pass over a scope. Sequential scopes internally loop to
@@ -299,82 +410,61 @@ func (s *Scheduler) walk(ss *scopeState) {
 
 // walkParallel runs every member of a parallel scope in phase order. Nodes
 // execute when they're in phase 0, when they're in the changed set, or when
-// they've been marked self-changed by a previous cycle.
+// they've been marked self-changed by a previous cycle. Members are stored
+// in phase-flattened order in ss.members; we iterate that slice directly
+// (using the IR phases only for phase-index lookup) so every member access
+// uses its pre-resolved nodeIdx without a map lookup.
 func (s *Scheduler) walkParallel(ss *scopeState) {
+	flat := 0
 	for phaseIdx, phase := range ss.ir.Phases {
-		for _, m := range phase.Members {
-			s.executeMember(phaseIdx, ss, m)
+		for range phase.Members {
+			s.executeMember(phaseIdx, &ss.members[flat])
+			flat++
 		}
 	}
 }
 
 // walkSequential executes the active member, then loops checking this
-// scope's transitions for same-cycle cascading. Bounded by the
-// scheduler's convergence budget.
+// scope's transitions for same-cycle cascading. Bounded by a budget of
+// members+1 so a chain of N members can fire N consecutive transitions.
+// Sequential members are "always on" while active — passing phaseIdx=0
+// to executeMember makes the node run unconditionally, matching how
+// phase-0 parallel members execute every cycle.
 func (s *Scheduler) walkSequential(ss *scopeState) {
-	if ss.activeMember < 0 {
-		return
-	}
-	// +1 so a chain of N members can fire N consecutive transitions.
 	budget := len(ss.members) + 1
-	for i := 0; i < budget; i++ {
+	for range budget {
 		if ss.activeMember < 0 {
 			return
 		}
-		// Sequential members always execute while they're active — they
-		// are not subject to the phase-0 / changed filtering of parallel
-		// scopes. Pass a synthetic phase index of 0 so node execution is
-		// unconditional for the currently-active sequential member.
-		s.executeSequentialMember(ss.members[ss.activeMember])
-		fired := s.evaluateTransitions(ss)
-		if !fired {
+		s.executeMember(0, &ss.members[ss.activeMember])
+		if !s.evaluateTransitions(ss) {
 			return
 		}
 	}
 }
 
-// executeMember executes a single member of a parallel scope. If the
-// member is a nested scope, the scope is walked (assuming it was
-// previously activated — activation itself fires reactively when the
-// activation handle's source calls MarkChanged). If the member is a
-// NodeRef, the node runs subject to the usual phase-0 / changed /
-// self-changed filtering.
-func (s *Scheduler) executeMember(phaseIdx int, parent *scopeState, m ir.Member) {
-	if m.Scope != nil {
-		idx, ok := parent.memberByKey[m.Key]
-		if !ok {
-			return
-		}
-		child := parent.members[idx].scope
-		if child == nil {
-			return
-		}
-		s.walk(child)
-		return
-	}
-	if m.NodeRef == nil {
-		return
-	}
-	key := m.NodeRef.Key
-	wasSelfChanged := s.selfChanged.Contains(key)
-	if wasSelfChanged {
-		delete(s.selfChanged, key)
-	}
-	if phaseIdx == 0 || s.changed.Contains(key) || wasSelfChanged {
-		s.runNode(key)
-	}
-}
-
-// executeSequentialMember unconditionally executes a sequential scope's
-// active member. Sequential members are "always on" while active — they do
-// not wait for an upstream change signal.
-func (s *Scheduler) executeSequentialMember(m memberState) {
-	if !m.isNodeRef() {
+// executeMember executes a single member of a scope. If the member is a
+// nested scope, the scope is walked (assuming it was previously
+// activated — activation itself fires reactively when the activation
+// handle's source calls MarkChanged). If the member is a NodeRef, the
+// node runs when phaseIdx==0, when it has a pending upstream change, or
+// when it was marked self-changed by a previous cycle. Sequential
+// scopes pass phaseIdx=0 to force unconditional execution.
+func (s *Scheduler) executeMember(phaseIdx int, m *memberState) {
+	if m.scope != nil {
 		s.walk(m.scope)
 		return
 	}
-	delete(s.selfChanged, m.nodeKey)
-	s.runNode(m.nodeKey)
+	if m.nodeIdx < 0 {
+		return
+	}
+	wasSelfChanged := s.selfChangedFlags[m.nodeIdx] != 0
+	if wasSelfChanged {
+		s.selfChangedFlags[m.nodeIdx] = 0
+	}
+	if phaseIdx == 0 || s.changedFlags[m.nodeIdx] != 0 || wasSelfChanged {
+		s.runNode(m.nodeKey)
+	}
 }
 
 // runNode dispatches a node's Next method. Activation polling runs inside
@@ -385,7 +475,7 @@ func (s *Scheduler) runNode(key string) {
 	if !ok {
 		return
 	}
-	s.currNodeKey = key
+	s.currNode = n
 	n.Next(s.nodeCtx)
 }
 
@@ -408,14 +498,14 @@ func (s *Scheduler) evaluateTransitions(ss *scopeState) bool {
 		if owner := ss.transitionOwner[i]; owner >= 0 && owner != ss.activeMember {
 			continue
 		}
-		key := markKey(t.On.Node, t.On.Param)
-		if !s.markedThisCycle.Contains(key) {
+		handleIdx := ss.transitionOnIdx[i]
+		if handleIdx < 0 || s.markedFlags[handleIdx] == 0 {
 			continue
 		}
 		if !s.isHandleTruthy(t.On) {
 			continue
 		}
-		delete(s.markedThisCycle, key)
+		s.markedFlags[handleIdx] = 0
 		if ss.activeMember >= 0 {
 			s.deactivateMember(ss, ss.activeMember)
 		}
@@ -435,16 +525,16 @@ func (s *Scheduler) evaluateTransitions(ss *scopeState) bool {
 }
 
 // activateScope marks a scope active and primes its member(s) for
-// execution. Behavior differs by mode and liveness:
+// execution. Behavior differs by mode:
 //
 //   - Sequential scope: becomes active at member 0 and the member's node
 //     is reset (or, if the member is a nested scope, activated).
-//   - Parallel + gated scope: every direct NodeRef member is reset, and
-//     every nested gated scope member is cascade-activated.
-//   - Parallel + always-live scope (the root): every direct NodeRef
-//     member is reset. Nested scope members are NOT cascade-activated;
-//     gated children of the root become active only when their
-//     activation handle fires.
+//   - Parallel scope: every direct NodeRef member is reset, and every
+//     nested gated scope member with no Activation handle is
+//     cascade-activated. Gated children that have an Activation handle
+//     wait for that handle to fire via markChanged — they are not
+//     cascade-activated by their parent. This rule applies uniformly at
+//     the root and at every nested parallel scope.
 func (s *Scheduler) activateScope(ss *scopeState) {
 	ss.active = true
 	if ss.mode == ir.ScopeModeSequential {
@@ -457,13 +547,15 @@ func (s *Scheduler) activateScope(ss *scopeState) {
 		m := &ss.members[i]
 		switch {
 		case m.isNodeRef():
-			delete(s.selfChanged, m.nodeKey)
+			if m.nodeIdx >= 0 {
+				s.selfChangedFlags[m.nodeIdx] = 0
+			}
 			if n, ok := s.nodes[m.nodeKey]; ok {
 				n.Reset()
 			}
-		case m.scope != nil && ss.liveness == ir.LivenessGated:
-			// Cascade into nested gated scopes only when this scope is
-			// itself gated — the root (always-live) does not cascade.
+		case m.scope != nil &&
+			m.scope.ir.Liveness == ir.LivenessGated &&
+			m.scope.ir.Activation == nil:
 			s.activateScope(m.scope)
 		}
 	}
@@ -475,7 +567,9 @@ func (s *Scheduler) activateSequentialMember(ss *scopeState, idx int) {
 	ss.activeMember = idx
 	m := &ss.members[idx]
 	if m.isNodeRef() {
-		delete(s.selfChanged, m.nodeKey)
+		if m.nodeIdx >= 0 {
+			s.selfChangedFlags[m.nodeIdx] = 0
+		}
 		if n, ok := s.nodes[m.nodeKey]; ok {
 			n.Reset()
 		}
@@ -492,7 +586,9 @@ func (s *Scheduler) activateSequentialMember(ss *scopeState, idx int) {
 func (s *Scheduler) deactivateMember(ss *scopeState, idx int) {
 	m := &ss.members[idx]
 	if m.isNodeRef() {
-		delete(s.selfChanged, m.nodeKey)
+		if m.nodeIdx >= 0 {
+			s.selfChangedFlags[m.nodeIdx] = 0
+		}
 		return
 	}
 	if m.scope != nil {
@@ -509,8 +605,8 @@ func (s *Scheduler) deactivateScope(ss *scopeState) {
 	}
 	for i := range ss.members {
 		m := &ss.members[i]
-		if m.isNodeRef() {
-			delete(s.selfChanged, m.nodeKey)
+		if m.isNodeRef() && m.nodeIdx >= 0 {
+			s.selfChangedFlags[m.nodeIdx] = 0
 		}
 	}
 	ss.active = false
@@ -528,46 +624,43 @@ func (s *Scheduler) isHandleTruthy(h ir.Handle) bool {
 
 // markChanged propagates changes from the current node's output to
 // downstream nodes and fires any gated scope activations sourced from
-// this output. Continuous edges always propagate; conditional edges only
-// propagate when the source output is truthy. Activations fire on any
-// MarkChanged notification for the matching handle — equivalent to the
-// continuous-edge semantics of the pre-Scope IR.
-func (s *Scheduler) markChanged(param string) {
-	n := s.nodes[s.currNodeKey]
-	if n.IsOutputTruthy(param) {
-		s.markedThisCycle.Add(markKey(s.currNodeKey, param))
+// this output. Pure array access — zero hash lookups on the hot path.
+// Continuous edges always propagate; conditional edges only propagate
+// when the source output is truthy.
+func (s *Scheduler) markChanged(outputIdx int) {
+	n := s.currNode
+	if outputIdx < 0 || outputIdx >= len(n.outputs) {
+		return
 	}
-	for _, edge := range n.outgoing[param] {
-		if edge.Kind == ir.EdgeKindConditional {
-			if n.IsOutputTruthy(param) {
-				s.changed.Add(edge.Target.Node)
-			}
-			continue
-		}
-		s.changed.Add(edge.Target.Node)
+	out := &n.outputs[outputIdx]
+	truthy := n.IsOutputTruthy(out.param)
+	if truthy && out.markHandleIdx >= 0 {
+		s.markedFlags[out.markHandleIdx] = 1
 	}
-	for _, scope := range s.activationsBySource[s.currNodeKey] {
-		if scope.active {
+	for _, edge := range out.edges {
+		if edge.conditional && !truthy {
 			continue
 		}
-		if scope.ir.Activation == nil || scope.ir.Activation.Param != param {
-			continue
+		s.changedFlags[edge.targetIdx] = 1
+	}
+	for _, scope := range out.activates {
+		if !scope.active {
+			s.activateScope(scope)
 		}
-		s.activateScope(scope)
 	}
 }
 
 // markSelfChanged requests that the current node execute again on the
 // next scheduler cycle without requiring an upstream change.
 func (s *Scheduler) markSelfChanged() {
-	s.selfChanged.Add(s.currNodeKey)
+	s.selfChangedFlags[s.currNode.idx] = 1
 }
 
 // reportError forwards a node-reported error to the configured handler
 // (if any), annotating it with the node currently executing.
 func (s *Scheduler) reportError(err error) {
 	if s.errorHandler != nil {
-		s.errorHandler.HandleError(s.nodeCtx.Context, s.currNodeKey, err)
+		s.errorHandler.HandleError(s.nodeCtx.Context, s.currNode.key, err)
 	}
 }
 

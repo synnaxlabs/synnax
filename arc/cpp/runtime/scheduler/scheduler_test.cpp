@@ -29,40 +29,78 @@ namespace arc::runtime::scheduler {
 
 /// @brief configurable mock node used across scheduler tests. Mirrors the
 /// Go scheduler's MockNode: auto-propagates MarkChanged for every
-/// currently-truthy param so a single ParamTruthy toggle drives both
-/// conditional edges and gated-scope activations.
+/// currently-truthy output so a single add_output toggle drives both
+/// conditional edges and gated-scope activations. Outputs are identified
+/// by their declared ordinal — the scheduler pre-seeds its propagation
+/// tables from outputs(), so hand-written tests use add_output to
+/// register an output and then pass its ordinal to mark_changed.
 struct MockNode final : public node::Node {
     int next_called = 0;
     int reset_called = 0;
     std::vector<x::telem::TimeSpan> elapsed_values;
 
-    std::unordered_set<std::string> param_truthy;
+    /// @brief declared output names, in ordinal order.
+    std::vector<std::string> output_names;
+    /// @brief truthiness per ordinal; aligned with output_names.
+    std::vector<bool> output_truthy;
+    /// @brief fast-path lookup for is_output_truthy's string argument.
+    std::unordered_map<std::string, size_t> name_to_idx;
     /// @brief disables the default behavior of calling MarkChanged for
-    /// every param in param_truthy on each next. Tests that want to model
-    /// a node whose output stays truthy across cycles but only announces a
-    /// change via MarkChanged on specific cycles should set this and drive
-    /// MarkChanged manually from on_next.
+    /// every currently-truthy output on each next. Tests that want to
+    /// model a node whose output stays truthy across cycles but only
+    /// announces a change via MarkChanged on specific cycles should set
+    /// this and drive MarkChanged manually from on_next.
     bool suppress_auto_mark = false;
     std::function<void(node::Context &)> on_next;
+
+    /// @brief registers an output name (idempotent) and sets its
+    /// truthiness. Returns the output's ordinal.
+    size_t add_output(const std::string &name, const bool truthy = true) {
+        const auto it = name_to_idx.find(name);
+        if (it != name_to_idx.end()) {
+            output_truthy[it->second] = truthy;
+            return it->second;
+        }
+        const size_t idx = output_names.size();
+        output_names.push_back(name);
+        output_truthy.push_back(truthy);
+        name_to_idx[name] = idx;
+        return idx;
+    }
+
+    /// @brief returns the ordinal previously assigned to name, or
+    /// registers it fresh as non-truthy.
+    size_t idx(const std::string &name) { return add_output(name, false); }
 
     x::errors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.elapsed);
         if (!suppress_auto_mark)
-            for (const auto &param: param_truthy)
-                ctx.mark_changed(param);
+            for (size_t i = 0; i < output_truthy.size(); ++i)
+                if (output_truthy[i]) ctx.mark_changed(i);
         if (on_next) on_next(ctx);
         return x::errors::NIL;
     }
 
     void reset() override { reset_called++; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return param_truthy.contains(param);
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return output_names;
     }
 
-    void mark_on_next(const std::string &param) {
-        on_next = [param](const node::Context &ctx) { ctx.mark_changed(param); };
+    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
+        const auto it = name_to_idx.find(param);
+        if (it == name_to_idx.end()) return false;
+        return output_truthy[it->second];
+    }
+
+    /// @brief configures the node to mark the named output as changed on
+    /// every Next call. Registers the output if not already known but
+    /// does not alter its truthiness — callers that need a truthy output
+    /// should call add_output(name, true) alongside.
+    void mark_on_next(const std::string &name) {
+        const size_t i = idx(name);
+        on_next = [i](const node::Context &ctx) { ctx.mark_changed(i); };
     }
 };
 
@@ -305,7 +343,7 @@ TEST_F(SchedulerTest, ConditionalEdgeGatedOnSourceTruthiness) {
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(b.next_called, 0);
 
-    a.param_truthy.insert("output");
+    a.add_output("output");
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(b.next_called, 1);
 }
@@ -314,7 +352,8 @@ TEST_F(SchedulerTest, FiresOnlyTheEdgeWhoseSourceParamWasMarked) {
     auto &a = mock("A");
     auto &b = mock("B");
     auto &c = mock("C");
-    a.on_next = [](const node::Context &ctx) { ctx.mark_changed("x"); };
+    const size_t x = a.idx("x");
+    a.on_next = [x](const node::Context &ctx) { ctx.mark_changed(x); };
     auto ir = program_of(
         {"A", "B", "C"},
         {continuous_edge("A", "x", "B", "in"), continuous_edge("A", "y", "C", "in")},
@@ -412,7 +451,7 @@ TEST_F(SchedulerTest, IgnoresEdgesWithEndpointsOutsideMembership) {
 TEST_F(SchedulerTest, ConditionalFiresEveryCycleWhileTruthy) {
     auto &a = mock("A");
     auto &b = mock("B");
-    a.param_truthy.insert("output");
+    a.add_output("output");
     auto ir = program_of(
         {"A", "B"},
         {conditional_edge("A", "output", "B", "in")},
@@ -430,7 +469,7 @@ TEST_F(SchedulerTest, ConditionalFiresEveryCycleWhileTruthy) {
 TEST_F(SchedulerTest, ConditionalStopsFiringWhenSourceBecomesFalsy) {
     auto &a = mock("A");
     auto &b = mock("B");
-    a.param_truthy.insert("output");
+    a.add_output("output");
     auto ir = program_of(
         {"A", "B"},
         {conditional_edge("A", "output", "B", "in")},
@@ -442,7 +481,7 @@ TEST_F(SchedulerTest, ConditionalStopsFiringWhenSourceBecomesFalsy) {
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(b.next_called, 1);
 
-    a.param_truthy.erase("output");
+    a.add_output("output", false);
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(b.next_called, 1);
 }
@@ -450,7 +489,8 @@ TEST_F(SchedulerTest, ConditionalStopsFiringWhenSourceBecomesFalsy) {
 TEST_F(SchedulerTest, ContinuousEdgesIgnoreSourceTruthiness) {
     auto &a = mock("A");
     auto &b = mock("B");
-    a.on_next = [](const node::Context &ctx) { ctx.mark_changed("output"); };
+    const size_t output = a.idx("output");
+    a.on_next = [output](const node::Context &ctx) { ctx.mark_changed(output); };
     auto ir = program_of(
         {"A", "B"},
         {continuous_edge("A", "output", "B", "in")},
@@ -467,11 +507,12 @@ TEST_F(SchedulerTest, ConditionalEdgesIndependentPerParam) {
     auto &a = mock("A");
     auto &b = mock("B");
     auto &c = mock("C");
-    a.param_truthy.insert("x");
+    const size_t x = a.add_output("x");
     // "y" is not truthy — its conditional edge must not fire.
-    a.on_next = [](const node::Context &ctx) {
-        ctx.mark_changed("x");
-        ctx.mark_changed("y");
+    const size_t y = a.idx("y");
+    a.on_next = [x, y](const node::Context &ctx) {
+        ctx.mark_changed(x);
+        ctx.mark_changed(y);
     };
     auto ir = program_of(
         {"A", "B", "C"},
@@ -600,7 +641,7 @@ TEST_F(SchedulerTest, GatedScopeDoesNotExecuteBeforeActivation) {
 TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     auto &trigger = mock("trigger");
     auto &stage_node = mock("stage_node");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
     ir::Handle act{"trigger", "output"};
     auto gated = parallel_scope("stage", {phase_of({node_ref_member("stage_node")})});
     gated.activation = act;
@@ -618,13 +659,53 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     EXPECT_EQ(stage_node.reset_called, 1); // no re-activation
 }
 
+// ----- Activation cascading & reset -----
+
+// A top-level gated scope with no Activation handle cannot be reached by `=>`
+// in source. It must auto-run at boot via cascade from the always-live root.
+// This verifies the unified rule: cascade targets any gated child lacking an
+// Activation handle, independent of whether the parent is root or a nested
+// scope.
+TEST_F(SchedulerTest, TopLevelGatedScopeWithoutHandleAutoActivates) {
+    auto &n = mock("n");
+    auto gated = parallel_scope("anon", {phase_of({node_ref_member("n")})});
+    auto ir = program_of({"n"}, {}, root_scope({scope_to_member(std::move(gated))}));
+    const auto s = build(std::move(ir));
+    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(n.reset_called, 1);
+    EXPECT_EQ(n.next_called, 1);
+}
+
+// When an outer gated scope activates via its handle, it cascade-activates a
+// nested gated child that has no Activation handle of its own.
+TEST_F(SchedulerTest, CascadeResetsNestedGatedScopeOnActivation) {
+    auto &trigger = mock("trigger");
+    trigger.add_output("output");
+    auto &inner = mock("inner");
+    auto nested = parallel_scope("nested", {phase_of({node_ref_member("inner")})});
+    auto outer = parallel_scope(
+        "outer",
+        {phase_of({scope_to_member(std::move(nested))})}
+    );
+    outer.activation = ir::Handle{"trigger", "output"};
+    auto ir = program_of(
+        {"trigger", "inner"},
+        {},
+        root_scope({node_ref_member("trigger"), scope_to_member(std::move(outer))})
+    );
+    const auto s = build(std::move(ir));
+    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(inner.reset_called, 1);
+    EXPECT_EQ(inner.next_called, 1);
+}
+
 // ----- Sequential scope transitions -----
 
 TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
     auto &trigger = mock("trigger");
     auto &first = mock("first_node");
     auto &second = mock("second_node");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
 
     auto first_scope = parallel_scope(
         "first",
@@ -655,7 +736,7 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
     EXPECT_EQ(first.next_called, 1);
     EXPECT_EQ(second.next_called, 0);
 
-    first.param_truthy.insert("output");
+    first.add_output("output");
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(second.next_called, 1);
     EXPECT_EQ(second.reset_called, 1);
@@ -664,12 +745,12 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
 TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
     auto &trigger = mock("trigger");
     auto &first = mock("first_node");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
     // One-shot: release trigger after cycle 1 so exit is permanent.
     int cycle = 0;
     trigger.on_next = [&cycle, &trigger](const node::Context &ctx) {
         cycle++;
-        if (cycle > 1) trigger.param_truthy.erase("output");
+        if (cycle > 1) trigger.add_output("output", false);
     };
 
     auto first_scope = parallel_scope(
@@ -692,7 +773,7 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    first.param_truthy.insert("output");
+    first.add_output("output");
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     const int count_at_exit = first.next_called;
     s->next(3 * x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -704,7 +785,7 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
     auto &first = mock("first_node");
     auto &a = mock("a_node");
     auto &b = mock("b_node");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
 
     auto first_scope = parallel_scope(
         "first",
@@ -733,7 +814,7 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    first.param_truthy.insert("output");
+    first.add_output("output");
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 0);
@@ -744,9 +825,9 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
     auto &s1 = mock("s1");
     auto &s2 = mock("s2");
     auto &s3 = mock("s3");
-    trigger.param_truthy.insert("output");
-    s1.param_truthy.insert("output");
-    s2.param_truthy.insert("output");
+    trigger.add_output("output");
+    s1.add_output("output");
+    s2.add_output("output");
 
     auto mk_step = [](const std::string &key, const std::string &node_key) {
         return parallel_scope(key, {phase_of({node_ref_member(node_key)})});
@@ -844,7 +925,7 @@ TEST_F(SchedulerTest, SelfLoopEdgeDoesNotCrash) {
 
 TEST_F(SchedulerTest, EmptySequentialScopeTolerated) {
     auto &trigger = mock("trigger");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
     ir::Scope main;
     main.key = "main";
     main.mode = ir::ScopeMode::Sequential;
@@ -867,7 +948,7 @@ TEST_F(SchedulerTest, IndependentTopLevelGatedScopes) {
     mock("trigger_b");
     auto &a = mock("A");
     auto &b = mock("B");
-    trig_a.param_truthy.insert("output");
+    trig_a.add_output("output");
     auto stage_a = parallel_scope("stage_a", {phase_of({node_ref_member("A")})});
     stage_a.activation = ir::Handle{"trigger_a", "output"};
     auto stage_b = parallel_scope("stage_b", {phase_of({node_ref_member("B")})});
@@ -892,11 +973,12 @@ TEST_F(SchedulerTest, MixedContinuousAndConditionalInSameGraph) {
     auto &a = mock("A");
     auto &b = mock("B");
     auto &c = mock("C");
-    a.on_next = [](const node::Context &ctx) {
-        ctx.mark_changed("data");
-        ctx.mark_changed("trigger");
+    const size_t data_idx = a.idx("data");
+    const size_t trigger_idx = a.add_output("trigger");
+    a.on_next = [data_idx, trigger_idx](const node::Context &ctx) {
+        ctx.mark_changed(data_idx);
+        ctx.mark_changed(trigger_idx);
     };
-    a.param_truthy.insert("trigger");
     auto ir = program_of(
         {"A", "B", "C"},
         {continuous_edge("A", "data", "B", "in"),
@@ -948,10 +1030,10 @@ TEST_F(
     DoesNotFireTransitionWhenSourceIsTruthyButNeverCalledMarkChanged
 ) {
     auto &trigger = mock("trigger");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
     auto &latch = mock("latch");
     latch.suppress_auto_mark = true;
-    latch.param_truthy.insert("output");
+    latch.add_output("output");
     mock("worker");
 
     auto body = parallel_scope("body", {phase_of({node_ref_member("worker")})});
@@ -984,14 +1066,14 @@ TEST_F(
     DoesNotReFireTransitionOnLaterCycleWhenSourceStaysTruthyButOnlyMarkedOnFirstCycle
 ) {
     auto &trigger = mock("trigger");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
     auto &latch = mock("latch");
     latch.suppress_auto_mark = true;
-    latch.param_truthy.insert("output");
+    const size_t latch_output = latch.add_output("output");
     int marks = 0;
-    latch.on_next = [&marks](const node::Context &ctx) {
+    latch.on_next = [&marks, latch_output](const node::Context &ctx) {
         marks++;
-        if (marks == 1) ctx.mark_changed("output");
+        if (marks == 1) ctx.mark_changed(latch_output);
     };
     mock("worker_a");
     mock("worker_b");
@@ -1034,15 +1116,15 @@ TEST_F(
 
 TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCycle) {
     auto &trigger = mock("trigger");
-    trigger.param_truthy.insert("output");
+    trigger.add_output("output");
     auto &latch = mock("latch");
     latch.suppress_auto_mark = true;
     int cycle = 0;
     latch.on_next = [&cycle, &latch](const node::Context &ctx) {
         cycle++;
         if (cycle == 2) {
-            latch.param_truthy.insert("output");
-            ctx.mark_changed("output");
+            const size_t out = latch.add_output("output");
+            ctx.mark_changed(out);
         }
     };
     mock("worker_a");

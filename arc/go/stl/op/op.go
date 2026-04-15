@@ -76,8 +76,10 @@ func (n *binary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = timeRange
 	n.OutputTime(0).Alignment = alignment
 	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
+
+func (n *binary) Outputs() []string { return []string{ir.DefaultOutputParam} }
 
 type unary struct {
 	*node.State
@@ -97,5 +99,7 @@ func (n *unary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
+
+func (n *unary) Outputs() []string { return []string{ir.DefaultOutputParam} }

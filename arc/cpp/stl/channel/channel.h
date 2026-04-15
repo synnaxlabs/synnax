@@ -78,7 +78,7 @@ public:
                 std::move(time_series)
             );
             this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
-            ctx.mark_changed(ir::default_output_param);
+            ctx.mark_changed(0);
             return x::errors::NIL;
         }
         return x::errors::NIL;
@@ -94,6 +94,10 @@ public:
         const auto upper = x::telem::Alignment(upper_val + 1);
         if (upper.uint64() > this->high_water_mark.uint64())
             this->high_water_mark = upper;
+    }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
@@ -133,8 +137,12 @@ public:
         out_time->set(0, time->at<int64_t>(time->size() - 1));
         out_time->alignment = data->alignment;
         out_time->time_range = data->time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
+    }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {

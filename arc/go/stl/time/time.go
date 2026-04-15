@@ -201,7 +201,7 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + i.period)
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
@@ -215,6 +215,8 @@ func (i *Interval) Reset() {
 	i.State.Reset()
 	i.lastFired = -i.period
 }
+
+func (i *Interval) Outputs() []string { return []string{ir.DefaultOutputParam} }
 
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
@@ -249,7 +251,7 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (w *Wait) Reset() {
@@ -257,3 +259,5 @@ func (w *Wait) Reset() {
 	w.startTime = -1
 	w.fired = false
 }
+
+func (w *Wait) Outputs() []string { return []string{ir.DefaultOutputParam} }

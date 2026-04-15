@@ -68,7 +68,7 @@ find_node_by_type(const arc::program::Program &mod, const std::string &type) {
 node::Context make_context() {
     return node::Context{
         .elapsed = x::telem::SECOND,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -280,9 +280,7 @@ func double(val f32) f32 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed_outputs.empty());
@@ -381,9 +379,7 @@ func double(val f32) f32 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
@@ -633,9 +629,7 @@ constant{} -> )" + output_name;
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changed_outputs.size(), 1);
@@ -737,9 +731,7 @@ func double(val i64) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changed_outputs.size(), 1);
@@ -1429,9 +1421,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
@@ -1546,9 +1536,7 @@ func str_len(s str) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
@@ -1667,9 +1655,7 @@ func labeler(x i64) (label str, value i64) {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     // This must not crash — the key assertion is that string-typed named
     // outputs use 4-byte (i32 handle) offsets instead of Density() which
@@ -1790,9 +1776,7 @@ func qstr_len(s str) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
@@ -1918,9 +1902,7 @@ func concat_len(a str, b str) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
+    ctx.mark_changed = [&](size_t i) { changed_outputs.push_back(node.outputs()[i]); };
 
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);

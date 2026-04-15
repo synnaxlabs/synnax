@@ -1477,6 +1477,58 @@ var _ = Describe("Text", func() {
 			})
 		})
 
+		Context("Top-level anonymous scopes", func() {
+			It("Should compile an anonymous top-level stage and produce a root member with an auto-generated key", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11001},
+				}
+				source := `
+				stage {
+					1 -> ch,
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Phases).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Phases[0].Members {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(HavePrefix("stage_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile an anonymous top-level sequence and produce a root member with an auto-generated key", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11002},
+				}
+				source := `
+				sequence {
+					1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Phases).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Phases[0].Members {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(HavePrefix("seq_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
+			})
+		})
+
 		Context("next keyword", func() {
 			It("Should emit a member-key transition targeting the following stage", func(ctx SpecContext) {
 				source := `

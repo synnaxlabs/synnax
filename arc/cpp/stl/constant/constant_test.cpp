@@ -22,7 +22,7 @@ namespace arc::stl::constant {
 runtime::node::Context make_context() {
     return runtime::node::Context{
         .elapsed = x::telem::SECOND,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -199,9 +199,9 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     bool changed_called = false;
     std::string changed_param;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &param) {
+    ctx.mark_changed = [&](size_t i) {
         changed_called = true;
-        changed_param = param;
+        changed_param = node.outputs()[i];
     };
 
     node.next(ctx);
@@ -219,7 +219,7 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
     node.next(ctx);
 
     int call_count = 0;
-    ctx.mark_changed = [&](const std::string &) { call_count++; };
+    ctx.mark_changed = [&](size_t) { call_count++; };
 
     node.next(ctx);
     node.next(ctx);

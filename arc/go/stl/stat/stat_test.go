@@ -112,7 +112,7 @@ func openStatWithReset(
 
 func nextChanged(ctx SpecContext, n node.Node) set.Set[string] {
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(n.Outputs()[i]) }})
 	return changed
 }
 

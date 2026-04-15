@@ -136,22 +136,28 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 
 // collectTopLevelStage registers a top-level stage as a sequence in the symbol
 // table (since the compiler wraps it in a single-step sequence for activation).
+// Anonymous top-level stages get a synthetic name so the scope remains
+// addressable via GetChildByParserRule.
 func collectTopLevelStage(
 	ctx context.Context[parser.IStageDeclarationContext],
 	parentScope *symbol.Scope,
 ) {
-	id := ctx.AST.IDENTIFIER()
-	if id == nil {
-		return
+	name := ""
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		name = id.GetText()
 	}
-	name := id.GetText()
-	if _, err := parentScope.Add(ctx, symbol.Symbol{
+	stageScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
 		Type: types.Sequence(),
 		AST:  ctx.AST,
-	}); err != nil {
+	})
+	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if name == "" {
+		stageScope.AutoName("stage_")
 	}
 }
 

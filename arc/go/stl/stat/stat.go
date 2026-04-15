@@ -152,6 +152,8 @@ type statNode struct {
 
 var _ node.Node = (*statNode)(nil)
 
+func (s *statNode) Outputs() []string { return []string{ir.DefaultOutputParam} }
+
 func (r *statNode) Reset() {
 	r.State.Reset()
 	r.sampleCount = 0
@@ -228,7 +230,7 @@ func (r *statNode) Next(ctx node.Context) {
 	r.Output(0).TimeRange = timeRange
 	r.OutputTime(0).Alignment = alignment
 	r.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 var (
@@ -303,6 +305,8 @@ type derivativeNode struct {
 
 var _ node.Node = (*derivativeNode)(nil)
 
+func (d *derivativeNode) Outputs() []string { return []string{ir.DefaultOutputParam} }
+
 func (d *derivativeNode) Reset() {
 	d.State.Reset()
 	d.prevValue = 0
@@ -328,5 +332,5 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }

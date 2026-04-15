@@ -80,9 +80,13 @@ public:
             }
         }
 
-        if (true_count > 0) ctx.mark_changed(true_param);
-        if (false_count > 0) ctx.mark_changed(false_param);
+        if (true_count > 0) ctx.mark_changed(0);
+        if (false_count > 0) ctx.mark_changed(1);
         return x::errors::NIL;
+    }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {true_param, false_param};
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {

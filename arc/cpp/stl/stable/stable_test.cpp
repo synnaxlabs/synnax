@@ -24,7 +24,7 @@ runtime::node::Context make_context() {
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
         .reason = runtime::node::RunReason::TimerTick,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -172,7 +172,7 @@ TEST(StableForTest, DoesNotEmitBeforeDuration) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 
@@ -204,9 +204,9 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     current_time = x::telem::TimeStamp(emit_ns);
     bool changed = false;
     std::string changed_param;
-    ctx.mark_changed = [&](const std::string &p) {
+    ctx.mark_changed = [&](size_t i) {
         changed = true;
-        changed_param = p;
+        changed_param = node.outputs()[i];
     };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
@@ -248,7 +248,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
     // At 1s, only 500ms since the change at 500ms — should NOT emit.
     bool changed = false;
     current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 
@@ -286,7 +286,7 @@ TEST(StableForTest, DoesNotEmitSameValueTwice) {
     // Second call later — same value, should NOT emit again.
     int call_count = 0;
     current_time = x::telem::TimeStamp(start_ns + 2 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { call_count++; };
+    ctx.mark_changed = [&](size_t) { call_count++; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(call_count, 0);
 }
@@ -320,7 +320,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     // At 3s, value 10 should emit.
     bool changed = false;
     current_time = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -349,7 +349,7 @@ TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     // last_changed is at 200ms (when 5->10 occurred). At 1.2s, should emit.
     current_time = x::telem::TimeStamp(1200 * ms);
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -378,7 +378,7 @@ TEST(StableForTest, ResetClearsState) {
     node.reset();
     bool changed = false;
     current_time = x::telem::TimeStamp(5 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -395,7 +395,7 @@ TEST(StableForTest, HandlesEmptyInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -443,7 +443,7 @@ TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     // last_changed at 100ms. At 1.1s, should emit.
     current_time = x::telem::TimeStamp(1100 * ms);
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -479,7 +479,7 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
 
     bool changed = false;
     current_time = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 

@@ -78,6 +78,8 @@ func (s *setStatus) Init(node.Context) {}
 
 func (s *setStatus) Reset() {}
 
+func (s *setStatus) Outputs() []string { return nil }
+
 func (s *setStatus) IsOutputTruthy(output string) bool {
 	return false
 }

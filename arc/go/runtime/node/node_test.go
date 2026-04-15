@@ -30,6 +30,8 @@ func (m *mockNode) Next(node.Context) { m.nextCalled++ }
 
 func (m *mockNode) IsOutputTruthy(param string) bool { return false }
 
+func (m *mockNode) Outputs() []string { return nil }
+
 func (m *mockNode) Reset() {}
 
 type mockFactory struct {

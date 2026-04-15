@@ -180,7 +180,7 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
@@ -188,6 +188,10 @@ public:
         this->sample_count = 0;
         this->start_time = x::telem::TimeStamp(0);
         this->last_reset_time = x::telem::TimeStamp(0);
+    }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
@@ -318,6 +322,10 @@ public:
         this->prev_timestamp_ns = 0;
     }
 
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
+    }
+
     [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
         return this->state.is_output_truthy(param);
     }
@@ -361,7 +369,7 @@ private:
         output->time_range = input_data->time_range;
         output_time->alignment = input_data->alignment;
         output_time->time_range = input_data->time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
     }
 };
 

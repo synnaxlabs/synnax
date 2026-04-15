@@ -183,17 +183,21 @@ func (s *source) Next(ctx node.Context) {
 			*s.Output(0) = ser
 			*s.OutputTime(0) = timeSeries
 			s.highWaterMark = ab.Upper
-			ctx.MarkChanged(ir.DefaultOutputParam)
+			ctx.MarkChanged(0)
 			return
 		}
 	}
 }
+
+func (s *source) Outputs() []string { return []string{ir.DefaultOutputParam} }
 
 type sink struct {
 	*node.State
 	state *ProgramState
 	key   uint32
 }
+
+func (s *sink) Outputs() []string { return []string{ir.DefaultOutputParam} }
 
 func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
@@ -216,7 +220,7 @@ func (s *sink) Next(ctx node.Context) {
 	telem.SetValueAt[telem.TimeStamp](*outTime, 0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 type i32Compatible interface {

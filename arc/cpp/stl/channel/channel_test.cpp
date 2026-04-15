@@ -22,7 +22,7 @@ runtime::node::Context make_context(bool *changed = nullptr) {
     return runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
         .mark_changed =
-            [changed](const std::string &) {
+            [changed](size_t) {
                 if (changed) *changed = true;
             },
         .report_error = [](const x::errors::Error &) {},
@@ -335,7 +335,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     int call_count = 0;
     auto ctx = runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
-        .mark_changed = [&call_count](const std::string &) { call_count++; },
+        .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
     };
 
@@ -393,7 +393,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     int call_count = 0;
     auto ctx = runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
-        .mark_changed = [&call_count](const std::string &) { call_count++; },
+        .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
     };
 
@@ -441,7 +441,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     int call_count = 0;
     auto ctx = runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
-        .mark_changed = [&call_count](const std::string &) { call_count++; },
+        .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
     };
 
@@ -487,7 +487,8 @@ TEST(OnTest, NextCallsMarkChanged) {
     std::string changed_param;
     auto ctx = runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
-        .mark_changed = [&changed_param](const std::string &p) { changed_param = p; },
+        .mark_changed = [&changed_param,
+                         &node](size_t i) { changed_param = node->outputs()[i]; },
         .report_error = [](const x::errors::Error &) {},
     };
 
@@ -561,9 +562,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     EXPECT_TRUE(sink_checker.refresh_inputs());
 
     bool changed = false;
-    runtime::node::Context ctx{.mark_changed = [&](const std::string &) {
-        changed = true;
-    }};
+    runtime::node::Context ctx{.mark_changed = [&](size_t) { changed = true; }};
     ASSERT_NIL(sink->next(ctx));
     EXPECT_TRUE(changed);
 

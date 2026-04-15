@@ -30,9 +30,11 @@ const (
 // It embeds context.Context for cancellation, deadlines, and values.
 type Context struct {
 	context.Context
-	// MarkChanged signals that an output parameter has new data.
+	// MarkChanged signals that an output has new data, identified by the
+	// output's 0-based position in the list returned by Node.Outputs().
 	// This triggers dependent nodes to execute in the next scheduler pass.
-	MarkChanged func(output string)
+	// Zero hash lookups on the hot path.
+	MarkChanged func(outputIdx int)
 	// MarkSelfChanged requests that this node be re-executed on the next
 	// scheduler cycle without requiring upstream re-triggering. Used by
 	// nodes like Wait that need multiple ticks to complete after activation.

@@ -18,20 +18,28 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // MockNode is a configurable runtime node used across scheduler tests.
+// Outputs are identified by their declared ordinal — the scheduler
+// pre-seeds its propagation tables from Outputs(), so tests use
+// AddOutput to register an output and then pass its ordinal to
+// MarkChanged. Idx resolves a registered name back to its ordinal for
+// hand-written on-next lambdas.
 type MockNode struct {
-	// ParamTruthy drives IsOutputTruthy. Also drives the auto-mark loop in
-	// Next unless SuppressAutoMark is set.
-	ParamTruthy set.Set[string]
-	// SuppressAutoMark disables the default behavior of calling MarkChanged
-	// for every param in ParamTruthy on each Next. Tests that want to
-	// model a node whose output stays truthy across cycles but only
-	// announces a change via MarkChanged on specific cycles should set
-	// this and drive MarkChanged manually from OnNext.
+	// OutputNames is the declared output order. Populated via AddOutput.
+	OutputNames []string
+	// OutputTruthy aligns with OutputNames; drives IsOutputTruthy and the
+	// auto-mark loop in Next unless SuppressAutoMark is set.
+	OutputTruthy []bool
+	// nameToIdx backs IsOutputTruthy lookups and Idx.
+	nameToIdx map[string]int
+	// SuppressAutoMark disables the default behavior of calling
+	// MarkChanged for every currently-truthy output on each Next. Tests
+	// that want to model a node whose output stays truthy across cycles
+	// but only announces a change on specific cycles should set this and
+	// drive MarkChanged manually from OnNext.
 	SuppressAutoMark bool
 	OnNext           func(node.Context)
 	ElapsedValues    []telem.TimeSpan
@@ -40,15 +48,35 @@ type MockNode struct {
 }
 
 func NewMockNode() *MockNode {
-	return &MockNode{ParamTruthy: make(set.Set[string])}
+	return &MockNode{nameToIdx: make(map[string]int)}
 }
+
+// AddOutput registers an output name (idempotent) and sets its
+// truthiness. Returns the ordinal.
+func (m *MockNode) AddOutput(name string, truthy bool) int {
+	if idx, ok := m.nameToIdx[name]; ok {
+		m.OutputTruthy[idx] = truthy
+		return idx
+	}
+	idx := len(m.OutputNames)
+	m.OutputNames = append(m.OutputNames, name)
+	m.OutputTruthy = append(m.OutputTruthy, truthy)
+	m.nameToIdx[name] = idx
+	return idx
+}
+
+// Idx returns the ordinal previously assigned to name, or registers it
+// fresh as non-truthy.
+func (m *MockNode) Idx(name string) int { return m.AddOutput(name, false) }
 
 func (m *MockNode) Next(ctx node.Context) {
 	m.NextCalled++
 	m.ElapsedValues = append(m.ElapsedValues, ctx.Elapsed)
 	if !m.SuppressAutoMark {
-		for param := range m.ParamTruthy {
-			ctx.MarkChanged(param)
+		for i, truthy := range m.OutputTruthy {
+			if truthy {
+				ctx.MarkChanged(i)
+			}
 		}
 	}
 	if m.OnNext != nil {
@@ -58,14 +86,22 @@ func (m *MockNode) Next(ctx node.Context) {
 
 func (m *MockNode) Reset() { m.ResetCalled++ }
 
+func (m *MockNode) Outputs() []string { return m.OutputNames }
+
 func (m *MockNode) IsOutputTruthy(param string) bool {
-	return m.ParamTruthy.Contains(param)
+	if idx, ok := m.nameToIdx[param]; ok {
+		return m.OutputTruthy[idx]
+	}
+	return false
 }
 
-// MarkOnNext configures the node to mark the named output param as changed
-// each time Next runs.
+// MarkOnNext configures the node to mark the named output as changed
+// each time Next runs. Registers the output if not already known but
+// does not alter its truthiness — callers that need a truthy output
+// should call AddOutput(name, true) alongside.
 func (m *MockNode) MarkOnNext(param string) {
-	m.OnNext = func(ctx node.Context) { ctx.MarkChanged(param) }
+	i := m.Idx(param)
+	m.OnNext = func(ctx node.Context) { ctx.MarkChanged(i) }
 }
 
 // MockErrorHandler collects scheduler-reported errors for assertion.
@@ -288,7 +324,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 
 			// Flip A's output truthy; now the conditional edge fires.
-			nodeA.ParamTruthy.Add("output")
+			nodeA.AddOutput("output", true)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -397,7 +433,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should activate a gated scope once its activation handle is truthy", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			stage := mock("stage_node")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			gated := parallelScope("stage", phase(noderef("stage_node")))
 			gated.Activation = &act
@@ -446,7 +482,7 @@ var _ = Describe("Scheduler", func() {
 			trigger := mock("trigger")
 			firstNode := mock("first_node")
 			secondNode := mock("second_node")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			prog := buildTwoStepSeq("first_node")
 			s := build(prog)
 
@@ -458,7 +494,7 @@ var _ = Describe("Scheduler", func() {
 
 			// Cycle 2: first_node becomes truthy, the transition fires; the
 			// sequence advances to `second` in the same cycle.
-			firstNode.ParamTruthy.Add("output")
+			firstNode.AddOutput("output", true)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(firstNode.NextCalled).To(Equal(2))
 			Expect(secondNode.NextCalled).To(Equal(1))
@@ -473,12 +509,12 @@ var _ = Describe("Scheduler", func() {
 			// Model a one-shot rising-edge trigger: fires on cycle 1
 			// (so main activates), then releases on later cycles so the
 			// activation handle isn't re-satisfying after exit.
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			cycleCount := 0
 			trigger.OnNext = func(ctx node.Context) {
 				cycleCount++
 				if cycleCount > 1 {
-					trigger.ParamTruthy.Remove("output")
+					trigger.AddOutput("output", false)
 				}
 			}
 			first := parallelScope("first", phase(noderef("first_node")))
@@ -502,7 +538,7 @@ var _ = Describe("Scheduler", func() {
 
 			// Trip exit transition on cycle 2. The exit deactivates main;
 			// trigger has already been released, so no re-activation.
-			firstNode.ParamTruthy.Add("output")
+			firstNode.AddOutput("output", true)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			countAtExit := firstNode.NextCalled
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
@@ -512,7 +548,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should honor source-order when multiple transitions become truthy simultaneously", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			firstNode := mock("first_node")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			// Two transitions from first, in source order: first jumps to
 			// `a`, the second would jump to `b`. Both are truthy at the
 			// same cycle.
@@ -545,7 +581,7 @@ var _ = Describe("Scheduler", func() {
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			firstNode.ParamTruthy.Add("output")
+			firstNode.AddOutput("output", true)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			// First-match-wins: `a` activated, `b` did not.
 			Expect(mocks["a_node"].NextCalled).To(Equal(1))
@@ -559,9 +595,9 @@ var _ = Describe("Scheduler", func() {
 			s1 := mock("s1")
 			s2 := mock("s2")
 			s3 := mock("s3")
-			trigger.ParamTruthy.Add("output")
-			s1.ParamTruthy.Add("output")
-			s2.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
+			s1.AddOutput("output", true)
+			s2.AddOutput("output", true)
 			mkStep := func(key, nodeKey string) ir.Scope {
 				return parallelScope(key, phase(noderef(nodeKey)))
 			}
@@ -605,7 +641,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should reset member nodes on activation", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			stageNode := mock("n")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			stage := parallelScope("stage", phase(noderef("n")))
 			stage.Activation = &act
@@ -621,7 +657,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should cascade reset into nested gated scopes on activation", func(ctx SpecContext) {
 			trigger := mock("trigger")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			inner := mock("inner")
 			nested := parallelScope("nested", phase(noderef("inner")))
 			outer := parallelScope("outer", phase(scopeMember(nested)))
@@ -631,6 +667,25 @@ var _ = Describe("Scheduler", func() {
 				[]string{"trigger", "inner"},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(outer)),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(inner.ResetCalled).To(Equal(1))
+			Expect(inner.NextCalled).To(Equal(1))
+		})
+
+		It("Should auto-activate a top-level gated scope that has no activation handle", func(ctx SpecContext) {
+			// A top-level sequence/stage with no Activation handle cannot
+			// be reached by `=>` in source. It must auto-run at boot via
+			// cascade from the always-live root. This is the unified rule:
+			// cascade targets any gated child lacking an Activation handle,
+			// regardless of whether the parent is root or a nested scope.
+			inner := mock("n")
+			stage := parallelScope("anon", phase(noderef("n")))
+			prog := programOf(
+				[]string{"n"},
+				nil,
+				rootScope(scopeMember(stage)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -664,7 +719,8 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
-			nodeA.OnNext = func(ctx node.Context) { ctx.MarkChanged("x") }
+			xIdx := nodeA.Idx("x")
+			nodeA.OnNext = func(ctx node.Context) { ctx.MarkChanged(xIdx) }
 			prog := programOf(
 				[]string{"A", "B", "C"},
 				[]ir.Edge{
@@ -797,7 +853,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should fire every cycle while the source stays truthy", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
-			nodeA.ParamTruthy.Add("output")
+			nodeA.AddOutput("output", true)
 			prog := programOf(
 				[]string{"A", "B"},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
@@ -813,7 +869,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should stop firing when the source transitions from truthy to falsy", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
-			nodeA.ParamTruthy.Add("output")
+			nodeA.AddOutput("output", true)
 			prog := programOf(
 				[]string{"A", "B"},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
@@ -823,7 +879,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			nodeA.ParamTruthy.Remove("output")
+			nodeA.AddOutput("output", false)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -833,7 +889,8 @@ var _ = Describe("Scheduler", func() {
 			// propagate the change.
 			nodeA := mock("A")
 			nodeB := mock("B")
-			nodeA.OnNext = func(ctx node.Context) { ctx.MarkChanged("output") }
+			outputIdx := nodeA.Idx("output")
+			nodeA.OnNext = func(ctx node.Context) { ctx.MarkChanged(outputIdx) }
 			prog := programOf(
 				[]string{"A", "B"},
 				[]ir.Edge{continuousEdge("A", "output", "B", "in")},
@@ -848,11 +905,12 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
+			xIdx := nodeA.AddOutput("x", true)
+			yIdx := nodeA.Idx("y")
 			nodeA.OnNext = func(ctx node.Context) {
-				ctx.MarkChanged("x")
-				ctx.MarkChanged("y")
+				ctx.MarkChanged(xIdx)
+				ctx.MarkChanged(yIdx)
 			}
-			nodeA.ParamTruthy.Add("x")
 			// "y" is not truthy — its conditional edge must not fire.
 			prog := programOf(
 				[]string{"A", "B", "C"},
@@ -906,14 +964,14 @@ var _ = Describe("Scheduler", func() {
 			stageNode := mock("stage_node")
 			mock("second_node")
 			triggerFired := false
+			doneIdx := stageNode.AddOutput("done", true)
 			stageNode.OnNext = func(c node.Context) {
 				c.MarkSelfChanged()
 				if !triggerFired {
 					triggerFired = true
-					c.MarkChanged("done")
+					c.MarkChanged(doneIdx)
 				}
 			}
-			stageNode.ParamTruthy.Add("done")
 
 			first := parallelScope("first", phase(noderef("stage_node")))
 			second := parallelScope("second", phase(noderef("second_node")))
@@ -926,7 +984,7 @@ var _ = Describe("Scheduler", func() {
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 
 			prog := programOf(
 				[]string{"trigger", "stage_node", "second_node"},
@@ -974,7 +1032,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should track deadlines from nodes inside an active gated scope", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			stageNode := mock("stage_node")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			stageNode.OnNext = func(c node.Context) { c.SetDeadline(2 * telem.Second) }
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			gated := parallelScope("stage", phase(noderef("stage_node")))
@@ -1079,7 +1137,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should tolerate an empty sequential scope", func(ctx SpecContext) {
 			trigger := mock("trigger")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			main := ir.Scope{
 				Key:      "main",
 				Mode:     ir.ScopeModeSequential,
@@ -1104,7 +1162,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should not re-activate an already-active gated scope on a subsequent cycle", func(ctx SpecContext) {
 			trigger := mock("trigger")
 			stageNode := mock("stage_node")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			gated := parallelScope("stage", phase(noderef("stage_node")))
 			gated.Activation = &act
@@ -1128,7 +1186,7 @@ var _ = Describe("Scheduler", func() {
 			_ = mock("trigger_b")
 			a := mock("A")
 			b := mock("B")
-			triggerA.ParamTruthy.Add("output")
+			triggerA.AddOutput("output", true)
 			// trigger_b stays falsy — only `a` should activate.
 			stageA := parallelScope("stage_a", phase(noderef("A")))
 			actA := ir.Handle{Node: "trigger_a", Param: "output"}
@@ -1156,12 +1214,12 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
-			nodeA.MarkOnNext("data")
+			dataIdx := nodeA.AddOutput("data", true)
+			triggerIdx := nodeA.AddOutput("trigger", true)
 			nodeA.OnNext = func(c node.Context) {
-				c.MarkChanged("data")
-				c.MarkChanged("trigger")
+				c.MarkChanged(dataIdx)
+				c.MarkChanged(triggerIdx)
 			}
-			nodeA.ParamTruthy.Add("trigger")
 			prog := programOf(
 				[]string{"A", "B", "C"},
 				[]ir.Edge{
@@ -1185,18 +1243,18 @@ var _ = Describe("Scheduler", func() {
 			trigger := mock("trigger")
 			firstNode := mock("first_node")
 			cycle := 0
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			trigger.OnNext = func(c node.Context) {
 				cycle++
 				// Release after cycle 1, re-assert on cycle 3.
 				if cycle == 2 {
-					trigger.ParamTruthy.Remove("output")
+					trigger.AddOutput("output", false)
 				}
 				if cycle == 3 {
-					trigger.ParamTruthy.Add("output")
+					trigger.AddOutput("output", true)
 				}
 			}
-			firstNode.ParamTruthy.Add("output") // transition fires immediately
+			firstNode.AddOutput("output", true) // transition fires immediately
 			first := parallelScope("first", phase(noderef("first_node")))
 			main := sequentialScope("main",
 				[]ir.Member{{Key: "first", Scope: &first}},
@@ -1237,10 +1295,10 @@ var _ = Describe("Scheduler", func() {
 			// forever while MarkChanged is never called. A correctly
 			// gated scheduler must not fire the transition.
 			trigger := mock("trigger")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			latch := mock("latch")
 			latch.SuppressAutoMark = true
-			latch.ParamTruthy.Add("output")
+			latch.AddOutput("output", true)
 			mock("worker")
 
 			body := parallelScope("body", phase(noderef("worker")))
@@ -1279,15 +1337,15 @@ var _ = Describe("Scheduler", func() {
 			// cycle MarkChanged was called), not again on later cycles
 			// where the on-handle is still truthy.
 			trigger := mock("trigger")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			latch := mock("latch")
 			latch.SuppressAutoMark = true
-			latch.ParamTruthy.Add("output")
+			latchOutput := latch.AddOutput("output", true)
 			marks := 0
 			latch.OnNext = func(c node.Context) {
 				marks++
 				if marks == 1 {
-					c.MarkChanged("output")
+					c.MarkChanged(latchOutput)
 				}
 			}
 			mock("worker_a")
@@ -1343,15 +1401,15 @@ var _ = Describe("Scheduler", func() {
 			// not break the case where a source marks changed anew on a
 			// later cycle. The transition must fire on that cycle.
 			trigger := mock("trigger")
-			trigger.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
 			latch := mock("latch")
 			latch.SuppressAutoMark = true
 			cycle := 0
 			latch.OnNext = func(c node.Context) {
 				cycle++
 				if cycle == 2 {
-					latch.ParamTruthy.Add("output")
-					c.MarkChanged("output")
+					idx := latch.AddOutput("output", true)
+					c.MarkChanged(idx)
 				}
 			}
 			mock("worker_a")
@@ -1397,8 +1455,8 @@ var _ = Describe("Scheduler", func() {
 			// forever within a cycle.
 			trigger := mock("trigger")
 			loopNode := mock("loop_node")
-			trigger.ParamTruthy.Add("output")
-			loopNode.ParamTruthy.Add("output")
+			trigger.AddOutput("output", true)
+			loopNode.AddOutput("output", true)
 			loop := parallelScope("loop", phase(noderef("loop_node")))
 			main := sequentialScope("main",
 				[]ir.Member{{Key: "loop", Scope: &loop}},

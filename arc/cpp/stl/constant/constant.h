@@ -50,11 +50,15 @@ public:
         }
         o_time->resize(1);
         o_time->set(0, x::telem::TimeStamp::now());
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override { this->initialized = false; }
+
+    [[nodiscard]] std::vector<std::string> outputs() const override {
+        return {ir::default_output_param};
+    }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
         return this->state.is_output_truthy(param);
