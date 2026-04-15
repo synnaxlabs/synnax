@@ -1058,19 +1058,19 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				MustSucceed(indexW.Close())
 				Expect(indexFS.List(".")).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
 
-				fixedW, _ := MustSucceed2(db.OpenWriter(
+				unaryW, _ := MustSucceed2(db.OpenWriter(
 					ctx,
 					unary.WriterConfig{
 						Start:   1 * telem.SecondTS,
 						Subject: control.Subject{Key: "test"},
 					},
 				))
-				MustSucceed(fixedW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
 				// Rollover 1
-				MustSucceed(fixedW.Commit(ctx))
-				MustSucceed(fixedW.Write(telem.NewSeriesV[float32](6, 7, 8)))
-				MustSucceed(fixedW.Commit(ctx))
-				MustSucceed(fixedW.Close())
+				MustSucceed(unaryW.Commit(ctx))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](6, 7, 8)))
+				MustSucceed(unaryW.Commit(ctx))
+				MustSucceed(unaryW.Close())
 				// Assert that we've rolled over the correct number of files
 				Expect(unaryFS.List(".")).To(HaveLen(4 /* meta, index, counter, and 1 data file*/))
 
@@ -1163,7 +1163,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				Expect(indexFS.List(".")).To(HaveLen(6 /* meta, index, counter, and 3 data files*/))
 
 				// Write to the first data channel
-				fixedW, _ := MustSucceed2(db1.OpenWriter(
+				unaryW, _ := MustSucceed2(db1.OpenWriter(
 					ctx,
 					unary.WriterConfig{
 						Start:   1 * telem.SecondTS,
@@ -1171,22 +1171,22 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					}),
 				)
 
-				MustSucceed(fixedW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9)))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9)))
 				// Rollover 1
-				MustSucceed(fixedW.Commit(ctx))
+				MustSucceed(unaryW.Commit(ctx))
 				// Rollover 2
-				MustSucceed(fixedW.Write(telem.NewSeriesV[float32](10)))
-				MustSucceed(fixedW.Commit(ctx))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](10)))
+				MustSucceed(unaryW.Commit(ctx))
 
-				MustSucceed(fixedW.Write(telem.NewSeriesV[float32](11)))
-				MustSucceed(fixedW.Commit(ctx))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](11)))
+				MustSucceed(unaryW.Commit(ctx))
 
-				MustSucceed(fixedW.Close())
+				MustSucceed(unaryW.Close())
 				// Assert that we've rolled over the correct number of files
 				Expect(uFS1.List(".")).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
 
 				// Write to the second data channel
-				fixedW, _ = MustSucceed2(db2.OpenWriter(
+				unaryW, _ = MustSucceed2(db2.OpenWriter(
 					ctx,
 					unary.WriterConfig{
 						Start:   1 * telem.SecondTS,
@@ -1194,9 +1194,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					}),
 				)
 
-				MustSucceed(fixedW.Write(telem.NewSeriesV[uint8](1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)))
-				MustSucceed(fixedW.Commit(ctx))
-				MustSucceed(fixedW.Close())
+				MustSucceed(unaryW.Write(telem.NewSeriesV[uint8](1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)))
+				MustSucceed(unaryW.Commit(ctx))
+				MustSucceed(unaryW.Close())
 				// Assert that we've rolled over the correct number of files
 				Expect(uFS2.List(".")).To(HaveLen(4 /* meta, index, counter, and 1 data file*/))
 

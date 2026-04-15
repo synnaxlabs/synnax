@@ -183,8 +183,8 @@ var _ = Describe("Channel", Ordered, func() {
 
 			Describe("Rekey", func() {
 				var (
-					fixedKey      = GenerateChannelKey()
-					fixedKeyNew   = GenerateChannelKey()
+					unaryKey      = GenerateChannelKey()
+					unaryKeyNew   = GenerateChannelKey()
 					virtualKey    = GenerateChannelKey()
 					virtualKeyNew = GenerateChannelKey()
 					indexKey      = GenerateChannelKey()
@@ -202,7 +202,7 @@ var _ = Describe("Channel", Ordered, func() {
 					jsonDecoder   = json.Codec
 
 					channels = []cesium.Channel{
-						{Name: "John", Key: fixedKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "John", Key: unaryKey, DataType: telem.TimeStampT, IsIndex: true},
 						{Name: "Woodcock", Key: virtualKey, Virtual: true, DataType: telem.Int64T},
 						{Name: "Alex", Key: indexKey, DataType: telem.TimeStampT, IsIndex: true},
 						{Name: "Van", Key: dataKey, DataType: telem.Int64T, Index: indexKey},
@@ -220,37 +220,37 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Writing some data into the channel")
 					series1 := telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)
 					series2 := telem.NewSeriesSecondsTSV(5, 6, 7, 8, 9)
-					Expect(db.WriteSeries(ctx, fixedKey, 0, series1)).To(Succeed())
-					Expect(db.WriteSeries(ctx, fixedKey, 5*telem.SecondTS, series2)).To(Succeed())
+					Expect(db.WriteSeries(ctx, unaryKey, 0, series1)).To(Succeed())
+					Expect(db.WriteSeries(ctx, unaryKey, 5*telem.SecondTS, series2)).To(Succeed())
 
 					By("Re-keying the channel")
-					Expect(db.RekeyChannel(ctx, fixedKey, fixedKeyNew)).To(Succeed())
+					Expect(db.RekeyChannel(ctx, unaryKey, unaryKeyNew)).To(Succeed())
 
 					By("Asserting the old channel no longer exists")
-					_, err := db.RetrieveChannel(ctx, fixedKey)
+					_, err := db.RetrieveChannel(ctx, unaryKey)
 					Expect(err).To(MatchError(channel.ErrNotFound))
-					Expect(MustSucceed(fs.Exists(channelKeyToPath(fixedKey)))).To(BeFalse())
+					Expect(MustSucceed(fs.Exists(channelKeyToPath(unaryKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
-					ch := MustSucceed(db.RetrieveChannel(ctx, fixedKeyNew))
-					Expect(ch.Key).To(Equal(fixedKeyNew))
+					ch := MustSucceed(db.RetrieveChannel(ctx, unaryKeyNew))
+					Expect(ch.Key).To(Equal(unaryKeyNew))
 
 					By("Asserting that reads and writes on the channel still work")
 					series3 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
-					Expect(db.WriteSeries(ctx, fixedKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
-					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, fixedKeyNew))
+					Expect(db.WriteSeries(ctx, unaryKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, unaryKeyNew))
 					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
 					Expect(f.SeriesAt(1)).To(telem.MatchWrittenSeries(series2))
 					Expect(f.SeriesAt(2)).To(telem.MatchWrittenSeries(series3))
 
 					By("Asserting that the meta file got changed too", func() {
-						f := MustSucceed(fs.Open(channelKeyToPath(fixedKeyNew)+"/meta.json", os.O_RDWR))
+						f := MustSucceed(fs.Open(channelKeyToPath(unaryKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
 						buf := make([]byte, s)
 						MustSucceed(f.Read(buf))
 						Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
 
-						Expect(ch.Key).To(Equal(fixedKeyNew))
+						Expect(ch.Key).To(Equal(unaryKeyNew))
 						Expect(f.Close()).To(Succeed())
 					})
 
